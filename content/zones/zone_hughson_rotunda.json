@@ -13,6 +13,184 @@
     "is_building": true,
     "is_interior": true,
     "open_all_hours": true,
+    "room": {
+      "balcony": false,
+      "w": 14,
+      "d": 14,
+      "h": 6,
+      "face": 0,
+      "ground": "terrazzo",
+      "studio": false,
+      "rug": false,
+      "tone": {
+        "accent": "#c49a52",
+        "ceiling": "#e6dcc8",
+        "trim": "#3a2c1e",
+        "wall": "#d9cfba"
+      },
+      "door_w": {
+        "north": 3,
+        "east": 2.4
+      },
+      "street_door": {
+        "kind": "swing",
+        "w": 3,
+        "trim": "#5a4430",
+        "glass": "#8a9aa0",
+        "monogram": "H"
+      },
+      "decor": {
+        "downlights": false,
+        "floor": {
+          "border": "#1e1c1a",
+          "field": "#e9dfcb",
+          "inset": 0.5,
+          "line": "#c49a52",
+          "medallion": [
+            0,
+            7,
+            2.4
+          ],
+          "ray": "#b98a4a",
+          "rays": 16,
+          "star": "sunburst",
+          "w": 0.26
+        },
+        "frieze": {
+          "h": 0.3,
+          "hex": "#1e1c1a",
+          "line": "#c49a52",
+          "y": 5.2
+        },
+        "lights": [
+          {
+            "at": [
+              0,
+              7
+            ],
+            "drop": 2,
+            "k": 2,
+            "kind": "tiers",
+            "r": 0.8,
+            "tiers": 4
+          }
+        ],
+        "pilasters": {
+          "hex": "#e8dfcc",
+          "points": [
+            [
+              "front",
+              -3.2
+            ],
+            [
+              "front",
+              3.2
+            ],
+            [
+              "back",
+              -3.2
+            ],
+            [
+              "back",
+              3.2
+            ],
+            [
+              "left",
+              4
+            ],
+            [
+              "left",
+              10
+            ],
+            [
+              "right",
+              10
+            ]
+          ],
+          "trim": "#c49a52",
+          "w": 0.4,
+          "y1": 5.2
+        },
+        "sconces": {
+          "kind": "fan",
+          "points": [
+            [
+              "front",
+              -5
+            ],
+            [
+              "front",
+              5
+            ],
+            [
+              "back",
+              -5.5
+            ],
+            [
+              "back",
+              5.5
+            ],
+            [
+              "left",
+              7
+            ],
+            [
+              "right",
+              7
+            ]
+          ],
+          "y": 2.6
+        },
+        "walls": {
+          "hex": "#211e1c",
+          "kind": "stone",
+          "pitch": 1,
+          "trim": "#c49a52",
+          "y1": 1.4
+        }
+      },
+      "stadium": {
+        "accent": "#c49a52",
+        "font": "Limelight",
+        "frame": "#3a2c1e",
+        "ink": "#3a2c1e",
+        "plate": "#f3ead6",
+        "portal": "brick",
+        "brick": "#8a5a3c",
+        "sub": "Italiana",
+        "signs": [
+          {
+            "at": 0,
+            "h": 0.62,
+            "kind": "gilt",
+            "sub": "Concourse and Stands",
+            "text": "To the Grandstand",
+            "w": 4,
+            "wall": "back",
+            "y": 4.2
+          },
+          {
+            "at": 0,
+            "h": 0.5,
+            "kind": "gilt",
+            "sub": "He would not sell",
+            "text": "Charles B. Hughson",
+            "w": 4.2,
+            "wall": "front",
+            "y": 4.9
+          },
+          {
+            "at": 7,
+            "h": 0.45,
+            "kind": "gilt",
+            "text": "Tickets",
+            "w": 1.8,
+            "wall": "right",
+            "y": 3.4
+          }
+        ]
+      }
+    },
     "window": {
       "description": "Bronze doors under a sunburst fanlight, folded back against the stone on game nights. Grandstand Plaza is outside, and Grandstand Walk runs on from it between the fountains to Sorrel Way and Fitz's Franks.",
       "light": 0.5,

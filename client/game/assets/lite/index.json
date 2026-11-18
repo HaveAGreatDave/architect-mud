@@ -28,17 +28,17 @@
    "file": "c_27_28.bin",
    "cx": 27,
    "cy": 28,
-   "tiles": 92,
-   "bytes": 2767348,
-   "hash": "4fe24942d90e1556"
+   "tiles": 78,
+   "bytes": 2343576,
+   "hash": "f82a40e6aeb3baf3"
   },
   {
    "file": "c_28_28.bin",
    "cx": 28,
    "cy": 28,
-   "tiles": 204,
-   "bytes": 5269092,
-   "hash": "ce049abcef16bd28"
+   "tiles": 197,
+   "bytes": 5284552,
+   "hash": "88f9cb8b36186d61"
   },
   {
    "file": "c_28_32.bin",

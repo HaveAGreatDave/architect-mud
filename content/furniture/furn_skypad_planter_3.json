@@ -1,0 +1,30 @@
+{
+  "description": "A bronze planter with a dwarf olive in it, its leaves silver on one side. It leans a little east.",
+  "flags": {
+    "aliases": "planter,plants,plant",
+    "interactions": [
+      "examine"
+    ],
+    "look": {
+      "arche": "prop",
+      "form": "bonsai"
+    },
+    "spot": {
+      "at": [
+        -7.3,
+        7.6
+      ],
+      "turn": 90
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "light_type": null,
+  "lumen_output": null,
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "id": "furn_skypad_planter_3",
+  "name": "bronze planter",
+  "zone_id": "zone_solenne_helipad"
+}

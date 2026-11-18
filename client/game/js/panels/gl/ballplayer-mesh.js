@@ -586,12 +586,48 @@ function glove(G, J, S, s, kind) {
   // the strap at the wrist
   tube(G, [[P(0, -0.01, -0.03), 0.12 * s, 0.075 * s], [P(0, 0.05, -0.03), 0.125 * s, 0.078 * s]], sd, 12, { key: 'plain', col: dark, mat: MAT.LEATHER, centre: P(0, 0.02, -0.03) });
 }
-function bat(G, J, s) {
-  const k = J.batKnob, d = J.batDir, L = 2.8 * s;
+// A man's own bat, off his name, so he's at the plate with the same one all season (docs/proposals/
+// deadball-players-v2.md phase 2): its wood (pale ash, honey maple, dark-stained birch, or painted black), how
+// big its barrel is, tape round the handle or none, and pine tar worked up from the grip. The wood's grain is the
+// park's wood texture, tinted; the tape is its own sleeve over the handle, so it reads as wrapped.
+const BAT_WOODS = Object.freeze([[1.12, 1.04, 0.9], [1.0, 0.82, 0.56], [0.52, 0.34, 0.22], [0.16, 0.15, 0.15]]);
+const BAT_TAPES = Object.freeze(['#141416', '#e9e7df', '#7a5a3a']);
+export function batOf(id) {
+  const r = rng(hashStr('bat:' + (id || '')));
+  const w = r(), wood = BAT_WOODS[w < 0.38 ? 0 : w < 0.72 ? 1 : w < 0.9 ? 2 : 3];
+  const t = r(), tape = t < 0.32 ? null : BAT_TAPES[t < 0.72 ? 0 : t < 0.9 ? 1 : 2];
+  const B = { wood, barrel: 0.97 + 0.07 * r(), tape, tar: r() < 0.45 ? 0.35 + 0.5 * r() : 0 };
+  B.cup = r() < 0.4;
+  return B;
+}
+// A bat's turned profile, [feet from the knob, radius] a ring: the knob, the handle, the barrel and its end, domed,
+// or cupped (`B.cup`): the end hollowed a quarter-inch, its last ring running back from the rim to the middle. The
+// same ring count either way, so a cupped bat costs nothing. One list for the bat in his hands and the bat he lets
+// go of (ballpark.js setBats). The handle is a real one's, 0.037 to 0.04 ft (1.1 to 1.2 cm) round where the hands go:
+// at 0.046 the figure's fingers couldn't close round it without going into it, and the bat showed through the seam
+// between his fingertips and his thumb (figure-rig.js GRIP_HOLE).
+const BAT_DOMED = Object.freeze([[0, 0.0], [0.005, 0.06], [0.03, 0.078], [0.06, 0.046], [0.12, 0.037], [0.9, 0.04], [1.5, 0.075], [2.0, 0.1], [2.45, 0.108], [2.74, 0.106], [2.78, 0.09], [2.8, 0.0]]);
+// (the cup's middle is a ring a few thousandths of an inch across, not a point: emitGrid turns a point's normal out
+// from the ring before it, which in a hollow is into the wood, and shaded the cup's middle black)
+const BAT_CUPPED = Object.freeze([...BAT_DOMED.slice(0, -2), [2.79, 0.092], [2.77, 0.0005]]);
+export const batProfile = (B) => (B?.cup ? BAT_CUPPED : BAT_DOMED);
+function bat(G, J, s, id = '') {
+  const k = J.batKnob, d = J.batDir, L = 2.8 * s, B = batOf(id);
   const ref = Math.abs(d[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0], xA = norm(cross(d, ref)), zA = norm(cross(xA, d));
-  const PR = [[0, 0.0], [0.005, 0.06], [0.03, 0.078], [0.06, 0.05], [0.12, 0.043], [0.9, 0.046], [1.5, 0.075], [2.0, 0.1], [2.45, 0.108], [2.74, 0.106], [2.78, 0.09], [2.8, 0.0]];
-  emitGrid(G, PR.length, 16, (i, j) => { const [t, r] = PR[i], a = j / 16 * TAU; return add(madd(k, d, t / 2.8 * L), add(mul(xA, Math.sin(a) * r * s), mul(zA, Math.cos(a) * r * s))); },
-    { key: 'wood', col: [1, 1, 1], mat: MAT.SATIN, uv: (i, j) => [PR[i][0] / 2.8, j / 16], centre: madd(k, d, L / 2) });
+  const PR = batProfile(B);
+  // the barrel his size; the pine tar a darkening up the handle from the grip, strongest just over the hands
+  const radius = (i) => PR[i][1] * (PR[i][0] > 1.3 ? 1 + (B.barrel - 1) * Math.min(1, (PR[i][0] - 1.3) / 0.7) : 1);
+  const tarAt = (t) => (B.tar ? B.tar * Math.max(0, 1 - Math.abs(t - 0.75) / 0.6) : 0);
+  const colAt = (i) => { const tar = tarAt(PR[i][0]); return B.wood.map((c, q) => c * (1 - tar) + [0.22, 0.12, 0.06][q] * tar); };
+  emitGrid(G, PR.length, 16, (i, j) => { const t = PR[i][0], r = radius(i), a = j / 16 * TAU; return add(madd(k, d, t / 2.8 * L), add(mul(xA, Math.sin(a) * r * s), mul(zA, Math.cos(a) * r * s))); },
+    { key: 'wood', col: (ii, jj, p, i) => colAt(Math.min(i ?? ii, PR.length - 1)), mat: MAT.SATIN, uv: (i, j) => [PR[i][0] / 2.8, j / 16], centre: madd(k, d, L / 2) });
+  // the tape: a sleeve a hair over the handle from the knob's neck up past the hands. Sixty triangles: the
+  // batter's full level is within 60 of its 18,000 (ballpark-smoke.mjs LOD_MAX), and fourteen sides and seven
+  // rings for a ridge went over it
+  if (B.tape && G.lod < 2) {
+    const ST = [0.075, 0.35, 0.65, 0.95].map((t) => [madd(k, d, t / 2.8 * L), 0.042 * s, 0.042 * s]);
+    tube(G, ST, xA, 10, { key: 'plain', col: hex(B.tape), mat: MAT.CLOTH, centre: madd(k, d, 0.5 / 2.8 * L) });
+  }
 }
 
 // ── the head ───────────────────────────────────────────────────────────────────
@@ -1275,7 +1311,7 @@ export function buildPlayer(G, pose, look) {
     else if (wantBody) hand(G, J, S, s, look.battingGloves ? hex(look.battingGloves) : skin, look.battingGloves ? MAT.LEATHER : MAT.SKIN);
   }
   G.cur = [[BONE.bat, 1]];
-  if (pose.bat && wantGear) bat(G, J, s);
+  if (pose.bat && wantGear) bat(G, J, s, look.id);
   return { J, W, s, feet: [J.anL, J.anR, J.toeL, J.toeR] };
 }
 
@@ -1291,7 +1327,7 @@ export function buildBody(G, look) {
     const { J, s } = solvePose(grip), col = look.battingGloves ? hex(look.battingGloves) : hex(look.skin);
     if (look.part !== 'gear') for (const S of ['L', 'R']) { G.cur = [[BONE['fist' + S], 1]]; hand(G, J, S, s, col, look.battingGloves ? MAT.LEATHER : MAT.SKIN); }
     G.cur = [[BONE.bat, 1]];
-    if (look.part !== 'body') bat(G, J, s);
+    if (look.part !== 'body') bat(G, J, s, look.id);
   }
   return res;
 }

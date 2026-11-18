@@ -1,0 +1,9 @@
+{
+  "a": "zone_seam_914_909",
+  "b": "zone_seam_914_910",
+  "blocked": true,
+  "dir": "south",
+  "id": "conn_seam_914_909_south",
+  "lockable": false,
+  "one_way": false
+}

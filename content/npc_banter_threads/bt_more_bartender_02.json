@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_bartender_02",
+  "lines": [
+    "\"What's the strangest thing anyone's ordered?\"",
+    "\"Hot milk with a shot of engine coolant.\"",
+    "\"Did you make it?\"",
+    "\"I made the hot milk. He brought the coolant.\""
+  ],
+  "personality": "bartender",
+  "sort_order": 658
+}

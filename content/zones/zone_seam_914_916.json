@@ -1,0 +1,23 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "Rough grass along the west wall of Golden Goose Gardens, trodden into a path by the crowd coming across from Kerbstone Row. The wall is blank brick, tall enough to cut off the wind.",
+  "exits": {
+    "north": "zone_seam_914_915",
+    "south": "zone_seam_914_917",
+    "west": "zone_district_913_916"
+  },
+  "flags": {
+    "district": "wasteland",
+    "region_id": "region_coldwater",
+    "terrain": "grass"
+  },
+  "grid_x": 914,
+  "grid_y": 916,
+  "grid_z": 0,
+  "id": "zone_seam_914_916",
+  "map_id": "map_world",
+  "name": "Grasslands",
+  "parent_zone": null
+}

@@ -18,6 +18,8 @@ import { rinkFace } from '../rink/faces.js';
 import { headMesh, hairMesh, weightedFace, SCULPT_HEADS, HEAD_FEAT } from '../actor-head.js';
 import { maskColours, OFFICIAL_KIT, MEDIC_KIT, CREW_KIT } from '../rink/hud.js';
 import { FLANK, cupColour, kenWave, LIVERY_W, LIVERY_H } from '../rink/livery.js';
+import { CUP_DESIGNS } from '../../../../shared/cup-design.js';
+import { GOOSE_PARTS, GOOSE_T, GOOSE_H } from '../../../../shared/goose-emblem.js';
 
 export const STRIDE = 13;
 
@@ -965,26 +967,35 @@ export function buildDebris(b, d, K) {
     ellipsoid(b, [d.x, d.y, d.z + 0.05], [1, 0, 0], [0, 1, 0], [0, 0, 1], [0.44, 0.4, 0.3], rgb(K.helmet), 10, 5);
   }
 }
-// THE COLDWATER CUP, stood on its base at s (x, y, z), about three feet tall: a stepped silver
-// barrel banded in black, a gold collar, a short neck and the bowl on top. Nobody knows who made
-// it, so it looks like a trophy and nothing more particular (rink/director.js stageCrown).
-const CUP_SILVER = '#d4d9df', CUP_DARK = '#7c838c', CUP_GOLD = '#d8b24a';
+// THE COLDWATER CUP, stood on its base at s (x, y, z), about three feet tall: the hockey Cup's design
+// (shared/cup-design.js), the one in its case in the Gardens' Cup room, in chrome with every edge in gold
+// and the gilt goose on a plinth in the bowl (rink/director.js stageCrown). The engraving is the case's
+// alone: at the broadcast's distance a band is a band.
+const CUP_COL = { chrome: '#e4e9ee', gold: '#e3b74c' }, CUP_FT = 3.2808;
 // `s.k` scales it (the Zamboni's replica on Cup final night is two-thirds size).
 export function buildCup(b, s) {
-  const k = s.k || 1, at = (z) => [s.x, s.y, s.z + z * k], up = [0, 0, 1];
-  const ring = (z0, z1, r0, r1, col) => tube(b, at(z0), at(z1), r0 * k, r1 * k, rgb(col), 14);
-  ring(0, 0.18, 0.62, 0.62, CUP_DARK); disc(b, at(0.18), up, 0.62 * k, rgb(CUP_DARK), 14, 0.02 * k);
-  ring(0.18, 0.62, 0.56, 0.56, CUP_SILVER);
-  ring(0.62, 0.68, 0.58, 0.58, CUP_DARK);
-  ring(0.68, 1.12, 0.5, 0.5, CUP_SILVER);
-  ring(1.12, 1.18, 0.52, 0.52, CUP_DARK);
-  ring(1.18, 1.58, 0.44, 0.38, CUP_SILVER);
-  disc(b, at(1.6), up, 0.4 * k, rgb(CUP_SILVER), 14, 0.04 * k);
-  ring(1.6, 1.72, 0.3, 0.3, CUP_GOLD);
-  ring(1.72, 2.2, 0.17, 0.13, CUP_SILVER);
-  ellipsoid(b, at(2.2), [1, 0, 0], [0, 1, 0], up, [0.22 * k, 0.22 * k, 0.1 * k], rgb(CUP_GOLD), 10, 5);
-  ellipsoid(b, at(2.5), [1, 0, 0], [0, 1, 0], up, [0.46 * k, 0.46 * k, 0.26 * k], rgb(CUP_SILVER), 14, 7);
-  ring(2.62, 2.7, 0.47, 0.5, CUP_GOLD);
+  const k = (s.k || 1) * CUP_FT, at = (z) => [s.x, s.y, s.z + z * k], up = [0, 0, 1], D = CUP_DESIGNS.hockey;
+  for (const { metal, prof } of D.parts) {
+    const c = rgb(CUP_COL[metal]);
+    for (let i = 0; i + 1 < prof.length; i++) {
+      const [r0, z0] = prof[i], [r1, z1] = prof[i + 1];
+      // a step across is a thin disc; anything that rises or falls is a tube (the bowl's inside, falling, too)
+      if (Math.abs(z1 - z0) > 1e-4) tube(b, at(z0), at(z1), r0 * k, r1 * k, c, r0 + r1 > 0.2 ? 18 : 12);
+      else if (Math.max(r0, r1) > 1e-4) disc(b, at(z0), up, Math.max(r0, r1) * k, c, 18, 0.003 * k);
+    }
+  }
+  // the goose, gold plate facing the broadcast's side of the ice (−y), its −u to your left
+  const E = D.emblem, S = (E.h / GOOSE_H) * k, gold = rgb(CUP_COL.gold), T = GOOSE_T * S, z0 = s.z + E.y * k;
+  const P = (u, v, py) => [s.x + u * S, s.y - py * S, z0 + v * S];
+  for (const { y: py, pts } of GOOSE_PARTS) {
+    const cu = pts.reduce((a, p) => a + p[0], 0) / pts.length, cv = pts.reduce((a, p) => a + p[1], 0) / pts.length;
+    const fc = P(cu, cv, py), bc = [fc[0], fc[1] + T, fc[2]], nf = [0, -1, 0], nb = [0, 1, 0];
+    for (let i = 0; i < pts.length; i++) {
+      const [u0, v0] = pts[i], [u1, v1] = pts[(i + 1) % pts.length], a = P(u0, v0, py), c = P(u1, v1, py);
+      tri(b, fc, a, c, nf, nf, nf, gold);
+      tri(b, bc, [c[0], c[1] + T, c[2]], [a[0], a[1] + T, a[2]], nb, nb, nb, gold);
+    }
+  }
 }
 export function buildStretcher(b, s) {
   const ch = Math.cos(s.h), sn = Math.sin(s.h), ax = [ch, sn, 0], ay = [-sn, ch, 0];

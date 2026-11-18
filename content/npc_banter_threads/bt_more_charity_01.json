@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_charity_01",
+  "lines": [
+    "\"Soup run tonight?\"",
+    "\"Every night.\"",
+    "\"How many?\"",
+    "\"More than last week. Always more than last week.\""
+  ],
+  "personality": "charity",
+  "sort_order": 687
+}

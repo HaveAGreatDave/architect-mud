@@ -47,11 +47,22 @@ const FIRST_MS = [20_000, 90_000];         // from the room opening to the first
 const REST_MS = [60_000, 170_000];         // between one thing and the next, on top of how long it took
 const STAY = { watch: [120_000, 300_000], sit: [60_000, 180_000], lie: [60_000, 150_000], use: [10_000, 30_000], window: [15_000, 45_000], pace: [5_000, 15_000], phone: [20_000, 60_000], smoke: [45_000, 90_000], wait: [15_000, 40_000],
   stretch: [8_000, 16_000], exercise: [20_000, 45_000], tidy: [6_000, 14_000], dance: [15_000, 40_000], think: [8_000, 18_000], fidget: [10_000, 25_000],
-  warm: [15_000, 40_000], heater: [40_000, 120_000], cool: [15_000, 40_000], air: [30_000, 80_000] };
+  warm: [15_000, 40_000], heater: [40_000, 120_000], cool: [15_000, 40_000], air: [30_000, 80_000], together: [90_000, 240_000] };
+// Somebody else home and on their feet or sat down: most of the time they go and do something with them (sit with
+// them, a chat, a pair act below), and only now and then something on their own. Eating and sleeping aside, a flat
+// with two in it is two people's evening, not two people pottering past each other.
+const COMPANY_CHANCE = 0.7;
+// A spot on the open floor is at least this far off the walls: nobody stands in a corner facing the plaster.
+const FLOOR_MARGIN = 0.9;
 const BATHROOM_CHANCE = 0.12;              // of the times they get up, in a flat with an en-suite
 const TALK_REACH = 1.6, TALK_GAP = 0.9;    // near enough to talk, and how far apart they stop
 const AFTER_TALK_MS = [5_000, 20_000];
 const RITUAL_MS = 20_000;                  // longer than any beat: a ritual that never says it ended
+// Frightened (panic.js): a beat's clip is held this long, longer than the gap between beats, and the seated
+// twin of each clip that has one (actor-moods.js), so somebody sat down when it starts can do it in the chair.
+const PANIC_HOLD_MS = 30_000;
+const PANIC_SIT = { startle: 'sitStartle', panicPhone: 'sitPanicPhone', scream: 'sitScream', plead: 'sitPlead', shaken: 'sitShaken', handsUp: 'sitStartle' };
+const PANIC_SEATED = new Set(Object.values(PANIC_SIT));
 const FACING = 0.5;                        // how squarely a seat has to look at a set to count as in front of it
 const EMOTE_CHANCE = 0.3, MUTTER_CHANCE = 0.15;
 // A meal (client/shared/home-meals.js): out of the fridge, cooked, and eaten, three jobs one after another.
@@ -105,7 +116,7 @@ const DOING = {
   smoke: ['lights a cigarette at the window.', 'opens the window a crack and lights up.'],
   wait: ['leans against the wall and stares at nothing.', 'stands with their arms folded, thinking about something.', 'taps a foot and waits for nothing in particular.'],
   stretch: ['stretches until something in their back clicks.', 'stretches both arms over their head and holds it.'],
-  exercise: ['does a few slow squats, counting under their breath.', 'does squats until their knees complain.'],
+  exercise: ['does a few slow squats in the middle of the room, counting under their breath.', 'works through a set of squats, the way the team trainer showed them.'],
   tidy: ['picks something up off the floor and looks for somewhere to put it.', 'stoops for a sock and carries it about.'],
   dance: ['hums something and sways to it a little.', 'bobs their head to a song only they can hear.'],
   think: ['rubs their eyes with the heel of a hand.', 'cracks their knuckles one hand at a time.'],
@@ -174,7 +185,8 @@ const PAIR_RULES = {
   joke: { ok: (c) => c.temper < 2 && !c.moods.includes('sad'), w: () => 1.2, after: { mood: 'amused' } },
   phone: { ok: (c) => c.temper < 3, w: () => 1 },
   argue: { ok: (c) => c.temper >= 1 || c.tipsy >= 2 || cross(c), w: (c) => 1 + c.tipsy * 1.5 + c.temper + (cross(c) ? 2 : 0), after: { mood: 'angry', temper: 1 } },
-  squats: { ok: (c) => c.tipsy < 2 && !cross(c), w: () => 0.6 },
+  // the plain one, and by far the commonest: two people who live together talking about their day
+  chat: { ok: (c) => c.temper < 3, w: (c) => 5 - c.temper },
   smoke: { ok: () => true, w: (c) => 0.8 + (c.temper ? 0.5 : 0) },
   cheer: { ok: (c) => !cross(c) && c.temper < 2, w: (c) => 0.6 + c.tipsy * 0.4, after: { mood: 'happy' } },
 };
@@ -205,8 +217,8 @@ const PAIRS = [
     say: ['shows {you} something on their phone.', 'holds their phone out to {you}. "Look at this."'] },
   { id: 'argue', gap: 1.0, beats: [['point', 'shrug', [3000, 4000]], ['slam', 'holdup', [2600, 2600]], ['idleSigh', 'idleSigh', [2500, 3500]]],
     say: ['jabs a finger at {you} about something.', 'and {you} get into it about the bins.'] },
-  { id: 'squats', gap: 1.2, beats: [['squats', 'squats', [12000, 20000]], ['idleStretch', 'idleStretch', [4000, 6000]]],
-    say: ['does squats with {you}, counting out loud.', 'gets {you} doing squats. {you} gives up first.'] },
+  { id: 'chat', gap: 0.95, beats: [['talk', 'listen', [4000, 6500]], ['listen', 'talk', [4000, 6500]], ['laugh', 'laugh', [2000, 3000]], ['talk', 'listen', [3500, 5500]], ['listen', 'spread', [3000, 4500]], ['shrug', 'talk', [3000, 4500]]],
+    say: ['stops to talk to {you} for a bit.', 'asks {you} how their day went.', 'tells {you} about somebody they ran into.', 'catches {you} up on the building gossip.'] },
   { id: 'smoke', gap: 0.8, beats: [['smoke', 'smoke', [15000, 25000]]],
     say: ['shares a smoke with {you}.', 'lights two cigarettes and hands one to {you}.'] },
   { id: 'cheer', gap: 0.9, beats: [['clap', 'clap', [3000, 3000]], ['cheer', 'cheer', [3000, 4000]], ['highFive', 'highFive', [2400, 2400]]],
@@ -222,7 +234,8 @@ const between = ([a, b]) => randInt(a, b);
 
 // `viewers` zone -> Set of player ids, and the plugin's own functions for the rest.
 // `feelOf(main)` is how the room feels, -1 cold to 1 hot (client/shared/comfort.js); none given, it's always mild.
-export function createNpcLife({ viewers, annexOf, mainOf, specOf, roomPieces, sendPeople, busy, tvOn, feelOf = () => 0 }) {
+// `whereOf(playerId)` is where a player last settled in a room ({ zone, at }), for a frightened resident to face.
+export function createNpcLife({ viewers, annexOf, mainOf, specOf, roomPieces, sendPeople, busy, tvOn, feelOf = () => 0, whereOf = () => null }) {
   const tvBy = new Map();   // main -> the resident who put the set on
   const bandSeen = new Map();   // main -> the temperature band its residents last dressed for
   const say = (n, main, line) => { const msg = formatChitchat(n.name, line); for (const id of viewers.get(main) || []) sendToPlayer(id, msg); };
@@ -254,7 +267,8 @@ export function createNpcLife({ viewers, annexOf, mainOf, specOf, roomPieces, se
   }
 
   // Everything somebody could go and do in this room, from the seats nobody's in.
-  function jobsIn(L, taken, want, feel = 0) {
+  // `who` is what about them changes the list: { athlete, lively, company } (whoOf below).
+  function jobsIn(L, taken, want, feel = 0, who = {}) {
     const named = new Map(L.placed.map((p) => [p.id, p])), out = [], main = L.bounds, k = Math.abs(feel), harsh = k >= 0.5;
     const add = (weight, job) => { if (job.stand) out.push({ weight, ...job }); };
     L.seats.forEach((s, i) => {
@@ -270,34 +284,45 @@ export function createNpcLife({ viewers, annexOf, mainOf, specOf, roomPieces, se
       add(cooling ? 2 + 4 * k : 2, { kind: 'use', arche: p.arche, name: p.name, piece: st.piece, stand, face: st.at, ...(cooling ? { hot: true } : {}) });
     }
     const glass = () => roomNearFree(L, ((L.spec.window?.[0] ?? 0) + (L.spec.window?.[1] ?? 0)) / 2, 0.5, 1.8, main), outward = Math.atan2(L.f[0], L.f[2]);
-    const floor = () => roomNearFree(L, main[0] + Math.random() * (main[1] - main[0]), main[2] + Math.random() * (main[3] - main[2]), 1.8, main);
-    const turn = () => Math.random() * Math.PI * 2;
+    // the open floor, kept off the walls (FLOOR_MARGIN) so nobody ends up wedged in a corner, and facing back into the
+    // room with a little give either way rather than at a random wall
+    const span = (a, b) => (b - a > 2 * FLOOR_MARGIN ? a + FLOOR_MARGIN + Math.random() * (b - a - 2 * FLOOR_MARGIN) : (a + b) / 2);
+    const floor = () => roomNearFree(L, span(main[0], main[1]), span(main[2], main[3]), 1.8, main);
+    const mid = [(main[0] + main[1]) / 2, (main[2] + main[3]) / 2];
+    const inward = (s) => {
+      if (!s) return 0;
+      const a = Math.atan2(mid[1] - s[1], mid[0] - s[0]) + (Math.random() - 0.5) * 1.2;
+      return roomYaw(L, Math.cos(a), Math.sin(a));
+    };
+    const loose = (weight, job) => { const stand = floor(); add(weight, { ...job, stand, yaw: inward(stand) }); };
     add(1, { kind: 'window', stand: glass(), yaw: outward });
     add(1, { kind: 'smoke', stand: glass(), yaw: outward, clip: 'smoke' });
     add(1, { kind: 'pace', stand: floor() });
-    add(2, { kind: 'phone', stand: floor(), yaw: turn(), clip: 'phone' });
-    add(1, { kind: 'wait', stand: floor(), yaw: turn(), clip: pick(['wait', 'idleTap']) });
-    add(0.7, { kind: 'stretch', stand: floor(), yaw: turn(), clip: 'idleStretch' });
-    add(0.4, { kind: 'exercise', stand: floor(), yaw: turn(), clip: 'squats' });
-    add(0.8, { kind: 'tidy', stand: floor(), yaw: turn(), clip: 'pickUp' });
-    add(0.4, { kind: 'dance', stand: floor(), yaw: turn(), clip: 'dance' });
-    add(0.7, { kind: 'think', stand: floor(), yaw: turn(), clip: pick(['idleRub', 'idleKnuckles']) });
-    add(0.7, { kind: 'fidget', stand: floor(), yaw: turn(), clip: pick(['idleRoll', 'idleRock']) });
+    loose(2, { kind: 'phone', clip: pick(['phone', 'phoneScroll']) });
+    loose(0.6, { kind: 'wait', clip: pick(['wait', 'idleTap', 'idleArms']) });
+    loose(0.4, { kind: 'stretch', clip: 'idleStretch' });
+    // squats are for somebody who trains, on their own, in the middle of the floor; anyone else just stretches
+    if (who.athlete && !who.company) loose(0.5, { kind: 'exercise', clip: 'squats' });
+    loose(0.8, { kind: 'tidy', clip: 'pickUp' });
+    // dancing on your own to nothing wants a drink in you or a good mood
+    if (who.lively) loose(0.4, { kind: 'dance', clip: 'dance' });
+    loose(0.5, { kind: 'think', clip: pick(['idleRub', 'idleKnuckles', 'idleChin']) });
+    loose(0.5, { kind: 'fidget', clip: pick(['idleRoll', 'idleRock', 'idleWatch', 'idlePockets']) });
     // past room temperature they do something about it, and more often the further past it is
     if (feel < 0) {
       const h = L.placed.find((p) => (p.form === 'heater' || p.arche === 'fireplace') && !p.annex);
       if (h) add(2 + 8 * k, { kind: 'heater', name: h.name, stand: roomNearFree(L, h.u, h.v, 1.8, main), face: [h.u, h.v], clip: 'coldRub' });
-      add(1 + 6 * k, { kind: 'warm', stand: floor(), yaw: turn(), clip: pick(TEMP_CLIPS[harsh ? 'cold' : 'cool']) });
+      loose(1 + 6 * k, { kind: 'warm', clip: pick(TEMP_CLIPS[harsh ? 'cold' : 'cool']) });
     } else if (feel > 0) {
-      add(1 + 6 * k, { kind: 'cool', stand: floor(), yaw: turn(), clip: pick(TEMP_CLIPS[harsh ? 'hot' : 'warm']) });
+      loose(1 + 6 * k, { kind: 'cool', clip: pick(TEMP_CLIPS[harsh ? 'hot' : 'warm']) });
       add(1 + 4 * k, { kind: 'air', stand: glass(), yaw: outward, clip: 'hotFan' });
     }
     const asked = want ? out.filter((j) => SCENE[want]?.some((x) => x === j.arche || x === j.kind)) : [];
     return asked.length ? asked : out;
   }
-  function chooseJob(L, taken, want, from = null, feel = 0) {
+  function chooseJob(L, taken, want, from = null, feel = 0, who = {}) {
     // somewhere else: a job on the spot they already stand on is no walk at all
-    const all = jobsIn(L, taken, want, feel), away = from ? all.filter((j) => Math.hypot(j.stand[0] - from[0], j.stand[1] - from[1]) > 0.5) : all, jobs = away.length ? away : all;
+    const all = jobsIn(L, taken, want, feel, who), away = from ? all.filter((j) => Math.hypot(j.stand[0] - from[0], j.stand[1] - from[1]) > 0.5) : all, jobs = away.length ? away : all;
     let roll = Math.random() * jobs.reduce((n, j) => n + j.weight, 0);
     for (const j of jobs) if ((roll -= j.weight) <= 0) return j;
     return jobs[0] || null;
@@ -317,6 +342,39 @@ export function createNpcLife({ viewers, annexOf, mainOf, specOf, roomPieces, se
       if (stand) { top = score; best = { kind: 'watch', seat: i, on: s.piece, pose: 'sitting', stand }; }
     });
     return best;
+  }
+
+  // Every free seat pulled up to a table (its front looks over the table's top), as { i, s, table }.
+  function tableSeats(L, taken) {
+    const tables = L.placed.filter((p) => p.arche === 'table' && !p.annex), out = [];
+    L.seats.forEach((s, i) => {
+      if (s.lie || inAnnex(L, s.v) || s.v < 0 || !seatFree(L, i, taken) || !s.dir) return;
+      const reach = [s.u + s.dir[0] * 0.45, s.v + s.dir[1] * 0.45];
+      for (const p of tables) {
+        const [fu, fv] = facingOf(p.turn), du = reach[0] - p.u, dv = reach[1] - p.v;
+        const x = du * -fv + dv * fu, z = du * fu + dv * fv;
+        if (Math.abs(x) <= p.w / 2 + 0.05 && Math.abs(z) <= p.d / 2 + 0.05) { out.push({ i, s, table: p }); break; }
+      }
+    });
+    return out;
+  }
+
+  // A meal's been dished up: anybody else home and free who isn't eating gets a plate too, and comes and sits at the
+  // table with them. Said once, by the cook.
+  function shareMeal(n, life, main, folk) {
+    const m = life.meal;
+    if (!m || m.shared) return;
+    m.shared = true;
+    const mates = folk.filter((x) => { const l = lives.get(x.id); return x.id !== n.id && l && l.main === main && free(x, main) && !l.meal && !l.talk && !l.bath && !l.inside && !l.stash; });
+    if (!mates.length) return;
+    const names = mates.map((x) => String(x.name || 'them').split(' ')[0]);
+    for (const x of mates) {
+      const l = lives.get(x.id);
+      l.meal = { dish: m.dish, stage: 'cook', piece: m.piece, with: n.id, shared: true };
+      l.want = null; l.next = Date.now() + randInt(1_500, 6_000);
+    }
+    m.with = mates[0].id;
+    if (viewers.get(main)?.size) say(n, main, mates.length === 1 ? `dishes up two plates and calls ${names[0]} to the table.` : `dishes up for everyone and calls them to the table.`);
   }
 
   // A chair pulled up to a table: a free seat whose front looks over a table's top. Null without one.
@@ -346,6 +404,44 @@ export function createNpcLife({ viewers, annexOf, mainOf, specOf, roomPieces, se
       }
     });
     return best;
+  }
+
+  // What about this resident changes their list of jobs: whether they train (a hockey player keeps fit; nobody else
+  // does squats in their living room), whether they're in the mood to dance alone, and whether there's company home.
+  function whoOf(n, main, folk = here(main)) {
+    const mood = npcMoodOf(n)?.m;
+    return {
+      athlete: !!n.flags?.cphl,
+      lively: tipsyOf(n) >= 1 || mood === 'happy' || mood === 'drunk',
+      company: folk.some((m) => m.id !== n.id && free(m, main)),
+    };
+  }
+
+  // Company: somebody else home sat down, so they go and sit near them; failing that, something together on their
+  // feet (pairJob, mostly a chat). Null when there's nobody to be with, and they do something on their own.
+  function companyJob(n, life, L, main, folk, taken) {
+    const sat = [];
+    for (const m of folk) {
+      const ml = m.id !== n.id && lives.get(m.id);
+      if (ml && ml.main === main && free(m, main) && ml.seat !== null && !ml.route && !ml.inside && !ml.stash && ml.L?.seats?.[ml.seat]) sat.push([m, ml]);
+    }
+    if (sat.length && Math.random() < 0.6) {
+      const [m, ml] = pick(sat), there = ml.L.seats[ml.seat];
+      let best = null, far = 3.2;
+      L.seats.forEach((s, i) => {
+        if (s.lie || inAnnex(L, s.v) || s.v < 0 || !seatFree(L, i, taken)) return;
+        const d = Math.hypot(s.u - there.u, s.v - there.v);
+        if (d >= far || d < 0.3) return;
+        const stand = seatApproach(L, s, 1.8, L.bounds);
+        if (stand) { far = d; best = { i, s, stand }; }
+      });
+      if (best) {
+        const first = String(m.name || 'them').split(' ')[0];
+        return { kind: 'together', seat: best.i, on: best.s.piece, pose: 'sitting', stand: best.stand,
+          say: [`sits down with ${first}.`, `drops into the seat next to ${first}.`, `comes and sits with ${first}.`] };
+      }
+    }
+    return pairJob(n, life, L, main, folk);
   }
 
   // Where everyone else in the room stands, or will once they get there.
@@ -379,6 +475,8 @@ export function createNpcLife({ viewers, annexOf, mainOf, specOf, roomPieces, se
       life.meal.stage = job.meal;
       if (job.stove) life.meal.stove = job.stove;
       if (job.pan) life.meal.pan = job.pan;
+      // eaten at a table: where its top is, so the plate goes on it and the knife and fork to it (gl/figure-reach.js)
+      life.meal.at = job.meal === 'eat' && job.at ? job.at : null;
       if (!life.talk) life.next = now + between(MEAL_MS[job.meal]);
     }
   }
@@ -416,14 +514,21 @@ export function createNpcLife({ viewers, annexOf, mainOf, specOf, roomPieces, se
       return null;
     }
     if (m.stage === 'cook') {
-      // sat down to it on the nearest free seat, or stood up where they are
+      // sat down to it: at the table when there's a free chair at one (beside whoever they're eating with, if
+      // anybody), else on the nearest free seat, else stood up where they are
+      const atTable = new Map(tableSeats(L, taken).map((x) => [x.i, x.table]));
+      const mate = m.with && lives.get(m.with), mateSeat = mate?.seat !== null && mate?.L?.seats?.[mate.seat] || (mate?.job?.seat !== undefined && mate.L?.seats?.[mate.job.seat]) || null;
+      const near = mateSeat ? [mateSeat.u, mateSeat.v] : life.at;
       let best = null, far = Infinity;
       L.seats.forEach((s, i) => {
         if (s.lie || inAnnex(L, s.v) || s.v < 0 || !seatFree(L, i, taken)) return;
-        const d = Math.hypot(s.u - life.at[0], s.v - life.at[1]);
+        // a chair at the table counts as much nearer than any other seat
+        const d = Math.hypot(s.u - near[0], s.v - near[1]) - (atTable.has(i) ? 100 : 0);
         if (d >= far) return;
         const stand = seatApproach(L, s, 1.8, main);
-        if (stand) { far = d; best = { kind: 'meal', meal: 'eat', seat: i, on: s.piece, pose: 'sitting', stand, clip: 'sitEat' }; }
+        // at a table, its top's height in the layout's units (as a session's `at`)
+        const tb = atTable.get(i), at = tb ? [+s.u.toFixed(2), +s.v.toFixed(2), +((tb.y0 || 0) + tb.h).toFixed(3)] : null;
+        if (stand) { far = d; best = { kind: 'meal', meal: 'eat', seat: i, on: s.piece, pose: 'sitting', stand, clip: 'sitEat', ...(at ? { at } : {}) }; }
       });
       if (best) return best;
       const stand = roomNearFree(L, life.at[0] + (Math.random() - 0.5), life.at[1] + (Math.random() - 0.5), 1.2, main);
@@ -464,7 +569,13 @@ export function createNpcLife({ viewers, annexOf, mainOf, specOf, roomPieces, se
   // Sets off for a job. False when there's no way there from here.
   function walk(n, life, L, job, main, now, tries = 0) {
     const tok = life.walkTok = {};
-    const path = roomPath(crowded(L, main, life), life.at, job.stand) || roomPath(L, life.at, job.stand);
+    let path = roomPath(crowded(L, main, life), life.at, job.stand) || roomPath(L, life.at, job.stand);
+    // stuck: stood inside something (a piece put down on them, a spot left over from an old layout). Stepped out to
+    // the nearest floor and tried again, or they'd never leave it
+    if (!path && life.at) {
+      const free = roomNearFree(L, life.at[0], life.at[1], 1.2);
+      if (free && (free[0] !== life.at[0] || free[1] !== life.at[1])) { life.at = free; path = roomPath(L, free, job.stand); }
+    }
     if (!path) return false;
     const len = pathLength(path);
     if (job.kind !== 'bath' && tries < WAIT_TRIES && meets(path, len / SPEED * 1000, main, life, now) >= 0) {
@@ -632,14 +743,16 @@ export function createNpcLife({ viewers, annexOf, mainOf, specOf, roomPieces, se
     const now = Date.now();
     catchUp(life, now);
     const use = clipOfUse(n.id);
-    // a ritual's beat stops them where they are, unless they're sat in a chair to do it (table-stash.js SIT_TAKE)
-    const sat = life.seat !== null && !life.route && !!SIT_TAKE[use];
+    // a ritual's beat stops them where they are, unless they're sat in a chair to do it (table-stash.js SIT_TAKE),
+    // and so does a fright, unless its clip is a seated one (PANIC_SIT)
+    const sitUse = use ? SIT_TAKE[use] || (PANIC_SEATED.has(use) ? use : null) : null;
+    const sat = life.seat !== null && !life.route && !!sitUse;
     if (use && !life.talk && !sat) stopFor(life, now);
     const r = life.route;
     // the en-suite's plain leaf: shut by whoever's in there, as the trip says, or by anyone stood in there anyway
     const shut = life.bath ? life.bath.door === 'shut' : life.inside && !r && n.zone_id === annexOf(main)?.id;
     // what they're cooking or eating, and where the stove and the pan are (gl/room-meals.js)
-    const m = life.meal, meal = m ? { d: m.dish, s: m.stage, ...(m.stove ? { stove: m.stove } : {}), ...(m.pan && m.stage === 'cook' ? { pan: m.pan } : {}) } : null;
+    const m = life.meal, meal = m ? { d: m.dish, s: m.stage, ...(m.stove ? { stove: m.stove } : {}), ...(m.pan && m.stage === 'cook' ? { pan: m.pan } : {}), ...(m.at && m.stage === 'eat' ? { at: m.at } : {}) } : null;
     if (r) {
       const gone = Math.min(r.len, (now - r.t0) / r.ms * r.len), q = pathAt(r.path, gone);
       return { at: q.at.map((x) => +x.toFixed(2)), yaw: life.yaw || 0, route: { path: [q.at, ...r.path.slice(q.leg)], ms: Math.max(0, Math.round(r.ms - (now - r.t0))) }, ...(meal ? { meal } : {}), ...(shut ? { shut: true } : {}) };
@@ -647,7 +760,7 @@ export function createNpcLife({ viewers, annexOf, mainOf, specOf, roomPieces, se
     // at the table: the kit and the clock it's taken on (client/shared/table-stash.js); the client works out the clip
     const stash = life.stash ? { k: life.stash.k, of: life.stash.of, beat: life.stash.beat, at: life.stash.at, gone: now - life.stash.t0 } : null;
     const said = life.talk && life.talkClip && life.talkClip.until > now ? life.talkClip.clip : null;
-    const seatClip = use ? SIT_TAKE[use] : stash ? null : (said && SIT_TWIN[said]) || life.clip;
+    const seatClip = use ? sitUse : stash ? null : (said && SIT_TWIN[said]) || life.clip;
     if (life.seat !== null) return { posture: life.pose, on: life.on, seat: life.seat, ...(seatClip ? { clip: seatClip } : {}), ...(meal ? { meal } : {}), ...(stash ? { stash } : {}), ...(shut ? { shut: true } : {}) };
     const step = life.talk || use ? null : stepOf(life, now);
     const clip = life.talk ? said || 'listen' : use || step?.clip || life.clip;
@@ -667,7 +780,7 @@ export function createNpcLife({ viewers, annexOf, mainOf, specOf, roomPieces, se
     for (const n of folk) {
       const life = { main, L: lay.L, yaw: 0, inside: false };
       let job = null;
-      for (let k = 0; k < 4 && !job; k++) job = apart(chooseJob(lay.L, taken, null, null, feel), lay.L, main, life);
+      for (let k = 0; k < 4 && !job; k++) job = apart(chooseJob(lay.L, taken, null, null, feel, whoOf(n, main, folk)), lay.L, main, life);
       if (!job) continue;
       settle(life, job, lay.L, now);
       life.next = now + between(FIRST_MS);
@@ -714,13 +827,13 @@ export function createNpcLife({ viewers, annexOf, mainOf, specOf, roomPieces, se
           lives.set(n.id, life);
         }
         life.L = L;
-        const nowIn = n.zone_id === annex?.id;
+        const nowIn = n.zone_id === annex?.id, who = whoOf(n, main, folk);
         let job;
         if (life.inside !== nowIn) {
           // through the en-suite's door, after the move the engine has already made
           life.inside = nowIn;
           const a = L.annex, door = L.spec.annex?.door;
-          job = nowIn && a && door ? { kind: 'use', stand: roomNearFree(L, (door[0] + door[1]) / 2, a.v0 + 0.9, 1.8) } : chooseJob(L, taken, null, null, feel);
+          job = nowIn && a && door ? { kind: 'use', stand: roomNearFree(L, (door[0] + door[1]) / 2, a.v0 + 0.9, 1.8) } : chooseJob(L, taken, null, null, feel, who);
         } else if (!nowIn) {
           // getting up from a set they put on: it goes off, and anyone else watching gets up too
           if (tvBy.get(main) === n.id) { tvBy.delete(main); changed = true; say(n, main, 'turns the set off.'); tvChanged(main); }
@@ -733,16 +846,20 @@ export function createNpcLife({ viewers, annexOf, mainOf, specOf, roomPieces, se
           // halfway through a meal they carry on with it; a meal scene (home-life.js) or a roll starts one
           else if (life.meal ||(!tv && (life.want === 'meal' || (!life.want && Math.random() < MEAL_CHANCE)))) {
             job = mealJob(n, life, L, taken);
-            if (!job) { life.meal = null; job = chooseJob(L, taken, null, life.at, feel); }
+            if (!job) { life.meal = null; job = chooseJob(L, taken, null, life.at, feel, who); }
+            // dished up: whoever else is home eats with them
+            else if (job.meal === 'eat') shareMeal(n, life, main, folk);
           } else if (annex && !life.want && !tv && Math.random() < BATHROOM_CHANCE && tripToBathroom(main, n)) job = null;
-          // now and then something with somebody else who's home: a high five, a dance, a toast (PAIRS)
+          // with somebody else home, mostly something with them: sat beside them, a chat, a high five (companyJob)
+          else if (!tv && !life.want && who.company && Math.random() < COMPANY_CHANCE && (job = companyJob(n, life, L, main, folk, taken))) { /* the walk over */ }
+          // and now and then on its own roll, for a flat where the company roll missed
           else if (!tv && !life.want && Math.random() < PAIR_CHANCE && (job = pairJob(n, life, L, main, folk))) { /* the walk over */ }
           // a resident already sat watching stays there
-          else job = tv && life.kind === 'watch' ? null : (tv && !life.want && watchJob(L, taken)) || chooseJob(L, taken, life.want, life.at, feel);
+          else job = tv && life.kind === 'watch' ? null : (tv && !life.want && watchJob(L, taken)) || chooseJob(L, taken, life.want, life.at, feel, who);
           life.want = null;
         }
         // nobody stands in somebody else: a step aside, or another job, or they stay put this time
-        if (job?.stand && job.seat === undefined) job = apart(job, L, main, life) || apart(chooseJob(L, taken, null, life.at, feel), L, main, life);
+        if (job?.stand && job.seat === undefined) job = apart(job, L, main, life) || apart(chooseJob(L, taken, null, life.at, feel, who), L, main, life);
         if (job?.stand && walk(n, life, L, job, main, now)) changed = true;
         else life.next = now + between(REST_MS);
       }
@@ -809,7 +926,7 @@ export function createNpcLife({ viewers, annexOf, mainOf, specOf, roomPieces, se
       case 'out': {
         life.inside = false;
         const taken = busy(main, lay.pieces), feel = feelOf(main);
-        const job = apart(chooseJob(L, taken, null, outside(), feel), L, main, life) || { kind: 'pace', stand: outside() };
+        const job = apart(chooseJob(L, taken, null, outside(), feel, whoOf(n, main)), L, main, life) || { kind: 'pace', stand: outside() };
         go(job);
         break;
       }
@@ -909,6 +1026,27 @@ export function createNpcLife({ viewers, annexOf, mainOf, specOf, roomPieces, se
         touched.add(l.main);
       }
       for (const main of touched) sendPeople(main).catch(() => {});
+    },
+    // Frightened (plugins/ambient-life panic.js `npc.panic`): whatever they were doing stops, they turn to whoever
+    // frightened them and hold the clip until the next beat says otherwise; null and they carry on. Sat down, a
+    // clip with a seated twin keeps them in the chair; one without gets them on their feet.
+    panic({ npc, clip, toward }) {
+      const main = mainOf(npc.zone_id), life = lives.get(npc.id);
+      if (!clip) { using.delete(npc.id); if (life) life.next = Date.now() + between(AFTER_TALK_MS); }
+      else {
+        const sitClip = PANIC_SIT[clip];
+        if (life && life.main === main) {
+          life.talk = false; life.talkClip = null; life.steps = null; life.stepTok = null; life.meal = null; life.want = null; life.pairWith = null;
+          if (tvBy.get(main) === npc.id) { tvBy.delete(main); tvChanged(main); }
+          const seated = life.seat !== null && !life.route && !!sitClip;
+          if (!seated) stopFor(life, Date.now());
+          life.next = Infinity;
+          const at = toward && whereOf(toward);
+          if (!seated && at?.zone && mainOf(at.zone) === main && Array.isArray(at.at) && life.L) life.yaw = roomYaw(life.L, at.at[0] - life.at[0], at.at[1] - life.at[1]);
+          using.set(npc.id, { clip: seated ? sitClip : clip, until: Date.now() + PANIC_HOLD_MS });
+        } else using.set(npc.id, { clip, until: Date.now() + PANIC_HOLD_MS });
+      }
+      if (viewers.get(main)?.size) sendPeople(main).catch(() => {});
     },
     // A ritual's beat: 'clip' is what the body does now, and null is the end of it.
     ritual({ npc, clip }) {

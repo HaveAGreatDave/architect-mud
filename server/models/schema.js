@@ -802,9 +802,35 @@ export const SCHEMA_SQL = `
   -- is worked out from that and his times (client/shared/cat-life.js trayTimes), how dirty it is and whether he's started
   -- going beside it included, so nothing is written while he goes; only a scoop writes. Runtime state, not content: no
   -- row means it was scooped at the start of the day it was first seen.
+  -- A room's potted plants as its owner moved them (plugins/roomstage/plants.js): [[u, v, s], ...] in the room's frame,
+  -- laid over the authored flags.room.decor.plants. Runtime state, not content: no row means where the room file has them.
+  CREATE TABLE IF NOT EXISTS room_plants (
+    zone_id    TEXT PRIMARY KEY,
+    plants     JSONB NOT NULL DEFAULT '[]'::jsonb,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  );
+  -- the room's rug as its owner moved it, [u, v, turn], over flags.room.decor.rug's at (plants.js rugOf)
+  ALTER TABLE room_plants ADD COLUMN IF NOT EXISTS rug JSONB;
   CREATE TABLE IF NOT EXISTS pet_trays (
     furniture_id TEXT PRIMARY KEY,
     scooped_at   TIMESTAMPTZ
+  );
+  -- A street cat (plugins/pets/strays.js): rolled at runtime, a batch at a time, onto Coldwater's streets, and taken
+  -- home with adopt. Its NPC lives in RAM only (no npcs row), built from this row at boot. zone_id is where it was
+  -- left on the street; home_zone, once adopted, is the adopter's flat. Runtime state, not content.
+  CREATE TABLE IF NOT EXISTS stray_cats (
+    id          TEXT PRIMARY KEY,
+    name        TEXT NOT NULL,
+    sex         TEXT NOT NULL DEFAULT 'male',
+    description TEXT,
+    look        JSONB NOT NULL DEFAULT '{}'::jsonb,
+    personality JSONB NOT NULL DEFAULT '{}'::jsonb,
+    zone_id     TEXT,
+    batch       INTEGER NOT NULL DEFAULT 1,
+    spawned_at  BIGINT DEFAULT EXTRACT(EPOCH FROM NOW()),
+    adopted_by  TEXT,
+    adopted_at  BIGINT,
+    home_zone   TEXT
   );
 
   CREATE TABLE IF NOT EXISTS recipes (

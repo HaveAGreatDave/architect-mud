@@ -33,6 +33,7 @@ import { declareProgram, takeWarm } from './programs.js';
 import { linearOut, applyLinOut } from './colour.js';
 import { LIGHTGRID_GLSL, LIGHTGRID_UNIFORMS, bindNoLightGrid } from './lightgrid.js';
 import { TOON_GLSL, TOON_INK_GLSL, TOON_INK_UNIFORMS, bindToonInk } from './toon.js';
+import { createActorSmoke } from './actor-smoke.js';
 
 // Per instance: x, y, z, tiles per metre | clip A row0, frames, phase, heading | clip B row0, frames,
 // phase, share of B | coat rgb | trousers rgb | skin rgb | hair rgb | shoes rgb | brightness, alpha |
@@ -819,6 +820,13 @@ export function createActorLayer(gl) {
     gl.activeTexture(gl.TEXTURE0);
     return faceT;
   }
+  // The cigarettes, their glow and their smoke (gl/actor-smoke.js), riding the same bones. A failed compile turns
+  // them off for this context rather than taking the people with them.
+  let smoke = null;
+  const smokeLayer = () => {
+    if (smoke === null) { try { smoke = createActorSmoke(gl); } catch (e) { smoke = false; console.warn('actor smoke off:', e && e.message); } }
+    return smoke;
+  };
   // This frame's heads, sorted by level then hair style; `hc` counts each (level, style) bucket.
   const NB = HEAD_LEVELS.length * HAIR_STYLES;
   const hc = new Int32Array(NB), hat = new Int32Array(NB + 1);
@@ -908,6 +916,7 @@ export function createActorLayer(gl) {
     for (const M of meshes.values()) M.n = 0;
     const bake = actorBakeReady();
     if (bake !== curBake) { dropMeshes(); curBake = bake; }
+    if (smoke || (bake && recs && recs.length)) { const S = smokeLayer(); if (S) S.upload(bake && recs && recs.length ? recs : null, bake); }
     if (!bake || !recs || !recs.length) return 0;
     uploadHeads(recs, bake);
     // Which body draws a record: its silhouette's (actor3d.js actorSilhouette, off its cut), near or far.
@@ -1091,6 +1100,10 @@ export function createActorLayer(gl) {
     }
     bodies();
     if (curBake) tris += drawHeads(curBake, uniforms);
+    // a cigarette in the hand, and its smoke, over everybody (the close-up figure's people too)
+    if (!opts.depthOnly && curBake && curBake.bones && smoke && smoke.count) {
+      smoke.draw(VP, VM, opts, (unit) => { const bt = bonesFor(curBake); gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, bt); }, { key });
+    }
     if (opts.depthOnly) gl.colorMask(true, true, true, true);
     return tris;
   }
@@ -1101,6 +1114,7 @@ export function createActorLayer(gl) {
     upload, draw, drawDepth,
     get instances() { return n; },
     get heads() { return nh; },
+    get smokers() { return smoke ? smoke.count : 0; },
   };
 }
 

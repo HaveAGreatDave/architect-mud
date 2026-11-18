@@ -1,0 +1,108 @@
+/* The holding picture (tv-hold.js): a title card with the show's mark and both clubs' crests,
+   up in the Gameday box until the game is live. The wall set paints it with page-paint.js, so
+   nothing here needs a shadow or a transform to be read; only opacity and position animate.
+   Sizes follow the box (container units), so the same card fits the popup, the tablet and the wall. */
+.tvh {
+	position: absolute; inset: 0; z-index: 60; overflow: hidden;
+	container-type: size;
+	background: #05080d;
+	font-family: var(--font-mono); color: #e8f0f6;
+	animation: tvh-in 0.6s ease-out both;
+	transition: opacity 0.65s ease-in;
+}
+.tvh.out { opacity: 0; pointer-events: none; }
+.tvh-shot { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.tvh-gfx { position: absolute; inset: 0; }
+
+/* the card is a column: the bug, the matchup, the booth's line, the crawl. Nothing overlaps,
+   so the line always has its room. */
+.tvh-gfx { display: flex; flex-direction: column; }
+.tvh-top { flex: none; display: flex; align-items: center; justify-content: space-between; padding: 3cqh 2.5cqw 0; }
+.tvh-live {
+	display: inline-flex; align-items: center; gap: 0.4em;
+	padding: 0.25em 0.6em; border-radius: 3px;
+	background: rgba(10, 12, 16, 0.78);
+	font: 800 clamp(9px, 2.1cqw, 14px)/1 'K7 Shoulders', 'Arial Narrow', Impact, sans-serif; letter-spacing: 0.12em; color: #fff;
+}
+.tvh-live i { width: 0.6em; height: 0.6em; border-radius: 50%; background: #ff3b3b; animation: tvh-blink 1.6s ease-in-out infinite; }
+
+/* the matchup: a crest each side, the show's mark between them */
+.tvh-stage {
+	flex: 1; min-height: 0;
+	display: grid; grid-template-columns: 1fr minmax(0, 1.05fr) 1fr; align-items: center;
+	padding: 1cqh 3cqw;
+}
+.tvh-side { min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 1.2cqh; text-align: center; animation: tvh-rise 0.6s ease-out 0.15s both; }
+.tvh-side.home { animation-delay: 0.3s; }
+.tvh-crest { width: min(24cqw, 42cqh); height: min(24cqw, 42cqh); display: flex; align-items: center; justify-content: center; line-height: 0; }
+.tvh-crest .tv-crest, .tvh-crest svg { display: block; width: 100%; height: 100%; }
+.tvh-crest-blank {
+	width: 80%; height: 80%; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+	background: rgba(4, 7, 12, 0.6); border: 3px solid var(--chip);
+	font: 800 min(12cqw, 20cqh)/1 'K7 Shoulders', 'Arial Narrow', Impact, sans-serif; color: #fff;
+}
+.tvh-name {
+	max-width: 100%; padding-bottom: 0.2em; border-bottom: 3px solid var(--chip);
+	font: 800 clamp(11px, 3.2cqw, 26px)/1.05 'K7 Shoulders', 'Arial Narrow', Impact, sans-serif; letter-spacing: 0.03em; text-transform: uppercase; color: #fff;
+	white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.tvh-rec { font-size: clamp(8px, 1.7cqw, 13px); font-variant-numeric: tabular-nums; color: #c3d2de; }
+
+.tvh-mid { min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 1.6cqh; animation: tvh-rise 0.6s ease-out both; }
+.tvh-logo {
+	display: flex; flex-direction: column; align-items: center; gap: 0.5em; text-align: center;
+	font: 800 clamp(12px, 3.4cqw, 28px)/1.05 'K7 Shoulders', 'Arial Narrow', Impact, sans-serif; letter-spacing: 0.08em; text-transform: uppercase; color: #fff;
+}
+.tvh-logo .cphl-mark { width: min(13cqw, 22cqh); height: min(13cqw, 22cqh); }
+.tvh-logo span { padding: 0.25em 0.6em; background: rgba(4, 7, 12, 0.7); border-top: 2px solid var(--tv-header-color, #37d67a); }
+.tvh-vs { font: 800 clamp(12px, 3.6cqw, 28px)/1 'K7 Shoulders', 'Arial Narrow', Impact, sans-serif; letter-spacing: 0.2em; text-transform: uppercase; color: var(--tv-header-color, #37d67a); }
+.tvh-score { display: flex; align-items: center; gap: 1.6cqw; padding: 0.2em 0.8em; background: rgba(4, 7, 12, 0.75); }
+.tvh-score b { font: 800 clamp(18px, 6cqw, 46px)/1 'K7 Shoulders', 'Arial Narrow', Impact, sans-serif; color: #fff; font-variant-numeric: tabular-nums; }
+.tvh-score i { font-style: normal; font-size: clamp(8px, 1.6cqw, 12px); letter-spacing: 0.15em; color: var(--tv-header-color, #37d67a); white-space: nowrap; text-transform: uppercase; }
+.tvh-when, .tvh-from { font-size: clamp(7px, 1.5cqw, 11px); letter-spacing: 0.28em; text-transform: uppercase; color: #cdd9e3; text-align: center; }
+.tvh-from { color: #9fb2c2; }
+.tvh-from b { color: #fff; font-weight: 400; }
+.tvh-when:empty { display: none; }
+
+/* the booth's last line, over the crawl: it wraps, and the card gives it the room */
+.tvh-cap {
+	flex: none; padding: 0.5em 4cqw; box-sizing: border-box;
+	background: rgba(0, 0, 0, 0.72); border-top: 1px solid rgba(255, 255, 255, 0.1);
+	font-size: clamp(9px, 1.9cqw, 14px); line-height: 1.3; color: #fff; text-align: center;
+	overflow-wrap: anywhere;
+}
+.tvh-cap:empty { display: none; }
+.tvh-cap.in { animation: tvh-cap 0.3s ease-out; }
+
+/* the crawl along the bottom */
+.tvh-crawl {
+	flex: none; position: relative; height: 9cqh; min-height: 18px;
+	display: flex; align-items: stretch;
+	background: linear-gradient(180deg, #121a26, #0a0f17); border-top: 1px solid rgba(255, 255, 255, 0.12);
+	font-size: clamp(9px, 2cqw, 14px);
+}
+.tvh-crawl-lbl {
+	flex: none; display: flex; align-items: center; padding: 0 1em;
+	background: var(--tv-header-color, #37d67a); color: #04100f;
+	font: 800 1em/1 'K7 Shoulders', 'Arial Narrow', Impact, sans-serif; letter-spacing: 0.1em; text-transform: uppercase;
+}
+.tvh-crawl-win { flex: 1; min-width: 0; overflow: hidden; position: relative; }
+.tvh-crawl-run {
+	position: absolute; top: 0; bottom: 0; left: 0; display: flex; align-items: center; white-space: nowrap;
+	animation: tvh-crawl var(--crawl-s, 30s) linear infinite;
+}
+.tvh-crawl-half { display: inline-flex; align-items: center; min-width: 100cqw; flex: none; }
+.tvh-crawl-item { display: inline-flex; align-items: center; gap: 0.4em; padding: 0 1.6em 0 0; color: #dfe8ef; text-transform: uppercase; letter-spacing: 0.05em; }
+.tvh-crawl-item i { font-style: normal; color: #7f95a8; }
+.tvh-crawl-item em { width: 0.7em; height: 0.7em; border-radius: 2px; }
+.tvh-crawl-item b { font-weight: 400; color: #fff; font-variant-numeric: tabular-nums; }
+.tvh-crawl-item u { text-decoration: none; color: var(--tv-header-color, #37d67a); }
+
+@keyframes tvh-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes tvh-rise { from { opacity: 0; translate: 0 10px; } to { opacity: 1; translate: 0 0; } }
+@keyframes tvh-cap { from { opacity: 0; } to { opacity: 1; } }
+@keyframes tvh-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+@keyframes tvh-crawl { from { translate: 0 0; } to { translate: -50% 0; } }
+
+@container (max-height: 220px) { .tvh-from, .tvh-when { display: none; } }
+[data-motion="off"] .tvh, [data-motion="off"] .tvh * { animation: none !important; transition: none !important; }

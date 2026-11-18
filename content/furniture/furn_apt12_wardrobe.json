@@ -9,6 +9,10 @@
       "form": "wardrobe",
       "wear": 0.08,
       "wood": "#5a3a26"
+    },
+    "spot": {
+      "along": 2.3,
+      "wall": "left"
     }
   },
   "hp": null,

@@ -1,0 +1,28 @@
+{
+  "description": "A stainless steel sink and ribbed drainer dropped into the worktop. The mixer tap has a red knob, a blue knob and a spout that swings over the drainer if you knock it.",
+  "flags": {
+    "aliases": [
+      "sink",
+      "kitchen sink",
+      "steel sink",
+      "tap",
+      "drainer"
+    ],
+    "interactions": [
+      "lean"
+    ],
+    "look": {
+      "dims": [
+        1,
+        0.7,
+        0.92
+      ],
+      "form": "kitchen"
+    },
+    "water_source": true
+  },
+  "id": "furn_mq_chrome_203_sink",
+  "name": "steel sink",
+  "object_type": "sink",
+  "zone_id": "zone_mq_chrome_203"
+}

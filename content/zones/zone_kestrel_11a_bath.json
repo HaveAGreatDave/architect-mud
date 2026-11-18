@@ -5,7 +5,7 @@
     "south": "zone_kestrel_11a"
   },
   "flags": {
-    "building_name": "Kestrel Court",
+    "building_name": "The Flute",
     "building_type": "apartment",
     "floor": "tile",
     "is_building": true,
@@ -17,6 +17,6 @@
   "grid_z": 3,
   "id": "zone_kestrel_11a_bath",
   "map_id": "map_int_kestrel",
-  "name": "Kestrel Court, Unit 11A Bathroom",
+  "name": "The Flute, Unit 11A Bathroom",
   "parent_zone": "zone_district_913_908"
 }

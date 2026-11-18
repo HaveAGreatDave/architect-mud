@@ -11,7 +11,7 @@ import { emit } from '../events.js';
 import { effectiveSkill, awardSkillUse } from '../skills.js';
 import { getEquippedWeapon } from '../inventory.js';
 import { getZoneProtection } from '../protection.js';
-import { doorGuardsOnlyUnownedApartment, playerControlsApt } from '../apartments.js';
+import { doorGuardsOnlyUnownedApartment, playerControlsApt, doorFarIds } from '../apartments.js';
 import { gameMsToReal } from '../gametime.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage, getSelectionState } from '../sift.js';
 import { registerAction } from '../actions.js';
@@ -135,7 +135,7 @@ export { getLockTag as getLockTagPublic };
 // plain red, never to a door that turns out not to open for you.
 function controlsEitherSide(player, door) {
   if (!player || !door) return false;
-  const sides = [door.zone_id, door.target_zone, ...exitTargets(door)].filter(Boolean);
+  const sides = [door.zone_id, ...doorFarIds(door)].filter(Boolean);
   for (const zid of new Set(sides)) {
     const apt = getApartment(zid);
     if (apt && playerControlsApt(player, apt)) return true;
@@ -578,6 +578,9 @@ async function hackDoor(door, player, broadcast) {
     broadcast(zid, { type:'zone_event', message:'A faint electronic whine buzzes from the door. Someone is working the lock.' });
   }
   broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} jacks a deck into the door's ${lockNoun(lockTag)}.` }, player.id);
+  // Anyone on this side can see it: a camera turns to it and a cop makes you (plugins/surveillance), and somebody
+  // standing there panics and calls it in (plugins/ambient-life panic.js). `lock.hackEnded` says it's over.
+  emit('lock.hackAttempt', { player, zoneId: player.current_zone, door, lock: lockNoun(lockTag) });
 
   // Signal the break-in to the burglary alarm system (picking phase begins now):
   // residents on the far side may hear the lock being worked.
@@ -620,6 +623,7 @@ async function cmdHackResolve(args, raw, player, broadcast) {
   const pending = pendingHack.get(player.id);
   pendingHack.delete(player.id);
   if (!pending || pending.doorId !== doorId) return { type:'noop' };
+  emit('lock.hackEnded', { player, zoneId: player.current_zone, doorId, win });
   const door = getDoorById(doorId);
   // A turn-based lock lost is tripped wherever you are and however long it took:
   // the noops below would otherwise let a player walk out of the room, or wait

@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#c9a884",
-  "description": "Unit 2B, the back corner. Dusty pink walls, a marble island with a reeded oak front, and glass-fronted cupboards with the hotel's crest on the plates. A chesterfield takes the long wall and a writing desk the window end. The faded beach poster a tenant left behind has been framed, and now looks like it was meant to be there.",
+  "description": "Unit 2B, a long room at the back with its window on Dray Lane. Dusty pink walls, a chesterfield along one side and a writing desk under the window. The faded beach poster a tenant left behind has been framed, and now looks like it was meant to be there.",
   "exits": {
     "in": "zone_apt_2_bath",
     "north": "zone_embassy_floor_2nd"
@@ -12,11 +12,11 @@
     "is_apartment": true,
     "room": {
       "blinds": true,
-      "d": 10,
+      "d": 12.3,
       "decor": {
         "art": [
           {
-            "at": 2.8,
+            "at": 2.75,
             "h": 0.8,
             "seed": 2,
             "w": 1.1,
@@ -32,11 +32,11 @@
             "y": 1.65
           },
           {
-            "at": -3.2,
+            "at": 0.65,
             "h": 0.9,
             "seed": 5,
             "w": 0.7,
-            "wall": "front",
+            "wall": "right",
             "y": 1.6
           }
         ],
@@ -54,18 +54,18 @@
         },
         "plants": [
           [
-            -3.55,
+            -1.25,
             0.45,
             1
           ]
         ],
         "rug": {
           "at": [
-            -2.4,
+            -0.3,
             2.8
           ],
           "d": 2.2,
-          "w": 2.6
+          "w": 2.1
         },
         "sconces": {
           "hex": "#b8924a",
@@ -82,16 +82,11 @@
           "y": 1.8
         }
       },
-      "h": 3,
-      "kitchen": {
-        "face": "fluted",
-        "front": "#e8e2d4",
-        "grade": 2,
-        "island": true,
-        "pendants": "globe",
-        "top": "marble",
-        "uppers": "cabinets"
+      "ensuite": {
+        "d": 2.8
       },
+      "face": 90,
+      "h": 4.13,
       "sash": {
         "drapes": "#7a2e3a",
         "head": true,
@@ -99,13 +94,14 @@
         "transom": 0.4,
         "w": 1.8
       },
+      "studio": false,
       "tone": {
         "accent": "#b8924a",
         "ceiling": "#f2eee4",
         "trim": "#f2ece2",
         "wall": "#c9a0a0"
       },
-      "w": 8
+      "w": 3.3
     },
     "window": {
       "description": "A tall sash window, reglazed, that opens and shuts and keeps the weather where it belongs.",

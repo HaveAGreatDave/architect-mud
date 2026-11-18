@@ -1,0 +1,20 @@
+{
+  "blurb": "Black on black, a violet line round the arches. You hear it before you see it.",
+  "default": false,
+  "exterior": {
+    "base": "#121214",
+    "finish": "gloss",
+    "pattern": "factory",
+    "trim": "#a896ff",
+    "variant": "nero"
+  },
+  "id": "nero",
+  "interior": {
+    "cabin": "#18161c",
+    "uphol": "leather"
+  },
+  "kind": "aircraft",
+  "model": "merlin",
+  "name": "Nero",
+  "unlock": null
+}

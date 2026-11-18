@@ -10,6 +10,10 @@
       "arche": "sofa",
       "form": "sofa",
       "wear": 0.95
+    },
+    "spot": {
+      "along": 1.7,
+      "wall": "front"
     }
   },
   "hp": null,

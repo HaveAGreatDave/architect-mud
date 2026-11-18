@@ -217,11 +217,21 @@ export function mealProps(L, bodies, recs, t) {
       box(b, [p[0], p[1] + 0.034, p[2]], [0.061, 0.016, 0.046], deg, lin(d.food[0]), MAT.SATIN);
       box(b, [p[0], p[1] + 0.067, p[2]], [0.055, 0.003, 0.04], deg, lin('#e8e8e4'), MAT.GLOSS);
     } else if (m.s === 'serve' || m.s === 'eat') {
-      const p = palmOf(rec);
+      // on the table in front of them when they're sat at one (gl/figure-reach.js mealPlan put it there and the
+      // hands to it), else on the flat of the left hand
+      const p = rec.plate || palmOf(rec);
       // half eaten by the time they've sat a while: the amount goes down on their own clock
       const full = m.s === 'serve' ? 1 : 0.35 + 0.65 * (0.5 + 0.5 * Math.cos(((t + seeded(seed)() * 60) / 60) * Math.PI));
-      tableware(b, d.serve, [p[0], p[1] + 0.01, p[2]], d, seed, full);
-      // a fork, or a spoon for anything in a bowl or a tin, along the right hand: from the heel of it out past the fingers
+      tableware(b, d.serve, [p[0], p[1] + (rec.plate ? 0 : 0.01), p[2]], d, seed, full);
+      // the knife put down across the rim while the fork's moved over to the right hand
+      if (rec.plate && rec.knifeDown) {
+        const a0 = yaw + 0.5, dx = Math.sin(a0), dz = Math.cos(a0), c = [p[0] + Math.cos(yaw) * 0.06, p[1] + 0.022, p[2] - Math.sin(yaw) * 0.06];
+        stick(b, [c[0] - dx * 0.11, c[1], c[2] - dz * 0.11], [c[0] + dx * 0.11, c[1], c[2] + dz * 0.11], 0.004, SPOON, MAT.METAL);
+      }
+      // what they eat with is in their hands (gl/room-held.js), worked out round the hand; carried in to the
+      // seat, a fork along the right hand as before
+      const holding = rec.hold?.R || rec.hold?.L;
+      if (holding) return;
       const a = palmOf(rec, 'R', [-0.195, 0.80, 0.0]), e = palmOf(rec, 'R', [-0.195, 0.64, 0.02]);
       stick(b, a, e, 0.0035, SPOON, MAT.METAL);
       const dir = [e[0] - a[0], e[1] - a[1], e[2] - a[2]], l = Math.hypot(...dir) || 1;

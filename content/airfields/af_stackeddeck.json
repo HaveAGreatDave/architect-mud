@@ -1,0 +1,16 @@
+{
+  "charter": false,
+  "charter_vtol_only": false,
+  "dealer": false,
+  "fuels": [
+    "charge"
+  ],
+  "id": "af_stackeddeck",
+  "lawless": false,
+  "name": "Stacked Deck",
+  "rental": false,
+  "residents_only": null,
+  "surface": null,
+  "theme": null,
+  "vtol_only": true
+}

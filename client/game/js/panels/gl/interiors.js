@@ -249,42 +249,66 @@ export function createInteriorLayer(gl) {
     return tris;
   }
 
-  // the rooms behind each street door into a target of their own, then each doorway filled from it
+  // The rooms behind each portal (a street door, or a room's own pane) into a target of their own, then the opening
+  // filled from it. ⚠ ONE PORTAL AT A TIME, IN ITS OWN PATCH OF THE TARGET. Each portal cuts its rooms by its own plane,
+  // so a room drawn for a pane in its side wall keeps its front wall, and in a shared target that wall stood over the
+  // lobby seen through the door. Each one is drawn scissored to its quad's box on the screen and filled at once.
   function drawPortals(vp, ox, oy, light, portals, ready) {
     const view = gl.getParameter(gl.VIEWPORT), w = view[2], h = view[3];
     if (!(w > 0 && h > 0)) return 0;
     const prevFb = gl.getParameter(gl.DRAW_FRAMEBUFFER_BINDING), scissor = gl.isEnabled(gl.SCISSOR_TEST), clear = gl.getParameter(gl.COLOR_CLEAR_VALUE);
-    const T = target(w, h);
-    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, T.fb); gl.viewport(0, 0, w, h);
-    if (scissor) gl.disable(gl.SCISSOR_TEST);
-    gl.clearColor(PORTAL_CLEAR[0], PORTAL_CLEAR[1], PORTAL_CLEAR[2], 1);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    // ⚠ GAMMA IN THE TARGET: the room's shader writes display colour when uGlassLinOut is off, and the quad that reads
-    // the target back converts it as the scene wants, so a linear frame and a plain one both get the room right
-    begin(vp, light, 0);
+    const prevBox = scissor ? gl.getParameter(gl.SCISSOR_BOX) : null;
+    const T = target(w, h), P = portalProg(), B = portalBuf(Math.max(1, ...portals.map((p) => (p.quads ? p.quads.length : 1)))), eye = portals.eye || [0, 0, 0];
     let tris = 0;
     for (const p of portals) {
+      const quads = p.quads || [p.quad];
+      // a pane whose room isn't built yet is left as the model's own glass, not filled with the target's dark
+      if (p.room && !ready.some((e) => e.r.key === p.room)) continue;
+      const box = screenBox(vp, quads.flat(), ox, oy, w, h);
+      if (!box) continue;
+      gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, T.fb); gl.viewport(0, 0, w, h);
+      gl.enable(gl.SCISSOR_TEST); gl.scissor(box[0], box[1], box[2], box[3]);
+      gl.clearColor(PORTAL_CLEAR[0], PORTAL_CLEAR[1], PORTAL_CLEAR[2], 1);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      // ⚠ GAMMA IN THE TARGET: the room's shader writes display colour when uGlassLinOut is off, and the quad that reads
+      // the target back converts it as the scene wants, so a linear frame and a plain one both get the room right
+      begin(vp, light, 0);
       // the plane moves with the origin: n . (x - o) > w  is  n . x > w + n . o
       const clip = [p.clip[0], p.clip[1], p.clip[2] - (p.clip[0] * ox + p.clip[1] * oy)];
-      for (const e of ready) if (e.r.tile === p.tile) tris += drawRoom(e, ox, oy, clip);
+      for (const e of ready) if (e.r.tile === p.tile && (!p.room || e.r.key === p.room)) tris += drawRoom(e, ox, oy, clip);
+      gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, prevFb); gl.viewport(view[0], view[1], w, h);
+      if (scissor) gl.scissor(prevBox[0], prevBox[1], prevBox[2], prevBox[3]); else gl.disable(gl.SCISSOR_TEST);
+      // the opening, on the scene's depth, a touch in front of whatever the model drew in it
+      let n = 0;
+      for (const Q of quads) for (const i of [0, 1, 2, 0, 2, 3]) { const q = Q[i]; B.data.set([q[0] - ox, q[1] - oy, q[2]], n * 3); n++; }
+      gl.bindBuffer(gl.ARRAY_BUFFER, B.buf); gl.bufferSubData(gl.ARRAY_BUFFER, 0, B.data, 0, n * 3);
+      gl.useProgram(P.prog); applyLinOut(gl, P.prog);
+      gl.uniformMatrix4fv(P.vp, false, vp); gl.uniform4f(P.view, view[0], view[1], w, h); gl.uniform1i(P.tex, STILL_UNIT);
+      gl.uniform3f(P.eye, eye[0] - ox, eye[1] - oy, eye[2]); gl.uniform1f(P.pull, portals.eye ? (p.pull ?? PORTAL_PULL) : 0);
+      gl.activeTexture(gl.TEXTURE0 + STILL_UNIT); gl.bindTexture(gl.TEXTURE_2D, T.tex); gl.activeTexture(gl.TEXTURE0);
+      gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.depthMask(true); gl.disable(gl.BLEND); gl.disable(gl.CULL_FACE);
+      gl.bindVertexArray(B.vao);
+      gl.drawArrays(gl.TRIANGLES, 0, n);
+      // ⚠ the target off its unit before the next portal draws into it, or the room shader samples what it writes
+      gl.activeTexture(gl.TEXTURE0 + STILL_UNIT); gl.bindTexture(gl.TEXTURE_2D, null); gl.activeTexture(gl.TEXTURE0);
+      tris += n / 3;
     }
-    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, prevFb); gl.viewport(view[0], view[1], w, h);
     gl.clearColor(clear[0], clear[1], clear[2], clear[3]);
-    if (scissor) gl.enable(gl.SCISSOR_TEST);
-    // the doorways, on the scene's depth, a touch in front of whatever the model drew in them
-    const P = portalProg(), B = portalBuf(portals.length);
-    let n = 0;
-    for (const p of portals) for (const i of [0, 1, 2, 0, 2, 3]) { const q = p.quad[i]; B.data.set([q[0] - ox, q[1] - oy, q[2]], n * 3); n++; }
-    gl.bindBuffer(gl.ARRAY_BUFFER, B.buf); gl.bufferSubData(gl.ARRAY_BUFFER, 0, B.data, 0, n * 3);
-    gl.useProgram(P.prog); applyLinOut(gl, P.prog);
-    gl.uniformMatrix4fv(P.vp, false, vp); gl.uniform4f(P.view, view[0], view[1], w, h); gl.uniform1i(P.tex, STILL_UNIT);
-    const eye = portals.eye || [0, 0, 0];
-    gl.uniform3f(P.eye, eye[0] - ox, eye[1] - oy, eye[2]); gl.uniform1f(P.pull, portals.eye ? PORTAL_PULL : 0);
-    gl.activeTexture(gl.TEXTURE0 + STILL_UNIT); gl.bindTexture(gl.TEXTURE_2D, T.tex); gl.activeTexture(gl.TEXTURE0);
-    gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.depthMask(true); gl.disable(gl.BLEND); gl.disable(gl.CULL_FACE);
-    gl.bindVertexArray(B.vao);
-    gl.drawArrays(gl.TRIANGLES, 0, n);
-    return tris + n / 3;
+    return tris;
+  }
+  // a quad's box on the target in pixels [x, y, w, h], the whole target when a corner is behind the eye, null off it
+  function screenBox(vp, quad, ox, oy, w, h) {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const q of quad) {
+      const x = q[0] - ox, y = q[1] - oy, z = q[2];
+      const cw = vp[3] * x + vp[7] * y + vp[11] * z + vp[15];
+      if (!(cw > 1e-6)) return [0, 0, w, h];
+      const sx = ((vp[0] * x + vp[4] * y + vp[8] * z + vp[12]) / cw * 0.5 + 0.5) * w;
+      const sy = ((vp[1] * x + vp[5] * y + vp[9] * z + vp[13]) / cw * 0.5 + 0.5) * h;
+      x0 = Math.min(x0, sx); x1 = Math.max(x1, sx); y0 = Math.min(y0, sy); y1 = Math.max(y1, sy);
+    }
+    const a = Math.max(0, Math.floor(x0) - 2), b = Math.max(0, Math.floor(y0) - 2), c = Math.min(w, Math.ceil(x1) + 2), d = Math.min(h, Math.ceil(y1) + 2);
+    return c > a && d > b ? [a, b, c - a, d - b] : null;
   }
   function target(w, h) {
     if (tgt && tgt.w === w && tgt.h === h) return tgt;

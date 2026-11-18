@@ -70,7 +70,7 @@ ws.installGLWorld((cells, cam, o) => { hook = { cam, o }; return { canvas: { wid
 
 const layers = [['sprites', (v, l, c) => v.drawSprites(c, l, 360, 1)], ['strokes', (v, l, c) => v.drawStrokes(c, l, 360)], ['decals', (v, l, c) => v.drawDecals(c, l, 360, 0, null, null)]];
 // Civic at noon, Marrow at night: the lettering kept near, then the lit signs kept far.
-const RUNS = [['civic', [911, 912], 13], ['marrow', [916, 909], 23]];
+const RUNS = [['civic', [911, 912], 13], ['marrow', [917, 909], 23]];
 let frames = 0, bad = 0, liteGrouped = 0, faded = 0, broken = 0;
 const shown = [];
 // The two promises as structure, which the triangles only show when an arena happens to re-place a

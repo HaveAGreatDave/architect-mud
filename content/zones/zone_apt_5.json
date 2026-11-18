@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#c9a884",
-  "description": "Unit 3A, riding the front of the building. Oxblood walls, a black kitchen with a marble top and a reeded front, and opal globes over the counter. The street window has been reglazed, and the neon outside now comes through it pink instead of purple. The water stain on the ceiling has been painted round and given a gilt frame.",
+  "description": "Unit 3A, a long room riding the front of the building. Oxblood walls and opal globes. The street window has been reglazed, and the neon outside now comes through it pink instead of purple. The water stain on the ceiling has been painted round and given a gilt frame.",
   "exits": {
     "in": "zone_apt_5_bath",
     "south": "zone_embassy_floor2"
@@ -14,11 +14,11 @@
     "rent_cost": 50,
     "room": {
       "blinds": true,
-      "d": 10,
+      "d": 12.3,
       "decor": {
         "art": [
           {
-            "at": 3,
+            "at": 2.95,
             "h": 1,
             "seed": 11,
             "w": 1.5,
@@ -26,7 +26,7 @@
             "y": 1.85
           },
           {
-            "at": 0.6,
+            "at": 0.55,
             "h": 1,
             "seed": 23,
             "w": 0.8,
@@ -38,7 +38,7 @@
             "h": 1,
             "seed": 37,
             "w": 0.8,
-            "wall": "front",
+            "wall": "right",
             "y": 1.6
           }
         ],
@@ -56,19 +56,19 @@
         },
         "plants": [
           [
-            -3.55,
+            -1.25,
             0.45,
             1.1
           ]
         ],
         "rug": {
           "at": [
-            -2.2,
+            -0.3,
             2.8
           ],
           "d": 2.4,
           "style": "persian",
-          "w": 3
+          "w": 2.1
         },
         "sconces": {
           "hex": "#c9a14a",
@@ -85,15 +85,11 @@
           "y": 1.8
         }
       },
-      "h": 3,
-      "kitchen": {
-        "face": "fluted",
-        "front": "#2a2a2c",
-        "grade": 2,
-        "pendants": "globe",
-        "top": "marble",
-        "uppers": "cabinets"
+      "ensuite": {
+        "d": 2.8
       },
+      "face": 270,
+      "h": 3.93,
       "sash": {
         "drapes": "#d8c9a8",
         "head": true,
@@ -101,13 +97,14 @@
         "transom": 0.4,
         "w": 1.8
       },
+      "studio": false,
       "tone": {
         "accent": "#c9a14a",
         "ceiling": "#efe6d6",
         "trim": "#e8dcc8",
         "wall": "#6e2a2a"
       },
-      "w": 8
+      "w": 3.3
     },
     "window": {
       "description": "A tall sash window, reglazed, that opens and shuts and keeps the weather where it belongs.",

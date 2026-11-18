@@ -2,12 +2,13 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#241f19",
-  "description": "The old locking room, with a counter where the lever rods came down through the ceiling. A sign-in ledger lies chained open on it beside a kettle that's never been switched off. Lockers line the east wall, half of them missing doors. A painted arrow points up the stairs: BUNKS, FIVE FLOORS, FIRST COME. The wash is north.",
+  "description": "The old locking room, with a counter where the lever rods came down through the ceiling. A sign-in ledger lies chained open on it beside a kettle that's never been switched off. Lockers stand along the back wall, half of them missing doors. A painted arrow points up the stairs: COTS, FIVE FLOORS, FIRST COME. The wash is north and the kitchen west.",
   "exits": {
     "down": "zone_util_zone_trackmarks_shop",
     "north": "zone_trackmarks_back",
     "south": "zone_district_917_903",
-    "up": "zone_hostel_dorm"
+    "up": "zone_hostel_dorm",
+    "west": "zone_hostel_kitchen"
   },
   "flags": {
     "building_name": "Hostel Takeover",
@@ -16,6 +17,88 @@
     "is_building": true,
     "is_interior": true,
     "region_id": "region_coldwater",
+    "room": {
+      "balcony": false,
+      "d": 5,
+      "decor": {
+        "damp": [
+          {
+            "at": [
+              1.8,
+              4.2
+            ],
+            "r": 0.5
+          }
+        ],
+        "mags": [
+          {
+            "at": [
+              0.4,
+              1.4
+            ],
+            "n": 7,
+            "seed": 1
+          }
+        ],
+        "rubbish": [
+          {
+            "at": [
+              1.4,
+              1.5
+            ],
+            "n": 12,
+            "r": [
+              1.1,
+              0.6
+            ],
+            "seed": 1
+          },
+          {
+            "at": [
+              -0.8,
+              3.8
+            ],
+            "n": 5,
+            "r": [
+              0.5,
+              0.4
+            ],
+            "seed": 2
+          }
+        ],
+        "rug": false,
+        "strips": [
+          {
+            "along": "u",
+            "at": [
+              0.6,
+              2.5
+            ],
+            "cage": true,
+            "len": 1.2
+          }
+        ]
+      },
+      "face": 180,
+      "ground": "tile",
+      "h": 3,
+      "stair": {
+        "at": [
+          -2.2,
+          0.6
+        ],
+        "climb": "back",
+        "w": 0.9
+      },
+      "studio": false,
+      "tone": {
+        "accent": "#6a5a3a",
+        "ceiling": "#b8ac8a",
+        "trim": "#3a3026",
+        "wall": "#a89a78"
+      },
+      "w": 5.6
+    },
     "sanctuary": true,
     "window": {
       "description": "A full-height pane onto the street, kept just clean enough to see who's coming. Whatever the weather is doing out there, it's doing it in plain view.",

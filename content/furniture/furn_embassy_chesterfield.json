@@ -1,0 +1,37 @@
+{
+  "description": "A buttoned sofa in oxblood leather, gone grey where a thousand arms have rested, with a row of brass nails along the front. Two nails are missing. Lowry has noticed.",
+  "flags": {
+    "aliases": "sofa,couch,chesterfield,leather sofa",
+    "interactions": [
+      "sit",
+      "lie"
+    ],
+    "look": {
+      "arche": "sofa",
+      "dims": [
+        2.1,
+        0.92,
+        0.76
+      ],
+      "dress": "oxblood",
+      "form": "chesterfield"
+    },
+    "spot": {
+      "at": [
+        -3.6,
+        7.8
+      ],
+      "turn": 0
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_embassy_chesterfield",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "chesterfield",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_residential_lobby"
+}

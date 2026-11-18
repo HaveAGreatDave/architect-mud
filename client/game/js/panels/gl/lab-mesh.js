@@ -45,15 +45,17 @@ const pick = (r, list) => list[Math.floor(r() * list.length) % list.length];
 // ── glass ─────────────────────────────────────────────────────────────────────────────────────────
 // A turned piece of glass round the upright at (x, z): `prof` is [radius, y] from the bottom up, as
 // for `lat`. Into the glass batch, so it's drawn last and blended.
-export function glassLathe(c, x, z, prof, n = 16) {
-  const { P, N } = c.F, K = c.K;
+export function glassLathe(c, x, z, prof, n = 16, tint = null) {
+  const { P, N } = c.F, K = c.K, col = tint ? K.C(tint, 1) : [1, 1, 1];
+  // a kit with no glass layer gets the glass as a solid, tinted
+  if (!K.glass) { c.lat(x, z, prof, tint || '#dfe8ec', 1, n, GLOSS); return; }
   for (let i = 0; i + 1 < prof.length; i++) {
     const [r0, y0] = prof[i], [r1, y1] = prof[i + 1], dr = r1 - r0, dy = y1 - y0, l = Math.hypot(dr, dy);
     if (l < 1e-5) continue;
     for (let j = 0; j < n; j++) {
       const a0 = (j / n) * Math.PI * 2, a1 = ((j + 1) / n) * Math.PI * 2, am = (a0 + a1) / 2;
       const at = (r, a, y) => P(x + Math.cos(a) * r, y, z + Math.sin(a) * r);
-      K.quad(K.glass, [at(r0, a0, y0), at(r0, a1, y0), at(r1, a1, y1), at(r1, a0, y1)], N((Math.cos(am) * dy) / l, -dr / l, (Math.sin(am) * dy) / l), [1, 1, 1], GLOSS, null, true);
+      K.quad(K.glass, [at(r0, a0, y0), at(r0, a1, y0), at(r1, a1, y1), at(r1, a0, y1)], N((Math.cos(am) * dy) / l, -dr / l, (Math.sin(am) * dy) / l), col, GLOSS, null, true);
     }
   }
 }
@@ -62,6 +64,9 @@ export function glassLathe(c, x, z, prof, n = 16) {
 // lit and see-through, so what's in a flask reads as liquid, not plastic. `prof` as for glassLathe.
 export function liquidLathe(c, x, z, prof, hex, k = 1, n = 16) {
   const { P, N } = c.F, K = c.K, col = K.C(hex, k);
+  if (!K.glass) { c.lat(x, z, prof, hex, k, n, GLOSS); return; }
+  // a moving part's liquids are told to the assembly (gl/room-mesh.js sloshAt), as the run of glass vertices each is
+  const n0 = K.glass.n;
   for (let i = 0; i + 1 < prof.length; i++) {
     const [r0, y0] = prof[i], [r1, y1] = prof[i + 1], dr = r1 - r0, dy = y1 - y0, l = Math.hypot(dr, dy);
     if (l < 1e-5) continue;
@@ -71,6 +76,7 @@ export function liquidLathe(c, x, z, prof, hex, k = 1, n = 16) {
       K.quad(K.glass, [at(r0, a0, y0), at(r0, a1, y0), at(r1, a1, y1), at(r1, a0, y1)], N((Math.cos(am) * dy) / l, -dr / l, (Math.sin(am) * dy) / l), col, LIQUID, null, true);
     }
   }
+  K.liquids?.push({ n0, n1: K.glass.n });
 }
 export const LIQUID = 44;
 
@@ -95,7 +101,19 @@ export function fillOf(prof, top, inset = 0.9) {
 export function vessel(c, x, z, y0, prof, fill, liquid, n = 16) {
   const p = prof.map(([r, y]) => [r, y + y0]), top = p[p.length - 1], h = top[1] - y0;
   glassLathe(c, x, z, p, n);
-  if (fill > 0 && liquid) liquidLathe(c, x, z, fillOf(p, y0 + 0.003 + h * fill), liquid, 1, n);
+  if (fill > 0 && liquid) {
+    const ly = y0 + 0.003 + h * fill;
+    liquidLathe(c, x, z, fillOf(p, ly), liquid, 1, n);
+    // the meniscus, a bright ring where the liquid climbs the glass
+    const rl = fillOf(p, ly).at(-2)?.[0];
+    if (rl > 0.004) c.lat(x, z, [[rl * 0.97, ly - 0.001], [rl * 1.01, ly + 0.002], [rl * 0.97, ly + 0.002]], '#f4fbff', 1.2, n, GLOSS);
+  }
+  // straight-walled ware (a beaker, a cylinder) is graduated: white ticks up its front, a longer one every third
+  const r0 = p[1]?.[0] ?? 0, wall = p.filter(([r]) => Math.abs(r - top[0]) < 0.003);
+  if (Math.abs(r0 - top[0]) < 0.006 && wall.length >= 2 && h > 0.05) {
+    const { pbox } = c.F, ticks = Math.min(8, Math.floor(h / 0.015));
+    for (let i = 1; i < ticks; i++) { const y = y0 + (h * i) / ticks, w = i % 3 ? 0.006 : 0.012; pbox(x - w, x + w, y, y + 0.0012, z + top[0] + 0.0004, z + top[0] + 0.0012, '#f4f6f8', 1.1, null, MATTE); }
+  }
   c.lat(x, z, [[top[0] * 0.96, top[1] - 0.003], [top[0] * 1.06, top[1] - 0.003], [top[0] * 1.06, top[1]], [top[0] * 0.96, top[1]]], '#e8f0f2', 1.05, n, GLOSS);
   return top[1];
 }
@@ -450,9 +468,21 @@ export function reagents(c, x0, x1, y, z, n, grade) {
   const glassCols = ['#5a2a10', '#7a3a14', '#d8e4e8', '#f0eee8'];
   for (let i = 0; i < n; i++) {
     const x = x0 + ((i + 0.5) * (x1 - x0)) / n + (c.r() - 0.5) * 0.01, h = 0.12 + c.r() * 0.08, wd = 0.022 + c.r() * 0.01;
-    const col = grade === 2 && i % 3 ? '#f0eee8' : pick(c.r, glassCols);
-    c.lat(x, z, SHAPES.bottle(wd, h).map(([r, yy]) => [r, y + yy]), col, 0.95, 10, GLOSS);
-    c.lat(x, z, [[wd * 1.02, y + h * 0.22], [wd * 1.02, y + h * 0.52]], grade === 0 && c.r() < 0.4 ? '#c8b890' : '#f4f2ea', 1, 10, MATTE);
+    const col = grade === 2 && i % 3 ? (i % 4 ? '#d8e4e8' : '#f0eee8') : pick(c.r, glassCols);
+    // glass you can see into: amber or clear, the reagent in it to its own level, a white stock bottle opaque
+    const prof = SHAPES.bottle(wd, h).map(([r, yy]) => [r, y + yy]), fill = 0.25 + c.r() * 0.55, liquid = pick(c.r, REAGENTS);
+    if (col === '#f0eee8') c.lat(x, z, prof, col, 0.95, 12, GLOSS);
+    else {
+      glassLathe(c, x, z, prof, 12, col === '#d8e4e8' ? null : col);
+      liquidLathe(c, x, z, fillOf(prof, y + 0.004 + h * 0.66 * fill, 0.88), col === '#d8e4e8' ? liquid : '#7a3a10', 1, 12);
+      // a meniscus: a thin bright ring where the liquid meets the glass
+      const ly = y + 0.004 + h * 0.66 * fill;
+      c.lat(x, z, [[wd * 0.9, ly - 0.001], [wd * 0.93, ly + 0.0015], [wd * 0.93, ly + 0.002], [wd * 0.9, ly + 0.002]], '#f4fbff', 1.2, 12, GLOSS);
+    }
+    // the label, its coloured hazard stripe, a stopper with its collar
+    c.lat(x, z, [[wd * 1.02, y + h * 0.22], [wd * 1.02, y + h * 0.52]], grade === 0 && c.r() < 0.4 ? '#c8b890' : '#f4f2ea', 1, 12, MATTE);
+    c.lat(x, z, [[wd * 1.03, y + h * 0.44], [wd * 1.03, y + h * 0.48]], pick(c.r, ['#c83a2a', '#d8a82a', '#3a6aa8', '#2e8a4a']), 1, 12, MATTE);
+    c.lat(x, z, [[wd * 0.38, y + h - 0.004], [wd * 0.44, y + h - 0.004], [wd * 0.44, y + h + 0.004], [wd * 0.38, y + h + 0.004]], '#d8dade', 1, 8, METAL);
     c.lat(x, z, [[wd * 0.4, y + h], [wd * 0.42, y + h + 0.02], [0, y + h + 0.022]], pick(c.r, ['#1c1e20', '#c83a2a', '#2a5a8a']), 1, 8, SATIN);
   }
 }

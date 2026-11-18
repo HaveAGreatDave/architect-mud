@@ -136,6 +136,14 @@ export function noteVenuePlay(msg) {
   const play = { home: String(msg.home || ''), away: String(msg.away || ''), top: msg.top ? 1 : 0, outs: msg.outs | 0,
     bases: [0, 1, 2].map((i) => (Array.isArray(msg.bases) && msg.bases[i] ? 1 : 0)), final: msg.final ? 1 : 0 };
   for (let x = b[0]; x <= b[2]; x++) for (let y = b[1]; y <= b[3]; y++) PLAY.set(x + ',' + y, play);
+  LAST_PLAY = { ...play, x: b[0], y: b[1] };
+}
+// The game on now, if any: the last play pushed, unless it was final or its venue has since gone dark.
+let LAST_PLAY = null;
+export function venueGame() {
+  const g = LAST_PLAY;
+  if (!g || g.final || venueLive(g.x, g.y) === 0) return null;
+  return g;
 }
 export function venuePlay(x, y) { return PLAY.size ? PLAY.get(x + ',' + y) || null : null; }
 
@@ -180,6 +188,37 @@ export function venueRoof(x, y, now = Date.now()) {
   const e = ROOF.get(x + ',' + y);
   if (!e) return undefined;
   return { p: roofAt(e, now), to: e.to, moving: now - e.t0 < ROOF_MS };
+}
+// ── THE LIFT PAD ─────────────────────────────────────────────────────────────
+// A rooftop pad that's also a lift (the Stacked Deck's carousel, plugins/flight hangars.js). A
+// `pad_lift` push says a ride started on that tile; everyone's GLASS paints the pad going down into
+// the roof and coming back up on the same clock the rider's overlay plays (panels/carousel-ride.js).
+// It's never mesh: the `liftPad` adornment paints the well on the canvas while it moves, and the
+// pad at rest is the ordinary helideck decal.
+const PAD = new Map();   // "x,y" → { dir, ms, t0 }
+export function notePadLift(msg) {
+  if (!msg || !Number.isFinite(msg.x) || !Number.isFinite(msg.y)) return;
+  PAD.set(msg.x + ',' + msg.y, { dir: msg.dir === 'up' ? 'up' : 'down', ms: Math.max(1000, +msg.ms || 11000), t0: Date.now() });
+}
+// a harness with no tile place (the Modelshop) plays one on key "p,p"
+export function previewPadLift(dir = 'down', ms = 11000) { PAD.set('p,p', { dir, ms, t0: Date.now() }); }
+const ease = (u) => { const k = Math.min(1, Math.max(0, u)); return k * k * (3 - 2 * k); };
+// How far down the pad is on this tile (s, 0 at the roof to 1 at the bottom of its travel), whether an
+// aircraft is on it, and whether the warning lights run. Undefined when nothing's moving there.
+export function padLiftAt(x, y, now = Date.now()) {
+  if (!PAD.size) return undefined;
+  const k = x + ',' + y, e = PAD.get(k);
+  if (!e) return undefined;
+  const u = (now - e.t0) / e.ms;
+  if (u >= 1) { PAD.delete(k); return undefined; }
+  if (e.dir === 'down') {
+    // hold, sink with the craft on it, stay down while the drum works, come back up empty
+    const s = u < 0.08 ? 0 : u < 0.4 ? ease((u - 0.08) / 0.32) : u < 0.82 ? 1 : 1 - ease((u - 0.82) / 0.18);
+    return { s, craft: u < 0.4, warn: u < 0.4 };
+  }
+  // up: the empty pad goes down for it, and rises with it on
+  const s = u < 0.2 ? ease(u / 0.2) : u < 0.72 ? 1 : 1 - ease((u - 0.72) / 0.28);
+  return { s, craft: u >= 0.72, warn: u < 0.72 };
 }
 // Bumped whenever a venue's lights or roof change state, including a roof arriving where it was
 // going, which no message announces. The GL pass keys its window on it.

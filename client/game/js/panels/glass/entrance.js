@@ -18,7 +18,7 @@
 // and a frame drawn past it all round puts a lip under the ground.
 import {
   DETAIL_LIFT, FACE_EPS, SHAPE_SINK, bakeSignText, draw3DBoxAt, emitFlat, emitSurfaceText,
-  emitWire, faceYaw, glowPool, rgb,
+  emitWire, faceYaw, glowPool, markDoorway, rgb,
 } from '../windshield.js';
 
 // Turn a quad to face `out`, the way downtown.js `facing` does, so a cull normal means what it says.
@@ -82,6 +82,8 @@ export function drawEntrance(ctx, cam, F, W3, E, seed, night, alpha, o) {
   const fc = frame.map((v) => Math.round(v * dusk));
   const dep = o.depth ?? 0.012, yo = y + dep;
   const x0 = x - w, x1 = x + w;
+  // the doorway, for a building whose street door moves (windshield.js doorBayAt), set in the porch's face if it has one
+  markDoorway(F, x, y, w, z0, top, yo);
   // 1) The surround: one plate round the opening and the transom, flush on the wall plane.
   Q([[x0 - fr, y + FACE_EPS, head + fr], [x1 + fr, y + FACE_EPS, head + fr], [x1 + fr, y + FACE_EPS, z0], [x0 - fr, y + FACE_EPS, z0]], OUT, fc, 1, true);
   // 2) Its returns, standing proud: the head faces down and is the darkest, the jambs between.

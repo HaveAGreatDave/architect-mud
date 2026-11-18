@@ -42,7 +42,13 @@ export const PLAY_ROOM = Object.freeze({
 export const LAST_PITCH = 3.5;
 const IN_PLAY = new Set(Object.keys(PLAY_ROOM));
 export const playRoom = (p) => (p?.kind && IN_PLAY.has(p.kind) ? PLAY_ROOM[p.kind] : p?.kind === 'strikeout' || p?.kind === 'walk' || p?.kind === 'hitbypitch' ? 2.5 : PLAY_ROOM.other);
-export const landBy = (p) => Math.max(budgetOf(p), LAST_PITCH + playRoom(p));
+// A trip to the mound before the first pitch (sim v5's `mound`), cut down as a broadcast cuts it
+// (diamond/mound.js): the pitching coach out, a word and back (`visit`); the manager out, the new
+// man in from the pen and the old one off (`change`). A change between innings is the break's.
+export const TRIP = Object.freeze({ visit: 14, change: 26 });
+export const tripOf = (p) => (!p || p.phase === 'half' || !p.mound ? 0 : p.mound.kind === 'visit' ? TRIP.visit : p.mound.kind === 'change' && !p.mound.between ? TRIP.change : 0);
+// The trip comes first, and the pitches' budget after it.
+export const landBy = (p) => tripOf(p) + Math.max(budgetOf(p), LAST_PITCH + playRoom(p));
 
 // After the landing (s). A home run: the batter round the bags at a trot (`trot`, from the ball
 // coming down to his foot on the plate), the welcome there (`welcome`), its replay (`replay`, which

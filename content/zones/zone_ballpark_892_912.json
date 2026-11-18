@@ -1,9 +1,9 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Hughson Way, with Burnet Walk going off between the towers on the west side. On the east side 2 Hughson Way comes down to the pavement in planted terraces, with a glazed door at the foot.",
+  "description": "Hughson Way, with Burnet Walk going off between the towers on the west side. On the east side a pergola runs into the North Gardens.",
   "exits": {
-    "east": "zone_district_894_912",
+    "east": "zone_ballpark_895_910",
     "north": "zone_ballpark_892_911",
     "south": "zone_ballpark_892_913",
     "west": "zone_ballpark_891_912"

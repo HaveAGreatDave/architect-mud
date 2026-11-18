@@ -3,13 +3,13 @@
   "ambient_theme": "urban",
   "bg_color": "#2e2a22",
   "color": "#ecdcb8",
-  "description": "Twelve storeys of champagne glass between pale stone fins, put up by Solenne's developers on the rest of the plot. From the street it could be Solenne's little sister. Behind the glass the flats are the size flats always were. A glass stair tower climbs the east end, and KESTREL COURT is set in bronze letters over the door.",
+  "description": "Twelve storeys of champagne glass between pale stone fins, put up by Solenne's developers on the edge of Solenne's own forecourt. From the street it could be Solenne's little sister. Behind the glass the flats are the size flats always were. THE FLUTE is lit in gold letters over the door, big enough to read from the corner.",
   "exits": {
     "north": "zone_kestrel_lobby",
-    "south": "zone_district_913_909"
+    "south": "zone_seam_914_909"
   },
   "flags": {
-    "building_name": "Kestrel Court",
+    "building_name": "The Flute",
     "building_type": "apartment",
     "district": "marrow",
     "entrance": "south",
@@ -17,14 +17,14 @@
     "floors": 12,
     "is_building": true,
     "region_id": "region_coldwater",
-    "world_exit_zone": "zone_district_913_909"
+    "world_exit_zone": "zone_seam_914_909"
   },
-  "grid_x": 913,
+  "grid_x": 914,
   "grid_y": 908,
   "grid_z": 0,
   "id": "zone_district_913_908",
   "map_id": "map_world",
-  "marker": "KC",
-  "name": "Kestrel Court",
+  "marker": "TF",
+  "name": "The Flute",
   "parent_zone": null
 }

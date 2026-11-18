@@ -1,0 +1,14 @@
+{
+  "description": "A brass-cased terminal on a post by the pad's edge, its screen showing four slots under the roof. Tap STORE and the pad takes your aircraft down with it. Free to residents, and it only takes the small ones.",
+  "flags": {
+    "click_cmd": "garage",
+    "sky_garage": 4
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_solenne_sky_garage",
+  "name": "garage terminal",
+  "object_type": "terminal",
+  "price": 0,
+  "zone_id": "zone_solenne_helipad"
+}

@@ -77,7 +77,8 @@ const fail = (m) => fails.push(m);
     const sits = L.seats.filter((s) => s.piece === 'p'), uses = L.stations.filter((s) => s.piece === 'p');
     const wantSit = ['seat', 'bench', 'sofa', 'bed'].includes(arche);
     if (wantSit && !sits.length) fail(`${arche}/${form}: no seat`);
-    if (!wantSit && !uses.length) fail(`${arche}/${form}: no station`);
+    // a rug is walked on and the dressing gantry hangs overhead: neither is used, so neither has a station (room-layout.js)
+    if (!wantSit && !uses.length && form !== 'rug' && form !== 'gantry') fail(`${arche}/${form}: no station`);
     if (uses.some((s) => s.verb !== ARCHETYPES[arche].verb)) fail(`${arche}/${form}: a station answers to the wrong verb`);
     if (!n) fail(`${arche}/${form}: drew nothing`);
   }
@@ -194,12 +195,14 @@ const flatLayouts = [];
       for (const p of L.placed) {
         if (p.annex || p.on) continue;
         const cooks = p.arche === 'cold' || (p.arche === 'hob' && p.form !== 'microwave') || (p.arche === 'sink' && p.form !== 'basin');
-        if (cooks && !within(p, P.kitchen)) fail(`${z.id}: ${p.id} (${p.form}) isn't in the kitchen`);
+        // a row that fixes its own spot (flags.spot) has been told where to stand, as the bed below is
+        const told = !!here.find((r) => r.id === p.id)?.flags?.spot;
+        if (cooks && !told && !within(p, P.kitchen)) fail(`${z.id}: ${p.id} (${p.form}) isn't in the kitchen`);
         // (a pet's feeding station is where it ought to be on a kitchen floor)
         if (!cooks && within(p, P.kitchen) && p.arche !== 'cabinet' && p.arche !== 'hob' && p.form !== 'petbowl' && !(p.arche === 'surface' && p.form === 'counter')) fail(`${z.id}: ${p.id} (${p.form}) is in the kitchen`);
         // a row that fixes its own spot has been told where to stand (the crown's bed is under the north glass)
         if (p.arche === 'bed' && !(p.v > L.d * 0.5) && !here.find((r) => r.id === p.id)?.flags?.spot) fail(`${z.id}: ${p.id} isn't in the back of the room`);
-        if ((p.arche === 'sofa' || p.arche === 'table') && p.v > P.living[3]) fail(`${z.id}: ${p.id} isn't in the lounge`);
+        if ((p.arche === 'sofa' || p.arche === 'table') && !told && p.v > P.living[3]) fail(`${z.id}: ${p.id} isn't in the lounge`);
       }
     }
     floor.forEach((p, i) => {
@@ -547,10 +550,10 @@ const flatLayouts = [];
     for (const [from, to] of [['barwall', 'chemwall'], ['chemwall', 'barwall']]) {
       const asm = (from === 'barwall' ? moving : buildRoom(L, { seed: 3, turning: { id: 'w', from, to } })).spin, open = to === 'chemwall';
       if (!asm?.asm) { fail(`a Cachet in a false wall going ${from} to ${to} doesn't assemble`); continue; }
-      const lab = asm.moves.filter((m) => m.unit), bar = asm.moves.filter((m) => m.swing);
-      if (lab.length !== 3 || bar.length !== 1) { fail(`a lab moves in ${lab.length} units, not three, and a bar in ${bar.length} pieces, not one`); continue; }
+      const lab = asm.moves.filter((m) => m.unit && !m.bar && m.unit !== 'lift'), bar = asm.moves.filter((m) => m.bar);
+      if (lab.map((m) => m.unit).join() !== 'base,hood,wall,sides' || bar.map((m) => m.unit).join() !== 'barBase,barTop') { fail(`a lab moves in ${lab.map((m) => m.unit)}, not base, hood, wall and sides, and a bar in ${bar.map((m) => m.unit)}, not its counter and back bar`); continue; }
       if (!lab.some((m) => m.glass.length)) fail('the glass of the lab does not ride with it');
-      const at = {}; let n = 0; for (const m of asm.moves) { at[m.unit || 'bar'] = n; n += m.data.length; }
+      const at = {}; let n = 0; for (const m of asm.moves) { at[m.unit] = n; n += m.data.length; }
       for (const k of [0, 0.25, 0.5, 0.75, 1]) { const q = assembleBatch(asm, k); if ([...q.data, ...q.glass.data].some((x) => !Number.isFinite(x))) fail(`the assembly at ${k} has vertex values that aren't numbers`); }
       // shut, the lab is all in the recess behind the wall; open, it's home, and the bar is off in its pocket
       const snap = (k) => ({ data: assembleBatch(asm, k).data.slice() }), shut = snap(open ? 0 : 1), out = snap(open ? 1 : 0);
@@ -558,13 +561,17 @@ const flatLayouts = [];
       let off = 0;
       for (const m of lab) for (let i = 0; i < m.data.length; i++) if (Math.abs(out.data[at[m.unit] + i] - m.data[i]) > 1e-4) off++;
       if (off) fail(`${off} values of the lab aren't home with it open`);
-      const pk = boxAt(out, at.bar, bar[0].data.length);
-      if (pk[0] < hw + 0.05) fail(`with the lab out the bar's still in the opening (its left edge at x ${pk[0].toFixed(2)})`);
+      // with the lab out, the bar's gone down its shaft: all of it under the floor
+      for (const m of bar) { const pk = boxAt(out, at[m.unit], m.data.length); if (pk[4] > -0.05) fail(`with the lab out the bar's ${m.unit} still stands above the floor (its top at y ${pk[4].toFixed(2)})`); }
       // the bar never touches a unit waiting for it, all the way round
       for (let i = 0; i <= 50; i++) {
-        const k = i / 50, q = assembleBatch(asm, k), bb = boxAt(q, at.bar, bar[0].data.length);
-        const hit = lab.find((m) => meet(bb, boxAt(q, at[m.unit], m.data.length)));
+        const k = i / 50, q = assembleBatch(asm, k), boxes = bar.map((m) => [m.unit, boxAt(q, at[m.unit], m.data.length)]);
+        // (the side panels are two, one either side of the opening, so their one box spans the bar: they ride in channels outside it)
+        const hit = lab.find((m) => m.unit !== 'sides' && boxes.some(([, bb]) => meet(bb, boxAt(q, at[m.unit], m.data.length))));
         if (hit) { fail(`going ${from} to ${to}, the bar runs into the lab's ${hit.unit} at ${k}`); break; }
+        // nothing that moves goes through the false wall: inside the wall's depth it stays within the opening
+        const wallHit = [...boxes, ...lab.map((m) => [m.unit, boxAt(q, at[m.unit], m.data.length)])].find(([u, b]) => b[5] > -hd + 0.01 && b[2] < hd && (u === 'sides' ? b[0] < -hw - 0.07 || b[3] > hw + 0.07 : b[0] < -hw - 0.02 || b[3] > hw + 0.02));
+        if (wallHit) { fail(`going ${from} to ${to}, the ${wallHit[0]} passes through the false wall at ${k}`); break; }
       }
     }
     // a plain Cachet, as wide as its turntable, has no wings

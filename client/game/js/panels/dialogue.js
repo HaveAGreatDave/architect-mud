@@ -203,6 +203,8 @@ function renderDialogue(msg) {
   panel.classList.remove('shop-mode', 'closing');
   box.classList.remove('shop-mode');
   document.getElementById('dialogue-npc-name').textContent = msg.npcName;
+  // On the Room Stage the camera comes in on their face (room-talk.js); nothing listening, nothing happens.
+  talkTo(msg.npcName);
   // Mood only arrives on the moments it can have changed (arrival, and any line
   // that moved reputation) — so keep the last one through the middle of a tree,
   // and clear it when a NEW conversation opens without one.
@@ -218,7 +220,7 @@ function renderDialogue(msg) {
 
   const textEl = document.getElementById('dialogue-text');
   textEl.innerHTML = msg.text;
-  import('./npc-bubbles.js').then((m) => m.voiceLine(msg.npcName, textEl.textContent, state.player?.displayRung)).catch(() => {});
+  import('./npc-bubbles.js').then((m) => m.voiceLine(msg.npcName, textEl.textContent, state.player?.displayRung, msg.npcSex)).catch(() => {});
   const opts = document.getElementById('dialogue-options');
   opts.innerHTML = '';
   // Back to the top for the new set. Clearing innerHTML does not reliably reset a
@@ -314,7 +316,13 @@ function bindHint(btn, hint, danger) {
   btn.addEventListener('blur', () => set(''));
 }
 
+// Who the conversation is with, for whoever draws the room (room-talk.js); null when it's over or turned into a shop.
+function talkTo(name) {
+  window.dispatchEvent(new CustomEvent('npc:talk', { detail: { name: name || null } }));
+}
+
 export function closeDialogue() {
+  talkTo(null);
   cancelType();
   if (thinkTimer) { clearTimeout(thinkTimer); thinkTimer = null; }
   thinkingUntil = 0;
@@ -365,6 +373,7 @@ function shopMaxQty(it, mode, credits) {
 // resets to 1 after any server refresh. All tab/sort/selection/stepper changes
 // re-render locally from the same message — only buy/sell/back hit the server.
 export function openShop(msg) {
+  talkTo(null);
   state.currentNpcId = msg.npcId;
   dialogueZone = state.currentZone;
   const mode = msg.sellResult ? 'sell' : msg.buyResult ? 'buy' : (shopState?.mode || 'buy');

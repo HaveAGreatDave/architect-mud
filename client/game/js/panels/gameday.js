@@ -389,7 +389,7 @@ export function createGamedayView(host, opts = {}) {
   function _body() {
     if (!bodyEl || ![...host.children].includes(bodyEl)) {
       host.innerHTML = `<div class="gd-live sr-only" role="log" aria-live="polite"></div><div class="gd-body"></div>`;
-      addFullscreenButton(host, host);
+      addFullscreenButton(host, host, opts.fullscreen);
       syncVoice = addCommentaryButton(host, opts.commentary, host.ownerDocument);
       liveEl = host.querySelector('.gd-live');
       bodyEl = host.querySelector('.gd-body');

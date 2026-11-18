@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_stoic_02",
+  "lines": [
+    "\"Cold today.\"",
+    "\"It is.\"",
+    "\"Doesn't bother you?\"",
+    "\"It'll pass. Most things do.\""
+  ],
+  "personality": "stoic",
+  "sort_order": 702
+}

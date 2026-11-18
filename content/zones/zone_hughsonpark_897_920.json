@@ -1,0 +1,30 @@
+{
+  "ambient_events": [
+    "A groundskeeper picks ticket stubs out of a flowerbed one at a time.",
+    "Somebody eats a hot dog on a bench and watches the Coliseum wall.",
+    "A pigeon lands on the nearest lamp and looks at you."
+  ],
+  "ambient_theme": "urban",
+  "color": "#8fd08a",
+  "description": "Benches at the south-east corner of the gardens, facing Sorrel Way.",
+  "exits": {
+    "east": "zone_district_887_904",
+    "north": "zone_hughsonpark_897_919",
+    "south": "zone_district_897_921",
+    "west": "zone_ballpark_892_920"
+  },
+  "flags": {
+    "district": "halcyon_fields",
+    "park_feature": "benches",
+    "region_id": "region_coldwater",
+    "street_life": true,
+    "terrain": "park"
+  },
+  "grid_x": 897,
+  "grid_y": 920,
+  "grid_z": 0,
+  "id": "zone_hughsonpark_897_920",
+  "map_id": "map_world",
+  "name": "East Gardens",
+  "parent_zone": null
+}

@@ -1,24 +1,30 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "city",
-  "description": "Hughson Way's junction, at the Coliseum's south-east corner: north along the east wall and south to Sorrel Way. To the west the road stops and Grandstand Plaza begins. A chrome slab stands on the far kerb, its windows on this side tinted dark.",
+  "ambient_events": [
+    "A groundskeeper picks ticket stubs out of a flowerbed one at a time.",
+    "Somebody eats a hot dog on a bench and watches the Coliseum wall.",
+    "A pigeon lands on the nearest lamp and looks at you."
+  ],
+  "ambient_theme": "urban",
+  "color": "#8fd08a",
+  "description": "A gravel walk where Hughson Way met the plaza. Grandstand Plaza is on the west side.",
   "exits": {
+    "east": "zone_hughsonpark_897_919",
     "north": "zone_ballpark_892_918",
     "south": "zone_ballpark_892_920",
     "west": "zone_ballpark_895_915"
   },
   "flags": {
     "district": "halcyon_fields",
+    "park_feature": "path",
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_roadside_junk",
     "street_life": true,
-    "terrain": "road"
+    "terrain": "park"
   },
   "grid_x": 896,
   "grid_y": 919,
   "grid_z": 0,
   "id": "zone_ballpark_892_919",
   "map_id": "map_world",
-  "name": "Hughson Way",
+  "name": "East Gardens",
   "parent_zone": null
 }

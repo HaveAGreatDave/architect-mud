@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_charity_02",
+  "lines": [
+    "\"Do you ever get thanked?\"",
+    "\"Sometimes.\"",
+    "\"Is it enough?\"",
+    "\"It doesn't have to be. It just has to happen.\""
+  ],
+  "personality": "charity",
+  "sort_order": 688
+}

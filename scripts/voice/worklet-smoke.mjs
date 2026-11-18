@@ -109,8 +109,12 @@ function render(text, extra = {}) {
   made.length = 0;
   const trace = [];
   // A rolled voice, not a cast one: 'Dex Rime' became DOOMCAST's authored voice
-  // (F0 104), and its higher pitch hides IY's F1 between harmonics.
-  const res = A.speak(text, { seed: 'Vox Rime', backend: 'worklet', trace, fresh: true, ...extra });
+  // (F0 104), and its higher pitch hides IY's F1 between harmonics. Its pitch is pinned
+  // at the 91Hz it rolled until 2026-11-16, when the pitch became a spectrum by sex and it
+  // rolled 101: at 91 the third harmonic sits on IY's F1 (274Hz), at 101 the F1 falls
+  // between harmonics and the peak picker finds the second. The F1 checks read one voice.
+  const res = A.speak(text, { seed: 'Vox Rime', backend: 'worklet', trace, fresh: true, ...extra,
+    voice: { f0: 91.2, ...(extra.voice || {}) } });
   const wn = made.filter(m => m.name === 'oracle-voice').pop();
   const line = wn?.posted.find(m => m.type === 'line');
   if (!line) return { res, wn };

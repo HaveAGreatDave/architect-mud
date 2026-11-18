@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_gen_16",
+  "lines": [
+    "\"I want a dog.\"",
+    "\"Can you look after a dog?\"",
+    "\"I can barely look after me.\"",
+    "\"Get a small dog.\""
+  ],
+  "personality": null,
+  "sort_order": 615
+}

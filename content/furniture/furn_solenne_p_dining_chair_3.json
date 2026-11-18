@@ -1,0 +1,30 @@
+{
+  "description": "A walnut dining chair with a grey linen seat, one of six round the table.",
+  "flags": {
+    "aliases": [
+      "chair"
+    ],
+    "interactions": [
+      "sit"
+    ],
+    "look": {
+      "arche": "seat",
+      "fabric": "#8a8578",
+      "form": "chair",
+      "wear": 0.04,
+      "wood": "#2e2119"
+    },
+    "spot": {
+      "at": [
+        5.13,
+        5.05
+      ],
+      "turn": 90
+    }
+  },
+  "id": "furn_solenne_p_dining_chair_3",
+  "name": "dining chair",
+  "object_type": "furniture",
+  "price": 480,
+  "zone_id": "zone_solenne_apt_p"
+}

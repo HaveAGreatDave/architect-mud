@@ -1,0 +1,26 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "wasteland",
+  "color": "#b5744a",
+  "description": "A vast stained plain, hard underfoot. Every so often there's a track pressed into it, sharp-edged and long dry.",
+  "exits": {
+    "east": "zone_district_914_942",
+    "north": "zone_seam_914_941",
+    "south": "zone_seam_914_943",
+    "west": "zone_district_913_942"
+  },
+  "flags": {
+    "district": "wilds",
+    "radiation": 39,
+    "region_id": "region_coldwater",
+    "scavenging_table_id": "scav_irradiated_salvage",
+    "terrain": "redrock"
+  },
+  "grid_x": 914,
+  "grid_y": 942,
+  "grid_z": 0,
+  "id": "zone_seam_914_942",
+  "map_id": "map_world",
+  "name": "Ochre Draw",
+  "parent_zone": null
+}

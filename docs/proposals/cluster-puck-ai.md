@@ -1,6 +1,6 @@
 # Cluster Puck AI
 
-**Status: design. Nothing is built.** An assessment of how the men in the server's free-play game
+**Status: design. Nothing in the server's game is built; Rinkside's between-plays game has the referee's offside and icing.** An assessment of how the men in the server's free-play game
 should decide what to do, so that a featured game reads as hockey, each club plays like itself, an
 unseen momentum meter keeps games close, and a person can take a team's place later without
 anything else changing. It fills in the decision layer of
@@ -52,6 +52,9 @@ keeps men apart.
 - about twice the passing you'd expect, the puck loose 28% of the time, and backhands 17% of shots;
 - no club identity in the play itself;
 - no offside, no icing and no pulled goalie in the open play. The referee is in `director.js`.
+  (Since 2026-11-15 Rinkside's between-plays game has offside, with the tag-up, and hybrid
+  icing, and plays to avoid them: see [Offside and icing](../systems-broadcast.md). The
+  linesman there is `linesman` in `sim.js`, the logic the server's game would take.)
 
 **`clubProfile`** gives each club four numbers off its name (shooting, goaltending, discipline and
 violence), nudged by the words in it, so the Goons and the Highlanders come out violent and
@@ -155,8 +158,8 @@ plays the puck to a defenceman. The puck has to meet him rather than pass throug
 
 Moved out of `director.js` into the sim, so the server's game has one:
 
-- **offside**, with the tag-up;
-- **icing**, from behind the red line past the goal line;
+- **offside**, with the tag-up (built for Rinkside's between-plays game, `linesman` in `sim.js`);
+- **icing**, from behind the red line past the goal line (hybrid, built the same way);
 - **penalties**, when an infraction happens where he can see it, with the delayed call (the goalie
   to the bench for an extra man until the other side touches it);
 - **faceoffs** at the dot each stoppage implies, as the league's rules say;

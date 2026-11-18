@@ -3,6 +3,7 @@
   "ambient_theme": "city",
   "description": "Yarrow Lane, a block from Hughson Way. A car noses along it looking for a car park that isn't there any more.",
   "exits": {
+    "east": "zone_hughsonpark_890_914",
     "north": "zone_ballpark_889_913",
     "south": "zone_ballpark_889_915"
   },

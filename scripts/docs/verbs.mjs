@@ -57,7 +57,7 @@ const NOT_PLAYER_TYPED = new Set([
   // The Room Stage's Pack (plugins/roomstage pack.js): the panel's own fetch and its wear, off and drop by row id.
   'roompack',
   // Dev-only entry points, prefixed with a dot in the manifest.
-  'hackpreview', 'createsound', 'playsound', 'cooktest', 'splicetest',
+  'hackpreview', 'createsound', 'playsound', 'cooktest', 'splicetest', 'synthstock',
 ]);
 
 export function lintPluginDocs(docPath = 'docs/plugins.md', root = 'plugins') {

@@ -16,8 +16,9 @@
 // essentially no DB traffic. WHAT a game folds into is the sport's business, not this
 // plugin's: see `SEASON` in plugins/broadcast/sports/<name>.js.
 //
-// A season is the in-game calendar month. Every club plays every day (the slate, in
-// plugins/broadcast), and on the month's last day, Cup day, the top two meet in a single
+// A season is the in-game calendar month. Every club plays every other club twice, once at
+// home, fourteen games each (the slate, in plugins/broadcast), and on the month's last day,
+// Cup day, the top two meet in a single
 // championship game. The "reset" is just a pointer: the new season's `start_slot` is the
 // first slot of the next month, so its computed window starts fresh. Only `sports_season`
 // is persisted — a handful of writes per season, never per game.
@@ -358,7 +359,7 @@ async function crownChampion(sport, season) {
   _standCaches.delete(sport);
   _careers.delete(sport);
   await ensureSeason(sport);   // opens the next season with start_slot = now (past ws_slot)
-  emit('sports.champion', { sport, show: L.show, final: L.finalTitle, seasonNo: season.season_no, champion: winner, runnerUp: loser, champScore, runScore, overtime: !!g.overtime });
+  emit('sports.champion', { sport, show: L.show, final: L.finalTitle, seasonNo: season.season_no, month: season.start_month || null, champion: winner, runnerUp: loser, champScore, runScore, overtime: !!g.overtime });
   console.log(`[sportsleague] ${L.final} CHAMPION (${sport} season ${season.season_no}): ${winner} beat ${loser} ${champScore}-${runScore}`);
 }
 

@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_guard_03",
+  "lines": [
+    "\"Do you ever get to sit down?\"",
+    "\"There's a chair.\"",
+    "\"Do you use it?\"",
+    "\"The sergeant uses it.\""
+  ],
+  "personality": "guard",
+  "sort_order": 638
+}

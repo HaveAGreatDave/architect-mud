@@ -76,7 +76,14 @@ Walking out through the street door of a building drawn as a Room Stage (plugins
 since the camera's own speed is the pace. The move gates still run, and a refused step answers `freelook_step` with
 `refused`, which puts the view back. It used to be an ordinary `move <dir>` with a 1.8 s wait, and the pacing queue
 held quick steps silently for longer than that, so the view said "You can't go that way", pulled you back, and the
-queued step landed anyway. A step through a building's door goes from 0.11 of a tile short of the glass, behind a
+queued step landed anyway. Every footstep is answered, and the view sends its tile again until the answer is the
+tile it's on, so a step the rate limit dropped can't leave the text map on one tile and the eye on another. A move the
+view didn't make (a typed `north`, the minimap, a GPS walk) is answered `moved`, and the view follows it.
+
+An alley is the margin a building's model leaves in its own tile, so the view doesn't report a step onto a building's
+tile except at its front, through the middle: you'd be walked in through the wall, or refused at a shut shop and pulled
+back. The server keeps you on the open tile nearest the eye instead, and the step out the far side may be up to
+`FOOT_REACH` (3) tiles off, onto open ground only. A step through a building's door goes from 0.11 of a tile short of the glass, behind a
 cover, because nearer than that the camera's near plane cuts the doorway away and shows the inside of the model. While somebody stands in the building's entry room, `roomstage.streetwarm` sends them that same view
 early, marked `prewarm`: the client builds it hidden, so its shaders and its city are ready, and walking out
 wakes it instead of opening a new one behind a loading screen. A warm view registers no viewer and puts nobody
@@ -187,4 +194,4 @@ different telescope. The view tells them apart on the mount.
 
 GLASS draws nothing below the street, so the Under gets its own small WebGL2 renderer. `freelook under` (or a bare `freelook` typed from a z -1 tile) sends every sewer tile on map_world's z -1 layer as `{ x, y, n: name, e: 'NSEWU' }`, and [under-scene.js](../../client/game/js/panels/under-scene.js) builds the scene from that graph: an arched brick tunnel with ledges and a water channel along each connection, a chamber or manhole hub on each tile, and ladder shafts up to a grate where a tile has an `up` exit. Name words pick the dressing (pumps, a sluice gate, rubble, flooding, Wildblood shrines and handprints). [under-view.js](../../client/game/js/panels/under-view.js) draws it and flies it with the ordinary free camera, kept inside the tunnels. L toggles the headlamp, G flies through the walls, O or ✕ closes. The Basin floor shares the layer but is the submersible's, so it's left out.
 
-An interior map entered sideways from a sewer tile comes too (`underAnnexes`): it's placed so the room the exit leads to sits past that exit, and the rest follows its own grid. The one there is now is the Long Watch's base off the Watch Threshold (925,913). It's drawn one level up, reached by a stair, as board-formed concrete rooms with steel beams and blast-doored corridors, furnished from words in each room's name. A tile's exit letters count only where the exit leads to the neighbouring sewer tile, so the base's door isn't drawn as a tunnel.
+An interior map entered sideways from a sewer tile comes too (`underAnnexes`): it's placed so the room the exit leads to sits past that exit, and the rest follows its own grid. The one there is now is the Long Watch's base off the Watch Threshold (926,913). It's drawn one level up, reached by a stair, as board-formed concrete rooms with steel beams and blast-doored corridors, furnished from words in each room's name. A tile's exit letters count only where the exit leads to the neighbouring sewer tile, so the base's door isn't drawn as a tunnel.

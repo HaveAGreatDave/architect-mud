@@ -21,6 +21,7 @@ import { loadCss } from '../../../shared/dom.js';
 import { loadAircraft3d, aircraftFaces, standFaces, faceBaseRgb, liveryPalette, truckLivery } from './aircraft3d-lazy.js';
 import { podracerLook, podracerLivery } from './podracer-model.js';
 import { vtx, lin, MAT } from './gl/ballpark-mesh.js';
+import { bayOf } from '../../../shared/room-layout.js';
 
 const CSS = await loadCss(new URL('./room-hoist.css', import.meta.url));
 function ensureStyles() {
@@ -41,7 +42,7 @@ const REACH = 2.2;
 const APRON = 0.6;
 // how long each kind is, nose to tail, in metres, so a small aircraft isn't blown up to fill a big hangar's stand.
 // The stand's box is the most it can be; this is what it would be
-const TRUE_LEN = { truck: 9.5, prop: 9, ultralight: 6.5, grasshopper: 7, locust: 8.5, heli: 12, gunship: 15, heavy: 21, divebomber: 11, podracer: 9,
+const TRUE_LEN = { truck: 9.5, prop: 9, ultralight: 6.5, grasshopper: 7, locust: 8.5, heli: 12, gunship: 15, heavy: 21, divebomber: 11, podracer: 9, merlin: 4.6,
   skiff: 5.5, hydro: 7, spur: 8, gamecock: 9 };
 // the words for each kind: what's on the floor, the way out, the way in
 const WORDS = {
@@ -123,7 +124,8 @@ export function createRoomHoist({ host, send, walker }) {
   function paintPanel() {
     const lf = V?.lift, mine = V?.mine || [], W = wordsOf(kindOf());
     const up = lf && lf.down == null && level() >= 1, rising = lf && lf.down == null && !up, sinking = lf && lf.down != null;
-    const key = JSON.stringify([lf?.id, lf?.mine, up, rising, sinking, mine.map((t) => t.id)]);
+    const shop = V?.shop || [];
+    const key = JSON.stringify([lf?.id, lf?.mine, up, rising, sinking, mine.map((t) => t.id), shop.map((t) => [t.id, t.afford])]);
     if (key === shown) return;
     shown = key;
     const call = V?.call || 'hoist', back = V?.back || 'hoist down';
@@ -134,6 +136,8 @@ export function createRoomHoist({ host, send, walker }) {
       + (lf.mine ? `<button type="button" data-cmd="${esc(boardCmd(lf))}">${esc(W.board)} ${esc(lf.name)}</button><button type="button" class="rh-down" data-cmd="${esc(back)}">${esc(W.back)}</button>` : '');
     else if (mine.length) body = `<p class="rh-note">${esc(W.bring)}</p>` + mine.map((t) => `<button type="button" data-cmd="${esc(call)} ${esc(t.id)}">${esc(t.name)}</button>`).join('');
     else body = `<p class="rh-note">${esc(W.none)}</p><button type="button" data-cmd="${esc(call)}">${esc(W.ask)}</button>`;
+    // what this depot sells, when the lift's free: the counter's `yard buy`, one button a truck
+    if (shop.length && !lf) body += `<p class="rh-note">For sale here:</p>` + shop.map((t) => `<button type="button" class="rh-buy"${t.afford ? '' : ' disabled'} data-cmd="${esc(t.cmd)}">${esc(t.name)} · ${esc(String(t.price))}₵</button>`).join('');
     const st = W.state[up ? 2 : rising ? 1 : sinking ? 3 : 0];
     panel.setAttribute('aria-label', 'The ' + String(V?.label || 'lift').toLowerCase());
     panel.innerHTML = `<div class="rh-head"><b>${esc(V?.label || 'LIFT')}</b><span>${esc(st)}</span></div>${body}`;
@@ -199,8 +203,23 @@ export function createRoomHoist({ host, send, walker }) {
     if (V.lift && !ready) loadAircraft3d().then(() => { ready = true; ver++; }).catch(() => {});
   }
 
+  // A TRUCK SHED'S OWN PLATFORM (room-layout.js bayOf): GLASS's chequer plate and its hazard edge, from the bake,
+  // `k` of the way up its shaft. The shed itself is the room's mesh (gl/room-depot.js), the garage under it included.
+  function shedPlate(b, B, k) {
+    const rise = B.lift.rise * k, o = L.world(0, 0, 0);
+    for (const f of B.faces) {
+      if (f.part !== 'plate') continue;
+      const q = f.p.map((p) => L.world(p[0], p[1], p[2] + rise)), w = L.world(f.n[0], f.n[2], f.n[1]);
+      const n = [w[0] - o[0], w[1] - o[1], w[2] - o[2]], col = lin(f.c);
+      for (let j = 1; j + 1 < q.length; j++) for (const p of [q[0], q[j], q[j + 1]]) vtx(b, p, n, [0, 0], col, MAT.PLATE);
+    }
+  }
+
   /** Into the beasts batch: the stand, the vehicle where it is, its door, and the beacons while it moves. */
   function into(b, now = performance.now()) {
+    const B = bayOf(L?.spec);
+    // a shed's platform is always somewhere: flush with the floor with nothing on it, else where the lift has it
+    if (L && B) shedPlate(b, B, V?.lift ? level(now) : 1);
     if (!L || !V) return;
     const S = standOf(), from = fromOf(), kind = kindOf(), lf = V.lift;
     const [u, v] = spot();
@@ -208,7 +227,7 @@ export function createRoomHoist({ host, send, walker }) {
     const k = level(now), go = moving(now);
     const s = m ? scaleOf(m) : 1;
     const lift = from === 'below';
-    const y = lift ? -SHAFT * (1 - k) : 0;
+    const y = lift ? -(B ? B.lift.rise : SHAFT) * (1 - k) : 0;
     // the stand's size: the vehicle's, plus an apron round it; the box (or a default) before the model's in
     const hl = m ? (m.f1 - m.f0) * s / 2 + APRON : (S ? S.len / 2 : 4.5), hw = m ? (m.g1 - m.g0) * s / 2 + APRON : (S ? S.wid / 2 : 1.9);
     const W = (a, c, h) => L.world(a, c, h);
@@ -227,8 +246,8 @@ export function createRoomHoist({ host, send, walker }) {
       }
     };
     const [p0, p1, q0, q1] = pad;
-    edge(p0 - fr, p1 + fr, q0 - fr, q0); edge(p0 - fr, p1 + fr, q1, q1 + fr);
-    edge(p0 - fr, p0, q0, q1); edge(p1, p1 + fr, q0, q1);
+    // (a truck shed has its own, painted round its well)
+    if (!B) { edge(p0 - fr, p1 + fr, q0 - fr, q0); edge(p0 - fr, p1 + fr, q1, q1 + fr); edge(p0 - fr, p0, q0, q1); edge(p1, p1 + fr, q0, q1); }
     if (S?.water) {
       // the slip: dark water a hand under the quay, with bands of lighter sheen. Still: the batch is only
       // built again while something moves, and a ripple isn't worth a rebuild a frame
@@ -240,8 +259,8 @@ export function createRoomHoist({ host, send, walker }) {
         const q = longU ? [p0 + (p1 - p0) * f, p0 + (p1 - p0) * f + wb, q0 + 0.25, q1 - 0.25] : [p0 + 0.25, p1 - 0.25, q0 + (q1 - q0) * f, q0 + (q1 - q0) * f + wb];
         flat(q, 0.005, lin('#143a40'), MAT.GLOSS);
       }
-    } else if (lift) {
-      // the hole, while there's one: the plate is somewhere under the floor
+    } else if (lift && !B) {
+      // the hole, while there's one: the plate is somewhere under the floor (a shed's is its own: shedPlate)
       if (k < 0.999) flat(boxAt([u, v], hl, hw), 0.004, lin('#050505'), MAT.MATTE);
       // the plate itself, chequered steel, riding with the truck; under the floor it's hidden by the floor
       if (k > 0.02) flat(boxAt([u, v], hl, hw), Math.min(0.012, y + 0.012), lin('#5d6166'));
@@ -286,7 +305,9 @@ export function createRoomHoist({ host, send, walker }) {
     // fuselage only, so you can walk under a wing; a boat is in the water, which is already solid
     const body = m && lf ? boxAt(c, hl - APRON * 0.7, kind === 'aircraft' ? Math.min(hw - APRON * 0.7, Math.max(1.2, (hw - APRON) * 0.3)) : hw - APRON * 0.7) : null;
     near = m && lf ? boxAt(c, hl - APRON, hw - APRON) : null;
-    box = (lift ? (k > 0.02 ? body : k < 0.999 && lf ? boxAt([u, v], hl, hw) : null) : (k > 0.05 && !S?.water ? body : null));
+    // (a shed's well is open round the truck all the way up, so the whole plate is walled off until it's flush)
+    box = (lift && B ? (lf && k < 0.999 ? pad : k > 0.02 ? body : null)
+      : lift ? (k > 0.02 ? body : k < 0.999 && lf ? boxAt([u, v], hl, hw) : null) : (k > 0.05 && !S?.water ? body : null));
     setSolid('body', box);
   }
 

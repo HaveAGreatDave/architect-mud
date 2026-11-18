@@ -16,7 +16,7 @@ Built 2026-10-18. Script: `node scripts/content/fish-works.mjs [--dry-run]`. It 
 | 904,905 | **Staff Car Park**, where Slag & Wares stood | plain tarmac for now (see §5) | |
 | 902,905 | **Slag & Wares**, moved one tile west onto Cinder Yard | `junkyard` | `SW` |
 | 903,906 | **Batter Days Fish & Chips**, door south onto Greenside Row | `chip_shop` | `BT` |
-| 918,907 | **Unit 5, Ironside Street**: Batter Days' old unit, boarded up and to let | `shop` | `I5` |
+| 919,907 | **Unit 5, Ironside Street**: Batter Days' old unit, boarded up and to let | `shop` | `I5` |
 
 ⚠ **The works has no front door.** Batter Days stands on what was its street (Filament Yard), so its
 one street door is the staff door onto the car park. Players can walk in that way, off the quay

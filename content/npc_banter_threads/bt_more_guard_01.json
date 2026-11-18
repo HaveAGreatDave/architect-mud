@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_guard_01",
+  "lines": [
+    "\"Quiet shift?\"",
+    "\"Too quiet.\"",
+    "\"Is that a bad thing?\"",
+    "\"It means it's all happening somewhere I'm not.\""
+  ],
+  "personality": "guard",
+  "sort_order": 636
+}

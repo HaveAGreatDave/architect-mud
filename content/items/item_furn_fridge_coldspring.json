@@ -1,0 +1,21 @@
+{
+  "description": null,
+  "flags": {
+    "aliases": [
+      "fridge"
+    ],
+    "container": 70000,
+    "interactions": [
+      "lean"
+    ],
+    "preserves": "refrigerated"
+  },
+  "id": "item_furn_fridge_coldspring",
+  "name": "Coldspring fridge-freezer",
+  "tags": {
+    "description": "A tall fridge with the freezer on top, white enamel, a hum you stop hearing after a day. Stands anywhere with a socket. Put it in a run of kitchen units and they close round it."
+  },
+  "type": "furniture",
+  "value": 1400,
+  "weight": 60000
+}

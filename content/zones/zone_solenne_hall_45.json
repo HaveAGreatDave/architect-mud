@@ -5,20 +5,18 @@
   "ambient_theme": "indoors",
   "bg_color": "#1c242c",
   "color": "#cfd8e0",
-  "description": "The top of the lift shaft: a bare stone hall with a palm reader by the door to the <b>north</b>, and the pad's lights flicking past it. A fire door marked STAIRS at the west end is locked. The elevator is <b>in</b> behind you.",
+  "description": "The top of the lift shaft, inside the glass bowl: a bare stone hall with a flight of stone stairs going <b>up</b> through the roof. The wind is loud at the top of them. A fire door marked STAIRS is locked. The elevator is <b>in</b> behind you.",
   "exits": {
     "in": "zone_solenne_elevator",
-    "north": "zone_solenne_helipad"
+    "up": "zone_solenne_hall_40"
   },
   "flags": {
     "building_name": "Solenne Residences",
     "floor": "stone",
     "is_interior": true,
-    "residents_only": "Solenne Residences",
-    "residents_only_deny": "The panel by the pad door reads your hand, finds no residence attached to it, and stays shut. Somewhere below, a concierge is already deciding not to mention it.",
     "room": {
       "balcony": false,
-      "d": 3,
+      "d": 4.6,
       "decor": {
         "ceiling": {
           "band": 0.4,
@@ -57,14 +55,10 @@
             ],
             [
               "back",
-              -1.7
-            ],
-            [
-              "back",
               1.7
             ]
           ],
-          "y": 1.8
+          "y": 1.7
         },
         "walls": {
           "hex": "#dcdad4",
@@ -75,12 +69,21 @@
       "face": 0,
       "finish": "fine",
       "ground": "stone",
-      "h": 3.2,
+      "h": 2.91,
       "sign": {
         "size": 0.2,
-        "text": "SKY PAD",
+        "text": "ROOF",
         "wall": "front",
-        "y": 2.78
+        "y": 2.5
+      },
+      "stair": {
+        "at": [
+          -1.4,
+          4
+        ],
+        "climb": "front",
+        "going": 0.22,
+        "w": 1.1
       },
       "studio": false,
       "tone": {

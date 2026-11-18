@@ -25,6 +25,7 @@
 // caller draws its plain curve instead.
 
 import { declareProgram, takeWarm } from './programs.js';
+import { ACES_GLSL, OETF_GLSL } from './core/glsl/tone.js';
 
 const FULL_VS = `#version 300 es
 out vec2 vUV;
@@ -56,8 +57,7 @@ uniform float uLook;
 uniform sampler2D uInk; uniform float uInkK; uniform vec3 uInkCol; uniform vec4 uInkFade;
 float lin(float d) { float z = d * 2.0 - 1.0; return 2.0 * uNear * uFar / (uFar + uNear - z * (uFar - uNear)); }
 float coc(vec2 t) { return clamp(abs(1.0 / uFocus - 1.0 / lin(texture(uDepth, t).r)) * uDof, 0.0, ${DOF_MAX.toFixed(1)}); }
-vec3 aces(vec3 x) { return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0); }
-vec3 oetf(vec3 c) { return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(0.0031308, c)); }
+${ACES_GLSL}${OETF_GLSL}
 void main() {
   vec3 c = texture(uScene, vUV).rgb;
   // the lens: a golden-angle gather, each tap weighted by whether it's blurred as far as it reaches,

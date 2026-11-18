@@ -20,10 +20,15 @@
     "consumes": [
       "zone.entered",
       "npc.lockup",
-      "zone.power.changed"
+      "zone.power.changed",
+      "lock.hackAttempt",
+      "npc.attacked",
+      "npc.killed",
+      "player.logout"
     ],
     "emits": [
-      "npc.home.scene"
+      "npc.home.scene",
+      "npc.panic"
     ]
   },
   "ticks": [

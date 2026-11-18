@@ -3,7 +3,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#2b3a34",
   "color": "#e8ddc7",
-  "description": "The corner residence of the upper floor: glass on two sides, the bay on one and the long grey run of Coldwater on the other, the light crossing the room all day without ever being harsh. A sunken lounge, a fireplace of honed basalt, a bath cut from a single block of stone. Leave <b>west</b> to the landing.",
+  "description": "The east corner of the tenth floor, glass on two sides: the bay on one and the long grey run of Coldwater on the other, the light crossing the room all day without ever being harsh. A bath cut from a single block of stone behind the bedroom wall. Leave <b>west</b> to the landing.",
   "exits": {
     "in": "zone_solenne_apt_e_bath",
     "west": "zone_solenne_residences_34"
@@ -16,9 +16,10 @@
     "rent_cost": 460,
     "rest_multiplier": 1.5,
     "room": {
-      "d": 13.5,
+      "balcony": false,
+      "d": 6.6,
       "ensuite": {
-        "d": 3.4,
+        "d": 2.4,
         "dress": "spa",
         "w": 3.2
       },
@@ -28,8 +29,8 @@
         "left"
       ],
       "h": 3,
-      "storeys": 36,
-      "w": 12.5
+      "storeys": 45,
+      "w": 11
     },
     "window": {
       "description": "A tall pane runs floor to ceiling down one wall, black-framed, holding the city out there like something in a case.",
@@ -43,7 +44,7 @@
   "grid_z": 6,
   "id": "zone_solenne_apt_e",
   "map_id": "map_int_solenne",
-  "marker": "34",
-  "name": "Solenne Residence 34-E",
+  "marker": "10",
+  "name": "Solenne Residence 10-E",
   "parent_zone": "zone_district_914_908"
 }

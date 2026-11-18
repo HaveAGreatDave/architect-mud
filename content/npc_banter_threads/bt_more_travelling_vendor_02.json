@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_travelling_vendor_02",
+  "lines": [
+    "\"Selling much?\"",
+    "\"Out there, everything sells. In here, nobody looks.\"",
+    "\"Why not?\"",
+    "\"They think if it's in a cart, it fell off something.\""
+  ],
+  "personality": "travelling_vendor",
+  "sort_order": 706
+}

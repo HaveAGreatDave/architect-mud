@@ -70,10 +70,22 @@ export function tvLine(name, text) {
 // `place` ({ position, ref, rolloff } on its floor plan) if it has them, and the voice comes from there.
 // Nobody answering leaves it in the middle, as it always was. The line's handle goes out on `npc:voice`
 // (`voice.move`), so the Stage can keep it on them as they walk.
+// WHO THEY ARE. A voice is placed on the spectrum by the speaker's sex (AudioEngine's
+// VOICE_SPECTRUM), so a woman isn't voiced as a man on her name's coin flip. A conversation
+// says it (`npcSex` on the dialogue message), the Stage answers `npc:place` with it, and
+// either is remembered by name for the lines heard later in the log. Unknown, the name decides.
+const SEX = new Map();
+const knowSex = (name, sex) => {
+  if (!name || !sex) return;
+  SEX.delete(name); SEX.set(name, sex);
+  if (SEX.size > 400) SEX.delete(SEX.keys().next().value);
+};
 const say = (name, text, queue) => {
-  const ask = { name, place: null };
+  const ask = { name, place: null, sex: null };
   window.dispatchEvent(new CustomEvent('npc:place', { detail: ask }));
-  const trace = [], res = window.AudioEngine?.speak?.(text, { channel: 'npc', seed: name, queue, trace, accent: hashOf(name) % 3 === 0 ? 'rp' : undefined, ...(ask.place || {}) });
+  knowSex(name, ask.sex);
+  const sex = SEX.get(name);
+  const trace = [], res = window.AudioEngine?.speak?.(text, { channel: 'npc', seed: name, queue, trace, accent: hashOf(name) % 3 === 0 ? 'rp' : undefined, ...(sex ? { sex } : {}), ...(ask.place || {}) });
   window.dispatchEvent(new CustomEvent('npc:voice', { detail: { name, text, trace: res ? trace : null, delay: res ? res.delay : 0, voice: res?.move ? res : null } }));
   return res;
 };
@@ -103,7 +115,8 @@ export function heard(html, rung) {
 }
 
 // A line in a conversation: the panel already shows it, so only the voice, and the next line cuts it off.
-export function voiceLine(name, text, rung) {
+export function voiceLine(name, text, rung, sex) {
+  knowSex(name, sex);
   const t = String(text || '').trim();
   if (rung !== 'log' && name && t) say(name, t, false);
 }

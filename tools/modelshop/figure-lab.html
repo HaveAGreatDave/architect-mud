@@ -232,6 +232,7 @@ setRenderer(q.get('renderer') === 'street' ? 'street' : 'room');
 import { createRoomRenderer } from '/client/game/js/panels/gl/room.js';
 import { figurePeople, peopleBatch, preparePeople } from '/client/game/js/panels/gl/room-people.js';
 import { heldProps } from '/client/game/js/panels/gl/room-held.js';
+import { mealProps } from '/client/game/js/panels/gl/room-meals.js';
 import { createBatch, vtx, MAT } from '/client/game/js/panels/gl/ballpark-mesh.js';
 import { MOUTHS, mouthTrack, textTrack, mouthAt } from '/client/shared/lip-sync.js';
 import { ACTOR_CLIPS, ACTOR_ROOM_CLIPS } from '/client/game/js/panels/actor3d.js';
@@ -297,6 +298,12 @@ for (const k of Object.keys(MOUTHS)) $('shape').add(new Option(k));
 for (const c of [...ACTOR_CLIPS, ...ACTOR_ROOM_CLIPS]) $('doing').add(new Option(c.name));
 // a mood for everybody, as the server sends one (docs/systems-expressions.md)
 for (const m of MOODS) if (m !== 'neutral') $('mood').add(new Option(m));
+// every cut past the street's six and every facial hair the figure knows, off figure.js itself
+{ const { HAIR_CUTS, FIGURE_FACIAL } = await import('/client/game/js/panels/figure.js');
+  const opt0 = new Option('skullet', '5'); $('hair').add(opt0);
+  for (const [k, c] of Object.entries(HAIR_CUTS)) $('hair').add(new Option(c.name, k));
+  const have = new Set([...$('facial').options].map((o) => o.value || o.text));
+  for (const k of Object.keys(FIGURE_FACIAL)) if (!have.has(k)) $('facial').add(new Option(k)); }
 const moodNow = () => ($('mood').value ? { mood: { m: $('mood').value, i: +$('moodI').value } } : {});
 const onceOf = (name) => ACTOR_ROOM_CLIPS.find((c) => c.name === name && c.once)?.dur || 0;
 $('say').addEventListener('keydown', (e) => {
@@ -313,7 +320,7 @@ function bodies() {
   // lying, a row of them on the floor, heads to the right
   const lie = $('pose').value === 'lie', doing = $('doing').value, once = onceOf(doing), m = who ? 1 : n;
   const act = { ...(doing ? { clip: doing } : {}), ...(doing && once ? { phase: Math.min(0.999, ((performance.now() / 1000) % (once + 1.5)) / once) } : {}), ...($('rest').value ? { rest: $('rest').value } : {}), ...($('manner').value ? { manner: $('manner').value } : {}) };
-  for (let i = 0; i < m; i++) out.push({ id: who || `lab-${seed}-${i}`, ...act, ...(lie ? { at: [0.8, (i - (m - 1) / 2) * 0.9], head: [1, 0], top: 0 } : { at: [(i - (m - 1) / 2) * 0.85, 0] }), yaw: 0, pose: $('pose').value, dress: $('dress').value, sculpt: mode === 'sculpt', build: $('build').value, mouth: mouthNow(), facial: $('facial').value, ...moodNow(), ...(who ? settled : {}), ...($('useW').checked ? { weight: +$('weight').value } : {}), ...($('sex').value ? { sex: $('sex').value } : {}), ...($('grit').value !== '' ? { grit: +$('grit').value } : {}), ...($('useB').checked ? { bust: +$('bust').value } : {}), ...($('useT').checked ? { butt: +$('butt').value } : {}), ...Object.fromEntries(['bottoms', 'hat', 'scarf'].filter((k) => $(k).value).map((k) => [k, $(k).value === 'none' ? '' : $(k).value])) });
+  for (let i = 0; i < m; i++) out.push({ id: who || `lab-${seed}-${i}`, ...act, ...(lie ? { at: [0.8, (i - (m - 1) / 2) * 0.9], head: [1, 0], top: 0 } : { at: [(i - (m - 1) / 2) * 0.85, 0] }), yaw: 0, pose: $('pose').value, dress: $('dress').value, sculpt: mode === 'sculpt', build: $('build').value, mouth: mouthNow(), facial: $('facial').value, ...moodNow(), ...(who ? settled : {}), ...($('useW').checked ? { weight: +$('weight').value } : {}), ...($('sex').value ? { sex: $('sex').value } : {}), ...($('grit').value !== '' ? { grit: +$('grit').value } : {}), ...(window.__fig?.extra || {}), ...($('useB').checked ? { bust: +$('bust').value } : {}), ...($('useT').checked ? { butt: +$('butt').value } : {}), ...Object.fromEntries(['bottoms', 'hat', 'scarf'].filter((k) => $(k).value).map((k) => [k, $(k).value === 'none' ? '' : $(k).value])) });
   return out;
 }
 let crowdReady = false;
@@ -343,8 +350,11 @@ function draw(now) {
     recs[i] = { ...recs[i], rows };
   }
   R.setFigures(recs);
+  // the last frame's records, for a console to read where a hand or what's in it is
+  window.__fig.recs = recs; window.__fig.bodiesNow = B;
   // what's in their hands (gl/room-held.js): the bottle, the pill, the rig a clip takes to the face or the arm
-  R.setProps(heldProps(createBatch(512), B, recs));
+  // and a meal's plate, if a console has given them one (window.__fig.extra = { meal: { d, s: 'eat', at } })
+  R.setProps(heldProps(B.some((b) => b.meal) ? mealProps(L, B, recs, t) : createBatch(512), B, recs));
   if ($('crowd').checked) {
     if (!crowdReady) { preparePeople(); crowdReady = true; }
     R.setPeople(peopleBatch(L, B.map((b) => ({ ...b, at: [b.at[0] + 0.42, b.at[1]] })), t));

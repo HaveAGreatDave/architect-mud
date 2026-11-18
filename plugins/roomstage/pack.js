@@ -24,6 +24,7 @@ import { titleCaseName } from '../../server/engine/text.js';
 import { conditionBand, wears } from '../../server/engine/durability.js';
 import { cmdEquipById, cmdUnequipById, cmdDropById, computeCarriedWeight, carryCapacity } from '../../server/engine/commands/inventory.js';
 import { lookOfPlayer } from '../../client/shared/player-figure.js';
+import { wardrobeForPack, wearOutfitForPack } from '../wardrobe/index.js';
 import { ritualOf, sprayOf, RITUAL_VERB } from './acts.js';
 
 const LAYER_N = { underwear: 1, outerwear: 2, armor: 3 };
@@ -58,6 +59,8 @@ function packRow(r, it) {
     // what kind of thing is in the doll's hand (paper-doll.js draws a blade, a club or a gun)
     if (typeof t.weapon_skill === 'string') out.skill = t.weapon_skill;
     if (Number(t.insulation) > 0) out.warm = Math.round(Number(t.insulation) * 10) / 10;
+    // how it looks worn, where the name can't say (paper-doll.js garmentOf): `col` hex, `print`
+    if (t.wear_look && typeof t.wear_look === 'object') out.look = t.wear_look;
   }
   if (r.is_equipped) out.worn = true;
   if (hasTag({ tags: t }, 'consumable')) out.consume = consumeVerb({ tags: t });
@@ -109,9 +112,16 @@ export async function cmdRoomPack(args, raw, player, broadcast) {
     if (!ids[0]) return { type: 'error', message: 'Drop what?' };
     const qty = Math.max(0, parseInt(args[2], 10) || 0);
     tell(await cmdDropById(ids[0], player, broadcast, qty));
-  } else if (op) {
+  } else if (op === 'outfit') {
+    // `roompack outfit <wardrobe> <name>`: Wear Now on a saved outfit (plugins/wardrobe orders in what's missing)
+    const res = await wearOutfitForPack(player, String(args[1] || ''), args.slice(2).join(' '), broadcast);
+    ok = res.ok !== false; say = res.message;
+  } else if (op && op !== 'wardrobe') {
     return { type: 'error', message: `roompack: no such thing as ${short(op, 20)}.` };
   }
-  const view = await packOf(player);
+  // at a wardrobe (`roompack wardrobe <id>`, and every `outfit`): its saved outfits come with the pack
+  const furnId = op === 'wardrobe' || op === 'outfit' ? String(args[1] || '') : null;
+  const [view, wardrobe] = await Promise.all([packOf(player), furnId ? wardrobeForPack(player, furnId) : null]);
+  if (wardrobe) view.wardrobe = wardrobe;
   return say ? { ...view, say, ok } : view;
 }

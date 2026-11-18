@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_tv_host_02",
+  "lines": [
+    "\"People recognise you in the street?\"",
+    "\"They point.\"",
+    "\"That's nice.\"",
+    "\"They point and say \"it's that one.\" Never my name.\""
+  ],
+  "personality": "tv_host",
+  "sort_order": 690
+}

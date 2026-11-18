@@ -1,19 +1,18 @@
 {
-  "description": "This one stands open and empty, its fluid down to a puddle, the front of the glass swung out on its hinge. The plate on the plinth gives a number. It was yours. There is already a work order taped to it.",
+  "description": "A tall glass vat of lit green fluid over a drain in the floor. A body floats asleep in it, masked, its hose running up through the crown into the tubes overhead. The plate gives its number.",
   "flags": {
     "look": {
       "arche": "prop",
       "dims": [
-        1.1,
-        1.1,
-        2.6
+        1.2,
+        1.2,
+        3
       ],
       "form": "vat",
-      "state": "drained",
-      "tag": "V-03"
+      "tag": "A-03"
     },
     "spot": {
-      "along": 7.2,
+      "along": 6.6,
       "wall": "left"
     }
   },
@@ -22,7 +21,7 @@
   "id": "furn_clone_vat_3",
   "light_type": null,
   "lumen_output": null,
-  "name": "open vat",
+  "name": "growing vat",
   "object_type": "decoration",
   "power_draw_kw": null,
   "price": null,

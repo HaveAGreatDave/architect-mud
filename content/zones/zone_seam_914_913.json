@@ -1,0 +1,23 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "city",
+  "description": "A wide run of packed gravel and grit, graded flat by traffic and rain into something almost like a road. Puddles stand in the ruts, skinned with a chemical sheen. Nothing grows in the margins.",
+  "exits": {
+    "north": "zone_seam_914_912",
+    "south": "zone_seam_914_914"
+  },
+  "flags": {
+    "district": "wasteland",
+    "region_id": "region_coldwater",
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "grass"
+  },
+  "grid_x": 914,
+  "grid_y": 913,
+  "grid_z": 0,
+  "id": "zone_seam_914_913",
+  "map_id": "map_world",
+  "name": "Foundry Way",
+  "parent_zone": null
+}

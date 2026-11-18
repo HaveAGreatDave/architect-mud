@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_more_vendor_05",
+  "lines": [
+    "\"Somebody nicked from the front again.\"",
+    "\"What?\"",
+    "\"A tin of beans.\"",
+    "\"Just the one?\"",
+    "\"I hope they enjoyed it. I hope it was cold.\""
+  ],
+  "personality": "vendor",
+  "sort_order": 634
+}

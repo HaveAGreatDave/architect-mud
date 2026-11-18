@@ -130,14 +130,15 @@ import { __install } from './rink-dom-stub.mjs';
 const stub = __install();
 const P = '../../client/game/js/panels/';
 const { createWorld, DT, toPark } = await import(P + 'diamond/world.js');
-const { createDirector, pictureAfter, opensGame, PACE, landBy, AFTER } = await import(P + 'diamond/director.js');
+const { createDirector, pictureAfter, opensGame, PACE, landBy, AFTER, SIGN_AT } = await import(P + 'diamond/director.js');
+const { PITCH_SIGNS, SIGN_SECOND } = await import(P + 'diamond/hands.js');
 const { PARK_TIERS, rungsFor } = await import(P + 'diamond/quality.js');
 const { castOf, crewDue, crewLane, CREW_ARCS, CREW_GATE, CREW_GAP, CREW_HOLD } = await import(P + 'diamond/cast.js');
 const { matAt, sweptAlong, crewShots: crewShotsOf } = await import(P + 'diamond/crew.js');
 const { pitchPoint } = await import(P + 'diamond/hud.js');
 const { solvePose } = await import(P + 'diamond/rig.js');
 const { handPoint, limitBreaks, eventTime } = await import(P + 'diamond/anim.js');
-const { isShot, shotAt, project } = await import(P + 'diamond/camera.js');
+const { isShot, shotAt, project, SHOTS } = await import(P + 'diamond/camera.js');
 const { pitchText } = await import(P + 'gameday.js');
 const { BAGS } = await import(P + 'diamond/geo.js');
 const { legsOf, fenceAt, sprayOf } = await import(P + 'diamond/play.js');
@@ -186,7 +187,7 @@ const bagAt = (b) => (b === 4 ? [0, 0, 0] : BAGS[b]);
 for (const p of order) for (const m of p.moves || []) if (m && m.name) check('a runner\'s legs in the picture are the sim\'s (play.js legsOf)', legsOf(m.name) === speedOf(m.name), m.name);
 
 // ── 1. the director ──────────────────────────────────────────────────────────
-const seen = { fieldCut: 0, roundCut: 0, skip: 0, ritual: 0, block: 0, check: 0, punchout: 0, hbp: 0, lefty: 0, sideL: 0, toFirst: 0, air: 0, rundown: 0, scored: 0, round: 0, trot: 0, off: 0, warmup: 0, replay: 0, scar: 0, between: 0, rub: 0, goneOff: 0, deckShot: 0, crew: 0, stepout: 0, look: 0, welcome: 0, twoOutRun: 0, getBack: 0, focus: 0 };
+const seen = { signs: 0, grip: 0, fieldCut: 0, roundCut: 0, skip: 0, ritual: 0, block: 0, check: 0, punchout: 0, hbp: 0, lefty: 0, sideL: 0, toFirst: 0, air: 0, rundown: 0, scored: 0, round: 0, trot: 0, off: 0, warmup: 0, replay: 0, scar: 0, between: 0, rub: 0, goneOff: 0, deckShot: 0, crew: 0, stepout: 0, look: 0, welcome: 0, twoOutRun: 0, getBack: 0, focus: 0 };
 // The ball of a foot, where marks.js puts its mark: half way from the ankle to the toe.
 const footAt = (J, S) => [(J['an' + S][0] + J['toe' + S][0]) / 2, (J['an' + S][2] + J['toe' + S][2]) / 2];
 // The dirt's marks (diamond/marks.js) a staging said: each on the canvas, a foot's on the dirt,
@@ -263,6 +264,55 @@ for (const hold of [undefined, 45000]) {
         check('the delivery is at its release as the ball leaves', /^pitch_(windup|stretch)_/.test(b.clip?.id) && lined(sP, b.clip.id, 'release', rec.release), `${label} #${rec.n}: ${b.clip?.id} at ${W.clipTime(b, rec.release).toFixed(3)}`);
         const J = solvePose(W.pose(sP, rec.release)).J, at = J['wr' + hand].map((v, k) => v + J['hdir' + hand][k] * 0.2);
         check('the ball leaves from his hand (0.05 ft)', dist(at, rec.path(rec.release)) <= 0.05, `${label} #${rec.n}: ${dist(at, rec.path(rec.release)).toFixed(3)} ft`);
+      }]);
+      // the catcher's signs (director.js signsOver): the pitch's own, the second of three with a man on second
+      const sg = D.signs.find((x) => x.i === rec.i);
+      if (sg) {
+        const real = PITCH_SIGNS[String(sg.type).toLowerCase()] || 'sign1', at = sg.start + SIGN_AT[sg.signs.length === 1 ? 0 : SIGN_SECOND] + 0.16;
+        due.push([at, () => {
+          if (at < sg.from || !W.bodies.get(sC)?.layers.hands) return;
+          seen.signs++;
+          const H = W.pose(sC, W.t)?.hands?.R || [], w = H.filter(([n]) => n === real).reduce((s, [, x]) => s + x, 0);
+          check('the catcher\'s sign is the pitch\'s', sg.signs[sg.signs.length === 1 ? 0 : SIGN_SECOND] === real && w > 0.9, `${label} #${rec.n}: ${sg.type} wants ${real}, ${JSON.stringify(H)}`);
+        }]);
+      }
+      // the grip shot (director.js gripWindow): on his hands while they're together in the set, the ball
+      // in its frame, and the pitch camera back for the pitch
+      const g = D.grips.find((x) => x.i === rec.i);
+      if (g) {
+        seen.grip++;
+        const handsAt = () => { const J = solvePose(W.pose(sP, W.t)).J; return dist(J.handL, J.handR); };
+        let gs = null;
+        due.push([g.from + 0.05, () => {
+          const on = shotNow && typeof shotNow === 'object' && shotNow.shot === 'grip', ball = W.ballAt(W.t);
+          if (on) gs = shotNow;
+          const q = on && ball ? project(shotAt(shotNow, W.t), 640, 480, ball) : null;
+          check('the grip shot: on the air, the ball in his hands in its frame', !!q && q.x > 64 && q.x < 576 && q.y > 48 && q.y < 432, `${label} #${rec.n}: ${on} ${q ? `${q.x.toFixed(0)},${q.y.toFixed(0)}` : 'off'}`);
+          check('the grip shot: his hands together as it cuts in (0.6 ft)', handsAt() < 0.6, `${label} #${rec.n}: ${handsAt().toFixed(2)} ft`);
+        }]);
+        due.push([g.open - 0.02, () => check('the grip shot: his hands still together as it starts to widen (0.6 ft)', handsAt() < 0.6, `${label} #${rec.n}: ${handsAt().toFixed(2)} ft`)]);
+        // and his arm coming back through the widening picture with the ball in his fingers: the tell
+        due.push([rec.release - 0.2, () => {
+          const ball = W.ballAt(W.t), q = shotNow?.shot === 'grip' && ball ? project(shotAt(shotNow, W.t), 640, 480, ball) : null;
+          check('the grip shot: the ball in his fingers in the picture as his arm comes back', !!q && q.x > 0 && q.x < 640 && q.y > 0 && q.y < 480, `${label} #${rec.n}: ${q ? `${q.x.toFixed(0)},${q.y.toFixed(0)}` : 'off'}`);
+        }]);
+        // widened all the way, it's the centre-field camera's own picture, and the cut to it doesn't move
+        due.push([g.to - 0.05, () => {
+          const a = gs ? shotAt(gs, g.to - 1e-6) : null, b = SHOTS.cf;
+          const d = a ? Math.max(dist(a.at, b.at), dist(a.eye, b.eye)) : Infinity, df = a ? Math.abs(a.fov - b.fov) : Infinity;
+          check('the grip shot: widened to the centre-field shot by the cut (0.05 ft, 0.01°)', d < 0.05 && df < 0.01, `${label} #${rec.n}: ${d.toFixed(3)} ft, ${df.toFixed(4)}°`);
+        }]);
+        due.push([g.to + 0.02, () => check('the grip shot: the centre-field camera for the pitch after it', shotNow === 'cf', `${label} #${rec.n}: ${JSON.stringify(shotNow?.shot ?? shotNow)}`)]);
+      }
+      // the ball his till then (director.js pitcherBall): in his fingers as his arm comes through, and
+      // wherever it's seen before that, in one of his hands
+      for (const dt of [0.4, 0.2, 0.06]) due.push([rec.release - dt, () => {
+        if (rec.release - dt < rec.tIn) return;
+        const hand = p.throws === 'L' ? 'L' : 'R', J = solvePose(W.pose(sP, W.t)).J, ball = W.ballAt(W.t);
+        if (dt < 0.1) check('the pitcher has the ball in his hand as his arm comes through', !!ball, `${label} #${rec.n}`);
+        if (!ball) return;
+        const d = Math.min(dist(ball, J.handL), dist(ball, J.handR));
+        check('the pitcher\'s ball before the release is in his hand (0.45 ft: figure-rig.js BALL_IN_HAND, so his fingers close on it)', d <= 0.45, `${label} #${rec.n} at -${dt} s: ${d.toFixed(2)} ft`);
       }]);
       if (rec.swing) due.push([rec.swing.t, () => check('a miss: the swing within 0.03 s of the ball', lined(sH, rec.swing.clip, 'contact', rec.swing.t, 0.03), `${label} #${rec.n}`)]);
       if (rec.catch) {
@@ -650,7 +700,9 @@ check('the game has a hit batsman', seen.hbp > 0);
 check('a left-handed hitter gets the third-base camera', seen.lefty === 0 || seen.sideL > 0);
 check('the game has a ground ball thrown out at first on the first-base camera', seen.toFirst > 0);
 check('the game has a ball in play on the field camera', seen.fieldCut > 0, `${seen.fieldCut}`);
-console.log(`  field camera ${seen.fieldCut}, round first ${seen.roundCut}`);
+check('the game has a grip shot', seen.grip > 0, `${seen.grip}`);
+check("the game has the catcher's signs", seen.signs > 0, `${seen.signs}`);
+console.log(`  field camera ${seen.fieldCut}, round first ${seen.roundCut}, grip ${seen.grip}`);
 check('the game has a ball caught in the air', seen.air > 0);
 check('the game has a ball run down in the outfield', seen.rundown > 0);
 check('the game has a run scored on a ball in the park', seen.scored > 0);

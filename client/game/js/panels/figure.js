@@ -25,7 +25,7 @@
 // every bone's rest rotation identity, so the arms hang straight down. No DOM, no GL: the gate
 // (scripts/shapes/figure.mjs) builds every cut and style in Node.
 
-import { headMesh, hairMesh, skullPoint, facePoint, hairlineAt, spline, weightedFace, hdFace, EYE, NECK, NECK_SCULPT, SCULPT_HEADS, HAIRLINE_SCULPT, FACE, ZC, HAIR_STYLES, skulletHair } from './actor-head.js';
+import { headMesh, hairMesh, skullPoint, facePoint, hairlineAt, spline, weightedFace, hdFace, EYE, NECK, NECK_SCULPT, SCULPT_HEADS, HAIRLINE_SCULPT, FACE, ZC, HAIR_STYLES, skulletHair, softFace, tunedFace, FACE_STYLES } from './actor-head.js';
 import { formNormals, faceDesigned } from './form-normals.js';
 
 const TAU = Math.PI * 2;
@@ -73,6 +73,11 @@ FIGURE_BONES.forEach((b, i) => { B[b[0]] = i; });
 // `move` names how it moves: 'look' glances about on its own clock, 'sway' a slow curl, 'flap' a breath.
 export const FIGURE_XBONES = (() => {
   const out = [], add = (name, parent, at, o = {}) => { out.push({ name, parent, at, ...o }); return name; };
+  // the shoulder girdle: each collarbone turns about the breastbone's end, carrying the top of the shoulder
+  // and the arm with it as the arm goes up or forward (gl/room-people.js shoulderGirdle). First, so a body
+  // with no growths still has every bone it's weighted to without a gap in the list.
+  add('clavL', 'chest', [0.022, 1.43, 0.035], { move: 'girdle' });
+  add('clavR', 'chest', [-0.022, 1.43, 0.035], { move: 'girdle' });
   add('head2', 'chest', [-0.215, 1.405, -0.03], { from: [0, 1.47, 0], k: 0.97, move: 'look', yaw: -0.55, roll: -0.32 });
   // four spider legs out of the upper back, each a hip and a knee
   for (const [s, i, y] of [[1, 0, 1.33], [-1, 1, 1.33], [1, 2, 1.2], [-1, 3, 1.2]]) {
@@ -126,7 +131,9 @@ export const FIG_PIECE = { torso: 0, sleeve: 1, boot: 2, belt: 3, strap: 4, pouc
   // a work vest's pockets, flaps and snaps, and the binding down its open front (FIGURE_CUTS workvest)
   pocket: 33,
   // a cap's peak, its top and its underside (FIGURE_HATS bill)
-  bill: 34, billUnder: 35 };
+  bill: 34, billUnder: 35,
+  // a chain round the neck
+  chain: 36 };
 // The gear a person can wear, each optional (figureGear picks it off the outfit's rand).
 export const FIGURE_GEAR = ['belt', 'strap', 'pouch', 'pads', 'gloves'];
 
@@ -442,6 +449,35 @@ export const FIGURE_CUTS = {
     collar: { y0: 1.444, y1: 1.49, ease: 0.008, flare: 0.024, open: 0.02 },
     shoulder: 0.014, front: 'zip',
   },
+  // THE VAT SUIT: the one-piece the dressing gantry puts on every reprinted body, a boiler suit in vat orange, zipped
+  // from the collar, elastic at the waist and the cuffs (`rib`). Its repairs are stitched on as patches standing off the
+  // cloth (`vat`, vatSuitDetail): which knees, elbows and shoulders, a second patch over the first on a hard-worn knee,
+  // and on every one a chest pocket with its flap and snap and a batch tape. One cut a season; the item names it
+  // (tags.wear_look.cut), and the vat issues the season's (server/engine/gameLoop.js SEASONAL_SUIT)
+  vatsuit_summer: {
+    top: { hem: 0.86, neck: 1.448, ease: 0.012, hug: 0.08, drape: 0.38, flare: 0 },
+    sleeve: { cuff: 1.2, ease: 0.014, drape: 0.18, open: 0.006 },
+    collar: { y0: 1.442, y1: 1.478, ease: 0.008, flare: 0.016, open: 0.04 },
+    shoulder: 0.012, front: 'zip', rib: 0.03, vat: { knees: 1, elbows: false, shoulders: false },
+  },
+  vatsuit_spring: {
+    top: { hem: 0.86, neck: 1.452, ease: 0.014, hug: 0.08, drape: 0.38, flare: 0 },
+    sleeve: { cuff: 0.88, ease: 0.012, drape: 0.18, open: 0.003 },
+    collar: { y0: 1.444, y1: 1.49, ease: 0.008, flare: 0.02, open: 0.02 },
+    shoulder: 0.014, front: 'zip', rib: 0.03, vat: { knees: 2, elbows: false, shoulders: true },
+  },
+  vatsuit_autumn: {
+    top: { hem: 0.86, neck: 1.452, ease: 0.017, hug: 0.06, drape: 0.38, flare: 0 },
+    sleeve: { cuff: 0.88, ease: 0.014, drape: 0.18, open: 0.003 },
+    collar: { y0: 1.444, y1: 1.5, ease: 0.01, flare: 0.022, open: 0.016 },
+    shoulder: 0.016, front: 'zip', rib: 0.03, vat: { knees: 2, elbows: true, shoulders: true },
+  },
+  vatsuit_winter: {
+    top: { hem: 0.86, neck: 1.455, ease: 0.022, hug: 0.04, drape: 0.4, flare: 0 },
+    sleeve: { cuff: 0.878, ease: 0.016, drape: 0.2, open: 0.003 },
+    collar: { y0: 1.444, y1: 1.53, ease: 0.014, flare: 0.012, open: 0.008 },
+    shoulder: 0.016, front: 'zip', rib: 0.035, quilt: true, vat: { knees: 2, elbows: true, shoulders: true, double: true },
+  },
   // a uniform tunic: fitted, buttoned, a stand collar, to the top of the thigh
   uniform: {
     top: { hem: 0.82, neck: 1.455, ease: 0.008, hug: 0.18, drape: 0.32, flare: 0.008 },
@@ -576,8 +612,9 @@ function underCap(M) {
   M.I = keep;
   return M;
 }
-// A scarf: a loop round the neck and, unless it's a snood, one tail down the front. `wrap` is how many turns.
-export const FIGURE_SCARVES = { scarf: { r: 0.02, tail: 0.24, wrap: 1 }, chunky: { r: 0.03, tail: 0.18, wrap: 2 }, snood: { r: 0.028, tail: 0, wrap: 2 }, bandana: { r: 0.012, tail: 0.06, wrap: 1 } };
+// A scarf: a loop round the neck and, unless it's a snood, one tail down the front, or both ends (`ends: 2`,
+// one a little longer). `wrap` is how many turns.
+export const FIGURE_SCARVES = { scarf: { r: 0.02, tail: 0.24, wrap: 1 }, wrap: { r: 0.032, endR: 0.055, tail: 0.4, wrap: 1, ends: 2 }, chunky: { r: 0.03, tail: 0.18, wrap: 2 }, snood: { r: 0.028, tail: 0, wrap: 2 }, bandana: { r: 0.012, tail: 0.06, wrap: 1 } };
 // The underwear sets, which the roll leaves out
 // Low-cut tops: `neckline` [depth, half-width, 0 a V or 1 a scoop] is painted as skin down the front
 // (gl/figure-hd.js uNeck), over a cloth that hugs the chest; any top can take one from flags.figure.neckline.
@@ -847,6 +884,9 @@ function torsoRelief(x, y, c, s) {
   d += K * 0.005 * gx(ax - 0.032, 0.016) * smooth(0.94, 1.0, y) * (1 - smooth(1.16, 1.24, y)); // the erectors
   d += K * 0.008 * gx(ax - 0.085, 0.045) * gx(y - 1.33, 0.065);                           // the shoulder blades
   d += 0.005 * smooth(0.6, 0.95, Math.abs(c)) * gx(y - 1.22, 0.07);                       // the lats
+  { const side = smooth(0.45, 0.85, Math.abs(c));
+    d += 0.003 * side * smooth(-0.1, 0.5, s) * gx(y - 1.25, 0.04);                          // the serratus, one band under the armpit
+    d += 0.006 * side * smooth(-0.3, 0.4, s) * gx(y - 1.035, 0.04); }                       // the obliques, rolled over the hip bone
   d += K * 0.016 * gx(ax - 0.068, 0.058) * gx(y - 0.885, 0.05);                           // the glutes
   d -= K * 0.011 * gx(x, 0.009) * (1 - smooth(0.93, 0.97, y));
   return d;
@@ -854,6 +894,8 @@ function torsoRelief(x, y, c, s) {
 function armRelief(y, c, s) {
   let d = 0;
   d += 0.004 * gx(y - 1.36, 0.04) * smooth(0.2, 0.8, c);                                  // the deltoid's foot
+  d += 0.006 * gx(y - 1.37, 0.045) * smooth(-0.5, 0.2, c);                                // its cap, round over the front, side and back
+  d += 0.003 * smooth(0.3, 0.8, s) * gx(y - 1.38, 0.035);                                 // and its front head, toward the chest
   d += 0.008 * smooth(0.1, 0.7, s) * gx(y - 1.235, 0.055);                                // the biceps
   d += 0.007 * smooth(0.1, 0.7, -s) * gx(y - 1.275, 0.06);                                // the triceps
   d -= 0.004 * smooth(0.3, 0.8, s) * gx(y - 1.108, 0.012);                                // the elbow's crease
@@ -883,8 +925,16 @@ function legRelief(y, c, s) {
 // A part is a vertical loft: `at(y)` gives its section, and `point(y, phi)` a point on it with its
 // relief. `side` mirrors a limb (1 left, -1 right), so `c` always means "away from the body".
 function torsoSection(y) { const [hw, zf, zb, cz] = T_TORSO.at(y); return { cx: 0, cz, rx: hw, zf, zb, nf: TORSO_N[0], nb: TORSO_N[1] }; }
+// The limbs' lines from the front. A hanging arm isn't straight: the elbow sits in toward the waist and the
+// forearm angles back out (the carrying angle), so the elbow is drawn in while the shoulder and wrist stay on
+// their joints. The thighs slope in from the hips to the knees, and the shins come most of the way back out to
+// the ankles, which stay over the feet. Both are moves along the bend's own axis, so a bent elbow or knee still
+// turns true about its bone.
+const ELBOW_IN = (y) => 0.013 * gx(y - 1.1, 0.075);
+const KNEE_IN = (y) => 0.011 * smooth(0.95, 0.6, y) * (0.45 + 0.55 * smooth(0.1, 0.42, y));
 function limbSection(T, X, side) {
-  return (y) => { const [rx, zf, zb, cx, cz] = T.at(y); return { cx: side * (X + cx), cz, rx, zf, zb, nf: 2.05, nb: 2.05 }; };
+  const tuck = X === ARM_X ? ELBOW_IN : KNEE_IN;
+  return (y) => { const [rx, zf, zb, cx, cz] = T.at(y); return { cx: side * (X + cx - tuck(y)), cz, rx, zf, zb, nf: 2.05, nb: 2.05 }; };
 }
 function partPoint(part, y, phi) {
   const S = part.at(y), c = Math.cos(phi), s = Math.sin(phi);
@@ -1068,9 +1118,15 @@ const TORSO_CHAIN = chain([
 ]);
 // The torso: the shoulder's corner follows the arm a little and the seat follows each thigh, so a
 // raised arm lifts the shoulder and a stride moves the buttock with the leg.
+// The close-up levels weight the top of the shoulder to the collarbones; the crowd's bake has only the 19
+// bones, so its levels keep it on the chest. buildFigure sets this for the level it's building.
+let GIRDLE = false;
+const girdleOf = (L) => (GIRDLE ? B['clav' + L] : B.chest);
 function torsoW(x, y) {
   let w = TORSO_CHAIN(y);
   const ax = Math.abs(x), L = x >= 0;
+  // the collarbone and the trapezius over it, front and back, out from beside the neck to the shoulder
+  if (GIRDLE) w = mixW(w, girdleOf(L ? 'L' : 'R'), 0.9 * smooth(0.035, 0.115, ax) * smooth(1.3, 1.4, y));
   w = mixW(w, L ? B.uarmL : B.uarmR, 0.34 * smooth(0.135, 0.195, ax) * smooth(1.33, 1.42, y));
   w = mixW(w, L ? B.thighL : B.thighR, 0.5 * smooth(0.95, 0.83, y) * Math.min(1, ax / 0.04));
   return w;
@@ -1087,10 +1143,24 @@ function skirtW(x, y) {
   return [[B.pelvis, 1 - k], [L ? B.thighL : B.thighR, k * (1 - s)], [L ? B.shinL : B.shinR, k * s]];
 }
 const armW = (L) => chain([
-  { y: 1.39, a: B.chest, b: B['uarm' + L], h: 0.03 },
+  { y: 1.39, a: girdleOf(L), b: B['uarm' + L], h: 0.03 },
   { y: 1.10, a: B['uarm' + L], b: B['farm' + L], h: 0.045 },
   { y: 0.86, a: B['farm' + L], b: B['hand' + L], h: 0.02 },
 ]);
+// The sculpted arm's shoulder. The deltoid is the arm's: all of it that stands out past the torso goes with the
+// arm, and only its inner edge, where it laps over the trapezius and the chest, is shared with the chest. Weighted
+// by height alone (armW), the dome's top stayed on the chest as the arm went out under it, and the shoulder
+// creased in two: a doll's arm on a peg. `u` is how far out past the shoulder joint a point is.
+const armWS = (L) => {
+  const below = armW(L), side = L === 'L' ? 1 : -1;
+  return (x, y) => {
+    if (y < 1.3) return below(y);
+    // the shoulder's share: at the top of the round, nearly half on the outer side and four fifths on the inner;
+    // all on the arm, the round swung down under the armpit of a raised arm
+    const u = side * x - ARM_X, k = smooth(1.3, 1.45, y) * (0.45 + 0.35 * (1 - smooth(-0.035, 0.02, u)));
+    return k > 0 ? [[girdleOf(L), k], [B['uarm' + L], 1 - k]] : [[B['uarm' + L], 1]];
+  };
+};
 const legW = (L) => chain([
   { y: 0.93, a: B.pelvis, b: B['thigh' + L], h: 0.04 },
   { y: 0.49, a: B['thigh' + L], b: B['shin' + L], h: 0.045 },
@@ -1285,6 +1355,45 @@ function footRings(side, cols, dz, grow = 0, sole = () => FOOT_SOLE, ext = [0, 0
   }
   return rings;
 }
+// A bare foot, close up: the foot as footMesh lofts it, cut off across the ball, and five toes forward of that, the
+// big toe on the inside, each a short tube on the toe bone with its tip curled down onto the sole and the outer ones
+// set back and smaller. Only the levels with fingers; the rest keep the shoe's last in skin.
+const BARE_TOES = [
+  // across the ball (-1 the inside edge, 1 the outside), set back, length, radius
+  [-0.62, 0.0, 0.046, 0.0108], [-0.2, 0.004, 0.038, 0.0074], [0.12, 0.009, 0.034, 0.0068], [0.42, 0.015, 0.029, 0.0062], [0.7, 0.023, 0.023, 0.0056],
+];
+function bareFootMesh(side, level) {
+  const L = side > 0 ? 'L' : 'R', w = toeW(L), M = newPart('foot' + L, FIG_SLOT.skin), cols = level.cols.foot;
+  const z0 = FOOT[0][0], z1 = 0.124, n = Math.max(3, Math.round((z1 - z0) / level.dy.foot)), rings = [];
+  for (let i = 0; i <= n; i++) {
+    const z = z0 + ((z1 - z0) * i) / n, [rx, cy, up, dn, cx] = T_FOOT.at(z), ring = [];
+    for (let j = 0; j < cols; j++) {
+      const a = (j / cols) * TAU, c = Math.cos(a), s = Math.sin(a);
+      // the arch: the inside of the sole lifted off the floor through the middle of the foot
+      const arch = side * c < 0 && s < 0 ? 0.006 * Math.sin(Math.PI * Math.max(0, Math.min(1, (z + 0.03) / 0.12))) * -c * side : 0;
+      ring.push([side * (LEG_X + cx) + side * rx * se(c, 2.3), Math.max(cy + (s >= 0 ? up : dn) * se(s, s >= 0 ? 2.2 : 3.2), FOOT_SOLE) + arch, z]);
+    }
+    rings.push(ring);
+  }
+  const R = rings.map((ring) => ring.map((p) => addV(M, p, w(p[2]))));
+  const mid = (ring) => ring.reduce((a, p) => [a[0] + p[0] / ring.length, a[1] + p[1] / ring.length, a[2] + p[2] / ring.length], [0, 0, 0]);
+  capFan(M, R[0], addV(M, mid(rings[0]), w(rings[0][0][2])), true);
+  stitchRings(M, R);
+  capFan(M, R[R.length - 1], addV(M, mid(rings[n]), w(z1)), false);
+  // the toes, from just inside the cut, flattened a little, bending down at the tip
+  const [bx, bcy, , bdn, bcx] = T_FOOT.at(z1 - 0.004), wt = [[B['toe' + L], 1]];
+  for (const [across, back, len, r] of BARE_TOES) {
+    const x = side * (LEG_X + bcx) + side * bx * 0.8 * across, y0 = Math.max(FOOT_SOLE + r * 0.95, bcy - bdn * 0.25), zb = z1 - 0.012 - back;
+    const path = [], radii = [];
+    for (let k = 0; k <= 5; k++) {
+      const t = k / 5;
+      path.push([x + side * across * 0.004 * t, y0 - 0.006 * t * t, zb + len * t]);
+      radii.push(r * (1 - 0.18 * t) * (k === 5 ? 0.85 : 1));
+    }
+    tubeAlong(M, path, radii, level.name === 'hd' ? 10 : 7, wt, [0, 1, 0], 1.25);
+  }
+  return M;
+}
 function footMesh(side, level, slot, grow, sole, ext) {
   const L = side > 0 ? 'L' : 'R', w = toeW(L);
   const M = newPart('foot' + L, slot);
@@ -1440,6 +1549,9 @@ function handSculpt(side, level) {
     const v0 = M.P.length / 3;
     tubeAlong(M, path, radii, cols, wt, [1, 0, 0], 0.88);
     tag(v0, 4, path[0], 0.068);
+    // its three joints, which gl/figure-hd.js folds it at: the root on the heel of the palm, the knuckle after its
+    // first bone and the last joint after its second
+    M.thumb = { root: path[0], j: [path[0], path[1], path[3]], len: 0.068 };
     (M.tips ||= []).push({ p: path[path.length - 1], d: norm3(path[path.length - 1].map((v, j) => v - path[path.length - 2][j])) });
   }
   return M;
@@ -1481,6 +1593,11 @@ export function fingerTipsOf(side, k) {
 export function fingerJointsOf(k = 1) {
   const W = [ARM_X, 0.868, -0.004], sc = (p) => p.map((v, j) => W[j] + (v - W[j]) * k);
   return handOnce(1).joints.map(({ root, j, len }) => ({ j: j.map(sc), t: [1, 2].map((i) => Math.min(0.999, Math.hypot(j[i][0] - root[0], j[i][1] - root[1], j[i][2] - root[2]) / len)) }));
+}
+// The thumb's the same: its root, its knuckle and its last joint, and where along it (as tagged) the two fall.
+export function thumbJointsOf(k = 1) {
+  const W = [ARM_X, 0.868, -0.004], sc = (p) => p.map((v, j) => W[j] + (v - W[j]) * k), { root, j, len } = handOnce(1).thumb;
+  return { j: j.map(sc), t: [1, 2].map((i) => Math.min(0.999, Math.hypot(j[i][0] - root[0], j[i][1] - root[1], j[i][2] - root[2]) / len)) };
 }
 // the hand's scale (buildFigure's hk) for a key, so room-people.js can find the prop on it
 export function handScaleOf({ build = 'average', weight = null, body = null } = {}, side = 1) {
@@ -1753,7 +1870,14 @@ export const HAIR_CUTS = {
   12: { name: 'cornrows', base: 0, paint: 1 }, 13: { name: 'undercut', base: 4, paint: 0 }, 14: { name: 'pompadour', base: 4, paint: 1 },
   15: { name: 'pixie', base: 2, paint: 1 }, 16: { name: 'braided', base: 3, paint: 1 }, 17: { name: 'top knot', base: 0, paint: 0 },
   18: { name: 'mullet', base: 5, paint: 1 }, 19: { name: 'wolf cut', base: 2, paint: 1 }, 20: { name: 'buns', base: 1, paint: 1 },
+  21: { name: 'curtains', base: 1, paint: 1 }, 22: { name: 'slicked-back', base: 1, paint: 1 }, 23: { name: 'side part', base: 1, paint: 1 },
+  24: { name: 'comb-over', base: 0, paint: 0 }, 25: { name: 'liberty spikes', base: 2, paint: 0 }, 26: { name: 'shag', base: 3, paint: 1 },
+  27: { name: 'pigtails', base: 3, paint: 1 }, 28: { name: 'beehive', base: 4, paint: 1 }, 29: { name: 'man bun', base: 1, paint: 1 },
+  30: { name: 'half up', base: 3, paint: 1 }, 31: { name: 'long waves', base: 3, paint: 1 }, 32: { name: 'flat top', base: 0, paint: 0 },
 };
+// The cuts each street style can become on a rolled NPC's close-up, so the street and the close-up still agree
+// (the street draws a cut as its base): the street's six, by index, to what can stand in for them.
+export const CUTS_OF_BASE = [0, 1, 2, 3, 4, 5].map((b) => [b, ...Object.keys(HAIR_CUTS).map(Number).filter((k) => HAIR_CUTS[k].base === b)]);
 // what the shader's paint takes for a style, and the street's own style for one it can't draw
 export const cutPaint = (style) => (HAIR_CUTS[style] ? HAIR_CUTS[style].paint : style);
 export const cutBase = (style) => (HAIR_CUTS[style] ? HAIR_CUTS[style].base : style);
@@ -1868,8 +1992,87 @@ function cutLocks(M, style, r, hd, rows, cols, wt) {
       flatBack(100, 0.4);
       for (const s of [1, -1]) knot(lockPoint(rad(82), rad(s * 44), 1.14), 0.027, step(12, 5));
       break;
+    case 21:  // curtains: parted in the middle, each side falling away from the parting to the cheekbone, the back to the collar
+      for (const s of [1, -1]) for (let la = 4; la <= 56; la += step(9, 26)) blade(hang(over(72, 32, s * la * 0.35, s * (44 + la * 0.65), 0.07, 0.02, hd ? 4 : 2), 1.57 + 0.01 * r(), hd ? 3 : 2, 0.1), 0.025);
+      for (let a = -92; a <= 92; a += step(14, 46)) blade(hang(over(84, 168, a * 0.7, a * 0.76, 0.05, 0.02, hd ? 3 : 2), 1.5 + 0.02 * r(), hd ? 3 : 2, 0.1), 0.028);
+      break;
+    case 22:  // slicked back: flat and close, combed straight back from the hairline to the nape
+      for (let la = -72; la <= 72; la += step(10, 24)) blade(over(20 + Math.abs(la) * 0.32, 198, la, la * 0.62, 0.04, 0.005), 0.027);
+      break;
+    case 23:  // a side part: parted high on the left, the top combed across to the right, the sides and back short
+      for (let la = -62; la <= 24; la += step(9, 29)) blade(over(24 + Math.abs(la) * 0.2, 104, la, la - 26, 0.09, 0.02), 0.026);
+      for (let la = 38; la <= 72; la += step(10, 34)) blade(over(36, 116, la, la * 1.05, 0.05, 0), 0.024);
+      for (let la = -64; la <= 64; la += step(16, 32)) blade(over(104, 190, la, la * 0.8, 0.045, 0), 0.026);
+      break;
+    case 24:  // a comb-over: the sides cropped, a few long strands from above one ear laid across the bare top
+      for (let k = 0; k < step(6, 3); k++) blade(over(34 + k * step(13, 26), 44 + k * step(13, 26) + 8 * r(), 70, -52 - 10 * r(), 0.018, 0.004, hd ? 6 : 3), 0.014);
+      break;
+    case 25:  // liberty spikes: a row of tall cones from the forehead to the crown's back, the sides shaved
+      for (let th = 24; th <= 168; th += step(18, 36)) blade(over(th, th + 4, 0, 0, 0, 0.5 + 0.15 * Math.sin(Math.PI * (th - 24) / 144)), 0.042);
+      break;
+    case 26:  // a shag: choppy layers all over, feathered at the sides and long at the back, a heavy fringe
+      for (let th = 34; th <= 160; th += step(18, 42)) for (let la = -90; la <= 90; la += step(15, 45)) {
+        const sp = over(th, th + 44, la, la * 1.22, 0.12, 0.06, hd ? 4 : 2);
+        blade(th > 70 || Math.abs(la) > 40 ? hang(sp, 1.45 + 0.07 * r(), hd ? 4 : 2, 0.22) : sp, 0.026);
+      }
+      for (let la = -40; la <= 40; la += step(8, 40)) blade(hang(over(70, 22, la, la * 1.1, 0.08, 0.01, hd ? 3 : 2), 1.66 + 0.01 * r(), 2, 0.04), 0.021);
+      break;
+    case 27:  // pigtails: parted in the middle, drawn down to a tie low behind each ear and hanging from there
+      for (const s of [1, -1]) {
+        for (let la = 2; la <= 74; la += step(10, 36)) blade(over(26 + la * 0.3, 128, s * la, s * 74, 0.035, 0), 0.025);
+        // the back of the crown, drawn down and round to the same tie
+        for (let la = 3; la <= 63; la += step(12, 30)) blade(over(84 + la * 0.3, 134, s * la * 0.5, s * 76, 0.035, 0), 0.026);
+        // and the nape, drawn up to it from below
+        for (let la = 3; la <= 63; la += step(12, 30)) blade(over(204 - la * 0.3, 138, s * la * 0.6, s * 76, 0.03, 0), 0.026);
+        const tie = lockPoint(rad(128), rad(s * 76), 1.06);
+        knot(tie, 0.012, step(5, 3));
+        rope(tie, 1.36 + 0.02 * r(), s * 2, 0.018);
+      }
+      break;
+    case 28: {  // a beehive: piled high on the crown in a tall rounded mass, a swept fringe in front of it
+      const hive = (th, la) => 1.02 + 0.5 * Math.exp(-(((th - 84) / 52) ** 2)) * Math.max(0, Math.cos(la * D2R)) ** 1.5;
+      for (let th = 30; th <= 196; th += step(12, 28)) for (let la = -84; la <= 84; la += step(14, 34)) {
+        const sp = [];
+        for (let i = 0; i <= 3; i++) { const t2 = th + i * 8, l2 = la + 14 * i * (la >= 0 ? 1 : -1) * 0.3; sp.push(lockPoint(rad(t2), rad(l2), hive(t2, l2))); }
+        blade(sp, 0.045);
+      }
+      for (let la = -44; la <= 30; la += step(9, 37)) blade(over(26, 70, la, la + 32, 0.16, 0.04), 0.024);
+      break;
+    }
+    case 29:  // a man bun: drawn back off the face to a knot at the back of the crown
+      flatBack(116, 0.3);
+      for (let la = -60; la <= 60; la += step(15, 30)) blade(over(150, 120, la, la * 0.2, 0.03, 0), 0.025);
+      knot(lockPoint(rad(118), 0, 1.15), 0.03, step(12, 5));
+      break;
+    case 30:  // half up: the top drawn back to a small knot, the rest left long over the shoulders
+      flatBack(114, 0.3);
+      knot(lockPoint(rad(118), 0, 1.12), 0.021, step(9, 4));
+      for (let a = -100; a <= 100; a += step(14, 40)) { const side = Math.abs(a) / 100; blade(hang(over(104 + 10 * side, 172 - 28 * side, a * 0.76, a * 0.8, 0.04, 0.02, hd ? 3 : 2), 1.39 + 0.05 * side ** 2 + 0.03 * r(), hd ? 6 : 3, 0.1), 0.03); }
+      break;
+    case 31:  // long waves: centre-parted, falling in loose S-waves past the shoulders
+      for (let a = -104; a <= 104; a += step(13, 34)) {
+        const side = Math.abs(a) / 104, sp = over(22 + 30 * side + 6 * r(), 170 - 32 * side, a * 0.72, a * 0.76, 0.06, 0.02, hd ? 4 : 2), e = sp[sp.length - 1], n = hd ? 8 : 4, ph = r() * TAU, y1 = 1.35 + 0.04 * r();
+        for (let i = 1; i <= n; i++) {
+          const t = i / n, k = 1 + 0.14 * Math.sin(Math.PI * Math.min(1, t * 1.3)) + 0.12 * t, wv = 0.011 * Math.sin(ph + t * 11) * Math.min(1, t * 3);
+          sp.push([e[0] * k + wv * Math.sign(a || 1), e[1] + (y1 - e[1]) * t, ZC - 0.012 + (e[2] - ZC + 0.012) * k + wv * 0.5]);
+        }
+        blade(sp, 0.031);
+      }
+      break;
+    case 32:  // a flat top: the sides cropped, the top stood straight up and cut level, square to the ground
+      for (let th = 20; th <= 124; th += step(11, 26)) for (let la = -46; la <= 46; la += step(11, 23)) {
+        const p0 = lockPoint(rad(th), rad(la), 1.01), top = Math.max(p0[1] + 0.02, 1.792 + 0.003 * r()), m = [p0[0] * 1.02, (p0[1] + top) / 2, p0[2] + (p0[2] - ZC) * 0.03];
+        lockBlade(M, [p0, m, [p0[0] * 1.03, top, p0[2] + (p0[2] - ZC) * 0.05]], (hd ? 0.02 : 0.03) * 1.1, r(), cols, wt);
+      }
+      break;
   }
 }
+// How loose a cut is, for its swing (gl/figure-hd.js hairSway): 0 doesn't move, 1 swings freely. A beard
+// counts too, a long one most. The street's six by index, then the cuts.
+const HAIR_LOOSE = [0, 0.2, 0.35, 1, 0.3, 0.8, 0.6, 1, 0.2, 0.15, 0.15, 1, 0.05, 0.4, 0.2, 0.25, 1, 0.2, 0.9, 0.7, 0.2,
+  0.65, 0.08, 0.25, 0.55, 0.12, 0.85, 1, 0.1, 0.2, 1, 1, 0.04];
+const BEARD_LOOSE = { full: 0.3, long: 0.6, handlebar: 0.1, walrus: 0.25, fumanchu: 0.9, forked: 0.6, braided: 0.7, bushy: 0.35 };
+export const hairLoose = (style, beard) => Math.max(HAIR_LOOSE[style | 0] ?? 0.3, BEARD_LOOSE[beard] ?? 0);
 function hairLocks(level, style, fs, spikes = 0, fan = 0) {
   const M = newPart('locks', FIG_SLOT.hair), r = rng(0x10c5 + style), LS = LOCK_STYLE[style], hd = level.name === 'hd', rows = hd ? 6 : 3, cols = hd ? 6 : 3, wt = [[B.head, 1]];
   if (HAIR_CUTS[style]) { cutLocks(M, style, r, hd, rows, cols, wt); return M; }
@@ -1951,14 +2154,59 @@ function lockBlade(M, spine, w0, seed, cols, wt) {
 function beardLocks(level, kind, fs) {
   const M = newPart('beard', FIG_SLOT.hair), r = rng(0xbea2d), long = kind === 'long', hd = level.name === 'hd', rows = hd ? (long ? 6 : 5) : 2, cols = hd ? 5 : 4, wt = [[B.head, 1]];
   if (kind === 'handlebar') return handlebarLocks(M, hd, fs, wt);
+  if (kind === 'walrus') return walrusLocks(M, hd, fs, wt);
+  if (kind === 'fumanchu') return fuManchuLocks(M, hd, fs, wt);
+  // forked and braided are long beards; bushy is a full one grown out wide
+  const forked = kind === 'forked', braided = kind === 'braided', bushy = kind === 'bushy', lng = long || forked;
   for (let a = hd ? 30 : 58; a <= (hd ? 150 : 122); a += hd ? 6.5 : 32) {
     const phi = (a + (r() - 0.5) * 4) * D2R, s = Math.sin(phi), c = Math.cos(phi), y0 = 1.562 - 0.03 * s * s + (r() - 0.5) * 0.008, p = skullPoint(y0, phi, fs);
-    const L = (long ? 0.06 + 0.11 * s ** 3 : 0.03 + 0.028 * s * s) * (0.8 + 0.4 * r()), spine = [];
+    const L = (lng ? 0.06 + 0.11 * s ** 3 : bushy ? 0.045 + 0.05 * s * s : 0.03 + 0.028 * s * s) * (0.8 + 0.4 * r()), spine = [];
+    // a fork's two points, either side of the chin
+    const fx = forked ? (p[0] >= 0 ? 1 : -1) * 0.024 : 0;
     for (let i = 0; i <= rows; i++) {
-      const t = i / rows, inn = 1 - (long ? 0.42 : 0.24) * t;
-      spine.push([p[0] * inn, p[1] - L * t, p[2] + s * (0.006 * Math.sin(Math.PI * Math.min(1, t * 1.4)) + 0.01 * t) + 0.002]);
+      const t = i / rows, inn = 1 - (lng ? 0.42 : bushy ? 0.08 : 0.24) * t, puff = bushy ? 0.014 * Math.sin(Math.PI * Math.min(1, t * 1.2)) : 0;
+      const x = forked ? p[0] + (fx - p[0]) * Math.min(1, t * 1.1) * 0.85 : p[0] * inn * (1 + puff * 12);
+      spine.push([x, p[1] - L * t, p[2] + s * (0.006 * Math.sin(Math.PI * Math.min(1, t * 1.4)) + 0.01 * t + puff) + 0.002]);
     }
-    lockBlade(M, spine, hd ? (long ? 0.0125 : 0.0105) * (0.8 + 0.5 * r()) : long ? 0.03 : 0.034, r(), cols, wt);
+    lockBlade(M, spine, hd ? (lng ? 0.0125 : bushy ? 0.0135 : 0.0105) * (0.8 + 0.5 * r()) : lng ? 0.03 : 0.034, r(), cols, wt);
+  }
+  // braided: a plait down from the point of the chin, short fat blades crossing one after another, and a tie at its end
+  if (braided) {
+    const top = skullPoint(1.53, Math.PI / 2, fs), n = hd ? 9 : 4, y1 = 1.36, sp = [];
+    for (let i = 0; i <= n; i++) { const t = i / n; sp.push([0, top[1] - 0.012 - (top[1] - 0.012 - y1) * t, top[2] + 0.012 - 0.018 * t]); }
+    for (let i = 0; i < n; i++) lockBlade(M, [sp[i], [(i % 2 ? 0.0045 : -0.0045), (sp[i][1] + sp[i + 1][1]) / 2, (sp[i][2] + sp[i + 1][2]) / 2 + 0.003], sp[i + 1]], (hd ? 0.016 : 0.022) * (1 - 0.3 * i / n), r(), cols, wt);
+  }
+  return M;
+}
+
+// A walrus: a heavy, bushy moustache that hangs down over the upper lip and hides it, its ends past the corners of
+// the mouth. Rooted under the nose, every lock falls down and a little out, the middle ones shortest.
+function walrusLocks(M, hd, fs, wt) {
+  const r = rng(0x3a1f), cols = hd ? 5 : 4, n = hd ? 14 : 5;
+  for (let i = 0; i < n; i++) {
+    const u = (i / (n - 1)) * 2 - 1, x0 = u * 0.03, y0 = 1.587 - 0.006 * u * u, f0 = facePoint(x0, y0, fs);
+    const y1 = 1.559 - 0.008 * Math.abs(u) ** 1.5 - 0.004 * r(), x1 = x0 * 1.25, spine = [];
+    for (let k = 0; k <= 3; k++) {
+      const t = k / 3, x = x0 + (x1 - x0) * t, y = y0 + (y1 - y0) * t, f = facePoint(Math.max(-0.044, Math.min(0.044, x)), y, fs);
+      // off the lip, fullest in the middle of its fall, settling back onto the face at the tip
+      spine.push([x, y, Math.max(f[2], f0[2] - 0.004 * t) + 0.004 + 0.006 * Math.sin(Math.PI * Math.min(1, t * 1.3))]);
+    }
+    lockBlade(M, spine, (hd ? 0.009 : 0.016) * (0.85 + 0.3 * r()), r(), cols, wt);
+  }
+  return M;
+}
+
+// A Fu Manchu: a thin moustache (painted) whose two ends grow on down from the corners of the mouth in long thin
+// strands, well below the chin. Each strand is a few thin locks twisted round each other, tapering to a point.
+function fuManchuLocks(M, hd, fs, wt) {
+  const r = rng(0xf00d), cols = hd ? 4 : 3;
+  for (const sd of [1, -1]) for (let k = 0; k < (hd ? 3 : 1); k++) {
+    const x0 = sd * (0.03 + 0.002 * k), f0 = facePoint(x0, 1.572, fs), n = hd ? 10 : 4, y1 = 1.43 - 0.02 * r(), spine = [];
+    for (let i = 0; i <= n; i++) {
+      const t = i / n, tw = 0.0025 * Math.sin(t * 12 + k * 2.1);
+      spine.push([x0 + sd * 0.004 * Math.sin(Math.PI * t) + tw, 1.572 - (1.572 - y1) * t, f0[2] + 0.004 + 0.012 * Math.sin(Math.PI * Math.min(1, t * 0.9)) + tw]);
+    }
+    lockBlade(M, spine, (hd ? 0.0042 : 0.008) * (0.9 + 0.2 * r()), r(), cols, wt);
   }
   return M;
 }
@@ -1995,7 +2243,7 @@ function handlebarLocks(M, hd, fs, wt) {
 // the eye has depth from the side and can turn. Along the opening's top and bottom run the lids, thin strips with real
 // thickness that catch the light. A lid's uv is [1 if it moves in a blink, how far it travels].
 function eyeParts(fs) {
-  const E = fs.startsWith('sculptSoft') ? EYE.soft : EYE.man, rx = E.w + 0.0022, ry = 0.0118, rz = 0.012, wt = [[B.head, 1]];
+  const E0 = softFace(fs) ? EYE.soft : EYE.man, A = FACE_STYLES[fs]?.eyeAdj, E = A ? { x: E0.x + A[0], w: E0.w * A[1], t: E0.t * A[2], b: E0.b * A[2], tilt: E0.tilt + A[3] } : E0, rx = E.w + 0.0022, ry = 0.0118, rz = 0.012, wt = [[B.head, 1]];
   const ball = newPart('eyes', FIG_SLOT.eye), lids = newPart('lids', FIG_SLOT.lid), socket = newPart('socket', FIG_SLOT.eye);
   for (const side of [1, -1]) {
     const cx = side * E.x, cy = EYE.y;
@@ -2133,6 +2381,19 @@ export const FIGURE_FACIAL = {
   long: { stubble: 0.5, shape: [1, 1, 1, 1], more: [0, 0, 1], mesh: 'long' },
   handlebar: { stubble: 1.1, shape: [0, 0, 1, 0], mesh: 'handlebar' },
   handlebar_patch: { stubble: 1.3, shape: [0, 0, 1, 0], more: [1, 0, 0], mesh: 'handlebar' },
+  // the painted ones: mutton chops down the cheeks with the chin bare (friendly ones joined by a moustache), a
+  // horseshoe down past the mouth, an anchor of moustache and a chin strip apart, and a chin curtain with no moustache
+  mutton: { stubble: 0.3, shape: [1, 0, 0, 1] },
+  friendly_mutton: { stubble: 0.3, shape: [1, 0, 1, 1] },
+  horseshoe: { stubble: 0.3, shape: [0, 0, 1, 0], more: [0, 0, 1] },
+  anchor: { stubble: 0.2, shape: [0, 1, 1, 0], more: [1, 0, 0] },
+  chin_curtain: { stubble: 0.3, shape: [1, 1, 0, 1], more: [0, 1, 0] },
+  // with locks of their own (beardLocks)
+  walrus: { stubble: 0.6, shape: [0, 0, 1, 0], mesh: 'walrus' },
+  fumanchu: { stubble: 0.2, shape: [0, 0, 1, 0], mesh: 'fumanchu' },
+  bushy: { stubble: 0.7, shape: [1, 1, 1, 1], more: [0, 0, 1], mesh: 'bushy' },
+  forked: { stubble: 0.5, shape: [1, 1, 1, 1], more: [0, 0, 1], mesh: 'forked' },
+  braided: { stubble: 0.5, shape: [1, 1, 1, 1], more: [0, 0, 1], mesh: 'braided' },
 };
 // The seat's shape for `butt`: a dome on each side, round across and up, highest a little below the hip and
 // tucked in hard at the fold under it (y 0.84) so it sits on the thigh instead of hanging over it.
@@ -2564,6 +2825,51 @@ function vestPockets(ringAt, Lv) {
   }
   return out;
 }
+// THE VAT SUIT'S MAKING (FIGURE_CUTS vatsuit_*): what's sewn onto it, each a piece standing off the cloth so it
+// catches the light and the ink. A chest pocket on the wearer's left with a flap and a snap, a batch tape across the
+// right breast (the shirt's slot, white, which nothing else on a closed suit shows), and the repairs `V` asks for:
+// a panel over the front of each shoulder, a patch on the back of each elbow, one on each knee (or only the left),
+// and on a hard-worn suit a smaller patch stitched over the knee's. Patches take the top's own
+// slot, so they read as the same cloth sewn on twice; the stitching round each is the pocket's paint.
+function vatSuitDetail(V, ringAt, layers, PT, Lv, legs) {
+  const out = [], H = Math.PI / 2, hd = Lv.name === 'hd', nu = hd ? 14 : 8, nv = hd ? 8 : 5;
+  // the chest pocket, its flap and its snap
+  const ac = H - 0.62, a0 = ac - 0.19, a1 = ac + 0.19, y0 = 1.225, y1 = 1.33, fy0 = y1 - 0.036;
+  out.push(torsoBox('pocket', FIG_SLOT.top, ringAt, a0, a1, y0, y1, 0.0006, 0.008, 0.003, FIG_PIECE.pocket));
+  out.push(torsoBox('flap', FIG_SLOT.top, ringAt, a0 - 0.02, a1 + 0.02, fy0, y1 + 0.008, 0.0008, 0.012, 0.0015, FIG_PIECE.pocket));
+  if (hd || Lv.name === 'lite') {
+    const S = newPart('snap', FIG_SLOT.specs), c = onTorso(ringAt, ac, fy0 + 0.012, 0.0145);
+    blobInto(S, c, [-Math.sin(ac), 0, Math.cos(ac)], [0, 1, 0], [Math.cos(ac), 0, Math.sin(ac)], [0.0055, 0.0055, 0.0025], 8, 4, 2, TORSO_CHAIN(fy0), FIG_PIECE.pocket);
+    out.push(S);
+    // the zip's pull, hanging off the slider at the collar
+    const Z = newPart('zippull', FIG_SLOT.specs), z = onTorso(ringAt, H, 1.415, 0.008);
+    blobInto(Z, z, [1, 0, 0], [0, 1, 0], [0, 0, 1], [0.0055, 0.012, 0.0022], 8, 4, 3, TORSO_CHAIN(1.415), FIG_PIECE.pocket);
+    out.push(Z);
+  }
+  // the batch tape
+  const at = H + 0.6;
+  out.push(torsoBox('tape', FIG_SLOT.shirt, ringAt, at - 0.2, at + 0.2, 1.282, 1.316, 0.0005, 0.003, 0.0008, FIG_PIECE.pocket));
+  // the shoulders' panels, over the front of each, from the collarbone toward the arm
+  if (V.shoulders) for (const sd of [1, -1]) { const c = H - sd * 1.02; out.push(torsoBox('yoke', FIG_SLOT.top, ringAt, c - 0.3, c + 0.3, 1.335, 1.415, 0.0005, 0.0045, 0.0015, FIG_PIECE.pocket)); }
+  // a patch on a limb: on its cloth's outermost layer at `y`, facing `dir` round it (z forward), skinned to two bones
+  const limbPatch = (name, layer, P, y, dir, radii, wt, lift = 0.002, ax = [1, 0, 0]) => {
+    const S = P.at(y), R = hull2(ringOf(layers, layer, y) || []);
+    const r = (R.length ? rayOut(R, [S.cx, S.cz], dir) : 0.05) + lift, c = [S.cx + dir[0] * r, y, S.cz + dir[1] * r];
+    const M = newPart(name, FIG_SLOT.top);
+    blobInto(M, c, ax, [0, 1, 0], [dir[0], 0, dir[1]], radii, nu, nv, 5, wt, FIG_PIECE.pocket);
+    return M;
+  };
+  for (const s of [1, -1]) {
+    const L = s > 0 ? 'L' : 'R';
+    if (legs && (V.knees === 2 || (V.knees === 1 && s > 0))) {
+      const wt = [[B['thigh' + L], 0.35], [B['shin' + L], 0.65]];
+      out.push(limbPatch('kpatch' + L, 'leg' + L, PT['leg' + L], 0.505, [0, 1], [0.05, 0.066, 0.006], wt));
+      if (V.double) out.push(limbPatch('kpatch2' + L, 'leg' + L, PT['leg' + L], 0.52, [s * 0.18, 0.98], [0.028, 0.032, 0.006], wt, 0.008));
+    }
+    if (V.elbows) out.push(limbPatch('epatch' + L, 'arm' + L, PT['arm' + L], 1.1, [0, -1], [0.034, 0.05, 0.005], [[B['uarm' + L], 0.5], [B['farm' + L], 0.5]]));
+  }
+  return out;
+}
 // The binding down each edge of an open front, from the neck to the hem: short lengths of tube, each skinned at its
 // own height so it follows the body as it bends. `half(y)` is the opening's half-width.
 function frontBinding(ringAt, half, yTop, yBot, slot) {
@@ -2620,15 +2926,16 @@ export function figureForget(k) { _cache.delete(figureKey(k)); }
 const GEAR_LETTER = { belt: 'b', strap: 's', pouch: 'p', pads: 'k' };
 const gearCode = (g) => Object.entries(GEAR_LETTER).map(([k, c]) => ((k === 'belt' ? g?.belt !== false : !!g?.[k]) ? c : '')).join('');
 // `sculpt` is the revised figure (docs/proposals/sculpted-figure.md), on the close-up levels only.
-export const figureKey = ({ cut = 'coat', style = 0, level = 'hd', wear = null, gear = null, body = null, sculpt = false, head = 0, build = 'average', weight = null, beard = '', prop = '', bust = null, butt = null, groin = '', bottoms = '', hat = '', scarf = '', spikes = 0, specs = 0, fan = 0, boots = '', faceHd = false } = {}) => `${cut}|${style}|${level}|${wear ? JSON.stringify(wear) : ''}|${gearCode(gear)}|${bodyCode(body)}${sculpt ? '|s' + head + build + (weight === null ? '' : '|w' + weight) + (beard ? '|b' + beard : '') + (prop ? '|p' + prop : '') + (bust === null ? '' : '|B' + bust) + (butt === null ? '' : '|T' + butt) + (groin ? '|g' + groin : '') + (spikes ? '|k' + spikes : '') : ''}${bottoms ? '|o' + bottoms : ''}${hat ? '|h' + hat : ''}${scarf ? '|f' + scarf : ''}${specs ? '|e' : ''}${fan ? '|n' + fan : ''}${boots ? '|t' + boots : ''}${faceHd ? '|F' : ''}`;
+export const figureKey = ({ cut = 'coat', style = 0, level = 'hd', wear = null, gear = null, body = null, sculpt = false, head = 0, build = 'average', weight = null, beard = '', prop = '', bust = null, butt = null, groin = '', bottoms = '', hat = '', scarf = '', spikes = 0, specs = 0, chain = 0, fan = 0, boots = '', faceHd = false, tune = '' } = {}) => `${cut}|${style}|${level}|${wear ? JSON.stringify(wear) : ''}|${gearCode(gear)}|${bodyCode(body)}${sculpt ? '|s' + head + build + (weight === null ? '' : '|w' + weight) + (beard ? '|b' + beard : '') + (prop ? '|p' + prop : '') + (bust === null ? '' : '|B' + bust) + (butt === null ? '' : '|T' + butt) + (groin ? '|g' + groin : '') + (spikes ? '|k' + spikes : '') : ''}${bottoms ? '|o' + bottoms : ''}${hat ? '|h' + hat : ''}${scarf ? '|f' + scarf : ''}${specs ? '|e' : ''}${chain ? '|c' : ''}${fan ? '|n' + fan : ''}${boots ? '|t' + boots : ''}${faceHd ? '|F' : ''}${sculpt && tune ? '|u' + tune : ''}`;
 const SCULPT_DY = { hd: { torso: 0.018, arm: 0.02, leg: 0.024, foot: 0.016 }, lite: { torso: 0.023, arm: 0.025, leg: 0.03, foot: 0.024 } };
-export function buildFigure({ cut = 'coat', style = 0, level = 'hd', wear = null, gear = null, body = null, sculpt: sculptAsked = false, head = 0, build = 'average', weight = null, beard = '', prop = '', bust = null, butt = null, groin = '', bottoms = '', hat = '', scarf = '', spikes = 0, specs = 0, fan = 0, boots = '', faceHd = false } = {}) {
-  const key = figureKey({ cut, style, level, wear, gear, body, sculpt: sculptAsked, head, build, weight, beard, prop, bust, butt, groin, bottoms, hat, scarf, spikes, specs, fan, boots, faceHd });
+export function buildFigure({ cut = 'coat', style = 0, level = 'hd', wear = null, gear = null, body = null, sculpt: sculptAsked = false, head = 0, build = 'average', weight = null, beard = '', prop = '', bust = null, butt = null, groin = '', bottoms = '', hat = '', scarf = '', spikes = 0, specs = 0, chain = 0, fan = 0, boots = '', faceHd = false, tune = '' } = {}) {
+  const key = figureKey({ cut, style, level, wear, gear, body, sculpt: sculptAsked, head, build, weight, beard, prop, bust, butt, groin, bottoms, hat, scarf, spikes, specs, chain, fan, boots, faceHd, tune });
   if (_cache.has(key)) return _cache.get(key);
   // a MORPHEX cut is drawn by the sculpted figure only; any other level draws the street style it's nearest
   if (HAIR_CUTS[style] && !(sculptAsked && FIGURE_LEVELS[level].skin)) style = cutBase(style);
-  const sculpt = sculptAsked && FIGURE_LEVELS[level].skin, BK = sculpt ? buildOf(build) : SCULPT_BUILDS.average, SW = sculpt && weight !== null ? somaOf(weight) : null, NKb = BK.neck * (SW ? SW.neck : 1), NK = sculpt ? NECK_SCULPT * NKb : 1, FS0 = sculpt ? weightedFace(SCULPT_HEADS[head] || 'sculpt', weight) : 'comic', FS = sculpt && faceHd && level === 'hd' ? hdFace(FS0) : FS0;
+  const sculpt = sculptAsked && FIGURE_LEVELS[level].skin, BK = sculpt ? buildOf(build) : SCULPT_BUILDS.average, SW = sculpt && weight !== null ? somaOf(weight) : null, NKb = BK.neck * (SW ? SW.neck : 1), NK = sculpt ? NECK_SCULPT * NKb : 1, FS0 = sculpt ? weightedFace(tunedFace(SCULPT_HEADS[head] || 'sculpt', tune), weight) : 'comic', FS = sculpt && faceHd && level === 'hd' ? hdFace(FS0) : FS0;
   const Lv = sculpt ? { ...FIGURE_LEVELS[level], dy: SCULPT_DY[level] } : FIGURE_LEVELS[level];
+  GIRDLE = !!Lv.skin;
   const C0 = FIGURE_CUTS[cut] || FIGURE_CUTS.coat, C = sculpt ? sculptCut(C0, SW ? SW.fat : 0) : C0, code = gearCode(gear);
   const G = { belt: code.includes('b'), strap: code.includes('s') && Lv.skin, pouch: code.includes('p') && Lv.skin, pads: code.includes('k') && Lv.skin };
   const on = { top: true, legs: true, shoes: true, ...(wear || {}) };
@@ -2779,11 +3086,12 @@ export function buildFigure({ cut = 'coat', style = 0, level = 'hd', wear = null
       };
       const rings = clothRings(layers, sp, Lv);
       for (const r of rings) r.pts = r.pts.map(lean);
-      const part = clothMesh(rings, sp, Lv, (x, y) => armW(L)(y), slotOf(Sl.slot, slot0));
+      const part = clothMesh(rings, sp, Lv, sculpt ? armWS(L) : (x, y) => armW(L)(y), slotOf(Sl.slot, slot0));
       parts.push(part);
       layers['arm' + L].push(clothLayer(rings));
       cov('arm' + L, Sl.cuff + 0.012, 2);
     }
+    if (C.vat && Lv.skin) parts.push(...vatSuitDetail(C.vat, topLayer.ringAt, layers, PT, Lv, on.legs));
     // the collar: a band round the neck, flaring a little at its top
     if (C.collar) {
       const Cc = C.collar, cols = Lv.cols.neck, part = newPart('collar', slotOf(Cc.slot, FIG_SLOT.collar));
@@ -2842,9 +3150,27 @@ export function buildFigure({ cut = 'coat', style = 0, level = 'hd', wear = null
         tubeAlong(M, path, path.map(() => SC.r), n, TORSO_CHAIN(1.45), [0, 1, 0], 0.6, FIG_PIECE.scarf);
       }
       if (SC.tail) {
-        const path = [0, 0.25, 0.5, 0.75, 1].map((t) => { const y = 1.45 - t * SC.tail, pts = ringOf(layers, 'torso', Math.max(T_TORSO.lo + 0.01, y)), o = [0, torsoSection(Math.max(T_TORSO.lo, y)).cz], d = norm2([0.35, 1]), r = pts ? rayOut(hull2(pts), o, d) : 0.1; return [o[0] + d[0] * (r + SC.r), y, o[1] + d[1] * (r + SC.r)]; });
-        tubeAlong(M, path, path.map((_, i) => SC.r * (1 - 0.15 * i / 4)), n, TORSO_CHAIN(1.3), [1, 0, 0], 0.45, FIG_PIECE.scarf);
+        // one end down the front off to the side, or two either side of the middle, the right one longer
+        const ends = SC.ends === 2 ? [[0.8, 1], [-0.8, 0.86]] : [[0.35, 1]], er = SC.endR || SC.r;
+        for (const [dx, len] of ends) {
+          const path = [0, 0.25, 0.5, 0.75, 1].map((t) => { const y = 1.45 - t * SC.tail * len, pts = ringOf(layers, 'torso', Math.max(T_TORSO.lo + 0.01, y)), o = [0, torsoSection(Math.max(T_TORSO.lo, y)).cz], d = norm2([dx, 1]), r = pts ? rayOut(hull2(pts), o, d) : 0.1; return [o[0] + d[0] * (r + SC.r), y, o[1] + d[1] * (r + SC.r)]; });
+          tubeAlong(M, path, path.map((_, i) => er * (1 - 0.15 * i / 4)), n, TORSO_CHAIN(1.3), [1, 0, 0], 0.45, FIG_PIECE.scarf);
+        }
       }
+      parts.push(M);
+    }
+    // a chain: round the base of the neck at the back, lying on the chest and dipping to the breastbone in front,
+    // in the glasses' frame slot (gl/room-people.js gives it the chain's colour)
+    if (chain && Lv.skin) {
+      const M = newPart('chain', FIG_SLOT.specs), cr = 0.0032, path = [];
+      for (let i = 0; i <= 32; i++) {
+        const a = (i / 32) * Math.PI * 2, f = ((1 + Math.cos(a)) / 2) ** 2, y = 1.448 - 0.1 * f, d = [Math.sin(a), Math.cos(a)];
+        const N = neckAt(y, NK), rn = 1 / Math.hypot(d[0] / (N.rx + 0.006), d[1] / (N.rz + 0.006));
+        const pts = y < 1.44 ? ringOf(layers, 'torso', Math.max(T_TORSO.lo + 0.01, y)) : null, o = [0, pts ? torsoSection(y).cz : N.cz];
+        const rr = (pts ? rayOut(hull2(pts), o, d) : rn) + cr + 0.002;
+        path.push([o[0] + d[0] * rr, y, o[1] + d[1] * rr]);
+      }
+      tubeAlong(M, path, path.map(() => cr), Lv.name === 'hd' ? 6 : 4, TORSO_CHAIN(1.42), [0, 1, 0], 0.5, FIG_PIECE.chain);
       parts.push(M);
     }
     if (C.hood && Lv.skin) {
@@ -2910,7 +3236,7 @@ export function buildFigure({ cut = 'coat', style = 0, level = 'hd', wear = null
     const covered = (name, y) => (cover[name] || []).some(([lo, hi]) => y > lo && y < hi);
     const bodyParts = [
       bodyPart(PT.torso, Lv, (x, y) => torsoW(x, y), [0, T_TORSO.hi + 0.004, -0.022], TORSO_CAP),
-      ...[1, -1].map((s) => { const L = s > 0 ? 'L' : 'R', P = PT['arm' + L], lean = deltoidLean(P, P.cap ? 0 : 0.5); const M = bodyPart(P, Lv, (x, y) => armW(L)(y), armCapPoint(s, P), null); if (sculpt) M.A.fill(FIG_PIECE.sleeve); for (let i = 0; i < M.P.length; i += 3) { const q = lean([M.P[i], M.P[i + 1], M.P[i + 2]]); M.P[i + 1] = q[1]; } return M; }),
+      ...[1, -1].map((s) => { const L = s > 0 ? 'L' : 'R', P = PT['arm' + L], lean = deltoidLean(P, P.cap ? 0 : 0.5); const M = bodyPart(P, Lv, sculpt ? armWS(L) : (x, y) => armW(L)(y), armCapPoint(s, P), null); if (sculpt) M.A.fill(FIG_PIECE.sleeve); for (let i = 0; i < M.P.length; i += 3) { const q = lean([M.P[i], M.P[i + 1], M.P[i + 2]]); M.P[i + 1] = q[1]; } return M; }),
       ...[1, -1].map((s) => { const L = s > 0 ? 'L' : 'R'; return bodyPart(PT['leg' + L], Lv, (x, y) => legW(L)(y), null, null); }),
     ];
     for (const M of bodyParts) {
@@ -2924,12 +3250,12 @@ export function buildFigure({ cut = 'coat', style = 0, level = 'hd', wear = null
       M.I = keep;
       if (keep.length) parts.push(compact(M));
     }
-    for (const s of [1, -1]) if (!on.shoes) parts.push(footMesh(s, Lv, FIG_SLOT.skin, 0, undefined, [0, 0]));
+    for (const s of [1, -1]) if (!on.shoes) parts.push(sculpt && Lv.fingers ? bareFootMesh(s, Lv) : footMesh(s, Lv, FIG_SLOT.skin, 0, undefined, [0, 0]));
   }
   // a second pair of arms: the bare arm and hand again, as modelled, moved onto the grown arm bones
   // (FIGURE_XBONES arm2*), which carry them down the ribs and copy the real arms' motion
   if (BD.arms4) for (const s of [1, -1]) {
-    const L = s > 0 ? 'L' : 'R', map = { [B['uarm' + L]]: B['arm2U' + L], [B['farm' + L]]: B['arm2F' + L], [B['hand' + L]]: B['arm2H' + L], [B.chest]: B['arm2U' + L], [B.neck]: B['arm2U' + L] };
+    const L = s > 0 ? 'L' : 'R', map = { [B['uarm' + L]]: B['arm2U' + L], [B['farm' + L]]: B['arm2F' + L], [B['hand' + L]]: B['arm2H' + L], [B.chest]: B['arm2U' + L], [B.neck]: B['arm2U' + L], [B.clavL]: B['arm2U' + L], [B.clavR]: B['arm2U' + L] };
     const arm = bodyPart(PT['arm' + L], Lv, (x, y) => armW(L)(y), armCapPoint(s, PT['arm' + L]), null), hand = handMesh(s, Lv, (sculpt ? 1.1 * Math.sqrt(BK.arm) * (SW ? SW.hand : 1) : HAND_K) * 0.96, sculpt);
     for (const X of [arm, hand]) parts.push({ ...X, name: X.name + '4', slot: FIG_SLOT.skin, Wt: X.Wt.map((w) => w.map(([b, k]) => [map[b] ?? B['arm2U' + L], k])) });
   }

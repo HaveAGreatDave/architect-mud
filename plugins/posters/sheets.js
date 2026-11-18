@@ -47,7 +47,24 @@ export function sheetOf(f) {
   const key = f?.flags?.poster_key, slot = MURAL.indexOf(key);
   if (!isHero(f) || slot < 0) return null;
   const [title, sub] = titleOf(f.name, key), p = PRINT[key];
-  return { id: f.id, set: 'hellmoo', slot, of: MURAL.length, glyph: MURAL_WORD[slot], title, sub, line: p.line, ground: p.ground, ink: p.ink, accent: p.accent, pose: p.pose, ...(p.seam ? { seam: p.seam } : {}), art: ART };
+  const spot = spotOf(f.flags?.sheet_spot);
+  return { id: f.id, set: 'hellmoo', slot, of: MURAL.length, glyph: MURAL_WORD[slot], title, sub, line: p.line, ground: p.ground, ink: p.ink, accent: p.accent, pose: p.pose, ...(p.seam ? { seam: p.seam } : {}), ...(spot ? { spot } : {}), art: ART };
+}
+
+// Where the owner put the run: `{ wall, along? }`, the wall it hangs on and, if they slid it in the arrange mode, where
+// its middle is along that wall in the room's own units (metres in a flat). No along: the clearest stretch of that wall. No spot: ROOM picks the wall.
+export const SHEET_WALLS = ['left', 'right', 'front', 'back'];
+export function spotOf(v) {
+  let o = v;
+  if (typeof o === 'string') { try { o = JSON.parse(o); } catch { return null; } }
+  if (!o || !SHEET_WALLS.includes(o.wall)) return null;
+  const along = Number(o.along);
+  return o.along != null && Number.isFinite(along) ? { wall: o.wall, along: Math.round(along * 100) / 100 } : { wall: o.wall };
+}
+
+/** A carried poster as the sheet it would hang as (the arrange mode's Posters menu), or null. */
+export function carriedSheet(key, name) {
+  return sheetOf({ id: '', object_type: 'decoration', name, flags: { hero_poster: true, poster_key: key } });
 }
 
 /** The sheets hanging among a room's furniture rows, one per slot, in slot order. */

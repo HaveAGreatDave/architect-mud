@@ -1,23 +1,29 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "city",
-  "description": "Teasel Walk, stopped at the east end by the Coliseum's limestone wall. A paved yard opens on the north side.",
+  "ambient_events": [
+    "A groundskeeper picks ticket stubs out of a flowerbed one at a time.",
+    "Somebody eats a hot dog on a bench and watches the Coliseum wall.",
+    "A pigeon lands on the nearest lamp and looks at you."
+  ],
+  "ambient_theme": "urban",
+  "color": "#8fd08a",
+  "description": "The West Gardens, beds of red and gold in clipped box edging. The Coliseum's corner tower stands over the east side.",
   "exits": {
     "north": "zone_ballpark_890_917",
+    "south": "zone_hughsonpark_890_919",
     "west": "zone_ballpark_889_918"
   },
   "flags": {
     "district": "halcyon_fields",
+    "park_feature": "flowerbeds",
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_roadside_junk",
     "street_life": true,
-    "terrain": "road"
+    "terrain": "park"
   },
   "grid_x": 890,
   "grid_y": 918,
   "grid_z": 0,
   "id": "zone_ballpark_890_918",
   "map_id": "map_world",
-  "name": "Teasel Walk",
+  "name": "West Gardens",
   "parent_zone": null
 }

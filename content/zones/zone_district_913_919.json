@@ -4,7 +4,7 @@
   "color": "#8ba36a",
   "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
   "exits": {
-    "east": "zone_district_914_919",
+    "east": "zone_seam_914_919",
     "north": "zone_district_913_918",
     "south": "zone_district_913_924",
     "west": "zone_district_912_919"

@@ -29,7 +29,8 @@ const PARAMS = call ? call[1] : '';
 
 const index = readFileSync(DIR + 'index.js', 'utf8');
 const listed = [...index.matchAll(/^export \{ ([A-Z_]+) \} from '\.\/([a-z0-9-]+\.js)';/gm)].map((m) => ({ name: m[1], file: m[2] }));
-const files = readdirSync(DIR).filter((f) => f.endsWith('.js') && f !== 'index.js').sort();
+// A file with no `_ARMS` export is data an arm imports (solenne-profile.js is the Solenne's outline), not a region.
+const files = readdirSync(DIR).filter((f) => f.endsWith('.js') && f !== 'index.js' && /export const [A-Z_]+_ARMS/.test(readFileSync(DIR + f, 'utf8'))).sort();
 for (const f of files) if (!listed.some((l) => l.file === f)) fail(`${f} is not re-exported by glass/models/index.js, so none of its arms ever draws`);
 
 const owner = new Map();

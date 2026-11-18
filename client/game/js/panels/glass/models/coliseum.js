@@ -58,7 +58,7 @@
 import {
   DETAIL_LIFT, FLAT_OFF, MESH_SINK, SHAPE_SINK, _place, bakeSignText, blinkLight, clamp,
   draw3DBoxAt, drawFacetDrum, dutyPhase, emitDecoFill, emitFlat, emitSurfaceText, emitWire,
-  facePals, faceYaw, flatsDropped, glowPool, massDropped, materialIdOf, nearOrMesh, rgb, windFlag,
+  emitPane, facePals, faceYaw, flatsDropped, glowPool, markDoorwayAt, massDropped, materialIdOf, nearOrMesh, rgb, windFlag,
   parkFigures, PARK_CLIP,
 } from '../../windshield.js';
 import { flatOut } from './downtown.js';
@@ -142,7 +142,11 @@ const FRIEZE_N = 16;
 // The Palais's limestone (a deco hall somebody kept up, as this is), the archive's paler trim, the
 // Meridian's bronze and copper, and marble-pale fins so the verticals carry in daylight.
 const STONE = 'ty_palais_stone', TRIM = 'ty_archive_col', FINC = 'ty_marble_col', BRONZE = 'ty_meridian_bronze';
-const COPPER = 'ty_verdigris', GRANITE = 'ty_precast_dk', CONC = 'ty_precast', STEEL = 'ty_fab_steel';
+// The park's own concrete, granite and column stone (windshield.js). It used `ty_precast` and
+// `ty_precast_dk`, a facade's palettes, which painted flat apartment windows on every stand,
+// column and plinth.
+const COPPER = 'ty_verdigris', GRANITE = 'ty_hc_granite', CONC = 'ty_hc_conc', STEEL = 'ty_fab_steel', COLUMN = 'ty_hc_column';
+const PANE_TINT = [120, 146, 158];   // the concourse glass, faintly green-grey as plate glass is
 const GRASS_DAY = [62, 112, 58], GRASS_LIT = [88, 154, 76], GRASS_DARK = [24, 40, 26];
 const DIRT_DAY = [150, 104, 70], DIRT_LIT = [184, 132, 92], DIRT_DARK = [52, 38, 30];
 const TRACK_DAY = [122, 92, 68], SEAT = [44, 92, 62];
@@ -753,6 +757,13 @@ export const COLISEUM_ARMS = {
         }
         // the lamp strip in the opening's head, what lights the concourse behind it after dark
         else if (!flatsDropped() && onFace(n, -0.03)) face(clip3([SPT(n, tc - W.hw, -0.07, top - 0.001), SPT(n, tc + W.hw, -0.07, top - 0.001), SPT(n, tc + W.hw, 0, top - 0.001), SPT(n, tc - W.hw, 0, top - 0.001)], X0, X1, Y0, Y1), [0, 0, -1], winCol);
+        // the glass in a cut opening: film on GLASS 2's live pass (emitPane), so the city still shows
+        // through it and the pane carries the sky, a Fresnel edge and a ripple. Without it the opening
+        // read as a hole in the wall. Nothing on GLASS 1 or in the mesh.
+        if (cut && onFace(n, -0.002)) {
+          const pane = clip3([SPT(n, tc - W.hw, -0.002, top), SPT(n, tc + W.hw, -0.002, top), SPT(n, tc + W.hw, -0.002, W.z0), SPT(n, tc - W.hw, -0.002, W.z0)], X0, X1, Y0, Y1);
+          if (pane && pane.length >= 3) emitPane(cam, pane.map(([u, v, z]) => B3(u, v, z)), PANE_TINT, 0.10);
+        }
         for (const m of W.mulls) for (const sg of [-1, 1]) { sideFace(n, tc + sg * m - W.bar, tc + sg * m + W.bar, 0.0054, W.z0, top, frameCol); inFace(tc + sg * m - W.bar, tc + sg * m + W.bar, W.z0, top, frameCol); }
         for (const z of W.transoms) { sideFace(n, tc - W.hw, tc + W.hw, 0.0054, z - W.bar, z + W.bar, frameCol); inFace(tc - W.hw, tc + W.hw, z - W.bar, z + W.bar, frameCol); }
         if (banded) continue;
@@ -785,7 +796,7 @@ export const COLISEUM_ARMS = {
         // warning track by the left-field pole; here every one is behind the outfield wall or in the
         // first-base stands.
         const v = -1.26 + j * 0.42, u = su * 1.18;
-        box(u - 0.009, u + 0.009, v - 0.009, v + 0.009, 0.0, Z.cler, CONC, false, 270 + j);
+        box(u - 0.009, u + 0.009, v - 0.009, v + 0.009, 0.0, Z.cler, COLUMN, false, 270 + j);
         // a floodlamp under the deck's edge, turned to the field
         vface([[su * (DECK - 0.002), v - 0.03, 0.425], [su * (DECK - 0.002), v + 0.03, 0.425], [su * (DECK - 0.002), v + 0.03, 0.405], [su * (DECK - 0.002), v - 0.03, 0.405]],
           [-su, 0, 0], mixRgb(LAMP_OFF, LAMP_ON, st.towerK > 0.01 ? 0.35 + 0.65 * st.towerK : 0));
@@ -1089,12 +1100,18 @@ export const COLISEUM_ARMS = {
     for (const g of SIDE_GATES) {
       const n = [g.side, 0], t0 = g.v - g.hw, t1 = g.v + g.hw, s = g.side > 0 ? 470 : 490;
       sideBox(n, t0 - 0.005, t1 + 0.005, -0.07, 0.016, 0, Z.plinth, GRANITE, true, s);
+      // the doors' step: a concrete landing out from the plinth, level with their sill, and a step
+      // down from it to the pavement, so the doors don't stand over a bare wall of granite
+      sideBox(n, g.v - 0.075, g.v + 0.075, 0.016, 0.03, 0, Z.plinth, CONC, true, s + 7);
+      sideBox(n, g.v - 0.085, g.v + 0.085, 0.03, 0.042, 0, Z.plinth * 0.5, CONC, true, s + 8);
       sideBox(n, t0, t1, -0.07, 0.012, Z.plinth, g.top, STONE, false, s + 1);
       sideBox(n, t0 - 0.004, t1 + 0.004, -0.07, 0.016, g.top, g.top + 0.012, ledge, true, s + 2);
       sideBox(n, t0 + 0.04, t1 - 0.04, -0.07, 0.008, g.top + 0.012, g.top + 0.05, STONE, false, s + 3);
       sideBox(n, t0 + 0.07, t1 - 0.07, -0.07, 0.008, g.top + 0.05, g.top + 0.064, ledge, true, s + 4);
       for (const o of [-1, 1]) sideBox(n, g.v + o * 0.10 - 0.012, g.v + o * 0.10 + 0.012, 0.012, 0.022, Z.plinth, g.top - 0.01, FINC, true, s + 5 + (o > 0 ? 1 : 0));
       sideFace(n, g.v - 0.06, g.v + 0.06, 0.0125, Z.plinth, 0.22, frameCol);    // the doors
+      // their doorway, for the street door that moves in it (windshield.js doorBayAt): on the frontispiece's face
+      markDoorwayAt(B3(...SPT(n, g.v - 0.06, 0.012, 0)), B3(...SPT(n, g.v + 0.06, 0.012, 0)), B3(...SPT(n, g.v, 0.016, 0)), Z.plinth * ZK, 0.22 * ZK);
       sideFace(n, g.v - 0.003, g.v + 0.003, 0.0132, Z.plinth, 0.22, giltCol);    // where they meet
       sideFace(n, g.v - 0.05, g.v + 0.05, 0.0130, 0.235, 0.29, winCol);          // the fanlight
       for (const sgn of [-1, 1]) sideFace(n, g.v + sgn * 0.016 - 0.002, g.v + sgn * 0.016 + 0.002, 0.0136, 0.235, 0.29, frameCol);

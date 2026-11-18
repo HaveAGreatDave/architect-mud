@@ -1,0 +1,231 @@
+@broadcast "Arrears - Episode 1: The Inspection"
+@channel ksab_tv
+@category comedy
+@length 180
+@type scripted
+
+::actors
+@actor npc_arrears_gil
+@billing npc_arrears_gil Gil Haddow
+@actor npc_arrears_dot
+@billing npc_arrears_dot Dot Haddow
+@actor npc_arrears_nan
+@billing npc_arrears_nan Nan
+@actor npc_arrears_prosser
+@billing npc_arrears_prosser Mr Prosser
+::endactors
+
+::asset arrears_logo
+   _____
+  /  _  \_______ _______   ____ _____ _______  ______
+ /  /_\  \_  __ \\_  __ \_/ __ \\__  \\_  __ \/  ___/
+/    |    \  | \/ |  | \/\  ___/ / __ \|  | \/\___ \
+\____|__  /__|    |__|    \___  >____  /__|  /____  >
+        \/                    \/     \/           \/
+
+              Episode 1: "The Inspection"
+::endasset
+
+::scene TITLE
+
+EVENT FADE_IN
+
+TITLE arrears_logo
+
+3s
+
+::scene COLD OPEN
+
+CAM 1 WIDE
+
+NPC npc_arrears_gil
+NPC npc_arrears_dot
+NPC npc_arrears_nan
+
+Gil Haddow:
+He's coming at four.
+
+Dot Haddow:
+Then she's your mother till five.
+
+ACTION npc_arrears_nan sips her tea.
+
+Nan:
+Mother's extra.
+
+EVENT LAUGHTER
+
+CAM 2 CLOSEUP on Gil
+
+ACTION npc_arrears_gil rubs his face.
+
+Gil Haddow:
+You pay thirty a week for that chair.
+
+Nan:
+And it's a good chair. I'm not being your mother for free.
+
+Dot Haddow:
+Five credits. One hour. You call him Gilbert.
+
+Nan:
+Ten.
+
+ACTION npc_arrears_dot folds her arms.
+
+Dot Haddow:
+Seven.
+
+Nan:
+Done.
+
+EVENT LAUGHTER
+
+::scene THE INSPECTION
+
+CAM 3 MEDIUM on Prosser
+
+NPC npc_arrears_prosser
+ACTION npc_arrears_prosser enters the frame.
+
+Mr Prosser:
+Afternoon. Annual inspection. Don't get up.
+
+ACTION npc_arrears_prosser looks around the room.
+
+Mr Prosser:
+Window's still in. Good.
+
+ACTION npc_arrears_prosser writes on his clipboard.
+
+CAM 1 WIDE
+
+Mr Prosser:
+And who's this?
+
+Gil Haddow:
+My mother.
+
+Nan:
+Hello, Gilbert.
+
+EVENT LAUGHTER
+
+CAM 3 MEDIUM on Prosser
+
+ACTION npc_arrears_prosser reads his clipboard.
+
+Mr Prosser:
+It says here your mother's dead.
+
+Dot Haddow:
+She got better.
+
+Nan:
+Halcyon. It was on offer.
+
+EVENT LAUGHTER
+
+Mr Prosser:
+Then she's a new adult in the unit. That's forty a week on the rent.
+
+CAM 2 CLOSEUP on Gil
+
+ACTION npc_arrears_gil slaps his knee.
+
+Gil Haddow:
+She's family. Family's free.
+
+Mr Prosser:
+Family's forty.
+
+EVENT LAUGHTER
+
+::scene THE CHAIR
+
+CAM 1 WIDE
+
+ACTION npc_arrears_nan points at Gil.
+
+Nan:
+I'm not paying forty for this chair.
+
+ACTION npc_arrears_prosser leans in.
+
+Mr Prosser:
+Paying for the chair?
+
+Dot Haddow:
+She means it figuratively.
+
+Mr Prosser:
+What's she paying now?
+
+ACTION npc_arrears_dot stares at Nan.
+
+Dot Haddow:
+Nothing.
+
+Nan:
+Thirty.
+
+EVENT LAUGHTER
+
+ACTION npc_arrears_prosser writes on his clipboard.
+
+Mr Prosser:
+Subletting. That's a breach.
+
+ACTION npc_arrears_gil sighs.
+
+Gil Haddow:
+How much is a breach?
+
+Mr Prosser:
+Let me see. Forty for the adult, plus a cut of the thirty, plus I don't like your tone.
+
+Gil Haddow:
+I haven't got a tone.
+
+Mr Prosser:
+Sixty.
+
+EVENT LAUGHTER
+
+::scene TAG
+
+CAM 3 MEDIUM on Prosser
+
+ACTION npc_arrears_prosser looks at the armchair.
+
+Mr Prosser:
+Is the chair free after five?
+
+CAM 2 CLOSEUP on Nan
+
+Nan:
+Twenty-five to you. Thirty if you want me to call you Gilbert.
+
+ACTION npc_arrears_dot laughs.
+
+EVENT LAUGHTER
+
+CAM 1 WIDE
+
+ACTION npc_arrears_gil looks into the camera.
+
+Gil Haddow:
+I want to move.
+
+EVENT APPLAUSE
+
+CREDITS 12
+ARREARS
+
+Taped in front of a live studio audience
+at KSAB-TV, Coldwater
+END_CREDITS
+
+EVENT FADE_OUT
+
+END

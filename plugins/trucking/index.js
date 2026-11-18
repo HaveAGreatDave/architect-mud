@@ -2772,6 +2772,12 @@ async function cmdHoist(args, raw, player) {
   return say(`<span class="text-amber">A klaxon, a beacon, and the floor plate drops away. The ${name} comes up out of the garage on the lift.</span>`);
 }
 const isDepotRoom = (zoneId) => !!depotAt(getZone(zoneId));
+// The trucks the lot sells, for the lift's panel in the shed (hoist.js roomVehicles): each in its lot body at the
+// list price, bought with the counter's own `yard buy`.
+const liftShop = (zoneId, player) => TRUCK_TYPES.map((t) => {
+  const e = lotEdition(t.id);
+  return { id: t.id, name: e?.name || t.name, price: t.price, afford: (player?.credits || 0) >= t.price, cmd: `yard buy ${t.id}` };
+});
 // The truck's kind of vehicle stand (server/engine/vehicle-stand.js): `callup` in a shed is `hoist`.
 registerStandKind('truck', {
   isBay: (zone) => !!depotAt(zone), from: 'below', label: 'LIFT', moveMs: HOIST_MS,
@@ -2826,7 +2832,7 @@ export const commands = {
 export const hooks = {
   'zone.describeRoom': describeDepot,
   // What stands on a shed's lift, and the viewer's trucks downstairs, for the Room Stage (hoist.js). Sync, RAM.
-  'room.vehicles': (zoneId, player) => roomVehicles(zoneId, player, { isDepot: isDepotRoom }),
+  'room.vehicles': (zoneId, player) => roomVehicles(zoneId, player, { isDepot: isDepotRoom, shop: liftShop }),
   // Diesel's price from the system that charges it, so a sign never keeps its own FUEL_FULL. A tile
   // with no pump answers nothing. `each` is one percent of a tank (t.fuel is 0..1).
   'fuel.prices': (zone) => pumpAt({ leg: 'city', zoneId: zone?.id })

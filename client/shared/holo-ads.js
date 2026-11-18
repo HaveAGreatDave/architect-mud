@@ -22,12 +22,27 @@ export const SPOT_MS = CARD_MS * CARDS;
 export const CARD_W = 320, CARD_H = 180;
 const CACHE_MAX = 48;
 
+// The four faces, self-hosted (docs/reference/fonts.md: Cyberpunk and Clinical), each falling back to
+// the system face it replaced. The families are prefixed so another panel's load of the same file
+// can't clash with these descriptors.
 const FACES = {
-  block: "900 %px 'Arial Black', Impact, 'Segoe UI', sans-serif",
-  serif: "700 %px Georgia, 'Times New Roman', serif",
-  script: "italic 700 %px Georgia, 'Times New Roman', serif",
-  mono: "700 %px 'Courier New', Consolas, monospace",
+  block: "400 %px 'Holo Tektur', 'Arial Black', Impact, sans-serif",
+  serif: "400 %px 'Holo Michroma', Georgia, serif",
+  script: "400 %px 'Holo Tilt Neon', Georgia, serif",
+  mono: "700 %px 'Holo Doto', 'Courier New', monospace",
 };
+const FACE_FILES = [['Holo Tektur', 'tektur.woff2', '400'], ['Holo Michroma', 'michroma.woff2', '400'],
+  ['Holo Tilt Neon', 'tilt-neon.woff2', '400'], ['Holo Doto', 'doto.woff2', '100 900']];
+// A card is baked once and kept, so baking before the faces arrive would keep the fallback for good.
+// Until they load (or fail, or 4 s pass) holoCard returns null and the pane shows its bare wash.
+let _facesReady = typeof document === 'undefined' || typeof FontFace === 'undefined' || !document.fonts;
+if (!_facesReady) {
+  const done = () => { _facesReady = true; };
+  Promise.all(FACE_FILES.map(([fam, file, weight]) =>
+    new FontFace(fam, `url(${new URL('./fonts/' + file, import.meta.url).href})`, { weight }).load()
+      .then((f) => { document.fonts.add(f); }, () => {}))).then(done, done);
+  setTimeout(done, 4000);
+}
 // Every hologram screen in the city is cyan, whatever the advert's own colour.
 export const HOLO_CYAN = '#5ac8ff';
 const SHOP_COLS = ['#5ac8ff', '#ff5aa0', '#78ff8c', '#ffc850', '#b478ff'];
@@ -170,7 +185,7 @@ function paintCard(g, spot, card) {
 
 // The baked card for `spot` at `card`, or null where there's no canvas to bake on.
 export function holoCard(spot, card) {
-  if (!spot || typeof document === 'undefined') return null;
+  if (!spot || typeof document === 'undefined' || !_facesReady) return null;
   const key = (spot.id || spot.brand) + '#' + card;
   let cv = _cards.get(key);
   if (cv) { _cards.delete(key); _cards.set(key, cv); return cv; }

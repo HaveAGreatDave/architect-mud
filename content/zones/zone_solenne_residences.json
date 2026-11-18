@@ -6,11 +6,12 @@
   "ambient_theme": "indoors",
   "bg_color": "#28323d",
   "color": "#d9e6f2",
-  "description": "The thirtieth floor: a hall panelled in walnut, a runner of dark blue carpet, bronze lamps between the doors. Opposite the elevator, lilies on a console table. 30-A is to the right of it, <b>north</b>; 30-C is at the <b>west</b> end and 30-B at the <b>east</b>. The elevator is <b>in</b> behind you.",
+  "description": "The eighth floor: a square hall panelled in walnut round the lift, a runner of dark blue carpet, bronze lamps between the doors. A flat opens off each side. 8-A is <b>north</b>, 8-B <b>east</b>, 8-G <b>south</b> beside the lift and 8-C <b>west</b>. The elevator is <b>in</b> behind you.",
   "exits": {
-    "east": "zone_solenne_apt_b",
+    "east": "zone_solenne_apt_i",
     "in": "zone_solenne_elevator",
     "north": "zone_solenne_apt_a",
+    "south": "zone_solenne_apt_g",
     "west": "zone_solenne_apt_c"
   },
   "flags": {
@@ -19,23 +20,23 @@
     "is_interior": true,
     "room": {
       "balcony": false,
-      "d": 2.6,
+      "d": 6,
       "decor": {
         "art": [
           {
-            "at": -4.15,
+            "at": -1.6,
             "h": 1,
             "seed": 31,
             "w": 1.15,
-            "wall": "back",
+            "wall": "left",
             "y": 1.62
           },
           {
-            "at": 4.15,
+            "at": 4.4,
             "h": 1,
             "seed": 36,
             "w": 1.15,
-            "wall": "back",
+            "wall": "right",
             "y": 1.62
           }
         ],
@@ -48,9 +49,10 @@
         },
         "downlights": false,
         "plaques": {
-          "zone_solenne_apt_a": "30-A",
-          "zone_solenne_apt_b": "30-B",
-          "zone_solenne_apt_c": "30-C"
+          "zone_solenne_apt_a": "8-A",
+          "zone_solenne_apt_c": "8-C",
+          "zone_solenne_apt_g": "8-G",
+          "zone_solenne_apt_i": "8-B"
         },
         "rug": false,
         "runner": {
@@ -63,27 +65,19 @@
           "points": [
             [
               "front",
-              -1.25
+              1.2
             ],
             [
-              "front",
-              1.25
+              "left",
+              3.6
             ],
             [
-              "front",
-              2.7
-            ],
-            [
-              "front",
-              -3.6
+              "right",
+              1.4
             ],
             [
               "back",
-              -1.75
-            ],
-            [
-              "back",
-              1.75
+              -1.6
             ]
           ],
           "y": 1.82
@@ -96,7 +90,10 @@
         }
       },
       "doors": {
-        "north": 4.15
+        "east": 2.4,
+        "north": -2.4,
+        "south": 2.4,
+        "west": -2.4
       },
       "face": 0,
       "finish": "fine",
@@ -108,7 +105,7 @@
         "trim": "#17130f",
         "wall": "#3a2a20"
       },
-      "w": 11.5,
+      "w": 6,
       "windowless": true
     },
     "sanctuary": true
@@ -118,6 +115,6 @@
   "grid_z": 3,
   "id": "zone_solenne_residences",
   "map_id": "map_int_solenne",
-  "name": "The Residences",
+  "name": "The Eighth Floor",
   "parent_zone": "zone_district_914_908"
 }

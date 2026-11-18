@@ -40,15 +40,26 @@ export const SCENES = {
   // not a scene: blue Venetian blinds, slats tilted to let in `level` per cent of the light (BLINDS_KIND)
   blinds: {
     name: 'Blinds', kind: 'blinds', a: '#1f3f5c', b: '#6f9dc4', c: '#d6e8f4', glow: '#7aa6cc',
-    words: ['blind', 'venetian blinds', 'curtains'],
+    words: ['blind', 'venetian blinds'],
     shows: 'Pale blue Venetian blinds, floor to ceiling.',
+  },
+  // not a scene either: a sash window's own drapes (flags.room.sash.drapes) let down off their tie-backs and drawn
+  // across. The Room Stage draws them in the drapes' own colour; these colours only fill the panel's swatch.
+  drapes: {
+    name: 'Curtains', kind: 'drapes', a: '#3a2a1e', b: '#6b4a2e', c: '#b8924a', glow: '#000000',
+    words: ['curtains', 'curtain', 'drapes'],
+    shows: 'The curtains drawn across the window.',
   },
 };
 
 // The kind that's the blinds: no display, and a light level instead of a picture.
 export const BLINDS_KIND = 'blinds';
 
-export const SCENE_IDS = Object.keys(SCENES);
+// The kind that's a sash window's drapes drawn: offered only where the room has them (envcontrol offeredOf).
+export const DRAPES_KIND = 'drapes';
+
+// every scene a glass wall can offer; the drapes belong to a sash window, so they're not among them
+export const SCENE_IDS = Object.keys(SCENES).filter((id) => SCENES[id].kind !== DRAPES_KIND);
 
 // The scenes a panel offers, in its order: the row's `scenes` that are real, or every scene.
 export function scenesOf(cfg) {

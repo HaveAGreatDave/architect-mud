@@ -30,16 +30,16 @@ export async function isPilotLicensed(player) {
 // ── Stages ────────────────────────────────────────────────────────────────────
 const STAGE = { STARTUP: 0, TAKEOFF: 1, RINGS: 2, LAND: 3 };
 
-// The pilot-wings ring course over Coldwater Regional (ramp at grid 925,903, runway
+// The pilot-wings ring course over Coldwater Regional (ramp at grid 926,903, runway
 // N/S — north is decreasing grid_y). gx/gy are absolute world tiles, alt is feet,
 // r is the horizontal pass radius (tiles) and altTol the vertical window (ft). Placed
 // to teach a full circuit: climb out straight, bank right, come around, ease down onto
 // final. Tolerances are deliberately generous — this is a tutorial.
 const GATES = [
-  { gx: 925, gy: 888, alt: 1500, r: 6, altTol: 500 },  // climb out, level at 1500
-  { gx: 940, gy: 884, alt: 1500, r: 6, altTol: 500 },  // bank right
-  { gx: 942, gy: 906, alt: 1100, r: 6, altTol: 500 },  // come around, start down
-  { gx: 925, gy: 920, alt: 600,  r: 6, altTol: 450 },  // line up on final from the south
+  { gx: 926, gy: 888, alt: 1500, r: 6, altTol: 500 },  // climb out, level at 1500
+  { gx: 941, gy: 884, alt: 1500, r: 6, altTol: 500 },  // bank right
+  { gx: 943, gy: 906, alt: 1100, r: 6, altTol: 500 },  // come around, start down
+  { gx: 926, gy: 920, alt: 600,  r: 6, altTol: 450 },  // line up on final from the south
 ];
 
 const LANDING_FIELD = 'zone_district_925_903';

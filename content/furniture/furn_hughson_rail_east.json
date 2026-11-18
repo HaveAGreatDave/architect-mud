@@ -1,0 +1,33 @@
+{
+  "description": "A brass rail along the brick at elbow height with a ledge on it wide enough for a paper boat and a cup. The ledge is sticky.",
+  "flags": {
+    "aliases": [
+      "rail",
+      "ledge",
+      "lean rail"
+    ],
+    "interactions": [
+      "lean"
+    ],
+    "look": {
+      "arche": "surface",
+      "dims": [
+        2.2,
+        0.3,
+        1.05
+      ],
+      "form": "rail"
+    },
+    "spot": {
+      "at": [
+        11.4,
+        9.82
+      ],
+      "turn": 0
+    }
+  },
+  "id": "furn_hughson_rail_east",
+  "name": "a lean rail",
+  "object_type": "furniture",
+  "zone_id": "zone_hughson_concourse"
+}

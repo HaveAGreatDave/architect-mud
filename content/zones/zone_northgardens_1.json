@@ -1,0 +1,33 @@
+{
+  "ambient_events": [
+    "The fountains drop for a second, then come back up.",
+    "A groundskeeper picks ticket stubs out of a hedge one at a time.",
+    "Somebody eats a hot dog on a bench and watches the Coliseum wall."
+  ],
+  "ambient_theme": "urban",
+  "color": "#8fd08a",
+  "description": "North Plaza, granite flags along the Coliseum's north wall with a bronze lamp standard every few steps. The gardens are on the north side.",
+  "exits": {
+    "east": "zone_northgardens_2",
+    "north": "zone_ballpark_896_910",
+    "west": "zone_district_897_912"
+  },
+  "flags": {
+    "district": "halcyon_fields",
+    "park_feature": "forecourt",
+    "park_focus": {
+      "x": 894.5,
+      "y": 913.5
+    },
+    "region_id": "region_coldwater",
+    "street_life": true,
+    "terrain": "park"
+  },
+  "grid_x": 895,
+  "grid_y": 913,
+  "grid_z": 0,
+  "id": "zone_northgardens_1",
+  "map_id": "map_world",
+  "name": "North Plaza",
+  "parent_zone": null
+}

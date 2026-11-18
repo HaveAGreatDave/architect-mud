@@ -2,14 +2,14 @@
 //
 //   node scripts/shapes/campwall.mjs
 //
-// Old Coldwater's Pitch spills onto two Curtain tiles (927,917 and 927,918), where the wall runs down
+// Old Coldwater's Pitch spills onto two Curtain tiles (928,917 and 928,918), where the wall runs down
 // the tile centre. `drawTentCamp` folds everything it places onto the inland side, and the tents
-// stood in the field twice anyway: once because the server sent no inland side for 927,917, and once
+// stood in the field twice anyway: once because the server sent no inland side for 928,917, and once
 // because only a shelter's centre was folded, so a ridge tent turned toward the wall put its guy
 // lines through it. The server half is checked in plugins/flight/regress.js; this is the drawing.
 //
 // `campWallSmoke` records camps against each of the four walls, on both shelter paths, and measures
-// every part drawn. It can't see the picture; look at 927,918 in the game or the Modelshop.
+// every part drawn. It can't see the picture; look at 928,918 in the game or the Modelshop.
 import { loadWindshield } from './dom-stub.mjs';
 
 const ws = await loadWindshield();

@@ -19,7 +19,7 @@
     "is_interior": true,
     "terrain": "sewer"
   },
-  "grid_x": 920,
+  "grid_x": 921,
   "grid_y": 906,
   "grid_z": -1,
   "id": "zone_under_plantroom",

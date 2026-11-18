@@ -198,7 +198,7 @@ const KINDS = {
     [/\b(watch cap|beanie|toque)\b/, 'beanie'], [/\b(cap)\b/, 'cap'], [/\b(hair)\b/, 'hairpiece'], [/\b(iris|eye|lens)\b/, 'eyering'], [/\bhat\b/, 'bucket'],
   ],
   accessory: [
-    [/\b(scarf|gaiter|snood)\b/, 'scarf'], [/\b(collar|choker)\b/, 'collar'], [/\b(chain|necklace|pendant)\b/, 'chain'],
+    [/\b(knee ?pads?|knee ?guards?)\b/, 'kneepads'], [/\b(scarf|gaiter|snood)\b/, 'scarf'], [/\b(collar|choker)\b/, 'collar'], [/\b(chain|necklace|pendant)\b/, 'chain'],
     [/\b(watch|wristband|bracelets?|bangle|cuff)\b/, 'wrist'], [/\b(earmuffs)\b/, 'muffs'], [/\b(earplugs|nose plugs)\b/, 'plugs'],
     [/\b(tote|bag|satchel)\b/, 'tote'], [/\b(fanny pack|bum bag|belt pouch)\b/, 'fanny'], [/\b(harness)\b/, 'strapharness'],
     [/\b(lenses|glasses|goggles|shades)\b/, 'glasses'], [/\b(respirator|gas mask)\b/, 'respirator'], [/\b(ring)\b/, 'ring'],
@@ -206,6 +206,8 @@ const KINDS = {
   ],
 };
 const DEFAULT_KIND = { torso: 'shirt', legs: 'pants', feet: 'shoes', hands: 'gloves', head: 'cap', accessory: 'charm', weapon_hand: 'weapon' };
+
+const hexRgb = (h) => (typeof h === 'string' && /^#[0-9a-f]{6}$/i.test(h) ? [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)) : null);
 
 // What the doll draws an item as: { kind, col, mat }. `it` is a Pack row ({ name, slot, layer, covers, skill }).
 export function garmentOf(it) {
@@ -220,8 +222,9 @@ export function garmentOf(it) {
     : it?.skill === 'clubs' ? (/(lash|flail)/.test(name) ? 'flail' : 'club')
       : it?.skill === 'firearms' ? (/(shotgun|riot gun|speargun|projector|rifle)/.test(name) ? 'longgun' : 'pistol')
         : it?.skill === 'science' ? 'lance' : 'club';
-  let col = null;
-  for (const [re, c] of COLOURS) if (re.test(name)) { col = c; break; }
+  // an item that says its colour (tags.wear_look.col, sent as `look`) is that colour; otherwise it's read off the name
+  let col = hexRgb(it?.look?.col);
+  if (!col) for (const [re, c] of COLOURS) if (re.test(name)) { col = c; break; }
   if (!col) col = it?.layer === 1 && slot !== 'feet' ? [214, 208, 198] : MUTED[hashOf(name) % MUTED.length];
   let mat = 'cloth';
   for (const [re, m] of MATS) if (re.test(name)) { mat = m; break; }
@@ -253,16 +256,26 @@ export function figureWorn(items, { sex = 'male', skin = null } = {}) {
   const torso = top('torso').sort((a, b) => ((b.it.layer || 2) - (a.it.layer || 2)) || (TORSO_OUTER.indexOf(a.g.kind) - TORSO_OUTER.indexOf(b.g.kind)));
   const legs = top('legs').sort((a, b) => (b.it.layer || 2) - (a.it.layer || 2));
   const out = { hat: '', scarf: '' };
-  const lg = legs[0], under = !lg || ['briefs', 'boxers', 'micro'].includes(lg.g.kind);
+  const lg = legs[0], under = !lg || ['briefs', 'boxers', 'micro'].includes(lg.g.kind), ft0 = top('feet')[0];
+  // only what's on you is drawn: a garment slot with nothing in it is left off the figure (bare skin; outside the
+  // mature layer gl/figure-hd.js censor() covers what has to be)
+  out.wear = { top: torso.length > 0, legs: !!lg, shoes: !!ft0 };
   if (!torso.length && under) {
-    // down to your underwear, or less: the figure's own underwear set, in the briefs' colour if you've some on
-    out.cut = sex === 'female' ? 'briefs' : 'boxers';
+    // down to your underwear, or less: an underwear cut whose legs are your briefs, its top left off
+    out.cut = lg?.g.kind === 'boxers' ? 'boxers' : 'briefs';
     out.top = lg?.g.col || UNDIES;
     out.bottoms = '';
   } else {
     const o = torso[0];
     if (o) {
       out.cut = TORSO_CUT[o.g.kind] || 'tee'; out.top = o.g.col; out.fabric_top = fabricOf(o.it, o.g);
+      // an item that names its own cut and cloth (tags.wear_look.cut, .fabric: the vat suits' seasons) is drawn as it says
+      if (typeof o.it.look?.cut === 'string' && /^[a-z_]+$/.test(o.it.look.cut)) out.cut = o.it.look.cut;
+      if (typeof o.it.look?.fabric === 'string' && /^[a-z]+$/.test(o.it.look.fabric)) out.fabric_top = o.it.look.fabric;
+      // the batch tape on a vat suit is white (the shirt's slot, which shows nowhere else on a closed top)
+      if (out.cut.startsWith('vatsuit')) out.shirt = [232, 228, 216];
+      // a printed top: gl/figure-hd.js uPrint's names (the reaper goes on a plain tee's back)
+      if (typeof o.it.look?.print === 'string') out.print = o.it.look.print;
       // what's under an open front shows at the collar
       const inner = OPEN_FRONT.has(o.g.kind) && torso.find((x) => x !== o && !OPEN_FRONT.has(x.g.kind));
       if (inner) out.shirt = inner.g.col;
@@ -270,7 +283,10 @@ export function figureWorn(items, { sex = 'male', skin = null } = {}) {
       // trousers and nothing on top: a vest the colour of you, or a pale one if your skin's not been chosen
       out.cut = 'tank'; out.top = bare || UNDIES;
     }
-    if (lg) { out.legs = lg.g.col; out.bottoms = LEG_BOTTOMS[lg.g.kind] || ''; out.fabric_legs = fabricOf(lg.it, lg.g); }
+    // a one-piece that covers the legs (tags.covers) is its own trousers, whatever's worn under it
+    const whole = o && Array.isArray(o.it.covers) && o.it.covers.includes('legs');
+    if (whole) { out.legs = o.g.col; out.bottoms = ''; out.fabric_legs = out.fabric_top; out.wear.legs = true; }
+    else if (lg) { out.legs = lg.g.col; out.bottoms = LEG_BOTTOMS[lg.g.kind] || ''; out.fabric_legs = fabricOf(lg.it, lg.g); }
     else { out.legs = UNDIES; out.bottoms = 'cutoffs'; }
   }
   const ft = top('feet')[0];
@@ -278,7 +294,17 @@ export function figureWorn(items, { sex = 'male', skin = null } = {}) {
   if (ft) out.fabric_shoes = fabricOf(ft.it, ft.g);
   const hd = top('head').find((x) => HAT[x.g.kind]);
   if (hd) out.hat = HAT[hd.g.kind];
-  if (top('accessory').some((x) => x.g.kind === 'scarf')) out.scarf = 'scarf';
+  // a scarf wrapped round the neck with both ends down the front, in its own colour (the figure's shirt slot,
+  // which nothing shows on a closed top; under an open front the shirt keeps it); a chain in its own (the
+  // glasses' frame slot)
+  const sc = top('accessory').find((x) => x.g.kind === 'scarf');
+  if (sc) { out.scarf = 'wrap'; if (!out.shirt) out.shirt = sc.g.col; }
+  const ch = top('accessory').find((x) => x.g.kind === 'chain');
+  if (ch) out.chain = ch.g.col;
+  // the gear a stranger rolls off their id (figure.js figureGear) is what you wear: knee pads only with a pair on,
+  // a pouch with a bum bag, gloves with something on your hands, and no strap. The belt stays as rolled.
+  const acc = top('accessory');
+  out.gear = { pads: acc.some((x) => x.g.kind === 'kneepads'), pouch: acc.some((x) => x.g.kind === 'fanny'), strap: false, gloves: top('hands').length > 0 };
   return out;
 }
 
@@ -518,6 +544,7 @@ function garmentShapes(B, it, g) {
       out.push(shape(smooth([[h - 6, B.hip - 10], [h + 26, B.hip - 12], [h + 30, B.hip + 34], [h - 4, B.hip + 36]]), c, { front: true }));
       break;
     }
+    case 'kneepads': for (const k of [B.legA[1], B.legB[1]]) out.push(shape(smooth([[k[0] - 9, k[1] - 9], [k[0] + 9, k[1] - 9], [k[0] + 8, k[1] + 9], [k[0] - 8, k[1] + 9]]), c, { front: true, mat: g.mat })); break;
     case 'fanny': out.push(detail(line([[B.xs(B.waist + 8)[0] - 3, B.waist + 8], [B.xs(B.waist + 8)[1] + 3, B.waist + 8]]), { w: 3, col: dark, front: true }));
       out.push(shape(smooth([[mid - 18, B.waist + 2], [mid + 18, B.waist + 2], [mid + 16, B.waist + 22], [mid - 16, B.waist + 22]]), c, { front: true }));
       break;
@@ -608,10 +635,10 @@ function faceShapes(B, look) {
   const facial = String(look.facial || '');
   const beard = mix(hair, [0, 0, 0], 0.15);
   if (/stubble|shadow/.test(facial)) out.push(shape(smooth([[hx - rx + 2, hy + 4], [hx + rx - 2, hy + 4], [hx + rx * 0.4, hy + ry * 0.95], [hx - rx * 0.4, hy + ry * 0.95]]), beard, { op: 0.28, shade: false, noInk: true, face: true }));
-  if (/moustache|handlebar|vandyke|full|long|trimmed/.test(facial)) out.push(shape(smooth([[hx - 9, hy + 12], [hx, hy + 9], [hx + 9, hy + 12], [hx + (facial === 'handlebar' ? 13 : 8), hy + 15], [hx, hy + 13], [hx - (facial === 'handlebar' ? 13 : 8), hy + 15]]), beard, { face: true }));
-  if (/goatee|vandyke|soulpatch/.test(facial)) out.push(shape(smooth([[hx - 5, hy + 18], [hx + 5, hy + 18], [hx + 4, hy + ry - 1], [hx - 4, hy + ry - 1]]), beard, { face: true }));
-  if (/chinstrap|sideburns|full|long|trimmed/.test(facial)) {
-    const low = facial === 'long' ? ry + 16 : facial === 'sideburns' ? 4 : ry + 2;
+  if (/moustache|handlebar|vandyke|full|long|trimmed|horseshoe|anchor|walrus|fumanchu|friendly_mutton|bushy|forked|braided/.test(facial)) out.push(shape(smooth([[hx - 9, hy + 12], [hx, hy + 9], [hx + 9, hy + 12], [hx + (facial === 'handlebar' ? 13 : 8), hy + 15], [hx, hy + 13], [hx - (facial === 'handlebar' ? 13 : 8), hy + 15]]), beard, { face: true }));
+  if (/goatee|vandyke|soulpatch|anchor/.test(facial)) out.push(shape(smooth([[hx - 5, hy + 18], [hx + 5, hy + 18], [hx + 4, hy + ry - 1], [hx - 4, hy + ry - 1]]), beard, { face: true }));
+  if (/chinstrap|sideburns|full|long|trimmed|mutton|chin_curtain|bushy|forked|braided/.test(facial)) {
+    const low = /^(long|forked|braided)$/.test(facial) ? ry + 16 : /mutton/.test(facial) ? ry - 6 : facial === 'sideburns' ? 4 : ry + 2;
     out.push(shape(smooth([[hx - rx, hy - 2], [hx - rx + 4, hy - 2], [hx - rx * 0.5, hy + Math.min(low, ry) - 4], [hx, hy + low - 2], [hx + rx * 0.5, hy + Math.min(low, ry) - 4], [hx + rx - 4, hy - 2], [hx + rx, hy - 2], [hx + rx * 0.6, hy + low], [hx, hy + low + 2], [hx - rx * 0.6, hy + low]]), beard, { face: true }));
   }
   // the hair over the top

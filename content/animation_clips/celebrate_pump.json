@@ -9,6 +9,9 @@
     { "foot": "L", "from": 0, "to": 0.9 },
     { "foot": "R", "from": 0, "to": 0.9 }
   ],
+  "hands": [
+    { "t": 0.12, "L": "fist", "R": "fist" }
+  ],
   "keys": [
     {
       "t": 0,

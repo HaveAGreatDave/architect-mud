@@ -7,10 +7,20 @@
     "interactions": [
       "watch"
     ],
+    "look": {
+      "arche": "screen",
+      "dims": [
+        1.5,
+        0.1,
+        0.86
+      ],
+      "form": "flat"
+    },
     "owner_npc": "npc_embassy_barkeep",
     "spot": {
-      "along": 1.6,
-      "wall": "front"
+      "along": 3.75,
+      "wall": "front",
+      "y": 2.45
     },
     "tuned_channel": 7,
     "tv": true,

@@ -81,8 +81,8 @@ author chose. The gradient is real and worth authoring against:
 | Aurelia, Voltage — the Glasshouse | 895,907–908 | `citycore` | **0.79** |
 | The Cherry Pit — mid-west | 901,907 | `citycore` | 0.71 |
 | Fisherman's Green — the centre | 909,911 | `park` | 0.42 |
-| The Sump — east end | 921,914 | `citycore` | 0.42 |
-| Old Coldwater — the south-east corner | 925,917 | `badlands` | **0.00** |
+| The Sump — east end | 922,914 | `citycore` | 0.42 |
+| Old Coldwater — the south-east corner | 926,917 | `badlands` | **0.00** |
 
 **West is glass and money. East is brick and work. The corner is neither.**
 

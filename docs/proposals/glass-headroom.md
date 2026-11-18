@@ -209,7 +209,7 @@ set by the other run, which a real canvas reads as 1) are the same draw. With `b
 - Banked 30° and −45° from the cockpit over Halcyon, nightlife and Old Coldwater: the same.
 - The 0-against-0 control is identical, records and canvas.
 
-`bakeTileFree` on its own, in the Modelshop with real WebGL2 at 936,924 in the Scarletwastes (one page
+`bakeTileFree` on its own, in the Modelshop with real WebGL2 at 937,924 in the Scarletwastes (one page
 load per value, as the card cache can't be cleared from outside). Cockpit noon 0.001% of pixels against
 a 0.002% control, the cab 0.000% against 0.000%. Cockpit night is 0.248% (worst 11 levels) against
 0.004%. Those pixels aren't the redrock: they're the sparkle of the lights on the Curtain road and the

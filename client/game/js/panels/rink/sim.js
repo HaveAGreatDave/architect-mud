@@ -213,7 +213,7 @@ export function createWorld(ice, seedKey) {
     t: 0, rand, ice,
     reseed(n) { dice = rng(n >>> 0); },
     team: { a: [], h: [] }, goalie: { a: null, h: null }, officials: [], extras: [],
-    puck: { x: 100, y: MID_Y, z: 0, vx: 0, vy: 0, vz: 0, carrier: null, target: null, held: null, passT0: 0, inNet: null, owner: null, home: null, tail: null, drawn: null, drawn0: null },
+    puck: { x: 100, y: MID_Y, z: 0, vx: 0, vy: 0, vz: 0, carrier: null, target: null, held: null, passT0: 0, inNet: null, owner: null, home: null, tail: null, drawn: null, drawn0: null, played: null },
     parts: [], spray: [], debris: [], limbs: [], stretcher: null, zamboni: null, dryLapse: 0,
     flex: new Float32Array(PANELS), cracks: [], glassBlood: [], broken: new Set(),
     crowd: 0.15, gate: 0.7, doors: [0, 0], shake: 0, boardShake: 0, hitstop: 0, lamp: 0, lampSide: null, mourning: 0, dim: 0,
@@ -273,7 +273,7 @@ export function createWorld(ice, seedKey) {
     // (a man who was on his way to get it, and someone else got there first, goes back to
     // whatever he was doing)
     if (pk.home && pk.home !== b) endFetch(pk.home);
-    pk.carrier = b; pk.target = null; pk.held = null; pk.inNet = null; pk.home = null;
+    pk.carrier = b; pk.target = null; pk.held = null; pk.inNet = null; pk.home = null; pk.played = null;
     if (b) {
       unface(b);
       b.touchT = 0.06; b.puckAt = [pk.x, pk.y]; b.puckV = [pk.vx - (b.vx || 0), pk.vy - (b.vy || 0)]; b.reachTo = null; endFetch(b);
@@ -344,8 +344,12 @@ export function createWorld(ice, seedKey) {
     if (pk.carrier) { pk.carrier.carrying = false; pk.carrier.puckAt = null; }
     if (pk.home) { endFetch(pk.home); pk.home = null; }
     if (pk.target) unface(pk.target);
-    pk.carrier = null; pk.target = null; pk.held = null; pk.vx = vx; pk.vy = vy; pk.vz = vz; pk.drag = 0;
+    pk.carrier = null; pk.target = null; pk.held = null; pk.vx = vx; pk.vy = vy; pk.vz = vz; pk.drag = 0; pk.played = null;
   };
+  // WHO PLAYED IT, for icing (the linesman, below): set by a pass or a dump in the
+  // between-plays game and cleared by anything that touches it (W.loose, W.give). A play the
+  // director is staging is the sim's, and is never iced.
+  const playedBy = (b, kind) => (W.puckScripted || W.frozen || !b ? null : { side: b.side, x: W.puck.x, y: W.puck.y, kind, t: W.t });
   // Only a man with the puck on his stick can pass it. Asked to pass it from out of reach,
   // he collects it instead and the pass isn't made.
   W.pass = (from, to, spd = 70) => {
@@ -394,7 +398,7 @@ export function createWorld(ice, seedKey) {
     }
     if (slow) lendFace(to, hAt);
     pk.vx = (tx - pk.x) / d * spd; pk.vy = (ty - pk.y) / d * spd; pk.vz = z0 > 1 ? -6 : 0;
-    pk.target = to; pk.passT0 = W.t; pk.passMin = Infinity;
+    pk.target = to; pk.passT0 = W.t; pk.passMin = Infinity; pk.played = playedBy(from, 'pass');
     W.sfx('pass');
     return true;
   };
@@ -448,8 +452,13 @@ export function createWorld(ice, seedKey) {
     const d = hyp(x - pk.x, y - pk.y) || 1;
     pk.vx = (x - pk.x) / d * spd; pk.vy = (y - pk.y) / d * spd; pk.vz = 3;
     // it's put in to a spot, not down the length of the rink: the boards and the snow bleed
-    // its speed so it settles about where it was aimed, where the man chasing it can get it
-    W.settleAt(x, y);
+    // its speed so it settles about where it was aimed, where the man chasing it can get it.
+    // (Only on the ice: it's lifted, and the 10 ft or so it flies first has no drag on it.
+    // Settled as if it slid the whole way, every dump came to rest 10 ft past its spot, and a
+    // dump the sim put in to the slot went round the back of the net, three seconds of chase.)
+    const tAir = (pk.vz + Math.sqrt(pk.vz * pk.vz + 2 * G * Math.max(0, pk.z))) / G;
+    pk.drag = clamp(spd / Math.max(3, d - spd * tAir), 0.35, 4);
+    pk.played = playedBy(from, 'dump');
     W.sfx('shot', { soft: true });
   };
 
@@ -1329,7 +1338,9 @@ export function createWorld(ice, seedKey) {
     if (rand() >= p) { c.shaky = Math.max(c.shaky || 0, 0.08); return false; }
     // knocked off his stick: the checker has it if it's on his blade, otherwise it squirts away
     if (toPuck < 1.6) { W.loose(0, 0); W.give(m, true); }
-    else { const a = Math.atan2(pk.y - m.y, pk.x - m.x) + (rand() - 0.5) * 1.2; W.loose(Math.cos(a) * 12 + (c.vx || 0) * 0.3, Math.sin(a) * 12 + (c.vy || 0) * 0.3, 0); }
+    // (his stick was last on it, so it's his side's puck for offside: poked into his own end,
+    // nobody of theirs in there is offside)
+    else { const a = Math.atan2(pk.y - m.y, pk.x - m.x) + (rand() - 0.5) * 1.2; W.loose(Math.cos(a) * 12 + (c.vx || 0) * 0.3, Math.sin(a) * 12 + (c.vy || 0) * 0.3, 0); pk.owner = m.side; }
     c.shaky = 0.25;
     return true;
   }
@@ -1378,7 +1389,7 @@ export function createWorld(ice, seedKey) {
         if (m.run && (W.t >= m.run.until || m === carrier || W.frozen)) m.run = null;
         if (m.scripted || m.rag || m.blend) continue;
         const isD = m.slot === 3 || m.slot === 4;
-        let tx, ty, mv = 19;
+        let tx, ty, mv = 19, snap = false;
         // (a man a pass is coming to keeps the facing he opened up to it with)
         m.face = pk.target === m && m.simFace != null ? m.simFace : null;
         if (W.frozen) {
@@ -1399,11 +1410,22 @@ export function createWorld(ice, seedKey) {
             tx = I.x + Math.cos(a) * 3.5; ty = I.y + Math.sin(a) * 2.6; mv = 4.5;
           }
         } else if (m === carrier) {
-          const inZone = (m.x - offBlue(side)) * dir > 0;
-          if (!inZone) { tx = m.x + dir * 30; ty = laneY(side, m.slot) * 0.6 + MID_Y * 0.4 + Math.sin(W.t * 0.9 + m.seed) * 9; mv = 23; }
+          // (in the zone is where the PUCK is: a man over the line with it just out is out, and
+          // carrying it back in would put any man of his still in there offside)
+          const inZone = W.calls.zone[side] && (m.x - offBlue(side)) * dir > -3;
+          // HE DOESN'T TAKE IT IN WITH A MAN OF HIS OFFSIDE. Coming up on their line with one
+          // of his still in the zone, he holds up short of it, cutting across, until the man's
+          // back out to the line; then he goes.
+          const toLine = (offBlue(side) - m.x) * dir;
+          const holdUp = !inZone && toLine < 24 && team.some((o) => o !== m && o.kind === 'skater' && !o.rag && W.overLine(o));
+          if (holdUp) {
+            const across = m.y > MID_Y + 8 ? -1 : m.y < MID_Y - 8 ? 1 : Math.sign(Math.sin(W.t * 0.6 + m.seed)) || 1;
+            tx = offBlue(side) - dir * 9; ty = m.y + across * 12; mv = 13; snap = true;
+          } else if (!inZone) { tx = m.x + dir * 30; ty = laneY(side, m.slot) * 0.6 + MID_Y * 0.4 + Math.sin(W.t * 0.9 + m.seed) * 9; mv = 23; }
           else if (isD) {
             // a defenceman with it in the zone walks the line, looking for a lane
-            tx = offBlue(side) + dir * 4; ty = MID_Y + Math.sin(W.t * 0.7 + m.seed) * 17; mv = 12;
+            // (a stride inside it, so a bobble at the line doesn't put it out and his forwards offside)
+            tx = offBlue(side) + dir * 6; ty = MID_Y + Math.sin(W.t * 0.7 + m.seed) * 17; mv = 12;
             m.face = dir > 0 ? 0 : Math.PI;
           } else {
             // cycle: down the wall to below the dots, behind the net line, back up the half-wall
@@ -1458,6 +1480,17 @@ export function createWorld(ice, seedKey) {
             tx = carrier.x + hx * along - hy * nl; ty = carrier.y + hy * along + hx * nl;
           }
         }
+        // ONSIDE. With the puck outside their zone nobody of ours goes over the line ahead of
+        // it: whatever his spot, he holds at the line (a man left in the zone comes back out
+        // to it) and goes in once it's in. Under a delayed offside every one of ours goes back
+        // out to the line to tag up, and doesn't touch it until they all have. (Not through a
+        // play the director is staging: where its men go is the sim's, and held at the line
+        // the man a pass was coming to started from too far back, and the shot came late.)
+        if (!W.frozen && !W.puckScripted && m !== carrier) {
+          const C = W.calls, bl = offBlue(side);
+          // (a man still in there when it comes out hurries: his side can't go back in until he's out)
+          if ((!C.zone[side] || (C.delayed && C.delayed.side === side)) && (tx - bl) * dir > -3) { tx = bl - dir * 3; if (C.delayed || pastLine(m, side, 0)) mv = Math.max(mv, 23); }
+        }
         const c = insideRink(tx, ty, 2.5); if (c) { tx = c.x; ty = c.y; }
         // HE DOESN'T SNAP TO A NEW IDEA. Where he should be changes as the play does (a pass
         // turns the carrier into a support man, a turnover turns attack into defence), and a
@@ -1466,7 +1499,7 @@ export function createWorld(ice, seedKey) {
         // loose puck goes straight where it's going.
         // (a man who missed his check goes on by before he can turn back to it)
         if (m.beaten > W.t) { tx = m.tx; ty = m.ty; }
-        const kT = m.through > W.t || !Number.isFinite(m.tx) ? 1 : 1 - Math.exp(-dt * 4);
+        const kT = snap || m.through > W.t || !Number.isFinite(m.tx) ? 1 : 1 - Math.exp(-dt * 4);
         // (his legs: a quick man is a little quicker to his spot and off the mark, and a man
         // with the puck gives up a stride for it, more the poorer his hands)
         const rt = m.rt || RT0;
@@ -1491,7 +1524,8 @@ export function createWorld(ice, seedKey) {
       if (!free) continue;
       // possession: pick up a loose puck once it's within reach of his stick and his blade
       // has had a moment to get to it (rig.js reaches it out to `reachTo`)
-      if (loose && pk.z < 1 && !pk.inNet) {
+      // (not by a side under a delayed offside: touched before they've tagged up, it's called)
+      if (loose && pk.z < 1 && !pk.inNet && !(W.calls.delayed && W.calls.delayed.side === side)) {
         for (const m of team) {
           if (m.scripted || m.rag || m.blend || !m.stick || pk.home === m) continue;
           // (in front of his stick, or at his skates, as the man sent for it has it: see `pursue`)
@@ -1547,12 +1581,22 @@ export function createWorld(ice, seedKey) {
       const opp = W.mates(side === 'a' ? 'h' : 'a');
       const neutral = Math.abs(carrier.x - RL / 2) < 18;
       const press = opp.some((o) => hyp(o.x - carrier.x, o.y - carrier.y) < 7);
-      if (neutral && press && rand() < 0.35) {
+      // (put in from his own side of the red line, it's icing: he gets over it first)
+      const overRed = (carrier.x - RL / 2) * dir > 1.5;
+      const cy = carrier.y > MID_Y ? RW - 6 : 6;
+      if (neutral && press && overRed && rand() < 0.35) {
         // dump it in and go get it
-        const cy = carrier.y > MID_Y ? RW - 6 : 6;
         // released at contact, as every shot is, so it leaves the blade
         W.act(carrier, 'dump', SHOTS.dump.dur);
         W.schedule(releaseAt('dump'), () => { if (W.puck.carrier === carrier) W.dumpTo(carrier, offGoal(side) + dir * 4, cy, 64); });
+        return;
+      }
+      // A SIDE A MAN SHORT CLEARS IT. Icing isn't called on them, so pressed in his own end a
+      // man on the kill fires it the length of the ice and they get a change of shape.
+      const short = W.mates(side).length < W.mates(side === 'a' ? 'h' : 'a').length;
+      if (short && press && (carrier.x - RL / 2) * dir < -25 && rand() < 0.5) {
+        W.act(carrier, 'dump', SHOTS.dump.dur);
+        W.schedule(releaseAt('dump'), () => { if (W.puck.carrier === carrier) W.dumpTo(carrier, offGoal(side) + dir * 6, MID_Y + (cy - MID_Y) * 0.6, 82); });
         return;
       }
       // THE PLAYS. Each man of his is weighed as somewhere to put it, and the pass is called for
@@ -1578,6 +1622,8 @@ export function createWorld(ice, seedKey) {
         const trail = !isDef(m) && fwd < -3 && d < 18;
         const stretch = ownEnd && !isDef(m) && fwd > 35 && d > 50 && (m.x - RL / 2) * dir > -(RL / 2 - BLUE_X[0]) + 2;
         if (d < (trail ? 5 : 8) || d > (stretch ? 110 : 70)) continue;
+        // (never to a man over their line, or going over it, with the puck outside it: offside)
+        if (!W.calls.zone[side] && (W.overLine(m) || (m.run && (m.run.x - offBlue(side)) * dir > 1))) continue;
         const call = stretch ? 'stretch' : trail && atLine && stoodUp ? 'drop'
           : zone && !isDef(m) && hyp(m.x - offGoal(side), m.y - MID_Y) < 30 && (offGoal(side) - m.x) * dir > 3 ? 'slot' : null;
         const lm = laneMargin(carrier, m, call === 'stretch' ? 86 : 70, opp).margin;
@@ -1589,6 +1635,20 @@ export function createWorld(ice, seedKey) {
           + (call === 'stretch' && lm > 0.3 && open > 10 ? 6 + 8 * prt : 0)
           + (call === 'drop' ? 14 : 0);
         if (sc > bs) { bs = sc; best = m; bcall = call; }
+      }
+      // HEMMED IN, HE GETS IT OUT. In his own end with two of theirs on him (or one, and he's
+      // spent), he often just clears it, more often with nobody open: off the boards and out
+      // to the neutral zone, which is legal and what he means. Now and then, pinned or tired,
+      // he fires it the length of the ice, and unless one of his wins the race to it, that's
+      // icing. (Played only with a man open, it hardly ever happened: about 1 in 16 looks.)
+      const ownZone = (carrier.x - offBlue(side === 'a' ? 'h' : 'a')) * dir < 0;
+      const onHim = opp.filter((o) => !o.rag && hyp(o.x - carrier.x, o.y - carrier.y) < 9).length;
+      if (ownZone && (onHim >= 2 || (onHim && (carrier.stam ?? 1) < 0.6)) && rand() < (!best || bs < 8 ? 0.8 : 0.4)) {
+        const length = rand() < 0.32 + 0.25 * (1 - (carrier.stam ?? 1));
+        const [x, y, spd] = length ? [offGoal(side) + dir * 6, MID_Y + (cy - MID_Y) * 0.6, 84] : [RL / 2 + dir * 12, cy, 66];
+        W.act(carrier, 'dump', SHOTS.dump.dur);
+        W.schedule(releaseAt('dump'), () => { if (W.puck.carrier === carrier) W.dumpTo(carrier, x, y, spd); });
+        return;
       }
       // a man standing him up in front: beat him with the hands instead of moving it
       const front = opp.find((o) => !o.rag && hyp(o.x - carrier.x, o.y - carrier.y) < 7 && ((o.x - carrier.x) * Math.cos(carrier.h) + (o.y - carrier.y) * Math.sin(carrier.h)) > 1.5);
@@ -1625,6 +1685,8 @@ export function createWorld(ice, seedKey) {
         }
         if (call === 'stretch') {
           const c = insideRink(to.x + dir * 24, to.y, 8) || { x: to.x + dir * 24, y: to.y };
+          // (led into the neutral zone, not over their line ahead of it)
+          if (!W.calls.zone[side] && (c.x - offBlue(side)) * dir > -1.5) c.x = offBlue(side) - dir * 1.5;
           to.run = { x: c.x, y: c.y, v: 24, until: W.t + 2.5 };
           to.tx = c.x; to.ty = c.y; to.through = W.t + 0.5;
         }
@@ -1747,16 +1809,116 @@ export function createWorld(ice, seedKey) {
   }
 
   function officials(dt) {
-    const pk = W.puck;
+    const pk = W.puck, C = W.calls;
+    // (the blue line the play is at: the one the puck is past, or nearest it in the neutral zone)
+    const bl = pk.x < BLUE_X[0] + 30 ? BLUE_X[0] : pk.x > BLUE_X[1] - 30 ? BLUE_X[1] : null;
     W.officials.forEach((o, i) => {
       if (o.scripted || o.rag) return;
       // a linesman with the puck in his hand is waiting for a draw, not following it
       if (pk.held === o) { o.tx = o.x; o.ty = o.y; return; }
       const far = i === 0;
-      const tx = clamp(pk.x + (far ? -14 : 16), 30, RL - 30), ty = far ? RW - 6 : 6.5;
+      // The far-side linesman works the blue line the play is at, on it, so he's looking
+      // down it when the puck comes in or out; the other follows the play.
+      const tx = far && bl != null ? bl : clamp(pk.x + (far ? -14 : 16), 30, RL - 30), ty = far ? RW - 6 : 6.5;
       o.tx = tx; o.ty = ty; o.maxV = 18; o.face = Math.atan2(pk.y - o.y, pk.x - o.x);
       if (hyp(o.x - pk.x, o.y - pk.y) < 8) { o.ty = o.y > MID_Y ? RW - 4 : 4; }
     });
+    // a delayed offside: the arm of the official nearest that line stays up until it's
+    // called or waved off
+    if (C.delayed) {
+      const line = offBlue(C.delayed.side), o = nearestOf(W.officials, line, MID_Y);
+      if (o && !o.scripted && (!o.act || o.act === 'point')) { if (o.act !== 'point' || o.actT > 0.85) W.act(o, 'point', 0.8); }
+    }
+  }
+
+  // ── the linesman: offside and icing ───────────────────────────────────────
+  // THE BETWEEN-PLAYS GAME PLAYS TO THE RULES, as the NHL has them now. The linesman watches
+  // it (never a play the director is staging: those are the sim's facts) and blows for two
+  // things. Neither is a penalty: play stops, and the draw is moved back.
+  // - OFFSIDE: the puck goes into their zone with a man of ours already over the line, both
+  //   skates past it. The man carrying it in can't be offside. Carried in with a man over
+  //   the line, it's called at once. Dumped or passed in, it's DELAYED: the linesman's arm
+  //   goes up, and it's called if one of ours touches the puck before every one of ours has
+  //   been back out to the line (the tag-up). It's waved off once they have, or once the puck
+  //   comes back out. The draw is at the neutral-zone dot outside the zone, on the side it
+  //   happened.
+  // - ICING: played from our side of the red line, it crosses their goal line untouched.
+  //   Hybrid icing: it's called unless a man of ours will get to it first (a tie is icing),
+  //   and a side a man short may ice it. The draw is in our end, on the dot the other side
+  //   picks (their centre's forehand).
+  // The director stages the stoppage (`W.onCall`, which may decline: a beat is on). With no
+  // director nothing is called, and the men still play to stay onside and off icing.
+  W.calls = { zone: { a: false, h: false }, delayed: null, n: { offside: 0, icing: 0, delayed: 0, tagged: 0, waved: 0, short: 0 } };
+  // (the puck is in once it's wholly past the line, a man once both skates are)
+  const PUCK_IN = 0.65, SKATES_IN = 1.2, TAGGED = 0.5;
+  const pastLine = (m, side, by) => (m.x - offBlue(side)) * attackDir(side) > by;
+  const skatersOf = (side) => W.mates(side).filter((m) => m.kind === 'skater' && !m.rag);
+  W.overLine = (m) => pastLine(m, m.side, SKATES_IN);
+  function blow(call, side) {
+    const C = W.calls, pk = W.puck, opp = side === 'a' ? 'h' : 'a';
+    C.delayed = null; pk.played = null;
+    let dot;
+    if (call === 'offside') dot = `${opp}N${pk.y < MID_Y ? 'L' : 'R'}`;
+    else {
+      const c = skatersOf(opp).find((m) => m.slot === 1) || skatersOf(opp)[0];
+      const s = (c && c.hand === 'R' ? -1 : 1) * attackDir(opp);
+      dot = `${side}Z${s > 0 ? 'R' : 'L'}`;
+    }
+    const wins = rand() < 0.5 ? side : opp;
+    if (!W.onCall || !W.onCall({ call, side, dot, wins, x: pk.x, y: pk.y })) return false;
+    C.n[call]++;
+    W.emit('call', { call, side, dot, x: pk.x, y: pk.y });
+    return true;
+  }
+  function linesman() {
+    const C = W.calls, pk = W.puck, free = !W.puckScripted && !W.frozen;
+    for (const side of ['a', 'h']) {
+      const into = (pk.x - offBlue(side)) * attackDir(side);
+      if (!C.zone[side] && into > PUCK_IN) {
+        C.zone[side] = true;
+        // (only when it's ours going in: carried or played back into their own end by them, or
+        // knocked in off one of theirs, nobody of ours is offside)
+        if (!free || (pk.carrier ? pk.carrier.side : pk.owner) !== side) continue;
+        const c = pk.carrier, offs = skatersOf(side).filter((m) => m !== c && pastLine(m, side, SKATES_IN));
+        if (!offs.length) continue;
+        if (c && c.side === side && c.kind === 'skater') { blow('offside', side); return; }
+        C.delayed = { side, at: W.t }; C.n.delayed++;
+        W.emit('call', { call: 'delayed', side });
+      } else if (C.zone[side] && into < -PUCK_IN) {
+        C.zone[side] = false;
+        if (C.delayed && C.delayed.side === side) C.delayed = null;
+      }
+    }
+    if (!free) { C.delayed = null; return; }
+    const Dl = C.delayed;
+    if (Dl) {
+      const c = pk.carrier;
+      if (c && c.side === Dl.side && c.kind === 'skater') { blow('offside', Dl.side); return; }
+      if (!skatersOf(Dl.side).some((m) => pastLine(m, Dl.side, TAGGED))) {
+        C.delayed = null; C.n.tagged++;
+        const o = nearestOf(W.officials, offBlue(Dl.side), MID_Y);
+        if (o && o.act === 'point') o.act = null;
+        W.emit('call', { call: 'tagged', side: Dl.side });
+      }
+    }
+    const P = pk.played;
+    if (!P || pk.carrier || pk.held || pk.inNet) return;
+    const side = P.side, dir = attackDir(side), opp = side === 'a' ? 'h' : 'a';
+    // (from over the red line it's a dump-in, never icing)
+    if ((P.x - RL / 2) * dir >= 0) { pk.played = null; return; }
+    if ((pk.x - offGoal(side)) * dir < 0.3) return;
+    pk.played = null;
+    if (skatersOf(side).length < skatersOf(opp).length) { C.n.short++; return; }
+    // the race: to the puck, theirs against ours (the goalie isn't in it)
+    const race = (list) => Math.min(99, ...list.map((m) => reachIn(m, pk.x, pk.y)));
+    if (race(skatersOf(side)) + 0.15 < race(skatersOf(opp))) {
+      C.n.waved++;
+      const o = nearestOf(W.officials, offGoal(side), pk.y);
+      if (o && !o.scripted) W.act(o, 'washout', 1.1);
+      W.emit('call', { call: 'waved', side });
+      return;
+    }
+    blow('icing', side);
   }
 
   // THE ZAMBONI drives the pattern in zamboni.js: in through the gate, the middle in ovals,
@@ -2102,6 +2264,7 @@ export function createWorld(ice, seedKey) {
     if (W.script) W.script(dt);
     ambient(dt);
     officials(dt);
+    linesman();
     battles();
     // a man getting the puck skates to it, whatever his script or his position asked of him,
     // and a man a pass is for moves onto its line

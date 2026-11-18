@@ -25,6 +25,8 @@ import { balconyDressOf } from '../../../../shared/room-layout.js';
 import { glassLathe, liquidLathe } from './lab-mesh.js';
 import { drawCatStatue } from './cat-statue.js';
 import { drawSaloonDecor, dressCardTable, saloonCtx } from './room-saloon.js';
+import { drawHotelDecor, drawHotelForm, twinSconce } from './room-hotel.js';
+import { drawSquatDecor } from './room-squat.js';
 
 const { GLOSS, METAL, SATIN, CLOTH, MATTE, LEATHER } = MAT;
 // the codes gl/room.js reads for a light's own face, as room-mesh.js has them (GLOW, LAMP)
@@ -251,6 +253,7 @@ function chandelier(K, L, c, { H, lampOn, lamps }) {
 // A SCONCE on a wall: a bronze backplate, a short arm and an alabaster shade lit from inside.
 function sconce(K, L, wall, a, y, { lampOn, hex, kind }) {
   if (kind === 'fan') return fanSconce(K, L, wall, a, y, { lampOn, hex });
+  if (kind === 'twin') return twinSconce(K, L, wall, a, y, { lampOn, hex });
   onWall(K, L, wall, a - 0.045, a + 0.045, 0.016, 0.03, y - 0.17, y + 0.13, hex, 1.05, null, METAL);
   onWall(K, L, wall, a - 0.012, a + 0.012, 0.03, 0.1, y - 0.06, y - 0.03, hex, 1.05, null, METAL);
   const [su, sv] = wallPt(L, wall, a, 0.115);
@@ -464,6 +467,7 @@ export function liftPortal(K, L, o, { DH, H, lampOn }) {
 //   frieze   { y, h, hex, line, on }               a dark band round the room with a gilt zigzag along it
 //   pilasters { points: [[wall, a]], w, hex, y1 }   fluted, on a dark plinth, under a stepped capital
 //   sconces.kind 'fan'                              a half shell of frosted glass on a stepped plate, lit up the wall
+//   sconces.kind 'twin'                             two scrolled arms with candles in silk shades (gl/room-hotel.js)
 //   lights[].kind 'tiers'                           a pendant of opal glass in tiers, widest at the top
 //   doors[].finish 'bronze', .pair, .dial           a lift's two bronze leaves and the floor dial over them
 // The along axis and the way out of a wall, in the room's frame, as [u, v].
@@ -664,6 +668,10 @@ export function drawDecor(K, L, ctx) {
   facility(K, L, dc, ctx);
   // an old bar's: neon, pendants, fans, photographs, darts, a payphone, what's on the floor (gl/room-saloon.js)
   drawSaloonDecor(K, L, dc, ctx);
+  // an old hotel's: raised letters, clocks, a directory board, standard lamps, picture lights (gl/room-hotel.js)
+  drawHotelDecor(K, L, dc, ctx);
+  // a room gone to seed: rubbish, magazines, damp, a leak and its bucket (gl/room-squat.js)
+  drawSquatDecor(K, L, dc, ctx);
 }
 
 // ── A working building's dressing (a clone facility, a plant room) ───────────────────────────────────
@@ -770,6 +778,8 @@ function facility(K, L, dc, { H, lampOn }) {
   }
   for (const m of dc.paint || []) {
     if (!m) continue;
+    // `y` sets a marking down on a lower floor (a pit's: spec.pit), its height under the room's
+    K.lift(Number.isFinite(m.y) ? m.y : 0);
     const hex = m.hex || HAZ_A;
     if (m.kind === 'hazard' && Array.isArray(m.rect)) hazardBand(K, m.rect, m.t || 0.12);
     else if (m.kind === 'box' && Array.isArray(m.rect)) { const [u0, u1, v0, v1] = m.rect, t = m.t || 0.05; floorBox(K, u0, u1, v0, v0 + t, hex); floorBox(K, u0, u1, v1 - t, v1, hex); floorBox(K, u0, u0 + t, v0, v1, hex); floorBox(K, u1 - t, u1, v0, v1, hex); }
@@ -779,6 +789,7 @@ function facility(K, L, dc, { H, lampOn }) {
       if (m.arrows) { const n = Math.max(1, Math.floor(l / 1.6)); for (let i = 1; i <= n; i++) { const t2 = i / (n + 1); floorArrow(K, [a[0] + (b[0] - a[0]) * t2, a[1] + (b[1] - a[1]) * t2], [b[0] - a[0], b[1] - a[1]], hex, 0.45); } }
     } else if (m.kind === 'arrow' && Array.isArray(m.at) && Array.isArray(m.dir)) floorArrow(K, m.at, m.dir, hex, m.s || 0.6);
   }
+  K.lift(0);
   for (const g of dc.grates || []) {
     if (!Array.isArray(g) || g.length < 4) continue;
     const [u, v, w, d] = g;
@@ -820,11 +831,108 @@ function facility(K, L, dc, { H, lampOn }) {
 function mulberry(a) { return () => { a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 
 
+// ── the vats' tubes (docs/proposals/clone-facility-depths.md) ───────────────────────────────────────
+// Every vat recorded on the kit (K.vats, by the vat form) gets a big tube from its crown straight up to just under the
+// ceiling, along the ceiling toward the middle of the room, and there up into one great trunk that goes on through
+// the ceiling with all the others. The runs are set at three heights so crossing tubes pass over one another; the
+// bends are swept round, cyan rings band them, and hangers hold the long runs.
+// A tube's line is recorded on its vat (`path`, trunk end first, every bend as a run of points; `dropFrom`, how far
+// along the straight drop into the vat starts) for gl/room-vat.js, which draws its windows and its bulge.
+// a polyline with every corner swept round on a curve of up to `r`: [points, index where the last straight starts]
+export function roundPath(pts, r) {
+  const sub = (a, b) => a.map((x, i) => x - b[i]), len = (a) => Math.hypot(...a), unit = (a) => { const l = len(a) || 1; return a.map((x) => x / l); };
+  const out = [pts[0]];
+  let last = 0;
+  for (let i = 1; i < pts.length - 1; i++) {
+    const a = pts[i - 1], c = pts[i], b = pts[i + 1], li = len(sub(c, a)), lo = len(sub(b, c)), rr = Math.min(r, li * 0.45, lo * 0.45);
+    if (rr < 0.02) { out.push(c); continue; }
+    const din = unit(sub(c, a)), dout = unit(sub(b, c)), p0 = c.map((x, j) => x - din[j] * rr), p2 = c.map((x, j) => x + dout[j] * rr);
+    for (let k = 0; k <= 10; k++) { const t = k / 10, u = 1 - t; out.push(p0.map((x, j) => u * u * x + 2 * u * t * c[j] + t * t * p2[j])); }
+    last = out.length - 1;
+  }
+  out.push(pts[pts.length - 1]);
+  return [out, last];
+}
+export function drawVatTubes(K, { H, D }) {
+  const vs = (K.vats || []).filter((v) => v.ku != null);
+  if (!vs.length) return;
+  // the tubes are big enough for a body to come down (0.4 m round), dark and soft like a hose, with cyan rings round
+  // them every 1.2 m; their windows, and the bulge as something goes down them, are gl/room-vat.js's
+  const cu = 0, cv = D / 2, R = 0.4, trunkR = 1.1 + Math.min(0.6, vs.length * 0.05), bottom = Math.max(H - 2.7, Math.max(...vs.map((v) => v.crownTop)) + 1.2);
+  // a ring of short rods round an axis: a collar you can see through the middle of
+  const collar = (c, ax, r, rad, col, k = 1, mat = METAL) => {
+    const a = Math.abs(ax[2]) > 0.9 ? [1, 0, 0] : [0, 0, 1], b0 = [ax[1] * a[2] - ax[2] * a[1], ax[2] * a[0] - ax[0] * a[2], ax[0] * a[1] - ax[1] * a[0]], bl = Math.hypot(...b0), b = b0.map((x) => x / bl);
+    const e = [ax[1] * b[2] - ax[2] * b[1], ax[2] * b[0] - ax[0] * b[2], ax[0] * b[1] - ax[1] * b[0]], N = 14;
+    const P = (i) => { const t = i / N * Math.PI * 2; return c.map((x, j) => x + r * (b[j] * Math.cos(t) + e[j] * Math.sin(t))); };
+    for (let i = 0; i < N; i++) rod(K, P(i), P(i + 1), rad, col, k, mat);
+  };
+  // a tube along a swept line: corrugated plastic hose, smoky grey and glossy so the vats' light runs along its ridges,
+  // one skin round the bends (a frame carried along it), and a dim cyan ring every 1.2 m (they light up as something
+  // passes: gl/room-vat.js)
+  const HOSE = '#6a7c88', PITCH = 0.06, SIDES = 14;
+  const tube = (pts) => {
+    const segs = [];
+    let total = 0;
+    for (let i = 1; i < pts.length; i++) { const d = pts[i].map((x, j) => x - pts[i - 1][j]), l = Math.hypot(...d); if (l < 1e-4) continue; segs.push({ a: pts[i - 1], b: pts[i], l, ax: d.map((x) => x / l), s: total }); total += l; }
+    if (!segs.length) return;
+    const at = (s) => { const g = segs.find((q) => s <= q.s + q.l) || segs[segs.length - 1]; return { c: g.a.map((x, j) => x + g.ax[j] * (s - g.s)), ax: g.ax }; };
+    const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]], unit = (a) => { const l = Math.hypot(...a) || 1; return a.map((x) => x / l); };
+    // the rings of the skin, ridge and groove by turns
+    const n = Math.max(2, Math.round(total / PITCH)), rings = [];
+    let e1 = null;
+    for (let i = 0; i <= n; i++) {
+      const s = (i / n) * total, { c, ax } = at(s);
+      // the tangent eased across a bend's points, so the skin turns smoothly
+      const t = unit(at(Math.max(0, s - 0.05)).ax.map((x, j) => x + at(Math.min(total, s + 0.05)).ax[j] + ax[j]));
+      e1 = e1 ? unit(e1.map((x, j) => x - t[j] * (e1[0] * t[0] + e1[1] * t[1] + e1[2] * t[2]))) : unit(cross(t, Math.abs(t[2]) > 0.9 ? [1, 0, 0] : [0, 0, 1]));
+      const e2 = cross(t, e1), r = i % 2 ? R * 0.955 : R;
+      rings.push(Array.from({ length: SIDES }, (_, k) => { const g = (k / SIDES) * Math.PI * 2; return c.map((x, j) => x + (e1[j] * Math.cos(g) + e2[j] * Math.sin(g)) * r); }));
+      rings[i].c = c;
+    }
+    for (let i = 0; i < n; i++) for (let k = 0; k < SIDES; k++) {
+      const a = rings[i][k], b = rings[i][(k + 1) % SIDES], c = rings[i + 1][(k + 1) % SIDES], d = rings[i + 1][k];
+      let nr = unit(cross(b.map((x, j) => x - a[j]), d.map((x, j) => x - a[j])));
+      const out = a.map((x, j) => x - rings[i].c[j]);
+      if (nr[0] * out[0] + nr[1] * out[1] + nr[2] * out[2] < 0) nr = nr.map((x) => -x);
+      K.quad(K.solid, [a, b, c, d], K.nrmOf(nr[0], nr[2], nr[1]), K.C(HOSE, i % 2 ? 0.78 : 1.25), GLOSS);
+    }
+    for (let s = 0.6; s < total - 0.2; s += 1.2) { const g = at(s); collar(g.c, g.ax, R + 0.012, 0.016, '#4fe6ff', 1.15, GLOW); }
+  };
+  vs.forEach((v, i) => {
+    const run = H - 0.5 - (i % 3) * 0.88, top = v.crownTop + 0.08;
+    const dx = v.ku - cu, dz = v.kv - cv, dl = Math.hypot(dx, dz) || 1;
+    const eu = cu + (dx / dl) * trunkR * 0.75, ev = cv + (dz / dl) * trunkR * 0.75;
+    const A = [v.ku, v.kv, top], B = [v.ku, v.kv, run], C = [eu, ev, run], E = [eu, ev, bottom];
+    const [line, lastBend] = roundPath(run > top + 0.1 ? [E, C, B, A] : [E, C, A], 0.95);
+    if (K.at) {
+      v.path = line.map((q) => K.at(q[0], q[1], q[2]));
+      let total = 0, upTo = 0;
+      for (let k = 1; k < line.length; k++) { total += Math.hypot(...line[k].map((x, j) => x - line[k - 1][j])); if (k === lastBend) upTo = total; }
+      v.dropFrom = total ? upTo / total : 1;
+      v.trunk = { c: K.at(cu, cv, bottom - 0.04), r: trunkR + 0.12, hub: K.at(cu, cv, bottom + 0.1) };
+    }
+    tube(line);
+    // a hanger from the ceiling half way along the run
+    const mu = (B[0] + C[0]) / 2, mv = (B[1] + C[1]) / 2;
+    rod(K, [mu, mv, run + R], [mu, mv, H], 0.025, '#5a6266', 1, METAL);
+  });
+  // the trunk: a drum gathering them all, banded, a lit ring at its foot, going up through the ceiling
+  // the underside is recessed: a pocket 0.7 m across and half a metre up, the gantry's hub hung in it, so the boom
+  // swings under the rim instead of into the trunk (gl/room-vat.js armChain)
+  K.lathe(cu, cv, [[0, bottom + 0.4], [0.5, bottom + 0.38], [0.68, bottom + 0.2], [0.72, bottom - 0.08], [0.8, bottom - 0.12], [trunkR * 0.6, bottom - 0.12], [trunkR + 0.1, bottom], [trunkR + 0.1, bottom + 0.08], [trunkR, bottom + 0.12], [trunkR, H + 0.02], [0, H + 0.02]], '#3a4248', 1, 40, METAL);
+  for (let k = 0; k < 4; k++) torus(K, cu, cv, trunkR + 0.01, 0.025, bottom + 0.3 + k * ((H - bottom - 0.35) / 4), '#7d868c', 1);
+  torus(K, cu, cv, trunkR + 0.1, 0.02, bottom - 0.02, '#4dffb0', 2);
+  K.lathe(cu, cv, [[0, bottom + 0.399], [0.48, bottom + 0.379]], '#1a2a24', 1, 32, GLOW);
+  K.lathe(cu, cv, [[0, bottom + 0.02], [0.18, bottom + 0.06], [0.24, bottom + 0.2], [0.34, bottom + 0.37], [0, bottom + 0.39]], '#2b3034', 1, 24, METAL);
+}
+
 // ── the forms a hotel's furniture needs ───────────────────────────────────────────────────────────
 // Called from room-mesh.js drawPiece with the piece's own frame; true when it drew the piece.
 export function drawDecorForm(K, F, p) {
   const { P, pbox } = F, w = p.w, d = p.d, h = p.h, hw = w / 2, hd = d / 2;
   const marble = { t: 'roomMarble', c: '#f4efe6' }, dress = p.dress || '';
+  // an old hotel's key wall, sofa, wing chair, low table, luggage cart and desk (gl/room-hotel.js)
+  if (drawHotelForm(K, F, p)) return true;
   switch (p.form) {
     case 'reception': {
       // a recessed dark plinth with a warm light along its toe, a fluted bronze front, marble ends and a
@@ -1229,41 +1337,75 @@ export function drawDecorForm(K, F, p) {
       // `look.state: 'drained'` is the one you came out of: the fluid down to a puddle, the front panel of glass
       // swung open, nobody inside, water on the floor.
       const c = { F, K }, R = Math.min(hw, hd) * 0.9, base = 0.34, crown = h - 0.32, rr = rng(p.seed || 7), drained = p.state === 'drained';
-      const [u, v] = P(0, 0, 0), tube = R * 0.9, fluidTop = drained ? base + 0.06 : crown - 0.05;
+      // `look.level` how full it stands (the sleeper stays in it at any level), `look.sleeper: false` nobody in it
+      // `look.state: 'release'` is a release vat: standing dry and empty, its front shut, waiting for a body to come
+      // down its tube (docs/proposals/clone-facility-depths.md)
+      const release = p.state === 'release';
+      const fullTop = crown - 0.05, level = drained ? 1 : release ? 0 : Math.max(0, Math.min(1, p.level ?? 1)), sleeper = !drained && !release && p.sleeper !== false;
+      const [u, v] = P(0, 0, 0), tube = R * 0.9, fluidTop = drained ? base + 0.06 : base + (fullTop - base) * level;
+      // what gl/room-vat.js needs to fill it: the column, the sleeper as capsules (a, b, radius) and its mouth, all
+      // in the room's world; and the static fluid's run in the glass, which the room skips once the layer draws it
+      const W = (x, y, z) => { const [a, b] = P(x, 0, z); return K.at ? K.at(a, b, y) : null; };
+      const vat = K.vats && K.at ? { c: K.at(u, v, base), r: tube - 0.012, h: (drained ? fluidTop : fullTop) - base, level, sleeper, fluid: p.fluid || (drained ? '#3a7a60' : '#46e0a8'), seed: p.seed || 7, state: p.state || 'full', caps: [], mouth: null, glass: null, id: p.id ?? null, top: fluidTop, release, ku: u, kv: v, crownTop: h + (p.y0 || 0), crown: crown - base, front: (() => { const a = K.at(...P(0, 0, 0)), b = K.at(...P(0, 0, 1)); return [b[0] - a[0], 0, b[2] - a[2]]; })() } : null;
       // the plinth, stepped, with a lit ring where the glass seats
       K.lathe(u, v, [[0, 0], [R + 0.06, 0], [R + 0.06, 0.08], [R + 0.02, 0.12], [R + 0.02, base - 0.05], [tube + 0.03, base], [0, base]], '#c9ced3', 1.05, 36, METAL);
-      torus(K, u, v, tube + 0.01, 0.018, base + 0.01, drained ? '#ff8a3a' : '#5fffc0', 1.6);
-      K.lathe(u, v, [[0, base + 0.002], [tube, base + 0.002]], drained ? '#ff9a5a' : '#7affd0', drained ? 1.4 : 2.2, 32, GLOW);
-      // the sleeper: upright in the fluid, a little off the floor, head bowed, arms loose, knees soft
-      if (!drained) {
+      // the drain it empties into, in the floor round its foot: a dark sump under a ring of slats
+      if (vat) {
+        K.lathe(u, v, [[R + 0.07, 0.002], [R + 0.32, 0.002]], '#0c0e0f', 1, 40, MATTE);
+        for (let i = 0; i < 36; i++) { const a = (i / 36) * Math.PI * 2, c = Math.cos(a), s = Math.sin(a); rod(K, [u + c * (R + 0.08), v + s * (R + 0.08), 0.006], [u + c * (R + 0.31), v + s * (R + 0.31), 0.006], 0.009, '#7d868c', 1, METAL); }
+        torus(K, u, v, R + 0.32, 0.012, 0.006, '#5a6266', 1);
+      }
+      const ring = drained ? '#ff8a3a' : release ? '#ffc86a' : '#5fffc0';
+      torus(K, u, v, tube + 0.01, 0.018, base + 0.01, ring, 1.6);
+      // a release vat's floor is a steel grille over the drain, lit from under; the others glow with their fluid
+      if (release) {
+        K.lathe(u, v, [[0, base + 0.002], [tube, base + 0.002]], '#2a2e30', 1, 32, METAL);
+        for (let i = -4; i <= 4; i++) { const x = (i / 4.6) * tube, l = Math.sqrt(Math.max(0, tube * tube - x * x)); rod(K, [...P(x, 0, -l + 0.01)].slice(0, 2).concat(base + 0.006), [...P(x, 0, l - 0.01)].slice(0, 2).concat(base + 0.006), 0.006, '#ffd590', 1.8, GLOW); }
+      } else K.lathe(u, v, [[0, base + 0.002], [tube, base + 0.002]], drained ? '#ff9a5a' : '#7affd0', drained ? 1.4 : 2.2, 32, GLOW);
+      // the sleeper: upright in the fluid, a little off the floor, head bowed, arms loose, knees soft. Where the room's
+      // renderer fills the vat (`vat`), the Room Stage puts a close-up figure in it instead (room-stage.js vatSleepers),
+      // and these numbers are only the fluid's stand-in body until that figure's own capsules arrive.
+      if (sleeper) {
         const skin = '#b8c9b4', lift = 0.12 + rr() * 0.06, y0 = base + lift, sx = (rr() - 0.5) * 0.04, [bu, bv] = P(sx, 0, 0.02);
-        for (const s of [-1, 1]) {
+        if (!vat) for (const s of [-1, 1]) {
           const [lu, lv] = P(sx + s * 0.075, 0, 0.02 + (s > 0 ? 0.03 : 0));
           K.lathe(lu, lv, [[0, y0], [0.045, y0 + 0.02], [0.05, y0 + 0.42], [0.062, y0 + 0.5], [0.078, y0 + 0.82], [0, y0 + 0.86]], skin, 1, 14, SATIN);
         }
-        K.lathe(bu, bv, [[0, y0 + 0.8], [0.15, y0 + 0.84], [0.14, y0 + 1.0], [0.13, y0 + 1.12], [0.17, y0 + 1.3], [0.12, y0 + 1.38], [0.05, y0 + 1.42], [0, y0 + 1.42]], skin, 1, 18, SATIN);
+        if (!vat) K.lathe(bu, bv, [[0, y0 + 0.8], [0.15, y0 + 0.84], [0.14, y0 + 1.0], [0.13, y0 + 1.12], [0.17, y0 + 1.3], [0.12, y0 + 1.38], [0.05, y0 + 1.42], [0, y0 + 1.42]], skin, 1, 18, SATIN);
         const [hu2, hv2] = P(sx, 0, 0.06);
-        K.ball(hu2, hv2, y0 + 1.53, 0.1, skin, 1, 16, SATIN);
-        for (const s of [-1, 1]) {
+        if (!vat) K.ball(hu2, hv2, y0 + 1.53, 0.1, skin, 1, 16, SATIN);
+        if (!vat) for (const s of [-1, 1]) {
           const a = P(sx + s * 0.18, 0, 0.0), b = P(sx + s * 0.22, 0, 0.05), e = P(sx + s * 0.2, 0, 0.1);
           rod(K, [a[0], a[1], y0 + 1.33], [b[0], b[1], y0 + 1.06], 0.04, skin, 1, SATIN);
           rod(K, [b[0], b[1], y0 + 1.06], [e[0], e[1], y0 + 0.82], 0.035, skin, 1, SATIN);
         }
         // the mask and its line up to the crown
         const [mu, mv] = P(sx, 0, 0.15);
-        K.ball(mu, mv, y0 + 1.48, 0.05, '#2a3a36', 1, 12, GLOSS);
-        rod(K, [mu, mv, y0 + 1.5], [u, v, crown], 0.012, '#1c2422', 1, SATIN);
-        // bubbles rising off them
-        for (let i = 0; i < 14; i++) { const a = rr() * Math.PI * 2, d = rr() * tube * 0.75; K.ball(u + Math.cos(a) * d, v + Math.sin(a) * d, base + 0.1 + rr() * (crown - base - 0.2), 0.008 + rr() * 0.012, '#e8fff6', 1.8, 6, GLOW); }
-      } else {
+        if (!vat) { K.ball(mu, mv, y0 + 1.48, 0.05, '#2a3a36', 1, 12, GLOSS); rod(K, [mu, mv, y0 + 1.5], [u, v, crown], 0.012, '#1c2422', 1, SATIN); }
+        // the same body as capsules, for the fluid to flow round and the march to stop at (the bubbles are the layer's)
+        if (vat) {
+          const cap = (a, b, r2) => vat.caps.push([...a, ...b, r2]);
+          for (const s of [-1, 1]) { const x = sx + s * 0.075, z = 0.02 + (s > 0 ? 0.03 : 0); cap(W(x, y0 + 0.05, z), W(x, y0 + 0.78, z), 0.062); }
+          cap(W(sx, y0 + 0.92, 0.02), W(sx, y0 + 1.3, 0.02), 0.14);
+          cap(W(sx, y0 + 1.53, 0.06), W(sx, y0 + 1.53, 0.06), 0.1);
+          for (const s of [-1, 1]) {
+            cap(W(sx + s * 0.18, y0 + 1.33, 0), W(sx + s * 0.22, y0 + 1.06, 0.05), 0.042);
+            cap(W(sx + s * 0.22, y0 + 1.06, 0.05), W(sx + s * 0.2, y0 + 0.82, 0.1), 0.037);
+          }
+          vat.mouth = W(sx, y0 + 1.47, 0.18);
+        }
+      } else if (drained) {
         // a puddle in front, and the drained fluid's scum line on the glass
         const [pu, pv] = P(0, 0, hd + 0.45);
         K.lathe(pu, pv, [[0, 0.004], [0.55, 0.004]], '#3a5a50', 1, 24, GLOSS);
         torus(K, u, v, tube - 0.005, 0.004, base + 0.9, '#6a8a74', 1);
       }
       // the fluid, then the glass round it, both see-through; drained, the front quarter of the glass is swung open
-      liquidLathe(c, 0, 0, [[0, base], [tube - 0.012, base], [tube - 0.012, fluidTop], [0, fluidTop]], drained ? '#3a7a60' : '#46e0a8', drained ? 0.9 : 1.25, 28);
-      if (!drained) glassLathe(c, 0, 0, [[tube, base], [tube, crown]], 28);
+      const g0 = K.glass.n;
+      if (!release) liquidLathe(c, 0, 0, [[0, base], [tube - 0.012, base], [tube - 0.012, fluidTop], [0, fluidTop]], drained ? '#3a7a60' : p.fluid || '#46e0a8', drained ? 0.9 : 1.25, 28);
+      if (vat) { vat.glass = [g0, K.glass.n - g0]; K.vats.push(vat); }
+      // (a release vat's glass is drawn by gl/room-vat.js, where it revolves open to let a body out)
+      if (!drained && !(release && vat)) glassLathe(c, 0, 0, [[tube, base], [tube, crown]], 28);
       else {
         // three quarters of the tube, and the open quarter swung out on its hinge at the left
         const seg = 28, at = (r2, a, y) => P(Math.cos(a) * r2, y, Math.sin(a) * r2);
@@ -1282,14 +1424,139 @@ export function drawDecorForm(K, F, p) {
         rod(K, [...P(hx, 0, hz)].slice(0, 2).concat(base + 0.02), [...P(hx, 0, hz)].slice(0, 2).concat(crown - 0.02), 0.016, '#c9ced3', 1.05, METAL);
       }
       // the crown: a steel cap, a lit band under it, hoses up to the wall
-      K.lathe(u, v, [[0, crown], [tube + 0.03, crown], [R + 0.04, crown + 0.06], [R + 0.04, h - 0.1], [R * 0.7, h - 0.02], [0, h]], '#c9ced3', 1.05, 36, METAL);
+      // a release vat fed by the room's tube has a hole right through its crown, the tube's bore: the fluid falls
+      // through it to fill the vat, and then the body slides down through it
+      const hole = release && vat ? Math.min(0.3, tube - 0.06) : 0;
+      K.lathe(u, v, [[hole, crown], [tube + 0.03, crown], [R + 0.04, crown + 0.06], [R + 0.04, h - 0.1], [R * 0.7, h - 0.02], [hole, h]], '#c9ced3', 1.05, 36, METAL);
+      if (hole) {
+        // the bore's lining, dark, both faces so it reads from inside the vat and from above; a lit lip under it
+        K.lathe(u, v, [[hole, h + 0.09], [hole, crown]], '#14191c', 1, 28, SATIN);
+        K.lathe(u, v, [[hole, crown], [hole, h + 0.09]], '#14191c', 1, 28, SATIN);
+        torus(K, u, v, hole + 0.01, 0.016, crown - 0.005, '#5fffc0', 1.8);
+      }
       torus(K, u, v, tube + 0.01, 0.014, crown + 0.01, drained ? '#ff8a3a' : '#5fffc0', 1.5);
-      for (const s of [-1, 1]) rod(K, [...P(s * R * 0.4, 0, -R * 0.3)].slice(0, 2).concat(h - 0.04), [...P(s * R * 0.55, 0, -hd - 0.02)].slice(0, 2).concat(h + 0.35), 0.03, '#2b3034', 1, SATIN);
+      // hoses up to the wall, or (in a room whose renderer fills its vats) the room's tubes from the crown (drawVatTubes)
+      if (!vat) for (const s of [-1, 1]) rod(K, [...P(s * R * 0.4, 0, -R * 0.3)].slice(0, 2).concat(h - 0.04), [...P(s * R * 0.55, 0, -hd - 0.02)].slice(0, 2).concat(h + 0.35), 0.03, '#2b3034', 1, SATIN);
+      else if (!hole) K.lathe(u, v, [[0.13, h - 0.02], [0.13, h + 0.06], [0.11, h + 0.08], [0, h + 0.08]], '#3a4248', 1, 20, METAL);
       // the plate on the plinth: a number in the legend face, and a status light
       const tag = String(p.tag || '').toUpperCase().slice(0, 6);
       pbox(-0.16, 0.16, 0.14, 0.26, R + 0.02, R + 0.035, '#1b1e22', 1, null, SATIN);
       if (tag) legend({ plate: (ps, col, emis) => K.quad(K.solid, ps.map(([a, b]) => P(-a, b, R + 0.037)), F.N(0, 0, 1), col, emis > 0.5 ? GLOW : MATTE, null, true) }, tag, 0.03, 0.2, 0.06, K.C(drained ? '#ffb070' : '#bfffe6', 2), 1);
-      pbox(0.09, 0.13, 0.18, 0.22, R + 0.035, R + 0.045, drained ? '#ff7a2a' : '#4dff9a', 2.2, null, GLOW);
+      pbox(0.09, 0.13, 0.18, 0.22, R + 0.035, R + 0.045, drained ? '#ff7a2a' : release ? '#ffc86a' : '#4dff9a', 2.2, null, GLOW);
+      return true;
+    }
+    // ── the machine room round the vats ─────────────────────────────────────────────────────────────
+    case 'vatrack': {
+      // a monitoring tower: a steel frame with three screens of vitals, a column of status lights, a shelf with a
+      // keyboard sloped on it, and a harness of cable out of the top. `look.tag` letters the tower's number.
+      const r = rng(p.seed || 3), steel = '#3a4046', dark = '#15181b';
+      pbox(-hw, hw, 0, 0.08, -hd, hd, '#222629', 1, null, METAL);
+      pbox(-hw + 0.02, hw - 0.02, 0.08, h - 0.05, -hd + 0.04, hd - 0.06, dark, 1, null, SATIN);
+      for (const x of [-hw, hw - 0.04]) pbox(x, x + 0.04, 0, h, -hd, hd, steel, 1.05, null, METAL);
+      pbox(-hw, hw, h - 0.05, h, -hd, hd, steel, 1.05, null, METAL);
+      // three screens, each a trace or a bar chart, in the vat's own greens and a warning amber
+      const scr = [[1.55, 2.1], [1.0, 1.5], [0.55, 0.95]], tints = ['#38e8a0', '#5ad8ff', '#ffb43a'];
+      scr.forEach(([y0, y1], i) => {
+        pbox(-hw + 0.06, hw - 0.06, y0, y1, hd - 0.07, hd - 0.05, '#05080a', 1, null, GLOSS);
+        // (what's on them is live, painted over the glass by panels/room-vitals.js); a bezel round each
+        const col = tints[(i + Math.floor(r() * 3)) % 3];
+        for (const [x0, x1, a0, a1] of [[-hw + 0.04, hw - 0.04, y1, y1 + 0.02], [-hw + 0.04, hw - 0.04, y0 - 0.02, y0], [-hw + 0.04, -hw + 0.06, y0, y1], [hw - 0.06, hw - 0.04, y0, y1]]) pbox(x0, x1, a0, a1, hd - 0.075, hd - 0.04, '#2a3036', 1.05, null, METAL);
+        pbox(hw - 0.1, hw - 0.075, y0 + 0.01, y0 + 0.03, hd - 0.04, hd - 0.035, col, 2, null, GLOW);
+      });
+      // the status column down one side
+      for (let k = 0; k < 10; k++) { const y = 0.25 + k * 0.025, on = r() < 0.7; pbox(hw - 0.12, hw - 0.08, y, y + 0.014, hd - 0.06, hd - 0.05, on ? (r() < 0.15 ? '#ff4a3a' : '#5affb0') : '#203028', on ? 2.2 : 1, null, on ? GLOW : MATTE); }
+      // the shelf and its keyboard
+      pbox(-hw + 0.04, hw - 0.04, 0.9, 0.93, hd - 0.06, hd + 0.18, steel, 1, null, METAL);
+      pbox(-hw + 0.12, hw - 0.12, 0.93, 0.95, hd + 0.0, hd + 0.15, '#202428', 1, null, SATIN);
+      // the cable out of the top, looping off behind
+      for (let k = 0; k < 4; k++) rod(K, [...P(-0.2 + k * 0.13, 0, -hd + 0.1)].slice(0, 2).concat(h), [...P(-0.25 + k * 0.17, 0, -hd - 0.15)].slice(0, 2).concat(h + 0.45 + k * 0.06), 0.018, ['#1e2a2a', '#2c2420', '#202838', '#1a1a1a'][k], 1, SATIN);
+      const tag = String(p.tag || '').toUpperCase().slice(0, 8);
+      if (tag) legend({ plate: (ps, col, emis) => K.quad(K.solid, ps.map(([a, b]) => P(-a, b, hd - 0.045)), F.N(0, 0, 1), col, GLOW, null, true) }, tag, 0, h - 0.13, 0.05, K.C('#9affd8', 1.6), 0);
+      return true;
+    }
+    case 'manifold': {
+      // the plant that feeds the vats: two pumps on a skid, a header of pipe across the top, risers with hand wheels,
+      // pressure gauges, and drip trays under the joints
+      const r = rng(p.seed || 5), pipe = '#56606a', paint = '#2f5a52';
+      pbox(-hw, hw, 0, 0.12, -hd, hd, '#25292c', 1, null, METAL);
+      for (const s of [-1, 1]) {
+        const [mu, mv] = P(s * hw * 0.5, 0, -hd * 0.1);
+        // a pump: motor body on its side, a fan cowl, a volute
+        rod(K, [...P(s * hw * 0.5 - 0.32, 0, -hd * 0.1)].slice(0, 2).concat(0.38), [...P(s * hw * 0.5 + 0.18, 0, -hd * 0.1)].slice(0, 2).concat(0.38), 0.21, paint, 1, SATIN);
+        K.ball(mu, mv, 0.38, 0.24, '#3b4448', 1, 14, METAL);
+        for (let k = 0; k < 6; k++) { const x = s * hw * 0.5 - 0.3 + k * 0.08; pbox(x, x + 0.02, 0.17, 0.6, -hd * 0.1 - 0.23, -hd * 0.1 + 0.23, '#24484a', 1, null, METAL); }
+        // its riser up to the header, a hand wheel half way, a gauge
+        const ru = s * hw * 0.5 + 0.28;
+        rod(K, [...P(ru, 0, -hd * 0.1)].slice(0, 2).concat(0.38), [...P(ru, 0, -hd * 0.1)].slice(0, 2).concat(h - 0.2), 0.07, pipe, 1, METAL);
+        const [wu, wv] = P(ru, 0, -hd * 0.1 + 0.12);
+        torus(K, wu, wv, 0.11, 0.012, 1.05, '#c0302a', 1);
+        const [gu, gv] = P(ru, 0, hd * 0.2);
+        K.lathe(gu, gv, [[0, 1.45], [0.07, 1.45], [0.07, 1.47], [0, 1.47]], '#e8e4d8', 1, 16, GLOSS);
+        pbox(ru - 0.004, ru + 0.004, 1.47, 1.472, hd * 0.2 - 0.05 + r() * 0.04, hd * 0.2 + 0.03, '#c0302a', 1, null, MATTE);
+      }
+      // the header across the top, flanged
+      rod(K, [...P(-hw + 0.05, 0, -hd * 0.1)].slice(0, 2).concat(h - 0.2), [...P(hw - 0.05, 0, -hd * 0.1)].slice(0, 2).concat(h - 0.2), 0.11, pipe, 1, METAL);
+      for (let k = 0; k <= 4; k++) { const [fu2, fv2] = P(-hw + 0.1 + k * (hw * 2 - 0.2) / 4, 0, -hd * 0.1); K.ball(fu2, fv2, h - 0.2, 0.13, '#6c767e', 1, 10, METAL); }
+      // tied into the wall: a bolted backplate, the header's three branches through it on flanged sleeves, the pumps'
+      // discharges elbowing down and back into it low, a conduit and junction box for the motors, hazard banding
+      const at = (x, z, y) => [...P(x, 0, z)].slice(0, 2).concat(y), back = -hd - 0.02;
+      pbox(-hw + 0.02, hw - 0.02, 0.22, h + 0.3, -hd - 0.04, -hd - 0.01, '#2a3034', 1, null, METAL);
+      for (let k = 0; k < 6; k++) for (const y of [0.3, h + 0.2]) { const [bu, bv] = P(-hw + 0.1 + k * (hw * 2 - 0.2) / 5, 0, -hd - 0.005); K.ball(bu, bv, y, 0.018, '#8a949c', 1.1, 6, METAL); }
+      for (let k = 0; k < 10; k++) { const x = -hw + 0.04 + k * (hw * 2 - 0.08) / 10; pbox(x, x + (hw * 2 - 0.08) / 20, 0.22, 0.3, -hd - 0.009, -hd - 0.004, k % 2 ? '#111' : '#e8b820', 1, null, MATTE); }
+      for (const x of [-hw * 0.6, 0, hw * 0.6]) {
+        rod(K, at(x, -hd * 0.1, h - 0.2), at(x, back, h - 0.2), 0.08, pipe, 1, METAL);
+        rod(K, at(x, back + 0.04, h - 0.2), at(x, back - 0.01, h - 0.2), 0.15, '#6c767e', 1, METAL);
+        rod(K, at(x, -hd * 0.1 - 0.12, h - 0.2), at(x, -hd * 0.1 - 0.15, h - 0.2), 0.12, '#6c767e', 1, METAL);
+        // a gate valve on each branch, its wheel spoked
+        const [vu, vv] = P(x, 0, -hd * 0.55);
+        K.lathe(vu, vv, [[0, h - 0.2], [0.05, h - 0.2], [0.05, h + 0.02], [0, h + 0.02]], '#3a4248', 1, 12, METAL);
+        torus(K, vu, vv, 0.09, 0.01, h + 0.04, '#c0302a', 1);
+        for (let sp = 0; sp < 4; sp++) { const an = sp * Math.PI / 2; rod(K, [vu, vv, h + 0.04], [vu + Math.cos(an) * 0.09, vv + Math.sin(an) * 0.09, h + 0.04], 0.006, '#c0302a', 1, METAL); }
+      }
+      for (const sx of [-1, 1]) {
+        const x = sx * hw * 0.5 + 0.15;
+        rod(K, at(x, -hd * 0.1, 0.62), at(x, back, 0.62), 0.065, '#2f5a52', 1, METAL);
+        rod(K, at(x, back + 0.04, 0.62), at(x, back - 0.01, 0.62), 0.12, '#6c767e', 1, METAL);
+        // the riser lagged in silver insulation, banded
+        const ru = sx * hw * 0.5 + 0.28;
+        rod(K, at(ru, -hd * 0.1, 1.15), at(ru, -hd * 0.1, h - 0.35), 0.095, '#c8ccd0', 0.95, SATIN);
+        for (let y = 1.25; y < h - 0.4; y += 0.25) rod(K, at(ru, -hd * 0.1, y), at(ru, -hd * 0.1, y + 0.015), 0.1, '#7d868c', 1, METAL);
+      }
+      // the flow along the header, lit chevrons in the growth medium's green
+      for (let k = 0; k < 7; k++) { const x = -hw + 0.25 + k * (hw * 2 - 0.5) / 6; pbox(x, x + 0.05, h - 0.1, h - 0.085, -hd * 0.1 - 0.02, -hd * 0.1 + 0.02, '#4dffb0', 1.8, null, GLOW); }
+      // the conduit up the backplate to a junction box, and its lamp
+      rod(K, at(-hw + 0.12, -hd + 0.02, 0.3), at(-hw + 0.12, -hd + 0.02, h + 0.3), 0.025, '#1e2226', 1, METAL);
+      pbox(-hw + 0.05, -hw + 0.3, 1.5, 1.8, -hd, -hd + 0.1, '#3a4046', 1, null, METAL);
+      pbox(-hw + 0.24, -hw + 0.27, 1.72, 1.75, -hd + 0.1, -hd + 0.105, '#5affb0', 2.2, null, GLOW);
+      // the header's riser off to the ceiling, and a drip tray stained green
+      rod(K, [...P(0, 0, -hd * 0.1)].slice(0, 2).concat(h - 0.2), [...P(0, 0, -hd * 0.1)].slice(0, 2).concat(h + 0.6), 0.09, pipe, 1, METAL);
+      pbox(-hw * 0.6, hw * 0.6, 0.12, 0.16, hd * 0.25, hd - 0.04, '#3a4a3a', 1, null, GLOSS);
+      return true;
+    }
+    case 'gantry': {
+      // the dressing gantry: a column, a turret on its head, eight arms folded down round it like a resting spider
+      const [u, v] = P(0, 0, 0), steel = '#9aa3aa', joint = '#2b3034', top = h - 0.25;
+      // in a room whose renderer runs the vats, the arms are drawn and moved by it (gl/room-vat.js, panels/room-vatcycle.js)
+      const live = !!(K.gantries && K.at);
+      if (live) K.gantries.push({ id: p.id ?? null, c: K.at(u, v, 0), top, front: (() => { const a = K.at(...P(0, 0, 0)), b = K.at(...P(0, 0, 1)); return [b[0] - a[0], 0, b[2] - a[2]]; })() });
+      // (where it runs live it hangs from the trunk's hub on a telescopic boom: only a parking mark on the floor)
+      if (!live) {
+        K.lathe(u, v, [[0, 0], [0.42, 0], [0.42, 0.06], [0.22, 0.12], [0.16, 0.2], [0.16, top - 0.3], [0.3, top - 0.2], [0.3, top], [0.12, top + 0.15], [0, top + 0.15]], steel, 1.05, 28, METAL);
+        torus(K, u, v, 0.31, 0.018, top - 0.1, '#ffb43a', 1.8);
+      } else torus(K, u, v, 0.6, 0.02, 0.005, '#ffb43a', 1.4);
+      // eight arms off the turret, each a shoulder, an upper arm out and down, a forearm folded in, a three-finger grip
+      for (let i = 0; i < (live ? 0 : 8); i++) {
+        const a = (i / 8) * Math.PI * 2 + 0.2, c = Math.cos(a), s = Math.sin(a), lift = i % 2 ? 0.1 : 0;
+        const sh = [u + c * 0.3, v + s * 0.3, top - 0.12 - lift], el = [u + c * 0.95, v + s * 0.95, top - 0.75 - lift], wr = [u + c * 0.55, v + s * 0.55, top - 1.45 - lift];
+        K.ball(sh[0], sh[1], sh[2], 0.07, joint, 1, 10, METAL);
+        rod(K, sh, el, 0.045, steel, 1.05, METAL);
+        K.ball(el[0], el[1], el[2], 0.06, joint, 1, 10, METAL);
+        rod(K, el, wr, 0.035, steel, 1.05, METAL);
+        K.ball(wr[0], wr[1], wr[2], 0.045, '#ffb43a', 1.4, 8, GLOW);
+        for (let f = 0; f < 3; f++) { const b = a + (f - 1) * 0.5; rod(K, wr, [wr[0] + Math.cos(b) * 0.09, wr[1] + Math.sin(b) * 0.09, wr[2] - 0.12], 0.012, joint, 1, METAL); }
+      }
+      // (no bin: the clothing comes down a feed through the middle of the gantry and out of a nozzle under its turret,
+      // drawn with the rig by gl/room-vat.js)
       return true;
     }
     case 'tank': {
@@ -1305,29 +1572,71 @@ export function drawDecorForm(K, F, p) {
       return true;
     }
     case 'morphex': {
-      // the MORPHEX 9000 pod: a round chrome plinth with a lit ring to stand on, a mirrored spine up the back, a
-      // canopy with its scan ring parked in it, and the glass door slid round behind, out of the way. The door
-      // that closes, the ring that sweeps and the steam are the pod's sequence (panels/room-morphex.js), drawn as props.
+      // the MORPHEX 9000 pod: an iron maiden in carbon fibre and dark metal, lit cyan. A dark metal plinth with a lit
+      // ring to stand on, the maiden's back half, its crown with the scan ring parked in it. The two halves that close
+      // on you, the ring that sweeps and the steam are the pod's sequence (panels/room-morphex.js), drawn as props.
       const [u, v] = P(0, 0, 0.05), R = Math.min(hw, hd) * 0.9, plinth = 0.16, top = h - 0.3;
-      K.lathe(u, v, [[0, 0], [R + 0.05, 0], [R + 0.05, plinth - 0.03], [R, plinth], [0, plinth]], '#d8dde3', 1.1, 36, METAL);
-      torus(K, u, v, R * 0.82, 0.016, plinth + 0.005, '#ff4fd8', 1.4);
-      K.lathe(u, v, [[0, plinth + 0.002], [R * 0.78, plinth + 0.002]], '#2b2f36', 1, 32, GLOSS);
-      // the spine: a curved mirror panel, chrome-framed, the back third of the circle
-      for (let i = 0; i < 9; i++) {
-        const a0 = Math.PI * (1.17 + i * 0.074), a1 = a0 + Math.PI * 0.074, [x0, z0] = [Math.cos(a0) * R, Math.sin(a0) * R], [x1, z1] = [Math.cos(a1) * R, Math.sin(a1) * R];
-        const s = Math.min(x0, x1), e = Math.max(x0, x1), zs = Math.min(z0, z1), ze = Math.max(z0, z1);
-        pbox(s, e + 0.02, plinth, top, zs - 0.03 + 0.05, ze + 0.05, i % 4 === 0 ? '#c7cdd4' : '#9fb4c4', i % 4 === 0 ? 1.1 : 1.25, null, i % 4 === 0 ? METAL : GLOSS);
+      const CYAN = '#2fd8ff', ORANGE = '#ff6a1e', DARK = '#3a3f46', RIVET = '#6a727c';
+      K.lathe(u, v, [[0, 0], [R + 0.05, 0], [R + 0.05, plinth - 0.03], [R, plinth], [0, plinth]], '#1a1c20', 1, 36, METAL);
+      torus(K, u, v, R * 0.82, 0.016, plinth + 0.005, ORANGE, 1.8);
+      K.lathe(u, v, [[0, plinth + 0.002], [R * 0.78, plinth + 0.002]], '#0e1013', 1, 32, GLOSS);
+      // the maiden's back half, a coffin stood on end (its outline is room-morphex.js prof()). Outside, lacquered carbon
+      // fibre: a fine twill, the weave in two blacks running on the diagonal, under dark metal straps riveted where
+      // they cross the ribs. Inside, a black liner set with spikes, each with a point lit cyan. Its front halves stand open
+      // below; the sequence hides this piece's and draws its own, which swing
+      const prof = (y) => { const k = (y - plinth) / (top - plinth); return k < 0.74 ? 0.66 + 0.4 * (k / 0.74) : k < 0.86 ? 1.06 - 1.5 * (k - 0.74) : Math.max(0.05, 0.88 * Math.sqrt(Math.max(0, 1 - ((k - 0.86) / 0.16) ** 2))); };
+      const ROWS = 18, COLS = 12, yAt = (i) => plinth + 0.02 + (i / ROWS) * (top - plinth - 0.02);
+      const pt = (j, i, inset) => { const th = -Math.PI / 2 + (j / COLS) * Math.PI, y = yAt(i), w = R * prof(y) - inset, [pu, pv] = P(Math.sin(th) * w, 0, 0.05 - Math.cos(th) * w); return [pu, pv, y]; };
+      const nOf = (j, i) => { const mc = pt(j, i, -0.03), dl = Math.hypot(mc[0] - u, mc[1] - v) || 1; return [(mc[0] - u) / dl, (mc[1] - v) / dl]; };
+      // the twill: three cells to each of the liner's, a 2/2 weave (two over, two under, stepped one each row)
+      const T = 3;
+      for (let i = 0; i < ROWS * T; i++) for (let j = 0; j < COLS * T; j++) {
+        const n = nOf((j + 0.5) / T, (i + 0.5) / T), lit = ((i + j) & 3) < 2;
+        K.quad(K.solid, [pt(j / T, i / T, -0.03), pt((j + 1) / T, i / T, -0.03), pt((j + 1) / T, (i + 1) / T, -0.03), pt(j / T, (i + 1) / T, -0.03)], K.nrmOf(n[0], 0, n[1]), K.C(lit ? '#24272c' : '#121417', 1), GLOSS);
       }
-      // the canopy and the parked ring, and its lit underside
-      K.lathe(u, v, [[0, top], [R + 0.08, top], [R + 0.08, top + 0.14], [R * 0.7, h - 0.02], [0, h]], '#e6e9ed', 1.12, 36, METAL);
-      torus(K, u, v, R * 0.86, 0.03, top - 0.04, '#9be7ff', 1.5);
-      K.lathe(u, v, [[0, top - 0.001], [R * 0.84, top - 0.001]], '#ffffff', 1.8, 32, LAMP);
-      // a ribbon of brand colour round the plinth's foot
-      torus(K, u, v, R + 0.06, 0.012, plinth + 0.04, '#ff4fd8', 1.3);
-      // the price board on a stalk at the front left, its screen a lit slab
-      const [bu, bv] = P(-hw + 0.08, 0, hd - 0.1);
-      rod(K, [bu, bv, 0], [bu, bv, 1.2], 0.02, '#c7cdd4', 1.05, METAL);
-      pbox(-hw - 0.08, -hw + 0.28, 1.2, 1.5, hd - 0.14, hd - 0.1, '#ff63e0', 1.6, null, GLOW);
+      for (let i = 0; i < ROWS; i++) for (let j = 0; j < COLS; j++) {
+        const n = nOf(j + 0.5, i + 0.5);
+        // the straps, standing off the carbon, riveted at every other rib
+        if (i % 5 === 0) {
+          K.quad(K.solid, [pt(j, i, -0.042), pt(j + 1, i, -0.042), pt(j + 1, i + 0.6, -0.042), pt(j, i + 0.6, -0.042)], K.nrmOf(n[0], 0, n[1]), K.C(DARK, 1.05), METAL);
+          if (j % 2 === 0) { const q = pt(j + 0.5, i + 0.3, -0.05); K.ball(q[0], q[1], q[2], 0.012, RIVET, 1.1, 6, METAL); }
+        }
+        K.quad(K.solid, [pt(j, i + 1, 0.015), pt(j + 1, i + 1, 0.015), pt(j + 1, i, 0.015), pt(j, i, 0.015)], K.nrmOf(-n[0], 0, -n[1]), K.C('#0b0d10', 1), SATIN);
+        // the spikes inside, rows of them pointing in at whoever stands there, their points lit
+        if (i % 2 === 0 && i > 1 && i < ROWS - 2 && j % 2 === 1) { const a = pt(j + 0.5, i, 0.02), b = pt(j + 0.5, i, 0.11); rod(K, a, b, 0.01, '#2c3036', 1, METAL); K.ball(b[0], b[1], b[2], 0.007, '#7ff0ff', 1.8, 5, GLOW); }
+      }
+      // a cyan light line up each front edge of the back half, where the doors meet it, following the outline
+      for (const sx of [-1, 1]) for (let i = 0; i < ROWS; i++) {
+        const w0 = R * prof(yAt(i)) + 0.035, w1 = R * prof(yAt(i + 1)) + 0.035, [a0, b0] = P(sx * w0, 0, 0.05), [a1, b1] = P(sx * w1, 0, 0.05);
+        rod(K, [a0, b0, yAt(i)], [a1, b1, yAt(i + 1)], 0.008, ORANGE, 1.9, GLOW);
+      }
+      // the hinges down each side in dark metal, the scan ring parked in the crown, the crown's cap
+      for (const sx of [-1, 1]) for (let i = 1; i < ROWS; i += 5) { const y = yAt(i), [hu, hv] = P(sx * (R * prof(y) + 0.02), 0, 0.05); K.lathe(hu, hv, [[0.03, y - 0.08], [0.03, y + 0.08]], DARK, 1.05, 10, METAL); }
+      torus(K, u, v, R * 0.86, 0.016, top - 0.12, '#9be7ff', 1.3);
+      K.lathe(u, v, [[0, top + 0.02], [R * 0.3, top + 0.02], [R * 0.32, top + 0.1], [0, top + 0.16]], '#1a1c20', 1, 24, METAL);
+      torus(K, u, v, R * 0.31, 0.008, top + 0.06, ORANGE, 1.9);
+      // a line of cyan round the plinth's foot
+      torus(K, u, v, R + 0.06, 0.012, plinth + 0.04, ORANGE, 1.6);
+      // the two front halves, standing swung right open on their hinges (room-morphex.js half() at k 0), so the pod
+      // looks ready for you before you've used it: carbon outside, the spiked liner facing the room, a lit front edge
+      const FR = 16, FC = 9, fy = (i) => plinth + 0.02 + (i / FR) * (top - plinth - 0.02);
+      const fpt = (side, a, i, inset) => {
+        const y = fy(i), w = R * prof(y) - inset, th = side * (Math.PI / 2) * (1 - a), x0 = Math.sin(th) * w, z0 = Math.cos(th) * w;
+        const sw = -side * 1.83, hx = side * R * prof(y), dx = x0 - hx, [pu, pv] = P(hx + dx * Math.cos(sw) - z0 * Math.sin(sw), 0, 0.05 + z0 * Math.cos(sw) + dx * Math.sin(sw));
+        return [pu, pv, y];
+      };
+      if (!p.busy) for (const side of [-1, 1]) {
+        for (let i = 0; i < FR; i++) for (let j = 0; j < FC - 1; j++) {
+          const a0 = j / (FC - 1), a1 = (j + 1) / (FC - 1);
+          const o = [fpt(side, a0, i, -0.03), fpt(side, a1, i, -0.03), fpt(side, a1, i + 1, -0.03), fpt(side, a0, i + 1, -0.03)];
+          const ex = o[1][0] - o[0][0], ey = o[1][1] - o[0][1], el = Math.hypot(ex, ey) || 1, nu = -ey / el * side, nv = ex / el * side;
+          K.quad(K.solid, o, K.nrmOf(nu, 0, nv), K.C(j % 2 ? '#22252a' : '#16181b', 1), GLOSS);
+          K.quad(K.solid, [fpt(side, a0, i + 1, 0.015), fpt(side, a1, i + 1, 0.015), fpt(side, a1, i, 0.015), fpt(side, a0, i, 0.015)], K.nrmOf(-nu, 0, -nv), K.C('#0b0d10', 1), SATIN);
+          if (i % 4 === 1) K.quad(K.solid, [fpt(side, a0, i, -0.045), fpt(side, a1, i, -0.045), fpt(side, a1, i + 0.6, -0.045), fpt(side, a0, i + 0.6, -0.045)], K.nrmOf(nu, 0, nv), K.C(DARK, 1.05), METAL);
+          if (i % 2 === 0 && i > 1 && i < FR - 1 && j % 2 === 1) { const a = fpt(side, a0, i, 0.02), b = fpt(side, a0, i, 0.12); rod(K, a, b, 0.01, '#2c3036', 1, METAL); K.ball(b[0], b[1], b[2], 0.007, '#7ff0ff', 1.8, 5, GLOW); }
+        }
+        for (let i = 0; i < FR; i++) rod(K, fpt(side, 0.985, i, -0.02), fpt(side, 0.985, i + 1, -0.02), 0.01, ORANGE, 1.9, GLOW);
+      }
       return true;
     }
     case 'towelrail': {
@@ -1344,6 +1653,25 @@ export function drawDecorForm(K, F, p) {
       pbox(-tw, tw, 0.5, top, zr + 0.015, zr + 0.05, '#f2efe8', 1, weave, CLOTH);
       pbox(-tw, tw, 0.66, top, zr - 0.05, zr - 0.015, '#e6e2da', 0.95, weave, CLOTH);
       pbox(-tw, tw, 0.54, 0.57, zr + 0.05, zr + 0.052, '#c9b78e', 1, null, CLOTH);
+      return true;
+    }
+    case 'planter': {
+      // a room's potted plant, sent as a piece so its owner can move it (plugins/roomstage/plants.js); drawn as the
+      // decor drew it, the same leaves for the same place in the list
+      const [u, v] = P(0, 0, 0), i = +String(p.id).split(':')[1] || 0;
+      plant(K, u, v, p.size || 1, 0x51ed + i * 977);
+      return true;
+    }
+    case 'rug': {
+      // a room's authored rug, sent as a piece so its owner can move it (plugins/roomstage/plants.js): flat on the
+      // boards with its four edges, as room-mesh.js drew it from decor.rug
+      const y = 0.008, c = [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]].map(([x, z]) => { const [u, v] = P(x, 0, z); return [u, v, y]; });
+      if (p.style === 'persian') K.quad(K.TB('roomPersian'), c, [0, 1, 0], K.C('#ffffff', 0.95), CLOTH, [[0, 0], [1, 0], [1, 1], [0, 1]]);
+      else K.quad(K.TB('roomWool'), c, [0, 1, 0], K.C('#cfc9bd', 0.95), CLOTH, c.map((q) => [q[0] / 1.2, q[1] / 1.2]));
+      for (let i = 0; i < 4; i++) {
+        const a = c[i], b = c[(i + 1) % 4], nu = b[1] - a[1], nv = -(b[0] - a[0]), l = Math.hypot(nu, nv) || 1;
+        K.quad(K.solid, [[a[0], a[1], 0.001], [b[0], b[1], 0.001], [b[0], b[1], y], [a[0], a[1], y]], K.nrmOf(nu / l, 0, nv / l), K.C('#3a2a22', 0.8), CLOTH);
+      }
       return true;
     }
     case 'lantern': {

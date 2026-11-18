@@ -16,7 +16,7 @@
       "wood": "#3e2a1c"
     },
     "spot": {
-      "along": 5,
+      "along": 0.5,
       "wall": "left"
     }
   },

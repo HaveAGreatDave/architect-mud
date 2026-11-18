@@ -1,0 +1,25 @@
+{
+  "description": "A tall glass-fronted fridge behind the counter, full of cans and kegs, humming. Taped to the door: STAFF DO NOT DRINK THE STOCK. Under it, in a different hand: much.",
+  "flags": {
+    "aliases": [
+      "fridge",
+      "beer fridge",
+      "cooler"
+    ],
+    "look": {
+      "arche": "cold",
+      "form": "double"
+    },
+    "spot": {
+      "at": [
+        -2.9,
+        6.6
+      ],
+      "turn": 0
+    }
+  },
+  "id": "furn_hughson_stand_fridge",
+  "name": "the beer fridge",
+  "object_type": "furniture",
+  "zone_id": "zone_hughson_stand"
+}

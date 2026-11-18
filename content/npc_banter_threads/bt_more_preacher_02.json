@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_preacher_02",
+  "lines": [
+    "\"How many listened today?\"",
+    "\"One. He wanted to know if the soup was free.\"",
+    "\"Was it?\"",
+    "\"Of course. That's why he stayed for the rest.\""
+  ],
+  "personality": "preacher",
+  "sort_order": 686
+}

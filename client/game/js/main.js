@@ -172,10 +172,14 @@ window._applyLogVoiceRate = setLogReaderRate;
 // answer is left on window for it to pick up when it does, and handed to its `__setCelTune` when it
 // already has (the next frame shows it), which keeps the city's ink off on a phone. The figures'
 // views read `__houseComic` every frame.
-window._applyCelShade = (mode) => {
-	const t = cityTuneFor(mode);
+// `shadows` 'real' (Settings -> Shadows -> Traditional) keeps the ink but gives back smooth light
+// and soft shadows everywhere (house-style.js comicLightOn).
+window._applyCelShade = (mode, shadows) => {
+	const real = shadows === 'real';
+	const t = cityTuneFor(mode, real);
 	window.__celShadePending = t;
 	window.__houseComic = mode === 'comic' ? 1 : 0;
+	window.__houseRealShadow = real ? 1 : 0;
 	window.__setCelTune?.(t);
 };
 // Renderer (Settings → Renderer): 'auto', 'full' (GLASS 2) or 'lite' (GLASS Lite), handed to
@@ -817,6 +821,12 @@ function doSignout() {
 	location.reload();
 }
 installErrorRing();
+// No browser right-click menu over any 3D view (GLASS, ROOM, the stages,
+// the broadcasts): right button belongs to the camera and the scene. Text,
+// inputs and links keep their menu, so copy/paste still works.
+document.addEventListener("contextmenu", (e) => {
+	if (e.target instanceof HTMLCanvasElement) e.preventDefault();
+});
 document.getElementById("feedback-btn").addEventListener("click", () => openFeedback());
 document.getElementById("signout-btn").addEventListener("click", () => {
 	// A guest has no password: signing out forgets the only key back to the

@@ -545,11 +545,15 @@ export function catRig(look0) {
       P(L.upper, mkAxis(at(A, B, 0.45, b1, -0.014, -0.008), d1, X, [0.065, 0.02 * lw, 0.02 * lw]), 0.045);
       P(L.upper, mkEllip(add(A, [-s * 0.004, 0.002, 0.008]), [0.026 * lw, 0.03, 0.026]), 0.05);
       // the forearm: the point of the elbow behind; the extensors over the front and outside of its upper two-thirds
-      // and the flexors behind, both running down into tendons, so it narrows to a slender wrist
-      P(L.lower, mkCone(B, C, 0.03 * lwL, 0.0195 * lwL), 0.016);
-      P(L.lower, mkAxis(add(at(B, C, 0.02, b2, 0.015), [0, 0.008, 0]), d2, X, [0.024, 0.018 * lwL, 0.018]), 0.018);
-      P(L.lower, mkAxis(at(B, C, 0.33, b2, -0.009, 0.004), d2, X, [0.085, 0.028 * lwL, 0.025 * lwL]), 0.016);
-      P(L.lower, mkAxis(at(B, C, 0.27, b2, 0.013, -0.002), d2, X, [0.075, 0.025 * lwL, 0.024 * lwL]), 0.016);
+      // and the flexors behind, both running down into tendons, so it narrows to a slender wrist. Fur doesn't make the
+      // muscle bigger: on a fluffy coat the bellies keep the leg's own width and the coat is a sleeve over them, nearly
+      // as wide at the wrist as at the elbow and blended soft, so the arm reads as a furry column, not a bulging one
+      const lwM = lw * (1 + 0.05 * fl), kM = 0.016 + 0.012 * fl;
+      P(L.lower, mkCone(B, C, 0.03 * lwM, 0.0195 * lwM), kM);
+      P(L.lower, mkAxis(add(at(B, C, 0.02, b2, 0.015), [0, 0.008, 0]), d2, X, [0.024, 0.018 * lwM, 0.018]), 0.018);
+      P(L.lower, mkAxis(at(B, C, 0.33, b2, -0.009, 0.004), d2, X, [0.085, 0.028 * lwM, 0.025 * lwM]), kM);
+      P(L.lower, mkAxis(at(B, C, 0.27, b2, 0.013, -0.002), d2, X, [0.075, 0.025 * lwM, 0.024 * lwM]), kM);
+      if (fl > 0) P(L.lower, mkCone(at(B, C, 0.08, b2, 0.002), at(B, C, 0.94, b2, 0.001), 0.03 * lw * (1 + 0.2 * fl), 0.0255 * lw * (1 + 0.24 * fl)), 0.03);
       // the wrist: the carpus a little knob, the carpal pad behind it; the pastern sloping forward; the dewclaw
       // high on its inside
       P(L.meta, mkEllip(C, [0.0195 * lwL, 0.019, 0.02]), 0.014);
@@ -766,7 +770,7 @@ export function earsFor(mood, k = 1) {
 
 // motion laid over a held pose: [pitch, yaw, roll] added at the head; each ear's swivel (yaw out, + is back toward
 // flat), lift (pitch) and flatten; the tail's sway and the tip's flick; breath; the lids (0 open, 1 shut); the pupil
-export const STILL = { head: [0, 0, 0], ears: [[0, 0, 0], [0, 0, 0]], tailSway: 0, tailFlick: 0, tailLift: 0, breath: 0, lids: 0, pupil: null, whiskers: 0 };
+export const STILL = { head: [0, 0, 0], ears: [[0, 0, 0], [0, 0, 0]], tailSway: 0, tailFlick: 0, tailLift: 0, breath: 0, lids: 0, pupil: null, whiskers: 0, mouth: 0 };
 
 // every bone's map rest → pose for the pose and the motion over it
 export function solveRig(R, poseFn, mo = STILL) {
@@ -1325,7 +1329,7 @@ export function bakeCat(look0, pose = 'stand', o = {}) {
 
 // ── the eyes, the lids and the whiskers, built every frame on the head ─────────────────────────────────
 // `want` picks which: the eyes (the iris, the pupil and the lights in it), the lids, the whiskers
-function headBits(R, look, mo, push, headX, want = { eyes: true, lids: true, whiskers: true }) {
+function headBits(R, look, mo, push, headX, want = { eyes: true, lids: true, whiskers: true, mouth: true }) {
   const co = look.coat, ey = look.eyes, HS = R.HS, HC = R.HC;
   const toW = (q) => apply(headX, add(HC, mul(q, HS)));
   const nW = (n) => unit(M3.v(headX.R, n));
@@ -1333,6 +1337,30 @@ function headBits(R, look, mo, push, headX, want = { eyes: true, lids: true, whi
   const pupil = clamp(mo.pupil ?? ey.pupil);
   const lids = clamp(Math.max(mo.lids || 0, ey.droop || 0));
   const EK = R.EK, { fromEye, eyeC, es, op } = EK, sk = EK.sunk;
+  // the mouth open (`mo.mouth`, 0 shut to 1 a full meow): the dark of the mouth opening below the mouth line, the
+  // tongue at its floor and the two upper fangs. Drawn on the head over the carved muzzle, as the lids are over the eye;
+  // nothing when it's shut. Head units.
+  const gape = clamp(mo.mouth || 0);
+  if (want.mouth && gape > 0.03) {
+    const mz = look.build.muzzle, sn = look.build.snout ?? 1, W = 0.026 * sn, gap = 0.024 * gape;
+    // the mouth line (the carve's MOUTH cones), and how far a point below it is down the jaw
+    const yTop = (x) => -0.04 + NY * 0.6 - Math.min(1, Math.abs(x) / 0.032) * (0.013 - NY * 0.3) + 0.001;
+    // (in front of the whisker pads, which stand out past the mouth line, and following the chin back as it opens)
+    const zAt = (x, dn) => (0.097 - Math.min(1, Math.abs(x) / 0.032) * 0.014) * mz - dn * 0.55;
+    const depth = (x) => gap * Math.pow(Math.max(0, 1 - (x / W) ** 2), 0.6);
+    const fw = unit([0, -0.25, 1]), dark = toLin(co.mouth).map((v) => v * 0.55), tongue = toLin('#b8646e'), tooth = [0.92, 0.9, 0.84];
+    const nu = 10, nv = 4;
+    // the opening, from the mouth line down to the lower lip; the tongue in its lower part
+    for (let j = 0; j < nv; j++) for (let i = 0; i < nu; i++) {
+      const q = [[i, j], [i + 1, j], [i + 1, j + 1], [i, j + 1]].map(([a, b]) => { const x = lerp(-W, W, a / nu), dn = depth(x) * b / nv; return [x, yTop(x) - dn, zAt(x, dn) + 0.0008 * Math.sin(Math.PI * b / nv)]; });
+      push(q.map(toW), nW(fw), j >= nv - 2 && i > 1 && i < nu - 2 ? tongue : dark, MAT.SATIN, true);
+    }
+    // the upper fangs, white points hanging in the opening a little out from the middle
+    if (gape > 0.25) for (const s of [-1, 1]) {
+      const x = s * 0.011 * sn, y = yTop(x), z = zAt(x, 0) + 0.0003, L = Math.min(0.009, gap * 0.45), w = 0.0022;
+      push([[x - w, y, z], [x + w, y, z], [x + w * 0.15, y - L, z - 0.0008], [x - w * 0.15, y - L, z - 0.0008]].map(toW), nW(fw), tooth, MAT.GLOSS, true);
+    }
+  }
   for (const s of [-1, 1]) {
     // a domed disc in the eye's frame: a round the rim, b out from the middle
     const disc = (rx, ry, ox, oy, z0, dome) => (a, b) => { const t = a * Math.PI * 2; return fromEye([ox + Math.cos(t) * rx * b, oy + Math.sin(t) * ry * b, z0 + dome * Math.sqrt(Math.max(0, 1 - b * b))], s); };
@@ -1534,7 +1562,7 @@ const lynxCol = (look) => (look.coat.points ? toLin(look.coat.points.col) : toLi
  * The eyes, lids, whiskers and ear tufts as they'd be on the bake's own pose, for the GPU: each quad carries the bone
  * it rides on (the head, or its ear), so the skinning carries it with the head as it turns. Sculpt units, not metres.
  * They change only with the lids, the pupil and the whiskers, so the room builds them again only when those do, and
- * each `part` alone ('eyes' with the pupil, 'lids', 'whiskers', 'tufts' never), so a blink rebuilds only the lids.
+ * each `part` alone ('eyes' with the pupil, 'lids', 'whiskers', 'mouth', 'tufts' never), so a blink rebuilds only the lids.
  */
 export function catBits(bake, mo = STILL, part = null) {
   const R = bake.rig, look = bake.look, hb = R.index.head;

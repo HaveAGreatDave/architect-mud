@@ -1,0 +1,28 @@
+{
+  "description": "The plant that feeds the vats: two pumps on a skid, a header of pipe overhead, hand wheels painted red, and gauges whose needles never settle.",
+  "flags": {
+    "look": {
+      "arche": "prop",
+      "dims": [
+        1.8,
+        0.9,
+        1.9
+      ],
+      "form": "manifold"
+    },
+    "spot": {
+      "along": 5.2,
+      "wall": "front"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_clone_manifold_2",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "pump manifold",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": null,
+  "zone_id": "zone_start"
+}

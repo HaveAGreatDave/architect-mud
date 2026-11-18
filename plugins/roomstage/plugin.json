@@ -39,7 +39,8 @@
       "graffiti.removed",
       "room.boardChanged",
       "pet.beat",
-      "room.peopleChanged"
+      "room.peopleChanged",
+      "npc.panic"
     ],
     "emits": [
       "furniture.changed",

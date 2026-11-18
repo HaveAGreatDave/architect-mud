@@ -8,7 +8,7 @@
     "west": "zone_kestrel_11a"
   },
   "flags": {
-    "building_name": "Kestrel Court",
+    "building_name": "The Flute",
     "building_type": "apartment",
     "floor": "linoleum",
     "is_building": true,
@@ -20,6 +20,6 @@
   "grid_z": 3,
   "id": "zone_kestrel_f11",
   "map_id": "map_int_kestrel",
-  "name": "Kestrel Court, Eleventh Floor Landing",
+  "name": "The Flute, Eleventh Floor Landing",
   "parent_zone": "zone_district_913_908"
 }

@@ -137,27 +137,36 @@ export default async function regress({ check, run, getPlayer }) {
     }
   }
 
+  // The slate leaves slots empty (two buffer slots a day, and a sport often has fewer games than
+  // slots), so a fixed slot can land on no game at all. Each check starts from its old slot and
+  // takes the first one at or after it where the script's sport has a game.
+  const slotWithGame = (sc, from) => {
+    const sport = sc?.sport || 'baseball';
+    for (let sl = from; sl < from + 400; sl++) if (_test.sportsMatchupForSlot(sl, sc.teams, sport)) return sl;
+    return from;
+  };
   // ── Deterministic DEADBALL league ───────────────────────────────────────────
   // Every game is a pure function of its slot: same slot → byte-identical result on
   // every server and every TV (this is what keeps all TVs in sync and lets the
   // standings be a zero-write computed fold).
   const script = { teams: ['Rats', 'Kings', 'Wolves', 'Slaggers', 'Ash', 'Moles', 'Wolv2', 'Drowners'], players: [], pools: {} };
-  const a = _test.sportsGameForSlot(script, 12345, null);
-  const b = _test.sportsGameForSlot(script, 12345, null);
+  const S0 = slotWithGame(script, 12345);
+  const a = _test.sportsGameForSlot(script, S0, null);
+  const b = _test.sportsGameForSlot(script, S0, null);
   check('same slot → identical matchup', a && b && a.game.away.name === b.game.away.name && a.game.home.name === b.game.home.name, JSON.stringify([a?.matchup, b?.matchup]));
   check('same slot → identical score', !!a && !!b && a.game.awayScore === b.game.awayScore && a.game.homeScore === b.game.homeScore, `${a?.game.awayScore}-${a?.game.homeScore} vs ${b?.game.awayScore}-${b?.game.homeScore}`);
   check('sim never ties', !!a && a.game.awayScore !== a.game.homeScore, `${a?.game.awayScore}-${a?.game.homeScore}`);
   // a final's finalists come in seeded order, and the top seed is the home side
-  const fin = _test.sportsGameForSlot(script, 12345, { teams: ['Kings', 'Rats'], worldSeries: true });
+  const fin = _test.sportsGameForSlot(script, S0, { teams: ['Kings', 'Rats'], worldSeries: true });
   check('a final: the top seed hosts', fin && fin.game.home.name === 'Kings' && fin.game.away.name === 'Rats', JSON.stringify(fin?.matchup));
   // 12346 is the other sport's slot on the slate. The next Deadball game is found, not assumed:
   // the slate leaves some slots empty, and a hardcoded 12347 landed on one and threw.
   check('the other sport\'s slot has no Deadball game', _test.sportsGameForSlot(script, 12346, null) === null, 'slot 12346');
-  let cSlot = 12346, c = null;
-  while (!c && cSlot < 12345 + 64) c = _test.sportsGameForSlot(script, ++cSlot, null);
+  let cSlot = S0, c = null;
+  while (!c && cSlot < S0 + 64) c = _test.sportsGameForSlot(script, ++cSlot, null);
   check('a different slot rolls a different game',
     !!a && !!c && (a.game.away.name !== c.game.away.name || a.game.home.name !== c.game.home.name || a.game.awayScore !== c.game.awayScore || a.game.homeScore !== c.game.homeScore),
-    `slot 12345 vs ${cSlot}`);
+    `slot ${S0} vs ${cSlot}`);
 
   // ── The v1 fingerprint ──────────────────────────────────────────────────────
   // A hundred seeded games and four finals, every at-bat and every synthesised pitch,
@@ -234,7 +243,7 @@ export default async function regress({ check, run, getPlayer }) {
   // 132 bpm; the open drawn on the card is cut to the same length.
   {
     const deadball = JSON.parse(readFileSync(new URL('../../content/media_broadcasts/bc_1783289744953.json', import.meta.url), 'utf8')).sports_pools;
-    const g = _test.assembleSportsGraph(deadball, 'bc_regress_open', 40002, null);
+    const g = _test.assembleSportsGraph(deadball, 'bc_regress_open', slotWithGame(deadball, 40002), null);
     const card = g && Object.values(g.nodes).find((n) => n.type === 'title_card');
     check('network open: Deadball\'s title card carries its theme', card?.data?.theme === 'ksab7_deadball_theme' && card?.data?.graphic_id === 'bb_deadball_title', JSON.stringify(card?.data));
     const hold = card ? _test.nodeHoldMs(card) : 0;
@@ -247,7 +256,7 @@ export default async function regress({ check, run, getPlayer }) {
     const bsm = readFileSync(new URL('../../data/scripts/hockey.bsm', import.meta.url), 'utf8');
     const theme = (/^@theme\s+(\S+)/m.exec(bsm) || [])[1];
     check('network open: the hockey row plays the theme its script names', theme === 'ksab7_cphl_theme' && row.theme === theme, `${row.theme} vs ${theme}`);
-    const g = _test.assembleSportsGraph(row, 'bc_regress_open_cphl', 42, null);
+    const g = _test.assembleSportsGraph(row, 'bc_regress_open_cphl', slotWithGame(row, 42), null);
     const card = g && Object.values(g.nodes).find((n) => n.type === 'title_card');
     check('network open: Cluster Puck\'s title card carries its theme', card?.data?.theme === 'ksab7_cphl_theme' && card?.data?.graphic_id === 'cphl_title', JSON.stringify(card?.data));
     const hold = card ? _test.nodeHoldMs(card) : 0;
@@ -260,7 +269,7 @@ export default async function regress({ check, run, getPlayer }) {
   // night's matchup line carries no card of its own, or it would knock the open off the screen.
   for (const [file, id, seed, sport] of [['bc_1783289744953', 'bc_regress_pg', 40002, 'baseball'], ['bc_cluster_puck', 'bc_regress_pg_cphl', 42, 'hockey']]) {
     const row = JSON.parse(readFileSync(new URL(`../../content/media_broadcasts/${file}.json`, import.meta.url), 'utf8')).sports_pools;
-    const g = _test.assembleSportsGraph(row, id, seed, null);
+    const g = _test.assembleSportsGraph(row, id, slotWithGame(row, seed), null);
     const says = g ? Object.values(g.nodes).filter((n) => n.type === 'say') : [];
     const gfx = (n) => n.data?.graphic || n.graphic || null;
     const open = says.map(gfx).find((x) => x?.kind === 'pregame');
@@ -321,7 +330,7 @@ export default async function regress({ check, run, getPlayer }) {
     const saved = _test.historyCaches.get(sport);
     _test.historyCaches.delete(sport);
     const textOf = (n) => n.data?.text ?? n.text;
-    const plain = _test.assembleSportsGraph(row, `bc_regress_lore0_${sport}`, seed, null, { slotMs: 3600000 });
+    const plain = _test.assembleSportsGraph(row, `bc_regress_lore0_${sport}`, slotWithGame(row, seed), null, { slotMs: 3600000 });
     const says0 = plain ? Object.values(plain.nodes).filter((n) => n.type === 'say').map(textOf) : [];
     const open = plain ? Object.values(plain.nodes).map((n) => n.data?.graphic || n.graphic).find((x) => x?.kind === 'pregame') : null;
     const home = open?.home?.name, away = open?.away?.name;
@@ -329,7 +338,7 @@ export default async function regress({ check, run, getPlayer }) {
       { seasonNo: 3, champion: home, runnerUp: away, score: [5, 4], table: null, era: 'regress' },
       { seasonNo: 2, champion: home, runnerUp: away, score: [3, 1], table: null, era: 'regress' },
     ] });
-    const told = _test.assembleSportsGraph(row, `bc_regress_lore1_${sport}`, seed, null, { slotMs: 3600000 });
+    const told = _test.assembleSportsGraph(row, `bc_regress_lore1_${sport}`, slotWithGame(row, seed), null, { slotMs: 3600000 });
     if (saved) _test.historyCaches.set(sport, saved); else _test.historyCaches.delete(sport);
     const says1 = told ? Object.values(told.nodes).filter((n) => n.type === 'say').map(textOf) : [];
     const lore = says1.filter((t) => t && !says0.includes(t) && t.includes(home) && (t.includes(word) || /in a row|straight|running|every time/.test(t)));
@@ -360,7 +369,7 @@ export default async function regress({ check, run, getPlayer }) {
     const gfx = (n) => n.data?.graphic || n.graphic || null, gdOf = (n) => n.data?.gameday || n.gameday || null, txt = (n) => n.data?.text || n.text || '';
     for (const [file, sport, seed] of [['bc_1783289744953', 'baseball', 40002], ['bc_cluster_puck', 'hockey', 42]]) {
       const row = rowOf(file);
-      const g = _test.assembleSportsGraph(row, `bc_regress_live_${sport}`, seed, null);
+      const g = _test.assembleSportsGraph(row, `bc_regress_live_${sport}`, slotWithGame(row, seed), null);
       const first = g ? Object.values(g.nodes).find((n) => n.type === 'say') : null;
       const gd = first && gdOf(first);
       check(`live: ${sport} opens "Live from ${row.venue?.said}"`, !!row.venue?.said && txt(first || {}).startsWith(`Live from ${row.venue.said}`), txt(first || {}));
@@ -368,7 +377,7 @@ export default async function regress({ check, run, getPlayer }) {
     }
     const puck = rowOf('bc_cluster_puck');
     const b = puck.venue?.site?.block;
-    check('live: the CPhL plays at Golden Goose Gardens, on its six tiles', puck.venue?.name === 'Golden Goose Gardens' && b?.x0 === 914 && b?.x1 === 916 && b?.y0 === 916 && b?.y1 === 917);
+    check('live: the CPhL plays at Golden Goose Gardens, on its six tiles', puck.venue?.name === 'Golden Goose Gardens' && b?.x0 === 915 && b?.x1 === 917 && b?.y0 === 916 && b?.y1 === 917);
     const clubKey = (name) => `chatter.${String(name).trim().split(/\s+/)[0].toLowerCase().replace(/[^a-z0-9]/g, '')}`;
     const barns = puck.teams.flatMap((t) => (puck.pools[clubKey(t)] || []).filter((l) => /\bbarn\b/i.test(l)));
     check('live: every CPhL club has a colour pool, and none of it is about a barn of its own', puck.teams.every((t) => (puck.pools[clubKey(t)] || []).length >= 3) && !barns.length, barns.join(' | '));
@@ -472,7 +481,7 @@ export default async function regress({ check, run, getPlayer }) {
       }
     }
     // A pitcher throws his own mix, and a strikeout ends on his out pitch more often than not.
-    const g = _test.assembleSportsGraph(deadball, 'bc_regress_booth_mix', 40002, null, { slotMs: 3600000 });
+    const g = _test.assembleSportsGraph(deadball, 'bc_regress_booth_mix', slotWithGame(deadball, 40002), null, { slotMs: 3600000 });
     const abs = Object.values(g.nodes).map((n) => n.data?.gameday).filter((p) => p && Array.isArray(p.pitches));
     const offMix = abs.filter((p) => p.pitches.some((x) => !pitcherStyleOf(p.pitcher).mix.some(([t]) => t === x.type)));
     check('booth: every pitch is from its pitcher\'s mix', abs.length > 40 && !offMix.length, offMix.slice(0, 2).map((p) => `${p.pitcher}: ${p.pitches.map((x) => x.type).join(',')}`).join(' | '));
@@ -484,18 +493,31 @@ export default async function regress({ check, run, getPlayer }) {
   }
 
   // ── The daily slate ─────────────────────────────────────────────────────────
-  // docs/proposals/daily-slate.md. Sixty-two days over two month ends, with the real clubs.
+  // docs/proposals/daily-slate.md. January to March 2035, February a short one, with the real clubs.
   const G = _test.SPORTS_GAMES_PER_DAY;
   {
     const pools = (f) => JSON.parse(readFileSync(new URL(`../../content/media_broadcasts/${f}.json`, import.meta.url), 'utf8')).sports_pools;
     const db = pools('bc_1783289744953'), hk = pools('bc_cluster_puck');
     const d0 = Math.floor(Date.UTC(2035, 0, 1) / 86400000);
-    const bad = [], spread = [];
-    let month = null, tally = null, cupDays = 0;
-    const closeMonth = () => { if (tally) for (const [sp, m] of Object.entries(tally)) { const v = [...m.values()]; spread.push([month, sp, Math.max(...v) - Math.min(...v), v.length]); } };
-    for (let d = d0; d < d0 + 62; d++) {
+    const bad = [], spread = [], seasons = [];
+    let month = null, tally = null, cupDays = 0, games0 = null;
+    const closeMonth = () => {
+      if (tally) for (const [sp, m] of Object.entries(tally)) { const v = [...m.values()]; spread.push([month, sp, Math.max(...v) - Math.min(...v), v.length]); }
+      // the season: every club the same number of games, half at home, each other club twice, once each way
+      if (games0) for (const [sp, gs] of Object.entries(games0)) {
+        const gp = new Map(), home = new Map(), meet = new Map();
+        for (const g of gs) {
+          for (const t of [g.away, g.home]) gp.set(t, (gp.get(t) || 0) + 1);
+          home.set(g.home, (home.get(g.home) || 0) + 1);
+          meet.set(`${g.away}>${g.home}`, (meet.get(`${g.away}>${g.home}`) || 0) + 1);
+        }
+        const n = (sp === 'baseball' ? db : hk).teams.length;
+        seasons.push([month, sp, [...new Set(gp.values())].join('/'), [...new Set(home.values())].join('/'), gp.size, meet.size === n * (n - 1) && [...meet.values()].every((x) => x === 1)]);
+      }
+    };
+    for (let d = d0; d < d0 + 90; d++) {
       const m = new Date(d * 86400000).toISOString().slice(0, 7);
-      if (m !== month) { closeMonth(); month = m; tally = { baseball: new Map(), hockey: new Map() }; }
+      if (m !== month) { closeMonth(); month = m; tally = { baseball: new Map(), hockey: new Map() }; games0 = { baseball: [], hockey: [] }; }
       const day = _test.sportsSlateForDay(d, [db, hk]);
       const games = day.filter((g) => g.away);
       if (_test.isCupDay(d)) {
@@ -506,23 +528,46 @@ export default async function regress({ check, run, getPlayer }) {
         if (games.length || fin.length !== 2 || sodOf('baseball') !== 4 || sodOf('hockey') !== 6) bad.push(`${m} Cup day ${JSON.stringify(day)}`);
         continue;
       }
-      // six games: 09:00 and 21:00 are the day's overflow, with no game of their own
-      if (games.length !== 6 || [..._test.SLATE_BUFFER_SODS].some((s) => day[s].away)) bad.push(`day ${d}: ${games.length} games`);
+      // 09:00 and 21:00 are the day's overflow, no sport's and with no game; each sport has three
+      // slots and plays one to three games in them, 18:00 always among them on its day
+      if ([..._test.SLATE_BUFFER_SODS].some((s) => day[s].away || day[s].sport)) bad.push(`day ${d}: an overflow slot has a game`);
+      if (!day[6].away) bad.push(`day ${d}: nothing at 18:00`);
       for (const sp of ['baseball', 'hockey']) {
-        const teams = games.filter((g) => g.sport === sp).flatMap((g) => [g.away, g.home]);
+        const mine = games.filter((g) => g.sport === sp), teams = mine.flatMap((g) => [g.away, g.home]);
         if (new Set(teams).size !== teams.length) bad.push(`day ${d}: a ${sp} club plays twice`);
+        if (!mine.length || mine.length > 3 || day.filter((g) => g.sport === sp).length !== 3) bad.push(`day ${d}: ${sp} has ${mine.length} games`);
+        games0[sp].push(...mine);
       }
-      if (day[6].sport !== (d % 2 === 0 ? 'baseball' : 'hockey') || day[7].sport === day[6].sport) bad.push(`day ${d}: slots don't alternate`);
+      const turns = _test.SLATE_GAME_SODS.map((s) => day[s].sport);
+      if (day[6].sport !== (d % 2 === 0 ? 'baseball' : 'hockey') || turns.some((sp, i) => i && sp === turns[i - 1])) bad.push(`day ${d}: slots don't alternate`);
       for (const t of [day[6].away, day[6].home]) tally[day[6].sport].set(t, (tally[day[6].sport].get(t) || 0) + 1);
       for (const g of day) {
         const mm = _test.sportsMatchupForSlot(g.slot, (g.sport === 'baseball' ? db : hk).teams, g.sport);
         if ((mm?.away || null) !== g.away || (mm?.home || null) !== g.home) bad.push(`slot ${g.slot}: the lookup disagrees with the slate`);
       }
     }
-    check('slate: 6 games a day with 09:00 and 21:00 empty, no club twice, sports alternating; Cup day only the finals', bad.length === 0 && cupDays === 2, bad.slice(0, 4).join('; '));
+    closeMonth();
+    check('slate: 09:00 and 21:00 empty, one to three games a sport a day, no club twice, sports alternating; Cup day only the finals', bad.length === 0 && cupDays === 3, bad.slice(0, 4).join('; '));
+    check('slate: a season is a double round robin, fourteen games a club, seven at home, each pairing once each way',
+      seasons.length === 6 && seasons.every(([, , gp, home, clubs, rr]) => gp === '14' && home === '7' && clubs === 8 && rr), JSON.stringify(seasons));
+    // The plan for every month the calendar has (27 to 30 regular days), with 18:00 on either
+    // parity, fits both legs, and the month's shapes either side of that do too.
+    const shapes = [];
+    for (let D = 20; D <= 31; D++) for (const p of [0, 1]) {
+      const plan = _test.monthPlan(8, Array.from({ length: D }, (_, i) => ({ cap: 3, featured: i % 2 === p })));
+      const gp = new Array(8).fill(0), run = new Array(8).fill(0), last = new Array(8).fill(-1), feat = new Array(8).fill(0);
+      let gap = 0, lead = 0;
+      plan.days.forEach((day, i) => {
+        for (const [a, h] of [...(day.featured ? [day.featured] : []), ...day.games]) for (const c of [a, h]) { gp[c]++; run[c]++; if (last[c] >= 0) gap = Math.max(gap, i - last[c]); last[c] = i; }
+        if (day.featured) for (const c of day.featured) feat[c]++;
+        lead = Math.max(lead, Math.max(...run) - Math.min(...run));
+      });
+      if (plan.left || plan.legs !== 2 || gp.some((x) => x !== 14) || gap > 5 || lead > 2 || Math.max(...feat) - Math.min(...feat) > 2) shapes.push(`${D} days, 18:00 on ${p ? 'odd' : 'even'}: ${plan.left} left, ${plan.legs} legs, gap ${gap}, lead ${lead}`);
+    }
+    check('slate: every month shape fits fourteen games a club, no club five days idle or two games behind', !shapes.length, shapes.slice(0, 3).join('; '));
     // Greedy, so not proven exact: measured at 1 or 2 across 2035's first two months.
     const wide = spread.filter(([, , s, n]) => s > 2 || n !== 8);
-    check('slate: every club is on at 18:00 within two games of every other over a month', spread.length === 4 && !wide.length, JSON.stringify(spread));
+    check('slate: every club is on at 18:00 within two games of every other over a month', spread.length === 6 && !wide.length, JSON.stringify(spread));
     const cal = _test.seasonCalendar('baseball', (d0 + 30) * G + 2);
     check('calendar: the 31st is Cup day and the next season starts on the 1st', cal.isCupDay && cal.monthDays === 31 && cal.seasonStartDate === '2035-02-01' && cal.seasonStartSlot === (d0 + 31) * G, JSON.stringify(cal));
     const hkFinal = _test.seasonCalendar('hockey', d0 * G).finalSlot;
@@ -584,7 +629,8 @@ export default async function regress({ check, run, getPlayer }) {
       // The guide lists today's games, matchups only.
       const guide = _test.slateScheduleSlots(chans['reg-ch-src']);
       check('slate guide: lists today\'s games with clock times and no scores',
-        Array.isArray(guide) && guide.every((g) => /^\d\d:00$/.test(g.todLabel) && !/\d+-\d+/.test(g.name)) && (guide.length === 6 || _test.isCupDay(today)), JSON.stringify(guide.slice(0, 2)));
+        Array.isArray(guide) && guide.every((g) => /^\d\d:00$/.test(g.todLabel) && !/\d+-\d+/.test(g.name))
+          && (guide.length === _test.sportsSlateForDay(today, slate.map((i) => i.sportsScript)).filter((g) => g.away).length || _test.isCupDay(today)), JSON.stringify(guide.slice(0, 2)));
 
       // One game on two channels is announced once. The relay isn't a sports channel at
       // all, so give a second channel the same slate item to be sure the dedupe is by game.
@@ -3622,6 +3668,13 @@ export default async function regress({ check, run, getPlayer }) {
       const v6Pools = ['pbp.rebound.live', 'pbp.putback'].filter(k => pools[k]);
       for (let slot = 0; slot < 400 && v6Pools.some(k => !usedPools.has(k)); slot++) narrateSlot(slot, { version: 6 });
     }
+    // Delayed penalties (sim v9): only v9 on raises the arm and waits on a touch, so play v9 games
+    // until every delayed, touch and waived pool has fired (bare `penalty.touch` is a fallback
+    // that never fires; see FALLBACKS below). A couple of dozen games covers them all.
+    {
+      const v9Pools = Object.keys(pools).filter(k => /^(goal\.delayed|penalty\.(delayed|waived|touch\.))/.test(k));
+      for (let slot = 0; slot < 200 && v9Pools.some(k => !usedPools.has(k)); slot++) narrateSlot(slot, { version: 9 });
+    }
     // The lost-picture card reads `lost_picture`, not the narrator, so ask the card's own picker.
     {
       const said = _test.lostPictureLine({ pools });
@@ -3674,9 +3727,12 @@ export default async function regress({ check, run, getPlayer }) {
       check('club lore: a game narrated with the history on leaves nothing unfilled', unfilled.length === before, unfilled.slice(before, before + 2).join(' | '));
     }
 
-    // Now the check has no exemptions but the deliberate `faceoff` fallback, which sits
-    // behind the three dot-specific pools and is expected never to fire.
-    const unreachable = Object.keys(pools).filter(k => !usedPools.has(k) && k !== 'faceoff');
+    // Now the check has no exemptions but two deliberate fallbacks that are expected never to
+    // fire: `faceoff` sits behind the three dot-specific pools, and `penalty.touch` behind
+    // `penalty.touch.<goalie|block|clear>`, which each have lines (a call wiped out by a goal
+    // has no touch and says nothing).
+    const FALLBACKS = new Set(['faceoff', 'penalty.touch']);
+    const unreachable = Object.keys(pools).filter(k => !usedPools.has(k) && !FALLBACKS.has(k));
     check('hockey: every pool is reachable', unreachable.length === 0, unreachable.join(','));
     check('hockey: still no unfilled tokens on the rare paths', unfilled.length === 0, unfilled.slice(0, 3).join(' | '));
 
@@ -4075,7 +4131,7 @@ export default async function regress({ check, run, getPlayer }) {
     // and this is its only observable: what rides the assembled graph.
     {
       const script = { teams: ['Rats', 'Kings', 'Crows', 'Vultures', 'Hawks', 'Bats', 'Moles', 'Gulls', 'Elks', 'Pikes', 'Wrens', 'Boars', 'Cranes', 'Newts', 'Owls', 'Stoats'], players: [], pools: { 'half.top': ['Top {inningOrd}.'], 'half.bottom': ['Bottom {inningOrd}.'], 'atbat.out': ['He is out.'], 'atbat.single': ['Base hit.'], chatter: ['Quiet out here.'] }, announcer: 'Chip Vega' };
-      const graph = _test.assembleSportsGraph(script, 'bc_regress', 12345, null);
+      const graph = _test.assembleSportsGraph(script, 'bc_regress', slotWithGame(script, 12345), null);
       const gds = Object.values(graph.nodes || {}).map(n => n.data && n.data.gameday).filter(Boolean);
       const halves = gds.filter(g => g.phase === 'half');
       const atbats = gds.filter(g => !g.phase);
@@ -4091,7 +4147,7 @@ export default async function regress({ check, run, getPlayer }) {
       // the announcer's name, and nothing else does.
       {
         const called = { ...script, pools: { ...script.pools, 'contact.ground': ['On the ground {toward}.'], 'contact.liner': ['Lined {toward}!'], 'contact.fly': ['Fly ball {toward}.'], 'contact.pop': ['Popped up {toward}.'] } };
-        const g3 = _test.assembleSportsGraph(called, 'bc_regress_contact', 12345, null);
+        const g3 = _test.assembleSportsGraph(called, 'bc_regress_contact', slotWithGame(called, 12345), null);
         const all3 = Object.values(g3.nodes || {}).map(n => n.data && n.data.gameday).filter(Boolean);
         const inPlay = all3.filter(g => !g.phase && g.play);
         check('gameday: every ball in play carries the call at the crack', inPlay.length > 10 && inPlay.every(g => g.contact && /\w/.test(g.contact.text) && !/[{}]/.test(g.contact.text) && g.contact.by === 'Chip Vega'), `${inPlay.filter(g => g.contact).length}/${inPlay.length}`);
@@ -4132,7 +4188,7 @@ export default async function regress({ check, run, getPlayer }) {
       // the park's city once (tv_venue); a script without one stamps nothing.
       {
         const withVenue = { ...script, venue: { site: { x: 897.55, y: 913.55, bearing: 315, block: { x0: 895, x1: 897, y0: 911, y1: 913 } } } };
-        const g2 = _test.assembleSportsGraph(withVenue, 'bc_regress_venue', 12345, null);
+        const g2 = _test.assembleSportsGraph(withVenue, 'bc_regress_venue', slotWithGame(withVenue, 12345), null);
         const ord2 = [];
         for (let id = g2._start; id; id = (g2.edges.find(e => e.fromNode === id && e.fromPort === 'next') || {}).toNode) ord2.push(g2.nodes[id]);
         const gd2 = ord2.map(n => n.data && n.data.gameday).filter(Boolean);
@@ -4184,7 +4240,7 @@ export default async function regress({ check, run, getPlayer }) {
       // script with no site, like hockey's indoor rink, sends none.
       {
         const { WEATHER_TYPES } = await import('../../server/engine/environment.js');
-        const sited = _test.assembleSportsGraph({ ...script, venue: { site: { x: 897.55, y: 913.55, bearing: 315 } } }, 'bc_regress_wx', 12345, null);
+        const sited = _test.assembleSportsGraph({ ...script, venue: { site: { x: 897.55, y: 913.55, bearing: 315 } } }, 'bc_regress_wx', slotWithGame(script, 12345), null);
         const gd0 = Object.values(sited.nodes).map(n => n.data && n.data.gameday).find(Boolean);
         const aired = _test.gamedayOnAir(gd0, sited);
         check('gameday: a park with a site sends the weather over it as each line airs',
@@ -4575,7 +4631,7 @@ export default async function regress({ check, run, getPlayer }) {
     const { default: BASEBALL } = await import('./sports/baseball.js');
     const { default: HOCKEY } = await import('./sports/hockey.js');
     check('deadball: baseball stamps its clubs as hockey does', typeof BASEBALL.clubsRevOf === 'function' && BASEBALL.clubsRevOf === HOCKEY.clubsRevOf && BASEBALL.clubsRevOf(clubs).length > 4, 'clubsRevOf');
-    const g = _test.assembleSportsGraph({ ...row, clubs }, 'bc_regress_clubs', 81234, null);
+    const g = _test.assembleSportsGraph({ ...row, clubs }, 'bc_regress_clubs', slotWithGame(row, 81234), null);
     const gds = Object.values(g.nodes).map((n) => n.data?.gameday).filter(Boolean);
     check('deadball: every Gameday payload carries the clubs\' stamp', gds.length > 0 && gds.every((p) => p.clubsRev === BASEBALL.clubsRevOf(clubs)), `${gds.length} payloads, ${gds.filter((p) => !p.clubsRev).length} unstamped`);
   }
@@ -5261,8 +5317,9 @@ export default async function regress({ check, run, getPlayer }) {
     const slot = JSON.parse(readFileSync('content/media_channel_playlist/stgarneau-tue-1100.json', 'utf8'));
     check('slot: the show is booked', slot.broadcast_id === 'bc_cooking_shit_neil', slot.broadcast_id);
     // "They film on a Tuesday" is a line Father Jerome says. Bit 1 is Tuesday, and
-    // this row is the only thing that makes that sentence true rather than flavour.
-    check('slot: ...on a Tuesday, which is what he tells you', slot.days === 2, String(slot.days));
+    // this row is the only thing that makes that sentence true rather than flavour. It may
+    // film other days too (42 is Tuesday, Thursday and Saturday); Tuesday has to be one.
+    check('slot: ...on a Tuesday, which is what he tells you', (slot.days & 2) === 2, String(slot.days));
     const staff = slot.conditions?.npc_staff || [];
     check('slot: the host is dispatched', staff.includes('npc_neil_mcmanistan'));
     check('slot: the producer is dispatched', staff.includes('npc_phil_mccracken'));
@@ -5824,10 +5881,10 @@ export default async function regress({ check, run, getPlayer }) {
         const entry = JSON.parse(shipped.get(showId).content);
         for (const id of Object.values(entry.cast)) if (!world.npcs.has(id)) { world.npcs.set(id, { id, name: id, sex: 'female', flags: {} }); added.push(id); }
         cache.set(showId, { ...shipped.get(showId), content: JSON.stringify({ ...entry, live: false, broadcast: bid }) });
-        const before = says(_test.assembleSportsGraph(row, bid, slot, null));
+        const before = says(_test.assembleSportsGraph(row, bid, slotWithGame(row, slot), null));
         check(`desk: ${showId} off air is no lines at all`, !before.some(isDesk));
         cache.set(showId, { ...shipped.get(showId), content: JSON.stringify({ ...entry, live: true, broadcast: bid }) });
-        const after = says(_test.assembleSportsGraph(row, bid, slot, null)), desk = after.filter(isDesk), overlay = (n) => n.data?.graphic || n.graphic;
+        const after = says(_test.assembleSportsGraph(row, bid, slotWithGame(row, slot), null)), desk = after.filter(isDesk), overlay = (n) => n.data?.graphic || n.graphic;
         const packs = desk.filter((n) => overlay(n).pack), ends = desk.filter((n) => overlay(n).last);
         check(`desk: ${showId} has an open, a break and a close`, packs.length >= 3 && packs.length === ends.length, `${packs.length} segments, ${ends.length} ends`);
         check(`desk: no raw token on air in ${showId}`, !desk.some((n) => /[{}]/.test(textOf(n))), desk.map(textOf).find((s) => /[{}]/.test(s)));

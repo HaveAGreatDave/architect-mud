@@ -12,7 +12,7 @@
     },
     "spot": {
       "along": 2,
-      "wall": "left"
+      "wall": "front"
     }
   },
   "hp": null,

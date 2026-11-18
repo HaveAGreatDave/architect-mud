@@ -2847,6 +2847,10 @@ export function getZoneHeatBonus(zoneId, baseC) {
   return total;
 }
 
+// The day's temperature out of doors at this hour, before anything local changes it (a weather cell, a room, a
+// heater). Null until the world clock has loaded. What the vat dresses a body for (gameLoop.js suitSeasonFor).
+export function outdoorTempC() { return state.date ? state.tempC + diurnalOffset(state.minutes) : null; }
+
 export function getZoneTemperature(zoneId) {
   const z = state.zones.get(zoneId);
   // Applied to indoor and outdoor alike: a brazier works in a blacked-out flat and it works
@@ -2882,9 +2886,18 @@ export function getWindKph() {
 // Off the field (interiors, other maps) it is the day's wind unchanged.
 export const WIND_STORM_GAIN = 0.85;   // at stormIntensity 1
 export const WIND_PRECIP_GAIN = 0.25;  // at precipRate 1
+// ── AND THE DAY'S WIND HAS A DAY IN IT ─────────────────────────────────────────────────────
+// Surface wind follows the sun: the afternoon's warm ground mixes the faster air above down to
+// the surface, and the night's cool air settles and decouples from it. So it peaks about 3 pm
+// and drops to its lull before dawn, about ±20% round the day's figure. The forecast and HUD
+// keep the day's figure; what blows on a tile follows the clock.
+export const WIND_DIURNAL = 0.2;
+export function windDiurnal(minutesOfDay) {
+  return 1 + WIND_DIURNAL * Math.cos(2 * Math.PI * ((minutesOfDay ?? 900) - 15 * 60) / (24 * 60));
+}
 function windFromField(f) {
-  const base = state.forecast[0]?.windKph ?? 0;
-  if (!f) return base;
+  const base = (state.forecast[0]?.windKph ?? 0) * windDiurnal(state.minutes);
+  if (!f) return Math.round(base);
   const gust = 1 + WIND_STORM_GAIN * Math.max(0, Math.min(1, f.stormIntensity || 0))
                  + WIND_PRECIP_GAIN * Math.max(0, Math.min(1, f.precipRate || 0));
   return Math.round(base * gust);
@@ -3553,7 +3566,7 @@ export async function installGenerator({ zoneId, generatorType = 'junction_box',
   // The link that does work is `flags.world_exit_zone`, which on an interior names the
   // FACADE — a real `map_world` tile carrying real coordinates and a `region_id`. Both
   // ends resolve through it: every city plant in the game anchors to a map tile this way
-  // (Coldwater's turbine hall to 924,911, Terminus's charge house to 1227,946) or is
+  // (Coldwater's turbine hall to 925,911, Terminus's charge house to 1227,946) or is
   // already outdoors and is its own anchor. So the question becomes region first, then a
   // distance between two places that genuinely have one.
   // The building network, hoisted: the plant choice below needs it, and so do the

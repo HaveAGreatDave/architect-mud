@@ -475,6 +475,63 @@ death presets audition one line. The FM smoke pins the shape: 0 is identical to 
 goal call peaks over 1.6 times the plain line and runs longer, a grave one sits lower and
 slower, and the reading voice never moves.
 
+### Where a voice sits: the spectrum by sex
+
+`voiceFromName(name, sex)` places a rolled voice by the speaker's sex (`VOICE_SPECTRUM`).
+Women centre on 200Hz with formants 12% up (`fshift` 1.12), men on 110Hz at 0.96, each
+spreading 2.4 semitones; anyone else ('other', 'nonbinary', 'none') sits at 148Hz and spreads
+wider. The spread is logistic, so its tails are long: about one in fifty crosses the middle (a
+deep woman, a high man) and more get close. Pitch and tract are only loosely tied (0.35), so a
+woman who crosses keeps a woman's tract and still sounds like one. Women's open quotient leans
+breathier; men's is drawn from the same list as before. With no `sex` the name's own coin picks a side, as it always did.
+
+Sex changes the mapping, never the draws, so every other trait of a voice is what it was. The
+old roll put women between 120 and 175Hz and decided the side by the name alone, so half the
+women in the city were voiced as men. `speak()` takes `opt.sex`. NPC speech
+(`npc-bubbles.js`) gets it from the dialogue message (`npcSex`) or from the Room Stage
+answering `npc:place`, and remembers it by name for lines heard later. A TV host's voice still
+goes by the coin unless it's in `NAMED_VOICES`. The FM smoke pins the medians, the crossover
+rate, that crossers keep their tract, and that sex moves no draw.
+
+### Performance (`vary`)
+
+`excite` says how hard one line is sold, but on its own every line still started from the
+voice's resting pitch with the same accent on every stress, so a booth sounded like a tape.
+`speak(text, { vary })` (0 to 1, `true` is 1) gives the speaker a running state on its
+channel, kept by `performLine` in RAM and keyed by channel and seed, that each line reads and
+moves:
+
+- **Drift.** Register (sd 1.1 semitones), accent range and pace each wander about the voice's
+  own: a mean-reverting walk, one step a line, each line keeping 72% of the last one's offset.
+  Ten lines in, the voice has been through its range instead of resetting ten times.
+- **Paratones.** A new topic starts 1.6 semitones up and each line after it steps down 0.55,
+  to a floor of 0.6 below. A topic is new when the caller says so (`opt.topic`), when the
+  speaker has been quiet 4 seconds, when their excite rises 0.3 or more over their last line
+  (the goal call after the rush), or when another speaker had the channel last (the colour man
+  finishes and the play-by-play starts fresh). Nothing on the server sends `topic` yet; the
+  other three cover the booth.
+- **Accent shapes.** Each line rolls how high its nucleus goes, how far each peak steps down,
+  how deep the fall is and how late a rise peaks. Each accent before the nucleus rolls a
+  shape: a plain peak, none at all (the stress keeps its length but the pitch doesn't move,
+  less often when sold), a fresh peak that undoes the downstep (more often when sold), or a
+  scoop that starts low and peaks late.
+- **The run at the word.** Each phrase speeds up through the syllables before its nucleus by
+  about 5% plain and 15% at a goal call, give or take 40% a line (`tempoShape`), so "he shoots, he SCORES" lands on timing as
+  well as pitch. It's a `segmentDuration` factor, so `estimateDuration` and the broadcast's
+  pacing count it.
+
+The dice are seeded by speaker, text and the speaker's line count, so the same line said twice
+comes out different. Words said on the channel in the last 20 seconds already lose their accent
+(given/new, in `placeAccents`), whether or not the line varies.
+
+TV speech (`tv.js`, so the booth and the news), the stands booth and the ballpark's voices
+send `vary: 1`. NPC speech, the tablet narrator and the street PA don't yet, and Read Aloud and a
+stepped voice never vary. `TUNING.vary` scales it all, and the Voice Lab's "line variety"
+slider sets it by ear; its Speak button varies, its A/B doesn't. The FM smoke pins it: `vary: 0`
+is identical to no value, one line said eight times moves its register (sd about 0.9 semitones)
+with no two renders alike, the pace stays within a few percent of the plain line, the estimate
+still matches what's scheduled, and the topic rules hold.
+
 ### Measured against a recogniser
 
 Until October 2026 the only judge of the voice was a person listening. Its consonants are now

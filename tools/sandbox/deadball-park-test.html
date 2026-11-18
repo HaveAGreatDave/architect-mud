@@ -46,8 +46,10 @@
 
   Serve the repo root over HTTP and open /tools/sandbox/deadball-park-test.html (a file://
   page can't fetch the .bsm or load the modules). ?slot=N picks the game, ?sim=2 plays
-  it under sim v2 (errors, hit batters, steals, pickoffs, wild pitches), ?play= a filter
-  below (runs, hits, dp, walk, k, bases, errors, half, inplay) and ?i=N a payload within it.
+  it under sim v2 (errors, hit batters, steals, pickoffs, wild pitches), ?sim=5 under sim v5 (the
+  league's squads with their pens and managers: pitch counts, visits and pitching changes, played
+  before the at-bat by diamond/mound.js), ?play= a filter below (runs, hits, dp, walk, k, bases,
+  errors, half, inplay, mound) and ?i=N a payload within it.
 -->
 <style>
   html, body { margin: 0; background: radial-gradient(ellipse at 50% 20%, #202329, #0a0b0d 70%); }
@@ -90,6 +92,7 @@
         <option value="errors">errors and hit batters (v2)</option>
         <option value="half">half-inning breaks</option>
         <option value="inplay">balls in play</option>
+        <option value="mound">trips to the mound (v5)</option>
       </select>
       <button id="reroll">⟳ new game</button>
     </div>
@@ -170,21 +173,27 @@
     // The .bsm's line library, clubs and players, parsed as the hockey sandbox parses its own.
     async function loadScript() {
       const src = await (await fetch('../../data/scripts/baseball.bsm')).text();
-      const pools = {}, teams = [], players = [];
+      const pools = {}, teams = [], players = [], bullpens = {};
       let mode = null, key = null;
       for (const raw of src.split(/\r?\n/)) {
         const l = raw.trim();
         if (l.startsWith('::lines ')) { key = l.slice(8).trim(); pools[key] = []; mode = 'lines'; continue; }
         if (l === '::teams') { mode = 'teams'; continue; }
         if (l === '::players') { mode = 'players'; continue; }
+        if (l === '::bullpens') { mode = 'bullpens'; continue; }
         if (l.startsWith('::asset')) { mode = 'asset'; continue; }
         if (l.startsWith('::end')) { mode = null; key = null; continue; }
         if (!l || l.startsWith('#')) continue;
         if (mode === 'lines') pools[key].push(l);
         else if (mode === 'teams') teams.push(l);
         else if (mode === 'players') players.push(l);
+        else if (mode === 'bullpens') {
+          // Club | manager | pitching coach | the pen, as the compiler reads it (bsm-compiler.js)
+          const [club, manager, coach, pen] = l.split('|').map((x) => x.trim());
+          if (club && pen) bullpens[club] = { manager, coach, pen: pen.split(',').map((x) => x.trim()).filter(Boolean) };
+        }
       }
-      return { pools, teams, players };
+      return { pools, teams, players, ...(Object.keys(bullpens).length ? { bullpens } : {}) };
     }
 
     // The line the broadcast would call a play with: the same pool keys, in the same order,
@@ -261,7 +270,8 @@
       const seed = sportsHash(slot >>> 0, 0x00);   // the broadcast's seed for a slot
       // ?gen1=1: the league's fixed squads (sim v3) with the First Generation drafted in (client/shared/deadball-gen1.js)
       const gen1 = Q.get('gen1') === '1', day = 23500 + slot;
-      const game = gen1 ? BASEBALL.simGame({ away, home, teams: t }, script.players, sportsRng(seed), { version: 3, seed, day, firstGen: true })
+      const game = simV === 5 ? BASEBALL.simGame({ away, home, teams: t, ...(script.bullpens ? { bullpens: script.bullpens } : {}) }, script.players, sportsRng(seed), { version: 5, seed, day, firstGen: gen1 })
+        : gen1 ? BASEBALL.simGame({ away, home, teams: t }, script.players, sportsRng(seed), { version: 3, seed, day, firstGen: true })
         : simV === 2 ? simGameV2({ away, home }, script.players, sportsRng(seed), { seed }) : simGame({ away, home }, script.players, sportsRng(seed));
       const x = seasonOf(t, script.players);
       const { order } = gamedayPayloads(game, seed, { abbr, ordinal, ledger: x.ledger });
@@ -297,7 +307,7 @@
         out.push({ p: crown, text: `The ${CUP_NAME} is on the table by the mound, and the ${winner} are coming to get it.`, card: null });
       }
       document.getElementById('head').textContent =
-        `slot ${slot}${simV === 2 ? ' (sim v2)' : ''} · ${away} ${game.awayScore}, ${home} ${game.homeScore}` +
+        `slot ${slot}${simV > 1 ? ` (sim v${simV})` : ''} · ${away} ${game.awayScore}, ${home} ${game.homeScore}` +
         `${game.innings > 9 ? ` (${game.innings})` : ''} · ${order.filter(p => !p.phase).length} at-bats`;
       return out;
     }
@@ -313,6 +323,7 @@
       errors: (p) => p.kind === 'error' || p.kind === 'hitbypitch',
       half: (p) => p.phase === 'half',
       inplay: (p) => !p.phase && !!p.play,
+      mound: (p) => !!p.mound && p.phase !== 'half' && !p.mound.between,
     };
     const filtered = () => { const f = FILTERS[document.getElementById('filter').value]; return f ? plays.filter(x => f(x.p)) : plays; };
 
@@ -379,6 +390,7 @@
     const q = Q;
     if (q.get('slot')) slot = +q.get('slot');
     if (q.get('sim') === '2') simV = 2;
+    if (q.get('sim') === '5') simV = 5;
     plays = buildGame();
     if (q.get('play') && FILTERS[q.get('play')]) document.getElementById('filter').value = q.get('play');
     show(+(q.get('i') || 0));

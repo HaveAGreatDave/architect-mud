@@ -1,0 +1,25 @@
+{
+  "description": "Brushed alloy, a shelf array that reconfigures itself around whatever you put in it, and an interior glow that comes on a half-second before the door's open, like it has been expecting you. A drop-freezer box sits up top. The plate reads POLARIS EXECUTIVE. Polite, efficient, and keeping track.",
+  "flags": {
+    "aliases": [
+      "fridge"
+    ],
+    "appliance_grade": "consumer",
+    "container": 70000,
+    "interactions": [
+      "lean"
+    ],
+    "paired_container": "furn_solenne_freezer_c",
+    "preserves": "refrigerated"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_solenne_fridge_l",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "Polaris Executive Refrigeration Unit",
+  "object_type": "container",
+  "power_draw_kw": 0.1,
+  "price": 0,
+  "zone_id": "zone_solenne_apt_l"
+}

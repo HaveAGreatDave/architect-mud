@@ -36,7 +36,9 @@ import { adjustCredits } from '../../server/engine/economy.js';
 import { foodLoad } from '../../server/engine/bodily.js';
 import { commands as stripperCommands } from '../strippers/index.js';
 import { homeLifeTick } from './home-life.js';
+import { remarksTick } from './remarks.js';   // NPCs saying something to the player near them, and hello on the way in
 import './intrusion.js';   // registers the zone.entered "someone's in my flat" reaction
+import './panic.js';       // registers the lock.hackAttempt "they're breaking in, I'm calling the police" reaction
 import './eviction.js';    // registers the npc.lockup "you don't belong here, out" escort
 import './blackout.js';    // registers the zone.power.changed "the lights just went" reaction
 import { randInt } from '../../server/engine/util.js';
@@ -247,8 +249,8 @@ function routineTick() {
 }
 
 // Home life rides the same tick, so it inherits the same idle gating: no
-// players anywhere means no candidates and no work for either half.
-schedule('30s', () => { routineTick(); homeLifeTick(); });
+// players anywhere means no candidates and no work for either half. Remarks too.
+schedule('30s', () => { routineTick(); homeLifeTick(); remarksTick().catch((e) => console.error('[ambient-life] remarks:', e.message)); });
 
 // ── Interactive verbs ─────────────────────────────────────────────────────────
 // `order` resolves the food-cart opportunity in the room. `tip` is shared with the

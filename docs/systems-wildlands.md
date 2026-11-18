@@ -35,7 +35,7 @@
   never read `zone.exits[dir]` raw).
 - **There is no road network today either.** No `flags.artery`, no "Haul Road" — that's a *future*
   proposal, not built. Roads here are `flags.terrain` only, and the sole contiguous street is a short
-  E–W track at **`grid_y 915`, `x915–920`**. **No road reaches any land edge.** So "the road into the
+  E–W track at **`grid_y 915`, `x916–921`**. **No road reaches any land edge.** So "the road into the
   city" is something *we build* (a stub from that track out to the gate), not an existing artery.
 - **The west edge is already spoken for.** [systems-slagworks / project_slagworks_area] west frontier
   content and the [Ascendant Stronghold](proposals) far-west redeem campus (design) live off the west
@@ -57,12 +57,12 @@ killing floor.
    boundary tiles; impassable.
 2. **The Gates** — the Curtain parts only at gates. **Phase 1 ships one Main Gate on the SOUTH edge at
    `zone_district_918_919`** (pinned — see below). *As built, the gate has since moved one road west
-   to Meltwater Row, `zone_district_911_919`, and 918,919 is plain Curtain again; the 918 coordinates
+   to Meltwater Row, `zone_district_911_919`, and 919,919 is plain Curtain again; the 918 coordinates
    in this doc are the original plan. On 2026-11-02 the gate and the Glacis moved four rows south to
    911,923 with the Curtain, which runs down the river bank at x 885 and along y 923
    ([coliseum-true-size.md](proposals/coliseum-true-size.md)); the tiles kept their ids. On 2026-11-04 the
-   south-east corner moved out to 927,923 ([curtain-square.mjs](../scripts/content/curtain-square.mjs)), so the
-   wall is a rectangle: x 885, y 923 and x 927, with the sea on the north.* Room for a future WEST gate (→ Ascendant) and minor
+   south-east corner moved out to 928,923 ([curtain-square.mjs](../scripts/content/curtain-square.mjs)), so the
+   wall is a rectangle: x 885, y 923 and x 928, with the sea on the north.* Room for a future WEST gate (→ Ascendant) and minor
    gates later.
 3. **The Killing Ground** — a thin glacis of blasted no-man's-land the turrets sweep, facing
    *outward*. This is "eradicate anything that tries to invade." Sparse, cratered, deadly to the
@@ -168,7 +168,7 @@ The N–S exit chain `918_915→…→918_919` already exists — we only paint 
 south exit. Gate NPCs (guards) live in `918_919`.
 
 **2. The Curtain (wall the rest of the south edge).** The other south-row tiles (`x891–917`,
-`x919–927` at `y919`) get `flags.curtain` for description/render and stay exit-sealed (no new south
+`x920–928` at `y919`) get `flags.curtain` for description/render and stay exit-sealed (no new south
 exit). The move gate blocks any attempt to cross a `curtain` tile southward. Phase 1 only physically
 realizes the **south** band; the east/west Curtain is described-but-not-yet-walkable-through until
 those gates open (west → Ascendant, later).
@@ -293,9 +293,9 @@ answer — the same anchor measured 0.045 tiles of reach facing north and 0.145 
 harness asked for `noPull`.
 
 **1d. The east wall runs to the waterline.** `content/zones/zone_district_927_908.json` (the shoreline
-tile of the Coldwater Basin) carries `flags.curtain`, which makes 927,909 a full N–S span instead of a
+tile of the Coldwater Basin) carries `flags.curtain`, which makes 928,909 a full N–S span instead of a
 half-tile stub and puts the end anchor in the shallows. The perimeter was already sealed there — the
-land boundary is water from 927,908 east — so this is the picture catching up with the fact, and it is
+land boundary is water from 928,908 east — so this is the picture catching up with the fact, and it is
 what closes the visible notch at the eastern end. The west end (891,902) is the same shape and keeps
 its anchor on dry land; extending it into the Basin is a separate decision nobody has made.
 
@@ -308,7 +308,7 @@ fresh player wanders out fine; once the Quickening marks you, the same gate is a
 asymmetry ("leaving is free, coming back dirty is deadly") is the whole tension — and it's cheap: one
 outbound flavor path, one inbound refusal check, the turret tick already built.
 
-**3. Camp = the Thornwarren cluster ~`919–922 / 924–926`** (table above), anchored at the Commons
+**3. Camp = the Thornwarren cluster ~`920–923 / 924–926`** (table above), anchored at the Commons
 `920_925`. The **badlands fan spreads ~4–5 rows deep** (glacis `y920–922` → marsh/camp `y923–926`)
 before the reserved Phase-2 stub at `921_927` hands off to the Exodus road. Total Phase-1 footprint:
 ~4 retagged gate-road tiles + ~3 glacis + ~7 camp/badlands = **~14 new zones**, deliberately sparse.

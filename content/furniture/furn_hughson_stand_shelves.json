@@ -1,0 +1,27 @@
+{
+  "description": "Steel shelves of buns in plastic, catering tins of chilli, sleeves of paper boats and a box of waivers, the top sheet signed already.",
+  "flags": {
+    "aliases": [
+      "shelves",
+      "shelf",
+      "stock",
+      "buns",
+      "tins"
+    ],
+    "look": {
+      "arche": "store",
+      "form": "shelves"
+    },
+    "spot": {
+      "at": [
+        2.8,
+        6.75
+      ],
+      "turn": 0
+    }
+  },
+  "id": "furn_hughson_stand_shelves",
+  "name": "the stock shelves",
+  "object_type": "furniture",
+  "zone_id": "zone_hughson_stand"
+}

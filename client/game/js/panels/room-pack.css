@@ -155,3 +155,14 @@
 	:is(#room-stage, .rp-host) .rp-dollacts { padding: 4px; }
 	:is(#room-stage, .rp-host) .rp-tile { min-height: 44px; padding: 4px 6px; }
 }
+
+/* a wardrobe's saved outfits, above your things */
+:is(#room-stage, .rp-host) .rp-outfits { padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,0.12); max-height: 34%; overflow-y: auto; }
+:is(#room-stage, .rp-host) .rp-outfits[hidden] { display: none; }
+:is(#room-stage, .rp-host) .rp-otitle { display: block; font-size: 0.85em; opacity: 0.8; margin-bottom: 4px; }
+:is(#room-stage, .rp-host) .rp-outfit { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; align-items: center; padding: 4px 0; }
+:is(#room-stage, .rp-host) .rp-oname { font-weight: bold; }
+:is(#room-stage, .rp-host) .rp-opieces { grid-column: 1; font-size: 0.8em; opacity: 0.75; }
+:is(#room-stage, .rp-host) .rp-opieces i { font-style: normal; }
+:is(#room-stage, .rp-host) .rp-opieces i.buy { color: var(--accent, #e8b04a); }
+:is(#room-stage, .rp-host) .rp-outfit button { grid-column: 2; grid-row: 1 / span 2; }

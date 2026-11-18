@@ -1,0 +1,30 @@
+{
+  "ambient_events": [
+    "A groundskeeper picks ticket stubs out of a flowerbed one at a time.",
+    "Somebody eats a hot dog on a bench and watches the Coliseum wall.",
+    "A pigeon lands on the nearest lamp and looks at you."
+  ],
+  "ambient_theme": "urban",
+  "color": "#8fd08a",
+  "description": "The north-west corner of the Coliseum's grounds, a stand of plane trees with benches under them. Yarrow Lane is on the west side.",
+  "exits": {
+    "east": "zone_ballpark_891_913",
+    "north": "zone_ballpark_890_912",
+    "south": "zone_hughsonpark_890_914",
+    "west": "zone_ballpark_889_913"
+  },
+  "flags": {
+    "district": "halcyon_fields",
+    "park_feature": "grove",
+    "region_id": "region_coldwater",
+    "street_life": true,
+    "terrain": "park"
+  },
+  "grid_x": 890,
+  "grid_y": 913,
+  "grid_z": 0,
+  "id": "zone_hughsonpark_890_913",
+  "map_id": "map_world",
+  "name": "West Gardens",
+  "parent_zone": null
+}

@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_more_labourer_01",
+  "lines": [
+    "\"My hands are wrecked.\"",
+    "\"Get gloves.\"",
+    "\"They give us gloves. They're the wrong size.\"",
+    "\"Whose size?\"",
+    "\"Nobody's. I think they're for a robot.\""
+  ],
+  "personality": "labourer",
+  "sort_order": 644
+}

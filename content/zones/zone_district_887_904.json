@@ -2,11 +2,12 @@
   "ambient_events": [],
   "ambient_theme": "urban",
   "color": "#8ba36a",
-  "description": "The rest of Windrow Corner, on Sorrel Way where Kimble's stood: a gravel path, two benches and a bed of low shrubs. 27 Hughson Way's blank side wall closes it on the west.",
+  "description": "The rest of Windrow Corner, on Sorrel Way where Kimble's stood: a gravel path, two benches and a bed of low shrubs. The East Gardens are on the west side.",
   "exits": {
     "east": "zone_district_899_920",
     "north": "zone_district_898_919",
-    "south": "zone_district_898_921"
+    "south": "zone_district_898_921",
+    "west": "zone_hughsonpark_897_920"
   },
   "flags": {
     "district": "halcyon_fields",

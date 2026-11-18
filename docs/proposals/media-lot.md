@@ -35,10 +35,10 @@ its door on the street, so a crew can drink without signing out.
 |---|---|---|---|---|
 | 912,910 | The Deadline (`bar`) | north, Marrow Street | authored: cream streamline moderne, a corner drum | 10 |
 | 913,910 | KSAB Writers' Wing (`studio`) | north, Marrow Street | authored: a two-storey glass pavilion | 8 |
-| 914,910 | Coldwater Sentinel (`office`) | north, Marrow Street | authored: grey deco stone, a gilt frieze | 11 |
+| 915,910 | Coldwater Sentinel (`office`) | north, Marrow Street | authored: grey deco stone, a gilt frieze | 11 |
 | 912,911 | KSAB-TV Studio Stage (`studio`) | west, Meltwater Row | the `ksabstudio` arm: a galvanised stage, black plant, the mast | 14 |
 | 913,911 | Just My Type (`store`) | south, Foundry Way | authored: a jobbing printer | 3 |
-| 914,911 | Wrap Party (`bar`) | south, Foundry Way | authored: a back-door pub | 3 |
+| 915,911 | Wrap Party (`bar`) | south, Foundry Way | authored: a back-door pub | 3 |
 
 The scores are out of 16 against the clone facility, from
 [the 2026-10-04 grade](../audits/findings-2026-10-small-buildings.md). Two fix passes since then
@@ -52,17 +52,17 @@ the street said they belonged to one place.
 |---|---|---|---|
 | 912,910 | `zone_medialot_912_910` | **Media Lot Backlot** (was the Deadline, set aside 2026-10-19) | open to the stage and the Writers' Wing, walled on both streets |
 | 913,910 | `zone_district_913_910` | **KSAB Writers' Wing** | south into the court (was north onto Marrow Street) |
-| 914,910 | `zone_district_914_910` | **Coldwater Sentinel** | south onto the car park (north onto Marrow Street until 2026-10-19) |
+| 915,910 | `zone_district_914_910` | **Coldwater Sentinel** | south onto the car park (north onto Marrow Street until 2026-10-19) |
 | 912,911 | `zone_district_912_911` | **KSAB-TV Studio Stage** | east into the court (was west onto Meltwater Row) |
 | 913,911 | `zone_medialot_913_911` | **The Media Lot**, the gate court: open concrete | the gate, south onto Foundry Way |
-| 914,911 | `zone_medialot_914_911` | **Media Lot Car Park**: open concrete | open to the court, walled on Foundry Way |
+| 915,911 | `zone_medialot_914_911` | **Media Lot Car Park**: open concrete | open to the court, walled on Foundry Way |
 
 - **The gate is on Foundry Way**, the only street the two freed tiles touch.
 - **Inside the wall,** the stage and the Writers' Wing open onto the court and the car park opens
   off it. Until 2026-10-19 the Deadline and the Sentinel kept their street doors; now every door
   on the block is inside the wall (below).
 - **Three street doors closed.** Meltwater Row (911,911) lost its way into the stage, Marrow Street
-  (913,909) its way into the Writers' Wing, and Foundry Way (914,912) Wrap Party's old door, which
+  (913,909) its way into the Writers' Wing, and Foundry Way (915,912) Wrap Party's old door, which
   is a blocked connection now (`conn_district_914_912_north_ygvl`). The other two needed no file,
   because a facade's other three sides are walls already.
 - **The walk got longer.** From Marrow Street the Writers' Wing is nine moves, round by Meltwater

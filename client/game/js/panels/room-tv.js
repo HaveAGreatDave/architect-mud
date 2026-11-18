@@ -231,7 +231,7 @@ export function createWallTv(host, { onChange }) {
       const slow = size >= 1 ? 1 : 1 + (SMALL_SLOW - 1) * Math.min(1, (1 - size) / (1 - SMALL_SIZE));
       if (now - paintAt < paintGap * slow) return false;
       // (gone full screen: the picture is the whole window, and nobody's looking at the wall)
-      if (document.fullscreenElement === gameday) return false;
+      if (document.fullscreenElement && gameday.contains(document.fullscreenElement)) return false;
       paintAt = now;
       const t0 = performance.now(), drawn = painter.paint();
       paintGap = Math.max(PAINT_MS, (performance.now() - t0) * PAINT_SHARE);

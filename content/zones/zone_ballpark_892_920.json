@@ -1,24 +1,30 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "city",
-  "description": "The south end of Hughson Way, coming out on Sorrel Way between Hughson Gardens and 27 Hughson Way.",
+  "ambient_events": [
+    "A groundskeeper picks ticket stubs out of a flowerbed one at a time.",
+    "Somebody eats a hot dog on a bench and watches the Coliseum wall.",
+    "A pigeon lands on the nearest lamp and looks at you."
+  ],
+  "ambient_theme": "urban",
+  "color": "#8fd08a",
+  "description": "The south end of the East Gardens, coming out on Sorrel Way beside Hughson Gardens.",
   "exits": {
+    "east": "zone_hughsonpark_897_920",
     "north": "zone_ballpark_892_919",
     "south": "zone_district_896_921",
     "west": "zone_ballpark_896_913"
   },
   "flags": {
     "district": "halcyon_fields",
+    "park_feature": "path",
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_roadside_junk",
     "street_life": true,
-    "terrain": "road"
+    "terrain": "park"
   },
   "grid_x": 896,
   "grid_y": 920,
   "grid_z": 0,
   "id": "zone_ballpark_892_920",
   "map_id": "map_world",
-  "name": "Hughson Way",
+  "name": "East Gardens",
   "parent_zone": null
 }

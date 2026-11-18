@@ -3,6 +3,7 @@
   "ambient_theme": "city",
   "description": "Yarrow Lane, a service street between tower lobbies, with the wind coming down it from the boulevard. Everything here is new and everything is locked.",
   "exits": {
+    "east": "zone_hughsonpark_890_913",
     "north": "zone_ballpark_889_912",
     "south": "zone_ballpark_889_914"
   },

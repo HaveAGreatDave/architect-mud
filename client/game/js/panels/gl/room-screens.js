@@ -105,3 +105,30 @@ function rr(g, x, y, w, h, r) {
 function pill(g, x, y, w, h, r, fill, stroke) {
   rr(g, x, y, w, h, r); g.fillStyle = fill; g.fill(); g.strokeStyle = stroke; g.lineWidth = 1.5; g.stroke();
 }
+
+// AN OVEN'S CLOCK (gl/room-mesh.js 'induction'): the game's hour on a black glass panel in slim seven-segment
+// digits, cool white with a soft glow, the colon lit. Drawn as segments, not a web font, so it's the same face
+// whether or not a font has loaded when the room is painted. A 4:1 canvas, as the panel is.
+const SEGS = { 0: 'abcdef', 1: 'bc', 2: 'abged', 3: 'abgcd', 4: 'fgbc', 5: 'afgcd', 6: 'afgedc', 7: 'abc', 8: 'abcdefg', 9: 'abcdfg' };
+export function paintOvenClock(doc) {
+  const c = doc.createElement('canvas'), Wc = 512, Hc = 128;
+  c.width = Wc; c.height = Hc;
+  const g = c.getContext('2d');
+  g.fillStyle = '#040507'; g.fillRect(0, 0, Wc, Hc);
+  const t = clockText(screenHour), dw = 62, dh = 92, th = 9, gap = 22, y0 = (Hc - dh) / 2;
+  const seg = (x, y, w, h) => { g.beginPath(); if (w > h) { g.moveTo(x, y + h / 2); g.lineTo(x + h / 2, y); g.lineTo(x + w - h / 2, y); g.lineTo(x + w, y + h / 2); g.lineTo(x + w - h / 2, y + h); g.lineTo(x + h / 2, y + h); } else { g.moveTo(x + w / 2, y); g.lineTo(x + w, y + w / 2); g.lineTo(x + w, y + h - w / 2); g.lineTo(x + w / 2, y + h); g.lineTo(x, y + h - w / 2); g.lineTo(x, y + w / 2); } g.closePath(); g.fill(); };
+  const digit = (x, d, on) => {
+    const s = SEGS[d] || '', m = th / 2 + 1, half = dh / 2;
+    const at = { a: [x + m, y0, dw - 2 * m, th], g: [x + m, y0 + half - th / 2, dw - 2 * m, th], d: [x + m, y0 + dh - th, dw - 2 * m, th],
+      f: [x, y0 + m, th, half - 2 * m + th / 2], b: [x + dw - th, y0 + m, th, half - 2 * m + th / 2], e: [x, y0 + half + m - th / 2, th, half - 2 * m + th / 2], c: [x + dw - th, y0 + half + m - th / 2, th, half - 2 * m + th / 2] };
+    for (const k of 'abcdefg') { g.fillStyle = on && s.includes(k) ? '#eaf6ff' : 'rgba(120,140,160,0.07)'; seg(...at[k]); }
+  };
+  const total = dw * 4 + gap * 3 + 26, x0 = (Wc - total) / 2;
+  g.shadowColor = 'rgba(150,210,255,0.85)'; g.shadowBlur = 14;
+  let x = x0;
+  [...t].forEach((ch) => {
+    if (ch === ':') { g.fillStyle = '#eaf6ff'; for (const y of [y0 + dh * 0.3, y0 + dh * 0.68]) { g.beginPath(); g.arc(x + 4, y, 5.5, 0, Math.PI * 2); g.fill(); } x += 26 + gap - 8; return; }
+    digit(x, ch, true); x += dw + gap;
+  });
+  return c;
+}

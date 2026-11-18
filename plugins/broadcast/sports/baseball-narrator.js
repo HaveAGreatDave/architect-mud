@@ -29,7 +29,7 @@ import { BASEBALL } from './baseball.js';
 import { gamedayPayloads, gameMvp } from './baseball-gameday.js';
 import { makeBooth, exciteFor as exciteOf } from './baseball-booth.js';
 import { rivalOf } from './hockey.js';
-import { landBy, afterLand } from '../../../client/game/js/panels/diamond/timing.js';
+import { landBy, afterLand, tripOf } from '../../../client/game/js/panels/diamond/timing.js';
 import { venueField } from '../../../client/game/js/panels/diamond/geo.js';
 
 export function narrateBaseball(c) {
@@ -318,6 +318,8 @@ export function narrateBaseball(c) {
     if (h.start.inning === 7 && h.start.half === 'bottom') { c.desk?.('booth_break', h.start, beatBug(h.start)); c.desk?.('break', h.start, beatBug(h.start)); }
     say(pick(`half.${h.start.half}`, 'half'), beatTok(h.start), beatBug(h.start), null, halfGameday(h.start));
     bank += 1.5 * share - 6;
+    // a new man on the mound for the half (sim v5): who he is, before anything else
+    if (h.start.mound) bank -= talk(talkers.mound(h.start, { ...halfGameday(h.start), pl: beatGameday(h.atbats.find((x) => x.type === 'atbat'))?.pl }), beatBug(h.start));
     bank -= talk(talkers.changeover(h.start, { ...halfGameday(h.start), pl: beatGameday(h.atbats.find((x) => x.type === 'atbat'))?.pl }, bank * 0.6), beatBug(h.start));
     let walkoffHalf = false;
     let oneAwaySaid = false;
@@ -330,11 +332,16 @@ export function narrateBaseball(c) {
         // A play on the bases while the batter is up (sim v2). A steal, an out on the
         // bases and anything that scores is always called; a throw over the runner beats
         // back is colour, called about half the time.
-        if (b.kind === 'throwover' && brng() < 0.5) continue;
+        // (never one with a trip to the mound before it: the park shows the trip on its payload)
+        if (b.kind === 'throwover' && brng() < 0.5 && !b.mound) continue;
         const scored = (b.runs || 0) > 0;
         const keys = b.kind === 'doublesteal' && b.out ? ['run.doublesteal.out', 'run.caughtstealing']
           : (scored ? [`run.${b.kind}.score`, `run.${b.kind}`] : [`run.${b.kind}`]);
-        say(pick(...keys), tok, sb, null, gd);
+        // a trip to the mound before it (sim v5): said first, with the payload, and the play is its call
+        const trip = b.mound || b.warm ? talkers.mound(b, gd) : [];
+        trip.forEach((l, i) => say(l.text, {}, beatBug(h.atbats[h.atbats.indexOf(b) - 1] || h.start), null, i === 0 ? { ...gd, lead: true } : null, i === 0 ? null : { opt: l.opt }));
+        if (trip.length) say(pick(...keys), tok, sb, null, null, { call: true });
+        else say(pick(...keys), tok, sb, null, gd);
         if (scored) say(scoreUpdate(b), tok, sb, null, null, runMeta(b));
         if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); walkoffHalf = true; }
         // a steal or a ball that got by that put a man in scoring position: the booth says where that leaves it
@@ -360,7 +367,11 @@ export function narrateBaseball(c) {
           say(pick('lastout.up'), { ...tok, fielding: top ? home.name : away.name, batting: top ? away.name : home.name, lead: Math.abs(s.h - s.a) }, beatBug(h.atbats[i - 1] || h.start));
         }
       }
-      const pre = talkers.before(b, gd, Math.max(0, landSecs(b) - 2));
+      // a trip to the mound first (sim v5): the park shows it before the pitches, so the booth says it
+      // first, and the man coming up gets what's left of the time
+      const trip = b.mound || b.warm ? talkers.mound(b, gd) : [];
+      const tripSecs = trip.reduce((a, l) => a + l.secs, 0);
+      const pre = [...trip, ...talkers.before(b, gd, Math.max(0, landSecs(b) - 2 - Math.max(tripSecs, tripOf(gd))))];
       const preBug = beatBug(h.atbats[h.atbats.indexOf(b) - 1] || h.start);
       pre.forEach((l, i) => say(l.text, {}, preBug, null, i === 0 ? { ...gd, lead: true } : null, i === 0 ? null : { opt: l.opt }));
       curExcite = exciteFor(b, home.name, 'call', gd?.basesBefore);

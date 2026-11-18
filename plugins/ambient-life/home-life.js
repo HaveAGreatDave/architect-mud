@@ -46,7 +46,10 @@ import { isBanterBusy } from '../../server/engine/npc-banter.js';
 import { startHomeTalk, isTalking, sulkingAt } from './home-talk.js';
 import { drinkUp, tipsyOf } from './tipsy.js';
 
-const TALK_CHANCE = 0.45;   // of a household with two or more in starting a talk instead of a solo scene
+// Two or more at home spend most of the evening with each other: a household like that starts a talk instead of a
+// solo scene most times, and after a talk they're back at it after a short break, not the long one a solo scene earns.
+const TALK_CHANCE = 0.8;
+const TALK_COOLDOWN_MS = [90_000, 4 * 60_000];
 
 const START_CHANCE = 0.35;                 // per eligible zone, per tick
 const COOLDOWN_MS = [8 * 60_000, 20 * 60_000];
@@ -635,8 +638,8 @@ function soloScene(phase, sulking) {
   return { beats: rand(TIDY), kind: 'tidy' };
 }
 
-function startCooldown(zoneId) {
-  zoneCooldown.set(zoneId, Date.now() + randInt(COOLDOWN_MS[0], COOLDOWN_MS[1]));
+function startCooldown(zoneId, ms = COOLDOWN_MS) {
+  zoneCooldown.set(zoneId, Date.now() + randInt(ms[0], ms[1]));
 }
 
 function play(zoneId, npc, beats) {
@@ -692,7 +695,7 @@ export function homeLifeTick() {
     if (folk.length >= 2 && !isBanterBusy(zoneId) && Math.random() < TALK_CHANCE) {
       activeHome.add(zoneId);
       startHomeTalk(zoneId, folk, {
-        done: () => { activeHome.delete(zoneId); startCooldown(zoneId); },
+        done: () => { activeHome.delete(zoneId); startCooldown(zoneId, TALK_COOLDOWN_MS); },
         bathroom: (who) => { if (!activeHome.has(zoneId)) tripToBathroom(zoneId, who); },
       }).then((ok) => { if (!ok && !isTalking(zoneId)) activeHome.delete(zoneId); })
         .catch(() => activeHome.delete(zoneId));

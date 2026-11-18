@@ -72,6 +72,11 @@ Engineering notes for the GLASS renderer (`client/game/js/panels/windshield.js` 
 - [Lit drums (2026-09-27)](#lit-drums-2026-09-27)
 - [Pilaster ranks (removed)](#pilaster-ranks-removed)
 - [Cloud deck on the depth buffer (`RENDER_TUNE.glClouds`)](#cloud-deck-on-the-depth-buffer-render_tuneglclouds)
+- [How the cloud volume is lit (`cloudVolPhase`, `cloudVolMs`)](#how-the-cloud-volume-is-lit-cloudvolphase-cloudvolms)
+- [Cloud shadows on the city (`RENDER_TUNE.glCloudShadow`)](#cloud-shadows-on-the-city-render_tuneglcloudshadow)
+- [Sun shafts (`RENDER_TUNE.glSunShafts`)](#sun-shafts-render_tuneglsunshafts)
+- [Cloud genera](#cloud-genera)
+- [The deck's own sunset (`vol.sunCol`)](#the-decks-own-sunset-volsuncol)
 - [Nothing in the cloud deck is cut (2026-10-02)](#nothing-in-the-cloud-deck-is-cut-2026-10-02)
 - [Flying things write depth (`RENDER_TUNE.glAirDepth`)](#flying-things-write-depth-render_tuneglairdepth)
 - [Baked billboards are for landmarks](#baked-billboards-are-for-landmarks)
@@ -507,6 +512,8 @@ GLASS 1 draws the world only when GLASS 2 can't: no WebGL2, a lost context past 
 
 GLASS 1 Basic draws a building as its biggest box, which isn't a usable picture of the city, and GLASS 2 on a phone pays nearly the whole desktop CPU bill. GLASS Lite is GLASS 2 with the buildings drawn from a bake: the same GL pass, atlas, shader and lights, without running a building's arm.
 
+- **Full uses the bake past a ring (`liteNear`, 2026-11-17).** On GLASS 2 Full, a building more than `liteNear` tiles (6) from the window's centre, by the larger of the x and y distance, is drawn from the bake; nearer, its arm runs. People, birds and the occluder stay Full's. The GL pass gets the same ring (`liteR`, `liteC`), and a tile's group key carries an `L` when it's baked, so a tile crossing the ring rebuilds. 0 runs arms everywhere. The window view out of a room is always Lite (room-view.js `TUNE.glassLite`).
+
 - **The bake.** `npm run lite:bake` ([scripts/lite/bake.mjs](../../scripts/lite/bake.mjs)) writes `client/game/assets/lite/`: the surface map in 32×32-tile chunks ([gl/lite-format.js](../../client/game/js/panels/gl/lite-format.js)), about 9 MB raw and 1.2 MB with brotli for the whole map, in about 6 s, with no database. For each building tile it stores:
   - its faces from `captureTileMesh`, the GL pass's own `tileMesh`, with the tile's build key (`meshParamsOf`);
   - its signs, lights and masts from `canvasResidue`, run from all four sides at noon and at midnight;
@@ -522,7 +529,7 @@ GLASS 1 Basic draws a building as its biggest box, which isn't a usable picture 
   - The occluder, the street people, the geese and the hounds are skipped.
 - **Every seat.** Lite lives in the world pass every seat shares, so the cab and its mirror, the cockpit, the boat, the helm and bridge, the podracer, the hangar bay and free look all take it. Checked in the Modelshop over the real map at 20:30: boat 214 of 214 buildings from the bake, helm 287 of 296, podracer 240 of 244, free look 287 of 296 (the misses were a stale cached chunk, drawn by their arms). The room outlook paints on a worker with no GL hook, so it never takes Lite.
 - **Who gets it.** Every device, since 2026-11-10: Settings → Renderer's Automatic is Lite everywhere, and GLASS 2 (`full`) runs the arms live (`setGlassMode`). On a desktop the street people, npc doors, geese and hounds are still drawn under Lite (`liteLife: 1`); `PHONE_TIER` sets `liteLife: 0` and leaves them out. Measured in the Modelshop the same day (`__glWhere`, best of three, Marrow and Halcyon, cab and air, noon and midnight): the frame is 8-19% cheaper and `world:arms` halves (cab 7.5-8.2 → 3.3-4.6 ms, air 9.8-16.2 → 5.3-7.5 ms). Before that day `__glWhere` passed no `mapCenter`, so the frame sat at 0,0, no chunk loaded, and a Lite run measured plain GLASS 2. A stored `'2'` reads as Automatic and `'1'` as Lite. On Automatic, `glass:struggling` first switches GLASS 2 to Lite and says so in the log, and offers the text views only if Lite struggles too. GLASS 1 Basic is still the last resort after a lost context.
-- **Measured** at Marrow Street (916,909, heading 90) in the Modelshop, warm, under the phone tier's settings on the reference machine, medians:
+- **Measured** at Marrow Street (917,909, heading 90) in the Modelshop, warm, under the phone tier's settings on the reference machine, medians:
 
   | Seat | GLASS 2 frame | Lite frame |
   |---|---|---|
@@ -593,7 +600,7 @@ They now cast from a second depth map, [gl/propshadow.js](../../client/game/js/p
 - **Skip anything below 0.02 of a tile** (`PROP_SHADOW_TUNE.flat`), solid or stroke. Crossing stripes are strokes a hair off the road and kerb tops are solids; both cast acne all over a crossing until this cut.
 - **Strength.** On the road, a hull's darkness (`sun.alpha`, 0.34 at most): an umbra measured 30–35% darker at noon. On a wall, `glShadow`'s. Thin casters cover part of a texel and come out fainter. The moon casts when `moonShadow` does, as the hulls do, so a moonlit night moves 0.4% of a cab frame.
 
-Measured 2026-10-20 on Marrow Street (916,909, heading 90, 15:30) with `__street`, the clock and `Math.random` pinned and three paints per sample:
+Measured 2026-10-20 on Marrow Street (917,909, heading 90, 15:30) with `__street`, the clock and `Math.random` pinned and three paints per sample:
 
 | Seat | Control (0 vs 0) | 0 vs 1 | Caster triangles |
 |---|---|---|---|
@@ -617,7 +624,7 @@ Since 2026-10-31 what stands under a street lamp is out of that lamp's pool on t
 
 The Modelshop can't show this unaided: a cell's `sl` (a lit street light) comes live from furniture in `plugins/flight/state.js`, and the baked snapshot `__street` reads has none, so no street lamp is ever drawn there. Patch them in with `cells`: every road tile without a building or mark gets `{ sl: 1 }`. People come from `view.actors` (`{ t, x, y }` in world tiles), and they fade in, so paint a few frames with the clock moving before a pinned measurement.
 
-Measured 2026-10-31 on Marrow Street (916,909, heading 90, 23:00) with lamps patched in and eight people on the pavements, TAA off, clock and RNG pinned, four paints a sample:
+Measured 2026-10-31 on Marrow Street (917,909, heading 90, 23:00) with lamps patched in and eight people on the pavements, TAA off, clock and RNG pinned, four paints a sample:
 
 | Seat | Control | 0 vs 1 | Pools themselves (`glPool` 0 vs 1) |
 |---|---|---|---|
@@ -1218,6 +1225,56 @@ On the GPU each card is a quad: 1,200–1,595 canvas calls saved and 0.5–1.0 m
 - The sort is kept: cards are translucent, so composite order changes colour; depth only decides what the deck is behind.
 - Every card gets the full treatment. In 2-D a card wider than 26 px gets a sun-raked gradient and value-noise mottle and smaller ones blit one of twelve top-lit sprites; the fragment shader solves the two-circle cone per pixel and reads the curdle tile, so there's no tier. Same argument as the mesh capturing at `ADORN_NEAR`.
 
+## How the cloud volume is lit (`cloudVolPhase`, `cloudVolMs`)
+
+Until 2026-11-16 the volume (`gl/cloudvol.js`) lit a sample by sliding between the shade and lit tints on four short sun steps, a powder term and a height ramp. Brightness didn't depend on where you looked, so a cloud in front of a low sun was the same grey as one beside it. Now:
+
+- **Phase.** Two Henyey-Greenstein lobes, forward `g` = `cloudVolPhase` (0.6) and back -0.3, divided by their side-on value. A cloud seen across the sun is as bright as before; into the sun its thin edges go white over a grey body, the silver lining. 0 puts the view-blind light back.
+- **Octaves.** `cloudVolMs` (3) sums Wrenninge's scattering octaves off the one light march, each with half the extinction and eccentricity of the last, so a thick body stays light inside. The cheap path uses 1.
+- **Light march.** Six steps of 0.3 to 3.5 tiles (9.4 in all), the far three reading their own coverage, so a tall top shadows its base. Once the view ray is under 15% transmittance only the near three run.
+- **Sun and sky apart.** The sky light is the shade tint at the base rising half way to the lit tint at the top; the sun then pulls toward the lit tint, so a sunset colours only the sunlit side. Over full strength it adds on top, clamped, because the march target is RGBA8.
+- **Integration is unchanged.** A step's weight is `T·(1 - e^-σdt)` times a colour that's already per unit albedo, which is the analytic integral over the step, so brightness doesn't move with `cloudVolSteps`. Hillaire's energy-conserving fix is for a raw scattering coefficient and doesn't apply.
+- **The cards don't follow.** `gl/clouds.js` solves the 2-D painter's gradient exactly, so a silver lining there means changing both painters. During the 0.8 s crossfade (`st.volMix`) a cloud near the sun brightens a little.
+
+`tools/sandbox/cloud-light.html` (serve the repo root) draws the volume with no game: the same deck into the sun, side-on and with the sun behind, at phase 0 / 1 octave and at the defaults, then a sunset with the sun held at the horizon against one under the deck, and the shafts off and on.
+
+## Cloud shadows on the city (`RENDER_TUNE.glCloudShadow`)
+
+Since 2026-11-16 a cloud between the sun and the city shades it. Before that the only link between the weather and the light on the ground was `sunFx.cloud`, which dims the whole sun by the weather word, so a fair-weather cumulus put no shadow anywhere.
+
+- **The bake** (`bakeShadow` in `gl/cloudvol.js`): after the march, a 128×128 R8 map over the coverage map's span (±56 tiles, 0.9 tiles a texel). Each texel marches eight steps from the cloud base up the sun to the top through the same `density()` the clouds are drawn with (`DENSITY_GLSL`, shared by both programs) and keeps `1 - e^(-1.3·depth)`. So a shadow is the shape of the cloud above it, not of its weather cell. About 130k texture reads; built on first use, so the ballpark never compiles it.
+- **The overcast sheet is left out** (`uSheet` 0 in the bake). An overcast day is already dimmed by `sunFx.cloud`; counting the sheet again made a grey day black.
+- **The read** (`gl/cloudshadow.js`): a point goes up the sun to the cloud base (`uCloudSlope`, the sun's ground offset per unit of height) and looks the map up there, fading over the map's outer eighth. The walls take it into `shK` as `max`, like the prop map, so a wall in a building's shadow under a cloud is no darker than either. The road darkens by at most a hull's darkness (`min(0.4, sun.alpha)`), and the building-shadow hulls (ground range 3, `uOver`) fade under it, because there's no hard shadow without direct sun.
+- **One frame late, kept in world tiles.** The deck is collected after the world pass, so the world reads last frame's bake. The bake stores its centre in absolute tiles (`vol.ox + coverOff`), and the read takes off `wc` (the window centre), which is the frame `vWorld + uWc` puddles already use. A map older than 0.5 s is ignored (`CLOUD_SHADOW_STALE_MS`), so nothing hangs over the city once the cards take the deck back.
+- **Units:** the wall reads it on unit 14 and the road on 11, the first free on each.
+- **Only while the volume draws.** With the card deck (auto under load, F9, phones) there's no bake and no shadow.
+
+## Sun shafts (`RENDER_TUNE.glSunShafts`)
+
+The haze in a view is sunlight the air scatters toward you, and air standing in a cloud's shadow has less to scatter. So the shafts are a darkening, never an added light: the lanes of shaded air are darker and the lit ones between them read as beams. The fog colour already is the lit air, so adding light would brighten every hazy day.
+
+- **On the city** (`airShadow` in `gl/cloudshadow.js`): eight samples of the shadow map along the view ray, below the cloud base, and the fog colour darkens by the mean, up to 0.6 at full strength looking toward the sun and about a third of that looking away. Only where there's fog to darken (`fog > 0.01`), so a clear close-up pays nothing.
+- **On the sky** (the march in `gl/cloudvol.js`): a ray going up crosses the air to the cloud base in 16 steps, and the shaded share becomes a black veil in front of the cloud, at most 0.6, faded in over the first few degrees above level so the beams don't end on a line at the horizon. The air's haze is `vol.air`: 0.015 per tile of clear air plus half the height fog.
+- **The bake runs before the march now**, so the sky reads this frame's map; the walls and the road still read last frame's.
+- The shafts follow the sun down until just after sunset, and need the volume, as the shadows do.
+
+## Cloud genera
+
+The volume draws ten kinds of cloud, after the WMO cloud atlas, and lights each one its own way. `tools/sandbox/cloud-light.html` has a row for each.
+
+- **Where a genus comes from.** The coverage map is RGBA: coverage, then three genus channels per weather cell (`cellGenus` in windshield.js). `cb` is cumulonimbus, `heap` runs from stratus (0) through stratocumulus (about 0.5) to cumulus (1), and `rain` is nimbus. A storm cell is a cumulonimbus. A rain cell is a cumulus congestus on a heaped day and a nimbostratus on a flat one. A dry cell takes the day's `CLOUD_CUMULUS` with its own wobble, so one sky mixes cumulus and stratocumulus. A cell that names no genus (the ballpark's) falls back to its storm flag and `vol.cum`. Clear air carries the day's heap, so a cloud's filtered edge keeps its genus.
+- **The upper decks are the day's, not the cell's.** `CLOUD_UPPER` gives each weather an amount of cirrus, cirrostratus, altocumulus and altostratus (`vol.upper`, the `uCirrus` to `uAltoSheet` uniforms), laid over the whole map. `cloudUpper` rolls each amount by up to 45% either way every two real hours, so two clear afternoons differ. They only show while the deck is drawn, which needs at least one weather cell.
+- **Shapes.** Cumulonimbus is one tower through all three decks, ignoring the gaps between them. It glaciates near the top and spreads into an anvil that reads the coverage six tiles upwind, so it overhangs the lee side, with mammatus pouches under the overhang. Stratus is a flat lid on the bottom of the low deck. Stratocumulus is cut into cells by the detail octave. Nimbostratus fills the low deck deep, with a ragged base. Altocumulus is small heaps on a finer grid. Cirrus is noise stretched along the high wind and squeezed across it, with a sine in it for the hooks.
+- **Light.** `density` returns the ice share of each sample: the high deck and the top of a cumulonimbus. Ice uses a single Henyey-Greenstein lobe at 1.35 times the water `g` (capped at 0.88). It has no powder and is whiter in the shade, so cirrus is faint side-on and bright round the sun. The cirrostratus veil carries the 22° halo, red on its inner edge, at 0.12 strength. The storm tint follows the cumulonimbus and nimbus channels only below the upper tower, so a cumulonimbus has a slate base under a sunlit top. A nimbostratus base loses up to 30% of its sky light.
+- **Lightning lights the cloud.** `vol.flashes` holds the four brightest live strikes from `st.bolts`: position, then brightness from a sharp return stroke and a flickering tail. The march adds `uFlashCol` around each one, falling off over about 4.5 tiles and through the cloud in between, strongest low in the cell.
+- **Cost.** One extra texture read for a cumulonimbus anvil, three per sample inside a cumulonimbus, and a four-strike loop per lit sample that skips strikes at 0. Not yet measured on the route bench.
+
+## The deck's own sunset (`vol.sunCol`)
+
+`sunFx.elev` is 0 from sunset on, so the deck went from being lit by a sun on the horizon to being lit by nothing. A cloud a mile up still sees the sun after the street has lost it, from below. The volume now takes the same arc carried below the horizon (`ce` in windshield.js, held at -0.15, about half an hour of game time each side of the day), with a sun colour of its own (`uSunCol`) that warms toward the horizon and reddens past it, and a strength that holds up while it does. The light march does the rest: from a base the march toward a sun under the deck leaves the cloud at once and is lit, while from the top it goes down through the cloud and is shaded, so the bases glow orange-red under dark tops. By day `uSunCol` is the lit tint and nothing changes. Dawn is the same in reverse. The 2-D card deck doesn't follow.
+
+`tools/sandbox/cloud-shadow.html` shows the deck from straight above beside the shadow the bake lays on the ground, with the sun overhead (same shapes) and low in the east (slid west by base × cot elevation), and compiles the wall and road programs.
+
 ## The day's cloud floor is drawn as clouds (`RENDER_TUNE.skyFloor`)
 
 The server's sky opens at a floor (`baseCloud`: 0.4 cloudy, 0.7 overcast, 0.72 rain, 0.8 storm) and the cells thicken it. Until 2026-11-09 the renderer drew only the cells, so an overcast day was a grey tint with two or three clouds in it. `skyFloor` 0 puts that back.
@@ -1287,7 +1344,7 @@ Gate: `npm run gl:bay` ([scripts/shapes/bay.mjs](../../scripts/shapes/bay.mjs), 
 
 ### The aircraft hangar is the same shed
 
-An airfield's hangar tile (`flags.aircraft_hangar`) derives as `mark: 'bay'` with `bk: 'air'`, and everything that sizes the shed asks `bayDims(cell)`: the drawer, the door sensor, the CFIT roof probe, `groundObstructionAt` and the occluder slabs. `HANGAR_BAY` holds every airframe but the Leviathan. A tile that also carries `flags.heavy_hangar` derives `bk: 'heavy'` and gets `HEAVY_BAY`, a shed 1.8 tiles square that holds her (1.51 across, 1.72 long, 1.17 to her fin). It overhangs its tile by about 0.4 on every side, so site it where that lands on apron or water, never a runway; Coldwater Regional's is at 929,904, at the end of the east taxiway. `isAirBay` is true for both. Only the floor, its paint and the fittings differ between the two kinds; the shell, the roof, the lights and both sinks are one code path. The door's picture is shared too; what drives it isn't.
+An airfield's hangar tile (`flags.aircraft_hangar`) derives as `mark: 'bay'` with `bk: 'air'`, and everything that sizes the shed asks `bayDims(cell)`: the drawer, the door sensor, the CFIT roof probe, `groundObstructionAt` and the occluder slabs. `HANGAR_BAY` holds every airframe but the Leviathan. A tile that also carries `flags.heavy_hangar` derives `bk: 'heavy'` and gets `HEAVY_BAY`, a shed 1.8 tiles square that holds her (1.51 across, 1.72 long, 1.17 to her fin). It overhangs its tile by about 0.4 on every side, so site it where that lands on apron or water, never a runway; Coldwater Regional's is at 930,904, at the end of the east taxiway. `isAirBay` is true for both. Only the floor, its paint and the fittings differ between the two kinds; the shell, the roof, the lights and both sinks are one code path. The door's picture is shared too; what drives it isn't.
 
 - The height isn't just for the fin. The maintenance view's 3/4 camera orbits inside the building, and a truck-height roof would put it on top of the roof.
 - The angle-driven cutaway is off (`BAY_CUTAWAY_ON`), but a service cutaway isn't: while a depot's bay is open on the glass (`.ds-bay.open`, read once a frame by `bayServiceUp`), `bayCutaway` returns 1 for the shed the eye or the vehicle is in. The canvas fades near faces as it always did at `cut` 1. GL has no fade, so `bayFace` drops the roof (`cut` faces) and every non-`keep` wall on a side the eye is outside of (`gone`, a bit per side, in the shell cache key). The occluder already skips a shed at `cut` > 0.5. It's a mode the player opens, not a function of the angle, which is what the old cutaway got wrong.
@@ -1779,7 +1836,7 @@ A separate fix in the same commit. The light list was handed over only when `opt
 
 ## The fog wash at night
 
-Reported on 2026-11-09 as "bad light washout at night" from the Reaper 2076 on the Coldwater Regional runway (925,905), in fog. The fog wash in `paintWindshield` laid its two noon greys over the finished world at every hour: `rgb(150,158,168)` at 0.34 over the whole frame and a gradient to `rgb(176,184,194)` at 0.5 at the bottom, against a night horizon of (14,16,30). It now scales both by `fogWashLight`, the frame's horizon dimmed by `moonNightDim` over the noon horizon, which is exactly 1 at noon. Measured at 925,907 at 22:00 with the fog density pinned, the world above the dash averages 64 of 255 against 68 for a clear night.
+Reported on 2026-11-09 as "bad light washout at night" from the Reaper 2076 on the Coldwater Regional runway (926,905), in fog. The fog wash in `paintWindshield` laid its two noon greys over the finished world at every hour: `rgb(150,158,168)` at 0.34 over the whole frame and a gradient to `rgb(176,184,194)` at 0.5 at the bottom, against a night horizon of (14,16,30). It now scales both by `fogWashLight`, the frame's horizon dimmed by `moonNightDim` over the noon horizon, which is exactly 1 at noon. Measured at 926,907 at 22:00 with the fog density pinned, the world above the dash averages 64 of 255 against 68 for a clear night.
 
 - Trap: any screen-space wash over the world needs a night term. A fixed colour is a noon colour, and the frame can't tell you, because it only looks wrong after dark. Snow on the road was the same fault (see the snow section).
 - What's left after the fix is the lamp scatter (`glScatter`), which is meant to be there: it lifts the apron beside the runway from 54 to 87, and a quarter of it is over 110.
@@ -1798,7 +1855,7 @@ Once walls dim, the lit-window guess in context.js decides what stays lit, and b
 - `vLitN`: the face's night colour is brighter than its day colour, so the arm lit it after dark. Only on faces that take their own colour; the atlas's are the material page's to answer.
 - A flat face that's strongly coloured counts as lit, on the peak channel rather than luma, because a sign's fill has one colour day and night and a blue sign is far under any luma threshold. This also holds a painted saturated board up after dark, which is the cost of having no emissive flag on a face.
 
-The numbers come from `__street` at 919,905, heading 180, with every `sl` patched to 1. Pin nothing and read the median of a rect, and pick rects on chrome panels: the lane and the belts are dark at noon too, so they can't show a night. The kit is the city street: only 3 tiles have a road with no `sc` near buildings, and they're out on the highway.
+The numbers come from `__street` at 920,905, heading 180, with every `sl` patched to 1. Pin nothing and read the median of a rect, and pick rects on chrome panels: the lane and the belts are dark at noon too, so they can't show a night. The kit is the city street: only 3 tiles have a road with no `sc` near buildings, and they're out on the highway.
 
 ## Measuring the pools
 

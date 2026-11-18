@@ -1,9 +1,9 @@
 {
-  "a": "zone_solenne_hall_40",
-  "b": "zone_solenne_elevator",
+  "a": "zone_solenne_hall_45",
+  "b": "zone_solenne_hall_40",
   "blocked": false,
-  "dir": "in",
+  "dir": "up",
   "id": "conn_solenne_skydeck_in_onzy",
   "lockable": false,
-  "one_way": true
+  "one_way": false
 }

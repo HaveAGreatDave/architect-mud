@@ -1,7 +1,7 @@
 {
   "ambient_theme": "indoors",
   "bg_color": "#5a5450",
-  "description": "A narrow landing off the stairwell, six numbered doors crowded around it, the stencilled numbers worn to grey ghosts. The carpet gave up years ago and the smell never will. A bare bulb buzzes overhead, throwing more shadow than light.",
+  "description": "A narrow landing off the stairwell, tighter than the ones below where the building steps in, six numbered doors crowded round it, the stencilled numbers worn to grey ghosts. The carpet gave up years ago and the smell never will. A bare bulb buzzes overhead, throwing more shadow than light. This is the top floor. The stairs end at a roof door with a padlock on it.",
   "exits": {
     "down": "zone_yards_tenement_f8",
     "east": "zone_yards_tenement_u9_2",
@@ -9,7 +9,6 @@
     "northeast": "zone_yards_tenement_u9_5",
     "northwest": "zone_yards_tenement_u9_6",
     "south": "zone_yards_tenement_u9_3",
-    "up": "zone_yards_tenement_f10",
     "west": "zone_yards_tenement_u9_4"
   },
   "flags": {

@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "id": "bt_more_police_01",
+  "lines": [
+    "\"Paperwork?\"",
+    "\"Mountains.\"",
+    "\"For what?\"",
+    "\"A man stole a hat. Eleven pages.\"",
+    "\"Was it a good hat?\"",
+    "\"It was his own hat. That's why it's eleven pages.\""
+  ],
+  "personality": "police",
+  "sort_order": 641
+}

@@ -516,6 +516,12 @@ export function seaSubmersion(u, v, z, t, roll = 0, amp = SEA_AMP, wind = 0, sp 
 }
 
 export const SEA_RISE_S = 150, SEA_FALL_S = 420;
+// The WIND SEA's own clock, and it is much faster. Short waves take their energy straight off the
+// wind and saturate in minutes, so a squall whips the water into steep chop and whitecaps long
+// before the long swell has grown; when it passes, the chop lies down first and the swell keeps
+// running. One clock for both made a gust front arrive as a slow, even swell. Still a reservoir,
+// so a gust roughens the water and a single frame's sample doesn't.
+export const SEA_CHOP_RISE_S = 40, SEA_CHOP_FALL_S = 120;
 
 // ── THE CLOCK, AND WHY IT WRAPS ───────────────────────────────────────────────────────────────
 //
@@ -913,8 +919,8 @@ export const SEA_FOAM_A = 0.62;          // fraction of the ramp above which foa
 // time the sky changes, and the whole point of the closed form is that one thirty-minute step and a
 // hundred thousand sixteen-millisecond steps land on the same number — which is what would let a
 // server seed this the way ground-accum.js seeds the snow.
-export function stepSea(state, target, dt) {
-  const tau = target > state ? SEA_RISE_S : SEA_FALL_S;
+export function stepSea(state, target, dt, rise = SEA_RISE_S, fall = SEA_FALL_S) {
+  const tau = target > state ? rise : fall;
   const k = 1 - Math.exp(-dt / tau);
   return state + (target - state) * k;
 }

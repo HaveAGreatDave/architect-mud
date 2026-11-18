@@ -411,6 +411,36 @@ export function directionOf(text) {
   return { act, shot };
 }
 
+// A narrator line that is only the camera ("The camera slowly pulls back from Apartment 14B."): it's direction
+// for the picture, not something the audience reads or hears. True when the line is about the camera from its
+// first words, so "Dez looks into the camera" stays an act.
+const CAMERA_LINE = /^[\s([]*(?:\*\s*)?(?:the\s+)?(?:camera|cam\b|we (?:cut|fade|pan|push|pull|zoom))|^[\s([]*(?:cut to|fade (?:in|out|to)|slow (?:fade|zoom)|zoom (?:in|out))\b/i;
+export function isCameraLine(text) { return CAMERA_LINE.test(String(text || '')); }
+
+// That line as a shot: { frame, move, cut, on } where `on` is a capitalised name the words point at, `cut` 'dip'
+// a fade through black. Camera language, roughly as an editor would read the sentence.
+export function cameraOf(text) {
+  const t = String(text || '').replace(/^[\s([*]+|[\s)\]*.]+$/g, ''), l = t.toLowerCase();
+  const on = /\b(?:on|to|toward|towards|into|follows|at|past)\s+(?:the\s+)?([A-Z][\w'-]+)/.exec(t.replace(/^the camera\s+/i, ''))?.[1] || '';
+  const shot = (frame, move, cut = 'cut') => ({ frame, move, cut, on });
+  if (/\bfades? (?:out|to black|away)\b/.test(l)) return { ...shot('wide', 'pull', 'dip'), out: true };
+  if (/\bfades? (?:in|back|up)\b|\bfade in\b/.test(l)) return shot('wide', 'drift', 'dip');
+  if (/\b(?:hits the floor|drops?|falls?)\b/.test(l)) return shot('wide', 'drop');
+  if (/\b(?:picked up|levell?ed|righted)\b/.test(l)) return shot('medium', 'crane');
+  if (/\b(?:dramatically zooms?|snaps?|crash zoom)\b/.test(l)) return shot('tight', 'snap');
+  if (/\bswings? wildly\b|\bshak\w*|\bjerks?\b|\bjolts?\b/.test(l)) return shot('medium', 'handheld');
+  if (/\b(?:whips?|swings?)\b/.test(l)) return shot('medium', 'whip');
+  if (/\b(?:zooms?|push\w* in|moves? in|clos\w* in|creeps? in)\b/.test(l)) return shot('close', 'push');
+  if (/\b(?:pulls? (?:back|away|out)|reveal|widens?|drifts? wide)\b/.test(l)) return shot('wide', 'pull');
+  if (/\b(?:circles?|orbits?|wheels? round)\b/.test(l)) return shot('medium', 'orbit');
+  if (/\b(?:sweeps?|pans?)\b/.test(l)) return shot('wide', 'pan');
+  if (/\b(?:follows?|tracks?|trundles?|glides?|dollies|moves? through|travels?)\b/.test(l)) return shot('medium', 'truck');
+  if (/\b(?:cranes?|rises?|tilts? up|from above|overhead)\b/.test(l)) return shot('wide', 'crane');
+  if (/\bcut to\b/.test(l)) return shot('medium', 'none');
+  if (/\bholds?\b|\blingers?\b|\bstays?\b/.test(l)) return shot(/\bfeet away\b|\bfrom\b/.test(l) ? 'wide' : 'medium', 'none');
+  return shot('medium', 'drift');
+}
+
 // A compiled .bsm (compileBsm) as a sequence: each spoken line a beat, on the last CAM line's shot.
 // Speakers become roles in the order they appear, so a script drops onto any set with marks.
 export function sequenceFromBsm(compiled, { id = 'seq_new', set = '' } = {}) {

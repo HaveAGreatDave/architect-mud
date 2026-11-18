@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_more_chatty_03",
+  "lines": [
+    "\"Do you think the Architect gossips?\"",
+    "\"With who?\"",
+    "\"Other Architects.\"",
+    "\"There aren't any others.\"",
+    "\"That we know of. Imagine the gossip if there were.\""
+  ],
+  "personality": "chatty",
+  "sort_order": 676
+}

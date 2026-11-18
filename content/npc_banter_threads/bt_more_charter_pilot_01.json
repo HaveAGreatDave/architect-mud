@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_charter_pilot_01",
+  "lines": [
+    "\"Flying tomorrow?\"",
+    "\"If the weather holds.\"",
+    "\"Will it?\"",
+    "\"Never has before.\""
+  ],
+  "personality": "charter_pilot",
+  "sort_order": 691
+}

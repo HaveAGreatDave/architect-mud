@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_clerk_01",
+  "lines": [
+    "\"How's the desk?\"",
+    "\"Same desk. Different pile.\"",
+    "\"Is the pile smaller?\"",
+    "\"The pile is never smaller.\""
+  ],
+  "personality": "clerk",
+  "sort_order": 650
+}

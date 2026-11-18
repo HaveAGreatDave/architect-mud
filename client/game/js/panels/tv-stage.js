@@ -104,7 +104,7 @@ export function createTvStage(parent, { phone = false, feed = null, inset = null
       host.style.display = '';
       dropCard();
       key = `${msg.broadcast || ''}|${msg.programName || ''}`;
-      p.liveStart({ set: msg.set, people: msg.people || [], data: { ...facts, show: msg.programName || '' } });
+      p.liveStart({ set: msg.set, people: msg.people || [], supers: !!msg.news, data: { ...facts, show: msg.programName || '' } });
     },
     // a line as the TV shows it: somebody saying something, or the announcer
     line(text, style) {
@@ -123,8 +123,14 @@ export function createTvStage(parent, { phone = false, feed = null, inset = null
       if (cardEl) { if (cardRead) dropCard(); else cardRead = true; }
       player.liveLine('', t); caption?.('', t);
     },
+    // a narrator line that's only the camera ("The camera pulls back."): tv.js shows and reads none of it, and
+    // the picture does what it says
+    camera(text) { if (key && player) player.liveCamera(plain(text)); },
     // a title card as it airs (the TV's `svg` and `ascii_art` messages): it takes the picture
     card(text, style) { if (key && player && host && text) showCard(text, style); },
+    // a graphic holding the right of the screen (a weather card): the picture slides left so whoever is
+    // presenting stands beside it, not behind it
+    split(on) { host?.classList.toggle('tv-stage-split', !!on); },
     // a CAM line from the script (the server's `direction` overlay): the next shot is that camera's
     direction(label) { if (key) player?.liveDirection(label); },
     // the show moving somebody: the talk show's host to the star for the monologue, and back (the `blocking` overlay)

@@ -978,9 +978,9 @@ function firstClothing(actor) {
   }, 2600);
   setTimeout(async () => {
     let grace = 4000;
-    // Named by the engine, never here — the vat's torso garment is seasonal, so a
-    // list typed into this file is a promise the gantry stops keeping in October.
-    let outfit = 'underwear, pants, a shirt, a pair of shoes';
+    // Named by the engine, never here: the vat suit follows the weather, so a list
+    // typed into this file is a promise the gantry stops keeping in October.
+    let outfit = 'underwear, a vat suit, a pair of shoes';
     try {
       const { equipStarterOutfit, VAT_DRESS_GRACE_MS, starterOutfitPhrase } = await import('../../server/engine/gameLoop.js');
       grace = VAT_DRESS_GRACE_MS ?? grace;

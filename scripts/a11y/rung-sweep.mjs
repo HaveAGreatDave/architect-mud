@@ -61,6 +61,10 @@ heads.forEach((m, i) => {
   if (/\bopen[A-Z]\w*\(/.test(body)) panelTypes.add(m[1]);
 });
 
+// `error` opens a list dialog only for commerce's door_refused card, and its message is still written to the log,
+// so every server file that sends an error is not a panel sender.
+panelTypes.delete('error');
+
 let failed = 0;
 const fail = (msg) => { console.error(`  ✗ ${msg}`); failed++; };
 

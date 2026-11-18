@@ -9,7 +9,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#221d18",
   "color": "#c9a86a",
-  "description": "The signal box's old operating floor, windowed on three sides, the lever frame long gone for scrap. Bunks stand three high where the levers were, bolted to the floor plates, the mattresses paper-thin and numbered in marker. A stove pipe runs up the middle to the floors above. A board on the stair says NO FIGHTING. NO DYING. WARDEN'S ORDERS.",
+  "description": "The signal box's old operating floor, windowed on three sides, the lever frame long gone for scrap. Cots stand in rows where the levers were, numbered in marker, with the floor between them lost under cans, wrappers and other people's socks. A stove pipe runs up the middle to the floors above. A board on the stair says NO FIGHTING. NO DYING. WARDEN'S ORDERS.",
   "exits": {
     "down": "zone_trackmarks_shop",
     "up": "zone_hostel_dorm_2"
@@ -24,6 +24,128 @@
     "is_dwelling": true,
     "is_interior": true,
     "region_id": "region_coldwater",
+    "room": {
+      "balcony": false,
+      "d": 9,
+      "decor": {
+        "damp": [
+          {
+            "at": [
+              -2.5,
+              7.5
+            ],
+            "r": 0.6
+          }
+        ],
+        "mags": [
+          {
+            "at": [
+              -3.3,
+              6.2
+            ],
+            "n": 6,
+            "seed": 3
+          },
+          {
+            "at": [
+              2.2,
+              2.4
+            ],
+            "n": 4,
+            "seed": 4
+          }
+        ],
+        "pipes": [
+          {
+            "from": [
+              0.6,
+              6,
+              0
+            ],
+            "hex": "#2a2420",
+            "r": 0.09,
+            "to": [
+              0.6,
+              6,
+              2.8
+            ]
+          }
+        ],
+        "rubbish": [
+          {
+            "at": [
+              0.3,
+              5.6
+            ],
+            "n": 26,
+            "r": [
+              2.6,
+              0.5
+            ],
+            "seed": 6
+          },
+          {
+            "at": [
+              -2.4,
+              2.2
+            ],
+            "n": 12,
+            "r": [
+              1.2,
+              0.8
+            ],
+            "seed": 7
+          }
+        ],
+        "rug": false,
+        "strips": [
+          {
+            "at": [
+              -1,
+              2.5
+            ],
+            "cage": true
+          },
+          {
+            "at": [
+              1.5,
+              6.4
+            ],
+            "cage": true
+          }
+        ]
+      },
+      "doors": {
+        "down": [
+          -4,
+          4.7
+        ]
+      },
+      "face": 180,
+      "glass": [
+        "front",
+        "left",
+        "right"
+      ],
+      "ground": "boards",
+      "h": 2.8,
+      "stair": {
+        "at": [
+          4.3,
+          0.8
+        ],
+        "climb": "back",
+        "w": 0.9
+      },
+      "studio": false,
+      "tone": {
+        "accent": "#6a5a3a",
+        "ceiling": "#b8ac8a",
+        "trim": "#3a3026",
+        "wall": "#a89a78"
+      },
+      "w": 10
+    },
     "sanctuary": true,
     "world_exit_zone": "zone_district_917_903"
   },

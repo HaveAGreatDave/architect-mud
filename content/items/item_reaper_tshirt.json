@@ -13,7 +13,11 @@
     "gets_wet": true,
     "insulation": 1,
     "layer": "outerwear",
-    "slot": "torso"
+    "slot": "torso",
+    "wear_look": {
+      "col": "#151517",
+      "print": "reaper"
+    }
   },
   "type": "clothing",
   "value": 60,

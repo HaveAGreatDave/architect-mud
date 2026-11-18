@@ -1,0 +1,11 @@
+{
+  "enabled": true,
+  "id": "bt_more_vendor_06",
+  "lines": [
+    "\"I had a customer say \"thank you\" today.\"",
+    "\"And?\"",
+    "\"That's it. I've been thinking about it all afternoon.\""
+  ],
+  "personality": "vendor",
+  "sort_order": 635
+}

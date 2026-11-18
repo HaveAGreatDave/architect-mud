@@ -683,5 +683,50 @@ export function filmPieces() {
         glow(K, fr, -1.1, 1.1, top + 0.02, top + 2.9, -1.379, '#ffb860', 0.9);
       },
     },
+    // ── a bar's jukebox, and a shopping channel's bank of phones. Both face the cameras at yaw 0 ──
+    jukebox: {
+      label: 'Jukebox (lit, stepped crown)',
+      fields: [F('yaw', 'Facing (°)'), F('colour', 'Cabinet', 'text'), F('lit', 'Light colour', 'text')],
+      make: { at: [0, 0], yaw: 0 },
+      draw(K, p) {
+        const fr = frameOf(K, p), wood = p.colour || '#5a2418', lit = p.lit || '#ff9a3c', w = 0.92, dp = 0.62;
+        fr.pbox(-w / 2, w / 2, 0, 0.08, -dp / 2, dp / 2, '#141210', 1, null, SATIN);
+        fr.pbox(-w / 2, w / 2, 0.08, 1.12, -dp / 2, dp / 2, wood, 1, null, GLOSS);
+        // the crown in three steps, each narrower, with a lit band under each lip
+        for (let i = 0; i < 3; i++) {
+          const k = w / 2 - i * 0.1, y0 = 1.12 + i * 0.14;
+          fr.pbox(-k, k, y0, y0 + 0.14, -dp / 2 + i * 0.04, dp / 2, i % 2 ? shade(wood, 1.15) : wood, 1, null, GLOSS);
+          glow(K, fr, -k + 0.03, k - 0.03, y0 + 0.02, y0 + 0.05, -dp / 2 + i * 0.04 - 0.002, i === 1 ? '#ffe070' : lit, 2.1);
+        }
+        // the window on the record rack, the grille, and lit tubes up both sides
+        glow(K, fr, -0.3, 0.3, 0.74, 1.06, -dp / 2 - 0.002, '#ffd8a0', 1.3);
+        for (let i = 0; i < 5; i++) fr.pbox(-0.24 + i * 0.12, -0.2 + i * 0.12, 0.8, 1.0, -dp / 2 - 0.01, -dp / 2, '#1a1410', 1, null, SATIN);
+        fr.pbox(-0.32, 0.32, 0.2, 0.62, -dp / 2 - 0.004, -dp / 2, '#2a2420', 1, null, CLOTH);
+        for (const sx of [-1, 1]) ftube(K, fr, [sx * (w / 2 - 0.06), 0.12, -dp / 2 - 0.02], [sx * (w / 2 - 0.06), 1.1, -dp / 2 - 0.02], 0.035, lit, 2.4, 8, EMISSIVE);
+        // the selector buttons
+        for (let i = 0; i < 8; i++) fr.pbox(-0.3 + i * 0.077, -0.25 + i * 0.077, 0.66, 0.71, -dp / 2 - 0.02, -dp / 2, i % 3 ? '#e8e0d0' : '#c83020', 1, null, GLOSS);
+      },
+    },
+    phone_bank: {
+      label: 'Phone bank (operators\' desk, a lamp on each phone)',
+      fields: [F('w', 'Width'), F('n', 'Phones'), F('yaw', 'Facing (°)'), F('seed', 'Which lamps are lit'), F('colour', 'Desk', 'text')],
+      make: { at: [0, 0], yaw: 0, w: 3, n: 6, seed: 1 },
+      draw(K, p, set) {
+        const w = num(p.w, 3), n = Math.max(1, Math.round(num(p.n, 6))), fr = frameOf(K, p), dp = 0.7, h = 0.74;
+        const desk = p.colour || set.palette?.desk || '#d8d8e0', roll = rollOf(num(p.seed, 1) * 13 + n);
+        fr.pbox(-w / 2, w / 2, h - 0.04, h, -dp / 2, dp / 2, desk, 1, null, SATIN);
+        fr.pbox(-w / 2, w / 2, 0, h - 0.04, -dp / 2, -dp / 2 + 0.06, shade(desk, 0.85), 1, null, SATIN);
+        // a low divider between the phones, a phone in each bay and its lamp: lit means a caller's waiting
+        fr.pbox(-w / 2, w / 2, h, h + 0.14, -dp / 2, -dp / 2 + 0.05, shade(desk, 0.7), 1, null, CLOTH);
+        for (let i = 0; i < n; i++) {
+          const cx = -w / 2 + (i + 0.5) * w / n;
+          if (i) fr.pbox(cx - w / n / 2 - 0.01, cx - w / n / 2 + 0.01, h, h + 0.14, -dp / 2, 0.1, shade(desk, 0.7), 1, null, CLOTH);
+          fr.pbox(cx - 0.11, cx + 0.11, h, h + 0.06, 0, 0.2, '#1c1c20', 1, null, GLOSS);
+          fr.pbox(cx - 0.12, cx + 0.12, h + 0.06, h + 0.1, 0.07, 0.15, '#26262a', 1, null, GLOSS);
+          const on = roll() < 0.6;
+          fr.pbox(cx - 0.03, cx + 0.03, h + 0.14, h + 0.2, -dp / 2 + 0.005, -dp / 2 + 0.045, on ? '#ff3040' : '#401014', on ? 2.6 : 1, null, on ? EMISSIVE : GLOSS);
+        }
+      },
+    },
   };
 }

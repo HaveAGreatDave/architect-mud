@@ -40,7 +40,7 @@ import { createDepthSSAO, ssaoConstants } from './ssao.js';
 import { createBroadcastPass } from './broadcast.js';
 import { makeVertexStream } from './stream.js';
 import { declareProgram, prewarmPrograms, prewarmDone, takeWarm } from './programs.js';
-import { createPlayerSet, buildBody, POSES, mirrorPose, lookOf, faceFor, kitCell, SKIN_STRIDE, PLAYER_LODS, rigBuildOf, hex as hexLin } from './ballplayer-mesh.js';
+import { createPlayerSet, buildBody, POSES, mirrorPose, lookOf, faceFor, kitCell, SKIN_STRIDE, PLAYER_LODS, rigBuildOf, hex as hexLin, batOf, batProfile } from './ballplayer-mesh.js';
 import { gen1Of, GEN1_ORDERS } from '../../../../shared/deadball-gen1.js';
 import { solvePose, boneFrames, bindFrames, skinRows, BONES, FRAME_FLOATS, scalePose } from '../diamond/rig.js';
 import { BALL_R } from '../diamond/flight.js';
@@ -77,6 +77,8 @@ import { createParkBirds } from './parkbirds.js';
 import { venueSet, streetLife, streetShot } from '../diamond/streets.js';
 import { PARK_TIERS, dealFans } from '../diamond/quality.js';
 import { boothLayout, buildBooth, paintBoothTexture } from './booth-mesh.js';
+import { timeMethods } from './core/timer.js';
+import { ACES_GLSL, OETF_GLSL } from './core/glsl/tone.js';
 
 const FACE = '"Arial Narrow", "Roboto Condensed", Arial, sans-serif';
 
@@ -924,8 +926,7 @@ precision highp float;
 in vec2 vUV; out vec4 o;
 uniform sampler2D uScene; uniform sampler2D uB0; uniform sampler2D uB1;
 uniform float uBloom; uniform float uExp;
-vec3 aces(vec3 x) { return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0); }
-vec3 oetf(vec3 c) { return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(0.0031308, c)); }
+${ACES_GLSL}${OETF_GLSL}
 void main() {
   vec3 c = texture(uScene, vUV).rgb + (texture(uB0, vUV).rgb + texture(uB1, vUV).rgb) * uBloom;
   o = vec4(oetf(aces(max(c, 0.0) * uExp)), 1.0);
@@ -1647,7 +1648,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
       const sol = solvePose(build ? { ...pose, build } : pose);
       joints.set(slot, sol.J);
       palette.write(slot, skinRows(boneFrames(sol, frames), bindOf(pose.scale || 1, build), skinBuf));
-      figs.pose(slot, sol, frames);
+      figs.pose(slot, sol, frames, pose.hands || null);
     }
     // where the cast stands each man, by slot, for `idle`
     const rests = new Map();
@@ -1888,12 +1889,32 @@ export function createBallparkRenderer(canvas, opts = {}) {
         for (const t of [[0, 1, 2], [0, 2, 3]]) for (const n of t) vtx(b, v[n].p, v[n].n, [0, 0], v[n].c, MAT.BALL);
       }
     }
-    function setBall(p, back = null) {
-      ballAt = p && p.every(Number.isFinite) ? p.slice() : null;
-      trailPush();
+    // Drawn a little over its real size only while it's small on the screen: BALL_DRAWN at BALL_PX[0]
+    // pixels across or fewer, its true size from BALL_PX[1] up (the grip shot, a close-up in the Pose
+    // Lab), where 1.4 times a ball stood out of a pitcher's fingers and through his glove. The renderer
+    // sets the size each frame from its shot (`ballSize`) and rebuilds the ball when it changes.
+    const BALL_PX = [8, 24];
+    let ballBack = null, ballR = BALL_DRAWN;
+    function ballSize(M, h) {
       if (!ballAt) return;
+      const far = Math.hypot(ballAt[0] - M.eye[0], ballAt[1] - M.eye[1], ballAt[2] - M.eye[2]);
+      const px = far > 1e-3 ? (2 * BALL_R) / (far * Math.tan(M.fov * Math.PI / 360)) * (h / 2) : Infinity;
+      const k = Math.min(1, Math.max(0, (px - BALL_PX[0]) / (BALL_PX[1] - BALL_PX[0])));
+      const r = BALL_DRAWN + (BALL_R - BALL_DRAWN) * k;
+      if (Math.abs(r - ballR) > BALL_R * 0.01) { ballR = r; buildBall(); }
+    }
+    function setBall(p, back = null, grip = null) {
+      ballAt = p && p.every(Number.isFinite) ? p.slice() : null;
+      ballBack = back && back.every(Number.isFinite) ? back.slice() : null;
+      figs.setBall(ballAt, grip);
+      trailPush();
+      buildBall();
+    }
+    function buildBall() {
+      if (!ballAt) return;
+      const back = ballBack, BALL_DRAWN = ballR;
       ballBatch.n = 0;
-      const d = back && back.every(Number.isFinite) ? [ballAt[0] - back[0], ballAt[1] - back[1], ballAt[2] - back[2]] : null, L = d ? Math.hypot(d[0], d[1], d[2]) : 0;
+      const d = back ? [ballAt[0] - back[0], ballAt[1] - back[1], ballAt[2] - back[2]] : null, L = d ? Math.hypot(d[0], d[1], d[2]) : 0;
       if (L > 1e-4) {
         // backspin: about the way across its flight, level with the ground
         const ax = [d[2], 0, -d[0]], al = Math.hypot(ax[0], ax[2]);
@@ -2072,22 +2093,35 @@ export function createBallparkRenderer(canvas, opts = {}) {
     // ── the loose bats ───────────────────────────────────────────────────────────
     // A bat let go of (diamond/loose-bat.js): flying end over end, then lying in the dirt. The
     // player's own bat's turned profile (gl/ballplayer-mesh.js bat), in the wood, rewritten into one
-    // stream each frame there's one.
-    const BAT_PR = [[0, 0.0], [0.005, 0.06], [0.03, 0.078], [0.06, 0.05], [0.12, 0.043], [0.9, 0.046], [1.5, 0.075], [2.0, 0.1], [2.45, 0.108], [2.74, 0.106], [2.78, 0.09], [2.8, 0.0]];
+    // stream each frame there's one. It's the bat he had in his hands (`id`, batOf): its wood, its
+    // barrel, and its tape and pine tar painted on the handle's span, a band at a time.
+    const BAT_PR = batProfile(null);
     const batBatch = createBatch(BAT_PR.length * 12 * 6 * 3), batDraw = { key: 'wood', ...upload(createBatch(1)) };
     function setBats(list) {
       batDraw.n = 0;
       if (!list?.length) return;
       batBatch.n = 0;
       const N = 12;
-      for (const { knob: k, dir: d } of list) {
+      for (const { knob: k, dir: d, id } of list) {
+        const B = batOf(id), PR = batProfile(B), tape = B.tape ? hexLin(B.tape) : null;
+        const R = (i) => PR[i][1] * (PR[i][0] > 1.3 ? 1 + (B.barrel - 1) * Math.min(1, (PR[i][0] - 1.3) / 0.7) : 1);
+        // a band's colour: the tape over the handle (the band from 0.12 to 0.9 ft), the wood darkened by
+        // his tar the rest of the way
+        const colOf = (i) => {
+          if (tape && i === 4) return tape;
+          const s = (PR[i][0] + PR[i + 1][0]) / 2, tar = B.tar ? B.tar * Math.max(0, 1 - Math.abs(s - 0.75) / 0.6) : 0;
+          return B.wood.map((c, q) => c * (1 - tar) + [0.22, 0.12, 0.06][q] * tar);
+        };
         const ref = Math.abs(d[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0];
         const xa = [d[1] * ref[2] - d[2] * ref[1], d[2] * ref[0] - d[0] * ref[2], d[0] * ref[1] - d[1] * ref[0]], xl = Math.hypot(xa[0], xa[1], xa[2]);
         const x = xa.map((v) => v / xl), z = [x[1] * d[2] - x[2] * d[1], x[2] * d[0] - x[0] * d[2], x[0] * d[1] - x[1] * d[0]];
-        const ring = (i, j) => { const [s, r] = BAT_PR[i], a = j / N * Math.PI * 2, c = Math.cos(a), sn = Math.sin(a), n = [0, 1, 2].map((q) => x[q] * sn + z[q] * c); return { p: [0, 1, 2].map((q) => k[q] + d[q] * s + n[q] * r), n }; };
-        for (let i = 0; i < BAT_PR.length - 1; i++) for (let j = 0; j < N; j++) {
-          const q = [ring(i, j), ring(i, j + 1), ring(i + 1, j + 1), ring(i + 1, j)], uv = [[i, j], [i, j + 1], [i + 1, j + 1], [i + 1, j]].map(([a, b]) => [BAT_PR[a][0] / 2.8, b / N]);
-          for (const t of [[0, 1, 2], [0, 2, 3]]) for (const m of t) vtx(batBatch, q[m].p, q[m].n, uv[m], [1, 1, 1], MAT.SATIN);
+        const ring = (i, j) => { const s = PR[i][0], r = R(i), a = j / N * Math.PI * 2, c = Math.cos(a), sn = Math.sin(a), n = [0, 1, 2].map((q) => x[q] * sn + z[q] * c); return { p: [0, 1, 2].map((q) => k[q] + d[q] * s + n[q] * r), n }; };
+        for (let i = 0; i < PR.length - 1; i++) {
+          const col = colOf(i), mat = MAT.SATIN;
+          for (let j = 0; j < N; j++) {
+            const q = [ring(i, j), ring(i, j + 1), ring(i + 1, j + 1), ring(i + 1, j)], uv = [[i, j], [i, j + 1], [i + 1, j + 1], [i + 1, j]].map(([a, b]) => [PR[a][0] / 2.8, b / N]);
+            for (const t of [[0, 1, 2], [0, 2, 3]]) for (const m of t) vtx(batBatch, q[m].p, q[m].n, uv[m], col, mat);
+          }
         }
       }
       batDraw.st.write(batBatch.data, batBatch.n * STRIDE);
@@ -2460,6 +2494,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
       // the street camera stands on this venue's own crossing
       if (shot === 'street' && streetCam) shot = { ...streetCam, shadow: [[streetCam.at[0], 0, streetCam.at[2] - 30], 140] };
       const M = shotMatrices(shot, w / h), q = api.quality;
+      ballSize(M, h);
       let tris = 0, draws = 0;
       // where the roof has got to, and the lights with it; under it, nothing falls on the camera
       roofNow = roofT.at(clock());
@@ -3035,7 +3070,8 @@ export function createBallparkRenderer(canvas, opts = {}) {
       // what casts the towers' shadows: the players, [{ slot, batches }], skinned from the palette
       casters: [],
       // setPose(slot, pose): a player into a pose from the rig's pose language, with at, yaw, scale;
-      // setBall(point or null): the ball, in the park's feet; setBats([{ knob, dir }]): the bats
+      // setBall(point or null, back, grip): the ball, in the park's feet, where it was a shutter ago, and the pitch type a
+      // hand holding it grips it for (figure-rig.js gripOf); setBats([{ knob, dir, id }]): the bats
       // let go of (diamond/loose-bat.js); setSpectacle(effects, t): the
       // payload's spectacle (diamond/spectacle.js) and the world's time to draw it at;
       // markDirt(marks): the game's marks into the infield (diamond/marks.js), resetDirt() a fresh one;
@@ -3079,6 +3115,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
       get city() { return city?.stats || null; },
       get players() { return bodies.size; },
     };
-    return api;
+    // a bench's GPU time per pass (gl/core/timer.js): the park's frame, and the TV's
+    return timeMethods(gl, api, [['render', 'park'], ['renderTv', 'parktv']]);
   }
 }

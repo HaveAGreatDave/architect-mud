@@ -814,7 +814,7 @@ export function createHands(root, host, { send, onAct = null }) {
       chomp = 0.001;
       setTimeout(() => {
         if (act?.eat !== true) return;
-        SND.bite(); eaten++; beat('eat', 'food');
+        SND.bite(); eaten++; beat('eat', kind === 'cocktail' ? 'food' : kind);
         const q = at(apply(FM, [cut - 1, 3, 0]));
         for (let k = 0; k < 8; k++) bits.push({ x: q[0], y: q[1], vx: (Math.random() - 0.5) * 120, vy: -40 - Math.random() * 60, r: (2 + Math.random() * 3) * S, col: kind === 'cocktail' ? '#f08a5c' : '#d9a868', life: 1.2, age: 0 });
         if (eaten >= N) { phase = 'done'; t = 0; send(`eat ${item.name}`); say(''); }

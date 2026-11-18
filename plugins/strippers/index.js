@@ -31,7 +31,7 @@ import { on } from '../../server/engine/events.js';
 import { dispatchAction } from '../../server/engine/actions.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
 import { pick } from '../../server/engine/util.js';
-import { peopleChanged } from '../roomstage/index.js';
+import { peopleChanged, tipped } from '../roomstage/index.js';
 
 // ── Tunables ──────────────────────────────────────────────────────────────────
 const NAKED_AT       = 500;              // heat at which every layer is off + graphic
@@ -42,6 +42,7 @@ const REDRESS_GRACE  = 2;                // ticks (~30s) with no new tip before 
 const DANCE_CHANCE   = 0.55;             // per dancer per tick, chance to emit a line
 const VIP_FLAG       = 'stripclub_vip_until'; // player Flag holding the pass expiry (ms)
 const MIS_ZONE_FLAG  = 'mis_ok';         // zone flag that VIP rooms carry (matches NPC gate)
+const PUNTER_TIP     = 0.15;             // per dancer per tick, chance a punter NPC in the room holds up a note
 
 // ── Runtime state (ephemeral — resets on restart; the VIP pass persists in a Flag) ──
 const heat       = new Map(); // npcId -> current shared heat
@@ -178,6 +179,9 @@ async function cmdTip(args, raw, player, broadcast) {
     }
   }
 
+  // In the Room Stage she comes down to the rail for it, turned to whoever gave it (plugins/roomstage tipped)
+  tipped(zoneId, npc, { id: player.id });
+
   // Tell the room someone's tipping (actor gets their own line back).
   broadcast?.(zoneId, { type: 'zone_event', message: `${player.handle} tips ${npc.name} ${amount}₵.` }, player.id);
 
@@ -206,6 +210,22 @@ function redressPlainNpc(npc, zoneId) {
   } else {
     sendToZone(zoneId, { type: 'zone_event', message: `${npc.name} pulls ${layers[newPeeled]} back on.` });
   }
+}
+
+// A punter NPC tipping: somebody in the room who doesn't work there holds up a note and she comes down to the rail
+// for it. It's for the look of the room (plugins/roomstage tipped), so it adds no heat; only players' money peels.
+const PUNTER_LINES = [
+  (p, d) => `${p} holds a note up over the rail, and ${d} comes down for it.`,
+  (p, d) => `${p} waves a bill at ${d}, who takes it with a wink.`,
+  (p, d) => `${d} crouches at the rail and plucks a note out of ${p}'s fingers.`,
+];
+function punterTip(zoneId, dancer) {
+  const punters = getZoneNpcs(zoneId).filter((n) => !n.flags?.stripper && !n.flags?.bouncer && !n._dead && !n._combatTargetId
+    && n.work_zone_id !== zoneId && n.posture !== 'lying' && !n._ai?.homeSleeping);
+  if (!punters.length) return;
+  const p = pick(punters);
+  tipped(zoneId, dancer, { id: p.id, npc: p });
+  sendToZone(zoneId, { type: 'zone_event', message: pick(PUNTER_LINES)(p.name, dancer.name) });
 }
 
 // ── Tick: dancers dance, heat cools, and any undressed NPC re-dresses ───────────
@@ -257,7 +277,7 @@ function stripperTick() {
         tieredZoneLine(zoneId,
           DANCE[Math.min(tier, 3)](npc.name),
           DANCE[tier](npc.name));
-      }
+      } else if (isVenueZone(zone) && Math.random() < PUNTER_TIP) punterTip(zoneId, npc);
     }
   }
 }

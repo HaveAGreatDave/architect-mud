@@ -1,0 +1,9 @@
+{
+  "a": "zone_trackmarks_shop",
+  "b": "zone_hostel_kitchen",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_trackmarks_shop_west_hk01",
+  "lockable": false,
+  "one_way": false
+}

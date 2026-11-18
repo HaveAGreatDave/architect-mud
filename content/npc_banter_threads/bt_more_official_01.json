@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "id": "bt_more_official_01",
+  "lines": [
+    "\"Council meeting?\"",
+    "\"Four hours.\"",
+    "\"Decide anything?\"",
+    "\"The colour of the new benches.\"",
+    "\"What colour?\"",
+    "\"We didn't decide. There's another meeting.\""
+  ],
+  "personality": "official",
+  "sort_order": 681
+}

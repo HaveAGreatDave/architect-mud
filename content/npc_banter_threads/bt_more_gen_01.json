@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_gen_01",
+  "lines": [
+    "\"Do you think the Architect sleeps?\"",
+    "\"It runs the trams at four in the morning. No.\"",
+    "\"Maybe it naps between trams.\"",
+    "\"Now I want a nap.\""
+  ],
+  "personality": null,
+  "sort_order": 600
+}

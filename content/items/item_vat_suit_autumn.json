@@ -1,0 +1,29 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_vat_suit_autumn",
+  "name": "lined vat suit",
+  "tags": {
+    "armor_soak": {
+      "edged": 1,
+      "kinetic": 1
+    },
+    "bulkiness": 2,
+    "covers": [
+      "legs"
+    ],
+    "description": "A lined one-piece in rust orange, heavier canvas than the spring issue. Patches on both knees, both elbows and over the shoulders, all in the same orange, so they nearly pass for a design. A batch tape on the right breast, a snap pocket on the left.",
+    "gets_wet": true,
+    "insulation": 5,
+    "layer": "outerwear",
+    "slot": "torso",
+    "wear_look": {
+      "col": "#cf5f1e",
+      "cut": "vatsuit_autumn",
+      "fabric": "canvas"
+    }
+  },
+  "type": "clothing",
+  "value": 45,
+  "weight": 1200
+}

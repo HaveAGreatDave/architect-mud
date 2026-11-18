@@ -46,7 +46,7 @@ export const BRANDS = {
 
 // Which firm built which seat, by the seat's trim prefix.
 export const SEAT_BRAND = {
-  viper: 'corvane', reaper: 'corvane', shrike: 'corvane',
+  viper: 'corvane', reaper: 'corvane', shrike: 'corvane', merlin: 'corvane',
   mule: 'harcourt', leviathan: 'harcourt',
   mayfly: 'lumen', dragonfly: 'lumen', grasshopper: 'lumen',
   locust: 'ostler', carcass: 'ostler',

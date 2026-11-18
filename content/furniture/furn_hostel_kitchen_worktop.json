@@ -1,0 +1,38 @@
+{
+  "description": "A length of laminate worktop on breeze blocks, burnt in rings where pans went down hot. A bread knife is chained to it, and the chain is longer than the knife.",
+  "flags": {
+    "aliases": [
+      "worktop",
+      "counter",
+      "knife",
+      "chain"
+    ],
+    "interactions": [
+      "lean"
+    ],
+    "look": {
+      "arche": "surface",
+      "dims": [
+        1.6,
+        0.62,
+        0.92
+      ],
+      "form": "counter",
+      "wear": 0.95
+    },
+    "spot": {
+      "along": 1,
+      "wall": "right"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_hostel_kitchen_worktop",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the worktop",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_hostel_kitchen"
+}

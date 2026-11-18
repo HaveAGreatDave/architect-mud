@@ -29,21 +29,24 @@ export function createRoomLift({ host, project, press }) {
   layer.appendChild(el);
   el.style.display = 'none';
   el.addEventListener('click', (e) => { const b = e.target.closest('.rl-fl'); if (b) press(Number(b.dataset.n)); });
-  let bs = [], quad = null, size = [PAGE_W, 400], at = 1, comic = null, shown = null, hidden = true, card = null;
+  let bs = [], brand = '', quad = null, size = [PAGE_W, 400], at = 1, comic = null, shown = null, hidden = true, card = null;
 
   // the floors lowest first, as the keys count them; on the card the top floor is the top row
   function paint() {
     comic = comicOn();
-    const n = bs.length, cols = n <= 5 ? 1 : n <= 10 ? 2 : 4, rows = [];
+    // a real lift's panel: one column, or two side by side, never a keypad grid
+    const n = bs.length, cols = n <= 6 ? 1 : 2, rows = [];
     for (let i = 0; i < n; i += cols) rows.unshift(bs.slice(i, i + cols).map((b, j) => ({ b, i: i + j })));
-    const btn = ({ b, i }) => `<button type="button" class="rl-act rl-fl${b.n === at ? ' rl-here' : ''}" data-n="${b.n}" title="${esc(b.label || '')}">${cols < 4 && i < 9 ? `<kbd>${i ? i + 1 : 'F'}</kbd>` : ''}<b>${esc(b.tag)}</b>${cols === 1 ? `<span>${esc(b.label || '')}</span>` : ''}</button>`;
-    size = [PAGE_W, Math.max(400, 222 + rows.length * 56)];
-    el.className = `rl-holo rl-lift${comic ? ' rl-comic' : ''}`;
+    const btn = ({ b }) => `<button type="button" class="rl-act rl-fl${b.n === at ? ' rl-here' : ''}" data-n="${b.n}" title="${esc(b.label || '')}"><b>${esc(b.tag)}</b><span>${esc(b.label || '')}</span></button>`;
+    // padding 20+20, the badge 56, the screen 112, two gaps of 16, and a row of buttons 44 with 8 between
+    size = [PAGE_W, 256 + rows.length * 52 - 8];
+    // the building's mark: its initials in a disc, never its name written out
+    const mono = brand ? brand.split(/\s+/).filter(Boolean).map((w) => w[0]).join('').slice(0, 2).toUpperCase() : '';
+    el.className = 'rl-holo rl-lift rl-ipod';
     el.style.setProperty('--rl-hue', HUE);
     el.style.width = size[0] + 'px'; el.style.height = size[1] + 'px';
-    el.innerHTML = `<div class="rl-head"><b>LIFT</b><span></span></div>
-      <div class="rl-state"><strong></strong></div>
-      <p class="rl-note"></p>
+    el.innerHTML = `<div class="rl-badge"><span${mono ? '' : ' class="rl-badge-arrows"'}>${mono ? esc(mono) : '&#9650;&#9660;'}</span></div>
+      <div class="rl-lcd"><div class="rl-head"><b>LIFT</b><span></span></div><div class="rl-state"><strong></strong></div><p class="rl-note"></p></div>
       <div class="rl-acts rl-floors" style="--rl-cols:${cols}">${rows.flat().map(btn).join('')}</div>`;
     shown = null;
   }
@@ -54,6 +57,7 @@ export function createRoomLift({ host, project, press }) {
   function load(L, S = L?.spec, remote = false) {
     const p = S?.lift ? liftPanelAt(S) : null;
     bs = p ? liftButtons(S) : [];
+    brand = String(S?.lift?.brand || '');
     card = null; away = remote;
     if (!p) { quad = null; el.style.display = 'none'; hidden = true; return; }
     at = S.lift.at;

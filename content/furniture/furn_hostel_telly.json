@@ -13,6 +13,11 @@
       "form": "crt",
       "wear": 0.9
     },
+    "spot": {
+      "along": 1.5,
+      "wall": "right",
+      "y": 1.6
+    },
     "tuned_channel": 7,
     "tv": true,
     "tv_dial_freq": 7,

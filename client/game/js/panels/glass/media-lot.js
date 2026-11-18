@@ -8,7 +8,7 @@
 //   court    913,911  the gate on Foundry Way (two rendered piers, a slab carrying the station's
 //                    name, a barrier arm, a round gatehouse), lamp standards, painted walks
 //                    to the stage door and KSAB5, a directory board and a lot cart
-//   parking  914,911  the wall along Foundry Way and against the music shop, painted bays, two KSAB
+//   parking  915,911  the wall along Foundry Way and against the music shop, painted bays, two KSAB
 //                    news vans, a satellite van, the Sentinel's van at the paper's dock, and the
 //                    water tower with the station's disc on its tank
 //

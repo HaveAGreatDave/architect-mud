@@ -11,6 +11,9 @@
     { "foot": "L", "from": 0.2, "to": 0.63, "ease": 0.04 },
     { "foot": "R", "from": 0.2, "to": 0.63, "ease": 0.04 }
   ],
+  "hands": [
+    { "t": 0.12, "L": "open", "R": "open" }
+  ],
   "keys": [
     {
       "t": 0,

@@ -1298,7 +1298,7 @@ one-way run never strands you but the return leg is a decision.
 
 ### The lift in the shed *(2026-11-11)*
 
-Every depot's shed has a Room Stage (`flags.room`: 16 × 24 m, 7.5 m high, no window), and in its floor a lift
+Every depot's shed has a Room Stage, and it's the shed you drive into on the street, and in its floor a lift
 down to the garage where the trucks are kept. `hoist <truck>` (or `callup`, the verb every depot shares; the
 counter's card has it as **Call it up**, and the Stage opens round you) brings one of yours up; `hoist down` sends it
 back; `drive <id>` from beside it seats you, as the counter's Deploy does. On the Stage the lift has a panel
@@ -1315,8 +1315,21 @@ you walk round it once it's up, and **Climb into the …** comes up when you sta
   `room.vehiclesChanged` (docs/server.md). The panel's list of your trucks is the hand the counter last
   dealt you there (`noteHand`), so a hook on the Stage costs no query.
 - **The truck is GLASS's mesh** (`aircraftFaces('truck', …)` and `faceBaseRgb` with its paint), scaled to
-  3.9 m tall and drawn in the beasts batch ([room-hoist.js](../client/game/js/panels/room-hoist.js)). It
-  stands nose to the front wall, and its footprint is pushed into the layout's `solid` so you walk round it.
+  fit the lift's plate and drawn in the beasts batch ([room-hoist.js](../client/game/js/panels/room-hoist.js)). It
+  stands nose to the roller door, and its footprint is pushed into the layout's `solid` so you walk round it.
+  While the lift runs the whole well is solid, since it's open round the truck.
+- **The shed is GLASS's too** *(2026-11-16)*. `flags.room.bay: 'truck'` makes a room the depot shed
+  (windshield.js `drawVehicleBay`): the tarmac and its bay paint, the steel walls and rafters, the skylights and
+  high-bays, the office, the bench, the racks, the hazard paint round the well and the garage under it with its
+  parked rigs. `bayInteriorCapture` draws it once from inside with the door down, and `npm run depot-shed:bake`
+  writes that to [client/shared/depot-shed.js](../client/shared/depot-shed.js), which
+  [gl/room-depot.js](../client/game/js/panels/gl/room-depot.js) puts in place of the room's own floor, walls and
+  ceiling, cut round its doorways. The room's size (16.8 m square, 5.3 m to the eaves), its stand (the lift's plate)
+  and the fittings the walker goes round all come from the bake, whatever else `flags.room` says. The lift's plate
+  rides with the truck (room-hoist.js `shedPlate`), up a 4.6 m shaft.
+  - **Re-bake after editing the shed.** `bake-depot-shed.mjs --check` is a push gate, and fails on a stale bake.
+  - **The front wall is the roller door**, so each shed sets `face` to its street side, and its street door
+    (`doors.<dir>`, 5.27 m along) is GLASS's people-door beside the roller door. The roller door stays down on foot.
 
 ---
 
@@ -2747,7 +2760,7 @@ never scans — Coldwater→Reach is the smuggling run and the return is the one
 
 ### The Glacis Weigh — the station you drive into
 
-The weighbridge used to be a flag on a tile twelve miles out on the Glacis, at **918,947**, then a
+The weighbridge used to be a flag on a tile twelve miles out on the Glacis, at **919,947**, then a
 place just inside the South Gate. It's now **outside the Curtain**, under the roof of the Outer Lock
 (see *The South Lock* below), and the ground is laid out so that stopping is a decision:
 
@@ -2761,7 +2774,7 @@ place just inside the South Gate. It's now **outside the Curtain**, under the ro
 | **926** | the Tow Bay | the weigh ramp | **the Outer Lock** | the post ramp |
 
 The gate stands at the south end of Meltwater Row. It used to be at the end of the Gate Road
-(918,919), and moved one road west on 2026-09-30; 918,919 is plain Curtain now, and the Gate Road
+(919,919), and moved one road west on 2026-09-30; 919,919 is plain Curtain now, and the Gate Road
 runs out against it. On 2026-11-02 the gate, both locks and the Glacis moved four rows south with
 the Curtain to make room for the Coliseum ([coliseum-true-size.md](proposals/coliseum-true-size.md)).
 The tiles kept their ids, so a zone id here no longer matches its coordinates. Outside, the dirt road
@@ -2794,7 +2807,7 @@ The old deck and lane inside the wall are gravel now, with the scars described i
 > the next one. `flags.weigh_station.pound` names a lot, and **with none named the old behaviour is
 > exactly what happens**, so every station that never authored one is unchanged.
 
-**Long Stay** is that lot: 919,918, where the fence *Thumb On The Scale* stood until this build
+**Long Stay** is that lot: 920,918, where the fence *Thumb On The Scale* stood until this build
 moved it to Rag Row. It is an ordinary building with an ordinary `truck_depot` yard, so buying the
 rig back is a walk up the Gate Road rather than a line of prose about a low-loader.
 
@@ -2962,7 +2975,7 @@ police blue, with a glass watch cupola and a beacon on the hood. Every height is
   searched, and the run ends; `drive` again to roll on.
 - The lock searches and the scale weighs, and neither knows about the other: "weight, not
   contraband" still holds at the deck outside.
-- Long Stay (919,918) stayed on the Gate Road when the gate moved west, so its gate opens onto
+- Long Stay (920,918) stayed on the Gate Road when the gate moved west, so its gate opens onto
   ordinary road now. Mounting doesn't arm the lock; only entering it does, from whichever end.
 
 ## The inspection plaza — the scale house as a place

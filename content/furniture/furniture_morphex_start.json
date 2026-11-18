@@ -11,7 +11,7 @@
       "pod": true
     },
     "spot": {
-      "along": -2.2,
+      "along": 0,
       "wall": "front"
     }
   },

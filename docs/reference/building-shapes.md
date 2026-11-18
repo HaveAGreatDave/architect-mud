@@ -408,7 +408,7 @@ Four things are load-bearing:
   `replaces: 'bank'` would exempt *every* bank in the city and the hand-written arm with them. A model
   sets `keepsReach: true` on itself instead. The bar is the one the list already applies: **the tile it
   reaches over must not be a carriageway.** One model uses it — Compound Interest, whose porte-cochère
-  stands on its own forecourt (921,912), a dead-end concrete apron whose only two exits are the bank's
+  stands on its own forecourt (922,912), a dead-end concrete apron whose only two exits are the bank's
   door and the road. Its piers and lintel reach **0.92** against a `TILE_REACH` of 0.5.
 - **⚠ There is ONE predicate and four readers.** `keepsReach(m)` in windshield.js is asked by `segFit`,
   by both `MODEL_TILE` sites and by `scripts/shapes/tilefit.mjs`. All four used to spell

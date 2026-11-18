@@ -76,6 +76,7 @@ export const GROUPS = [
       'scripts/client/console-escape-smoke.mjs',   // player text in the pirate/emergency consoles renders inert
       'scripts/client/paper-doll-smoke.mjs',   // every wearable item in content/ draws on the Pack's paper doll, both bodies
       'scripts/bank-hold-tune.mjs --check',   // the ← → bank hold settles, holds height and lets go, on every airframe
+      'scripts/merlin-modes.mjs',             // the Merlin's HOVER, LOCK, BOOST and PIT, driven headlessly
     ],
   },
   {
@@ -156,12 +157,15 @@ export const GROUPS = [
       'scripts/client/interiors-smoke.mjs', // a room placed in GLASS where the window's eye says it is; near rooms whole, further ones boxes, far ones nothing
       'scripts/shapes/sequence.mjs',     // every set, sequence and show in media_graphics, built and checked
       'scripts/shapes/room-stage.mjs',   // the suite's layout as frozen, every room form builds, placeSpot never stacks pieces
+      'scripts/shapes/street-doors.mjs', // every model's recorded doorway is an opening, every Stage door resolves on its model, every door kind draws
       'scripts/shapes/room-stand.mjs',   // a depot's stand: each kind called up comes out into its box, blocks the walker and offers its key beside it
+      'scripts/shapes/bake-depot-shed.mjs --check',   // the truck shed ROOM draws (client/shared/depot-shed.js) is GLASS's shed as it is now
       'scripts/shapes/chem-stage-smoke.mjs', // the Chem Stage: every stage scores a good hand well and a bad one badly; heap, slosh and each stage's pieces build
       'scripts/shapes/actor-head.mjs',
       'scripts/shapes/fan-vat.mjs',  // the stands' fans: both levels baked sound, on the ground, the face on the head, the mouth opening, no claws
       'scripts/shapes/figure.mjs',   // the close-up figure: every cut and hair style sound, the crowd's coat its coat
       'scripts/shapes/gaits.mjs',    // ROOM's IK gaits: no NaN, a person's stride, the planted foot planted
+      'scripts/shapes/actor-feet.mjs', // every standing clip, dancers too: a foot on the floor doesn't slide, and none hovers unless it's meant to
       'scripts/cats/cat-smoke.mjs',  // the cat kit: every Cattery cat carved in every pose, on the floor, skinned without tearing
       'scripts/shapes/actor-faces.mjs',   // without --write it only reads files
       'scripts/shapes/cloth.mjs',
@@ -213,6 +217,9 @@ export const GROUPS = [
       'scripts/shapes/glfade.mjs',
       'scripts/shapes/glcluster.mjs',    // the light grid lists every light that reaches a point
       'scripts/shapes/gltaa.mjs',        // the TAA jitter and reprojection matrix, as arithmetic
+      'scripts/shapes/core-mat4.mjs',    // gl/core's matrix sums, bit for bit against the copies they replace
+      'scripts/perf/baseline-schema.mjs', // each device baseline parses and names only routes that exist, as they are now
+      'scripts/gl/core-lint.mjs',        // no new copy of what gl/core holds (ACES, matrices, shader compile), ratcheted per file
       'scripts/shapes/gllampshadow.mjs', // which lamps get a shadow map, and where each looks
       'scripts/shapes/anchored.mjs',
       'scripts/shapes/lidless.mjs',
@@ -270,6 +277,7 @@ export const GROUPS = [
       'scripts/shapes/cockpit-mayfly.mjs',
       'scripts/shapes/cockpit-dragonfly.mjs',
       'scripts/shapes/cockpit-dragonfly-2076.mjs',
+      'scripts/shapes/cockpit-merlin.mjs',
       'scripts/shapes/cockpit-mule-2076.mjs',
       'scripts/shapes/cockpit-mayfly-2076.mjs',
       'scripts/shapes/cockpit-grasshopper-2076.mjs',
@@ -301,6 +309,9 @@ export const GROUPS = [
       // one game each, side by side (see the file)
       'scripts/shapes/rink-smoke.mjs 37',
       'scripts/shapes/rink-smoke.mjs 289',
+      'scripts/shapes/rink-rules.mjs',      // Rinkside's linesman: offside with the tag-up, hybrid icing, the dots they go to
+      'scripts/shapes/rink-onair.mjs',      // a sim v8 game timed as it airs: every shot on its line, every putback finds the puck still at the net
+      'scripts/shapes/rink-delayed.mjs',     // sim v9's delayed penalty end to end, and the calls' graphics: the arm, PP and SH named, the box, the lower thirds
       'scripts/shapes/arena-smoke.mjs',      // GLASS 2 rink: matrices match the 2-D camera, meshes and heads sound, ice tiles listed
       'scripts/shapes/kitchen-smoke.mjs',    // the Kitchen Stage: the matter table whole, the knife's pieces and evenness, every food, vessel and hob mesh sound
       'scripts/client/microwave-smoke.mjs',  // the Stage's microwave: the keypad's arithmetic, the START sequence's beats (one jab, one command), the lettering
@@ -316,6 +327,7 @@ export const GROUPS = [
       // Deadball staged in 3-D: each pitch at its spot, every clip on the ball, every ball in play's gloves, throws and call at first, the line held to the landing (one game each, side by side)
       { run: 'scripts/shapes/diamond-smoke.mjs 16', budget: 90, why: '33 s of main-thread CPU alone (2026-11-05), past the 30 s that survives the slowest runner seen. The time is the animation solver (diamond/anim.js, rig.js) posing every body at each of 476,000 checks, which is what the gate tests, and the poses read world state that moves between checks, so they cannot be shared' },
       { run: 'scripts/shapes/diamond-smoke.mjs 41', budget: 90, why: 'The same animation solver cost as seed 16, a little more: 36 s of CPU alone (2026-10-19). Dropping the long-hold pass to every fourth at-bat saved 8%' },
+      'scripts/shapes/mound-smoke.mjs',      // Deadball's trips to the mound (sim v5): the coach's visit and the manager's change staged, nobody jumping outside a cut, the battery home as the at-bat cuts in
       'scripts/shapes/final-smoke.mjs',      // Deadball's final: the champions' show, the searchlights, the dress, the gold graphics, the line-ups read and the pile
       'scripts/shapes/variety-smoke.mjs',    // Deadball's balls in play over a season: spray by handedness, every grade, every line pool reachable
       'scripts/shapes/bolt.mjs',

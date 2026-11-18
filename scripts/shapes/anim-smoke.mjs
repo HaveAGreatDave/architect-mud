@@ -433,9 +433,9 @@ for (const clip of Object.values(CLIPS)) {
   // done his own way, at the ends of each trait's range
   {
     const R = A.TRAIT_RANGE, base = A.traitsOf('anyone');
-    const ways = clip.role === 'pitcher' ? [{ kick: R.kick[0] }, { kick: R.kick[1] }]
-      : clip.role === 'batter' ? [{ width: R.width[0], crouch: R.crouch[0], batAngle: R.batAngle[0] }, { width: R.width[1], crouch: R.crouch[1], batAngle: R.batAngle[1] },
-        { width: R.width[0], crouch: R.crouch[1], batAngle: R.batAngle[1] }, { width: R.width[1], crouch: R.crouch[0], batAngle: R.batAngle[0] }] : [];
+    const ways = clip.role === 'pitcher' ? [{ kick: R.kick[0], armAngle: 35 }, { kick: R.kick[1], armAngle: 65 }, { kick: R.kick[0], armAngle: 72 }]
+      : clip.role === 'batter' ? [{ width: R.width[0], crouch: R.crouch[0], batAngle: R.batAngle[0], slide: R.slide[1] }, { width: R.width[1], crouch: R.crouch[1], batAngle: R.batAngle[1], slide: R.slide[0] },
+        { width: R.width[0], crouch: R.crouch[1], batAngle: R.batAngle[1], slide: R.slide[0] }, { width: R.width[1], crouch: R.crouch[0], batAngle: R.batAngle[0], slide: R.slide[1] }] : [];
     const bad = [];
     let wgrip = 0, wslide = 0;
     for (const way of ways) {

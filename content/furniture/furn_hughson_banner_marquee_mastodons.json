@@ -1,0 +1,37 @@
+{
+  "description": "A felt banner in the Marquee Mastodons' colours on a brass rod, cut to a point at the foot with a gold tassel. The crest is stitched on, and the name under it. Someone has pinned a ticket stub to the hem.",
+  "flags": {
+    "aliases": [
+      "banner",
+      "banners",
+      "marquee mastodons banner",
+      "marquee mastodons",
+      "flag",
+      "pennant"
+    ],
+    "club_banner": {
+      "club": "Marquee Mastodons",
+      "sport": "baseball"
+    },
+    "look": {
+      "arche": "prop",
+      "dims": [
+        1.1,
+        0.1,
+        4.8
+      ],
+      "form": "banner"
+    },
+    "spot": {
+      "at": [
+        -5.4,
+        0.06
+      ],
+      "turn": 180
+    }
+  },
+  "id": "furn_hughson_banner_marquee_mastodons",
+  "name": "the Marquee Mastodons banner",
+  "object_type": "furniture",
+  "zone_id": "zone_hughson_concourse"
+}

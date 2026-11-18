@@ -14,6 +14,11 @@
         1.25
       ]
     },
+    "spot": {
+      "along": 3.25,
+      "wall": "back"
+    },
+    "tuned_channel": 7,
     "tv": true,
     "tv_dial_freq": 7,
     "tv_skin": "flatscreen"

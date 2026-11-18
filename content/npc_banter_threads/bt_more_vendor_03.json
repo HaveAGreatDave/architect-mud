@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_vendor_03",
+  "lines": [
+    "\"Does the Architect take a cut off you?\"",
+    "\"Somebody does.\"",
+    "\"Who?\"",
+    "\"Whoever sends the forms.\""
+  ],
+  "personality": "vendor",
+  "sort_order": 632
+}

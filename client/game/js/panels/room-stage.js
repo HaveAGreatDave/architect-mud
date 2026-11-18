@@ -33,8 +33,9 @@ import { createHands } from './stands-hands.js';
 import { closeDialogue } from './dialogue.js';
 import { loadCss } from '../../../shared/dom.js';
 import { LIFT_STOREY } from '../../../shared/building-graph.js';
-import { cachetInner, WASH_FORMS } from '../../../shared/room-layout.js';
+import { cachetInner, WASH_FORMS, doorwaysOf } from '../../../shared/room-layout.js';
 import { roomPath, roomNearFree, crowdSpot, crowdSeed, lineSpots, linePoints } from '../../../shared/room-layout.js';
+import { pieceHangs, cleanSpot } from '../../../shared/room-layout.js';
 import { roomLayout, inAnnex, onBalcony, pathAt, pathLength, roomYaw, seatsClash, openingCrossed, openingInside, roomFree, roomSees, facing, FT_PER_M, pieceBoxes, heldShort, openingPast, flightLocal, WALL_T } from '../../../shared/room-layout.js';
 import { pieceActs } from '../../../shared/room-acts.js';
 import { createRoomWalk } from './room-walk.js';
@@ -48,14 +49,20 @@ import { createWallTv, paintBoot, BOOT_S } from './room-tv.js';
 import { createRoomLocks } from './room-lock.js';
 import { createRoomEnvctl } from './room-envctl.js';
 import { createPack } from './room-pack.js';
+import { createCloseup } from './room-closeup.js';
+import { createTalkShot } from './room-talk.js';
+import { trophyCup } from './gl/room-stadium.js';
+import { paintCupRoll, CUP_FACE } from './gl/room-cup.js';
+import { loadFace } from './stadium-signs.js';
 import { footDockHTML, bindFootDock } from './foot-dock.js';
 import { setScreenHour } from './gl/room-screens.js';
 import { createRoomLift } from './room-lift.js';
 import { createMorphex } from './room-morphex.js';
+import { createVitals } from './room-vitals.js';
 import { createArrange, cutaway } from './room-arrange.js';
 import { figureWorn } from '../../../shared/paper-doll.js';
 import { aimWall, tagDecals, tagQuad, bakeRoomTag, tagVariant } from './room-tags.js';
-import { sheetRuns, sheetDecals, setsOf, isWhole, createSheetScene, onArt } from './room-sheets.js';
+import { sheetRuns, sheetDecals, setsOf, isWhole, createSheetScene, onArt, snapRun, wallPoint, WALL_GRID_M } from './room-sheets.js';
 import { setSprayStage, clearSprayStage } from './spray-aim.js';
 import { playerFigure, lookOfPlayer } from '../../../shared/player-figure.js';
 // A person's settled look: an NPC's `figure`, or a player's from their MORPHEX columns (`look`), one object per look
@@ -71,19 +78,24 @@ function figOf(p) {
 import { coverWithVeil, finishVeil, placeVeil } from './glass-veil.js';
 import { STRIDE } from './gl/ballpark-mesh.js';
 import { seatLadderHTML, bindSeatLadder, releaseSeatLadder, keepSeatRung } from './seat-ladder.js';
-import { createRoomRenderer } from './gl/room.js';
+import { createRoomRenderer, warmRoomCanvas } from './gl/room.js';
 import { assembleBatch } from './gl/room-mesh.js';
 import { buildRoom, withShells, roomKitchenKit, spinBatch, swingBatch, liftDoorBatch, paintRoomTexture, paintView, paintScreen, ROOM_RUG } from './gl/room-mesh.js';
 import { figurePeople, figureLooks, dressOf, clipOnce, actClip, clipHold, clipDur } from './gl/room-people.js';
 import { figureAhead } from './figure-ahead.js';
 import { mealProps } from './gl/room-meals.js';
 import { plumbingProps, plumbingLive } from './gl/room-plumbing.js';
+import { leaksProps, leaksLive } from './gl/room-squat.js';
 import { beastsBatch, hasCats, onlyCats, catsFrame, catHit, catTouch, catActors } from './gl/room-beasts.js';
 import { catDrawer } from './gl/cat-gpu.js';
 import { createCatSound } from './room-cat-sound.js';
 import { createRoomHoist } from './room-hoist.js';
+import { createRoomVendor } from './room-vendor.js';
 import { stashProps } from './gl/room-stash.js';
 import { createShutters, shutterFrame } from './gl/room-shutters.js';
+// a sash window's drapes drawn across (plugins/envcontrol scene 'drapes'): the mesh draws them, nothing goes on the glass
+const drapesDrawn = (g) => !!g?.down && g.paint?.kind === 'drapes';
+const glassCover = (g) => (drapesDrawn(g) ? { ...g, down: false } : g);
 import { heldProps } from './gl/room-held.js';
 import { pokerProps, pokerLive, pokerMineAt, pokerAnchors } from './gl/room-poker.js';
 import { handOf, drawsOf, inHand, SUIT_GLYPH } from '../../../shared/poker-hand.js';
@@ -91,6 +103,7 @@ import { stashAt } from '../../../shared/table-stash.js';
 import { mouthTrack, textTrack, mouthAt } from '../../../shared/lip-sync.js';
 import { actOfLine, speakerOf } from '../../../shared/npc-acts.js';
 import { createRoomStadium } from './room-stadium.js';
+import { createVatCycle } from './room-vatcycle.js';
 import { ticketActs } from '../../../shared/stadium.js';
 
 // the pane strip the live window view builds (lookOut): the margin each side, as a fraction of the width, for pitch
@@ -116,7 +129,7 @@ const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').
 // how far a pixel of drag turns the head, radians
 const TURN = 0.0045;
 const SPIN_MS = 3000;   // a Cachet's turntable, half a turn
-const ASSEMBLE_MS = 8500;   // a Cachet in a false wall: the bar turning away and the lab coming up out of its recess
+const ASSEMBLE_MS = 12000;   // a Cachet in a false wall: the bar turning away and the lab coming up out of its recess
 const hashOf = (s) => { let h = 2166136261; for (const ch of String(s)) h = Math.imul(h ^ ch.charCodeAt(0), 16777619); return h >>> 0; };
 
 let ui = null;
@@ -167,9 +180,13 @@ const DOORS_MS = 1100, DOORS_WAIT_MS = 450, RIDE_GIVE_UP_MS = 8000;
 // (12.5 as built), and a hall wants its flats twice: as the shells it draws now and as the rooms you might walk into.
 const BAKE_BYTES = matchMedia('(pointer: coarse)').matches ? 48e6 : 192e6;
 const baked = new Map();
+// ⚠ A ROOM'S PAINTED TEXTURES OUTLIVE THE STAGE. The same key paints the same canvas, but the map was the Stage's,
+// so every room opened painted its plaster, brick and boards again on the CPU: most of what an open cost after the
+// shaders. Kept here, least recently used out past PAINTED_MAX (a 512 canvas is about a megabyte).
+const paintedTex = new Map(), PAINTED_MAX = 40;
 let bakedBytes = 0;
 const roomKey = (spec, pieces) => JSON.stringify([spec, pieces]);
-const bakeKey = (room, o) => room + '|' + JSON.stringify([o.seed, !!o.lampOn, !!o.doorShut, o.turning ?? null, o.swinging ?? null,[...(o.joined || [])].sort(), !!o.shell, ...(o.frontOpen ? ['front'] : [])]);
+const bakeKey = (room, o) => room + '|' + JSON.stringify([o.seed, !!o.lampOn, !!o.doorShut, o.turning ?? null, o.swinging ?? null, o.busy ?? null, [...(o.joined || [])].sort(), !!o.shell, ...(o.frontOpen ? ['front'] : []), ...(o.drawn ? ['drawn'] : []), ...(o.facade ? [JSON.stringify(o.facade)] : [])]);
 const meshBytes = (m) => { let n = 0; for (const b of [m.solid, m.glass, m.screen, m.view, ...m.textured.values()]) n += b?.data?.byteLength || 0; return n; };
 
 // ⚠ THE LIGHT SWITCH IS KEPT PER ROOM. It used to be one setting ('roomLamp', 'roomLampLevel') for every room, so lights
@@ -219,7 +236,23 @@ function keepMesh(key, mesh) {
 // same cache, so the crossing finds it as before. A room asked for before its reply is built here, as a miss always
 // was, and the late reply is dropped. Null when there's no worker, and the caller builds it here.
 // ⚠ MESH_FIELDS IS EVERYTHING THE STAGE READS OFF A MESH; the rest of buildRoom's return can't be posted.
-const MESH_FIELDS = ['solid', 'glass', 'screen', 'textured', 'view', 'mats', 'screens', 'lamps', 'windows', 'spin', 'slideDoors', 'liftDoors', 'dials'];
+// A vat sleeper's body as the fluid sees it: capsules through its joints in bind space (figure.js FIGURE_BONES), each
+// carried by its bone's row into the room, and the mouth off the head. [bone, a, b, radius]
+const SLEEPER_CAPS = [
+  [1, [0, 0.9, 0], [0, 1.2, 0], 0.14], [2, [0, 1.22, 0], [0, 1.4, 0], 0.15], [4, [0, 1.63, 0.02], [0, 1.63, 0.02], 0.105],
+  [5, [0.195, 1.37, -0.01], [0.195, 1.12, -0.01], 0.045], [6, [0.195, 1.1, 0], [0.195, 0.88, 0], 0.038],
+  [8, [-0.195, 1.37, -0.01], [-0.195, 1.12, -0.01], 0.045], [9, [-0.195, 1.1, 0], [-0.195, 0.88, 0], 0.038],
+  [11, [0.095, 0.88, 0], [0.095, 0.51, 0], 0.072], [12, [0.095, 0.47, 0], [0.095, 0.1, 0], 0.05],
+  [14, [-0.095, 0.88, 0], [-0.095, 0.51, 0], 0.072], [15, [-0.095, 0.47, 0], [-0.095, 0.1, 0], 0.05],
+];
+function sleeperCapsules(rows) {
+  const W = (b, p) => [0, 1, 2].map((r) => rows[b * 12 + r * 4] * p[0] + rows[b * 12 + r * 4 + 1] * p[1] + rows[b * 12 + r * 4 + 2] * p[2] + rows[b * 12 + r * 4 + 3]);
+  // the head's own axes, for the breathing mask over the mouth and nose (gl/room-vat.js drawGear)
+  const ax = (c) => [rows[48 + c], rows[52 + c], rows[56 + c]];
+  return { caps: SLEEPER_CAPS.map(([b, a, c, r]) => [...W(b, a), ...W(b, c), r]), mouth: W(4, [0, 1.6, 0.1]), mask: { p: W(4, [0, 1.585, 0.1]), r: ax(0), u: ax(1), f: ax(2) } };
+}
+const hashStr = (str) => { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } h ^= h >>> 16; h = Math.imul(h, 0x85ebca6b); h ^= h >>> 13; return h >>> 0; };
+const MESH_FIELDS = ['solid', 'glass', 'screen', 'textured', 'view', 'mats', 'screens', 'lamps', 'windows', 'spin', 'slideDoors', 'liftDoors', 'dials', 'vats', 'gantries'];
 let meshWorker = null, meshAsked = 0;
 const meshWaits = new Map(), meshPending = new Map();
 function bakeOffThread(spec, pieces, opts) {
@@ -277,11 +310,26 @@ export function roomVeilPlace(msg) {
   return { kicker: 'ENTERING', title: e.name, sub: [room !== e.name ? room : '', e.street, e.region].filter(Boolean).join(' · '), blurb: e.blurb || '', room: true };
 }
 
+// Spare room canvases, one per kind (see out or not), made when the page is idle (gl/room.js warmRoomCanvas)
+const spares = new Map();
+function takeSpare(see) { const c = spares.get(see) || null; spares.delete(see); return c; }
+function warmSpares() {
+  const phone = matchMedia('(pointer: coarse)').matches;
+  const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 400));
+  for (const see of phone ? [false] : [true, false]) {
+    if (spares.has(see)) continue;
+    // a few seconds on, so the open room's own late programs (the close-up figure) are compiled first
+    setTimeout(() => idle(() => { if (!spares.has(see)) { const c = warmRoomCanvas({ phone, see }); if (c) spares.set(see, c); } }, { timeout: 4000 }), 3000);
+  }
+}
+// the first ones as soon as this module's loaded, so even the first room opens warm
+if (typeof window !== 'undefined' && typeof window.WebGL2RenderingContext === 'function') setTimeout(warmSpares, 1500);
+
 // ⚠ A FAILED OPEN MUST NOT LEAVE THE PANE BLANK. room-stage-on hides the room text; an open that threw
 // partway left it hidden with nothing over it, the sidebar alone, until the Stage was opened again.
 export function openRoomStage(msg) {
   askCrests(msg.people);
-  try { openStage(msg); } catch (err) {
+  try { openStage(msg); warmSpares(); } catch (err) {
     if (ui) closeRoomStage(true);
     else { document.getElementById('room-stage')?.remove(); document.body.classList.remove('room-stage-on'); releaseSeatLadder(); }
     throw err;
@@ -302,6 +350,7 @@ function openStage(msg) {
       </span>
       <span class="rs-ladder">${seatLadderHTML('rs-chip')}</span>
       <button type="button" class="rs-arrange" title="${msg.admin ? 'Set the room up: move, add and remove furniture (B, staff)' : 'Move your furniture round (B)'}"${msg.mine || msg.admin ? '' : ' hidden'}>Arrange</button>
+      <button type="button" class="rs-vattest" title="Kill a random NPC somewhere and reprint them here, down a tube into a release vat (staff)" hidden>Vat test</button>
       <button type="button" class="rs-leave" title="Back to the room text">▣ Close</button>
     </div>
     <div class="rs-host"><canvas class="rs-canvas"></canvas><div class="rs-tags"></div>
@@ -322,7 +371,8 @@ function openStage(msg) {
         <span class="rs-fire-lbl rs-light-lbl">100%</span>
       </div>
       ${footDockHTML()}
-      <div class="rs-tip">WASD to walk, Shift to run, C to crouch · drag to look, Q and E to turn · face something or click it to see what you can do: F or a number picks · the switch by the door has the lights: L, - and = · click a fire's dial to set it, or , and . · F on a set you're looking at turns it on or off, and [ and ] or the wheel on its picture change the channel · I for your pack, to dress, undress, eat and drink, and P for what you can eat and drink · G to tag the wall you're facing, with a can on you · T for your tablet</div>
+      <!-- the controls tip is off for now (too much text); drop rs-tip-gone and hidden to bring it back -->
+      <div class="rs-tip rs-tip-gone" hidden>WASD to walk, Shift to run, C to crouch · drag to look, Q and E to turn · face something or click it to see what you can do: F or a number picks · the switch by the door has the lights: L, - and = · click a fire's dial to set it, or , and . · F on a set you're looking at turns it on or off, and [ and ] or the wheel on its picture change the channel · I for your pack, to dress, undress, eat and drink, and P for what you can eat and drink · G to tag the wall you're facing, with a can on you · T for your tablet</div>
     </div>`;
   // into the game pane, over the room text, which stays underneath for when the Stage closes
   const pane = document.getElementById('area-content');
@@ -331,8 +381,13 @@ function openStage(msg) {
   if (!pane) root.classList.add('rs-alone');
   document.body.classList.add('room-stage-on');
   bindSeatLadder(root);
-  const host = root.querySelector('.rs-host'), canvas = root.querySelector('.rs-canvas');
-  const phone = matchMedia('(pointer: coarse)').matches;
+  const host = root.querySelector('.rs-host'), phone = matchMedia('(pointer: coarse)').matches;
+  // the spare canvas made after the last room closed (warmSpares), its programs compiled by now, when it was made
+  // for the same kind of room: one that sees out through its panes or one that doesn't
+  const seeEarly = (!phone && !!msg.hasView) || !!msg.spec?.rink || !!msg.building?.neighbours?.some((n) => n.spec?.rink);
+  const spare = takeSpare(seeEarly);
+  if (spare) { spare.className = 'rs-canvas'; root.querySelector('.rs-canvas').replaceWith(spare); }
+  const canvas = root.querySelector('.rs-canvas');
   // ⚠ UP FIRST, BEFORE ANYTHING IS BUILT: everything below runs in this one task, and a veil put up after it was a
   // second of the room text with nothing over it. (The Room button and 'room' put one up sooner still, dispatch.js
   // roomOpening, and this takes it over where it stands.)
@@ -343,14 +398,22 @@ function openStage(msg) {
   // screen with nothing wrong with it. A room with no glass doesn't wait for the city at all, and after VEIL_MS the
   // room shows anyway and the city comes in behind its glass when it's ready.
   // ⚠ AND IT WAITS FOR THE CITY IN A ROOM WITH NO GLASS TOO: the view out is the same one the next room shows, so
-  // it is built and placed under the veil, not popped in at the first window. 10 s caps that.
-  const opened = performance.now(), VEIL_MS = msg.hasView && !phone ? 10000 : 4000;
+  // it is built and placed under the veil, not popped in at the first window.
+  // ⚠ THE CAP IS THE COVER'S OWN (glass-veil.js COVER_MAX_MS, 25 s), NOT 10 s. At 10 s a cold city lifted the veil
+  // half built, and the rest (first paint, then warmOpen's four quarter turns) froze the open room for 10 to 15 s.
+  // A slow load belongs behind the loading screen; a fast one still lifts the moment the city is in.
+  const opened = performance.now(), VEIL_MS = msg.hasView && !phone ? 24000 : 4000, STREET_VEIL_MS = 24000;
   // The veil also covers the rooms past the doorways being built (`bake`, below), so the loading is done once, here,
   // and not at each door. VEIL_MS caps that too; whatever is left is built between frames once the room is up.
   let veiled = !msg.via;
   if (!msg.via) coverWithVeil(host, 'room-stage', { place: roomVeilPlace(msg), ready: () => {
     const seen = !msg.hasView || phone || ui?.S?.outlook?.shown || ui?.S?.noView;
-    const up = performance.now() - opened > VEIL_MS || (!!seen && !ui?.S?.bake?.owed());
+    // and for the Vat Hall's fluid to settle (gl/room-vat.js settled): its first frames flashed black and white
+    const vats = !ui?.R?.vatLayer?.() || ui.R.vatLayer().settled();
+    // and for the street outside, when it was asked for (warmStreet): built after the veil, it froze your first steps
+    const street = !ui?.S?.streetAsked || streetWarm();
+    const cap = ui?.S?.streetAsked ? STREET_VEIL_MS : VEIL_MS;
+    const up = performance.now() - opened > cap || (!!seen && vats && street && !ui?.S?.bake?.owed());
     if (up) veiled = false;
     return up;
   } });
@@ -426,14 +489,25 @@ function openStage(msg) {
   const composeKey = (key, shellKeys) => key + '#' + shellKeys.join('#');
   const roomMesh = (L, opts) => {
     // (a plain flat's front door stands open while somebody goes through it: watchMoves)
-    const o = { ...opts, joined, ...(S.frontOpen ? { frontOpen: true } : {}) }, ck = composeKey(bakeKey(S.key, o), shellKeys);
+    // (and a balcony room's outside in its building's own paint: takeFacade)
+    const o = { ...opts, joined, ...(S.morphPod != null ? { busy: S.morphPod } : {}), ...(S.frontOpen ? { frontOpen: true } : {}), ...(S.drapes ? { drawn: true } : {}), ...(S.facade && L.spec?.balcony ? { facade: S.facade } : {}) }, ck = composeKey(bakeKey(S.key, o), shellKeys);
     const c = shells.length ? composed.get(ck) : null;
     if (c) return c;
     const m = bakedMesh(S.key, L, o);
     return shells.length ? withShells(meshCopy(m), shells) : m;
   };
-  const textures = new Map();
-  const paint = (key) => { let c = textures.get(key); if (!c) { c = paintRoomTexture(document, key, key === ROOM_RUG ? seed : 1); textures.set(key, c); } return c; };
+  const paint = (key) => {
+    const tk = key === ROOM_RUG ? key + '|' + seed : key;
+    let c = paintedTex.get(tk);
+    if (c) { paintedTex.delete(tk); paintedTex.set(tk, c); }
+    if (!c) {
+      c = paintRoomTexture(document, key, key === ROOM_RUG ? seed : 1); paintedTex.set(tk, c);
+      if (paintedTex.size > PAINTED_MAX) paintedTex.delete(paintedTex.keys().next().value);
+      // a Cup's engraving painted before its face loaded is painted again in it, and sent up again (gl/room-cup.js)
+      if (c.cupLate) loadFace(CUP_FACE).then((ok) => { if (ok) { paintCupRoll(document, key, c); R.retexture?.(key, c); } });
+    }
+    return c;
+  };
   // ⚠ THE LIGHTS ARE ON UNLESS THE ROOM HAS NO POWER OR THEY'VE BEEN SWITCHED OFF IN IT. The switch and the dimmer are
   // this viewer's, kept per room (switchOf); `power` is the mains, from the server (plugins/roomstage powerOf).
   // `lampOn` is what's drawn: the switch and the mains together.
@@ -471,14 +545,36 @@ function openStage(msg) {
   S.sheets = msg.sheets || [];
   S.scene = null;
   S.shutters = createShutters();
-  S.shutters.set(S.glass, { snap: true });
+  // a sash window's drapes drawn (plugins/envcontrol 'drapes') are in the mesh, not on the glass: the shutters stay up
+  S.drapes = drapesDrawn(S.glass);
+  S.shutters.set(glassCover(S.glass), { snap: true });
   const seat = { eye: [0, 1.6, 0], yaw: Math.PI, pitch: 0, fov: 72, mode: 'free' };
   // THE LOCKS ON THIS ROOM'S DOORWAYS (room-lock.js, docs/proposals/room-hololock.md): a door in each, shut to
   // whoever the lock doesn't know, and a hologram off its reader that offers Unlock and Hack. The server says how
   // each stands (`locks` here, `room_locks` as they change); the verbs it offers are the ones you'd type.
   S.locks = msg.locks || [];
-  const lockUi = createRoomLocks({ host, project: (p, w, h) => R.project(p, w, h), setBatch: (b) => R.setLocks(b),
-    send: (cmd) => { S.listenUntil = performance.now() + 2500; sendCmd(cmd); } });
+  // a vending machine you can pull out from the wall (room-vendor.js): drawn into the locks' layer beside the doors
+  const vendorUi = createRoomVendor({ project: (p, w, h) => R.project(p, w, h) });
+  S.vendor = vendorUi;
+  const EMPTY_BATCH = { data: new Float32Array(0), n: 0 };
+  function pushLocks() {
+    const a = S.lockBatch || EMPTY_BATCH, v = vendorUi.batch();
+    if (!v.n) { R.setLocks(a); return; }
+    // one scratch, grown only: the upload reads the first n vertices, and copies them to the GPU there and then
+    const need = (a.n + v.n) * 12;
+    if (!(pushLocks.scratch?.length >= need)) pushLocks.scratch = new Float32Array(Math.max(need, (pushLocks.scratch?.length || 0) * 2));
+    const data = pushLocks.scratch;
+    data.set(a.data.subarray(0, a.n * 12)); data.set(v.data.subarray(0, v.n * 12), a.n * 12);
+    R.setLocks({ data, n: a.n + v.n });
+  }
+  const lockUi = createRoomLocks({ host, project: (p, w, h) => R.project(p, w, h), setBatch: (b) => { S.lockBatch = b; pushLocks(); },
+    send: (cmd) => { S.listenUntil = performance.now() + 2500; sendCmd(cmd); },
+    // a hand-opened glass pair's panel beside it: Open and Close work the leaves here, as F at the doors does
+    glass: (to, a) => handDoor(to, { verb: a.verb === 'open' ? 'opendoors' : 'shutdoors' }) });
+  // the server's locks, and a door panel for each hand-opened glass pair (no lock on it: Open and Close only)
+  const glassPanels = () => (S.spec?.openings || []).filter((o) => o.slide && o.hand && o.to && o.dir && !o.lift)
+    .map((o) => ({ to: o.to, dir: o.dir, glass: true, lock: false, locked: false, pass: true, yours: true, hack: false, open: (S.slideShut?.[o.to] ?? 1) < 0.5 }));
+  const locksWithGlass = () => [...(S.locks || []).filter((k) => !k.glass), ...glassPanels()];
   // a lift car's panel: the same kind of hologram, with a button for each floor (room-lift.js)
   const liftUi = createRoomLift({ host, project: (p, w, h) => R.project(p, w, h), press: (n) => pressFloor(n) });
   // a depot shed's lift and the truck on it (room-hoist.js); nothing in any other room
@@ -513,10 +609,31 @@ function openStage(msg) {
     return [0.55 + 0.4 * d + 0.4 * dusk, 0.6 + 0.35 * d + 0.1 * dusk, 0.85 + 0.15 * d - 0.2 * dusk];
   };
 
+  // Where you stand coming in from outside: just inside the street door, the way you came in off the street. A depot's
+  // shed has no street-door opening, so it's just inside its roller door, clear of the lift. The old default stood
+  // you at the back wall, which in a depot was a corner boxed in by its benches. Moved to the nearest free spot.
+  function entryStand(L) {
+    // just inside the room's way in: its street door, else its main doorway (one that isn't a bathroom's; with
+    // several, the first). ⚠ Not the spec's own `door` first: on a building's walk that's a flat's default back corner,
+    // where there's often no door at all, and you stood in an empty corner (Solenne B)
+    const bath = (o) => /bath|ensuite|en_suite|shower|toilet|_wc\b|lavatory/i.test(String(o.to || ''));
+    const ways = doorwaysOf(S.spec).filter((o) => o.kind !== 'stair');
+    const front = (S.spec.openings || []).find((o) => o.kind === 'front') || ways.find((o) => !bath(o)) || ways[0];
+    let st = front ? openingInside(L, front) : null;
+    if (!st) {
+      const bay = (L.spec?.bay || S.spec.bay) === 'truck';
+      const at = bay ? [0, 1.8] : [((S.spec.door?.[0] ?? 0.7) + (S.spec.door?.[1] ?? 1.6)) / 2, S.spec.d - 0.6];
+      const p = L.world(at[0], at[1], 0), q = L.world(at[0], at[1] + (bay ? 1 : -1), 0);
+      st = { at, yaw: bay ? Math.atan2(q[0] - p[0], q[2] - p[2]) : Math.atan2(L.f[0], L.f[2]) };
+    }
+    if (!roomFree(L, st.at[0], st.at[1])) { const n = roomNearFree(L, st.at[0], st.at[1], 3); if (n) st = { ...st, at: n }; }
+    return st;
+  }
   // the layout and the mesh, from the spec and the pieces; again whenever a piece comes or goes
   function rebuild(keepPlace = true, hold = null, keys = null) {
     // arranging, the room is drawn from the draft (room-arrange.js apply): S.pieces stays the server's
-    const pieces = S.arrange?.on ? S.arrange.apply(S.pieces) : S.pieces;
+    const wd = S.wallDrag?.kind === 'piece' ? S.wallDrag : null;
+    const pieces = S.arrange?.on ? S.arrange.apply(S.pieces) : wd ? S.pieces.map((p) => (p.id === wd.id ? { ...p, spot: wd.spot } : p)) : S.pieces;
     const L = roomLayout(S.spec, pieces);
     const was = S.walk ? { at: S.walk.at, sat: S.walk.sat } : null;
     // walked in from the next room: just inside the doorway you came through, facing in
@@ -524,6 +641,7 @@ function openStage(msg) {
     const arrive = via ? openingInside(L, via) : null;
     S.L = L; S.key = roomKey(S.spec, pieces);
     hoistUi.load(L);
+    vendorUi.load(L);
     stadium.load(L);
     envUi.load(L);
     S.mesh =roomMesh(L, { seed, lampOn, doorShut: S.doorShut, turning: S.spin?.turning, swinging: S.fridge?.id });
@@ -532,7 +650,7 @@ function openStage(msg) {
     if (S.fridge) S.fridge.swing = S.mesh.swing || null;
     S.doorsDirty = true;
     // (a new room starts its doors shut, but for the one you came through; the same room keeps them where they are)
-    lockUi.load(L, S.locks, { fresh: !keepPlace, via: msg.via || null });
+    lockUi.load(L, locksWithGlass(), { fresh: !keepPlace, via: msg.via || null });
     // in a car, its own panel; on a landing, the panel of the car next door, so it's there before you step in
     const car = S.spec.lift ? null : nextDoor.find((n) => n.lift && n.L);
     if (car) liftUi.load(car.L, { ...car.spec, lift: car.lift }, true); else liftUi.load(L);
@@ -584,7 +702,7 @@ function openStage(msg) {
       onStand: () => { if (!syncing) sendCmd('stand'); },
       onSettle: (at, yaw) => sendRaw({ type: 'room_pos', at, yaw, seat: S.walk?.sat ? L.seats.indexOf(S.walk.sat) : null }),
       // in by the door, facing into the room
-      start: hold ? hold : reseat ? reseat : keepPlace && was?.at ? { at: was.at, yaw: seat.yaw } : arrive ? arrive : S.here !== msg.zone && L.annex ? { at: annexStand(L), yaw: Math.atan2(-L.f[0], -L.f[2]) } : { at: [((S.spec.door?.[0] ?? 0.7) + (S.spec.door?.[1] ?? 1.6)) / 2, S.spec.d - 0.6], yaw: Math.atan2(L.f[0], L.f[2]) },
+      start: hold ? hold : reseat ? reseat : keepPlace && was?.at ? { at: was.at, yaw: seat.yaw } : arrive ? arrive : S.here !== msg.zone && L.annex ? { at: annexStand(L), yaw: Math.atan2(-L.f[0], -L.f[2]) } : entryStand(L),
     }); } finally { syncing = false; }
     followSelf();
   }
@@ -802,7 +920,7 @@ function openStage(msg) {
     if (!f) return;
     if (f.by != null) f.want = (S.people || []).some((x) => x.id === f.by && String(x.open) === String(f.id)) ? 1 : 0;
     // a wardrobe answers with its own panel (plugins/wardrobe `wardrobe_view`)
-    const up = !f.by && ['container-panel', 'wardrobe-panel'].some((id) => document.getElementById(id)?.classList.contains('active'));
+    const up = !f.by && (S.pack?.wardrobe() === f.id || ['container-panel', 'wardrobe-panel'].some((id) => document.getElementById(id)?.classList.contains('active')));
     if (up) f.seen = true;
     if (!f.by && ((f.seen && !up) || (!f.seen && now - f.t0 > 2500))) f.want = 0;
     const dt = Math.max(0, Math.min(0.1, (now - (f.last ?? now)) / 1000));
@@ -829,7 +947,7 @@ function openStage(msg) {
   // you once you're clear of its leaves, and opens when you open it (F at the doors, doorAim); then it stands open
   // while you're near it and shuts a beat after you've gone, as the automatic ones do.
   const slidesAt = () => {
-    S.slideShut = {}; S.slideHold = {}; S.slideDrawn = null; S.slideHand = new Set();
+    S.slideShut = {}; S.slideHold = {}; S.slideDrawn = null; S.slideHand = new Set(); S.glassSig = null;
     for (const o of S.spec.openings || []) {
       if (!o.slide || !o.to) continue;
       S.slideShut[o.to] = msg.via && o.to === msg.via ? 0 : 1;
@@ -871,6 +989,8 @@ function openStage(msg) {
       S.slideShut[l.to] = next;
       shut[l.way] = next * next * (3 - 2 * next);
     }
+    // a glass pair's panel reads OPEN or CLOSED as its leaves pass halfway
+    if (changed && S.slideHand?.size) { const sig = [...S.slideHand].map((t) => ((S.slideShut[t] ?? 1) < 0.5 ? 1 : 0)).join(''); if (sig !== S.glassSig) { const first = S.glassSig == null; S.glassSig = sig; if (!first && S.L) lockUi.load(S.L, locksWithGlass(), { fresh: false }); } }
     if (!changed && S.slideDrawn && !S.doorsDirty) return;
     S.doorsDirty = false; S.slideDrawn = true;
     R.setProps(liftDoorBatch(leaves, shut));
@@ -984,10 +1104,16 @@ function openStage(msg) {
 
   // the routes people are on (plugins/roomstage/npc-life.js), from when each message came
   const routes = new Map();
+  const WALK_MAX = 1.6;   // metres a second
   S.noteRoutes = () => {
     const now = performance.now();
     routes.clear();
-    for (const p of S.people) if (p.route?.path?.length > 1) routes.set(p.id, { ...p.route, len: pathLength(p.route.path), t0: now });
+    // ⚠ NO FASTER THAN A WALK LOOKS. A route resent late (or with `ms` 0) had them skate the rest of it in a blink
+    // while the walk clip strode at its own pace; given too little time, they take the time a brisk walk would.
+    for (const p of S.people) if (p.route?.path?.length > 1) {
+      const len = pathLength(p.route.path);
+      routes.set(p.id, { ...p.route, len, ms: Math.max(p.route.ms || 0, len / WALK_MAX * 1000), t0: now });
+    }
   };
   S.noteRoutes();
   // WALKING OUT AND IN (plugins/roomstage `gone` and `came`). Somebody who's left by a doorway isn't dropped: they
@@ -1013,6 +1139,15 @@ function openStage(msg) {
     const n = o.wall === 'front' ? [0, -1] : o.wall === 'back' ? [0, 1] : o.wall === 'left' ? [-1, 0] : [1, 0];
     return { inside, outside: [inside[0] + n[0] * PAST, inside[1] + n[1] * PAST], plain: !!o.plain };
   }
+  // ⚠ NEVER A STRAIGHT LINE THROUGH THE WALL. With no way found this used to draw [from, to], and somebody walked
+  // through the furniture or the wall. A start that's stood in something (a stale spot, a piece put down on them) is
+  // stepped to the nearest floor first; still no way, and there's no walk: they just go, or are just there.
+  const safePath = (L, a, b) => {
+    const p = roomPath(L, a, b);
+    if (p) return p;
+    const a2 = roomNearFree(L, a[0], a[1], 1.2), b2 = roomNearFree(L, b[0], b[1], 1.2);
+    return a2 && b2 ? roomPath(L, a2, b2) : null;
+  };
   const walkOf = (path) => { const len = pathLength(path); return { path, len, ms: Math.max(500, len / MOVE_SPEED * 1000), t0: performance.now() }; };
   // after each room_people: who's just gone and who's just come, against who was here before it
   S.noteMoves = (msg, before) => {
@@ -1023,7 +1158,8 @@ function openStage(msg) {
       if (g.id === S.you || here.has(g.id) || leaving.has(g.id)) continue;
       const p = before.find((x) => x.id === g.id), w = p && !p.annex && wayTo(g.to), from = w && (shown.get(p.id)?.at || placeOf(p)?.at);
       if (!from) continue;
-      const path = roomPath(L, from, w.inside) || [from, w.inside];
+      const path = safePath(L, from, w.inside);
+      if (!path) continue;
       if (w.outside) path.push(w.outside);
       entering.delete(p.id);
       leaving.set(p.id, { ...walkOf(path), to: g.to, plain: w.plain,
@@ -1037,8 +1173,10 @@ function openStage(msg) {
       const w = wayTo(c.from), end = w && placeOf(p)?.at;
       if (!end) continue;
       const goal = roomNearFree(L, end[0], end[1], 1.2) || end;
+      const inPath = safePath(L, w.inside, goal);
+      if (!inPath) continue;
       leaving.delete(p.id);
-      entering.set(p.id, { ...walkOf([...(w.outside ? [w.outside] : []), ...(roomPath(L, w.inside, goal) || [w.inside, goal])]), to: c.from, plain: w.plain });
+      entering.set(p.id, { ...walkOf([...(w.outside ? [w.outside] : []), ...inPath]), to: c.from, plain: w.plain });
     }
     // somebody back before they were through is just here again
     for (const id of leaving.keys()) if (here.has(id)) leaving.delete(id);
@@ -1197,12 +1335,19 @@ function openStage(msg) {
     // nobody in the people list (the Room Lab) still gets a body: the columns' defaults
     S.morph = createMorphex({ L: S.L, piece: q, mount: root, me: { id: S.you, sex: mine?.sex, look: { ...(mine?.look || lookOfPlayer({})) } }, send: (c) => sendCmdSilent(c),
       done: ({ at }) => {
-        S.morph = null; root.classList.remove('rs-morph');
-        R.setProps({ data: new Float32Array(0), n: 0 }); R.setPropsGlass(null); R.setGlows([]);
+        S.morph = null; S.morphEnd = performance.now(); root.classList.remove('rs-morph');
+        S.morphPod = null; podMesh();
+        R.setProps({ data: new Float32Array(0), n: 0 }); R.setPropsGlass(null); R.setStageHalos(null); R.setGlows([]);
         // you're stood where you stepped out, looking back into the room
         S.walk?.moveTo?.(at);
       } });
     root.classList.add('rs-morph');
+    // the pod's open halves are part of the room's mesh; while the sequence swings its own, the room's come out
+    S.morphPod = q.id; podMesh();
+  }
+  function podMesh() {
+    S.mesh = roomMesh(S.L, { seed, lampOn, doorShut: S.doorShut, turning: S.spin?.turning, swinging: S.fridge?.id });
+    R.setRoom(S.mesh, paint);
   }
 
   // ARRANGING (room-arrange.js): the owner's furniture moved by hand from above, the walls down. Every mesh set
@@ -1216,7 +1361,7 @@ function openStage(msg) {
     hoverEl.hidden = true;
     S.held = null;
     // `admin`: staff on a local server (plugins/roomstage adminHere) set any room up, authored pieces and all
-    S.arrange = createArrange({ root, host, S, R, rebuild: () => rebuild(), opts: () => ({ seed, lampOn }), send: (c) => (arrangeHost ? arrangeHost(c, msg) : sendCmd(c)), sendSilent: (c) => (arrangeHost ? arrangeHost(c, msg) : sendCmdSilent(c)), admin: !!msg.admin,
+    S.arrange = createArrange({ root, host, S, R, rebuild: () => rebuild(), repaint: () => paintTags(), opts: () => ({ seed, lampOn }), send: (c) => (arrangeHost ? arrangeHost(c, msg) : sendCmd(c)), sendSilent: (c) => (arrangeHost ? arrangeHost(c, msg) : sendCmdSilent(c)), admin: !!msg.admin,
       done: (saved) => {
         S.arrange = null; root.classList.remove('rs-arranging');
         if (saved) S.pieces = saved;
@@ -1226,6 +1371,8 @@ function openStage(msg) {
     rebuild();
   }
   root.querySelector('.rs-arrange')?.addEventListener('click', () => startArrange());
+  const vatBtn = root.querySelector('.rs-vattest');
+  vatBtn?.addEventListener('click', () => sendCmd('room vatdrop'));
 
   // a station: the verb the piece answers to. Watching a set brings the broadcast up on it, and the
   // server's answer to `watch` goes to the set on the wall (room-tv.js); again, and you stop watching.
@@ -1241,12 +1388,19 @@ function openStage(msg) {
     const piece = S.pieces.find((p) => p.id === st.piece);
     if (!piece) return;
     // a MORPHEX pod you can step into (`look.pod`): its sequence, and the sales screen over it
-    if (piece.pod) { startMorph(piece); return; }
+    // `use` too, so the server knows the machine opened (the prologue's gate waits on cosmetic.opened); its answer
+    // comes back as morphex_panel, which dispatch.js hands to this pod rather than the 2D panel
+    if (piece.pod) { startMorph(piece); sendCmdSilent(`use ${piece.name}`); return; }
+    // a trophy case: the camera goes round its Cup (room-closeup.js), and the case is looked at as ever
+    const trophy = st.verb === 'examine' ? S.L?.placed?.find((q) => q.id === piece.id && q.form === 'trophy') : null;
+    if (trophy) { S.cupFor = trophy.id; hoverEl.hidden = true; if (!S.closeup.open(trophy.label || piece.name)) S.cupFor = null; }
     // the bench's HUD comes up over the room, and only the room's owner is told there's a keypad
     // which piece it was is remembered for a little while, so the kitchen opens standing you at it (cookFrame)
     if (st.verb === 'workspace') { if (!piece.lab) S.cookAt = { id: piece.id, t: performance.now() }; sendCmd(piece.lab ? 'workspace chembench' : 'workspace'); return; }
     // a piece whose card offers the workspace (a bar counter, a range) opens it, rather than being looked at
     if (st.verb === 'examine' && piece.acts?.some((a) => a.verb === 'workspace')) { S.cookAt = { id: piece.id, t: performance.now() }; sendCmd('workspace'); return; }
+    // a vending machine: its buttons are on its card and on its front, so arriving at it only looks
+    if (piece.form === 'vendor' && piece.vend) { sendCmd(`examine ${piece.name}`); return; }
     // a box that sells (the lacquered box's `vend`): the click opens it and brings its card up
     if (st.verb === 'examine' && piece.acts?.some((a) => a.verb === 'vend')) { S.lidFor = piece.id; sendCmdSilent(`${piece.acts.find((a) => a.verb === 'vend').cmd} menu`); return; }
     if (st.verb === 'keypad') { sendCmd(msg.keypad ? `keypad ${piece.name}` : `examine ${piece.name}`); return; }
@@ -1271,6 +1425,8 @@ function openStage(msg) {
   }
   const cardEl = root.querySelector('.rs-card'), cardName = root.querySelector('.rs-card-name'), cardActs = root.querySelector('.rs-card-acts'), cardSay = root.querySelector('.rs-card-say');
   function actsOf(piece) {
+    // a vending machine: a button for each flavour, and pulling it out from the wall to get at its plug
+    if (piece.form === 'vendor' && piece.vend) return vendorUi.acts(piece);
     // a card table you sit at: F deals you in (plugins/gametable `join`); once you are, its controls are on the felt
     const pk = piece.board?.poker && S.walk?.sat && !piece.board.seats?.some((s) => s && s.id === S.you);
     if (pk) return [{ verb: 'join', label: 'Join the game' }, { verb: 'stand', label: 'Get up' }];
@@ -1289,6 +1445,8 @@ function openStage(msg) {
     if (piece.door) acts = [...ticketActs(S.tickets, piece.door), ...acts];
     // a Cachet's keypad, for whoever the room says may know of it: first on its card, so F at the bar brings the pad up
     // wherever on the cabinet you're facing, not only from the step in front of its little panel
+    // a turned Cachet's lab is out: F cooks at it. The server's acts are the bar's, which know nothing of the lab.
+    if (piece.turned && !acts.some((x) => x.verb === 'workspace')) acts = [{ verb: 'workspace', label: 'Cook', cmd: 'workspace chembench' }, ...acts];
     if (piece.keypad && msg.keypad) { const rest = acts.filter((x) => x.verb !== 'keypad'), pad = { verb: 'keypad', label: 'Use the keypad' }; acts = piece.turned ? [...rest, pad] : [pad, ...rest]; }
     // a set's Watch is its power switch (useStation): it says which way it'll go
     if (S.mesh.screens.some((s) => s.id === piece.id)) acts = acts.map((a) => (a.verb === 'watch' ? { ...a, label: tvOnHere(piece) ? 'Turn it off' : 'Turn it on' } : a));
@@ -1300,7 +1458,7 @@ function openStage(msg) {
   const tvOnHere = (piece) => !!S.tv?.on && (S.tvPiece ?? piece.id) === piece.id;
   // The set you're looking at, from anywhere in the room: a set is watched from across it, further off than a
   // piece's card reaches. `square` when the middle of the view is on its screen, which beats a piece in reach.
-  const TV_LOOK = 0.2, TV_FAR = 12;
+  const TV_LOOK = 0.2, TV_FAR = 12, TV_NEAR = 0.1;
   function tvAimed() {
     const w = host.clientWidth, h = host.clientHeight;
     if (!S.tv || !w || !h) return null;
@@ -1404,7 +1562,9 @@ function openStage(msg) {
     let piece = S.pieces.find((p) => p.id === id) || null;
     // the set you're looking at is the card over the seat you're on, and over a piece in reach once you're
     // looking straight at its screen, so F works it from the sofa
-    if (!who && !S.held) { const tv = tvAimed(); if (tv && (!piece || piece.id === w.sat?.piece || tv.square)) piece = tv.piece; }
+    // (or near enough: a set seen side-on or small across the room can miss the dead centre, and a piece beside you
+    // that you merely face, a card table, mustn't take F off the screen you're plainly looking at)
+    if (!who && !S.held) { const tv = tvAimed(); if (tv && (!piece || piece.id === w.sat?.piece || tv.square || tv.off < TV_NEAR)) piece = tv.piece; }
     // nothing nearer to hand: the lock you're stood at
     showCard(piece || (who || S.held ? null : lockUi.aim(w.at, seat.eye, seat.yaw) || liftUi.aim() || doorAim()), who);
   }
@@ -1441,7 +1601,9 @@ function openStage(msg) {
     if (a.verb === 'leave') { sendCmd('leave'); return; }
     if (a.verb === 'keypad') { sendCmd(`keypad ${piece.name}`); return; }
     // a wardrobe's Change clothes: your gear, to dress and undress
-    if (a.verb === 'dress') { S.pack.open('wear'); return; }
+    if (a.verb === 'dress') { S.pack.open('wear', { wardrobe: piece?.arche === 'wardrobe' ? piece.id : null }); return; }
+    // a wardrobe opens on the Pack, with its saved outfits, not the 2D wardrobe panel
+    if (a.verb === 'open' && piece?.arche === 'wardrobe') { openFridge(piece); S.pack.open('wear', { wardrobe: piece.id }); return; }
     if (a.verb === 'sit' || a.verb === 'lie') {
       // a piece with only a place to lie (a sun lounger) takes a sit as a lie
       const all = S.L.seats.filter((s) => s.piece === piece.id), want = a.verb === 'lie' || all.every((s) => s.lie);
@@ -1453,6 +1615,7 @@ function openStage(msg) {
     cardSay.hidden = true;
     if (a.verb === 'watch') { useStation({ piece: piece.id, verb: 'watch' }); return; }
     if (a.verb === 'tip') throwCash(S.card.who, a.n);
+    if (a.verb === 'vendpress' && piece) vendorUi.press(piece.id, a.item);
     if (a.verb === 'workspace' && piece && !piece.lab) S.cookAt = { id: piece.id, t: performance.now() };
     if (a.verb === 'open') openFridge(piece);
     // a boombox's Music opens the AMP player, which is the client's own; the server never hears `music`
@@ -1644,6 +1807,19 @@ function openStage(msg) {
     turn: (dYaw, dPitch, zoom) => packTurn(dYaw, dPitch, zoom),
   });
 
+  // A CUP CLOSE UP (room-closeup.js): examining a trophy case takes the camera round its Cup (gl/room-cup.js), to turn
+  // it and read who's engraved on it. `cupFor` is the case's id; a room rebuilt without it shuts the view.
+  S.closeup = createCloseup({ host, target: () => cupTarget(), onClose: () => { S.cupFor = null; } });
+  function cupTarget() {
+    const p = S.cupFor != null ? S.L?.placed?.find((q) => q.id === S.cupFor) : null;
+    if (!p) return null;
+    const c = trophyCup(p), L = S.L, [fu, fv] = facing(p.turn);
+    const o = L.world(p.u, p.v, c.foot), f = L.world(p.u + fu, p.v + fv, c.foot);
+    // looking at its front is looking back along the way it faces
+    // (the eye stays under the case's lid, which is its top 8 cm: gl/room-stadium.js trophy)
+    return { c: [o[0], o[2]], y0: o[1], y1: o[1] + (c.top - c.foot), front: Math.atan2(o[0] - f[0], o[2] - f[2]), near: c.r + 0.09, far: 1.6, ceil: o[1] + (c.lid - c.foot) - 0.03 };
+  }
+
   // YOU, IN THE PACK. While it's open the camera leaves your eyes and goes round you: your close-up figure, in what
   // the Pack says you have on (paper-doll.js figureWorn, since a player's figure carries no clothes of its own),
   // framed in the panel's clear box (room-pack.js dollRect), turned all the way round by a drag there, Q and E.
@@ -1740,7 +1916,7 @@ function openStage(msg) {
   }
   S.paintTags = paintTags;
   function pushDecals(scene = null) {
-    try { R.setDecals([...(S.tagList || []), ...restingSheets(), ...stadium.decals(), ...(scene || [])]); } catch (err) { console.warn('[room] paint:', err?.message); }
+    try { R.setDecals([...(S.tagList || []), ...restingSheets(), ...stadium.decals(), ...vendorUi.decals(), ...(S.vitals?.decals() || []), ...(scene || [])]); } catch (err) { console.warn('[room] paint:', err?.message); }
   }
 
   // ── SHEETS HUNG AS A RUN, AND THE JOIN (room-sheets.js, plugins/posters `room.sheets`) ──
@@ -1752,6 +1928,10 @@ function openStage(msg) {
   function markJoin(set, on) { try { if (on) localStorage.setItem(joinedKey(set), '1'); else localStorage.removeItem(joinedKey(set)); } catch { /* it plays again, that's all */ } }
   function runsNow() {
     const c = S.sheetRunsFor;
+    // arranging, the posters are where the draft has them (room-arrange.js sheets), worked out fresh each time
+    if (S.arrange?.on) { const list = S.arrange.sheets(S.sheets); return S.L && list.length ? sheetRuns(S.L, list) : []; }
+    const wd = S.wallDrag?.kind === 'sheet' ? S.wallDrag : null;
+    if (wd) return S.L ? sheetRuns(S.L, S.sheets.map((s) => (s.set === wd.set ? { ...s, spot: wd.spot } : s))) : [];
     if (c?.L === S.L && c.sheets === S.sheets) return c.runs;
     const runs = S.L && S.sheets.length ? sheetRuns(S.L, S.sheets) : [];
     S.sheetRunsFor = { L: S.L, sheets: S.sheets, runs };
@@ -1761,7 +1941,7 @@ function openStage(msg) {
   function restingSheets() {
     if (!S.L) return [];
     const runs = runsNow().filter(({ g }) => g.set !== S.scene?.set);
-    return sheetDecals(S.L, runs, new Set(runs.filter(({ g }) => isWhole(g) && seenJoin(g.set)).map(({ g }) => g.set)));
+    return sheetDecals(S.L, runs, new Set(runs.filter(({ g }) => isWhole(g) && seenJoin(g.set)).map(({ g }) => g.set)), { laid: !!S.arrange?.on });
   }
   function skipOnTap(e) { if (S.scene) { S.scene.skip(); e.stopPropagation(); e.preventDefault(); } }
   function startJoin(set) {
@@ -1859,9 +2039,126 @@ function openStage(msg) {
       }
     }
     drag = { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, id: e.pointerId };
+    // a poster or a hung piece of yours under the press: a drag (past WALL_GRAB_PX) slides it along the walls instead
+    // of turning the view; a click is still a click
+    if (e.button === 0 && S.walk && !S.cooking && !S.scene && (msg.mine || msg.admin)) {
+      const b = host.getBoundingClientRect(), g = wallGrabAt(e.clientX - b.left, e.clientY - b.top, b.width, b.height);
+      if (g) wallGrab = { ...g, pointer: e.pointerId, x0: e.clientX, y0: e.clientY, live: false };
+    }
     try { host.setPointerCapture(e.pointerId); } catch { /* not capturable */ }
   });
   const hoverEl = root.querySelector('.rs-hover'), flashEl = root.querySelector('.rs-flash');
+
+  // ── POSTERS AND HUNG PIECES DRAGGED ALONG THE WALLS (the walk view) ──
+  // The owner (or staff) grabs a poster run or a piece that hangs on a wall and slides it: along its wall, or round
+  // onto another (never glass). Its middle goes on the wall grid (room-sheets.js WALL_GRID), or right against the
+  // poster or hung piece beside it when it comes that near, the same snaps as the arrange mode. Letting go sends the
+  // ordinary `arrange layout` Save for just that one thing (plugins/roomstage arrangeLayout), so the server checks
+  // it as it does any layout; until it answers it's drawn where it was put, and a refusal puts it back.
+  const WALL_GRAB_PX = 8, FLUSH_M = 0.2, KISS_M = 0.06;
+  let wallGrab = null;
+  const kOf = () => (S.spec?.unit === 'ft' ? FT_PER_M : 1);
+  const wallsHere = () => ['left', 'right', 'front', 'back'].filter((w) => !(Array.isArray(S.spec?.glass) && S.spec.glass.includes(w)));
+  const sideWall = (w) => w === 'left' || w === 'right';
+  function hungHere() {
+    const k = kOf();
+    return (S.L?.placed || []).flatMap((q) => {
+      const p = S.pieces.find((x) => x.id === q.id);
+      if (!p || !q.wall || p.spot?.on || !pieceHangs(p)) return [];
+      const mid = Number.isFinite(q.mount) ? q.mount : Math.max(0.6 * k, (Number(p.mount) || 1.5) * k - q.h / 2) + q.h / 2;
+      return [{ p, q, wall: q.wall, c: sideWall(q.wall) ? q.v : q.u, half: q.w / 2, y: mid, hh: q.h / 2, d: q.d }];
+    });
+  }
+  const inQuad = (x, y, Q) => {
+    if (Q.some((p) => !p)) return false;
+    let sgn = 0;
+    for (let i = 0; i < 4; i++) {
+      const a = Q[i], b = Q[(i + 1) % 4], c = (b.x - a.x) * (y - a.y) - (b.y - a.y) * (x - a.x);
+      if (c !== 0) { if (sgn && Math.sign(c) !== sgn) return false; sgn = Math.sign(c); }
+    }
+    return true;
+  };
+  const faceQuad = (wall, c, half, y, hh, d, w, h) => [[c - half, y + hh], [c + half, y + hh], [c + half, y - hh], [c - half, y - hh]].map(([a, yy]) => R.project(wallPoint(S.L, wall, a, yy, d), w, h));
+  function wallGrabAt(x, y, w, h) {
+    if (!S.L) return null;
+    for (const r of runsNow()) {
+      if (inQuad(x, y, faceQuad(r.run.wall, r.run.c, r.width / 2, r.run.y, r.height / 2, 0.03, w, h))) return { kind: 'sheet', set: r.g.set, wall: r.run.wall, c: r.run.c, half: r.width / 2, y: r.run.y };
+    }
+    for (const H of hungHere()) {
+      if (!(msg.admin || H.p.placed)) continue;
+      if (inQuad(x, y, faceQuad(H.wall, H.c, H.half, H.y, H.hh, H.d, w, h))) return { kind: 'piece', id: H.p.id, name: H.p.name, wall: H.wall, c: H.c, half: H.half, y: H.y };
+    }
+    return null;
+  }
+  // the wall and how far along it under the pointer, at the grabbed thing's height: the nearest point on screen
+  function wallUnder(x, y, w, h, at) {
+    const L = S.L, hu = L.w / 2, step = 0.05 * kOf();
+    let best = null;
+    for (const wall of wallsHere()) {
+      const lo = sideWall(wall) ? 0 : -hu, hi = sideWall(wall) ? L.d : hu;
+      for (let a = lo; a <= hi; a += step) {
+        const p = R.project(wallPoint(L, wall, a, at, 0), w, h);
+        if (!p) continue;
+        const dd = Math.hypot(p.x - x, p.y - y);
+        if (!best || dd < best.dd) best = { wall, along: a, dd };
+      }
+    }
+    return best;
+  }
+  function wallDragTo(x, y, w, h) {
+    const g = wallGrab, at = wallUnder(x, y, w, h, g.y);
+    if (!at) return;
+    if (!('off' in g)) g.off = at.wall === g.wall ? g.c - at.along : 0;
+    const along = at.along + (at.wall === g.wall ? g.off : 0);
+    if (g.kind === 'sheet') {
+      const others = runsNow().filter((r) => r.g.set !== g.set).map((r) => ({ wall: r.run.wall, c: r.run.c, half: r.width / 2 }));
+      const spot = { wall: at.wall, along: Math.round(snapRun(S.L, at.wall, along, g.half, others) * 100) / 100 };
+      if (JSON.stringify(spot) === JSON.stringify(S.wallDrag?.spot)) return;
+      S.wallDrag = { kind: 'sheet', set: g.set, spot };
+      paintTags();
+      return;
+    }
+    // a hung piece: in metres on its spot; the grid, then flush against a hung neighbour on that wall
+    const k = kOf(), L = S.L, len = (sideWall(at.wall) ? L.d : L.w) / k, base = sideWall(at.wall) ? 0 : -len / 2, half = g.half / k;
+    let m = Math.round((along / k) / WALL_GRID_M) * WALL_GRID_M, flush = null;
+    for (const H of hungHere()) {
+      if (H.p.id === g.id || H.wall !== at.wall) continue;
+      for (const c of [H.c / k + H.half / k + half + KISS_M, H.c / k - H.half / k - half - KISS_M]) if (Math.abs(c - along / k) < FLUSH_M && (flush === null || Math.abs(c - along / k) < Math.abs(flush - along / k))) flush = c;
+    }
+    if (flush !== null) m = flush;
+    m = Math.max(base + half, Math.min(base + len - half, m));
+    const spot = cleanSpot({ wall: at.wall, along: m });
+    if (!spot || JSON.stringify(spot) === JSON.stringify(S.wallDrag?.spot)) return;
+    S.wallDrag = { kind: 'piece', id: g.id, spot };
+    rebuild();
+  }
+  function wallDrop() {
+    const wd = S.wallDrag;
+    if (!wd) return;
+    const word = (sp) => `${sp.wall}:${Number(sp.along).toFixed(2)}`;
+    S.wallUndo = { pieces: S.pieces, sheets: S.sheets };
+    S.wallDrag = null;
+    if (wd.kind === 'sheet') {
+      const mine = S.sheets.filter((s) => s.set === wd.set);
+      if (!mine.length) { paintTags(); return; }
+      S.sheets = S.sheets.map((s) => (s.set === wd.set ? { ...s, spot: wd.spot } : s));
+      paintTags();
+      sendCmdSilent(`arrange layout ${mine.map((s) => `sheet:${s.id}@${word(wd.spot)}`).join(' ')}`);
+      return;
+    }
+    S.pieces = S.pieces.map((p) => (p.id === wd.id ? { ...p, spot: wd.spot } : p));
+    rebuild();
+    sendCmdSilent(`arrange layout ${wd.id}@${word(wd.spot)}`);
+  }
+  // the server said no (roomArranged): back where it was, and why
+  S.wallRefused = (m) => {
+    const u = S.wallUndo;
+    S.wallUndo = null;
+    if (!u) return;
+    S.pieces = u.pieces; S.sheets = u.sheets;
+    rebuild(); paintTags();
+    flash(m || "It won't go there.", false);
+  };
   const label = (hit) => {
     if (!hit) return '';
     if (hit.who) return `Talk to ${hit.who.name}`;
@@ -1875,6 +2172,11 @@ function openStage(msg) {
   };
   host.addEventListener('pointermove', (e) => {
     const b = host.getBoundingClientRect();
+    if (wallGrab && e.pointerId === wallGrab.pointer) {
+      if (!wallGrab.live && Math.hypot(e.clientX - wallGrab.x0, e.clientY - wallGrab.y0) > WALL_GRAB_PX) { wallGrab.live = true; drag = null; hoverEl.hidden = true; }
+      if (wallGrab.live) { host.style.cursor = 'grabbing'; wallDragTo(e.clientX - b.left, e.clientY - b.top, b.width, b.height); }
+      return;
+    }
     if (petting && e.pointerId === petting.pointer) {
       const hit = catUnder(e.clientX - b.left, e.clientY - b.top, b.width, b.height);
       petting.moved += Math.hypot(e.clientX - petting.x, e.clientY - petting.y);
@@ -1903,7 +2205,8 @@ function openStage(msg) {
       const on = tvPoint(x, y, b.width, b.height), btn = on && S.tv.buttonAt(on.u, on.v);
       S.tv?.touching(on);
       const dial = !btn && !who && dialAt(x, y, b.width, b.height);
-      const t = btn ? btn.title || btn.getAttribute('aria-label') || 'Press' : on && !who ? 'Scroll to change the channel' : dial ? (dial.kind === 'switch' ? 'The light switch' : `Turn the fire: ${flame < 0.02 ? 'pilot' : Math.round(flame * 100) + '%'} (scroll)`) : label(who ? { who } : S.walk.hit(x, y, b.width, b.height));
+      const vh = !btn && !who && vendorUi.hitAt(x, y, b.width, b.height, S.walk.at);
+      const t = vh ? vh.act.label : btn ? btn.title || btn.getAttribute('aria-label') || 'Press' : on && !who ? 'Scroll to change the channel' : dial ? (dial.kind === 'switch' ? 'The light switch' : `Turn the fire: ${flame < 0.02 ? 'pilot' : Math.round(flame * 100) + '%'} (scroll)`) : label(who ? { who } : S.walk.hit(x, y, b.width, b.height));
       host.style.cursor = t ? 'pointer' : '';
       hoverEl.hidden = !t;
       if (t) { hoverEl.textContent = t; hoverEl.style.left = (e.clientX - b.left + 16) + 'px'; hoverEl.style.top = (e.clientY - b.top + 12) + 'px'; }
@@ -1914,6 +2217,10 @@ function openStage(msg) {
     if (dx || dy) turn(dx, dy);
   });
   host.addEventListener('pointerup', (e) => {
+    if (wallGrab && e.pointerId === wallGrab.pointer) {
+      const g = wallGrab; wallGrab = null;
+      if (g.live) { drag = null; host.style.cursor = ''; wallDrop(); return; }
+    }
     if (petting && e.pointerId === petting.pointer) {
       // a press with no stroke to speak of is a pat on that spot, sent once
       if (!petting.sent) petSend(petting);
@@ -1927,6 +2234,9 @@ function openStage(msg) {
     // a button on the picture first, in this same event: going full screen needs the click's own turn
     const on = tvPoint(e.clientX - b.left, e.clientY - b.top, b.width, b.height), btn = on && S.tv.buttonAt(on.u, on.v);
     if (btn) { btn.click(); return; }
+    // a vending machine's button, or its plug, pressed on the machine itself
+    const vh = vendorUi.hitAt(e.clientX - b.left, e.clientY - b.top, b.width, b.height, S.walk.at);
+    if (vh) { if (vh.act.verb === 'vendpress') vendorUi.press(vh.piece.id, vh.act.item); S.listenUntil = performance.now() + 2500; sendCmd(vh.act.cmd); return; }
     const who = personAt(e.clientX - b.left, e.clientY - b.top, b.width, b.height);
     if (who) { S.held = { who: who.id, at: [...S.walk.at] }; return; }
     // the fire's dial, before the fireplace it's on
@@ -1938,7 +2248,7 @@ function openStage(msg) {
     if (!reachable(piece)) { flash(`The ${piece.name} is through the door.`, false); return; }
     S.held = { piece: id, at: [...S.walk.at] };
   });
-  host.addEventListener('pointercancel', () => { drag = null; if (petting) { catTouch(petting.id, null); petting = null; } });
+  host.addEventListener('pointercancel', () => { if (wallGrab?.live) { S.wallDrag = null; rebuild(); paintTags(); } wallGrab = null; drag = null; if (petting) { catTouch(petting.id, null); petting = null; } });
   host.addEventListener('pointerleave', () => { hoverEl.hidden = true; host.style.cursor = ''; S.tv?.touching(false); });
   // the wheel on the set: how far it turns for a station (a mouse's notch is 100), the least time between two,
   // and how long a pause starts the count again
@@ -1992,12 +2302,17 @@ function openStage(msg) {
     if (document.getElementById('tablet-os-overlay')) return;
     // so does a cabinet's keypad (panels/keypad.js): its digits mustn't pick a card's line behind it
     if (document.getElementById('keypad-overlay')) return;
+    // and the wardrobe's panel: it covers the room, so F or WASD mustn't walk you away behind it
+    // (only while it can be seen: an open panel hidden behind the room must never swallow F)
+    { const wp = document.getElementById('wardrobe-panel'); if (wp?.classList.contains('active') && wp.getBoundingClientRect().width > 0 && getComputedStyle(wp).zIndex >= 8900) return; }
     if (field) return;
     // the spray can's dialog and its session are over the room, and the room behind mustn't walk off
     if (document.getElementById('spray-overlay') || document.getElementById('spray-session')) return;
     const k = String(e.key || '');
     // the join playing has the keys: Space, Enter or Escape skips it, and nothing walks under it
     if (S.scene) { if (!e.repeat && (k === ' ' || k === 'Enter' || k === 'Escape')) S.scene.skip(); e.preventDefault(); return; }
+    // looking at the Cup close up, its view has the keys (room-closeup.js key), Escape steps back
+    if (S.closeup?.key(e)) { e.preventDefault(); return; }
     // cooking, you still walk and look: WASD (and Shift) and the arrows. Everything else is the kitchen's
     // (kitchen-stage.js onKey): Q and E are its utensils, F its flip, digits its dial and its keypad, Escape its close
     if (S.cooking) {
@@ -2031,6 +2346,7 @@ function openStage(msg) {
     else if ((k === 'g' || k === 'G') && !e.ctrlKey && !e.metaKey && !e.altKey) { if (!e.repeat) openCan(); e.preventDefault(); }
     else if ((k === 'b' || k === 'B') && (msg.mine || msg.admin) && !e.ctrlKey && !e.metaKey && !e.altKey) { if (!e.repeat) startArrange(); e.preventDefault(); }
     else if (k === 'l' || k === 'L') { toggleLamp(); e.preventDefault(); }
+    else if ((k === 'n' || k === 'N') && !e.ctrlKey && !e.metaKey && !e.altKey) { if (!e.repeat) toggleTags(); e.preventDefault(); }
     else if (k === '-' || k === '_') { setLevel(lampLevel - 0.1); e.preventDefault(); }
     else if (k === '=' || k === '+') { setLevel(lampLevel + 0.1); e.preventDefault(); }
     else if ((k === ',' || k === '<') && fires().length) { setFlame(flame - 0.1); e.preventDefault(); }
@@ -2196,11 +2512,24 @@ function openStage(msg) {
   };
   const onPlace = (e) => {
     const d = e.detail;
-    if (!d || d.place || !S.walk?.at) return;
+    if (!d) return;
+    // who they are, for the voice (npc-bubbles.js), whether or not they're placed
+    if (!d.sex) {
+      const p = (S.people || []).find((q) => q.name === d.name) || (S.next || []).flatMap((n) => n.people || []).find((q) => q.name === d.name);
+      if (p?.sex) d.sex = p.sex;
+    }
+    if (d.place || !S.walk?.at) return;
     const at = speakerSpot(d.name);
     if (at && earNow()) d.place = { position: at, ...VOICE_AT };
   };
   window.addEventListener('npc:place', onPlace);
+  // TALKING TO SOMEBODY (room-talk.js): the camera on their face while a conversation is open (dialogue.js says who,
+  // 'npc:talk'); their head is where their voice comes from, raised for a room laid out in feet
+  const unitM = () => S.spec?.unit === 'ft' ? FT_PER_M : 1;
+  S.talk = createTalkShot({ unit: unitM, head: (name) => { const at = S.L && speakerSpot(name); return at ? S.L.world(at[0], at[1], at[2] * unitM()) : null; } });
+  const onTalk = (e) => S.talk.set(e.detail?.name || null);
+  window.addEventListener('npc:talk', onTalk);
+  { const panel = document.getElementById('dialogue-panel'); if (panel?.classList.contains('active') && !panel.classList.contains('shop-mode')) S.talk.set(document.getElementById('dialogue-npc-name')?.textContent || null); }
   function placeVoices() {
     if (!voiced.size) return;
     earNow();
@@ -2271,15 +2600,18 @@ function openStage(msg) {
   }
   // a player eating, drinking or taking something (plugins/roomstage acts.js): the clip for it, standing or sat, and
   // what's in their right hand (gl/figure-reach.js HELD)
-  const ACT_CLIP = { eat: ['eat', 'sitEat'], drink: ['drink', 'sitDrink'], smoke: ['smoke', 'sitSmoke'], swallow: ['swallow', 'sitPill'], inject: ['inject', 'sitTie'], snort: ['snort', 'sitLine'], huff: ['huff', 'sitHuff'] };
+  const ACT_CLIP = { eat: ['eat', 'sitEat'], drink: ['drink', 'sitDrink'], smoke: ['smoke', 'sitSmoke'], swallow: ['swallow', 'sitPill'], inject: ['inject', 'sitTie'], snort: ['snort', 'sitLine'], huff: ['huff', 'sitHuff'], tip: ['tipOffer', 'sitTipOffer'] };
   const acted = (p, pl) => (!p.act || !ACT_CLIP[p.act] || !pl || pl.pose === 'lie' || pl.clip === 'walk' ? pl : { ...pl, clip: ACT_CLIP[p.act][pl.pose === 'sit' ? 1 : 0] });
   const bodiesNow = () => {
     const bodies = [];
     for (const p of S.people) {
       if (p.id === S.you) continue;
-      const pl = acted(p, placeOf(p));
-      // `rest` and `manner` pick what they idle at: asleep, out cold, or at work behind a bar (plugins/roomstage)
-      if (pl) bodies.push({ id: p.id, ...eased(p, pl), dress: dressOf(p.order), sculpt: true, sex: p.sex, figure: figOf(p), wear: p.wear, feel: p.feel, ...(p.gait ? { gait: p.gait } : {}), mouth: mouthOf(p.name), rest: p.asleep ? 'sleep' : p.out ? 'out' : undefined, manner: p.manner, mood: p.mood, meal: p.meal, ...(p.stash && pl.seat ? { stash: p.stash, stashAt: stashNow(p.stash) } : {}), ...(p.act && p.hold ? { holds: { R: p.hold } } : {}) });
+      let pl = acted(p, placeOf(p));
+      // who you're talking to turns to face you, stood still (room-talk.js)
+      if (pl?.at && S.talk?.who === p.name && pl.pose === 'stand' && pl.clip !== 'walk') pl = { ...pl, yaw: S.talk.faceYou(p.name, S.L.world(pl.at[0], pl.at[1], 0), seat) ?? pl.yaw };
+      // `rest` and `manner` pick what they idle at: asleep, out cold, or at work behind a bar, and `watch` is a dancer they
+      // keep looking at (plugins/roomstage)
+      if (pl) bodies.push({ id: p.id, ...eased(p, pl), dress: dressOf(p.order), sculpt: true, sex: p.sex, figure: figOf(p), wear: p.wear, feel: p.feel, ...(p.gait ? { gait: p.gait } : {}), mouth: mouthOf(p.name), rest: p.asleep ? 'sleep' : p.out ? 'out' : undefined, manner: p.manner, mood: p.mood, meal: p.meal, ...(p.watch ? { watch: S.L.world(p.watch[0], p.watch[1], p.watch[2]) } : {}), ...(p.stash && pl.seat ? { stash: p.stash, stashAt: stashNow(p.stash) } : {}), ...(p.act && p.hold ? { holds: { R: p.hold } } : {}) });
     }
     // and whoever's next door, seen through the doorway: drawn, tagged, never spoken to from here (`next`)
     for (const n of S.next) {
@@ -2548,7 +2880,9 @@ function openStage(msg) {
     const h = hourNow(), lamp = lampOn ? (power === 'low' ? lampLevel * EMERGENCY_K : lampLevel) : 0;
     const day = S.mesh?.windows?.length || S.spec?.balcony ? dayOf(h) * outside.dimOf() : 0;
     const light = Math.min(1, 0.8 * lamp + 0.95 * day);
-    const f = catsFrame(S.L, S.beasts, { now: Date.now(), hour: h, whereIs, folk, drawer: catDraw, lite: phone, light });
+    // how far down somebody's head is, as a share of standing: yours drops when you crouch (3.3 ft of 5.4)
+    const lowOf = (id) => (id === S.you && S.walk?.keys?.().crouched ? 3.3 / 5.4 : 1);
+    const f = catsFrame(S.L, S.beasts, { now: Date.now(), hour: h, whereIs, folk, lowOf, drawer: catDraw, lite: phone, light, mouth: catVoice.mouth });
     R.setCats(f.cats);
     catVoice.tick(f.voices);
   }
@@ -2766,19 +3100,92 @@ function openStage(msg) {
     if (inside) S.inShower = fid;
     else if (S.inShower === fid) { S.inShower = null; sendCmd('shower off'); }
   }
+  // The sleepers in the clone vats (docs/proposals/clone-facility-depths.md): a close-up figure in every vat that isn't
+  // drained, nude, floating a hand off the plinth in the vatFloat clip, bowed and asleep. Drawn at the room's own
+  // figure level at any distance (no drop to the lite figure across the room), and handed to the vat's fluid as
+  // capsules off its bones, so the fluid flows round the body and the march stops at its skin.
+  function vatSleepers(t) {
+    const L = S.L, vs = S.mesh?.vats;
+    if (!L || !vs?.length) return [];
+    const out = [];
+    for (const v of vs) {
+      if (v.state === 'drained' || v.sleeper === false || v.id == null || v.h < 1.2) continue;
+      const p = L.placed.find((q) => String(q.id) === String(v.id));
+      if (!p) continue;
+      const [fu, fv] = facing(p.turn), at = [p.u + fu * 0.02, p.v + fv * 0.02];
+      const o = L.world(at[0], at[1], 0), e = L.world(at[0] + fu, at[1] + fv, 0), floor = L.world(at[0], at[1], L.baseAt?.(at[0], at[1]) || 0)[1];
+      const id = 'vat:' + v.id, h = hashStr(id), ph = (h % 1000) / 159;
+      out.push({ id, vat: v.id, npc: true, sculpt: true, faceHd: true, sex: h & 1 ? 'male' : 'female', at, clip: 'vatFloat', rest: 'sleep', gaze: [0, -0.3],
+        yaw: Math.atan2(e[0] - o[0], e[2] - o[2]) + 0.06 * Math.sin(t * 0.13 + ph),
+        lift: v.c[1] - floor + 0.05 + 0.025 * Math.sin(t * 0.31 + ph),
+        height: Math.min(1.78, Math.max(1.45, v.h - 0.2)) * (0.95 + 0.05 * ((h >> 3) % 7) / 6),
+        figure: { wear: { top: false, legs: false, shoes: false }, gear: false } });
+    }
+    return out;
+  }
+  // ⚠ SOMEBODY IDLING ACROSS THE ROOM IS POSED AT ABOUT 15 A SECOND, NOT EVERY FRAME. Their breathing, blinks
+  // and glances are too small to see stepping at that distance, and posing a body was most of what a busy room
+  // cost the CPU. Anybody walking, talking, next door, close (6 m) or changing pose is posed every frame as before.
+  const poseKept = new Map(), figWait = new Map();
+  function posePeople(bodies, t) {
+    const opts = { level: figLevel, eye: seat.eye };
+    const me = seat.eye ? S.L.local(seat.eye) : S.walk?.at, far = 6 * (S.spec.unit === 'ft' ? FT_PER_M : 1);
+    const keep = (bd) => {
+      if (!me || bd.clip || bd.mix || bd.blend || bd.next || bd.mouth || bd.phase !== undefined || !Array.isArray(bd.at)) return null;
+      const k = poseKept.get(bd.id);
+      if (!k || t - k.t > 0.066 || t < k.t || k.L !== S.L || k.u !== bd.at[0] || k.v !== bd.at[1] || k.pose !== bd.pose) return null;
+      return Math.hypot(bd.at[0] - me[0], bd.at[1] - me[1]) > far ? k.rec : null;
+    };
+    const kept = bodies.map(keep), fresh = bodies.filter((_, i) => !kept[i]);
+    const made = fresh.length ? figurePeople(S.L, fresh, t, opts) : [];
+    let j = 0;
+    const recs = bodies.map((bd, i) => {
+      if (kept[i]) return kept[i];
+      const rec = made[j++];
+      if (Array.isArray(bd.at)) poseKept.set(bd.id, { rec, t, L: S.L, u: bd.at[0], v: bd.at[1], pose: bd.pose });
+      return rec;
+    });
+    if (poseKept.size > bodies.length * 2 + 16) for (const id of poseKept.keys()) if (!bodies.some((b) => b.id === id)) poseKept.delete(id);
+    return recs;
+  }
   function drawPeople(t) {
     // ⚠ NEXT DOOR WAITS FOR ITS FIGURE. Somebody seen through a doorway is left out until the worker has built them
     // (figuresReady asks it), or figurePeople built them here on the frame they came into view, 50 to 180 ms each,
     // while the bake was waiting on the worker for the same figure: in the Room Lab, with three people next door,
     // the page spent longer building figures than with no worker at all. Under the veil the bake holds the veil
-    // for them, so they're there when it lifts. Anybody in this room is drawn at once, as always.
-    const all = bodiesNow(), bodies = all.some((b) => b.next) ? all.filter((b) => !b.next || figuresReady([b], figLevel)) : all;
-    const recs = figurePeople(S.L, bodies, t, { level: figLevel, eye: seat.eye });
-    R.setFigures(recs);
+    // for them, so they're there when it lifts.
+    // ⚠ SO DOES SOMEBODY WHO WALKS IN. A newcomer to this room was built here on the frame they appeared: eight at
+    // once held the page 1.4 s in the Room Lab. Now one not drawn last frame waits for the worker, four seconds at
+    // most (a Lab pick the worker can't see is built here then, as before); anybody already drawn stays drawn.
+    const all0 = bodiesNow(), all = S.vatCycle?.busy ? S.vatCycle.bodies(all0, S, performance.now()) : all0;
+    const nowW = performance.now(), wasDrawn = S.drawnIds || new Set();
+    const bodies = all.filter((b) => {
+      if (b.next) return figuresReady([b], figLevel);
+      if (wasDrawn.has(b.id) || !peopleOn) return true;
+      const since = figWait.get(b.id) ?? figWait.set(b.id, nowW).get(b.id);
+      return nowW - since > 4000 || figuresReady([b], figLevel);
+    });
+    S.drawnIds = new Set(bodies.map((b) => b.id));
+    for (const id of S.drawnIds) figWait.delete(id);
+    if (figWait.size > 64) figWait.clear();
+    const recs = posePeople(bodies, t);
+    // (built in the worker first, as next door's are: until they're back the vats stand empty, not the frame held)
+    // the sleepers are always the close-up figure with the fine head (faceHd), on every device and at any distance:
+    // they're the room's centrepiece, and there are few enough of them to afford it
+    const sleepers0 = vatSleepers(t), sleepers = sleepers0.length && figuresReady(sleepers0, 'hd') ? sleepers0 : [];
+    const slept = sleepers.length ? figurePeople(S.L, sleepers, t, { level: 'hd' }) : [];
+    R.setFigures(slept.length ? [...recs, ...slept] : recs);
+    if (slept.length) R.setVatBodies?.(slept.map((r, i) => ({ id: sleepers[i].vat, ...sleeperCapsules(r.rows) })));
+    // where everyone stands, for the door cards to hide behind (room-lock.js peopleBlock)
+    S.drawnBodies = bodies;
     // you, in a mirror: posed only while one was drawn last frame, and not while the Pack or the pod already has you
+    // ⚠ YOU WAIT FOR THE WORKER TOO. You're never drawn in the room, so the first frame a mirror came into view built
+    // you here (dressed in what you wear), and walking up to a wardrobe's mirror held the page about two seconds.
+    // Asked from the room's open (any mirror in it) so you're usually made before you reach it; until then the
+    // mirror shows the room without you.
     if (R.hasMirror) {
-      const me = R.mirrorSeen && !S.morph?.on && !S.packCam ? mirrorBody(t) : null;
-      R.setMirrorFigures(me ? figurePeople(S.L, [me], t, { level: figLevel }) : []);
+      const me = !S.morph?.on && !S.packCam ? mirrorBody(t) : null, ready = me && figuresReady([me], figLevel);
+      R.setMirrorFigures(ready && R.mirrorSeen ? figurePeople(S.L, [me], t, { level: figLevel }) : []);
     }
     drawBeasts();
     // a pan, a stove, a plate: what anybody cooking or eating has (gl/room-meals.js), and nothing once nobody is
@@ -2799,7 +3206,14 @@ function openStage(msg) {
     // a shower running, a stream, a bowl that isn't clean (gl/room-plumbing.js)
     const plumb = plumbingLive(S.plumb);
     if (plumb) showerStepOut();
-    if (eating || using || box || holding || S.propsOn || fridge || poker || plumb) {
+    // a roof that lets the rain in drips into its bucket while it's raining (gl/room-squat.js)
+    const drip = leaksLive(S.L, liveWx()?.weather);
+    // a shut lacquer box with nothing else going on draws the same props every frame: build them once per layout
+    // and leave the uploaded batch alone until something moves (a lid, a meal, a hand), not 60 rebuilds a second
+    const still = box && !S.lidK && !lidTo && !(eating || using || holding || fridge || poker || plumb || drip);
+    if (still && S.propsStill === S.L) { /* the batch on the GPU is already this */ }
+    else if (eating || using || box || holding || S.propsOn || fridge || poker || plumb || drip) {
+      S.propsStill = still ? S.L : null;
       const b = mealProps(S.L, bodies, recs, t);
       stashProps(b, S.L, bodies, recs, t, { id: S.lidFor, k: S.lidK || 0 });
       heldProps(b, bodies, recs);
@@ -2809,12 +3223,14 @@ function openStage(msg) {
       const steam = plumb && !S.chemming && Object.values(S.plumb).some((x) => x?.shower) ? { data: new Float32Array(0), n: 0 } : null;
       if (plumb) plumbingProps(b, S.L, S.plumb, bodies, S.walk?.at ? { id: S.you, at: S.walk.at, yaw: seat.yaw } : null, t, Date.now(), steam);
       if (steam) { R.setPropsGlass(steam); S.steamOn = true; } else if (S.steamOn) { R.setPropsGlass(null); S.steamOn = false; }
+      if (drip) leaksProps(b, S.L, t);
       // (an open fridge keeps it on a frame longer, so its doors leave the props layer once they're back in the room)
-      R.setProps(b); S.propsOn = eating || using || box || holding || !!fridge || poker || plumb;
+      R.setProps(b); S.propsOn = eating || using || box || holding || !!fridge || poker || plumb || drip;
     }
     if (!plumb && S.steamOn) { R.setPropsGlass(null); S.steamOn = false; }
-    // a name over each head
-    const b = host.getBoundingClientRect();
+    // a name over each head. The host's size is kept by a ResizeObserver: reading its rect every frame forced a
+    // layout whenever anything on the page had changed since the last one
+    const b = hostSize();
     const nowMs = performance.now(), mineAnnex = !!(S.walk?.at && S.L.annex && inAnnex(S.L, S.walk.at[1], S.walk.at[0]));
     inView.clear();
     // ⚠ A NAME IS HTML OVER THE PICTURE, so the room's depth can't hide it: somebody behind a wall kept their
@@ -2825,7 +3241,7 @@ function openStage(msg) {
     const shown = [];
     for (const bd of bodies) {
       if (bd.id === S.you || (eye && !roomSees(S.L, eye, bd.at))) continue;
-      const p = personOf(bd.id, bd.next), y = bd.pose === 'lie' ? (bd.top || 0.4) + 0.5 : bd.pose === 'sit' ? 1.45 + (bd.lift || 0) : 1.95;
+      const p = personOf(bd.id, bd.next), y = bd.pose === 'lie' ? (bd.top || 0.4) + 0.5 : bd.pose === 'sit' ? 1.45 + (bd.lift || 0) : 1.95 + (bd.tagLift || 0);
       const q = R.project(S.L.world(bd.at[0], bd.at[1], bd.pose === 'lie' ? y : y + S.L.baseAt(bd.at[0], bd.at[1])), b.width, b.height);
       if (!q || q.x <= -50 || q.x >= b.width + 50 || q.y <= -20 || q.y >= b.height) continue;
       shown.push({ bd, p, q, w: String(p?.name || '').length * 7 + 14 });
@@ -2849,7 +3265,7 @@ function openStage(msg) {
     }
     for (const id of tagLift.keys()) if (id !== 't' && !shown.some((s) => s.bd.id === id)) tagLift.delete(id);
     const html = shown.map(({ bd, p, q }) => {
-      const tag = `<span class="rs-tag${p?.npc ? ' npc' : ''}" style="left:${q.x.toFixed(0)}px;top:${q.y.toFixed(0)}px">${esc(p?.name)}</span>`;
+      const tag = noTags ? '' : `<span class="rs-tag${p?.npc ? ' npc' : ''}" style="left:${q.x.toFixed(0)}px;top:${q.y.toFixed(0)}px">${esc(p?.name)}</span>`;
       if (!p || bd.next || !!p.annex !== mineAnnex || q.x < 0 || q.x > b.width) return tag;
       inView.add(p.name);
       const line = talking.get(p.name);
@@ -2862,6 +3278,21 @@ function openStage(msg) {
     padCue(b, eye);
   }
   let tagsHtml = '';
+  // N hides the names over heads (and brings them back); what anybody says still shows. Kept for this browser
+  let noTags = false;
+  try { noTags = localStorage.getItem('rs-no-tags') === '1'; } catch {}
+  function toggleTags() {
+    noTags = !noTags;
+    try { localStorage.setItem('rs-no-tags', noTags ? '1' : '0'); } catch {}
+    flash?.(noTags ? 'Names hidden (N)' : 'Names shown (N)');
+  }
+  let hostBox = null;
+  const hostRO = typeof ResizeObserver === 'function' ? new ResizeObserver(() => { hostBox = null; }) : null;
+  hostRO?.observe(host);
+  function hostSize() {
+    if (!hostBox || !hostRO) { const r = host.getBoundingClientRect(); hostBox = { width: r.width, height: r.height }; }
+    return hostBox;
+  }
   // ⚠ WHERE A CACHET'S KEYPAD IS, for whoever the room tells there's one (msg.keypad: the owner, or anybody in
   // unowned space). The pad is small and dressed as the bar's own (gl/room-mesh.js drawCachetPad), so within a few
   // steps a ring pulses on it, and the first time you see one the room says where it is. A guest in an owned room
@@ -2925,20 +3356,33 @@ function openStage(msg) {
   }
   let uncovered = false, keepAt = null;
   // ⚠ THE ROOM'S RESOLUTION FOLLOWS ITS FRAME RATE (gl/room.js `setRes`). The time between frames is smoothed, and
-  // past PACE_SLOW_MS the picture steps down a tenth (to half the pixels across at most), coming back up a twentieth
-  // under PACE_FAST_MS, no more than one step every PACE_STEP_MS so it doesn't hunt. A gap over 250 ms is a hidden tab
-  // or a load, not a slow frame, and is left out. A screen faster than 60 Hz runs under PACE_FAST_MS and never steps.
-  const PACE_SLOW_MS = 21, PACE_FAST_MS = 15, PACE_STEP_MS = 600;
-  let paceLast = 0, paceDt = 16.7, paceAt = 0;
+  // past PACE_SLOW_MS the picture steps down a tenth (to half the pixels across at most), no more than one step every
+  // PACE_STEP_MS so it doesn't hunt. A gap over 250 ms is a hidden tab or a load, not a slow frame, and is left out.
+  // ⚠ IT CLIMBS BACK ON A HELD 60, NOT ON A FAST FRAME. It used to climb only under 15 ms, and vsync pins a 60 Hz
+  // screen at 16.7, so once it stepped down it stayed down for good: the soft street out of the lobby windows. Now
+  // a frame rate held under PACE_FAST_MS (one vsync and a bit) for paceWait climbs a twentieth. The hysteresis is
+  // the wait: a climb that's knocked back down inside PACE_RELAPSE_MS doubles it (to PACE_WAIT_MAX_MS), so a scene
+  // that can't hold the higher step tries it less and less often, and a long clean run puts it back to PACE_WAIT_MS.
+  const PACE_SLOW_MS = 21, PACE_FAST_MS = 18, PACE_STEP_MS = 600, PACE_WAIT_MS = 1500, PACE_WAIT_MAX_MS = 12000, PACE_RELAPSE_MS = 4000;
+  let paceLast = 0, paceDt = 16.7, paceAt = 0, paceFastSince = 0, paceWait = PACE_WAIT_MS, paceUpAt = -1e9;
   function paceRes(now) {
     const dt = now - paceLast;
     paceLast = now;
     if (!(dt > 0 && dt < 250) || !R.setRes) return;
     paceDt += (dt - paceDt) * 0.1;
+    if (paceDt >= PACE_FAST_MS) paceFastSince = now;
     if (now - paceAt < PACE_STEP_MS) return;
-    if (paceDt > PACE_SLOW_MS && R.res > 0.5) { R.setRes(R.res - 0.1); paceAt = now; }
-    else if (paceDt < PACE_FAST_MS && R.res < 1) { R.setRes(R.res + 0.05); paceAt = now; }
+    if (paceDt > PACE_SLOW_MS && R.res > 0.5) {
+      if (now - paceUpAt < PACE_RELAPSE_MS) paceWait = Math.min(PACE_WAIT_MAX_MS, paceWait * 2);
+      R.setRes(Math.max(0.5, R.res - 0.1)); paceAt = now; paceFastSince = now;
+    } else if (R.res < 1 && now - paceFastSince > paceWait) {
+      if (now - paceUpAt > PACE_RELAPSE_MS) paceWait = Math.max(PACE_WAIT_MS, paceWait * 0.75);   // the last climb held
+      R.setRes(Math.min(1, R.res + 0.05)); paceAt = paceUpAt = now; paceFastSince = now;
+    }
   }
+  // for a harness: how the pacer stands
+  S.paceState = () => ({ res: R.res, dt: paceDt, wait: paceWait });
+  globalThis.__roomPace = S.paceState;
   // the lobby from its street door, kept some frames in (the room's pieces and people have come by then) and only
   // while you're still stood where you came in, looking where you came in looking; every visit refreshes it
   function keepStillNow() {
@@ -2990,6 +3434,7 @@ function openStage(msg) {
     watchFridge(now);
     if (peopleOn) drawPeople(now / 1000);
     hoistUi.frame(now);
+    if (vendorUi.frame(now)) { pushLocks(); pushDecals(); }
     if (stadium.frame(now, seat.eye, seat.yaw)) { pushDecals(); stadium.settled(); }
     watchDoor(now);
     rushDoorway(now);
@@ -3006,6 +3451,7 @@ function openStage(msg) {
     S.seeLens = S.outlook?.tick(h, liveWx(), S.shutters.covered && !S.spec?.balcony ? null : lookOut()) || S.seeLens;
     toFaces(h);
     warmView(now, h);
+    warmOpen(now, h);
     const Lr = S.L, A = Lr.annex;
     // the en-suite's box on the ground, in the frame the light is worked out in. It reaches a little
     // past the walls, or a wall sitting exactly on its edge flickers between the two rooms' lamps
@@ -3022,7 +3468,7 @@ function openStage(msg) {
     if (bob) seat.eye[1] += bob;
     // cooking: the kitchen's camera, and its board, pans and food standing on this room's hob
     const mx = S.morph?.on ? S.morph.frame(now) : null;
-    if (mx) { R.setProps(mx.props); R.setPropsGlass(mx.glass); R.setGlows(mx.glows); }
+    if (mx) { R.setProps(mx.props); R.setPropsGlass(mx.glass); R.setStageHalos(mx.halos); R.setGlows(mx.glows); }
     const cook = mx ? { cam: mx.cam } : S.cooking ? (S.chemming ? S.chemView : S.cookView) : null;
     if (cook?.props) R.setProps(cook.props);
     watchCookStand();
@@ -3038,13 +3484,34 @@ function openStage(msg) {
     const join = ax ? null : joinFrame(now);
     // the Pack open: the camera round you (packCamNow)
     const packed = !join && !ax && !cook && S.packCam ? packCamNow(now) : null;
-    R.render(join?.cam || ax?.cam || cook?.cam || packed || seat, { lamps: S.mesh.lamps, next: nextLit(Lr, seat.eye), lampOn, lampLevel: power === 'low' ? lampLevel * EMERGENCY_K : lampLevel, fire, flame,day: Math.min(1, dayOf(h) * outside.dimOf() + out.flash * 0.5), sky, wins: S.mesh.windows, annex, outZ: S.spec.balcony ? 0.145 : undefined, outRing: S.spec.balcony?.wrap ? [-S.spec.w / 2 - 0.145, S.spec.w / 2 + 0.145, S.spec.balcony.sides ? -1e6 : -S.spec.balcony.wrap - 0.005] : undefined, front: Lr.f, right: Lr.r, bearing: S.bearing, outside: out, lens: S.seeLens, tvOn: tvNow(now), shut, focusSharp: streetSharp(), ...pokerFocus() });
+    // a Cup close up: the camera round it (room-closeup.js)
+    const close = !join && !ax && !cook && !packed && S.closeup?.on ? S.closeup.frame(now) : null;
+    // a conversation: the camera on who you're talking to (room-talk.js)
+    const talk = !join && !ax && !cook && !packed && !close ? S.talk?.frame(now, seat) : null;
+    // the Vat Hall's machines (room-vatcycle.js): the gantry's arms, a body down a tube, a release vat's fill and glass
+    if (vatWaiting.length) vatCues(S);
+    // the clone hall's monitors, live (room-vitals.js)
+    if (S.L && S.vitalsOf !== S.L) { S.vitalsOf = S.L; S.vitals = createVitals(S.L); }
+    if (S.vitals?.tick(now)) pushDecals();
+    // the vat test, for staff in a room with a gantry
+    if (vatBtn && vatBtn.hidden === !!(S.msg?.admin && S.mesh?.gantries?.length)) vatBtn.hidden = !vatBtn.hidden;
+    if (S.mesh?.gantries?.length || S.vatCycle?.busy) {
+      S.vatCycle ||= createVatCycle();
+      const vc = S.vatCycle.frame(now, S);
+      R.setVatScene?.(vc.scene);
+      for (const l of vc.levels) R.vatLayer?.()?.setLevel(l.id, l.k);
+      const out = S.vatCycle.stepOut(S, now);
+      if (out && S.walk?.at) { S.walk.at[0] = out.at[0]; S.walk.at[1] = out.at[1]; seat.yaw = out.yaw; }
+    }
+    const vatcam = !join && !ax && !cook && !packed ? S.vatCycle?.cam(now, S, seat) || null : null;
+    R.render(join?.cam || ax?.cam || cook?.cam || packed || vatcam || close || talk || seat, { lamps: S.mesh.lamps, next: nextLit(Lr, seat.eye), lampOn, lampLevel: (power === 'low' ? lampLevel * EMERGENCY_K : lampLevel) * (S.spec.dim ?? 1), vatGain: S.spec.dim ? 1 + 1.6 * (1 - S.spec.dim) : 1, fire, flame,day: Math.min(1, dayOf(h) * outside.dimOf() + out.flash * 0.5), sky: S.drapes ? sky.map((v) => v * 0.3) : sky, wins: S.mesh.windows, annex, outZ: S.spec.balcony ? 0.145 : undefined, outRing: S.spec.balcony?.wrap ? [-S.spec.w / 2 - 0.145, S.spec.w / 2 + 0.145, S.spec.balcony.sides ? -1e6 : -S.spec.balcony.wrap - 0.005] : undefined, front: Lr.f, right: Lr.r, bearing: S.bearing, outside: out, lens: ax ? undefined : S.seeLens, tvOn: tvNow(now), shut, focusSharp: streetSharp(), panoGround: panoGround(), ...pokerFocus(), ...(close || talk ? { dof: false } : {}) });
     if (bob) seat.eye[1] -= bob;
-    if (ax) { ax.after(); hearing.tick(outside.hear, placeOfEar(h, now), outdoors); placeVoices(); return; }
-    if (lockUi.count) lockUi.draw(host.clientWidth, host.clientHeight, seat.eye, S.walk?.at);
-    if (envUi.on) envUi.draw(host.clientWidth, host.clientHeight, seat.eye, S.walk?.at);
+    if (ax) { ax.after(); if (lockUi.count) lockUi.hide(); hearing.tick(outside.hear, placeOfEar(h, now), outdoors); placeVoices(); return; }
+    if (lockUi.count) lockUi.draw(host.clientWidth, host.clientHeight, seat.eye, S.walk?.at, S.drawnBodies);
+    if (envUi.on) envUi.draw(host.clientWidth, host.clientHeight, seat.eye, S.walk?.at, S.drawnBodies);
     if (liftUi.on) liftUi.draw(host.clientWidth, host.clientHeight, readoutNow(now), S.ride && rideK(now)?.k < 1 ? S.ride : null);
     hearing.tick(outside.hear, placeOfEar(h, now), outdoors);
+    hearing.room(S.spec?.decor?.sound, { now }, S.L?.world ? (u, v, y) => S.L.world(u, v, y) : null);
     placeVoices();
   }
 
@@ -3057,7 +3524,7 @@ function openStage(msg) {
     const live = S.outlook, next = S.facesNext;
     if (!live?.live || !S.viewHooks) { if (next) { next.stop(); S.facesNext = null; } return; }
     if (!next) {
-      if (!live.slow) return;
+      if (!live.slow || S.spec?.balcony || S.spec?.open) return;   // a balcony (or a roof deck) stays live, slower (see the view's start below)
       console.info('[room] the live view out of the window is too slow here; changing to the six painted faces');
       globalThis.__roomFaces = true;
       const hooks = S.viewHooks;
@@ -3075,6 +3542,15 @@ function openStage(msg) {
     next.adopt(S.viewHooks);
   }
 
+  // What you can see the street through: the windows, and the street door. ⚠ THE STREET DOOR IS GLASS TOO. Its
+  // leaves are glazed, a hotel pair has a fanlight over them, and open it's a hole onto the street, all of them holes
+  // to the city under the room (gl/room.js `see`). Counting only the windows, facing the Embassy's doors from its
+  // lobby was "no glass in view": the city stopped painting and the doors showed the last picture painted, the
+  // street out of the front window, which then turned with your head.
+  // A pane's spot on the plan: [u, v] at `m` along its wall
+  const paneAt = (spec, q, m) => q.wall === 'front' ? [m, 0] : q.wall === 'back' ? [m, spec.d] : [(q.wall === 'left' ? -1 : 1) * spec.w / 2, m];
+  const WALLS = new Set(['front', 'back', 'left', 'right']);
+  const glassOf = (spec) => [...(spec.windows || []), ...(spec.openings || []).filter((o) => o.kind === 'front' && WALLS.has(o.wall)).map((o) => ({ wall: o.wall, a: o.a, b: o.b, y0: 0, y1: 3.2 }))];
   // Where you're looking out from, or null if there's no glass in front of you, so a wall or the en-suite
   // costs no paints (room-outlook.js).
   function lookOut() {
@@ -3084,12 +3560,15 @@ function openStage(msg) {
     const fix = (a) => Math.atan2(Math.sin(a), Math.cos(a));
     const look = seat.yaw - Math.atan2(L.f[0], L.f[2]);
     const half = Math.atan(Math.tan(seat.fov * Math.PI / 360) * (host.clientWidth || 16) / (host.clientHeight || 9));
+    const panes = glassOf(spec);
     // starts well before a pane is on screen, or the first frame of it at the edge is the last pose painted
     // a lift car has no glass of its own, but standing in it with the doors open you see the landing's (the
     // Solenne lobby's windows), so the city has to turn with you there too. Riding, the doors are shut.
-    let seen = onBalcony(spec, at) || (!!(spec.car || spec.lift) && !S.ride);
-    for (const q of spec.windows || []) for (let k = 0; k <= 8 && !seen; k++) {
-      const m = q.a + (q.b - q.a) * k / 8, u = q.wall === 'front' ? m : (q.wall === 'left' ? -1 : 1) * spec.w / 2, v = q.wall === 'front' ? 0 : m;
+    // a roof deck (spec.open) is outdoors everywhere on it, as a balcony's deck is: the city's all round you
+    const outdoors = onBalcony(spec, at) || !!spec.open;
+    let seen = outdoors || (!!(spec.car || spec.lift) && !S.ride);
+    for (const q of panes) for (let k = 0; k <= 8 && !seen; k++) {
+      const [u, v] = paneAt(spec, q, q.a + (q.b - q.a) * k / 8);
       seen = Math.abs(fix(Math.atan2(at[0] - u, at[1] - v) - look)) < half + 0.35;
     }
     if (!seen) return null;
@@ -3098,30 +3577,45 @@ function openStage(msg) {
     // The strip is each pane's ends seen from the eye, with a margin for pitch and a tower leaning in; a pane edge
     // beside you or behind you, a balcony or a lift's landing, and it's the whole width.
     let cull = null;
-    if (S.outlook?.live && !onBalcony(spec, at) && !spec.car && !spec.lift) {
+    if (S.outlook?.live && !outdoors && !spec.car && !spec.lift) {
       // the room camera's own axes, pitch and all (gl/room.js roomMatrices), and each pane's four corners: a level
       // projection was a strip a third too narrow looking down from a penthouse, and cut the Coliseum's slices out
       const y = seat.yaw || 0, p = seat.pitch || 0, cp = Math.cos(p), sp = Math.sin(p);
       const f = [Math.sin(y) * cp, sp, Math.cos(y) * cp], r = [-Math.cos(y), 0, Math.sin(y)], e = seat.eye, tf = Math.tan(half);
       let lo = Infinity, hi = -Infinity;
-      for (const q of spec.windows || []) for (const m of [q.a, q.b]) for (const h of [q.y0 ?? 0, q.y1 ?? 3]) {
-        const u = q.wall === 'front' ? m : (q.wall === 'left' ? -1 : 1) * spec.w / 2, v = q.wall === 'front' ? 0 : m;
-        const P = L.world(u, v, h), d = [P[0] - e[0], P[1] - e[1], P[2] - e[2]], ahead = d[0] * f[0] + d[1] * f[1] + d[2] * f[2];
-        if (ahead < 0.3) { lo = -Infinity; break; }
-        const x = 0.5 + (d[0] * r[0] + d[2] * r[2]) / ahead / (2 * tf);
-        if (x < lo) lo = x;
-        if (x > hi) hi = x;
+      // a pane wholly behind you adds nothing; one with only some corners behind runs past the edge, the whole width
+      for (const q of panes) {
+        const xs = [];
+        let behind = 0;
+        for (const m of [q.a, q.b]) for (const h of [q.y0 ?? 0, q.y1 ?? 3]) {
+          const [u, v] = paneAt(spec, q, m);
+          const P = L.world(u, v, h), d = [P[0] - e[0], P[1] - e[1], P[2] - e[2]], ahead = d[0] * f[0] + d[1] * f[1] + d[2] * f[2];
+          if (ahead < 0.3) { behind++; continue; }
+          xs.push(0.5 + (d[0] * r[0] + d[2] * r[2]) / ahead / (2 * tf));
+        }
+        if (behind === 4) continue;
+        if (behind) { lo = -Infinity; break; }
+        for (const x of xs) { if (x < lo) lo = x; if (x > hi) hi = x; }
       }
       if (lo > -Infinity && hi > lo) cull = [Math.max(0, lo - CULL_PAD), Math.min(1, hi + CULL_PAD)];
     }
+    // ⚠ LIVE, THE RESOLUTION FOLLOWS HOW MUCH GLASS IS ON SCREEN (windshield.js resCap). A street door across the
+    // lobby is a narrow strip, and painting the whole canvas at full resolution for it halved the room's frame
+    // rate; walk up to it and the strip widens and the street sharpens. No strip (beside the glass, or out on a
+    // deck) is the full width, so full resolution.
+    const res = cull ? Math.min(1, 0.3 + 1.2 * (cull[1] - cull[0])) : null;
     // ⚠ THE CITY'S EYE IS YOURS: live, it's painted every frame from where you stand (room-outlook.js `live`), and each
     // of the six faces is painted from where you stood when it was sent, and corrected for the step since (panoEye).
-    return { yaw: (S.bearing || 0) - look * 180 / Math.PI, pitch: seat.pitch, fov: seat.fov, at, room: [spec.w, spec.d], cull };
+    // `deck`: out on the balcony, the only place the building's own face is in view (room-view.js roomCut)
+    return { yaw: (S.bearing || 0) - look * 180 / Math.PI, pitch: seat.pitch, fov: seat.fov, at, room: [spec.w, spec.d], cull, ...(res ? { res } : {}), deck: !!onBalcony(spec, at), open: !!spec.open };
   }
   S.lookOut = lookOut;
   // where a face of the city was painted from (room-outlook.js `faceAt`, [u, v]), as a point in the room's frame at the
   // window view's own eye height (room-view.js viewOf: 1.6 m off the floor), for gl/room.js uPanoEye
   const panoEye = (at) => (Array.isArray(at) && S.L ? S.L.world(at[0], at[1], 1.6) : null);
+  // how far down the street is from the eye, in metres, for the six faces' correction (gl/room.js uPanoGround): a
+  // storey is about 3.2 m and the eye 1.6 m off the floor. 0 when the room doesn't say, which keeps the PANO_PROXY sphere alone
+  const panoGround = () => (S.place?.storey ? Math.max(0, (S.place.storey - 1) * 3.2) + 1.6 : 0);
 
   // where you're hearing the outside from: how far from the glass, how much of an open door you've got,
   // and which way you're looking, on the compass
@@ -3161,37 +3655,56 @@ function openStage(msg) {
 
   // the world round the building has arrived: start shooting the view out of the window. A phone
   // keeps the painted street, since a second renderer is more than it should be asked for
+  // ⚠ A BALCONY'S OUTSIDE IS THE BUILDING'S, NOT THE ROOM'S. The view's eye comes with the paint GLASS gives this
+  // building's face on the room's side (room-view.js facadePaint), and the room is built again in it, once, so the
+  // wall round the balcony door and the storeys round the flat are the Embassy's rose and not the lounge's plaster.
+  // Kept for the Stage: every room of a building shares its view. A phone has no view, and gets gl/room-mesh.js's plain render.
+  const takeFacade = (p) => {
+    const k = p?.rgb ? JSON.stringify(p) : '';
+    if (k === (S.facadeKey || '')) return;
+    S.facade = k ? p : null; S.facadeKey = k;
+    // (before the room's first build, the paint is only kept: that build takes it)
+    if (S.spec?.balcony && S.mesh) rebuild();
+  };
   ui_outlook = (o) => {
     o = { ...o, cut: balconyCut(S.spec) };
     S.bearing = o.bearing || 0;
     S.place = { storey: o.storey, storeys: o.storeys };
     outside.setPlace({ gx: o.gx, gy: o.gy, eyeX: 0, eyeY: 0, eyeZ: 1 + (o.storey || 1) * 0.3, fields: o.fields || [] });
     outside.weather(o.sky);
+    if (o.sky?.weather) S.skyWord = String(o.sky.weather).toLowerCase();
     outdoors.setPlace({ map: o.map, gx: o.gx, gy: o.gy, bearing: S.bearing });
     pilots.update(o.contacts || []);
     S.actors = o.actors || [];
     if (phone || !o.map) { if (!o.map) S.noView = true; return; }
     const hooks = {
       host,
-      onEye: (l) => { outside.setPlace({ eyeZ: l.eye, eyeX: l.eyeX, eyeY: l.eyeY }); },
+      onEye: (l) => { outside.setPlace({ eyeZ: l.eye, eyeX: l.eyeX, eyeY: l.eyeY }); takeFacade(l.paint); },
       onFail: () => { S.noView = true; },
       // a face of the city round the building, for the room's renderer to look the panes up in
-      onPano: (i, pic, lens, at) => R.setPano(i, pic, lens, panoEye(at)),
+      onPano: (i, pic, lens, at, ap) => (i === 6 ? R.setLook?.(pic, lens, panoEye(at), ap) : R.setPano(i, pic, lens, panoEye(at))),
       // what's moving out there: the timetable and anybody really flying or sailing, as GLASS draws any contact
       feed: () => { flights.update(outside.flightsNow()); return { actors: S.actors, contacts: [...flights.frame(o.gx, o.gy), ...pilots.frame(o.gx, o.gy)] }; },
     };
     // a view already running on this tile (handed on from the last room, or this room's own): move its eye here
     S.viewHooks = hooks;
-    if (S.outlook && S.outlook.tile === `${o.gx},${o.gy}`) { S.outlook.adopt(hooks); S.outlook.place(o); return; }
+    // ⚠ THE CITY IS PAINTED IN THE WORKER: the six faces and the look picture where you're looking (room-outlook.js
+    // LOOK), so the room's frames never wait on GLASS. Painted here every frame (`live`), a Solenne balcony cost the
+    // room 20 to 30 ms a frame. `__roomLive = true` puts the main-thread view back, for comparing.
+    // ⚠ A ROOM WITH A STREET DOOR IS LIVE. The street is a few metres off, so a picture painted from one spot and
+    // moved to your eye bent the kerb and the building opposite, and it stepped at the worker's rate as you walked
+    // up. A ground floor sees little city, so live is cheap there; if it's still too slow, toFaces drops it to the
+    // six faces as it does any window. `__roomFaces` (set by that drop) keeps the page on faces.
+    const live = !!globalThis.__roomLive || ((S.spec?.openings || []).some((d) => d.kind === 'front' && d.dir) && !globalThis.__roomFaces);
+    if (S.outlook && S.outlook.tile === `${o.gx},${o.gy}` && !!S.outlook.live === live) { S.outlook.adopt(hooks); S.outlook.place(o); return; }
     S.outlook?.stop();
-    // one world on a desktop: the city painted every frame from your eye. `__roomFaces = true` puts the six faces back
-    S.outlook = createOutlook(o, { ...hooks, live: !globalThis.__roomFaces });
+    S.outlook = createOutlook(o, { ...hooks, live });
   };
   // the last room's view, when this is the next room of its building: shown at once, and moved here when
   // this room's `room_outlook` comes
   const kept = msg.hasView && !phone ? takeParked(msg.building?.id) : null;
   if (msg.place) { S.bearing = msg.place.bearing || 0; S.lastPlace = msg.place; }
-  if (kept) { S.outlook = kept; if (msg.place) kept.place({ ...msg.place, cut: balconyCut(S.spec) }); kept.adopt(S.viewHooks = { host, onEye: () => {}, onFail: () => { S.noView = true; }, onPano: (i, pic, lens, at) => R.setPano(i, pic, lens, panoEye(at)), feed: () => ({ actors: S.actors || [], contacts: [] }) }); }
+  if (kept) { S.outlook = kept; if (msg.place) kept.place({ ...msg.place, cut: balconyCut(S.spec) }); kept.adopt(S.viewHooks = { host, onEye: (l) => takeFacade(l.paint), onFail: () => { S.noView = true; }, onPano: (i, pic, lens, at, ap) => (i === 6 ? R.setLook?.(pic, lens, panoEye(at), ap) : R.setPano(i, pic, lens, panoEye(at))), feed: () => ({ actors: S.actors || [], contacts: [] }) }); }
   S.onSky = (m) => {
     if (m.weather !== undefined) { outside.weather(m); S.skyWord = String(m.weather || '').toLowerCase() || S.skyWord; S.outlook?.setSky({ weather: m.weather, wind: m.wind, here: m.here, event: m.event, ...(m.field ? { field: m.field } : {}) }); }
     if (m.contacts) pilots.update(m.contacts);
@@ -3211,11 +3724,13 @@ function openStage(msg) {
     window.removeEventListener('npc:speaking', onSpeaking);
     window.removeEventListener('npc:voice', onVoice);
     window.removeEventListener('npc:place', onPlace);
+    window.removeEventListener('npc:talk', onTalk);
+    S.talk?.dispose();
     voiced.clear();
     window.removeEventListener('npc:line', onLine);
     S.walk?.stop();
     ui?.hands?.stop();
-    document.removeEventListener('keydown', onKey);
+    document.removeEventListener('keydown', onKey); hostRO?.disconnect();
     document.removeEventListener('keyup', onKeyUp);
     window.removeEventListener('kitchen:open', onCook);
     window.removeEventListener('kitchen:close', onCooked);
@@ -3232,6 +3747,7 @@ function openStage(msg) {
     envUi.stop();
     window.removeEventListener('envctl:light', onPanelLight);
     R.dispose();
+    warmSpares();
   } };
   // ⚠ THE NEXT ROOM OF THE SAME BUILDING IS THE SAME STAGE (docs/proposals/building-stage.md). A doorway or a lift
   // ride used to close the Stage and open a new one: a new pane, a new GL context with its shaders compiled again,
@@ -3274,7 +3790,7 @@ function openStage(msg) {
     S.spec = msg.lift ? { ...msg.spec, lift: msg.lift } : msg.spec;
     hush(S.spec);
     S.pieces = msg.pieces || []; S.people = msg.people || []; S.here = msg.here || msg.zone; S.locks = msg.locks || [];
-    S.glass = msg.glass || null; S.shutters.set(S.glass, { snap: true });
+    S.glass = msg.glass || null; S.drapes = drapesDrawn(S.glass); S.shutters.set(glassCover(S.glass), { snap: true });
     // this room's own switch and mains, before it's built (rebuild, below)
     ({ on: switchOn, level: lampLevel } = switchOf(msg.zone)); power = msg.power || 'on'; lampOn = switchOn && power !== 'off'; showLamp();
     S.plumb = msg.plumbing || null; S.inShower = null;
@@ -3329,6 +3845,27 @@ function openStage(msg) {
     const k = (S.warmTick = (S.warmTick || 0) + 1) % 4;
     o.warm(h, liveWx(), { yaw: (S.lastPlace.bearing || 0) + k * 90, pitch: 0, fov: seat.fov, at: [0, 1], room: [S.spec.w, S.spec.d] });
   }
+  // ⚠ EVERY WAY OUT IS BUILT UNDER THE LOADING VEIL. A tile's first paint in the live view runs its arm cold and bakes
+  // its surfaces into the atlas: 35 to 50 ms of arms and up to 180 ms of GL in one frame (perf:move --room 38 at the
+  // Solenne). Only the way you faced was built as the room opened, so the first turn on a balcony stuttered through
+  // every tile it brought into view. So the veil waits (bake.pending) while the view is painted unseen a quarter turn
+  // a frame: level from inside, and from a balcony room looking down off the deck too (its own map, `deck`).
+  function warmOpen(now, h) {
+    const o = S.outlook;
+    if (S.openWarmed || !S.spec || !S.lastPlace) return;
+    // the view's renderer can still be loading (no outlook yet): wait for it, as long as the veil does
+    if ((!o || (o.live && !o.shown)) && veiled && now - opened <= VEIL_MS) return;
+    if (!o?.live || !veiled || now - opened > VEIL_MS) {
+      if (S.openWarmN) S.bake.pending--;
+      S.openWarmed = true;
+      return;
+    }
+    if (!S.openWarmN) S.bake.pending++;
+    const n = S.openWarmN = (S.openWarmN || 0) + 1, deckToo = !!S.spec.balcony, steps = deckToo ? 8 : 4;
+    const k = (n - 1) % 4, deck = deckToo && n > 4;
+    o.warm(h, liveWx(), { yaw: (S.lastPlace.bearing || 0) + k * 90, pitch: deck ? -0.3 : 0, fov: seat.fov, at: [0, S.spec.d / 2], room: [S.spec.w, S.spec.d], deck });
+    if (n >= steps) { S.bake.pending--; S.openWarmed = true; }
+  }
   // ⚠ THE STREET OUTSIDE IS ASKED FOR AHEAD (plugins/roomstage `roomstage.warm`, plugins/freelook): in a room with a
   // street door, a moment after it's up, so its own first frames come first. The street view it's sent is built hidden
   // (freelook-view.js `prewarm`), and walking out through the door shows it at once instead of a loading screen.
@@ -3347,7 +3884,7 @@ function openStage(msg) {
   const streetWarm = () => { try { return !!window.__freeLook?.()?.warm; } catch { return false; } };
   function warmStreet(veiled) {
     if (!veiled || phone || !msg.building?.id) return;
-    if (frontIn(S.spec) || nextDoor.some((n) => frontIn(n.spec))) { if (!S.leaving && !streetWarm()) sendRaw({ type: 'room_street' }); return; }
+    if (frontIn(S.spec) || nextDoor.some((n) => frontIn(n.spec))) { if (!S.leaving && !streetWarm()) { S.streetAsked = true; sendRaw({ type: 'room_street' }); } return; }
     import('./freelook-view.js').then((m) => m.loadWindshield?.()).catch(() => {});
   }
   S.warmOnRide = (to, afterMs) => {
@@ -3409,8 +3946,18 @@ function fadeOver(u) {
   } catch { /* the cut it was */ }
 }
 
+// The MORPHEX's menu on the visual rung: the pod's own (room-morphex.js), never the 2D modal. True when this room
+// has a pod, so the caller drops the modal; the pod starts unless it's already running or has just let you out (the
+// answers to what you bought arrive as morphex_panel too, and mustn't put you back in).
+export function roomMorphex() {
+  const S = ui?.S, pod = S?.pieces?.find((p) => p.pod);
+  if (!pod) return false;
+  if (!S.morph?.on && performance.now() - (S.morphEnd || 0) > 4000) ui.startMorph(pod);
+  return true;
+}
+
 // For the gate and a harness: the eye and the room's state while it's open.
-export const _test = () => (ui?.S ? { seat: ui.seat, S: ui.S, R: ui.R, draw: ui.draw, tv: ui.S.tv, outside: ui.outside, outlookMsg: lastOutlook, morph: (id) => ui.startMorph(ui.S.pieces.find((p) => p.id === id)), fridge: (id) => ui.openFridge(ui.S.pieces.find((p) => p.id === id)), baked: { n: baked.size, bytes: bakedBytes } } : null);
+export const _test = () => (ui?.S ? { seat: ui.seat, S: ui.S, R: ui.R, draw: ui.draw, tv: ui.S.tv, outside: ui.outside, outlookMsg: lastOutlook, morph: (id) => ui.startMorph(ui.S.pieces.find((p) => p.id === id)), fridge: (id) => ui.openFridge(ui.S.pieces.find((p) => p.id === id)), baked: { n: baked.size, bytes: bakedBytes }, rebuild: () => ui.rebuild() } : null);
 
 // Your hands in first person (stands-hands.js), made the first time and kept till the room closes. Each beat of a
 // ritual (a bite, a sip, a drag, a dose) goes to the server as room_act, so everybody else in the room sees your
@@ -3479,10 +4026,16 @@ export function roomPiece(msg) {
 // How the arrange mode's Save went (plugins/roomstage arrangeLayout): it closes, or points at what didn't fit.
 export function roomArranged(msg) {
   if (ui?.S?.arrange?.on && msg.zone === ui.S.msg.zone) ui.S.arrange.result(msg);
+  // a poster or hung piece dragged in the walk view (wallDrop)
+  else if (ui?.S && msg.zone === ui.S.msg.zone) { if (msg.ok) ui.S.wallUndo = null; else ui.S.wallRefused?.(msg.message); }
 }
 // The admin arrange mode's Furniture menu (plugins/roomstage arrangeCatalog).
 export function roomCatalog(msg) {
   if (ui?.S?.arrange?.on) ui.S.arrange.catalog(msg.items);
+}
+// The arrange mode's Posters menu: the rolls this player carries (plugins/roomstage arrangeSheetStock).
+export function roomSheetStock(msg) {
+  if (ui?.S?.arrange?.on) ui.S.arrange.stock(msg.items);
 }
 
 // A move on a chess table (plugins/gametable through plugins/roomstage): the position on that piece, and the room
@@ -3527,6 +4080,21 @@ export function roomPlumbing(msg) {
 }
 
 // How the locks on this room's doorways stand now (plugins/roomstage `room_locks`): somebody locked one, or one gave.
+// A body coming down a tube to a release vat in the room you're in (plugins/roomstage `room_vat`): the vat cycle plays it.
+// (one that comes before its room has opened round you waits for it, a few seconds at most)
+const vatWaiting = [];
+export function roomVat(msg) {
+  const S = ui?.S;
+  if (!S?.L || msg.zone !== S.msg.zone) { vatWaiting.push({ msg, at: Date.now() }); return; }
+  (S.vatCycle ||= createVatCycle()).arrive(msg, S.you);
+}
+function vatCues(S) {
+  for (let i = vatWaiting.length - 1; i >= 0; i--) {
+    const w = vatWaiting[i];
+    if (Date.now() - w.at > 8000) { vatWaiting.splice(i, 1); continue; }
+    if (S.L && w.msg.zone === S.msg.zone) { vatWaiting.splice(i, 1); (S.vatCycle ||= createVatCycle()).arrive(w.msg, S.you); }
+  }
+}
 export function roomLocks(msg) {
   const S = ui?.S;
   if (!S?.L || msg.zone !== S.msg.zone) return;
@@ -3562,7 +4130,10 @@ export function roomGlass(msg) {
   const S = ui?.S;
   if (!S?.shutters || msg.zone !== S.msg.zone) return;
   S.glass = msg.glass || null;
-  S.shutters.set(S.glass);
+  S.shutters.set(glassCover(S.glass));
+  // the drapes drawn or opened: they're geometry, so the room is built again with them as they now hang
+  const drawn = drapesDrawn(S.glass);
+  if (drawn !== S.drapes) { S.drapes = drawn; ui.rebuild(); }
 }
 
 // The world round the building, for the view out of the window.

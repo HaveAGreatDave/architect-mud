@@ -6,7 +6,7 @@
   "ambient_theme": "urban",
   "bg_color": "#26333f",
   "color": "#cfe0ee",
-  "description": "Solenne Residences: thirty-odd floors of pale glass rising out of the studio-row roofline, tapering to a lit crown with a landing pad cantilevered off it. A brass-lettered canopy runs out to the kerb. Beyond the revolving door the lobby glows warm. Step <b>north</b>.",
+  "description": "Solenne Residences: a slim stem of champagne glass on a stone podium, turning gently on the way up and flaring at the top into a wide crown, a helipad and a teak roof terrace standing out over the street. A stone portal stands out of the podium, a gold sunburst over sliding glass doors and a brass-lettered canopy out to the kerb. Step <b>north</b>.",
   "exits": {
     "north": "zone_solenne_lobby",
     "south": "zone_district_914_909"
@@ -18,12 +18,13 @@
     "district": "marrow",
     "entrance": "south",
     "facade": true,
+    "floors": 45,
     "hangar_interior_zone": "zone_solenne_helipad",
     "is_building": true,
     "region_id": "region_coldwater",
     "world_exit_zone": "zone_district_914_909"
   },
-  "grid_x": 914,
+  "grid_x": 915,
   "grid_y": 908,
   "grid_z": 0,
   "id": "zone_district_914_908",

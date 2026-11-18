@@ -16,7 +16,7 @@
     "is_interior": true,
     "room": {
       "balcony": false,
-      "d": 10,
+      "d": 10.6,
       "decor": {
         "mirrors": [
           {
@@ -36,6 +36,9 @@
         ],
         "rug": false
       },
+      "doors": {
+        "south": 0
+      },
       "face": 0,
       "finish": "fine",
       "glass": [
@@ -50,7 +53,7 @@
         "trim": "#2a2d31",
         "wall": "#dfe3e6"
       },
-      "w": 14
+      "w": 21.4
     },
     "sanctuary": true
   },

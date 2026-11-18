@@ -1,0 +1,20 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_knee_pads",
+  "name": "knee pads",
+  "tags": {
+    "armor_soak": {
+      "kinetic": 1
+    },
+    "bulkiness": 1,
+    "description": "Black foam pads on elastic straps, worn over the trousers. Kneel on concrete all day and get up again afterwards.",
+    "slot": "accessory",
+    "wear_look": {
+      "col": "#2a2c30"
+    }
+  },
+  "type": "clothing",
+  "value": 40,
+  "weight": 300
+}

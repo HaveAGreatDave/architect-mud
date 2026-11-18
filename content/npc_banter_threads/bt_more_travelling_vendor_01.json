@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_travelling_vendor_01",
+  "lines": [
+    "\"Where you heading next?\"",
+    "\"Wherever the road's open.\"",
+    "\"Which way's that?\"",
+    "\"Ask me in the morning. It changes.\""
+  ],
+  "personality": "travelling_vendor",
+  "sort_order": 705
+}

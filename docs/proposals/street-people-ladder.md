@@ -1,6 +1,6 @@
 # Street people: one look, four levels
 
-**Status: steps 1 to 3 built (one look on the wire, the crowd dressed from it, the close-up level in GLASS), and the same close-up level in the stands at the park and the rink; steps 4 to 6 are design.** It answers the "street's own close-ups" question in [hd-figure.md](hd-figure.md#open-questions) and replaces the token rule in [street-figure-heads.md](street-figure-heads.md#what-doesnt-change).
+**Status: steps 1 to 3 built (one look on the wire, the crowd dressed from it, the close-up level in GLASS), the same close-up level in the stands at the park and the rink, and smokers; steps 4 to 6 are design.** It answers the "street's own close-ups" question in [hd-figure.md](hd-figure.md#open-questions) and replaces the token rule in [street-figure-heads.md](street-figure-heads.md#what-doesnt-change).
 
 ## Why
 
@@ -70,6 +70,16 @@ Not carried: the occasion and weather changes the Room Stage adds (`figure_work`
 - **Cost.** 0.15 to 0.3 ms of CPU a fan a frame to pose in the Browser pane (2026-11-15): 12 beside a seat in 1.7 to 3.4 ms, 40 in the park's crowd cutaway in 6 to 14 ms, which is why `max` is 32. Step 4 (posing on the GPU) would let it grow.
 
 `__crowdHD.tune` and `__crowdHD.stats` (`cand`, `chosen`, `waiting`, `poseMs`) are on the console.
+
+## Smokers (built)
+
+David asked (2026-11-16) for more smoking on the street: people leaning on walls with a cigarette, smoking as they walk, a stream of smoke off the lit end, a red glow on the drag, and filters mostly cyan.
+
+- **Who and when.** [glass/street-life.js](../../client/game/js/panels/glass/street-life.js) `LIFE.smokers` (0.55) is the share who smoke, and a smoker has one going for `LIFE.lit` (0.6) of their time, decided afresh every `LIFE.sitting` seconds off the wall clock and their seed (`litNow`), so every client agrees. With one going they smoke what they're doing: a ring's listeners, the kerb, standing about, leaning on the wall, and walking. The `smoke` plan is only for somebody with one going.
+- **The clips** ([actor3d.js](../../client/game/js/panels/actor3d.js), on the end of `CLIPS` so the park's indices hold): `leanSmoke`, back on the wall with the left foot up flat on it (the wall `LEAN.wall` metres behind, where street life stands them, and each person's own spot along it); `leanWall`, the same lean with the arms folded and both feet down; and `walkSmoke`, the walk four strides to a cycle with a drag on the move. A walk's phase is distance over `actorStrideM(clip)` for any clip in `ACTOR_WALKS`.
+- **The cigarette** ([gl/actor-smoke.js](../../client/game/js/panels/gl/actor-smoke.js)) rides the right hand's bone, which the bake now writes beside the head's (`ACTOR_HEAD_BONES.handR`), so it draws for the crowd and the close-up level alike, on any clip in `ACTOR_SMOKES`. Its filter is cyan for most people, cork or white for the rest, off their look's colours. Where it sits on the hand is solved from `smokePose`'s drag so the filter is on the lips (`smokeCigarette`); scripts/shapes/actors.mjs fails a smoking clip whose filter never comes within 3.5 cm of them.
+- **The ember and the smoke.** The ember glows brighter the nearer the filter is to the mouth, and never under `SMOKE_TUNE.minPx` on the screen. The stream is a ribbon traced back through where the ember was over the last `SMOKE_TUNE.stream` seconds (the clip run back, and the person's measured velocity taken off), risen and spread by age; the breath after each drag is another ribbon from the mouth. Nothing is stored between frames. `__actorSmoke` on the console is the tune, with `stats`.
+- **Indoors** the Room Stage's held cigarette and a settled look's own have cyan filters too; the stream and the ember's pulse are the street's only.
 
 ## Checks
 

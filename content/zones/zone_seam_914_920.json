@@ -1,0 +1,24 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "forest",
+  "color": "#b5744a",
+  "description": "Rough ground the Curtain took in when it moved south. Red dirt still shows through the new grass in patches.",
+  "exits": {
+    "east": "zone_district_914_920",
+    "north": "zone_seam_914_919",
+    "south": "zone_seam_914_921",
+    "west": "zone_district_913_924"
+  },
+  "flags": {
+    "district": "halcyon_fields",
+    "region_id": "region_coldwater",
+    "terrain": "grass"
+  },
+  "grid_x": 914,
+  "grid_y": 920,
+  "grid_z": 0,
+  "id": "zone_seam_914_920",
+  "map_id": "map_world",
+  "name": "Grasslands",
+  "parent_zone": null
+}

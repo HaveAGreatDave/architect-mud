@@ -102,7 +102,44 @@ function mixDeep(a, b, k) {
   if (b && typeof b === 'object') { const o = {}; for (const key in b) o[key] = a && typeof a === 'object' && key in a ? mixDeep(a[key], b[key], k) : b[key]; return o; }
   return b;
 }
-const TOUCH_MS = 450;                     // a touch not heard of this long has stopped
+// Getting up and sitting down, between two carves: how long it takes and which end of him goes first. A cat gets up
+// from a sit front end first (the forelegs straighten, then the haunches lift) and sits down back end first (the
+// haunches go down, then the forepaws walk in). Out of a loaf he pushes up on the forelegs; into one he folds the front.
+const GETUP = {
+  'sit>stand': { dur: 1.3, lead: 'front' },
+  'stand>sit': { dur: 1.5, lead: 'hind' },
+  'loaf>stand': { dur: 1.6, lead: 'front' },
+  'stand>loaf': { dur: 1.8, lead: 'hind' },
+  'sit>loaf': { dur: 1.5, lead: 'front' },
+  'loaf>sit': { dur: 1.4, lead: 'front' },
+};
+// a pose list resampled to n points along it, so a tail of four points can blend into one of six
+function resample(pts, n) {
+  if (!Array.isArray(pts) || pts.length === n || pts.length < 2) return pts;
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const s = (i / (n - 1)) * (pts.length - 1), a = Math.floor(s), b = Math.min(pts.length - 1, a + 1), u = s - a;
+    out.push(pts[a].map((v, j) => v + (pts[b][j] - v) * u));
+  }
+  return out;
+}
+// The pose `k` (0..1) of the way from `a` to `b`, each part on its own clock: the leading end moves over the first
+// two-thirds, the other end over the last two-thirds, the spine between, the tail last. The body dips a little
+// mid-way as the weight comes off one pair of legs and onto the other.
+function stagePose(a, b, k, lead) {
+  const early = smooth01(k / 0.65), late = smooth01((k - 0.35) / 0.65), mid = smooth01((k - 0.15) / 0.7), tail = smooth01((k - 0.25) / 0.75);
+  const kf = lead === 'front' ? early : late, kh = lead === 'front' ? late : early;
+  const o = mixDeep(a, b, mid);
+  o.root = mixDeep(a.root, b.root, kh);
+  o.root.at = [...o.root.at];
+  o.root.at[1] -= 0.012 * Math.sin(Math.PI * k);
+  o.spine = { ...o.spine, chest: mixDeep(a.spine?.chest, b.spine?.chest, kf), neck: mixDeep(a.spine?.neck, b.spine?.neck, kf), lumbar: mixDeep(a.spine?.lumbar, b.spine?.lumbar, kh) };
+  o.legs = {};
+  for (const L of Object.keys(b.legs || {})) o.legs[L] = mixDeep(a.legs?.[L], b.legs[L], L[1] === 'F' ? kf : kh);
+  o.tail = mixDeep(resample(a.tail, (b.tail || []).length), b.tail, tail);
+  return o;
+}
+const TOUCH_MS = 450;                    // a touch not heard of this long has stopped
 const _actors = new Map();                // cat id → its state on this client
 // Two cats together (cat-life.js catMeets, staged by gl/cat-meet.js): who's with whom, worked out once a second, and
 // each encounter's state on this client: which phase it's on, when that phase's clock started (when the cat coming got
@@ -185,11 +222,6 @@ function traysOf(L) {
     return { id: p.id, name: p.name, arche: 'tray', form: p.form, u: p.u, v: p.v, w: p.w, d: p.d, turn: p.turn || 0, top: TRAY_LITTER * k + (p.y0 || 0),
       free: [-p.w / 2, p.w / 2], box: [p.u - hw, p.u + hw, p.v - hd, p.v + hd], face: [fu, fv], backTop: null, annex: !!p.annex };
   });
-}
-// the floor in front of a tray, where he goes when it's too dirty to get into
-function besideTray(L, T) {
-  const r = Math.max(T.box[1] - T.box[0], T.box[3] - T.box[2]) / 2 + 0.28, q = [T.u + T.face[0] * r, T.v + T.face[1] * r];
-  return roomNearFree(L, q[0], q[1], 0.8) || q;
 }
 const perchById = (L, look, id) => (id ? perchesOf(L, look).find((p) => p.id === id) || null : null);
 const inBox = (b, u, v, m = 0) => u > b[0] - m && u < b[1] + m && v > b[2] - m && v < b[3] + m;
@@ -320,9 +352,10 @@ function groundAt(L, look, u, v, y = 9) {
 
 /**
  * The cats in the room this frame: { cats: [what R.setCats takes], voices: [what room-cat-sound.js hears] }.
- * `o`: { now (ms, the wall clock), hour (the game's), whereIs(id) → [u, v] of a person or null, folk() → [{ id, at }]
+ * `o`: { now (ms, the wall clock), hour (the game's), whereIs(id) → [u, v] of a person or null, folk() → [{ id, at }], lowOf(id) → head height as a share of standing
  * everybody in the room, drawer (catDrawer), lite (a phone: the coarser carve), light (0..1, how much light there is:
- * the lamps and the day through the windows, for the pupils) }.
+ * the lamps and the day through the windows, for the pupils), mouth(id) → 0..1 how open a cat's mouth is for the
+ * call it's making now (room-cat-sound.js) }.
  */
 export function catsFrame(L, beasts, o) {
   const out = { cats: [], voices: [] };
@@ -370,13 +403,16 @@ export function catsFrame(L, beasts, o) {
       if (A0?.trayDone === key) {
         if (bowl.zoom && now - A0.trayDoneAt < 9000) D = { on: null, at: spotOf(L, bt.id + ':pz:' + bowl.since + ':' + (A0.zk ?? 0)), gait: 'gallop', act: 'stand', key: 'pz:' + bowl.since + ':' + (A0.zk ?? 0), zoom: true };
       } else if (T) {
-        if (there && s > len) { A0.trayDone = key; A0.trayDoneAt = now; }
+        // too dirty to dig in, he stands up on its front edge facing out and goes from there, with no dig
+        if (there && s > (bowl.mess ? len - P.t2 : len)) { A0.trayDone = key; A0.trayDoneAt = now; }
         const out = Math.atan2(T.face[0], T.face[1]), inward = Math.atan2(-T.face[0], -T.face[1]);
-        D = bowl.mess ? { on: null, at: besideTray(L, T), face: [T.u, T.v], gait: 'walk', act: bowl.act, key }
+        const hd = Math.abs(T.face[0]) > Math.abs(T.face[1]) ? (T.box[1] - T.box[0]) / 2 : (T.box[3] - T.box[2]) / 2;
+        D = bowl.mess ? { on: T.id, perch: T, at: [T.u + T.face[0] * hd * 0.85, T.v + T.face[1] * hd * 0.85], act: bowl.act, key, yaw: out }
           : { on: T.id, perch: T, at: [T.u, T.v], act: bowl.act, key, yaw: there ? (s < P.t1 + (bowl.fussy ? 2.5 : 0) ? inward : out) : null };
         // (fussy about a dirty one: a long sniff at it first, then the dig)
         since = bowl.since; seed = hash(bt.id + ':' + bowl.since);
-        if (bowl.fussy && there) { if (s < 2.5) D.act = 'sniff'; else since = there + 2500; }
+        if (bowl.mess) { if (there) since = there - P.t2 * 1000; }
+        else if (bowl.fussy && there) { if (s < 2.5) D.act = 'sniff'; else since = there + 2500; }
       }
     } else if (bowl) {
       // at an empty bowl because he's hungry or thirsty, he sits by it and demands; thirsty, half the time he goes up
@@ -606,8 +642,22 @@ export function catsFrame(L, beasts, o) {
       const base = CAT_CLIPS[useClip].base, fk = useClip + ':' + (spot || '');
       if (A.fk !== fk) {
         A.fade = A.lastF && A.lastF.base === base && useClip !== 'leap' && A.lastF.clip !== 'leap' ? { from: A.lastF, t: 0 } : null;
+        // from one carve to another (sat to stood, lying to stood and back): a staged get-up or sit-down instead of a cut
+        const fb = A.lastF?.base;
+        A.trans = fb && fb !== base && GETUP[fb + '>' + base] && bakes[fb] && useClip !== 'leap' && A.lastF.clip !== 'leap'
+          ? { from: A.lastF, fromBase: fb, t: 0, ...GETUP[fb + '>' + base], ...(moving ? { dur: GETUP[fb + '>' + base].dur * 0.6 } : {}) } : null;
         A.fk = fk;
       }
+      if (A.trans) {
+        A.trans.t += dt;
+        const k = clamp(A.trans.t / A.trans.dur, 0, 1);
+        f.pose = stagePose(A.trans.from.pose, f.pose, k, A.trans.lead);
+        f.mo = mixDeep(A.trans.from.mo, f.mo, smooth01(k));
+        // the first half drawn on the carve he's leaving, the second on the one he's going to, so neither is bent far
+        if (k < 0.5) A.drawBake = bakes[A.trans.fromBase];
+        else A.drawBake = null;
+        if (k >= 1) { A.trans = null; A.drawBake = null; }
+      } else A.drawBake = null;
       if (A.fade) {
         A.fade.t += dt;
         const k = smooth01(A.fade.t / FADE_S);
@@ -674,20 +724,20 @@ export function catsFrame(L, beasts, o) {
     else if (touch?.down) { if (glance(touch.since, touch.spot)) lookAt = { w: touch.at }; }
     else if (beat && beat.act !== 'cross' && beat.who) {
       const w = o.whereIs?.(beat.who);
-      if (w && (beat.act !== 'petted' || glance(beat.since, beat.spot))) lookAt = { at: w, y: beat.act === 'petted' ? 0.85 : 1.5 };
+      if (w && (beat.act !== 'petted' || glance(beat.since, beat.spot))) lookAt = { at: w, y: (beat.act === 'petted' ? 0.85 : 1.5) * (o.lowOf?.(beat.who) ?? 1) };
     }
     // watching the other cat come over
     else if (meetLook && !A.jump) lookAt = { at: meetLook.at, y: 0.22 };
     // the slow blink is at somebody: whoever's nearest; demanding at his dish, he looks round at whoever ought to fill it
     else if ((act === 'slowblink' || (act === 'demand' && bowl)) && !moving && !A.jump) {
       const folk = (o.folk?.() || []).filter((x) => dist(x.at, A.at) < (act === 'demand' ? 6 : 4)).sort((x, y) => dist(x.at, A.at) - dist(y.at, A.at));
-      if (folk.length && (act === 'slowblink' || hash(bt.id + ':dl:' + Math.floor(now / 3000)) < 0.6)) lookAt = { at: folk[0].at, y: 1.45 };
+      if (folk.length && (act === 'slowblink' || hash(bt.id + ':dl:' + Math.floor(now / 3000)) < 0.6)) lookAt = { at: folk[0].at, y: 1.45 * (o.lowOf?.(folk[0].id) ?? 1) };
     }
     else if (!mt && !bowl && !life.asleep && !A.jump && !moving && !['groom', 'flank', 'scratch', 'cello', 'hairball', 'shake', 'pee', 'poo'].includes(act)) {
       const slot = Math.floor(now / 7000 + hash(bt.id) * 3);
       if (hash(bt.id + ':attn:' + slot) < A.M.attention) {
         const folk = (o.folk?.() || []).filter((x) => dist(x.at, A.at) < 3.5);
-        if (folk.length) lookAt = { at: folk[Math.floor(hash(bt.id + ':who:' + slot) * folk.length)].at, y: 1.45 };
+        if (folk.length) { const who = folk[Math.floor(hash(bt.id + ':who:' + slot) * folk.length)]; lookAt = { at: who.at, y: 1.45 * (o.lowOf?.(who.id) ?? 1) }; }
       }
     }
     let gaze = [0, 0], w = 0;
@@ -754,8 +804,10 @@ export function catsFrame(L, beasts, o) {
 
     // what's drawn this frame, for catHit
     A.drawn = { R, pose, mo, toWorld };
-    out.cats.push(o.drawer.frame(bake, pose, mo, { O, F }));
-    out.voices.push({ id: bt.id, clip: useClip, t, since: moving ? 'move' : leap ? 'leap:' + A.jump?.since : String(start), pos: O });
+    // the mouth: open as far as the clip says (a hiss) or the call he is making is loud now (room-cat-sound.js mouth)
+    mo.mouth = Math.max(mo.mouth || 0, o.mouth?.(bt.id) || 0);
+    out.cats.push(o.drawer.frame(A.drawBake || bake, pose, mo, { O, F }));
+    out.voices.push({ id: bt.id, clip: useClip, t, since: moving ? 'move' : leap ? 'leap:' + A.jump?.since : String(start), pos: O, look: R.look });
   }
   // a cat no longer here is forgotten
   for (const id of _actors.keys()) if (!beasts.some((b) => b?.id === id)) _actors.delete(id);

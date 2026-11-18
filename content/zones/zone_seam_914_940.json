@@ -1,0 +1,26 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "wasteland",
+  "color": "#b5744a",
+  "description": "Baked red ground, cracked and flat to the edge of sight. Wind-polished rock breaks through the clay here and there.",
+  "exits": {
+    "east": "zone_district_914_940",
+    "north": "zone_seam_914_939",
+    "south": "zone_seam_914_941",
+    "west": "zone_district_913_940"
+  },
+  "flags": {
+    "district": "wilds",
+    "radiation": 38,
+    "region_id": "region_coldwater",
+    "scavenging_table_id": "scav_irradiated_salvage",
+    "terrain": "redrock"
+  },
+  "grid_x": 914,
+  "grid_y": 940,
+  "grid_z": 0,
+  "id": "zone_seam_914_940",
+  "map_id": "map_world",
+  "name": "Mesa Shelf",
+  "parent_zone": null
+}

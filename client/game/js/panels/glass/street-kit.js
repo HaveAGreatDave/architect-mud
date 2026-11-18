@@ -42,6 +42,7 @@ const TAU = Math.PI * 2;
 const hash = (seed, k) => { const x = Math.sin((seed || 0) * 12.9898 + k * 78.233) * 43758.5453; return x - Math.floor(x); };
 const newPoint = (x, y, z) => [x, y, z], newQuad = (a, b, c, d) => [a, b, c, d];
 const SIDES = Object.freeze([-1, 1]);
+const STREET_TREES = false;   // the planter trees down the walkways (see THE PLANTER TREES ARE OFF below)
 
 // ── THE STREET, IN CONSTANTS ──
 // Across the street from the centreline (`v`), along it from the tile centre (`u`). The brief's
@@ -107,7 +108,7 @@ const PAL = {
 //                 panel has lifted, in metres
 //   marks         'sheen' is the chrome's two reflection bands, 'scuff' a worn plate's scratches
 //   cyan, amber   every small light; a dead one is the same part in the same place, unlit
-//   speed         how fast the strip runs, m/s. Stopped from Worn down
+//   speed         how fast the strip runs, m/s, added to your own walk (about 1.7). Stopped from Worn down
 //   gateGone, bollardGone, bollardFlat  the share of posts missing or knocked over
 //   lean          how far a pole or post has gone over, in radians
 //   steam         how hard the vents go: more of it the less anybody is looking after them
@@ -115,12 +116,12 @@ const DEAD_CYAN = [16, 35, 43], DEAD_AMBER = [26, 18, 6];
 export const LEVEL = Object.freeze([
   { name: 'core', top: PAL.chrome, topMat: 'metal', slab: PAL.slab, panels: [PAL.chrome], panelMat: 'metal', hatch: PAL.hatch, patch: 0, patches: null, gone: 0, door: 0, tilt: 0, marks: 'sheen',
     cap: PAL.cap, capMat: 'metal', lane: PAL.lane, guide: PAL.guide, cyan: PAL.cyan, cyanMat: 'lit', amber: PAL.amber, amberMat: 'lit', edge: true, cracks: 0,
-    strip: PAL.strip, stripMat: 'lit', chevron: PAL.cyan, chevronMat: 'lit', speed: 1.4,
+    strip: PAL.strip, stripMat: 'lit', chevron: PAL.cyan, chevronMat: 'lit', speed: 2.6,
     gateGone: 0, bollardGone: 0, bollardFlat: 0, zebra: PAL.amber, zebraMat: 'lit', lamp: 'blink', lean: 0,
     crown: PAL.crown, crownK: 1, tree: 'lit', deck: PAL.chrome, junk: 0, weeds: 0, steam: 1 },
   { name: 'middle', top: [185, 201, 214], topMat: 'metal', slab: PAL.slab, panels: [[185, 201, 214]], panelMat: 'metal', hatch: PAL.hatch, patch: 0.2, patches: [[185, 170, 142], [159, 178, 161], [201, 193, 180], [167, 161, 179]], gone: 0, door: 0, tilt: 0, marks: 'sheen',
     cap: PAL.cap, capMat: 'metal', lane: PAL.lane, guide: PAL.guide, cyan: PAL.cyan, cyanMat: 'lit', amber: PAL.amber, amberMat: 'lit', edge: true, cracks: 0,
-    strip: PAL.strip, stripMat: 'lit', chevron: PAL.cyan, chevronMat: 'lit', speed: 0.45,
+    strip: PAL.strip, stripMat: 'lit', chevron: PAL.cyan, chevronMat: 'lit', speed: 1.5,
     gateGone: 0, bollardGone: 0, bollardFlat: 0, zebra: PAL.amber, zebraMat: 'lit', lamp: 'blink', lean: 0,
     crown: [47, 124, 116], crownK: 1, tree: 'lit', deck: [185, 201, 214], junk: 0, weeds: 0, steam: 1.1 },
   { name: 'worn', top: [136, 140, 142], topMat: 'metal', slab: [58, 58, 56], panels: [[142, 147, 151], [128, 133, 138], [153, 152, 145]], panelMat: 'metal', hatch: [104, 108, 112], patch: 0, patches: null, gone: 0.08, door: 0.015, tilt: 0.02, marks: 'scuff',
@@ -235,6 +236,163 @@ function spanOn(at, rx, ry, axis, run, inner = 0) {
 export function kitMoves(P, near) {
   if (P.span) return true;
   return !LEVEL[P.level].dirt && !!P.axis && (near || !!P.cross || !!P.bridge);
+}
+
+// What a walker meets at a point on a kit tile, from the same numbers the build draws with: `rail`
+// is true when a body of radius `body` (tiles) touches a corner guard rail, and `belt` is the
+// strip's carry under the point, [vx, vy] in tiles a second, or null off a running strip. (lx, ly)
+// is the point in tiles from the tile centre; `seed` is the renderer's (wx * 73 + wy * 149), so a
+// rail somebody had away for scrap is the one that isn't drawn. A strip with no speed carries
+// nobody, which is the two worn levels.
+// `bollard` is true when the body touches a standing bollard (one knocked flat is stepped or driven over);
+// that needs `s0`, the tile centre's world coordinate along the street, as the build spaces them from it.
+export function kitFoot(P, lx, ly, seed, body = 0, s0 = null) {
+  const LV = P && LEVEL[P.level];
+  const out = { rail: false, belt: null, bollard: false };
+  if (!LV || LV.dirt) return out;
+  if (P.axis) {
+    const ns = P.axis === 'ns', lat = ns ? lx : ly;
+    for (const s of [-1, 1]) {
+      if (!(LV.speed > 0) || Math.abs(lat - s * STRIP_V) > M(K.STRIP_W / 2)) continue;
+      const v = (ns ? -s : s) * M(LV.speed);
+      out.belt = ns ? [0, v] : [v, 0];
+    }
+    if (s0 != null) out.bollard = kitBollardHit(P, LV, ns ? ly : lx, lat, s0, body);
+    return out;
+  }
+  const arms = P.arms || '', RUN = M(K.RAIL_RUN), RIN = LANE_HW + M(0.3), r = M(0.05) + body;
+  // A rail along one axis at `c` across it, from a0 to a1 along it.
+  const near = (ax, a0, a1, c) => {
+    const a = ax ? lx : ly, b = ax ? ly : lx, lo = Math.min(a0, a1) - r, hi = Math.max(a0, a1) + r;
+    return a >= lo && a <= hi && Math.abs(b - c) <= r;
+  };
+  for (const sx of [-1, 1]) for (const sy of [-1, 1]) {
+    if (LV.lean && hash(seed, sx * 3 + sy + 90) < 0.5) continue;
+    const armX = arms.includes(sx > 0 ? 'e' : 'w'), armY = arms.includes(sy > 0 ? 's' : 'n');
+    if (armX && near(true, sx * LANE_HW, sx * Math.min(0.5, LANE_HW + RUN), sy * RIN)) out.rail = true;
+    if (armY && near(false, sy * LANE_HW, sy * Math.min(0.5, LANE_HW + RUN), sx * RIN)) out.rail = true;
+  }
+  return out;
+}
+
+// Whether a body of radius `body` at (u along, v across) touches a standing bollard: the posts the build draws
+// (BOLLARDS in drawStreetKit), from the same spacing, the same crossing gap and the same roll for which are gone.
+const BOLLARD_R = M(0.12);
+function kitBollardHit(P, LV, u, v, s0, body) {
+  const r = BOLLARD_R + body, vb = LANE_HW + M(K.BOLLARD_IN);
+  if (Math.abs(Math.abs(v) - vb) > r) return false;
+  const s = v < 0 ? -1 : 1, every = K.BOLLARD_EVERY, off = 1.5;
+  const k0 = Math.round(((s0 + u) * TILE_M - off) / every);
+  for (let k = k0 - 1; k <= k0 + 1; k++) {
+    const up = (k * every + off) / TILE_M - s0;
+    if (Math.abs(up - u) > r) continue;
+    if (P.cross && Math.abs(up - CROSS_U) < M(K.CROSS_GAP)) continue;
+    const roll = hash(s, Math.round((s0 + up) * TILE_M * 4));
+    if (roll < LV.bollardGone + LV.bollardFlat) continue;
+    return true;
+  }
+  return false;
+}
+
+// ── THE FOOTBRIDGE LIFTS ─────────────────────────────────────────────────────
+//
+// Both cars of a footbridge rest at the bottom. Step into either one there and, after a beat for the doors,
+// both go up together; they wait at the top for LIFT_DWELL seconds and come back down, unless somebody up
+// there steps in or presses for them. A call button stands by each tower's door, at the foot and on the deck:
+// the top one fetches the cars up, the bottom one sends them down. It's client side, like the ride, so each
+// viewer's lifts answer to that viewer. A bridge is keyed by its tile's seed (kitLiftKey), the two halves of a
+// two-wide street sharing the west or north half's, so the seam tower is one car whichever half asks.
+const LIFT_T = 5, LIFT_DWELL = 8, LIFT_BOARD = 1.2;   // seconds: a trip, the wait at the top, the doors
+const LIFTS = new Map();   // key -> { a: ms the rise starts, d: seconds held at the top }
+export const kitLiftKey = (P, seed) => (P && P.inner < 0 ? seed - (P.axis === 'ns' ? 73 : 149) : seed);
+// Where the cars are, 0 at the bottom to 1 at the top, linear in time, and which way they're going.
+function liftState(key, now) {
+  const L = LIFTS.get(key);
+  if (!L) return { k: 0, phase: 'down' };
+  const t = (now - L.a) / 1000;
+  if (t <= 0) return { k: 0, phase: 'down', queued: true };
+  if (t < LIFT_T) return { k: t / LIFT_T, phase: 'rising' };
+  if (t < LIFT_T + L.d) return { k: 1, phase: 'up' };
+  if (t < 2 * LIFT_T + L.d) return { k: 1 - (t - LIFT_T - L.d) / LIFT_T, phase: 'falling' };
+  return { k: 0, phase: 'down' };
+}
+// Somebody asks for the cars. `at` is 'board-bottom' (stepped into a car at the foot), 'board-top' (stepped
+// into one up top), 'call-top' (the deck's button: bring them up) or 'call-bottom' (the foot's: send them down).
+export function kitLiftCall(key, at, now) {
+  if (key == null) return;
+  const S = liftState(key, now), L = LIFTS.get(key);
+  const up = at === 'board-bottom' || at === 'call-top';
+  if (up) {
+    if (S.phase === 'down') { if (!S.queued) LIFTS.set(key, { a: now + (at === 'board-bottom' ? LIFT_BOARD * 1000 : 0), d: LIFT_DWELL }); }
+    else if (S.phase === 'falling') LIFTS.set(key, { a: now - S.k * LIFT_T * 1000, d: LIFT_DWELL });   // turned round where they are
+    else if (S.phase === 'up') L.d = Math.max(L.d, (now - L.a) / 1000 - LIFT_T + LIFT_DWELL);
+    return;
+  }
+  // down: off the top after a beat for the doors, or straight away on the button
+  const wait = at === 'board-top' ? LIFT_BOARD : 0.3;
+  if (S.phase === 'up') L.d = Math.min(L.d, Math.max(0, (now - L.a) / 1000 - LIFT_T + wait));
+  else if (S.phase === 'rising') L.d = Math.min(L.d, wait);
+}
+// What the lights on the buttons and over the doors show: 'idle', 'up' (going up or there) or 'down'.
+export function kitLiftShow(key, now) {
+  const S = liftState(key, now);
+  return S.phase === 'rising' || S.phase === 'up' || S.queued ? 'up' : S.phase === 'falling' ? 'down' : 'idle';
+}
+// Where a footbridge's lift car is at clock `now` (ms), its floor in tiles. Both towers' cars move together.
+// The dynamic pass draws the car here, and kitDeck stands a walker on it, so the car you ride is the car you see.
+export function kitCarZ(P, s, now, key) {
+  const k = liftState(key, now || 0).k;
+  const e = k * k * (3 - 2 * k);
+  return KERB_H + M(0.12) + (DECK_Z1 - KERB_H - M(0.12)) * e;
+}
+// The call buttons by a tower's door, in the street frame: one on the walkway at the foot, one on the deck.
+// A shared seam tower has them on the side this half draws it from.
+export function kitLiftButtons(P) {
+  if (!P || !P.bridge || !P.axis) return [];
+  const tw = M(K.TOWER_W / 2), tl = M(K.TOWER_L / 2), out = [];
+  for (const s of [-1, 1]) {
+    if (s === P.inner && s < 0) continue;
+    const v = kitTowerV(P, s);
+    out.push({ s, u: BRIDGE_U + tl + M(0.35), v: v - s * (tw + M(0.25)), z: KERB_H, at: 'call-bottom' });
+    out.push({ s, u: BRIDGE_U + tl - M(0.05), v: v - s * (tw + M(0.35)), z: DECK_Z1, at: 'call-top' });
+  }
+  return out;
+}
+
+// The footbridge under somebody on foot at (lx, ly) tiles from the tile centre, whose feet are at `h` tiles.
+// `riding` is true when the step starts inside a lift tower. Answers `floor`, the height they stand at there,
+// and `solid`, true when they can't be there: a tower whose car isn't at their feet (it's the shaft, or the car
+// is coming down on them), or off the deck while up on it (the glass rails). On the ground away from the
+// towers the deck is overhead and nothing changes. A tile with no footbridge answers null.
+// A tower is walled on its back and sides and has its door on the lane side, facing the deck; a shared seam
+// tower has a door on each side. The door stands open only while the car is at your level.
+const LIFT_STEP = M(0.6), CAR_IN = M(0.15);
+export function kitDeck(P, lx, ly, h, now, riding = false, body = 0, key = null) {
+  if (!P || !P.bridge || !P.axis || LEVEL[P.level]?.dirt) return null;
+  const ns = P.axis === 'ns', u = ns ? ly : lx, v = ns ? lx : ly;
+  const tw = M(K.TOWER_W / 2), tl = M(K.TOWER_L / 2), hu = M(K.DECK_W / 2);
+  for (const s of [-1, 1]) {
+    const tv = kitTowerV(P, s);
+    const du = Math.abs(u - BRIDGE_U), dv = v - tv;
+    if (du <= tl - CAR_IN && Math.abs(dv) <= tw - CAR_IN) {
+      const z = kitCarZ(P, s, now, key);
+      return { floor: z, solid: !riding && Math.abs(z - h) > LIFT_STEP, lift: s, key };
+    }
+    // the tower's walls, a body's width thick, below its roof
+    if (body > 0 && h < DECK_Z1 + M(K.TOWER_UP) && du <= tl + body && Math.abs(dv) <= tw + body) {
+      const front = s * dv < 0 || s === P.inner;   // the door side (both sides of a seam tower)
+      const inDoor = front && du <= tl - CAR_IN - body * 0.5;
+      if (!inDoor) return { floor: h, solid: true };
+      const z = kitCarZ(P, s, now, key);
+      if (!riding && Math.abs(z - h) > LIFT_STEP) return { floor: h, solid: true };   // the door's shut: no car here
+    }
+  }
+  // out of a car between floors: the shaft's wall
+  if (riding && Math.abs(h - KERB_H) > LIFT_STEP && Math.abs(h - DECK_Z1) > LIFT_STEP) return { floor: h, solid: true };
+  if (h < (DECK_Z0 + KERB_H) / 2) return { floor: 0, solid: false };
+  const vL = kitTowerV(P, -1) + tw, vR = kitTowerV(P, 1) - tw;
+  const on = Math.abs(u - BRIDGE_U) <= hu - body && v >= vL - M(0.2) && v <= vR + M(0.2);
+  return { floor: DECK_Z1, solid: !on };
 }
 
 // ── THE BUILD ────────────────────────────────────────────────────────────────
@@ -800,10 +958,12 @@ export function drawStreetKit(o) {
           rimAt(u, bv, M(0.9), M(0.2), KERB_H + M(0.47));
         }
     };
-    if (P.inner > 0) for (const u of spaced(K.PLANT_EVERY, 3)) if (!nearCross(u, 3) && !nearBridge(u, 3)) tree(u, 0.5, 0);
+    // ⚠ THE PLANTER TREES ARE OFF (2026-11-16, David): the octahedron crown on a post read as a cyan diamond
+    // on a stick, not a tree. `tree` is kept for when the street gets a proper one; STREET_TREES turns them back on.
+    if (STREET_TREES && P.inner > 0) for (const u of spaced(K.PLANT_EVERY, 3)) if (!nearCross(u, 3) && !nearBridge(u, 3)) tree(u, 0.5, 0);
     for (const s of [-1, 1]) {
       const v = s * (LANE_HW + M(K.PLANT_IN + 0.15));
-      for (const u of spaced(K.PLANT_EVERY, s > 0 ? 6 : 0)) {
+      if (STREET_TREES) for (const u of spaced(K.PLANT_EVERY, s > 0 ? 6 : 0)) {
         if (nearCross(u, 3) || nearBridge(u, 3) || (first && u < -0.5 + M(K.GATE_IN + 1.5)) || (last && u > 0.5 - M(K.GATE_IN + 1.5))) continue;
         tree(u, v, s);
       }
@@ -868,18 +1028,49 @@ export function drawStreetKit(o) {
         // all round drew as a grey box that hid its own car and whoever was riding it. Four corner
         // posts with a cyan line down the two on the lane side, a ring beam every 2.5 m, glass on
         // the frontage side only, and a roof with a lit band under its edge.
-        for (const a of [-1, 1]) for (const b of [-1, 1]) box(ub + a * tl, v + b * tw, M(0.07), M(0.07), KERB_H, ztop, PAL.steel, 'metal');
+        for (const a of [-1, 1]) for (const b of [-1, 1]) box(ub + a * tl, v + b * tw, M(0.07), M(0.07), KERB_H, ztop - M(0.01), PAL.steel, 'metal');
         for (const a of [-1, 1]) box(ub + a * tl, v - s * (tw + M(0.075)), M(0.02), M(0.008), KERB_H + M(0.3), ztop - M(0.1), PAL.cyan, 'lit');
+        // ⚠ NO BEAM ACROSS A DOOR. The ring beams on the door side (both sides of a seam tower) skip the two
+        // doorways, at the foot and at the deck, so nobody steps under a bar at shin height on the way in.
+        const doorFace = (b) => b === -s || onSeam;
+        const inDoor = (z) => (z > KERB_H && z < KERB_H + M(2.45)) || (z > DECK_Z1 - M(0.3) && z < DECK_Z1 + M(2.45));
         for (let z = KERB_H + M(2.5); z < ztop - M(0.5); z += M(2.5)) {
-          box(ub, v - tw, tl, M(0.05), z, z + M(0.1), PAL.steel, 'metal');
-          box(ub, v + tw, tl, M(0.05), z, z + M(0.1), PAL.steel, 'metal');
+          for (const b of [-1, 1]) if (!(doorFace(b) && inDoor(z))) box(ub, v + b * tw, tl, M(0.05), z, z + M(0.1), PAL.steel, 'metal');
           box(ub - tl, v, M(0.05), tw, z, z + M(0.1), PAL.steel, 'metal');
           box(ub + tl, v, M(0.05), tw, z, z + M(0.1), PAL.steel, 'metal');
+        }
+        // Each door: a lintel with a lit strip, an amber threshold and a canopy over the foot's. The side walls
+        // are steel to rail height and open above, so the car and its riders still show.
+        for (const b of [-1, 1]) {
+          if (!doorFace(b)) continue;
+          const vd = v + b * tw;
+          for (const zf of [KERB_H + M(0.12), DECK_Z1]) {
+            box(ub, vd, tl, M(0.06), zf + M(2.3), zf + M(2.45), PAL.steelDk, 'metal');
+            box(ub, vd + b * M(0.065), tl - M(0.12), M(0.005), zf + M(2.33), zf + M(2.37), PAL.cyan, 'lit');
+            box(ub, vd, tl - M(0.08), M(0.07), zf, zf + M(0.015), PAL.amber, 'lit');
+            for (const a of [-1, 1]) box(ub + a * (tl - M(0.04)), vd, M(0.03), M(0.08), zf, zf + M(2.3), PAL.steelDk, 'metal');
+          }
+          // the canopy at the foot, out over the walkway
+          box(ub, vd + b * M(0.5), tl + M(0.15), M(0.5), KERB_H + M(2.62), KERB_H + M(2.7), PAL.steelDk, 'metal', PAL.steel, 'metal', true);
+          if (near) box(ub, vd + b * M(0.98), tl + M(0.1), M(0.01), KERB_H + M(2.6), KERB_H + M(2.63), PAL.cyan, 'lit');
+        }
+        for (const a of [-1, 1]) {
+          box(ub + a * tl, v, M(0.03), tw - M(0.07), KERB_H + M(0.12), KERB_H + M(1.1), PAL.steelDk, 'metal');
+          box(ub + a * tl, v, M(0.04), tw - M(0.07), KERB_H + M(1.1), KERB_H + M(1.16), PAL.steel, 'metal');
+        }
+        // The call buttons: a post by the door at the foot and another on the deck (kitLiftButtons). The faces
+        // light in the dynamic pass, by what the cars are doing.
+        for (const B of kitLiftButtons(P)) {
+          if (B.s !== s) continue;
+          box(B.u, B.v, M(0.07), M(0.07), B.z, B.z + M(1.05), PAL.post, 'metal');
+          box(B.u, B.v, M(0.1), M(0.1), B.z + M(1.05), B.z + M(1.3), PAL.head, 'metal');
         }
         const g0 = KERB_H + M(0.12), vb = v + s * tw;
         if (!onSeam) face([F(ub - tl, vb, g0), F(ub + tl, vb, g0), F(ub + tl, vb, ztop), F(ub - tl, vb, ztop)], PAL.glass, 'glass');
         box(ub, v, tl + M(0.12), tw + M(0.12), ztop, ztop + M(0.3), PAL.steelDk, 'metal', PAL.steelDk, 'metal', true);
-        box(ub, v, tl + M(0.12), tw + M(0.12), ztop - M(0.05), ztop, PAL.cyan, 'lit');
+        // ⚠ The band is a hair inside the roof's sides and stops short of its underside: flush, its
+        // top and sides z-fought the roof and a dark patch flashed on it as the camera moved.
+        box(ub, v, tl + M(0.11), tw + M(0.11), ztop - M(0.06), ztop - M(0.01), PAL.cyan, 'lit');
       }
       // The deck from tower to tower. `vc` is its middle, off the tile's centre on a two-wide street,
       // where this half's deck ends at the tower on the seam.
@@ -919,7 +1110,9 @@ export function drawStreetKit(o) {
     o.steam(dx + x, dy + y, Math.round(r * 1e4), LV.steam);
   }
   if (doDynamic && crossHere) {
-    const on = LV.lamp === 'blink' ? Math.sin((o.now || 0) / 1000 * 3) > 0 : LV.lamp === 'steady';
+    // Each crossing blinks on its own phase off its seed: off the bare clock every crossing in the
+    // city went amber and dark together.
+    const on = LV.lamp === 'blink' ? Math.sin((o.now || 0) / 1000 * 3 + hash(o.seed, 7) * 6.2832) > 0 : LV.lamp === 'steady';
     for (const s of [-1, 1]) {
       const u = CROSS_U - M(2), v = s * (LANE_HW + M(K.POLE_IN)) - s * M(1.2), zl = KERB_H + M(K.POLE_H) - M(0.5);
       crossPole(s, () => box(u + M(0.21), v, M(0.02), M(0.14), zl - M(0.14), zl + M(0.14), on ? (LV.lamp === 'blink' ? PAL.amber : [150, 104, 20]) : DEAD_AMBER, on ? 'lit' : 'paint'));
@@ -927,16 +1120,34 @@ export function drawStreetKit(o) {
     }
   }
   if (doDynamic && bridgeHere) {
-    // Each car runs a 20 s round: five seconds at the bottom, five up, five at the top, five down,
-    // the two towers half a round apart. A pure function of the clock, like everything that moves.
-    const tw = M(K.TOWER_W / 2), tl = M(K.TOWER_L / 2);
+    // The cars rest at the bottom and go up together when somebody steps in (THE FOOTBRIDGE LIFTS). A car is
+    // open on its door side: a floor, a roof, a waist-high back and sides with a handrail, and glass above.
+    const tw = M(K.TOWER_W / 2), tl = M(K.TOWER_L / 2), key = kitLiftKey(P, o.seed), show = kitLiftShow(key, o.now || 0);
+    const lamp = show === 'idle' ? PAL.cyan : PAL.amber, lampMat = 'lit';
     for (const s of [-1, 1]) {
       if (s === P.inner && s < 0) continue;   // the shared tower's car is the other half's
-      const ph = (((o.now || 0) / 1000 + (s > 0 ? 10 : 0)) % 20 + 20) % 20;
-      const k = ph < 5 ? 0 : ph < 10 ? (ph - 5) / 5 : ph < 15 ? 1 : 1 - (ph - 15) / 5;
-      const e = k * k * (3 - 2 * k), z0 = KERB_H + M(0.12) + (DECK_Z1 - KERB_H - M(0.12)) * e;
-      box(BRIDGE_U, kitTowerV(P, s), tl - M(0.15), tw - M(0.15), z0, z0 + M(2.1), PAL.cab, 'metal');
-      box(BRIDGE_U, kitTowerV(P, s), tl - M(0.14), tw - M(0.14), z0 + M(2.0), z0 + M(2.06), PAL.cyan, 'lit');
+      const z0 = kitCarZ(P, s, o.now, key), v = kitTowerV(P, s), cu = tl - M(0.15), cv = tw - M(0.15), seam = s === P.inner;
+      box(BRIDGE_U, v, cu, cv, z0 - M(0.08), z0, PAL.steelDk, 'metal', PAL.cab, 'metal', true);
+      box(BRIDGE_U, v, cu, cv, z0 + M(2.15), z0 + M(2.25), PAL.cab, 'metal', PAL.cab, 'metal', true);
+      box(BRIDGE_U, v, cu - M(0.02), cv - M(0.02), z0 + M(2.12), z0 + M(2.15), PAL.cyan, 'lit');
+      for (const a of [-1, 1]) {
+        box(BRIDGE_U + a * cu, v, M(0.03), cv, z0, z0 + M(1.0), PAL.cab, 'metal');
+        box(BRIDGE_U + a * (cu - M(0.06)), v, M(0.02), cv - M(0.05), z0 + M(0.9), z0 + M(0.94), PAL.steel, 'metal');
+        for (const b of [-1, 1]) box(BRIDGE_U + a * cu, v + b * cv, M(0.035), M(0.035), z0, z0 + M(2.15), PAL.steel, 'metal');
+      }
+      if (!seam) box(BRIDGE_U, v + s * cv, cu, M(0.03), z0, z0 + M(1.0), PAL.cab, 'metal');
+      // the door edge's lit sill, and the car's lamp over the door, the colour of the buttons
+      for (const b of seam ? [-1, 1] : [-s]) box(BRIDGE_U, v + b * cv, cu - M(0.05), M(0.02), z0, z0 + M(0.02), lamp, lampMat);
+      // over each door of the tower, an arrow lamp at both floors
+      for (const b of seam ? [-1, 1] : [-s]) for (const zf of [KERB_H + M(0.12), DECK_Z1]) {
+        box(BRIDGE_U, v + b * (tw + M(0.075)), M(0.12), M(0.01), zf + M(2.12), zf + M(2.26), lamp, lampMat);
+      }
+    }
+    // the button faces
+    for (const B of kitLiftButtons(P)) {
+      const lit = (B.at === 'call-top') === (show === 'up') || show === 'idle';
+      const [bu, bv] = [B.u, B.v - B.s * M(0.101)];
+      box(bu, bv, M(0.05), M(0.004), B.z + M(1.12), B.z + M(1.22), lit ? lamp : PAL.screen, lit ? lampMat : 'paint');
     }
     if (night > 0.2 && o.light) { const [x, y] = loc(BRIDGE_U, (kitTowerV(P, -1) + kitTowerV(P, 1)) / 2); o.light(dx + x, dy + y, DECK_Z0, '111,227,255', 8, 0.35 * night); }
   }

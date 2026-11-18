@@ -1,0 +1,26 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "wasteland",
+  "color": "#b5744a",
+  "description": "Rust-stained flats, beaten hard. A few scattered prints show something walked this way once, when the ground would still take them.",
+  "exits": {
+    "east": "zone_district_914_941",
+    "north": "zone_seam_914_940",
+    "south": "zone_seam_914_942",
+    "west": "zone_district_913_941"
+  },
+  "flags": {
+    "district": "wilds",
+    "radiation": 38,
+    "region_id": "region_coldwater",
+    "scavenging_table_id": "scav_irradiated_salvage",
+    "terrain": "redrock"
+  },
+  "grid_x": 914,
+  "grid_y": 941,
+  "grid_z": 0,
+  "id": "zone_seam_914_941",
+  "map_id": "map_world",
+  "name": "Ochre Draw",
+  "parent_zone": null
+}

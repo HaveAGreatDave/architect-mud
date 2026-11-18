@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_vendor_04",
+  "lines": [
+    "\"You still doing the two-for-one?\"",
+    "\"Only on things nobody wants.\"",
+    "\"Does it work?\"",
+    "\"Now they want two of them.\""
+  ],
+  "personality": "vendor",
+  "sort_order": 633
+}

@@ -68,6 +68,18 @@ const FE_VOICE = {
   // as lumpy as this synth gets. Everything else follows from that: a low core, heavy exhaust
   // crackle, a wide detune for the grit of an engine that has done a lot of miles, and almost NO
   // bite, because a truck has no prop tip and nothing up there whines.
+  // THE MERLIN. No combustion at all: four ducted fans and a pusher on electric motors, so the
+  // piston layers are turned nearly off (no blade pulse, no crackle, no backfire) and the `fan` block
+  // below carries the sound. What makes a fan-lift craft sound like one is the BLADE-PASS TONE, the
+  // blade count times the shaft speed, and the fact that there are four of them a few hertz apart
+  // beating against each other: that shimmer is the sound people know from a drone overhead, scaled
+  // up to something that shakes the windows. Over it the motors' electric whine climbs an octave and
+  // a half with the speed, and under it the air through the ducts roars. A blip of the paddles
+  // overshoots the fans and lets them settle, which is the rev.
+  //   bpfB/bpfS: blade-pass base and span (Hz), at 7 blades; beat: the four fans' detune;
+  //   motorB/motorS: the motor whine; roar: the duct air; rev: how far a blip overshoots.
+  merlin:     { coreB: 46, coreS: 30, wave: 'triangle', pulseB: 0.5, pulseS: 0, pDep: [0.02, 0.02], biteB: 1400, biteS: 2200, biteM: 0.5, subB: 26, subM: 1.6, lpB: 240, lpS: 500, crk: 0, det: 1.003, mas: 1.1,
+    fan: { bpfB: 210, bpfS: 760, beat: [1, 1.0061, 0.9947, 1.0113], motorB: 1500, motorS: 3600, roar: 1.0, rev: 0.16 } },
   truck:      { coreB: 17, coreS: 34, wave: 'sawtooth', pulseB: 9,  pulseS: 16, pDep: [0.44, 0.52], biteB: 320,  biteS: 180,  biteM: 0.25, subB: 11, subM: 2.2, lpB: 150, lpS: 620,  crk: 1.8,  det: 1.019, mas: 1.1 },
 };
 
@@ -102,6 +114,7 @@ const FLYBY_CLASS = { grasshopper: 'ultralight', drake: 'prop', jet: 'heavy' };
 export const FLYBY_LOUD = {
   ultralight: { ref: 1.0, hear: 22 }, wreck: { ref: 1.8, hear: 30 }, prop: { ref: 2.2, hear: 36 },
   locust: { ref: 2.6, hear: 40 }, divebomber: { ref: 3.2, hear: 48 }, heli: { ref: 5.0, hear: 70 },
+  merlin: { ref: 3.0, hear: 50 },
   // a heavy at cruise is 10 km up and still a faint rumble, so it's heard a very long way
   gunship: { ref: 5.0, hear: 120 }, heavy: { ref: 6.5, hear: 700 },
 };
@@ -125,6 +138,17 @@ export function flybyCue(cls, { muffled = false } = {}) {
         { waveform: P.wave, freq: P.power[1], filter: { type: 'lowpass', freq: 700, q: 1 }, tremolo: { rate: 46, depth: 0.5 }, adsr: A, gain: 0.03 },
         { waveform: 'sine', freq: 1850, adsr: A, gain: 0.01 },
       ]),
+    ];
+  }
+  if (FE_VOICE[c]?.fan) {
+    // A fan-lift craft going over: the four blade-pass tones beating, the roar, and the motor whine
+    // on top (which glass and distance take first).
+    const Fv = FE_VOICE[c].fan, bpf = Fv.bpfB + 0.75 * Fv.bpfS;
+    return [
+      ...Fv.beat.map((k) => ({ waveform: 'sawtooth', freq: bpf * k, filter: { type: 'bandpass', freq: bpf * k * 1.3, q: muffled ? 1.5 : 3 }, adsr: A, gain: muffled ? 0.03 : 0.05 })),
+      { waveform: 'noise', noiseMix: 1, noise: 'pink', filter: { type: 'bandpass', freq: muffled ? 500 : 1200, q: 0.8 }, adsr: A, gain: 0.07 },
+      { waveform: 'sine', freq: 34, adsr: A, gain: 0.04 },
+      ...(muffled ? [] : [{ waveform: 'sine', freq: Fv.motorB + 0.75 * Fv.motorS, vibrato: { rate: 7, depth: 8 }, adsr: A, gain: 0.012 }]),
     ];
   }
   const V = FE_VOICE[c], r = 0.75, core = V.coreB + r * V.coreS, lp = (V.lpB + r * V.lpS) * (muffled ? 0.45 : 1);
@@ -215,6 +239,27 @@ function createFlightEngine(cls) {
     // 12. throttle-chop backfire — a short exhaust pop, event-scheduled on a sharp throttle drop
     const popBP = filt('bandpass', 380, 1), popGain = gain(0); noiseSrc().connect(popBP).connect(popGain).connect(master);
 
+    // 13. FANS (a voice with a `fan` block): four blade-pass tones a few hertz apart, each a
+    // sawtooth through a resonant bandpass with its second harmonic beside it; the motors' electric
+    // whine; and the duct roar, a band of noise that opens with the fans' speed.
+    let fan = null;
+    if (V.fan) {
+      const fanBus = gain(0); fanBus.connect(master);
+      const tones = V.fan.beat.map((k, i) => {
+        const o = osc('sawtooth', V.fan.bpfB * k), bp = filt('bandpass', V.fan.bpfB * k * 1.4, 3.2), g = gain(0.06);
+        o.connect(bp).connect(g).connect(fanBus);
+        const h = osc('sine', V.fan.bpfB * k * 2), hg = gain(0.018); h.connect(hg).connect(fanBus);
+        return { o, bp, h, k, i };
+      });
+      const motor = osc('sine', V.fan.motorB), motorMod = osc('sine', 7.3), motorModG = gain(6);
+      motorMod.connect(motorModG).connect(motor.frequency);
+      const motorG = gain(0); motor.connect(motorG).connect(master);
+      const motor2 = osc('sine', V.fan.motorB * 1.5); const motor2G = gain(0); motor2.connect(motor2G).connect(master);
+      const roarBP = filt('bandpass', 900, 0.8), roarG = gain(0); noiseSrc().connect(roarBP).connect(roarG).connect(master);
+      const roarLow = filt('lowpass', 260, 0.9), roarLowG = gain(0); noiseSrc().connect(roarLow).connect(roarLowG).connect(master);
+      fan = { bus: fanBus, tones, motor, motorG, motor2, motor2G, roarBP, roarG, roarLowG, spd: 0 };
+    }
+
     src.forEach(n => { try { n.start(now); } catch {} });
     master.gain.setValueAtTime(0, now); master.gain.linearRampToValueAtTime(V.mas, now + 0.8);   // swell in under the spool one-shot (per-class trim)
 
@@ -225,7 +270,7 @@ function createFlightEngine(cls) {
       air: { hp: airHP, gain: airGain }, wind: { bp: windBP, gain: windGain },
       roll: { gate: rollGate, lp: rollLP, lvl: rollLvl, rattle: rattleLevel, rattleOsc },
       crackle: { level: crLevel }, buffet: { level: bfLevel }, gref: { gain: grefGain }, pop: { gain: popGain },
-      _thrPrev: 0, _src: src };
+      fan, _thrPrev: 0, _src: src };
   } catch { return null; }
 }
 
@@ -303,11 +348,42 @@ function updateFlightEngine(s) {
   set(N.crackle.level.gain, rpm * 0.03 * V.crk * (ext ? 1.6 : 1), 0.15);          // exhaust crackle louder at power / outside
   set(N.buffet.level.gain, (s.airborne && !s.onGround) ? _c01(1 - (s.stallMargin ?? 1)) * 0.1 : 0, 0.15);   // stall buffet
   set(N.gref.gain.gain, s.onGround ? 0.05 : 0.008, 0.20);                          // reflected lows thin at liftoff
+  if (N.fan) { N.fan.boost = !!s.boost; updateFans(N, V, rpm, thr, load, dop, highsMul, lowsMul, ext, set); }
   // Throttle-chop backfire — a short pop scheduled on a sharp throttle reduction at power.
-  if ((N._thrPrev - thr) > 0.28 && rpm > 0.25) {
+  // A fan-lift craft has nothing to backfire.
+  if (!N.fan && (N._thrPrev - thr) > 0.28 && rpm > 0.25) {
     try { const g = N.pop.gain; g.cancelScheduledValues(now); g.setValueAtTime(0.09, now); g.linearRampToValueAtTime(0, now + 0.2); } catch {}
   }
   N._thrPrev = thr;
+}
+
+// The fans. Their speed follows the motors with a quick attack and a slow fall, plus a blip: a rise
+// in the collective kicks the fans past where they'll settle and lets them come back, so a paddle
+// pull is heard as a rev before it's felt as a climb. Everything that sounds is keyed off that speed.
+function updateFans(N, V, rpm, thr, load, dop, highsMul, lowsMul, ext, set) {
+  const F = N.fan, Fv = V.fan, now = N.ctx.currentTime;
+  const kick = Math.max(0, thr - N._thrPrev);
+  if (kick > 0.04 && rpm > 0.1) F.blip = Math.min(1, (F.blip || 0) + kick * 4);
+  F.blip = (F.blip || 0) * 0.86;
+  // BOOST: the fans run past their governed speed while it's held, the note climbs and the roar opens.
+  const target = rpm * (0.82 + 0.18 * thr) + (F.blip || 0) * Fv.rev + (F.boost ? 0.24 : 0);
+  F.spd += (target - F.spd) * (target > F.spd ? 0.35 : 0.12);
+  const sp = F.spd, on = rpm > 0.01 ? 1 : 0;
+  for (const t of F.tones) {
+    // Each fan works a little differently: the front pair carry the nose, the rear the pusher's wake.
+    const f = (Fv.bpfB + sp * Fv.bpfS) * t.k * (1 + (t.i < 2 ? 0.004 : -0.003) * load) * dop;
+    set(t.o.frequency, f, 0.06);
+    set(t.h.frequency, f * 2, 0.06);
+    set(t.bp.frequency, f * 1.35, 0.08);
+  }
+  set(F.bus.gain, on * (0.35 + sp * 0.75) * (0.85 + load * 0.3) * (ext ? 1.2 : 1), 0.08);
+  set(F.motor.frequency, (Fv.motorB + sp * Fv.motorS) * dop, 0.05);
+  set(F.motorG.gain, on * (0.004 + sp * 0.014) * highsMul, 0.08);
+  set(F.motor2.frequency, (Fv.motorB + sp * Fv.motorS) * 1.5 * dop, 0.05);
+  set(F.motor2G.gain, on * sp * 0.006 * highsMul, 0.08);
+  set(F.roarBP.frequency, 500 + sp * 1400, 0.1);
+  set(F.roarG.gain, on * (0.01 + sp * sp * 0.07) * Fv.roar * (0.7 + load * 0.6) * (F.boost ? 1.6 : 1), 0.1);
+  set(F.roarLowG.gain, on * (0.02 + sp * 0.05) * lowsMul, 0.12);
 }
 
 function stopFlightEngine(fast) {
@@ -548,6 +624,18 @@ const SPOOL_UP = {
     { waveform: 'triangle', freq: 30, pitchBend: { to: 340, time: 2.0 }, filter: { type: 'lowpass', freq: 900, q: 1.2 }, adsr: { a: 0.25, d: 2.0, s: 0.5, r: 0.4 }, gain: 0.11 },    // turbine whine
     { waveform: 'sine',     freq: 18, pitchBend: { to: 72, time: 2.1 }, adsr: { a: 0.4, d: 2.0, s: 0.5, r: 0.4 }, gain: 0.05 },                                                       // spool sub
     { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass', freq: 380, q: 0.8 }, tremolo: { rate: 9, depth: 0.85 }, adsr: { a: 1.2, d: 1.4, s: 0.5, r: 0.5 }, gain: 0.08 } ] },  // rotor chop rising
+  // Merlin: no starter, no catch. The contactors drop in (two dry clunks, left bank then right),
+  // the four fans wind up together, their tones sliding apart as each finds its own speed so the
+  // beating opens out, the motor whine climbs over the top, and the duct roar swells in under it.
+  merlin:  { duration: 2.8, layers: [
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 1800, q: 1.4 }, adsr: { a: 0.002, d: 0.06, s: 0, r: 0.03 }, gain: 0.10 },
+    { waveform: 'noise', noiseMix: 1, delay: 0.16, filter: { type: 'bandpass', freq: 1500, q: 1.4 }, adsr: { a: 0.002, d: 0.06, s: 0, r: 0.03 }, gain: 0.09 },
+    { waveform: 'sawtooth', freq: 60, delay: 0.3, pitchBend: { to: 360, time: 2.0 }, filter: { type: 'bandpass', freq: 520, q: 2.4 }, adsr: { a: 0.3, d: 0, s: 1, r: 0.4 }, gain: 0.07 },
+    { waveform: 'sawtooth', freq: 61, delay: 0.3, pitchBend: { to: 366, time: 2.0 }, filter: { type: 'bandpass', freq: 520, q: 2.4 }, adsr: { a: 0.3, d: 0, s: 1, r: 0.4 }, gain: 0.07 },
+    { waveform: 'sawtooth', freq: 59, delay: 0.32, pitchBend: { to: 357, time: 2.0 }, filter: { type: 'bandpass', freq: 520, q: 2.4 }, adsr: { a: 0.3, d: 0, s: 1, r: 0.4 }, gain: 0.06 },
+    { waveform: 'sine', freq: 600, delay: 0.25, pitchBend: { to: 2300, time: 2.2 }, vibrato: { rate: 7, depth: 6 }, adsr: { a: 0.4, d: 0, s: 1, r: 0.5 }, gain: 0.025 },
+    { waveform: 'noise', noiseMix: 1, delay: 0.6, filter: { type: 'bandpass', freq: 1100, q: 0.8 }, adsr: { a: 1.4, d: 0, s: 1, r: 0.6 }, gain: 0.05 },
+    { waveform: 'sine', freq: 24, delay: 0.4, pitchBend: { to: 46, time: 1.8 }, adsr: { a: 0.8, d: 0, s: 1, r: 0.5 }, gain: 0.05 } ] },
   // Piston single: starter cranks (chugging square), the engine catches after a
   // beat, then revs up with an exhaust bark.
   prop:    { duration: 1.9, layers: [

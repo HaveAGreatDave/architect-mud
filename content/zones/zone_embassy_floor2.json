@@ -5,7 +5,7 @@
   ],
   "ambient_theme": "indoors",
   "bg_color": "#c9a884",
-  "description": "The runner stops short of the doors as if it lost its nerve. The rose paper has been painted over in a pink that doesn't match. Units 3A to 3D, numbers hanging by single screws. A dead vending machine stands where the luggage trolley was, glass cracked, snacks fossilised. A print of the hotel's own front hangs crooked.",
+  "description": "The rose paper has been painted over in a pink that doesn't match. Units 3A to 3D, numbers hanging by single screws. A dead vending machine stands in the corner where the luggage trolley was, glass cracked, snacks fossilised. A print of the hotel's own front hangs crooked.",
   "exits": {
     "down": "zone_embassy_floor_2nd",
     "east": "zone_apt_7",
@@ -16,19 +16,19 @@
   },
   "flags": {
     "floor": "boards",
-    "intro_lore": "Two flights up from Lowry's bar, the hotel starts telling the truth about itself: the runner gone short, the paper painted over, a vending machine that died guarding snacks nobody will ever eat. Four doors, four locks, four small victories against everything on the other side of them.",
+    "intro_lore": "Two flights up from Lowry's bar, the hotel starts telling the truth about itself: the paper painted over, a vending machine that died guarding snacks nobody will ever eat. Four doors, four locks, four small victories against everything on the other side of them.",
     "is_interior": true,
     "room": {
       "balcony": false,
-      "d": 3.2,
+      "d": 8,
       "decor": {
         "art": [
           {
-            "at": -3.4,
+            "at": 1.2,
             "h": 0.6,
             "seed": 52,
             "w": 0.8,
-            "wall": "back",
+            "wall": "front",
             "y": 1.7
           }
         ],
@@ -51,29 +51,41 @@
           "zone_apt_8": "3D"
         },
         "rug": false,
-        "runner": {
-          "along": "u",
-          "border": "#7a6038",
-          "end": 4.2,
-          "hex": "#4a1a20",
-          "w": 1.2
-        },
         "sconces": {
           "points": [
             [
-              "front",
-              -5.5
+              "left",
+              3
             ],
             [
-              "back",
-              5.5
+              "right",
+              4.8
             ]
           ],
           "y": 1.85
         }
       },
+      "doors": {
+        "down": [
+          0.55,
+          5.62
+        ],
+        "east": -3.15,
+        "north": -1.47,
+        "south": 1.47,
+        "west": 3.15
+      },
       "face": 0,
-      "h": 3,
+      "h": 3.93,
+      "stair": {
+        "at": [
+          -0.55,
+          7
+        ],
+        "climb": "front",
+        "going": 0.22,
+        "w": 1.1
+      },
       "studio": false,
       "tone": {
         "accent": "#8a6a44",
@@ -81,7 +93,7 @@
         "trim": "#2a1e18",
         "wall": "#c99aa0"
       },
-      "w": 16,
+      "w": 4.4,
       "windowless": true
     }
   },

@@ -104,5 +104,6 @@ computed (there is no way not to) and dropped. A regress assertion checks no sco
 reach that row, because printing one would spoil the broadcast this whole system exists
 to make worth watching.
 
-`broadcast.getTeamCard` is bounded on both sides (24 slots back, 24 forward): it runs on
-a tablet tap, and every slot inspected is a full game sim.
+`broadcast.getTeamCard` is bounded on both sides (112 slots back, 48 forward, enough for
+five games of form and the next game at a game about every other day): it runs on a tablet
+tap, so it reads the club's slots off the slate first and simulates only those.

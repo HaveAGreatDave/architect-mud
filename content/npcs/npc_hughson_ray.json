@@ -124,7 +124,9 @@
     "He tops up the chilli from a steel pot and stirs it with the ladle he serves it with.",
     "He pulls a beer, holds it to the light, and pours the top inch away.",
     "Somewhere above, the crowd groans. He nods as if he expected it.",
-    "He straightens the stack of waivers on the counter."
+    "He straightens the stack of waivers on the counter.",
+    "He presses a burger flat on the griddle with the back of the spatula and listens to it.",
+    "He turns the rollers by hand to get the franks the same brown all round."
   ],
   "description": "A heavy man in his fifties in a white paper hat and an apron with chilli down the front, his forearms red from the hot plate. A pencil rides behind one ear. He wipes the counter in slow circles and looks up every time the crowd makes a noise.",
   "dialogue_tree": {
@@ -201,7 +203,9 @@
       "a short-sleeved shirt with the Coliseum's crest on the pocket",
       "work trousers",
       "boxer shorts"
-    ]
+    ],
+    "post": "furn_hughson_counter",
+    "post_gap": 0.45
   },
   "home_activities": [],
   "home_zone": "zone_hughson_stand",
@@ -215,6 +219,14 @@
   "vendor_inventory": [
     {
       "item_id": "item_widowmaker",
+      "price": 7
+    },
+    {
+      "item_id": "item_grandstand_burger",
+      "price": 9
+    },
+    {
+      "item_id": "item_ballpark_frank",
       "price": 7
     },
     {

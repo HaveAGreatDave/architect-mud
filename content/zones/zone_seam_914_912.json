@@ -1,0 +1,24 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "city",
+  "description": "Foundry Way at KSAB's gate: two rendered piers with the station's name on a slab between them, a raised barrier arm, and a round gatehouse with a lamp in it. The lot's wall runs east past a water tower. Tyre tracks turn in under the barrier.",
+  "exits": {
+    "east": "zone_district_914_912",
+    "south": "zone_seam_914_913",
+    "west": "zone_district_913_912"
+  },
+  "flags": {
+    "district": "nightlife",
+    "region_id": "region_coldwater",
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "road"
+  },
+  "grid_x": 914,
+  "grid_y": 912,
+  "grid_z": 0,
+  "id": "zone_seam_914_912",
+  "map_id": "map_world",
+  "name": "Foundry Way",
+  "parent_zone": null
+}

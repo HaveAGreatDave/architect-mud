@@ -10,13 +10,15 @@
     "entrance": "west",
     "floors": 10,
     "is_building": true,
-    "region_id": "region_coldwater"
+    "region_id": "region_coldwater",
+    "set_aside": true,
+    "set_aside_from": "897,918"
   },
-  "grid_x": 897,
-  "grid_y": 918,
+  "grid_x": 13,
+  "grid_y": 29,
   "grid_z": 0,
   "id": "zone_ballpark_891_917",
-  "map_id": "map_world",
+  "map_id": "map_set_aside",
   "marker": "U6",
   "name": "23 Hughson Way",
   "parent_zone": null

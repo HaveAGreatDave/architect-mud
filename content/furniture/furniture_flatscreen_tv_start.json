@@ -4,7 +4,7 @@
     "broadcast_device_type": "tv",
     "broadcast_receiver": true,
     "spot": {
-      "along": 1.4,
+      "along": 1,
       "wall": "right"
     },
     "tv": true,

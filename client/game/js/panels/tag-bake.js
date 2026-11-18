@@ -31,14 +31,62 @@ function lruSweep(map, max, keep) {
 // nothing like paint. What makes a letterform read as spray is the HEAVY ROUND-JOINED OUTLINE
 // stroked round it (see the passes below) — so all this has to supply is something fat and wide,
 // and every reference piece would look the same set in any of them.
+// It only sets a character the stroke table has no letter for (`&`, `@`, `#`).
 // ⚠ NAMES A FACE THAT SHIPS WITH WINDOWS FIRST, then a generic family — the rule SIGN_FONT states:
 // a missing font must fall back to a different HAND, never to body text.
+// ⚠ AND NOT A BUBBLE FACE. The puff inflates this letter, so it wants a plain heavy one. Rubik
+// Bubbles was tried (2026-11-15): inflated again, an `&` closed into a blob that Arial Rounded
+// keeps readable.
 const TAG_FONT = (C) => `900 ${Math.round(C * 0.78)}px "Arial Rounded MT Bold","Segoe UI Black","Arial Black",Impact,sans-serif`;
 // The scrawled handstyle beside the piece — a date, a crew, somebody else's name. Every reference
 // board has two or three of these round the edges of the big one, and they are what stops a wall
 // reading as ONE commissioned mural: a piece is a thing somebody spent an hour on, the scrawls are
-// what the wall collects in between.
-const TAG_SCRAWL_FONT = (C) => `italic 700 ${Math.round(C * 0.30)}px "Segoe Script","Brush Script MT","Ink Free","Comic Sans MS",cursive,sans-serif`;
+// what the wall collects in between. Sedgwick Ave is the tag face's own lighter cut.
+const TAG_SCRAWL_FONT = (C) => `${Math.round(C * 0.32)}px "Sedgwick Ave","Segoe Script","Brush Script MT","Ink Free","Comic Sans MS",cursive,sans-serif`;
+
+// ── THE PAINTERS' FACES ──────────────────────────────────────────────────────────────────────
+//
+// Self-hosted, from client/shared/fonts/ (licences beside them; docs/reference/fonts.md). Fetched on
+// the first bake rather than at import, because GLASS imports this leaf whether or not a wall in
+// view carries paint. A tag baked before they land is baked in its system fallback, so the cache is
+// emptied when they arrive and every wall re-bakes in its real hand, as `loadNeonFaces` does for
+// signs.
+// ⚠ `_tagFacesIn` IS WHAT THE STENCIL ASKS. A stencil face is cut with its own bridges, at the
+// counters where a card needs them, so the bake's random bridges are only for the fallback; see
+// `bakeStencil`. It holds the families that actually loaded, so a face that failed keeps the
+// random ones.
+const TAG_FACE_FILES = [
+  ['Sedgwick Ave Display', 'sedgwick-ave-display.woff2'],
+  ['Sedgwick Ave', 'sedgwick-ave.woff2'],
+  ['Rock Salt', 'rock-salt.woff2'],
+  ['Rainbow 2000', 'rainbow-2000.woff2'],
+  ['Permanent Marker', 'permanent-marker.woff2'],
+  ['Big Shoulders Stencil Display', 'big-shoulders-stencil-display.woff2', { weight: '100 900' }],
+  ['Operation Napalm', 'operation-napalm.woff2'],
+  ['Allerta Stencil', 'allerta-stencil.woff2'],
+  ['Bowlby One SC', 'bowlby-one-sc.woff2'],
+];
+const _tagFacesIn = new Set();
+let _tagFacesLoad = null;
+export function loadTagFaces() {
+  if (_tagFacesLoad) return _tagFacesLoad;
+  if (typeof document === 'undefined' || typeof FontFace === 'undefined' || !document.fonts) return (_tagFacesLoad = Promise.resolve());
+  // ⚠ allSettled, not all: one face failing must not keep the rest off the walls.
+  _tagFacesLoad = Promise.allSettled(TAG_FACE_FILES.map(([fam, file, desc]) =>
+    new FontFace(fam, `url(${new URL('../../../shared/fonts/' + file, import.meta.url)})`, desc).load()
+      .then((f) => { document.fonts.add(f); _tagFacesIn.add(fam); })))
+    .then(() => { _tagTexCache.clear(); }, () => {});
+  return _tagFacesLoad;
+}
+// One writer, one hand: a roll keyed on the WORDS rather than the wall, so a name is written the
+// same way on every wall it's on. FNV-1a with murmur3's finaliser; without it, words that differ
+// in their last letter land on neighbouring rolls.
+function wordRoll(s, n) {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+  h ^= h >>> 16; h = Math.imul(h, 0x85ebca6b); h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35); h ^= h >>> 16;
+  return (h >>> 0) % n;
+}
 // How many characters go on a line before the next starts. A can holds 48 characters and a wall is
 // about a tile wide: set as one strip, a full-length tag maps onto a quad thirty times wider than
 // it is tall, which on a shopfront is a hairline nobody can read. Three short lines is also simply
@@ -187,17 +235,19 @@ export const tagWordFor = (v) => TAG_WORDS[Math.abs(v | 0) % TAG_WORDS.length];
 // piece of paint in a different colour — which reads as a texture repeating rather than as a city
 // people write on.
 //
-// ⚠ AND THE ANSWER IS NOT A FONT, WHICH IS THE QUESTION THIS GETS ASKED. The note on `TAG_FONT`
-// already settles it for the throw-up — what makes a letterform read as spray is the heavy
-// round-joined outline stroked round it, not the face underneath — and it generalises: a handstyle
-// is a marker held at a slant, a stencil is a flat fill with BRIDGES in it, a roller is two tones
-// and no outline at all. Every one of those is a different set of PASSES over the same system
-// faces, and a downloaded typeface would not supply any of them.
+// ⚠ THE PASSES MAKE THE STYLE; THE FACE ONLY HAS TO BE THE RIGHT LETTER. The note on `TAG_FONT`
+// settles it for the throw-up: what makes a letterform read as spray is the heavy round-joined
+// outline stroked round it. It generalises: a handstyle is a marker held at a slant, a stencil is
+// a flat fill with BRIDGES in it, a roller is two tones and no outline at all, and each of those is
+// a set of PASSES. What the face under them decides is whether the letter is a writer's letter and
+// whether it's the same letter on every machine. The system stacks were Segoe Script and Arial
+// Narrow on Windows and whatever `cursive` is everywhere else, so each hand now leads with a
+// self-hosted face (see `TAG_FACE_FILES`) and keeps the system stack as its fallback.
 //
-// The one exception is `gothic`, where the face IS the style: Old English lettering is what a
-// placa is written in, and no recipe over a sans gets there. It uses the self-hosted
-// UnifrakturMaguntia that `loadNeonFaces` fetches, and it's the only place that face is allowed;
-// signs gave it up (see the ⚠ in SIGN_FONT).
+// `gothic` is where the face IS the style: Old English lettering is what a placa is written in,
+// and no recipe over a sans gets there. It uses the self-hosted UnifrakturMaguntia that
+// `loadNeonFaces` fetches, and it's the only place that face is allowed; signs gave it up (see
+// the ⚠ in SIGN_FONT).
 //
 // So a hand is a recipe:
 //
@@ -250,13 +300,52 @@ const TAG_HAND_BAND = {
 };
 export const tagBandFor = (hand) => TAG_HAND_BAND[hand] || TAG_HAND_BAND.throw;
 // A marker. NOT the piece's own face — a handstyle is written with the side of a nib, so it wants
-// something whose stroke already varies, and the same family the throw-up's scrawls use.
-const TAG_HAND_FONT = (C) => `italic 700 ${Math.round(C * 0.92)}px "Segoe Script","Brush Script MT","Ink Free","Comic Sans MS",cursive,sans-serif`;
+// something whose stroke already varies. Writers don't share a hand, so it's one of four, rolled
+// on the words (`wordRoll`) and weighted to Sedgwick Ave Display, a New York tag hand. Each carries
+// its own size, because their capitals stand at different heights in the em: Rock Salt's are
+// small in a tall line, so at the shared size it read as a smaller word than the rest.
+// [family, size as a share of the cell, weight, nib as a share of the cell]
+// ⚠ THE NIB IS PER FACE. `bakeHandstyle` strokes every letter as well as filling it, and 0.11 of a
+// cell was set against a thin system script. Over Sedgwick, already a marker weight, it closed every
+// counter and the word came back as a row of blobs; Rock Salt is a scratch and takes the most.
+const TAG_HAND_FACES = [
+  ['Sedgwick Ave Display', 0.98, 400, 0.03], ['Sedgwick Ave Display', 0.98, 400, 0.03], ['Sedgwick Ave Display', 0.98, 400, 0.03],
+  ['Rock Salt', 0.70, 400, 0.06], ['Rainbow 2000', 0.92, 400, 0.04], ['Permanent Marker', 0.90, 400, 0.02],
+];
+const TAG_HAND_NIB = 0.11;
+const TAG_HAND_TAIL = '"Segoe Script","Brush Script MT","Ink Free","Comic Sans MS",cursive,sans-serif';
 // Cut out of card: flat, heavy, condensed. Which is what every stencil anybody has ever cut is set
-// in, because it is what survives having bridges taken out of it.
-const TAG_STENCIL_FONT = (C) => `900 ${Math.round(C * 0.80)}px "Arial Narrow",Haettenschweiler,Impact,"Arial Black",sans-serif`;
-// A roller does not draw letters, it fills them. The widest, heaviest face available.
-const TAG_ROLLER_FONT = (C) => `900 ${Math.round(C * 0.86)}px "Arial Black","Segoe UI Black",Impact,sans-serif`;
+// in, because it is what survives having bridges taken out of it. Three cards, rolled like the hand:
+// the heavy condensed one most often, a military plate, and a plain sans.
+const TAG_STENCIL_FACES = [
+  ['Big Shoulders Stencil Display', 1.0, 800], ['Big Shoulders Stencil Display', 1.0, 800],
+  ['Operation Napalm', 0.84, 400], ['Allerta Stencil', 0.80, 400],
+];
+const TAG_STENCIL_TAIL = '"Arial Narrow",Haettenschweiler,Impact,"Arial Black",sans-serif';
+// A roller does not draw letters, it fills them. The widest, heaviest face available. The last
+// number is its stretch: Bowlby One is wide already, so it takes less than Arial Black's 2.1.
+const TAG_ROLLER_FACES = [['Bowlby One SC', 0.80, 400, 1.75]];
+const TAG_ROLLER_FAT = 2.1;
+const TAG_ROLLER_TAIL = '"Arial Black","Segoe UI Black",Impact,sans-serif';
+// The hand's face for these words: `font(C)` for the canvas, and `cut` when the face that will draw
+// it is a loaded stencil, so the bake leaves the bridges to the face.
+// ⚠ THE FALLBACK KEEPS THE OLD WEIGHT. Arial Narrow and Arial Black were set at 900; the faces
+// above carry their own weight, and the system tail is only asked for its heaviest because that's
+// the only thing that made it read as paint.
+function tagHandFace(hand, body) {
+  const [list, tail] = hand === 'hand' ? [TAG_HAND_FACES, TAG_HAND_TAIL]
+    : hand === 'stencil' ? [TAG_STENCIL_FACES, TAG_STENCIL_TAIL] : [TAG_ROLLER_FACES, TAG_ROLLER_TAIL];
+  const [fam, size, weight, extra] = list[wordRoll(String(body).toUpperCase(), list.length)];
+  const loaded = _tagFacesIn.has(fam);
+  const w = loaded ? weight : hand === 'hand' ? 700 : 900;
+  return {
+    fam,
+    cut: hand === 'stencil' && loaded,
+    nib: loaded && hand === 'hand' ? extra : TAG_HAND_NIB,
+    fat: hand !== 'roller' ? 1.0 : loaded ? extra : TAG_ROLLER_FAT,
+    font: (C) => `${loaded || hand !== 'hand' ? '' : 'italic '}${w} ${Math.round(C * size)}px "${fam}",${tail}`,
+  };
+}
 // A placa. Gabriola is the Windows fallback: calligraphic rather than blackletter, but still a pen
 // hand, where the next thing down the stack is a body serif.
 const TAG_GOTHIC_FONT = (C) => `${Math.round(C * 0.98)}px UnifrakturMaguntia,"Old English Text MT","Blackadder ITC",Gabriola,serif`;
@@ -298,8 +387,8 @@ function bakeTagHand(hand, body, colour, dn, variant, marks) {
   const lines = hand === 'roller' ? [rollerLine(body)] : hand === 'gothic' ? tagLines(titleWords(body)) : tagLines(body);
   if (!lines.length || !lines[0]) return null;
 
-  const font = hand === 'hand' ? TAG_HAND_FONT : hand === 'stencil' ? TAG_STENCIL_FONT
-    : hand === 'gothic' ? TAG_GOTHIC_FONT : TAG_ROLLER_FONT;
+  const HF = hand === 'gothic' ? null : tagHandFace(hand, body);
+  const font = HF ? HF.font : TAG_GOTHIC_FONT;
   // Tracking and stretch per hand. A marker runs its letters together, a stencil holds them apart
   // because the card between them has to survive being cut, a roller is nearly touching, and
   // blackletter sets close by nature.
@@ -307,7 +396,7 @@ function bakeTagHand(hand, body, colour, dn, variant, marks) {
   // ⚠ A BLOCKBUSTER IS WIDE, AND 1.5 IS NOT WIDE. At that stretch it came back as clean flat
   // display type — correct letters, and nothing about them said a roller. The whole read is that
   // the letters are far wider than they are tall, because a nine-inch roller is what drew them.
-  const FAT = hand === 'roller' ? 2.1 : 1.0;
+  const FAT = HF ? HF.fat : 1.0;
   // ⚠ ONE LEAN FOR THE WHOLE WORD ON A HANDSTYLE, never a per-letter wobble. A hand leans because
   // of how the arm is held, so every letter leans the SAME way — a random tilt per letter is the
   // throw-up's trick and here it reads as letters falling over rather than as handwriting.
@@ -360,8 +449,8 @@ function bakeTagHand(hand, body, colour, dn, variant, marks) {
   // Centred on the UNSCALED width inside the scale — the same trap `bakeTagText` records.
   const at = (q, fn) => { g.save(); g.translate(q.x, q.y); g.rotate(q.rot); g.scale(FAT, 1); fn(-q.uw * 0.5); g.restore(); };
 
-  if (hand === 'hand') bakeHandstyle(g, glyphs, at, P, R, CELL);
-  else if (hand === 'stencil') bakeStencil(g, glyphs, at, P, R, CELL);
+  if (hand === 'hand') bakeHandstyle(g, glyphs, at, P, R, CELL, HF.nib);
+  else if (hand === 'stencil') bakeStencil(g, glyphs, at, P, R, CELL, HF.cut);
   else if (hand === 'gothic') bakePlaca(g, glyphs, at, P, CELL);
   else bakeRoller(g, glyphs, at, P, R, CELL, W, H);
 
@@ -373,7 +462,7 @@ function bakeTagHand(hand, body, colour, dn, variant, marks) {
 // A signature in marker: one ink, one weight, a tail, and a couple of drips. No cloud, no block,
 // no outline — every one of those belongs to a piece somebody spent an hour on, and this is the
 // thing that gets written in four seconds on the way past.
-function bakeHandstyle(g, glyphs, at, P, R, CELL) {
+function bakeHandstyle(g, glyphs, at, P, R, CELL, nib = TAG_HAND_NIB) {
   const ink = P.mid;
   // ⚠ THE TAIL GOES ON FIRST. It runs UNDER the letters — a flourish thrown off the last letter and
   // back along the foot of the word is one continuous motion of the same pen, so where it passes
@@ -396,7 +485,7 @@ function bakeHandstyle(g, glyphs, at, P, R, CELL) {
   g.save();
   g.strokeStyle = ink;
   g.fillStyle = ink;
-  g.lineWidth = CELL * 0.11;
+  g.lineWidth = CELL * nib;
   for (const q of glyphs) at(q, (ox) => { g.strokeText(q.ch, ox, 0); g.fillText(q.ch, ox, 0); });
   g.restore();
 
@@ -422,7 +511,8 @@ function bakeHandstyle(g, glyphs, at, P, R, CELL) {
 
 // Sprayed through cut card. Flat colour, a soft field of overspray round the edge, speckle where
 // the can sat too long — and the bridges, which are the whole tell.
-function bakeStencil(g, glyphs, at, P, R, CELL) {
+// `cut` is true when the letters were set in a loaded stencil face, which brings its own bridges.
+function bakeStencil(g, glyphs, at, P, R, CELL, cut = false) {
   const ink = P.mid;
   // 1. The overspray — paint that went past the card.
   //
@@ -468,6 +558,9 @@ function bakeStencil(g, glyphs, at, P, R, CELL) {
   //    gap across it exactly there. Punched out with `destination-out` so it takes the overspray
   //    and the speckle with it: a bridge drawn in the wall's colour would be a coloured bar across
   //    the letter, and nothing in a bake knows what colour the wall is.
+  // ⚠ ONLY FOR THE FALLBACK. A stencil face (`cut`) already has its bridges, at the counters where
+  //    a card needs them; these random strips on top of it read as the letters being cut twice.
+  if (cut) return;
   g.save();
   g.globalCompositeOperation = 'destination-out';
   for (const q of glyphs) {
@@ -1143,6 +1236,7 @@ export function tagLayout(body, lines, face, variant, CELL) {
 export function bakeTagText(text, runs, colour, dn, variant = 0, marks = 3, hand = 'throw', face = null, cache = true) {
   const body = String(text || '').trim();
   if (!body) return null;
+  loadTagFaces();
   const nMarks = clamp(Math.round(Number(marks) || 0), 0, 4);
   const runKey = Array.isArray(runs) ? runs.map((r) => `${r && r.n}:${r && r.c}`).join(',') : '';
   const hasRuns = Array.isArray(runs) && runs.length > 0;

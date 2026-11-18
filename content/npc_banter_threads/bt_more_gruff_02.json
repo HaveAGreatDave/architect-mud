@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_gruff_02",
+  "lines": [
+    "\"You look as if you slept in a hedge.\"",
+    "\"I've slept on a bench.\"",
+    "\"Same thing in this city.\"",
+    "\"Bench has fewer thorns.\""
+  ],
+  "personality": "gruff",
+  "sort_order": 670
+}

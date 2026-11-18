@@ -4,8 +4,18 @@
     "aliases": "board,noticeboard,notes",
     "look": {
       "arche": "prop",
+      "dims": [
+        0.9,
+        0.05,
+        0.7
+      ],
       "form": "cabinet",
       "wear": 0.85
+    },
+    "spot": {
+      "along": -1.3,
+      "wall": "back",
+      "y": 1.3
     }
   },
   "hp": null,

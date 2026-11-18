@@ -87,6 +87,7 @@ export const isFlightSimActive = ifLoaded(cockpit, 'isFlightSimActive', false);
 export const resumeFlightAfterLogin = ifLoaded(cockpit, 'resumeFlightAfterLogin');
 export const isCockpitHudActive = ifLoaded(cockpit, 'isCockpitHudActive', false);
 export const closeCockpit = ifLoaded(cockpit, 'closeCockpit');
+export const holdForDoors = ifLoaded(cockpit, 'holdForDoors', false);
 // Everything below that is ifLoaded only feeds an OPEN view (each returns at once// with no view), so none of it may download one. Only updateCockpit, openTargeting// and the open* calls mount something, so only they load. Checked against each// function's first line; add a new feed as ifLoaded unless it opens a view.
 export const updateCockpit = call(cockpit, 'updateCockpit');
 // Sent to walkable-cabin passengers whose HUD never opens, every flight tick, so

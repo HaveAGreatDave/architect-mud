@@ -119,7 +119,20 @@
 #room-stage .rl-lift.rl-up .rl-state strong::before { display: inline; content: '\25B2'; }
 #room-stage .rl-lift.rl-down .rl-state strong::before { display: inline; content: '\25BC'; }
 #room-stage .rl-floors { display: grid; grid-template-columns: repeat(var(--rl-cols, 2), minmax(0, 1fr)); gap: 10px; }
-#room-stage .rl-fl { min-width: 0; justify-content: flex-start; padding: 6px 10px; }
+#room-stage .rl-fl { min-width: 0; height: 46px; justify-content: flex-start; padding: 0 10px; }
+#room-stage .rl-fl kbd { width: 1.7em; text-align: center; box-sizing: border-box; }
+/* the lift is a fitting, so everything on it sits square: no tilted read-out or note, and the grid leaves room
+   on its right and below for the buttons' drop shadow, so both columns sit inside the frame alike */
+#room-stage .rl-lift .rl-head { align-items: center; }
+#room-stage .rl-lift .rl-state strong, #room-stage .rl-comic.rl-lift .rl-state strong { transform: none; }
+#room-stage .rl-lift .rl-note, #room-stage .rl-comic.rl-lift .rl-note { align-self: stretch; rotate: none; min-height: 0; line-height: 1.5; }
+#room-stage .rl-comic .rl-floors { padding: 0 4px 4px 0; }
+/* the building's name, a lettered plate over the panel */
+#room-stage .rl-brand { display: flex; align-items: center; justify-content: center; gap: 10px; margin: -18px -18px -6px; padding: 8px 14px 6px; font-size: 1.125rem; letter-spacing: 0.28em; text-transform: uppercase; white-space: nowrap; }
+#room-stage .rl-brand b { font-weight: 400; }
+#room-stage .rl-brand i { flex: 1; min-width: 12px; height: 2px; background: currentColor; opacity: 0.7; }
+#room-stage .rl-comic .rl-brand { color: var(--rl-ink); background: var(--rl-paper); border-bottom: 4px solid var(--rl-ink); }
+#room-stage .rl-comic .rl-brand + .rl-head { margin-top: 0; }
 #room-stage .rl-fl b { font-weight: 400; min-width: 1.6em; text-align: center; }
 #room-stage .rl-fl span { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; text-align: left; font: 0.9375rem 'Permanent Marker', 'Comic Sans MS', 'Chalkboard SE', cursive; letter-spacing: 0; text-transform: none; }
 #room-stage .rl-floors[style*='cols:4'] .rl-fl { justify-content: center; padding: 6px 2px; }
@@ -242,3 +255,69 @@ body:has(#dialogue-panel.active) #room-stage .rl-layer { display: none; }
 #room-stage .rl-holo.rl-pad { background: linear-gradient(var(--bg2), var(--bg)); }
 #room-stage .rl-pad-screen { background: color-mix(in srgb, var(--rl-hue) 18%, var(--bg)); box-shadow: none; text-shadow: none; }
 #room-stage .rl-pad-key { color: var(--text); background: var(--bg3); border-color: var(--border); box-shadow: 0 2px 0 var(--border); }
+
+/* THE LIFT'S PANEL (room-lift.js), its own skin over everything above: black glass with gold hairlines,
+   the building's initials in a gold ring, a read-out in Orbitron and a gold-rimmed key per floor with
+   the floor's name beside it. It ignores comic and the theme on purpose; it's the building's fitting,
+   not the game's. Sizes are page px. */
+@font-face { font-family: 'RL Michroma'; src: url('../../../shared/fonts/michroma.woff2') format('woff2'); font-display: swap; }
+@font-face { font-family: 'RL Orbitron'; src: url('../../../shared/fonts/orbitron.woff2') format('woff2'); font-display: swap; }
+#room-stage .rl-holo.rl-ipod {
+	--g: #d8b25a; --g-hi: #f5dc9a; --g-lo: #8a6a24;
+	gap: 16px; padding: 20px; color: var(--g); text-shadow: none; animation: none;
+	font-family: 'RL Michroma', Eurostile, Arial, sans-serif;
+	background:
+		linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent 30%),
+		linear-gradient(160deg, #15130f 0%, #070605 60%, #0e0c09 100%);
+	border: 1px solid var(--g-lo); border-radius: 4px;
+	clip-path: polygon(16px 0, calc(100% - 16px) 0, 100% 16px, 100% calc(100% - 16px), calc(100% - 16px) 100%, 16px 100%, 0 calc(100% - 16px), 0 16px);
+	box-shadow: inset 0 0 0 3px #000, inset 0 0 0 4px rgba(216, 178, 90, 0.35);
+}
+/* the gold corner ticks */
+#room-stage .rl-holo.rl-ipod::before { content: ''; position: absolute; inset: 8px; pointer-events: none;
+	background:
+		linear-gradient(var(--g), var(--g)) 0 0 / 22px 1px, linear-gradient(var(--g), var(--g)) 0 0 / 1px 22px,
+		linear-gradient(var(--g), var(--g)) 100% 0 / 22px 1px, linear-gradient(var(--g), var(--g)) 100% 0 / 1px 22px,
+		linear-gradient(var(--g), var(--g)) 0 100% / 22px 1px, linear-gradient(var(--g), var(--g)) 0 100% / 1px 22px,
+		linear-gradient(var(--g), var(--g)) 100% 100% / 22px 1px, linear-gradient(var(--g), var(--g)) 100% 100% / 1px 22px;
+	background-repeat: no-repeat; opacity: 0.8; }
+#room-stage .rl-ipod .rl-badge { flex: none; align-self: center; position: relative; width: 56px; height: 56px; border-radius: 50%; overflow: hidden;
+	background: radial-gradient(circle, #0b0a08 58%, transparent 59%), conic-gradient(from 200deg, var(--g-lo), var(--g-hi), var(--g), var(--g-lo), var(--g-hi), var(--g-lo));
+	box-shadow: 0 0 14px rgba(216, 178, 90, 0.35); }
+#room-stage .rl-ipod .rl-badge span { position: absolute; inset: 0; display: grid; place-items: center; font: 1rem/1 'RL Michroma', sans-serif; letter-spacing: 0.08em; padding-left: 0.08em;
+	color: transparent; background: linear-gradient(180deg, var(--g-hi), var(--g) 55%, var(--g-lo)); -webkit-background-clip: text; background-clip: text; }
+#room-stage .rl-ipod .rl-badge span.rl-badge-arrows { font-size: 0.75rem; }
+#room-stage .rl-ipod .rl-badge::after { content: ''; position: absolute; inset: -20% -60%; background: linear-gradient(105deg, transparent 44%, rgba(255, 236, 180, 0.5) 50%, transparent 56%); animation: rl-sheen 5s ease-in-out infinite; }
+@keyframes rl-sheen { 0%, 65% { transform: translateX(-70%); } 90%, 100% { transform: translateX(70%); } }
+#room-stage .rl-ipod .rl-lcd { flex: none; height: 112px; box-sizing: border-box; display: flex; flex-direction: column; padding: 8px 12px; overflow: hidden; position: relative;
+	color: var(--g-hi); background: linear-gradient(180deg, #000, #0b0905); border-top: 1px solid var(--g-lo); border-bottom: 1px solid var(--g-lo);
+	text-shadow: 0 0 10px rgba(245, 200, 110, 0.55); }
+/* a scan line drifting down the read-out */
+#room-stage .rl-ipod .rl-lcd::after { content: ''; position: absolute; left: 0; right: 0; height: 30px; top: -30px; background: linear-gradient(transparent, rgba(245, 220, 154, 0.08), transparent); animation: rl-scanline 3.5s linear infinite; pointer-events: none; }
+@keyframes rl-scanline { to { top: 112px; } }
+#room-stage .rl-ipod .rl-head { margin: 0; padding: 0 0 4px; background: none; color: var(--g); border: 0; font: 0.5625rem 'RL Michroma', sans-serif; letter-spacing: 0.3em; align-items: center; }
+#room-stage .rl-ipod .rl-head span { min-width: 0; overflow: hidden; text-overflow: ellipsis; font: 0.5625rem 'RL Michroma', sans-serif; letter-spacing: 0.15em; text-transform: uppercase; color: var(--g); opacity: 1; }
+#room-stage .rl-ipod .rl-state { flex: 1; min-height: 0; gap: 0; }
+#room-stage .rl-ipod .rl-state strong { font: 700 2.75rem/1 'RL Orbitron', 'RL Michroma', sans-serif; letter-spacing: 0.06em; color: inherit; -webkit-text-stroke: 0; transform: none; }
+#room-stage .rl-ipod.rl-lift .rl-state strong::before { font-size: 1rem; vertical-align: 0.6em; margin-right: 10px; }
+#room-stage .rl-ipod .rl-note { min-height: 0; padding: 0; background: none; border: 0; rotate: none; font: 0.5625rem 'RL Michroma', sans-serif; letter-spacing: 0.25em; text-transform: uppercase; color: var(--g); }
+#room-stage .rl-ipod .rl-floors { flex: none; padding: 0; gap: 8px 12px; }
+/* a key is the gold-rimmed button and the floor's name beside it; the whole row presses */
+#room-stage .rl-ipod .rl-fl { height: 44px; min-height: 44px; padding: 0 4px; gap: 10px; justify-content: flex-start; text-transform: uppercase; text-shadow: none;
+	color: var(--g); background: none; border: 0; border-radius: 0; box-shadow: none; }
+#room-stage .rl-ipod .rl-fl b { flex: none; width: 38px; height: 38px; min-width: 0; display: grid; place-items: center; border-radius: 50%; font: 700 0.875rem 'RL Orbitron', sans-serif; color: var(--g-hi);
+	background: radial-gradient(circle at 50% 30%, #23201a, #050403 70%);
+	box-shadow: 0 0 0 1px var(--g), 0 0 0 3px #000, 0 0 0 4px var(--g-lo); transition: box-shadow 0.2s, color 0.2s; }
+#room-stage .rl-ipod .rl-fl span { font: 0.625rem 'RL Michroma', sans-serif; letter-spacing: 0.12em; text-transform: uppercase; color: #a99a78; text-align: left; transition: color 0.2s; }
+#room-stage .rl-ipod .rl-fl:hover, #room-stage .rl-ipod .rl-fl:focus-visible { color: var(--g-hi); background: linear-gradient(90deg, rgba(216, 178, 90, 0.12), transparent 80%); translate: none; box-shadow: none; }
+#room-stage .rl-ipod .rl-fl:hover b, #room-stage .rl-ipod .rl-fl:focus-visible b { box-shadow: 0 0 0 1px var(--g-hi), 0 0 0 3px #000, 0 0 0 4px var(--g), 0 0 12px rgba(245, 200, 110, 0.5); }
+#room-stage .rl-ipod .rl-fl:hover span, #room-stage .rl-ipod .rl-fl:focus-visible span { color: var(--g-hi); }
+#room-stage .rl-ipod .rl-fl:active b { scale: 0.94; }
+/* lit: the floor you're on is a solid gold key, the one you asked for glows and pulses */
+#room-stage .rl-ipod .rl-fl.rl-here { background: none; box-shadow: none; }
+#room-stage .rl-ipod .rl-fl.rl-here b { color: #120e06; background: radial-gradient(circle at 50% 30%, var(--g-hi), var(--g) 60%, var(--g-lo)); box-shadow: 0 0 0 1px var(--g-hi), 0 0 0 3px #000, 0 0 0 4px var(--g), 0 0 16px rgba(245, 200, 110, 0.55); }
+#room-stage .rl-ipod .rl-fl.rl-here span { color: var(--g-hi); }
+#room-stage .rl-ipod .rl-fl.rl-going { background: none; animation: none; }
+#room-stage .rl-ipod .rl-fl.rl-going b { color: #fff4d6; animation: rl-pulse 1.2s ease-in-out infinite; }
+#room-stage .rl-ipod .rl-fl.rl-going span { color: var(--g-hi); }
+@keyframes rl-pulse { 0%, 100% { box-shadow: 0 0 0 1px var(--g-hi), 0 0 0 3px #000, 0 0 0 4px var(--g), 0 0 6px rgba(245, 200, 110, 0.4); } 50% { box-shadow: 0 0 0 1px var(--g-hi), 0 0 0 3px #000, 0 0 0 4px var(--g-hi), 0 0 20px 4px rgba(245, 200, 110, 0.85); } }

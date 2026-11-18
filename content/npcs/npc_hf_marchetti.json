@@ -230,7 +230,8 @@
       "low heels kept for the carpet and changed at the door",
       "a chrome estate badge at the lapel, the size of a thumbnail",
       "plain underthings"
-    ]
+    ],
+    "set_aside": true
   },
   "home_activities": [],
   "home_zone": "zone_hf_impression_booth",

@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_stripper_02",
+  "lines": [
+    "\"Did the manager pay you?\"",
+    "\"In cash. Mostly the right amount.\"",
+    "\"Mostly?\"",
+    "\"I count it in the street now. Under a light.\""
+  ],
+  "personality": "stripper",
+  "sort_order": 694
+}

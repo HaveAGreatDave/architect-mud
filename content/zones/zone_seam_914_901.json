@@ -1,0 +1,24 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "coast",
+  "color": "#7fd3ff",
+  "description": "The water at the shoreline is cold and the bottom drops away fast into dark. Beyond this the channel is too deep to wade without a boat.",
+  "exits": {
+    "east": "zone_district_914_901",
+    "north": "zone_seam_914_900",
+    "south": "zone_seam_914_902",
+    "west": "zone_district_913_901"
+  },
+  "flags": {
+    "district": "water",
+    "region_id": "region_coldwater",
+    "terrain": "water"
+  },
+  "grid_x": 914,
+  "grid_y": 901,
+  "grid_z": 0,
+  "id": "zone_seam_914_901",
+  "map_id": "map_world",
+  "name": "Coldwater Basin",
+  "parent_zone": null
+}

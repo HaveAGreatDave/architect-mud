@@ -792,7 +792,10 @@ const httpServer = createServer(async (req, res) => {
 		// Ten minutes bounds that to somebody who reloaded right before the deploy.
 		const ext = extname(filePath);
 		const asset = await getAsset(filePath);
-		const cacheControl = ext === ".html" ? "no-cache" : "public, max-age=60, stale-while-revalidate=600";
+		// ⚠ ON A DEV SERVER EVERY FILE REVALIDATES (no-cache, a 304 off the ETag when it hasn't changed). With the
+		// max-age a reload ran an edit's old modules for up to ten minutes, and a worker's module graph (the view out
+		// of a room's window, room-outlook.js) wasn't always refetched even by a hard reload.
+		const cacheControl = ext === ".html" || process.env.NODE_ENV !== "production" ? "no-cache" : "public, max-age=60, stale-while-revalidate=600";
 		// Dev only: lets the page run the browser's JS Self-Profiling API
 		// (`new Profiler(...)`), the one way to get a function-level frame profile
 		// without DevTools open. The policy has to arrive on the document itself,
@@ -2031,6 +2034,9 @@ async function finishAuth(ws, session, player, seedDisplayRung, explicitDisplayR
 			apiToken,
 			reconnectToken,
 			channels: getPlayerChannels(livePlayer),
+			// The weapon chip's name, from the worn rows recomputeEquipped just read,
+			// so the client doesn't ask for a whole inventory on connect.
+			weapon: livePlayer._wornRows?.get("weapon_hand")?.name || null,
 		}),
 	);
 
@@ -2422,6 +2428,7 @@ async function handleDialogue(ws, session, msg) {
 			type: "dialogue",
 			npcId: msg.npcId,
 			npcName: npc.name,
+			npcSex: npc.sex || null,
 			node: step.node,
 			text: step.text,
 			options: step.options,

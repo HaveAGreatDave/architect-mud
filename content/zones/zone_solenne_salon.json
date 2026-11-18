@@ -19,7 +19,7 @@
     "is_interior": true,
     "room": {
       "balcony": false,
-      "d": 9,
+      "d": 5.9,
       "decor": {
         "art": [
           {
@@ -113,6 +113,9 @@
           ]
         }
       },
+      "doors": {
+        "south": 0
+      },
       "face": 0,
       "finish": "fine",
       "glass": [
@@ -126,7 +129,7 @@
         "trim": "#17130f",
         "wall": "#3a2a20"
       },
-      "w": 12
+      "w": 12.1
     },
     "sanctuary": true,
     "window": {

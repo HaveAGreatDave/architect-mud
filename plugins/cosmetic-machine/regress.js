@@ -13,7 +13,9 @@ export default async function regress({ run, check, getPlayer }) {
     const { HAIR_STYLES, FACE, TATTOO_PLACES, TATTOO_ORDER, tattooCode } = await import('../../client/shared/morphex-catalog.js');
     const { playerFigure } = await import('../../client/shared/player-figure.js');
     const cuts = Object.values(HAIR_STYLES).map((h) => h.cut);
-    check('every hair style is a figure cut, 0 to 20', cuts.every((c) => Number.isInteger(c) && c >= 0 && c <= 20), cuts.join(','));
+    // the cuts grew past 20 (figure.js HAIR_CUTS); a style is a base 0..5 or one of those cuts
+    const { HAIR_CUTS } = await import('../../client/game/js/panels/figure.js');
+    check('every hair style is a figure cut', cuts.every((c) => Number.isInteger(c) && (c >= 0 && c <= 5 || !!HAIR_CUTS[c])), cuts.join(','));
     check('every new cut 6..20 is sold', [...Array(15)].every((_, i) => cuts.includes(i + 6)));
     check('every tattoo place has a slot in the mask', Object.keys(TATTOO_PLACES).every((p) => TATTOO_ORDER.includes(p)) && TATTOO_ORDER.length * 3 <= 31);
     check('a tattoo code packs three bits a place', tattooCode({ cheek: 'teardrop', chest: 'script' }) === (1 | (3 << 18)), String(tattooCode({ cheek: 'teardrop', chest: 'script' })));
@@ -21,6 +23,11 @@ export default async function regress({ run, check, getPlayer }) {
     check('a look maps to the figure: cut, head, skin, facial', fg.hair_style === 10 && fg.head === 2 && Array.isArray(fg.skin) && fg.facial === 'goatee', JSON.stringify(fg));
     check('…and its tattoos and ink', fg.tat === 2 << 6 && fg.tat_ink?.length === 3, JSON.stringify(fg));
     check('every face option has values', Object.values(FACE).every((F) => F.values.length >= 3));
+    // the eye shape: a face shape brings its own, a chosen one replaces it, and the eye sliders add on top within range
+    const { faceTune, FACE_SHAPE_EYES, EYE_SHAPES } = await import('../../client/shared/morphex-catalog.js');
+    check('every face shape has an eye shape that exists', FACE.shape.values.every((s) => FACE_SHAPE_EYES[s] in EYE_SHAPES));
+    check('a lean face comes with narrow eyes', faceTune({ shape: 'lean' }) === 'eyesize:1,eyeopen:-4', faceTune({ shape: 'lean' }));
+    check('a chosen eye shape replaces the face\'s own, sliders added and clamped', faceTune({ shape: 'lean', eyeshape: 'round', eyeopen: 3 }) === 'eyesize:1,eyeopen:5', faceTune({ shape: 'lean', eyeshape: 'round', eyeopen: 3 }));
   }
 
   let r = await run('morphex');

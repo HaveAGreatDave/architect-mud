@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#c9a884",
-  "description": "Unit 4B, the back corner under the roof. Plum walls under a low ceiling, and a stone-topped kitchen with glass-fronted cupboards. The hole in the plaster was patched with a STOP sign, and the sign is still there, framed, over the sofa. A bucket stands under the old leak, planted with a fern.",
+  "description": "Unit 4B, the long room at the back under the roof. Plum walls and an old stain across the ceiling. The hole in the plaster was patched with a STOP sign, and the sign is still there, framed, over the sofa. A bucket stands under the old leak, planted with a fern.",
   "exits": {
     "in": "zone_apt_10_bath",
     "north": "zone_embassy_floor3"
@@ -12,11 +12,11 @@
     "is_apartment": true,
     "room": {
       "blinds": true,
-      "d": 10,
+      "d": 12.3,
       "decor": {
         "art": [
           {
-            "at": 3,
+            "at": 2.95,
             "h": 0.9,
             "seed": 101,
             "w": 0.9,
@@ -24,7 +24,7 @@
             "y": 1.75
           },
           {
-            "at": 0.6,
+            "at": 0.55,
             "h": 1,
             "seed": 23,
             "w": 0.8,
@@ -36,7 +36,7 @@
             "h": 1,
             "seed": 37,
             "w": 0.8,
-            "wall": "front",
+            "wall": "right",
             "y": 1.55
           }
         ],
@@ -55,19 +55,19 @@
         },
         "plants": [
           [
-            -3.55,
+            -1.25,
             0.45,
             1.1
           ]
         ],
         "rug": {
           "at": [
-            -2.2,
+            -0.3,
             3
           ],
           "d": 2.4,
           "style": "persian",
-          "w": 2.8
+          "w": 2.1
         },
         "sconces": {
           "hex": "#b8924a",
@@ -84,14 +84,11 @@
           "y": 1.8
         }
       },
-      "h": 2.75,
-      "kitchen": {
-        "face": "fluted",
-        "front": "#4a3a4a",
-        "grade": 2,
-        "top": "stone",
-        "uppers": "cabinets"
+      "ensuite": {
+        "d": 2.8
       },
+      "face": 90,
+      "h": 3.96,
       "sash": {
         "drapes": "#c9b48a",
         "head": true,
@@ -99,13 +96,14 @@
         "transom": 0.4,
         "w": 1.8
       },
+      "studio": false,
       "tone": {
         "accent": "#b8924a",
         "ceiling": "#f0e8e2",
         "trim": "#efe6e0",
         "wall": "#6a4a62"
       },
-      "w": 8
+      "w": 3.3
     },
     "window": {
       "description": "A tall sash window, reglazed, that opens and shuts and keeps the weather where it belongs.",

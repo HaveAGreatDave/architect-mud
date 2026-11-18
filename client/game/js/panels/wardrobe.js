@@ -196,11 +196,13 @@ function renderOutfits(outfits) {
     card.className = 'wdr-outfit' + (outfit.wearable ? '' : ' wdr-outfit-incomplete');
     const pieces = outfit.items.map(i =>
       `<span class="wdr-piece${i.available ? '' : ' wdr-piece-missing'}">${i.name}</span>`).join('');
+    // Missing pieces are ordered in on wear, so the button names the bill.
+    const cost = outfit.items.reduce((n, i) => n + (i.available ? 0 : (i.price || 0)), 0);
     card.innerHTML = `
       <div class="wdr-outfit-head">
         <span class="wdr-outfit-name">${outfit.name}</span>
         <span class="wdr-outfit-btns">
-          <button class="ctr-action-btn wdr-wear">wear</button>
+          <button class="ctr-action-btn wdr-wear"${cost ? ` title="Orders the missing pieces in for ${cost}₵"` : ''}>${cost ? `wear · ${cost}₵` : 'wear'}</button>
           <button class="ctr-action-btn wdr-del">✕</button>
         </span>
       </div>

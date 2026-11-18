@@ -20,7 +20,7 @@ import { liveAircraft } from '../flight/state.js';
 import { registerAction } from '../../server/engine/actions.js';
 
 // The default launch point (used when the caster's own zone can't be resolved): the Clone
-// Facility's exterior tile on map_world (grid 918,903).
+// Facility's exterior tile on map_world (grid 919,903).
 const DEFAULT_LAUNCH_ZONE = 'zone_district_918_903';
 const LOUD = 12;                 // fireworks are LOUD — the boom/glow carry several rooms out
 const DEFAULT_SECONDS = 30;

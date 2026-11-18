@@ -1,6 +1,6 @@
 # Shop interiors: a shop you walk into
 
-> **Status: built for one shop.** Screw It, the chem supply at 920,907 on Ironside Street, is the first shop with a
+> **Status: built for one shop.** Screw It, the chem supply at 921,907 on Ironside Street, is the first shop with a
 > Room Stage, and it's the example every shop after it follows. The fittings, the shopfront glass, the one-room plan
 > and the counter that sells are engine and plugin code any shop can use; a second shop is content.
 
@@ -38,7 +38,7 @@ to copy from.
 | `face` | the bearing of the street, so the front wall is the street wall | Puts the door and the window in the wall you came through |
 | `studio`, `balcony` | `false` | A shop isn't a flat |
 | `doors` | `{ <street exit>: <metres along the wall> }` | Where the street door is, matching the model's door |
-| `street_door` | `{ kind: 'swing', w: 1.2 }` | A glazed door you see the street through |
+| `street_door` | `{ kind: 'swing', w: 1.2 }` | A glazed door you see the street through. From the street it stands in the model's own doorway ([street-doors.md](../reference/street-doors.md)) |
 | `panes` | `[{ wall: 'front', a, b, y0, y1 }]` | The display window: black-framed glass from `a` to `b` along the wall, sill `y0`, head `y1`. Plain wall past it |
 | `ground`, `tone` | `concrete` and the trade's paint | |
 | `decor.rug` | `false` | Every room gets a rug otherwise |

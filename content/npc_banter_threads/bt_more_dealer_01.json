@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_dealer_01",
+  "lines": [
+    "\"Business good?\"",
+    "\"Business is steady.\"",
+    "\"That's good, isn't it?\"",
+    "\"Steady means nobody's getting better.\""
+  ],
+  "personality": "dealer",
+  "sort_order": 695
+}

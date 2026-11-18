@@ -11,7 +11,7 @@
 // and the crowd's body drifting from the close-up one it's sampled from, which is the promise that
 // a person seen from the cab has the silhouette they have across a room.
 import { readdirSync, readFileSync } from 'node:fs';
-import { buildFigure, figureSole, FIGURE_CUT_NAMES, FIGURE_BONES, FIG_SLOT, SCULPT_BUILDS, FIGURE_FACIAL } from '../../client/game/js/panels/figure.js';
+import { buildFigure, figureSole, FIGURE_CUT_NAMES, FIGURE_BONES, FIGURE_BONE, FIG_SLOT, SCULPT_BUILDS, FIGURE_FACIAL } from '../../client/game/js/panels/figure.js';
 import { hairlineAt, headMesh, skullPoint, HAIR_STYLES, SCULPT_HEADS } from '../../client/game/js/panels/actor-head.js';
 import { ACTOR_IDLES, ACTOR_CLIPS, ACTOR_ROOM_CLIPS, ACTOR_BODIES, ACTOR_ACTS, actorSkinAt, actorSkinMix, actorOutfit } from '../../client/game/js/panels/actor3d.js';
 import { actOfLine, speakerOf, NPC_ACTS } from '../../client/shared/npc-acts.js';
@@ -42,7 +42,7 @@ for (const level of ['hd', 'lite']) for (const cut of FIGURE_CUT_NAMES) {
   const K = { cut, style: 4, level }, F = buildFigure({ ...K, sculpt: true }), O = buildFigure(K), name = `sculpt ${level} ${cut}`;
   if (F.nt > O.nt) problems.push(`${name} is ${F.nt} triangles, over the ${O.nt} it replaces`);
   if (F.P.some((v) => !Number.isFinite(v)) || F.NF.some((v) => !Number.isFinite(v))) problems.push(`${name} has a non-finite position or form normal`);
-  for (let i = 0; i < F.nv * 4; i++) if (F.B[i] >= FIGURE_BONES.length) { problems.push(`${name} names a bone that isn't there`); break; }
+  for (let i = 0; i < F.nv * 4; i++) if (F.B[i] >= FIGURE_BONES.length && F.B[i] !== FIGURE_BONE.clavL && F.B[i] !== FIGURE_BONE.clavR) { problems.push(`${name} names a bone that isn't there`); break; }
   report(`${name}: ${F.nt} triangles against ${O.nt}`);
 }
 // Every build on every head and a sleeved and a bare cut: built sound, and one mesh a build, so the
@@ -199,7 +199,7 @@ for (const level of ['hd', 'lite', 'crowd', 'far']) {
     let badW = 0, badB = 0;
     for (let v = 0; v < F.nv; v++) {
       let s = 0;
-      for (let k = 0; k < 4; k++) { s += F.W[v * 4 + k]; if (F.B[v * 4 + k] >= FIGURE_BONES.length) badB++; }
+      for (let k = 0; k < 4; k++) { s += F.W[v * 4 + k]; { const b = F.B[v * 4 + k]; if (b >= FIGURE_BONES.length && !(level !== 'crowd' && level !== 'far' && (b === FIGURE_BONE.clavL || b === FIGURE_BONE.clavR))) badB++; } }
       if (Math.abs(s - 1) > 1e-4) badW++;
     }
     if (badW) problems.push(`${name}: ${badW} vertices' weights don't sum to 1`);

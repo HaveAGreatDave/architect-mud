@@ -8,7 +8,7 @@
   "ambient_theme": "forest",
   "bg_color": "#4a4642",
   "color": "#8ba36a",
-  "description": "A ten-storey slab of stained precast concrete shoved in between the freight lanes, its ground-floor windows bricked over and its upper ones dark, cracked, or gone. A board wired to the door reads ROOMS TO LET, and under it, in a shakier hand, NO REFUNDS NO EXCEPTIONS. It's the closest thing the Yards has to somewhere to live.",
+  "description": "A ten-storey block of soot-black brick banded in lighter brick, shoved in between the freight lanes. It steps in for the top floors under a cornice, with a lift housing on the roof. Grimy shop glass runs along the ground floor under an awning, and most of the windows above are dark, cracked or gone. A board wired to the door reads ROOMS TO LET, and under it, in a shakier hand, NO REFUNDS NO EXCEPTIONS. It's the closest thing the Yards has to somewhere to live.",
   "exits": {
     "north": "zone_yards_tenement_lobby",
     "south": "zone_district_921_903"
@@ -24,7 +24,7 @@
     "region_id": "region_coldwater",
     "world_exit_zone": "zone_district_921_903"
   },
-  "grid_x": 921,
+  "grid_x": 922,
   "grid_y": 902,
   "grid_z": 0,
   "id": "zone_district_921_902",

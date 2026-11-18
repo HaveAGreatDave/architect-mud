@@ -5,14 +5,14 @@
   "description": "A concrete forecourt in front of the Gardens' west stand, where the queue forms on game nights. Box office windows are set in the brick along its south side, each with a steel shutter. Old tickets lie in the cracks.",
   "exits": {
     "east": "zone_district_915_915",
-    "west": "zone_district_913_915"
+    "west": "zone_seam_914_915"
   },
   "flags": {
     "district": "ashway",
     "region_id": "region_coldwater",
     "terrain": "concrete"
   },
-  "grid_x": 914,
+  "grid_x": 915,
   "grid_y": 915,
   "grid_z": 0,
   "id": "zone_district_914_915",

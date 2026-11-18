@@ -1,12 +1,25 @@
 {
   "description": "A deep enamel sink with a clay trap under it, so nothing from the wheel goes down the pipe. The water runs clear straight away now.",
   "flags": {
-    "interactions": [],
+    "aliases": [
+      "sink",
+      "deep sink",
+      "kitchen sink",
+      "tap"
+    ],
+    "interactions": [
+      "lean"
+    ],
     "look": {
       "arche": "sink",
       "form": "kitchen",
       "wear": 0.08
-    }
+    },
+    "spot": {
+      "along": 1.2,
+      "wall": "right"
+    },
+    "water_source": true
   },
   "hp": null,
   "hp_max": null,

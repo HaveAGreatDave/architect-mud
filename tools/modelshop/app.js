@@ -18,6 +18,8 @@ import './glbench.js';
 import './street.js';
 // __glWhere() / __glWheres() — where the frame goes in a REAL district. See districtcost.js.
 import './districtcost.js';
+// __benchRoute() / __benchRoutes(): fixed drives through the real city, for per-device baselines. See route.js.
+import './route.js';
 // __glAtlasHash() — every baked wall and roof surface, hashed, to prove a painter change left the albedo alone.
 import './atlashash.js';
 // __glRefShots() — real districts at four times of day, saved and diffed across a code change.
@@ -70,6 +72,8 @@ const VEHICLES = [
   // The Drake's factory paint jobs (mesh_drake.json 'schemes'). The variant IS the scheme name, so
   // without these the special editions could only be seen by buying one in the game.
   ...['noir', 'midnight', 'neon', 'ivory', 'quackhawk'].map((s) => ({ key: 'vehicle:drake/' + s, vehicle: { cls: 'drake', variant: s }, m: { type: 'drake ' + s } })),
+  // The Merlin's, the same way (mesh_merlin.json 'schemes'); Rosso is the class itself.
+  ...['nero', 'giallo', 'bianco'].map((s) => ({ key: 'vehicle:merlin/' + s, vehicle: { cls: 'merlin', variant: s }, m: { type: 'merlin ' + s } })),
   // Every body variant a class's mesh file names in `variants`: the eleven 2076 editions and the
   // podracer's types. Each is a different model, but it's still its class with a variant, so
   // without these the list drew only the stock bodies. The Viper's variants are on its own file
@@ -466,6 +470,8 @@ function paintViewport() {
         ...v, night: state.night, heading: state.heading, dist: state.dist, camPitch: state.pitch,
         eyeH: state.eye, panX: state.panX, panY: state.panY, sizeMul: state.vehSizeMul || 1, backdrop: backdrop(),
         ...(meshed ? { pick: meshPickList(), livery: meshLivery(), anim: meshAnim(), gearAnim: meshGearAnim() } : {}),
+        // A posed `boost` (__mesh.pose({ boost })) lights the Merlin's boost flame and heat blur.
+        ...(meshed && meshAnim()?.boost ? { boost: meshAnim().boost, now: performance.now() } : {}),
       });
       if (meshed) meshPaintOverlay(view.getContext('2d'));
     } else if (kind === 'fauna') {

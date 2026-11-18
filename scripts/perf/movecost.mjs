@@ -18,6 +18,11 @@
 // instead of a stub hook, so `world:gl` and the floats written include the mass buffer: the cost a
 // recentre pays there (RENDER_TUNE.massKeep) is invisible without it.
 //
+// `--room F` paints the view off a balcony on floor F of the place's tile, as room-view.js viewOf builds it:
+// external, the own ship hidden, a free camera at the floor's eye height turning with --turn, and the balcony's
+// tune (farMax 30, the near rings closer in). Use the cockpit seat for its 36-tile window. The cockpit's own
+// plane stays out of the numbers, which it didn't without this: it was most of the per-frame solids.
+//
 // `--lite` turns GLASS Lite on (RENDER_TUNE.glassLite = 1), the default on every device since
 // 2026-11-10. The bake's chunks are read off disk; the first frames run before they've loaded, and
 // the 30 settling frames the summary skips cover that. The sprite, stroke and decal
@@ -25,6 +30,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { openScene, PLACES } from './scene.mjs';
+import { m2t } from '../../client/shared/world-scale.js';
 import { internMap } from '../../client/game/js/panels/map-intern.js';
 const { createGLView } = await import(new URL('../../client/game/js/panels/gl/context.js', import.meta.url).href);
 
@@ -102,7 +108,18 @@ for (const kv of (opt('--tune', '') || '').split(',').filter(Boolean)) { const [
 const G = fakeView();
 const at = /^-?\d+,-?\d+$/.test(place) ? place.split(',').map(Number) : place;
 const H0 = Number(opt('--heading', 0));
-const v0 = scene.view(at, seat, { hour: Number(opt('--hour', 13)), heading: H0 });
+const ROOM = opt('--room', null);
+const roomView = () => {
+  if (ROOM == null) return {};
+  const fxK = scene.ws.viewLatFocal(1000, null) / 500, vfK = scene.ws.viewFocal(1000, 1) / 1000;
+  const fy = vfK * 640 / 180, k = 1 / (Math.tan(72 * Math.PI / 360) * fy);
+  return { external: true, hideOwnShip: true, bare: true, noWxBadge: true, still: true, nearStill: true, height: 0, speed: 0,
+    tune: { farMax: 30, lodNear: 4, lodFar: 9, decoFar: 4, glowFar: 8, shadowFar: 3, signFar: 4, perfDS: 0 },
+    freeCam: { x: 0.2, y: 0.2, z: m2t(Number(ROOM) * 3.2 + 1.6), yaw: 0, pitch: -0.25, roll: 0, fov: k } };
+};
+const v0 = scene.view(at, seat, { hour: Number(opt('--hour', 13)), heading: H0, ...roomView() });
+const TUNE_V = (opt('--tune', '') || '').split(',').filter(Boolean);
+if (ROOM != null) for (const kv of TUNE_V) { const [k, v] = kv.split('='); v0.tune[k] = Number(v); }
 const clone = (map) => map.map((row) => row.map((c) => JSON.parse(JSON.stringify(c))));
 let map = v0.map;
 if (LITE) {
@@ -142,7 +159,8 @@ for (let i = 0; i < FRAMES; i++) {
   const y = -(dist - k);
   if (PROF) scene.ws.setWindshieldProfiler(true);
   const s0 = snap(), w0 = clock.now();
-  scene.ws.paintWindshield('__perf', { ...v0, map, mapCenter: { x: X0, y: Y0 - k }, heading: H0 + i * TURN, mapOffset: { x: 0.3, y } });
+  const fc = v0.freeCam ? { freeCam: { ...v0.freeCam, yaw: H0 + i * TURN } } : null;
+  scene.ws.paintWindshield('__perf', { ...v0, map, mapCenter: { x: X0, y: Y0 - k }, heading: H0 + i * TURN, mapOffset: { x: 0.3, y }, ...fc });
   const paintMs = clock.now() - w0;
   let glMs = 0, g, o;
   if (GLW) {

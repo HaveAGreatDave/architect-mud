@@ -8,7 +8,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#221d18",
   "color": "#c9a86a",
-  "description": "A shipping container laid across the signal box roof, its doors welded shut at one end and cut through at the other for the stair. Bunks run down both walls the gangway between just wide enough to turn in. The ribs inside are painted in alternating colours, so you can count your way to a bunk in the dark.",
+  "description": "A shipping container laid across the signal box roof, its doors welded shut at one end and cut through at the other for the stair. Cots run down the north wall end to end, with a gangway beside them just wide enough to turn in. The ribs inside are painted in alternating colours, so you can count your way to a cot in the dark.",
   "exits": {
     "down": "zone_hostel_dorm",
     "up": "zone_hostel_dorm_3"
@@ -22,6 +22,98 @@
     "is_dwelling": true,
     "is_interior": true,
     "region_id": "region_coldwater",
+    "room": {
+      "balcony": false,
+      "d": 5,
+      "decor": {
+        "damp": [
+          {
+            "at": [
+              -1.2,
+              4.2
+            ],
+            "r": 0.4
+          }
+        ],
+        "mags": [
+          {
+            "at": [
+              -4.6,
+              3.3
+            ],
+            "n": 5,
+            "seed": 5
+          },
+          {
+            "at": [
+              3.2,
+              3.3
+            ],
+            "n": 6,
+            "seed": 6
+          }
+        ],
+        "rubbish": [
+          {
+            "at": [
+              0,
+              3.4
+            ],
+            "n": 24,
+            "r": [
+              5,
+              0.4
+            ],
+            "seed": 8
+          }
+        ],
+        "rug": false,
+        "strips": [
+          {
+            "along": "u",
+            "at": [
+              -3,
+              2.5
+            ],
+            "len": 1.2
+          },
+          {
+            "along": "u",
+            "at": [
+              3,
+              2.5
+            ],
+            "len": 1.2
+          }
+        ]
+      },
+      "doors": {
+        "down": [
+          4.3,
+          2.85
+        ]
+      },
+      "face": 180,
+      "ground": "metal",
+      "h": 2.6,
+      "stair": {
+        "at": [
+          1.3,
+          1
+        ],
+        "climb": "left",
+        "w": 0.9
+      },
+      "studio": false,
+      "tone": {
+        "accent": "#7a3a2a",
+        "ceiling": "#5a4a40",
+        "trim": "#2a2220",
+        "wall": "#8a3a2c"
+      },
+      "w": 13,
+      "windowless": true
+    },
     "sanctuary": true,
     "world_exit_zone": "zone_district_917_903"
   },

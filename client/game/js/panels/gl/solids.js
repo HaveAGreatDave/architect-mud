@@ -427,6 +427,7 @@ uniform float uAmb;       // the room's overall light
 uniform vec4 uBox;        // back, front, floor, roof (metres)
 uniform float uNormalLit; // the profile lights by face direction
 uniform vec3 uFloodRgb; uniform float uFloodK; uniform vec4 uFloods[8]; uniform int uFloodN;
+uniform vec4 uGlows[6]; uniform vec3 uGlowC[6]; uniform int uGlowN;
 uniform vec3 uSunC;       // the sun in the cab frame
 uniform float uSunCOn;    // the sun is up and not roofed over
 uniform float uSunCK;     // how strong the direct sun is
@@ -607,6 +608,18 @@ vec3 cabinShade(vec3 base) {
       if (ci > 0.0) e += ci / (1.0 + r * r * 4.0);
     }
     if (e > 0.002) lit = min(lit + base * uFloodRgb * clamp(e * uFloodK, 0.0, 1.2), vec3(1.0));
+  }
+  // Glows: the cabin's lit screens and rings, each spilling its own colour onto what's near it
+  // (a profile's glows(live), scaled by the dark in windshield.js). Same falloff as a flood.
+  if (uGlowN > 0 && hasN && emis <= 0.0) {
+    vec3 gsum = vec3(0.0);
+    for (int i = 0; i < 6; i++) {
+      if (i >= uGlowN) break;
+      vec3 d = uGlows[i].xyz - P; float dl = max(length(d), 1e-4), r = dl / uGlows[i].w;
+      float ci = dot(n, d) / dl;
+      if (ci > 0.0) gsum += uGlowC[i] * (ci / (1.0 + r * r * 4.0));
+    }
+    lit = min(lit + base * min(gsum * 1.6, vec3(1.2)) + gsum * 0.06, vec3(1.0));
   }
   // THE DIRECT SUN, through the glass and stopped by the room: sun patches on the panel and the
   // seats, the pillars' and the frame's shadows across them, turning as the airframe banks.
@@ -1108,6 +1121,30 @@ void main() {
     float band = 1.0 - smoothstep(0.0, 0.004, abs(dz));
     c = mix(c, vec3(0.9, 0.96, 1.0), band * 0.75);
   }
+  // ── A PANE (-4 as film) ──
+  // Glass you look through: nearly clear face on, the sky in it toward grazing (Fresnel), and the
+  // reflection bent by a slow ripple fixed to the pane, so the city behind wavers in its sheen as
+  // drawn glass does when you move. Without it an opening with a pane in it read as a hole.
+  if (vTex == -4 && alpha < 0.999) {
+    vec3 n = dot(vN, vN) > 0.0 ? normalize(vN) : vec3(0.0, 0.0, 1.0);
+    vec3 v = normalize(uEye - vPos);
+    if (dot(n, v) < 0.0) n = -n;
+    vec3 t1 = normalize(abs(n.z) < 0.9 ? cross(n, vec3(0.0, 0.0, 1.0)) : cross(n, vec3(1.0, 0.0, 0.0))), t2 = cross(n, t1);
+    vec2 q = vec2(dot(vPos, t1), vPos.z) * 200.0;   // tiles: a ripple every 20 cm or so
+    vec2 wv = vec2(sin(q.x * 1.3 + sin(q.y * 0.7) * 1.6), sin(q.y * 1.1 + sin(q.x * 0.9) * 1.4));
+    vec3 nb = normalize(n + (t1 * wv.x + t2 * wv.y) * 0.06);
+    float nv = max(0.0, dot(nb, v)), fres = 0.04 + 0.96 * pow(1.0 - nv, 5.0);
+    vec3 R = reflect(-v, nb);
+    float night = uMarkP.x;
+    vec3 env = mix(uMarkHor, uMarkTop, clamp(R.z * 1.6, 0.0, 1.0)) * (1.0 - 0.75 * night);
+    // soft diagonal sheens across the pane, sliding as the eye moves
+    float ph = dot(vPos, t1) * 40.0 + vPos.z * 60.0 - dot(v, t1) * 6.0;
+    float sheen = pow(max(0.0, sin(ph)), 8.0) * 0.35 + pow(max(0.0, sin(ph * 2.7 + 1.1)), 24.0) * 0.25;
+    float glint = pow(max(0.0, dot(R, uMarkL)), 120.0) * 1.4 * uMarkP.z;
+    float r = clamp(fres + sheen * (1.0 - night * 0.7), 0.0, 0.92);
+    c = mix(c, env, r / max(r + alpha, 1e-3)) + glint;
+    alpha = clamp(alpha + r * (1.0 - alpha) + glint * 0.5, 0.0, 1.0);
+  }
   // The ink, before the fog, where the walls take it.
   c = inkMix(c, length(vPos - uEye));
   c = mix(c, uFog, vFog);
@@ -1186,7 +1223,7 @@ export function createSolidsLayer(gl, opt = {}) {
   if (cabin) {
     for (const [name, n, off] of [['aCN', 3, 0], ['aCA', 4, 3], ['aCB', 4, 7], ['aCC', 4, 11], ['aR0', 3, 15], ['aR1', 3, 18], ['aMA', 3, 21]])
       attrs.push([gl.getAttribLocation(prog, name), n, (STRIDE + off) * 4]);
-    for (const u of ['uKey', 'uUp', 'uOutK', 'uAmb', 'uBox', 'uNormalLit', 'uFloodRgb', 'uFloodK', 'uFloods', 'uFloodN', 'uSunC', 'uSunCOn', 'uSunCK',
+    for (const u of ['uKey', 'uUp', 'uOutK', 'uAmb', 'uBox', 'uNormalLit', 'uFloodRgb', 'uFloodK', 'uFloods', 'uFloodN', 'uGlows', 'uGlowC', 'uGlowN', 'uSunC', 'uSunCOn', 'uSunCK',
       'uCabBack', 'uCabLow', 'uCabHigh', 'uCabEnvOn', 'uShadow', 'uLightMat', 'uShadowOn', 'uShadowTexel', 'uWSun', 'uWVP', 'uWOn', 'uWTexel', 'uWBias',
       'uCabComic', 'uCabWear', 'uCabDirt', 'uCabShade', 'uCabInk']) cl[u] = gl.getUniformLocation(prog, u);
   }
@@ -1583,6 +1620,10 @@ export function createSolidsLayer(gl, opt = {}) {
     const fl = L.floods || [];
     if (fl.length) gl.uniform4fv(cl.uFloods, fl);
     gl.uniform1i(cl.uFloodN, Math.min(8, fl.length / 4));
+    // ⚠ Set on every draw, so a seat with no glows after one with them draws none.
+    const gw = L.glows || [], gc = L.glowRgb || [];
+    if (gw.length) { gl.uniform4fv(cl.uGlows, gw); gl.uniform3fv(cl.uGlowC, gc); }
+    gl.uniform1i(cl.uGlowN, Math.min(6, gw.length / 4));
     v3('uSunC', L.sunC, [0, 0, 1]); gl.uniform1f(cl.uSunCOn, L.sunC ? 1 : 0); gl.uniform1f(cl.uSunCK, L.sunK || 0);
     const E = L.cabEnv; gl.uniform1f(cl.uCabEnvOn, E ? 1 : 0);
     v3('uCabBack', E && E.back, [0, 0, 0]); v3('uCabLow', E && E.low, [0, 0, 0]); v3('uCabHigh', E && E.high, [0, 0, 0]);

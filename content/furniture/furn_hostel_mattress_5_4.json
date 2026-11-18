@@ -1,0 +1,36 @@
+{
+  "description": "A mattress on a pallet. It smells of wet dog, and there has never been a dog.",
+  "flags": {
+    "aliases": [
+      "mattress",
+      "mattresses",
+      "pallet",
+      "bed",
+      "mattress 4"
+    ],
+    "interactions": [
+      "sit",
+      "lie",
+      "sleep"
+    ],
+    "look": {
+      "arche": "bed",
+      "form": "mattress",
+      "wear": 1
+    },
+    "spot": {
+      "along": 0.8,
+      "wall": "back"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_hostel_mattress_5_4",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "mattress 4",
+  "object_type": "bed",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_hostel_dorm_5"
+}

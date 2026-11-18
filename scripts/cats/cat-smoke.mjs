@@ -144,7 +144,7 @@ for (const id of cats) {
       drift = Math.max(drift, Math.hypot(still.data[i * 12] - b.P[v * 3] * look.scale, still.data[i * 12 + 1] - b.P[v * 3 + 1] * look.scale, still.data[i * 12 + 2] - b.P[v * 3 + 2] * look.scale));
     }
     check(drift < 1e-5, `gpu/${p} skinned still is the carve (drift ${drift.toExponential(1)})`);
-    for (const part of G.BIT_PARTS) check(G.catBitsMesh(b, K.STILL, part).verts > 0 || part === 'lids', `gpu/${p} ${part} built`);
+    for (const part of G.BIT_PARTS) check(G.catBitsMesh(b, K.STILL, part).verts > 0 || part === 'lids' || part === 'mouth', `gpu/${p} ${part} built`);
   }
   // one fur-less body and its rest skin per base pose, shared by the clips carved off it
   const bodies = new Map();

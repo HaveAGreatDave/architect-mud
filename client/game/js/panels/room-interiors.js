@@ -9,7 +9,7 @@ import { buildRoom, paintRoomTexture, ROOM_RUG } from './gl/room-mesh.js';
 import { roomBox, meanColour, linearHex } from './gl/interiors.js';
 import { bakedStill } from './lobby-still.js';
 import { roomToGlass, roomOrigin } from './room-view.js';
-import { roomBounds } from './glass/interiors-near.js';
+import { roomBounds, roomPanes } from './glass/interiors-near.js';
 
 const hashOf = (s) => { let h = 2166136261; for (const ch of String(s)) h = Math.imul(h ^ ch.charCodeAt(0), 16777619); return h >>> 0; };
 const tints = new Map();
@@ -57,12 +57,16 @@ const keep = (k, m) => { built.delete(k); built.set(k, m); if (built.size > BUIL
 
 // `data` is /api/building-rooms (or the plugin's equivalent): { tile: { x, y }, rooms: [{ zone, spec, rows or pieces, frame }] }.
 // `lampOn(zone)` says whether a room's lights are on. Returns the rooms for a view's `interiorRooms`.
-export function interiorRoomsOf(data, { lampOn = () => true, itemOf } = {}) {
+// `shift` ([x, y] tiles) moves every room of the building by the same amount: the street view on foot hands it the
+// distance from where the plan puts the street door (the middle of the tile's street edge) to where the model's
+// doorway really is (glass/doorway-measure.js), so the lobby is behind the door and not beside it.
+export function interiorRoomsOf(data, { lampOn = () => true, itemOf, shift = null } = {}) {
   if (!data?.rooms?.length || !data.tile) return [];
   const all = new Set(data.rooms.map((r) => r.zone)), out = [];
   for (const r of data.rooms) {
-    const bearing = r.frame?.face ?? 0, origin = roomOrigin(r.frame, bearing);
-    if (!origin) continue;
+    const bearing = r.frame?.face ?? 0, at = roomOrigin(r.frame, bearing);
+    if (!at) continue;
+    const origin = shift ? [at[0] + shift[0], at[1] + shift[1]] : at;
     // the server lays a room out itself (plugins/roomstage buildingRoomsNear); the Modelshop sends the rows
     const pieces = r.pieces || layRows(r.rows || [], r.spec, { finish: r.spec.finish, ...(itemOf ? { itemOf } : {}) }).pieces;
     const L = roomLayout(r.spec, pieces), M = roomToGlass(L, origin, bearing, Number(r.frame.floor) || 0);
@@ -71,6 +75,7 @@ export function interiorRoomsOf(data, { lampOn = () => true, itemOf } = {}) {
     out.push({
       key: r.zone, zone: r.zone, gx: data.tile.x, gy: data.tile.y, M, L,
       box: roomBounds(L, M, data.tile.x, data.tile.y),
+      panes: roomPanes(r.spec, L, M),
       lamp: on ? [0.32, 0.24, 0.14] : null,
       // whether its whole mesh can be had this frame; if not, it's asked for and the room stays a box meanwhile
       meshReady() {

@@ -1,0 +1,11 @@
+{
+  "enabled": true,
+  "id": "bt_more_guard_05",
+  "lines": [
+    "\"Somebody asked me for directions today.\"",
+    "\"Did you know?\"",
+    "\"No. I sent them to the market. Everyone wants the market eventually.\""
+  ],
+  "personality": "guard",
+  "sort_order": 640
+}

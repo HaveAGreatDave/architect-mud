@@ -857,6 +857,7 @@ export function meshChannels(params) {
   for (const r of params?.rotors || []) {
     if (r.fold) out[r.fold.ch] ??= 0;
     if (r.run) out[r.run] ??= 0;
+    if (r.angle) out[r.angle] ??= 0;
     if (r.slide) out[r.slide.ch] ??= 0;
   }
   return out;
@@ -873,6 +874,8 @@ export function meshChannels(params) {
 //   fold  { ch, aft, spread, tuck }  stops the blades and swings them aft together; `tuck` moves the hub
 //   run   '<channel>'                 stopped at `phase` at 0 on the channel, turning normally at 1
 //   slide { ch, by: [f,g,h] }         moves the disc by `by` at 1, like a part's `anim.slide`
+//   angle ch                         the blade angle, in radians, from the owner (who integrates it, so a
+//                                    slow rotor turns slowly); with `run` for the blur. The Merlin's pusher.
 const PLANE_AXES = { h: [[1, 0, 0], [0, 1, 0]], side: [[1, 0, 0], [0, 0, 1]], fore: [[0, 0, 1], [0, 1, 0]] };
 export function resolveRotors(params) {
   const rs = params?.rotors;
@@ -887,7 +890,7 @@ export function resolveRotors(params) {
       blades: r.blades ?? 2, lead: r.lead ?? 0.85,
       spinMul: r.spinMul, phase: r.phase, hub: r.hub,
       fold: !r.fold ? null : (S === 1 || !r.fold.tuck) ? r.fold : { ...r.fold, tuck: r.fold.tuck.map((v) => v * S) },
-      run: r.run || null,
+      run: r.run || null, angle: r.angle || null,
       slide: !r.slide ? null : S === 1 ? r.slide : { ...r.slide, by: r.slide.by.map((v) => v * S) },
     };
   });
@@ -996,6 +999,8 @@ export function validateMesh(params, file = '<mesh>') {
       else if (r.plane != null && !PLANE_AXES[r.plane]) errors.push(at('rotors[' + i + '].plane must be h, side or fore'));
       // A channel named wrong is a rotor that silently never moves, so both are checked for shape.
       if (isPlain(r) && r.run != null && (typeof r.run !== 'string' || !r.run)) errors.push(at('rotors[' + i + '].run must name a channel'));
+      if (isPlain(r) && r.angle != null && (typeof r.angle !== 'string' || !r.angle)) errors.push(at('rotors[' + i + '].angle must name a channel'));
+      if (isPlain(r) && r.angle != null && r.run == null) errors.push(at('rotors[' + i + '].angle needs a run channel for how fast it looks'));
       if (isPlain(r) && r.slide != null && !(isPlain(r.slide) && typeof r.slide.ch === 'string' && r.slide.ch && isVec(r.slide.by, 3))) errors.push(at('rotors[' + i + '].slide must be { ch, by: [f, g, h] }'));
       if (isPlain(r) && r.run != null && r.fold != null) errors.push(at('rotors[' + i + ']: run and fold both decide where a stopped blade rests; use one'));
     });

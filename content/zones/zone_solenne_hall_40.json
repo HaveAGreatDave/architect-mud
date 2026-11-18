@@ -5,9 +5,10 @@
   "ambient_theme": "indoors",
   "bg_color": "#33414d",
   "color": "#d9e6f2",
-  "description": "A short stone hall that smells of chlorine. The wind is loud past the door to the <b>north</b>, where the sky deck is. A fire door marked STAIRS at the west end is locked. The elevator is <b>in</b> behind you.",
+  "description": "The foot of the lantern on the roof: a small room under the first of its turned glass tiers, gold light running up the corners. The stairs come up through the floor from the hall <b>down</b> below. The Sky Deck and the pool are <b>north</b>, and the pad is out to the <b>east</b>.",
   "exits": {
-    "in": "zone_solenne_elevator",
+    "down": "zone_solenne_hall_45",
+    "east": "zone_solenne_helipad",
     "north": "zone_solenne_skydeck"
   },
   "flags": {
@@ -16,7 +17,7 @@
     "is_interior": true,
     "room": {
       "balcony": false,
-      "d": 3,
+      "d": 4.6,
       "decor": {
         "ceiling": {
           "band": 0.4,
@@ -25,20 +26,11 @@
           "kind": "cove",
           "trim": "#b8913e"
         },
-        "doors": [
-          {
-            "at": 1.5,
-            "finish": "steel",
-            "label": "Stairs",
-            "w": 0.95,
-            "wall": "left"
-          }
-        ],
         "downlights": false,
         "plants": [
           [
-            2.35,
-            0.65,
+            1.6,
+            0.6,
             0.85
           ]
         ],
@@ -46,20 +38,8 @@
         "sconces": {
           "points": [
             [
-              "front",
-              -1.55
-            ],
-            [
-              "front",
-              1.55
-            ],
-            [
               "back",
-              -1.7
-            ],
-            [
-              "back",
-              1.7
+              1.2
             ]
           ],
           "y": 1.8
@@ -70,16 +50,21 @@
           "y1": 2.5
         }
       },
+      "doors": {
+        "down": [
+          -1.4,
+          1.4
+        ]
+      },
       "face": 0,
       "finish": "fine",
+      "glass": [
+        "front",
+        "left",
+        "right"
+      ],
       "ground": "stone",
-      "h": 3.2,
-      "sign": {
-        "size": 0.2,
-        "text": "SKY DECK",
-        "wall": "front",
-        "y": 2.78
-      },
+      "h": 3.6,
       "studio": false,
       "tone": {
         "accent": "#b8913e",
@@ -87,16 +72,16 @@
         "trim": "#17130f",
         "wall": "#2e2925"
       },
-      "w": 6,
+      "w": 4.6,
       "windowless": true
     },
     "sanctuary": true
   },
   "grid_x": 0,
   "grid_y": 0,
-  "grid_z": 4,
+  "grid_z": 9,
   "id": "zone_solenne_hall_40",
   "map_id": "map_int_solenne",
-  "name": "The Fortieth Floor",
+  "name": "The Lantern",
   "parent_zone": "zone_district_914_908"
 }

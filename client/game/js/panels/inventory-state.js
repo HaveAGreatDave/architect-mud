@@ -49,6 +49,16 @@ function renderWeaponChip() {
   }
 }
 
+// Login paints the chip from the weapon name on `auth_success`, so connecting
+// never fetches an inventory. The cache stays empty until something asks for one.
+export function seedWeaponChip(name) {
+  const text = `⚔ ${name || 'fists'}`;
+  for (const id of CHIP_IDS) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = text;
+  }
+}
+
 let _chipTimer = 0;
 export function refreshWeaponChip() {
   // `offsetParent` is null for a hidden chip, so this asks the server only when

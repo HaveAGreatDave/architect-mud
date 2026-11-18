@@ -1,4 +1,4 @@
-import { HAIR_STYLES, SKIN_RGB, TATTOO_INKS, tattooCode } from './morphex-catalog.js';
+import { HAIR_STYLES, SKIN_RGB, TATTOO_INKS, tattooCode, FACE_SHAPE_HEAD, faceTune } from './morphex-catalog.js';
 
 // A player's close-up figure from their appearance: the MORPHEX columns (hair colour, length and style, eye
 // colour, height and weight) turned into the `figure` keys gl/room-people.js reads off an NPC's `flags.figure`.
@@ -22,7 +22,7 @@ export function hairStyleIdx(style, length) {
   if (length === 'very_long' || length === 'long') return h?.cut === 4 ? 5 : 3;
   return h ? h.cut : length === 'short' ? 0 : 1;
 }
-const SHAPE_HEAD = { standard: 0, broad: 1, lean: 2, soft: 3, 'strong jaw': 4 };
+const SHAPE_HEAD = FACE_SHAPE_HEAD;
 const BROW = { thin: 0.45, natural: 0.8, heavy: 1.15, severe: 1.4 };
 const AGE = { none: 0, some: 0.35, 'lived-in': 0.6, old: 0.9 };
 const GRIT = { clean: 0, weathered: 0.45, rough: 0.85 };
@@ -49,6 +49,8 @@ export function playerFigure(a) {
   if (f.facial) out.facial = f.facial;
   if (f.age in AGE) out.age = AGE[f.age];
   if (f.wear in GRIT) out.grit = GRIT[f.wear];
+  const tune = faceTune(f);
+  if (tune) out.tune = tune;
   // tattoos (appearance_data.tattoos and .ink): one mask and one ink (gl/figure-hd.js tatPaint)
   const tat = tattooCode(a.tattoos || {});
   if (tat) { out.tat = tat; out.tat_ink = TATTOO_INKS[a.ink] || TATTOO_INKS.black; }

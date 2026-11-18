@@ -27,7 +27,7 @@
 
 import { clamp, lerp, angWrap, rng, hash, hyp } from './util.js';
 import { RL, RW, MID_Y, GOAL_X, NET_HALF, NET_H, DOT_FT, BOARD_H, GLASS_H, attackDir, insideRink, panelAt, PANEL_W, PANEL_X0, PANELS } from './geo.js';
-import { SHOTS, releaseAt, bladeWorld, skaterRig } from './rig.js';
+import { SHOTS, releaseAt, bladeWorld, skaterRig, G } from './rig.js';
 
 // A HIT THAT PUTS A MAN OUT THIS LONG (in schedule slots; INJURY_SLOTS_MAX is 16), or kills
 // him, is run back in X-ray: see `xrayBone` and the X-ray half of `hitReplays`.
@@ -107,7 +107,7 @@ export function kitFor(colours, side, name) {
 
 export function createDirector(W, opts = {}) {
   const pk = W.puck;
-  const D = { beat: null, names: { a: new Map(), h: new Map() }, mournTo: 0, kitsFor: '', tasks: [], gear: [] };
+  const D = { beat: null, names: { a: new Map(), h: new Map() }, mournTo: 0, kitsFor: '', iceFor: '', tasks: [], gear: [] };
   // Things that outlive the beat that started them (a man skating to the box, a stretcher
   // on its way off) are `D.tasks`, ticked until done. `D.gear` is what a fight left lying on
   // the ice, which the referee picks up at the next stoppage.
@@ -188,6 +188,19 @@ export function createDirector(W, opts = {}) {
     if (p.cup) { W.final = true; D.finalFor = pair; } else if (D.finalFor !== pair) W.final = false;
     // the identities can land after the first payload: dress again when they do
     const dressed = `${clubOf(p.awayTeam, 'hockey') ? 1 : 0}${clubOf(p.homeTeam, 'hockey') ? 1 : 0}`;
+    // centre ice: the Cup's paint on Cup final night, both finalists' crests and which inaugural
+    // Cup it is (rink/centre-ice.js); the league's otherwise. Repainted when any of that changes.
+    if (Number.isFinite(p.cupNo)) D.cupNo = p.cupNo;
+    const iceKey = W.final ? `${pair}|${dressed}|${D.cupNo || ''}|${p.final || ''}` : '';
+    if (iceKey !== D.iceFor && W.ice?.dress) {
+      D.iceFor = iceKey;
+      W.ice.dress(W.final ? {
+        cup: true, cupNo: D.cupNo || null, final: p.final || 'Coldwater Cup',
+        away: clubOf(p.awayTeam, 'hockey'), home: clubOf(p.homeTeam, 'hockey'),
+        awayColours: p.awayColours || null, homeColours: p.homeColours || null,
+        awayAbbr: p.awayAbbr || '', homeAbbr: p.homeAbbr || '',
+      } : null);
+    }
     const key = `${p.awayTeam || ''}|${p.homeTeam || ''}|${dressed}`;
     if (key === D.kitsFor) return;
     const sameClubs = D.kitsFor.startsWith(`${p.awayTeam || ''}|${p.homeTeam || ''}|`);
@@ -221,14 +234,16 @@ export function createDirector(W, opts = {}) {
     return B;
   }
   const at = (B, dt, fn) => W.schedule(dt, () => { if (D.beat === B) fn(); });
-  function land(B) { if (B.landed) return; B.landed = true; B.onLanded?.(); opts.onLand?.(B.kind); }
+  // (a linesman's call is the rink's own beat, not a payload's: it lands and finishes without
+  // telling the view, whose held line belongs to the next play: see `W.onCall`)
+  function land(B) { if (B.landed) return; B.landed = true; B.onLanded?.(); if (!B.local) opts.onLand?.(B.kind); }
   function finish(B) {
     if (D.beat !== B) return;
     land(B);
     D.beat = null;
     W.cam.net = null; W.cam.drama = false;
     releaseAll();
-    opts.onDone?.(B.kind);
+    if (!B.local) opts.onDone?.(B.kind);
   }
   function releaseAll() {
     for (const b of [...W.team.a, ...W.team.h, W.goalie.a, W.goalie.h, ...W.officials]) {
@@ -719,6 +734,20 @@ export function createDirector(W, opts = {}) {
       if (g0.side === att) { pk.held = null; W.pass(g0, cur, 45); }
       else { W.loose(0, 0); W.collect(cur); }
     } else if (!foe && passTo !== cur && !W.give(cur)) W.collect(cur);
+    // THE ONE-TIMER MAN GOES UP THE ICE AHEAD OF THE PLAY. A one-timer or a tip needs a man of
+    // his at the spot it's struck from, and the shot leg took whoever was nearest it when the
+    // rush got there. Joined deep in his own end (the between-plays game clears and ices it
+    // now, and holds his men at the line), that was a trailer 50 ft or more back, fed on the
+    // cue anyway, who struck it from the far blue line at a net the picture hadn't got to. So
+    // he's picked now, the man of his nearest that spot, and skates for it as the rush starts.
+    if ((type === 'onetimer' || type === 'tip') && nodes.length >= 2) {
+      const sn0 = nodes[nodes.length - 2];
+      const pre = W.nearestOf(W.mates(att).filter((m) => m !== cur && able(m)), sn0.x, sn0.y);
+      if (pre && hyp(pre.x - sn0.x, pre.y - sn0.y) > 25) {
+        B.preShooter = script(pre);
+        pre.tx = sn0.x - dir * 8; pre.ty = sn0.y + (sn0.y > MID_Y ? 6 : -6); pre.maxV = 22;
+      }
+    }
     const slotBody = (k) => W.mates(att).find((m) => m.slot === k) || null;
     const names = Array.isArray(p.rushNames) && p.rushNames.length ? p.rushNames : null;
     const nameOf = (k) => (names && k >= 0 ? names[((k % names.length) + names.length) % names.length] : null);
@@ -737,7 +766,7 @@ export function createDirector(W, opts = {}) {
       if (b && !(b === cur ? able(b) : able(b) && hyp(b.x - nd.x, b.y - nd.y) <= 40)) b = null;
       if (!b) {
         b = slotBody(nd.carrier);
-        if (!able(b) || hyp(b.x - nd.x, b.y - nd.y) > 40) b = W.nearestOf(W.mates(att).filter((m) => m !== cur && able(m)), nd.x, nd.y) || b;
+        if (!able(b) || hyp(b.x - nd.x, b.y - nd.y) > 40 || b === B.preShooter) b = W.nearestOf(W.mates(att).filter((m) => m !== cur && m !== B.preShooter && able(m)), nd.x, nd.y) || b;
       }
       if (b && nm) nameBody(b, nm);
       nd.body = b;
@@ -1255,7 +1284,8 @@ export function createDirector(W, opts = {}) {
       let shooter = cur, setup = null;
       if ((type === 'onetimer' || type === 'tip') && W.mates(att).length > 1) {
         // a one-timer and a tip need somebody else to put it there
-        const mate = W.nearestOf(W.mates(att).filter((m) => m !== cur && able(m)), sn.x, sn.y);
+        // (the man sent up ahead of the play, above, when there is one and the puck isn't his)
+        const mate = B.preShooter && B.preShooter !== cur && able(B.preShooter) ? B.preShooter : W.nearestOf(W.mates(att).filter((m) => m !== cur && able(m)), sn.x, sn.y);
         if (mate) {
           shooter = script(mate);
           if (type === 'tip') { mate.tx = netX - dir * 7; mate.ty = MID_Y + (r() - 0.5) * 6; } else { mate.tx = sn.x; mate.ty = sn.y; }
@@ -1409,6 +1439,49 @@ export function createDirector(W, opts = {}) {
       go();
     }
 
+    // IT'S STILL THERE. When the sim's next play is the putback off this save (`reboundNext`),
+    // the puck stays loose round the crease until it comes: it isn't the between-plays game's
+    // to clear up the ice. (It was, and the putback, called as its payload lands, started
+    // from the neutral zone and its shot came two to six seconds after its save was called:
+    // most of the late shots on sim v8.) Two of ours go at it, two of theirs tie them up, and
+    // the beat isn't busy, so the booth's next line isn't held for it. The putback comes
+    // after the save's own lines and the rebound's, about seven seconds on air, so the hold
+    // waits up to fourteen (a putback whose line the pacing dropped lets it go then).
+    // (and the save leaves it there: kicked out at 10 to 30 ft/s onto fast ice it glided 30 to
+    // 90 ft, up to the point, so with a putback coming it dies in the slot, `near` to `near` +
+    // 6 ft from where it came off him, beyond the few feet it flies)
+    function reboundRest(near) {
+      const air = () => (Math.max(0, pk.vz) + Math.sqrt(pk.vz * pk.vz + 2 * G * Math.max(0, pk.z))) / G;
+      // (off the iron it comes away too fast to die in the slot in the air it has: this one
+      // comes off softer, and drops)
+      if (hyp(pk.vx, pk.vy) * air() > near) { pk.vx *= 0.5; pk.vy *= 0.5; pk.vz = Math.min(pk.vz, 1.5); }
+      const v = hyp(pk.vx, pk.vy);
+      pk.drag = clamp(v / Math.max(2, near + r() * 6 - v * air()), 0.35, 4);
+    }
+    function holdRebound() {
+      if (D.beat !== B) return;
+      W.puckScripted = true; W.allowGoal = false; B.waiting = true;
+      const byNet = (list) => list.filter(free).sort((a2, b2) => hyp(a2.x - pk.x, a2.y - pk.y) - hyp(b2.x - pk.x, b2.y - pk.y)).slice(0, 2);
+      B.rbHold = { until: W.t + 14, crash: byNet(W.mates(att)).map(script), tie: byNet(W.mates(def)).map(script) };
+    }
+    function scramble() {
+      const H = B.rbHold;
+      if (W.t > H.until) { B.rbHold = null; finish(B); return; }
+      // (the puck slides on as the save left it and settles there: nothing steers it)
+      // ours at it, theirs on them, nobody standing still on it (a slow loop round where it is)
+      H.crash.forEach((m, i) => {
+        if (!free(m)) return;
+        const a2 = W.t * 1.6 + m.seed + i * 2.4;
+        m.tx = pk.x - dir * (1.5 + i * 3) + Math.cos(a2) * 1.6; m.ty = pk.y + (i ? 3 : -2) + Math.sin(a2) * 1.6; m.maxV = 14; m.face = null;
+      });
+      H.tie.forEach((m, i) => {
+        const c = H.crash[i] || H.crash[0];
+        if (!free(m) || !c) return;
+        // goal side of his man, leaning on him
+        const gx = netX - c.x, gy = MID_Y - c.y, gl = hyp(gx, gy) || 1;
+        m.tx = c.x + gx / gl * 2.4; m.ty = c.y + gy / gl * 2.4; m.maxV = 16; m.face = Math.atan2(c.y - m.y, c.x - m.x);
+      });
+    }
     // A frozen puck is a goalie under pressure: two of them crash his crease as he covers
     // it, which is why he holds it rather than playing it.
     function pressure() {
@@ -1447,14 +1520,14 @@ export function createDirector(W, opts = {}) {
           at(B, tt, () => {
             W.sfx('chest'); land(B);
             if (p.frozen && gl) { pk.held = gl; gl.gloveHold = true; gl.gloveTarget = [gl.x + fwd[0] * 0.9, gl.y + fwd[1] * 0.9, 2.5]; gl.gloveW = 1; pressure(); at(B, 0.45, () => { whistle(); at(B, 0.6, () => stopPlay(B, p.nextDot)); }); }
-            else W.loose(-dir * (10 + r() * 8), (r() - 0.5) * 24, 1.5);
+            else { W.loose(-dir * (10 + r() * 8), (r() - 0.5) * 24, 1.5); if (p.reboundNext) reboundRest(8); }
           });
-          if (!(p.frozen && gl)) at(B, tt + 1.8, () => { W.amb.holdUntil = W.t + 2; finish(B); });
+          if (!(p.frozen && gl)) at(B, tt + 1.8, () => { if (p.reboundNext) { holdRebound(); return; } W.amb.holdUntil = W.t + 2; finish(B); });
           break;
         case 'pad':
           if (gl) at(B, lead, () => W.act(gl, r() < 0.6 ? 'butterfly' : 'kick', 0.9, sideOf(a.tgt)));
-          at(B, tt, () => { W.sfx('pad'); land(B); W.loose(-dir * (18 + r() * 14), (a.s || 1) * (12 + r() * 16), 2); });
-          at(B, tt + 1.5, () => finish(B));
+          at(B, tt, () => { W.sfx('pad'); land(B); W.loose(-dir * (18 + r() * 14), (a.s || 1) * (12 + r() * 16), 2); if (p.reboundNext) reboundRest(10); });
+          at(B, tt + 1.5, () => (p.reboundNext ? holdRebound() : finish(B)));
           break;
         case 'blocked':
           at(B, tt, () => { W.sfx('block'); land(B); W.loose(-dir * (6 + r() * 8), (r() - 0.5) * 18, 1.2); if (leg && leg.blocker) leg.blocker.react = 0.8; });
@@ -1464,10 +1537,10 @@ export function createDirector(W, opts = {}) {
           if (gl) at(B, lead, () => W.act(gl, 'butterfly', 0.9, sideOf(a.tgt)));
           at(B, tt * 0.97, () => {
             pk.vx = -pk.vx * 0.42; pk.vy = (a.s || 1) * (14 + r() * 10); pk.vz = 3 + r() * 3;
-            W.sfx('post'); W.crowd = 1; land(B);
+            W.sfx('post'); W.crowd = 1; land(B); if (p.reboundNext) reboundRest(8);
             W.burst('spray', pk.x, pk.y, pk.z, 4, 3, [0, 0, 2]);
           });
-          at(B, tt + 1.4, () => finish(B));
+          at(B, tt + 1.4, () => (p.reboundNext ? holdRebound() : finish(B)));
           break;
         case 'wide':
         default:
@@ -1557,6 +1630,7 @@ export function createDirector(W, opts = {}) {
     B.update = (dt) => {
       if (B.stopped) return;
       W.cam.focus = [pk.x, pk.y];
+      if (B.rbHold) { scramble(); return; }
       if (ba && ba.phase === 'build' && !B.landed) { press(); leak(); }
       // the man it's on gone (off the ice, flattened): the nearest of his side takes over
       if (!B.scored && leg && !['shooting'].includes(leg.kind) && !able(cur)) {
@@ -2021,7 +2095,10 @@ export function createDirector(W, opts = {}) {
   function stageFaceoff(p) {
     const B = begin('faceoff');
     const dot = DOT_FT[p.dot] ? p.dot : 'C', [dx, dy] = DOT_FT[dot];
-    const ws = tagSide(p.winnerSide) || sideOfTeam(p.winTeam, p) || 'a', ls = other(ws);
+    const ws = p.ws || tagSide(p.winnerSide) || sideOfTeam(p.winTeam, p) || 'a', ls = other(ws);
+    // a linesman's call (`W.onCall`): nothing waits on it, and the men coast a moment on the
+    // whistle before they make for the dot
+    if (p.local) { B.local = true; B.waiting = true; B.coast = 0.9; }
     if (p.reason === 'period' && D.intermission) endIntermission();
     W.frozen = true; W.puckScripted = true;
     // the centres take the draw, so the names go on the centres
@@ -2038,8 +2115,26 @@ export function createDirector(W, opts = {}) {
       : won != null ? Math.max(1.35, won - 0.7) : 1.35;
     const set = (b, x, y, tol) => !b || hyp(b.x - x, b.y - y) < tol;
     B.dropAt = dropAt;
+    // THE SPOTLIGHT (the narrator's `spot`): as its line airs, the picture cuts to the man close
+    // at ice level, his stat line up (opts.onSpot), and back to the dot before the drop.
+    const spotT = p.spot && p.spot.line ? cueOf(p, 'spot') : null;
+    if (spotT != null && !p.local && !opts.zamboniReal) {
+      const L = p.spot.line, side = L.team === p.homeTeam ? 'h' : 'a';
+      const man = p.spot.kind === 'goalie' ? W.goalie[side] : D.names[side]?.get(L.name);
+      const until = Math.min(spotT + 3.8, dropAt - 1.2);
+      if (man && man.active && !man.rag && until - spotT >= 1.8) {
+        at(B, spotT, () => {
+          if (replay.active || D.hitShow) return;
+          B.spot = man; wipe(0.5); frame('closeup', [man.x, man.y]); opts.onSpot?.(p.spot);
+        });
+        at(B, until, () => { if (!B.spot) return; B.spot = null; wipe(0.5); frame('broadcast', [dx, dy]); opts.onSpot?.(null); });
+        const prev = B.cleanup;
+        B.cleanup = () => { prev?.(); if (B.spot) { B.spot = null; opts.onSpot?.(null); } };
+      }
+    }
     B.update = (dt, rel) => {
-      W.cam.focus = [dx, dy];
+      if (B.coast && rel < B.coast) { W.cam.focus = [pk.x, pk.y]; return; }
+      W.cam.focus = B.spot ? [B.spot.x, B.spot.y] : [dx, dy];
       if (!B.down) {
         // (looping near their spots until a couple of seconds before the drop, unless a play is
         // waiting on it: set on the dot for its whole line, the centres stood still up to 7 s)
@@ -3049,6 +3144,118 @@ export function createDirector(W, opts = {}) {
     return B;
   }
 
+  // ── a delayed penalty (sim v9) ────────────────────────────────────────────
+  // The arm goes up on the side without the puck and play goes on (a `delayed` beat: its
+  // `penaltyTeam` and `player`). The referee holds his arm up, as the linesman does for a delayed
+  // offside, and the other side's goalie makes for the bench for the extra attacker, the pull
+  // without the camera on him. The play after it is made six on five (`lineUp` counts the pulled
+  // goalie). The whistle is the `penalty` beat that follows, or a goal; at that stoppage the
+  // goalie comes back to his net and the extra man goes off (`endDelayed`).
+  D.delayed = null;
+  function stageDelayed(p) {
+    const B = begin('delayed');
+    const off = sideOfTeam(p.penaltyTeam, p) || tagSide(p.victimSide) || 'h', ben = other(off);
+    land(B);
+    const ref = W.officials[1], g = W.goalie[ben];
+    D.delayed = { off, ben, g };
+    commitFoul(p, off, ben);
+    D.tasks.push({
+      bodies: [],
+      tick() {
+        if (!D.delayed) return true;
+        if (ref && ref.active && !ref.rag && !ref.scripted && (!ref.act || ref.act === 'point') && (ref.act !== 'point' || ref.actT > 0.85)) W.act(ref, 'point', 0.8);
+        return false;
+      },
+    });
+    if (g && g.active && !g.rag && !W.pulled[ben]) {
+      const bx = RL / 2 + (ben === 'a' ? -24 : 24);
+      g.scripted = true;
+      D.tasks.push({
+        bodies: [g],
+        tick(dt) {
+          if (!D.delayed || !g.active) { g.scripted = false; return true; }
+          g.tx = bx; g.ty = 2; g.maxV = 15; g.face = Math.atan2(2 - g.y, bx - g.x);
+          if (g.y > 3.5) return false;
+          g.active = false; g.scripted = false; W.pulled[ben] = true;
+          const extra = W.team[ben].find((b) => !b.active && b.slot < 6);
+          if (extra) { fresh(extra); extra.active = true; overBoards(extra, g.x); }
+          return true;
+        },
+      });
+    }
+    at(B, 1.2, () => finish(B));
+    return B;
+  }
+  // THE FOUL BEHIND A DELAYED CALL. The sim's `delayed` beat names a man and an infraction but
+  // no hit, so nothing on the ice did it and nothing was recorded: the whistle had no foul to run
+  // back. Here the named man skates in on the nearest of theirs (the carrier, if they have it) and
+  // does it, with the recorder on, and `keepFoul` keeps it for `replayFoul` at the whistle.
+  const FOUL_ACT = {
+    slashing: 'slash', 'high-sticking': 'slash', spearing: 'crosscheck', 'butt-ending': 'crosscheck',
+    'cross-checking': 'crosscheck', roughing: 'shove', boarding: 'crosscheck', charging: 'crosscheck',
+    tripping: 'sweep', hooking: 'pull', holding: 'pull', interference: 'shove',
+  };
+  function commitFoul(p, off, ben) {
+    if (opts.zamboniReal) return;
+    const carrier = pk.carrier && pk.carrier.side === ben && pk.carrier.kind !== 'goalie' ? pk.carrier : null;
+    const victim = carrier || W.nearestOf(W.mates(ben).filter((b) => b.kind !== 'goalie' && !busyBody(b)), pk.x, pk.y);
+    if (!victim) return;
+    const man = bodyFor(off, p.player, W.nearestOf(W.mates(off).filter((b) => b.kind !== 'goalie'), victim.x, victim.y));
+    if (!man || man.kind === 'goalie') return;
+    const act = FOUL_ACT[String(p.infraction || '').toLowerCase()] || 'shove';
+    const label = `${String(p.infraction || '').toUpperCase()}: ${String(man.name || p.player || '').toUpperCase()}`;
+    D.recording = true; D.recordFrom = W.t; D.recordUntil = null;
+    const t0 = W.t;
+    let hit = 0;
+    D.tasks.push({
+      bodies: [man],
+      tick() {
+        if (!man.active || man.rag || !victim.active) { man.scripted = false; man.target = null; return true; }
+        if (hit) {
+          if (W.t - hit < 0.7) return false;
+          man.scripted = false; man.face = null; man.target = null;
+          return true;
+        }
+        man.scripted = true;
+        // (he gets there in two seconds or does it from where he is: the beat won't wait)
+        const d = hyp(victim.x - man.x, victim.y - man.y);
+        if (d > 4 && W.t - t0 < 2) { man.tx = victim.x; man.ty = victim.y; man.maxV = 22; man.face = null; return false; }
+        hit = W.t;
+        man.tx = man.x; man.ty = man.y; man.maxV = 6;
+        man.face = Math.atan2(victim.y - man.y, victim.x - man.x);
+        man.target = victim;
+        W.act(man, act, 0.7, act === 'slash' ? { low: p.infraction !== 'high-sticking' } : undefined);
+        W.sfx('stick', { x: victim.x, y: victim.y });
+        victim.react = 0.7; victim.reactSide = 1;
+        if (!victim.scripted) W.act(victim, 'stagger', 0.6);
+        keepFoul(victim, label);
+        return false;
+      },
+    });
+  }
+  // The play's stopped (the whistle on the touch, or a goal): the goalie comes back over the boards
+  // at his bench and skates to his net, and `lineUp` sends the extra man off at the draw.
+  function endDelayed() {
+    const d = D.delayed;
+    if (!d) return;
+    D.delayed = null;
+    const g = d.g;
+    if (!g || g.dead) return;
+    if (W.pulled[d.ben]) {
+      W.pulled[d.ben] = false;
+      fresh(g); g.active = true; overBoards(g, RL / 2 + (d.ben === 'a' ? -24 : 24));
+    }
+    g.scripted = false;
+  }
+  // a goal wiped the minor out (sim v9): nobody goes to the box, and the draw is the goal's
+  function stageWaived(p) {
+    const B = begin('waived');
+    endDelayed();
+    land(B);
+    at(B, 0.5, () => finish(B));
+    return B;
+  }
+
   // ── a penalty ─────────────────────────────────────────────────────────────
   // The server's sim calls it (a `penalty` beat: `teamName`, `player`, `infraction`,
   // `penaltyMin`, and the game `period` and `clock` every beat carries). The referee's arm
@@ -3064,7 +3271,12 @@ export function createDirector(W, opts = {}) {
   D.box = [];
   // game seconds since the opening draw, from a beat's period and clock (20-minute periods,
   // the clock counting down)
-  const gameSec = (p) => (Number.isFinite(p.period) && Number.isFinite(p.clock) ? (p.period - 1) * 1200 + (1200 - p.clock) : null);
+  // (the payload's `clock` is the clock as it's written, "07:12", and its seconds are `clockSecs`:
+  // reading `clock` made this null on every play, so a man sat in the box till the period's end)
+  const gameSec = (p) => {
+    const secs = Number.isFinite(p.clockSecs) ? p.clockSecs : p.clock;
+    return Number.isFinite(p.period) && p.period > 0 && Number.isFinite(secs) ? (p.period - 1) * 1200 + (1200 - secs) : null;
+  };
   // A man on the ice has slot 0 to 5 (the sim's lanes are by slot); one in the box takes
   // slot 6 or 7 from a spare on the bench, and gives one back when he comes out.
   function swapSlot(a, b) { const s = a.slot, r = a.role; a.slot = b.slot; a.role = b.role; b.slot = s; b.role = r; }
@@ -3086,14 +3298,35 @@ export function createDirector(W, opts = {}) {
       if (!up) return true;
       const b = e.body;
       if (b.boxed) {
-        b.boxed = false; b.hold = null; b.act = null;
-        // back over the boards at the box gate in a bench man's slot; with nobody on the
-        // bench to trade with (every lane filled) he goes to the bench instead
-        const bench = all ? null : W.team[b.side].find((x) => !x.active && x.slot < 6);
-        if (bench) { swapSlot(b, bench); fresh(b); overBoards(b, BOX_X[b.side]); b.scripted = false; }
-        else off(b);
+        b.hold = null; b.act = null;
+        if (all) { b.boxed = false; off(b); } else outOfBox(b);
       }
       return false;
+    });
+  }
+  // HIS TIME'S UP: he gets up and walks behind the boards from the box to his own bench, and is off.
+  // Never onto the ice: his side got its man back when the play's strength said so (`lineUp` sends
+  // a bench man over the boards by the puck), and a man stepping out mid-rush, into a lane or just
+  // in the way, moves the play off the booth's call. So he's held (no physics, nobody's in his way
+  // and he's in nobody's) and stays `boxed` till he's off, out of his side's count (`W.mates`).
+  const OUT_WALK = 4.5;   // ft/s behind the bench
+  function outOfBox(b) {
+    const bx = RL / 2 + (b.side === 'a' ? -24 : 24), start = W.t;
+    b.scripted = true; b.face = null; b.carrying = false;
+    b.hold = (m, dt) => {
+      const d = bx - m.x, step = Math.sign(d) * Math.min(Math.abs(d), OUT_WALK * dt);
+      m.x = m.x0 = m.tx = m.x + step; m.y = m.y0 = m.ty = BOX_Y;
+      m.vx = dt > 0 ? step / dt : 0; m.vy = 0; m.h = d >= 0 ? 0 : Math.PI; m.act = null;
+    };
+    // (not a `leave` task, which an intermission drops: his hold keeps him out of `lineUp` anyway)
+    D.tasks.push({
+      bodies: [b],
+      tick() {
+        if (!b.active) { b.boxed = false; b.hold = null; return true; }
+        if (Math.abs(b.x - bx) > 0.5 && W.t - start < 8) return false;
+        b.boxed = false; off(b);
+        return true;
+      },
     });
   }
   // THE FOUL, RUN BACK ON THE CALL. Every hit and slash is kept (`D.foulPending`, then
@@ -3111,10 +3344,20 @@ export function createDirector(W, opts = {}) {
     const clip = replay.save(h.t - 3.2, Math.min(W.t, h.t + 1.2));
     D.foulClip = clip ? { ...h, clip } : null;
   }
-  function replayFoul(B) {
+  // A call with no hit or slash behind it (holding, hooking, interference: the sim calls those
+  // at a stoppage) has no foul kept, so it runs back the last few seconds of play on the man
+  // called instead. Before this only hits and slashes were ever replayed.
+  function replayFoul(B, man, p) {
     if (D.foulPending) saveFoul();
-    const F = D.foulClip; D.foulClip = null;
-    if (!F || W.t - F.t > FOUL_AGE || opts.zamboniReal) return;
+    let F = D.foulClip; D.foulClip = null;
+    // (a delayed call's foul was kept when the arm went up, and play ran on under it)
+    const age = p && p.delayed ? FOUL_AGE * 6 : FOUL_AGE;
+    if ((!F || W.t - F.t > age) && man && !opts.zamboniReal) {
+      const clip = replay.save(W.t - 4.5, W.t);
+      const label = [String(p?.infraction || '').toUpperCase(), String(p?.player || man.name || '').toUpperCase()].filter(Boolean).join(': ');
+      F = clip ? { t: W.t, clip, follow: { seed: man.seed, side: man.side }, label } : null;
+    }
+    if (!F || W.t - F.t > age || opts.zamboniReal) return;
     // (the booth's own run-back of the same hit would show it twice)
     if (D.hitClip && D.hitClip.t === F.t) D.hitClip = null;
     D.hitPending = null;
@@ -3128,10 +3371,12 @@ export function createDirector(W, opts = {}) {
   }
   function stagePenalty(p) {
     const B = begin('penalty');
-    const side = sideOfTeam(p.teamName, p) || tagSide(p.victimSide) || sideOfTeam(p.victimTeam, p) || 'a';
+    const side = sideOfTeam(p.penaltyTeam || p.teamName, p) || tagSide(p.victimSide) || sideOfTeam(p.victimTeam, p) || 'a';
     const man = bodyFor(side, p.player || p.victim, W.nearestOf(W.mates(side), pk.x, pk.y));
+    // (a delayed call's whistle: the goalie that went off for the extra man comes back)
+    endDelayed();
     whistle(true); land(B);
-    replayFoul(B);
+    replayFoul(B, man, p);
     const ref = W.officials[1];
     if (ref && ref.active && !ref.rag && !busyBody(ref)) {
       // arm up where he saw it, then over to the scorer's bench to give the call
@@ -3508,7 +3753,8 @@ export function createDirector(W, opts = {}) {
     // (a newer play replaces one already waiting; the wait is still counted from the first)
     const B0 = D.beat, was = D.queued;
     D.queued = null;
-    if (B0 && B0.kind === 'faceoff' && !B0.dropped && p.type !== 'faceoff' && p.type !== 'intermission') {
+    // (a linesman's draw never holds a play up: the play is the sim's, and goes now)
+    if (B0 && B0.kind === 'faceoff' && !B0.dropped && !B0.local && p.type !== 'faceoff' && p.type !== 'intermission') {
       D.queued = { p, at: W.t, since: was ? was.since : W.t };
       return null;
     }
@@ -3533,13 +3779,17 @@ export function createDirector(W, opts = {}) {
     // (and, with comic replays on, a shot off the post or a big save: see keepComic; a fight's is
     // turned on in stageFight once it knows the fight has a winner)
     D.recording = p.type === 'goal' || p.type === 'boards' || p.type === 'slash' || p.type === 'death'
-      || (p.type === 'chance' && COMIC_CHANCES.has(p.kind) && comicOn()); D.recordUntil = null;
+      || (p.type === 'chance' && COMIC_CHANCES.has(p.kind) && comicOn())
+      // (a delayed call's foul, kept a second after it lands: see commitFoul)
+      || !!D.foulPending; D.recordUntil = null;
     // (a hit's clip starts 3.2 s before it lands, and it lands within a second of its line: the
     // skate along the wall before that is never shown, and was most of the recording)
     D.recordFrom = p.type === 'boards' || p.type === 'slash' || p.type === 'death' ? (D.arrived ?? W.t) + Math.max(0, (cueOf(p, 'impact') ?? 0) - 4.4) : 0;
     dress(p);
     // a man whose minutes are up comes out of the box; at the period's end they all go off
     if (D.box.length) releaseBox(p, p.type === 'intermission');
+    // any draw ends a delayed call that's still up (it can't outlive a stoppage)
+    if (D.delayed && (p.type === 'faceoff' || p.type === 'intermission')) endDelayed();
     if (D.intermission && p.type !== 'intermission') { if (D.beat) D.beat.cleanup = null; endIntermission(); }
     switch (p.type) {
       case 'goal': case 'chance':
@@ -3554,7 +3804,8 @@ export function createDirector(W, opts = {}) {
       case 'fight': return stageFight(p);
       case 'brawl': return stageBrawl(p);
       case 'pull': return stagePull(p);
-      case 'penalty': return stagePenalty(p);
+      case 'delayed': return stageDelayed(p);
+      case 'penalty': return p.waived ? stageWaived(p) : stagePenalty(p);
       case 'intermission': return stageIntermission(p);
       case 'anthem': return stageAnthem(p);
       case 'crown': return stageCrown(p);
@@ -3582,6 +3833,23 @@ export function createDirector(W, opts = {}) {
     // Cup night's house lights, going down or coming back up (stageAnthem)
     if (W.show) { W.show.dark += (W.show.to - W.show.dark) * (1 - Math.exp(-dt * 1.6)); if (W.show.to === 0 && W.show.dark < 0.01) W.show = null; }
     if (Math.abs(W.mourning - D.mournTo) > 0.001) W.mourning = lerp(W.mourning, D.mournTo, 1 - Math.exp(-dt * 0.7));
+  };
+  // ── the linesman's calls ──────────────────────────────────────────────────
+  // OFFSIDE AND ICING in the between-plays game (sim.js `linesman`): the whistle, the call
+  // up on the picture, and a draw on the dot the rule puts it on, as its own beat. Only
+  // between plays: with a beat on (a play, a stoppage, a replay, the break, a delayed penalty's
+  // arm up) it's declined and play goes on. A play that arrives before the puck's down doesn't
+  // wait for the drop as it would for the sim's own draw (`stage`): it's the sim's, and goes.
+  const CALLED = { offside: 'OFFSIDE', icing: 'ICING' };
+  W.onCall = (c) => {
+    if (!CALLED[c.call] || !DOT_FT[c.dot] || D.beat || D.queued || D.delayed || replay.active || D.intermission || W.show || W.fight) return false;
+    whistle();
+    W.banner = { text: CALLED[c.call], t0: W.t, dur: 1.6, col: '#9fc4e8' };
+    stageFaceoff({ type: 'faceoff', dot: c.dot, reason: c.call, ws: c.wins, local: true });
+    // (the linesman who blew it points to where it goes: the dot)
+    const o = W.officials.reduce((b, q) => (!b || hyp(q.x - c.x, q.y - c.y) < hyp(b.x - c.x, b.y - c.y) ? q : b), null);
+    if (o && !o.rag) W.act(o, 'point', 0.9);
+    return true;
   };
   const prevEmit = W.emit;
   W.emit = (name, data) => { if (D.beat && D.beat.onEvent) D.beat.onEvent(name, data); (opts.emit || prevEmit)(name, data); };

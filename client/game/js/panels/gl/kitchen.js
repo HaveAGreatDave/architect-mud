@@ -15,6 +15,7 @@
 // 'createKitchenRenderer' returns null when there is no WebGL2, and the panel falls back to the HUD.
 
 import { createRoomRenderer } from './room.js';
+import { multiply } from './core/mat4.js';
 import { createBatch, MAT, STRIDE as RS } from './ballpark-mesh.js';
 import { STRIDE as KS_STRIDE, COLOURS } from './kitchen-mesh.js';
 
@@ -43,7 +44,7 @@ export function cameraMatrices(cam, aspect) {
     0, 0, (far + near) / (near - far), -1,
     0, 0, (2 * far * near) / (near - far), 0,
   ];
-  return { vp: new Float32Array(mat4mul(proj, view)), r, u, f, t, aspect };
+  return { vp: new Float32Array(multiply(proj, view)), r, u, f, t, aspect };
 }
 // Where a screen point (0..1 across, 0..1 down) meets the plane z = h. Null when the ray runs away
 // from it.
@@ -189,11 +190,3 @@ function mul(a, k) { return [a[0] * k, a[1] * k, a[2] * k]; }
 function dot(a, b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
 function cross(a, b) { return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]; }
 function norm(a) { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; }
-// column-major a * b
-function mat4mul(a, b) {
-  const o = new Array(16);
-  for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) {
-    o[c * 4 + r] = a[r] * b[c * 4] + a[4 + r] * b[c * 4 + 1] + a[8 + r] * b[c * 4 + 2] + a[12 + r] * b[c * 4 + 3];
-  }
-  return o;
-}

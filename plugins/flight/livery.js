@@ -34,6 +34,13 @@ export const TRIMS = {
     // the Drake 2076 is a different airframe (mesh_drake.json 'variants'), with its own cockpit.
     { id: '2076', label: 'Drake 2076 · the 2076' },
   ],
+  // The Merlin's four factory paint jobs (mesh_merlin.json 'schemes'): each sets the lights, the
+  // seats and the metal too, so a player's own pattern over Nero keeps its violet running lights.
+  merlin: [    { id: 'rosso', label: 'Rosso · red over carbon' },
+    { id: 'nero', label: 'Nero · black, violet lights' },
+    { id: 'giallo', label: 'Giallo · yellow and black' },
+    { id: 'bianco', label: 'Bianco · pearl, red pinstripe' },
+  ],
   // the 2076 body is a different model, not a paint scheme (mesh_heli.json 'variants').
   // An armed heli reads `viper` below, not this (its livery model; aircraftLiveryModel).
   heli: [    { id: '2076', label: 'Dragonfly 2076 · the 2076' },

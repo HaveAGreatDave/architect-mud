@@ -1,0 +1,19 @@
+{
+  "description": "Sir Charles B. Hughson in bronze, twice life size, on a granite plinth in a ring of red and gold bedding. He faces the Coliseum with his right hand raised toward the stands and his hat in his left. The toes of his shoes are rubbed gold where people touch them for luck.",
+  "flags": {
+    "aliases": [
+      "statue",
+      "bronze",
+      "sir charles",
+      "charles",
+      "hughson",
+      "plinth",
+      "shoes"
+    ],
+    "examine_detail": "Cut into the front of the plinth: Sir Charles B. Hughson. He would not sell."
+  },
+  "id": "furn_hughson_park_statue",
+  "name": "the statue of Sir Charles",
+  "object_type": "decoration",
+  "zone_id": "zone_hughsonpark_890_916"
+}

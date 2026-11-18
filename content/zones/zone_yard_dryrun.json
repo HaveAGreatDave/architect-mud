@@ -23,11 +23,16 @@
     "is_interior": true,
     "region_id": "region_deadwater",
     "room": {
-      "d": 24,
+      "bay": "truck",
+      "d": 16.786,
+      "doors": {
+        "south": -5.27
+      },
+      "face": 180,
       "ground": "stone",
-      "h": 7.5,
+      "h": 5.33,
       "studio": false,
-      "w": 16,
+      "w": 16.786,
       "windowless": true
     },
     "truck_depot": {

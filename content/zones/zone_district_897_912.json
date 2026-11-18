@@ -1,27 +1,33 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "city",
+  "ambient_events": [
+    "The fountains drop for a second, then come back up.",
+    "A groundskeeper picks ticket stubs out of a hedge one at a time.",
+    "Somebody eats a hot dog on a bench and watches the Coliseum wall."
+  ],
+  "ambient_theme": "urban",
   "color": "#8fd08a",
-  "description": "A stand of six birches, semi-mature when they were craned in and doing better than the ones along Sorrel Way. Somebody has been eating their lunch under them: the grass is worn in one spot the size of a person.",
+  "description": "North Plaza, granite flags along the Coliseum's north wall with a bronze lamp standard every few steps. The gardens are on the north side.",
   "exits": {
-    "north": "zone_ballpark_896_910",
-    "south": "zone_ballpark_895_914",
+    "east": "zone_northgardens_1",
+    "north": "zone_ballpark_895_914",
     "west": "zone_district_896_912"
   },
   "flags": {
     "district": "halcyon_fields",
-    "park_feature": "grove",
+    "park_feature": "forecourt",
+    "park_focus": {
+      "x": 894.5,
+      "y": 913.5
+    },
     "region_id": "region_coldwater",
-    "set_aside": true,
-    "set_aside_from": "897,912",
     "street_life": true,
     "terrain": "park"
   },
-  "grid_x": 3,
-  "grid_y": 2,
+  "grid_x": 894,
+  "grid_y": 913,
   "grid_z": 0,
   "id": "zone_district_897_912",
-  "map_id": "map_set_aside",
-  "name": "Vetch Green",
+  "map_id": "map_world",
+  "name": "North Plaza",
   "parent_zone": null
 }

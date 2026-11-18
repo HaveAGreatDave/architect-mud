@@ -33,9 +33,12 @@ export const taken = (truckId) => standTaken(truckId, 'truck');
  * The `room.vehicles` answer for one viewer: what stands on the lift and this viewer's own trucks downstairs
  * to call up. Undefined in a room that isn't a depot shed.
  */
-export function roomVehicles(zoneId, player, { isDepot }) {
+export function roomVehicles(zoneId, player, { isDepot, shop = null }) {
   if (!isDepot(zoneId)) return undefined;
-  return standVehicles(zoneId, player, 'truck');
+  const out = standVehicles(zoneId, player, 'truck');
+  // what this depot's lot sells, so the lift's panel can offer it (`yard buy <id>`, the counter's own verb)
+  const sale = out && shop ? shop(zoneId, player) : null;
+  return sale?.length ? { ...out, shop: sale } : out;
 }
 
 export const _resetHoist = () => _resetStands();

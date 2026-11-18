@@ -1,0 +1,25 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "wasteland",
+  "color": "#b5744a",
+  "description": "Hard flat ground stained the color of old iron. Here and there a set of prints, dried and cracked, heads off toward nothing.",
+  "exits": {
+    "east": "zone_district_914_928",
+    "north": "zone_seam_914_927",
+    "south": "zone_seam_914_929",
+    "west": "zone_district_913_928"
+  },
+  "flags": {
+    "district": "wilds",
+    "radiation": 30,
+    "region_id": "region_coldwater",
+    "terrain": "redrock"
+  },
+  "grid_x": 914,
+  "grid_y": 928,
+  "grid_z": 0,
+  "id": "zone_seam_914_928",
+  "map_id": "map_world",
+  "name": "Slateback Rise",
+  "parent_zone": null
+}

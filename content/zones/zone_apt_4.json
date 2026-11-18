@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#c9a884",
-  "description": "Unit 2D, the big one on this floor. Ochre walls, a long butcher-block island with stools along it, and shelves of jars over the run behind. A dining table stands under a small chandelier. Someone painted over COUNT YOUR DAYS on the inside of the door with a garden of tall flowers, and you can still read the words through the stems if you look.",
+  "description": "Unit 2D, on the street. Ochre walls, a carved bed, and a long sofa and a velvet armchair round a low table under a small chandelier. Someone painted over COUNT YOUR DAYS on the inside of the door with a garden of tall flowers, and you can still read the words through the stems if you look.",
   "exits": {
     "east": "zone_embassy_floor_2nd",
     "in": "zone_apt_4_bath"
@@ -13,11 +13,11 @@
     "is_interior": true,
     "room": {
       "blinds": true,
-      "d": 11,
+      "d": 3.2,
       "decor": {
         "art": [
           {
-            "at": 5,
+            "at": 2,
             "h": 1.2,
             "seed": 71,
             "w": 1.8,
@@ -37,7 +37,7 @@
             "h": 1,
             "seed": 19,
             "w": 0.8,
-            "wall": "left",
+            "wall": "right",
             "y": 1.7
           }
         ],
@@ -66,7 +66,7 @@
         ],
         "plants": [
           [
-            -4.05,
+            -3.6,
             0.45,
             1.2
           ],
@@ -78,10 +78,10 @@
         ],
         "rug": {
           "at": [
-            -2.7,
-            5
+            -2.4,
+            1.9
           ],
-          "d": 2.6,
+          "d": 2,
           "style": "persian",
           "w": 2.6
         },
@@ -89,27 +89,22 @@
           "hex": "#b8924a",
           "points": [
             [
-              "left",
-              3.7
+              "front",
+              3.3
             ],
             [
-              "left",
-              6.3
+              "front",
+              2.3
             ]
           ],
           "y": 1.8
         }
       },
-      "h": 3,
-      "kitchen": {
-        "face": "shelves",
-        "front": "#8a6a4a",
-        "grade": 2,
-        "island": true,
-        "pendants": "globe",
-        "top": "butcher",
-        "uppers": "shelves"
+      "ensuite": {
+        "d": 1.8
       },
+      "face": 270,
+      "h": 4.13,
       "sash": {
         "drapes": "#3e5e60",
         "head": true,
@@ -117,13 +112,14 @@
         "transom": 0.4,
         "w": 1.8
       },
+      "studio": false,
       "tone": {
         "accent": "#b8924a",
         "ceiling": "#f2eee4",
         "trim": "#f0eadc",
         "wall": "#c9a46a"
       },
-      "w": 9
+      "w": 8
     },
     "window": {
       "description": "A tall sash window, reglazed, that opens and shuts and keeps the weather where it belongs.",

@@ -116,7 +116,9 @@
   "events": {
     "consumes": [
       "mutation.reported",
-      "vehicle.taken"
+      "vehicle.taken",
+      "lock.hackAttempt",
+      "lock.hackEnded"
     ],
     "emits": []
   }

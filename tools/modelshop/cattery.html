@@ -193,6 +193,8 @@ function drawClip(now, clip) {
   const t = clipHold ?? (now - clipT0) / 1000, f = clipFrame(b.rig, clip, t, { seed: 1 });
   const F = [Math.sin(spin), 0, Math.cos(spin)];
   R.setBeasts(createBatch(1));
+  // ?mouth=0..1 holds the mouth open (a meow's gape), or ?mouth=talk opens and shuts it as a meow would
+  if (q.has('mouth')) f.mo.mouth = q.get('mouth') === 'talk' ? Math.max(0, Math.sin(now / 1000 * 3)) : +q.get('mouth');
   R.setCats([D.frame(b, f.pose, f.mo, { O: [0, 0, 0], F })]);
   $('stats').textContent = `${clip} (${c.base}) · t ${t.toFixed(1)} s${c.len ? ' of ' + c.len : ''}${c.gait ? ' · ' + GAIT_SPEED[c.gait] + ' m/s on the spot' : ''}`;
   return true;

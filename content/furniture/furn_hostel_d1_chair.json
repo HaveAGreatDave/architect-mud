@@ -9,6 +9,13 @@
       "arche": "seat",
       "form": "chair",
       "wear": 0.9
+    },
+    "spot": {
+      "at": [
+        -3.2,
+        3
+      ],
+      "turn": 90
     }
   },
   "hp": null,

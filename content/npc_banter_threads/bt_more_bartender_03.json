@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_bartender_03",
+  "lines": [
+    "\"Do people tell you everything?\"",
+    "\"Everything.\"",
+    "\"Like what?\"",
+    "\"If I told you, they'd stop telling me.\""
+  ],
+  "personality": "bartender",
+  "sort_order": 659
+}

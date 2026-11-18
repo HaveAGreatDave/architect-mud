@@ -175,6 +175,8 @@ import { reaper2076Profile } from './interior-reaper-2076.js';
 import { carcass2076Profile } from './interior-carcass-2076.js';
 // The Drake 2076's refit (interior-drake-2076.js): the stock head, refitted, worn with the drake class's 2076 edition.
 import { drake2076Profile } from './interior-drake-2076.js';
+// The Corvane Merlin: a supercar's tub under a raked screen, driven by a race wheel (interior-merlin.js).
+import { merlinProfile } from './interior-merlin.js';
 import { defaultLivery, aircraftLiveryModel } from './livery-sets.js';
 const CRAFT_PROFILE = {};
 const craftProfile = (id, build) => (CRAFT_PROFILE[id] ||= build());
@@ -344,6 +346,8 @@ export const SHELL_PROFILES = {
   get carcass2076() { return craftProfile('carcass2076', carcass2076Profile); },
   // The Drake 2076's refitted head, picked by its edition like the Dragonfly's.
   get drake2076() { return craftProfile('drake2076', drake2076Profile); },
+  // The Merlin's tub, lofted off cabin-merlin.js like the Dragonfly 2076's pod.
+  get merlin() { return craftProfile('merlin', merlinProfile); },
   // The generic bubble the Dragonfly used to borrow, kept as the reference `bubbleRoom` shape.
   bubble: {
     label: 'helicopter bubble',
@@ -464,6 +468,7 @@ export const SHELL_CLASS = {
   heli: 'heli',           // the Dragonfly's Mini 500 bubble (interior-dragonfly.js); armed → viper
   bridge: 'bridge',       // the Echelon's wheelhouse — see helm-view, which sends it only from the bridge seat
   drake: 'drake',         // the inside of a duck's head, and you sit in the eye
+  merlin: 'merlin',       // a supercar's tub with a race wheel (interior-merlin.js)
   podracer: 'podracer',   // an open tub on two cables (interior-podracer.js)
 };
 

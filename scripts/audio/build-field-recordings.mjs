@@ -85,6 +85,9 @@ export const SOURCES = [
   { key: 'vulture',      user: 'AntumDeluge', id: 188041, title: 'Vulture', kind: 'calls', n: 2, max: 1.2 },
   // cats (docs/proposals/pets.md): what a pet cat says and does, played by client/game/js/panels/room-cat-sound.js
   // meows: hello, asking, hungry, cross, and the yowl
+  // a clone hall's vats: bubbles rising through growth medium, and the tank's steady bubbling under them
+  { key: 'bubbles', user: 'calebrankin', id: 529383, title: 'Bubbles In Water', kind: 'calls', n: 10, max: 2.5 },
+  { key: 'tank_bubbling', user: '7778', id: 197805, title: 'Indoor Nice Fish Tank Ambiance..wav', kind: 'bed', len: 24, rms: -27 },
   { key: 'cat_meow',        user: 'tuberatanka', id: 110011, title: 'cat meow', kind: 'calls', n: 6, max: 1.6 },
   { key: 'cat_meow_small',  user: 'PolterKaist', id: 795848, title: 'Small Cat Meow', kind: 'calls', n: 4, max: 1.4 },
   { key: 'cat_meow_short',  user: 'skymary', id: 412017, title: 'cat meow short', kind: 'calls', n: 4, max: 1.2 },
@@ -128,6 +131,30 @@ export const SOURCES = [
   { key: 'cat_jump',        user: '16GPanskaZlochova_Eliska', id: 496278, title: '3_Cat, jump.wav', kind: 'calls', n: 3, max: 1.2 },
   { key: 'cat_land',        user: 'superEGsonic', id: 803297, title: 'cat_land_floor', kind: 'calls', n: 3, max: 0.8 },
   { key: 'cat_zoomies',     user: 'qubodup', id: 855106, title: 'Cat Zoomies', kind: 'calls', n: 6, max: 2 },
+  // more voices, so each cat can have its own (room-cat-sound.js catVoice): adults, kittens, a yowl, hisses, purrs
+  { key: 'cat_meow_plain',  user: 'Countrygirls13', id: 763906, title: 'Cat_Meow', kind: 'calls', n: 4, max: 1.6 },
+  { key: 'cat_meow_new',    user: 'steffcaffrey', id: 479272, title: 'New Cat Meow 1', kind: 'calls', n: 4, max: 1.6 },
+  { key: 'cat_meow_ask',    user: 'sokworks', id: 866535, title: 'Meow (Request)', kind: 'calls', n: 4, max: 1.8 },
+  { key: 'cat_meow_callie', user: 'erihamster', id: 123146, title: 'My Cat, Callie, Meowing.wav', kind: 'calls', n: 6, max: 1.8 },
+  { key: 'cat_meow_polite', user: 'HECKFRICKER', id: 669532, title: 'Cat Politely Meowing', kind: 'calls', n: 4, max: 1.6 },
+  { key: 'cat_meow_pearl',  user: 'Sadiquecat', id: 689324, title: 'Cat meow', kind: 'calls', n: 4, max: 1.6 },
+  { key: 'cat_meow_happy',  user: 'alizardguy', id: 668632, title: 'Cat happy meow', kind: 'calls', n: 4, max: 1.4 },
+  { key: 'cat_meow_begs',   user: 'gecop', id: 569756, title: 'cat_begging.wav', kind: 'calls', n: 6, max: 1.8 },
+  { key: 'cat_meow_call',   user: 'mudflea2', id: 708180, title: 'A cat calling.', kind: 'calls', n: 5, max: 2 },
+  { key: 'cat_meow_food',   user: 'SpinOpel', id: 757357, title: 'The cat asks for food - 2', kind: 'calls', n: 5, max: 1.8 },
+  { key: 'cat_meow_stray',  user: 'TRP', id: 567293, title: '200412 Cat stray sad meows ms 6am.wav', kind: 'calls', n: 6, max: 2 },
+  { key: 'cat_mew_kitten',  user: 'Breviceps', id: 448084, title: 'Cute Kitten Meow', kind: 'calls', n: 4, max: 1 },
+  { key: 'cat_mew_kitten_b', user: 'Luke100000', id: 476918, title: 'Kitten meows', kind: 'calls', n: 6, max: 1 },
+  { key: 'cat_mew_kitten_c', user: 'barkenov', id: 440697, title: 'Kitten miaowing.wav', kind: 'calls', n: 6, max: 1.2 },
+  { key: 'cat_mew_kitten_d', user: 'XxTamisxx', id: 735643, title: 'Kitten mewing / young baby cat meowing', kind: 'calls', n: 6, max: 1.2 },
+  { key: 'cat_mew_kitten_e', user: 'lolamadeus', id: 196251, title: 'Kitten Meowing.wav', kind: 'calls', n: 6, max: 1.2 },
+  { key: 'cat_yowl_b',      user: 'HenKonen', id: 682082, title: 'Cat Yowl 5.wav', kind: 'calls', n: 3, max: 3 },
+  { key: 'cat_chirp_c',     user: 'dreamstobecome', id: 451250, title: 'cat chirp.wav', kind: 'calls', n: 4, max: 1.2 },
+  { key: 'cat_hiss_c',      user: 'ken788', id: 386738, title: 'Cat_Hissing.wav', kind: 'calls', n: 4, max: 2 },
+  { key: 'cat_hiss_d',      user: 'rickismyname', id: 819958, title: 'Cat hissing', kind: 'calls', n: 4, max: 2 },
+  { key: 'cat_purr_b',      user: 'Richard1052', id: 585775, title: 'Cat purr', kind: 'bed', len: 10, rms: -26 },
+  { key: 'cat_purr_c',      user: 'lextrack', id: 263778, title: 'Purr of a cat', kind: 'bed', len: 10, rms: -26 },
+  { key: 'cat_sneeze',      user: 'toby_spin', id: 877399, title: 'Kitten Sneeze', kind: 'calls', n: 2, max: 1 },
   // the CPhL's and Deadball's crowds. Recordings made at real games can carry PA music, an
   // announcer or a chant of a real club's name, which CC0 doesn't clear, so each is cut by hand
   // (`at`, `cuts`) from stretches measured clear of steady tones and single voices, and listened to
@@ -138,6 +165,19 @@ export const SOURCES = [
   { key: 'crowd_cheer', user: 'FlatHill', id: 324756, title: 'Sports Crowd Various Sounds', kind: 'calls', cuts: [[181.33, 3.8], [100.1, 3.8], [152.2, 3.8]] },
   { key: 'crowd_boo', user: 'TRP', id: 577098, title: 'Crowd, large outrage then booing reaction, hockey game, 2011.wav', kind: 'calls', cuts: [[17, 3.6], [20.6, 3.5], [26.39, 1.49]] },
   { key: 'crowd_boo_park', user: 'bowlingballout', id: 58596, title: 'baseball sounds.mp3', kind: 'calls', cuts: [[391.28, 1.66]] },
+  // the studio audience the TV's talk and game shows play (tv.js playCrowd): laughs, oohs, ahhs and boos
+  { key: 'studio_laugh_sitcom', user: 'Kinoton', id: 383207, title: 'Sitcom Laughter 9x, Small Audience', kind: 'calls', n: 9, max: 4 },
+  { key: 'studio_laugh_genuine', user: 'HowardV', id: 581528, title: 'live audience comedy show genuine laughter_moderate.wav', kind: 'shot', max: 5 },
+  { key: 'studio_laugh_small', user: 'cognito perceptu', id: 17121, title: 'small audience laughter.wav', kind: 'shot', max: 4 },
+  { key: 'studio_laugh_soft', user: 'FunWithSound', id: 588394, title: 'Laugh Crowd Soft.mp3', kind: 'shot', max: 4 },
+  { key: 'studio_laugh_brief', user: 'Nox_Sound', id: 752711, title: 'Voice_Crowd_Small_Expression_Laugh_Stereo', kind: 'shot', max: 3 },
+  { key: 'studio_ooh', user: 'CHallSmith', id: 870650, title: 'Group Ooh 1', kind: 'shot', max: 3 },
+  { key: 'studio_ooh_aah', user: 'CHallSmith', id: 870652, title: 'Group Ooh Aah', kind: 'shot', max: 4 },
+  { key: 'studio_oohs', user: 'noah0189', id: 264499, title: 'Crowd Ooohs and Ahhhs in Excitement', kind: 'shot', max: 4 },
+  { key: 'studio_aww', user: 'Nox_Sound', id: 752706, title: 'Voice_Crowd_Small_Expression_Awww_Stereo', kind: 'shot', max: 3 },
+  { key: 'studio_boo', user: 'HowardV', id: 264378, title: 'crowd booing', kind: 'shot', max: 4 },
+  { key: 'studio_boo_small', user: 'Nox_Sound', id: 752707, title: 'Voice_Crowd_Small_Expression_Boo_Stereo', kind: 'shot', max: 3 },
+  { key: 'studio_boo_big', user: 'NeoSpica', id: 504621, title: 'Booing Crowd', kind: 'shot', max: 4 },
 ];
 export const pageOf = (s) => `https://freesound.org/people/${s.user}/sounds/${s.id}/`;
 export const sampleId = (key) => `smp_field_${key}`;

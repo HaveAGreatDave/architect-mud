@@ -174,11 +174,15 @@ export function createRoomDof(gl, { phone = false } = {}) {
     // Resolve, find the focus, and draw the picture through the lens onto the canvas. `focus` pins it in metres;
     // `at` is where in the picture to focus, [0..1, 0..1] from the bottom left (the middle by default).
     // `band`, [near, far] in metres, holds everything between them sharp (the people round a table you sit at).
-    finish({ near, far, focus = 0, at = null, band = null, sharp = 0, strength = 1 }) {
+    // `grade`, if given, takes the resolved colour and depth and hands back a texture the lens reads in their
+    // colour's place (gl/room-post.js: the occlusion and the bloom), or null to read its own.
+    finish({ near, far, focus = 0, at = null, band = null, sharp = 0, strength = 1, grade = null }) {
       if (T.ms !== T.res) {
         gl.bindFramebuffer(gl.READ_FRAMEBUFFER, T.ms); gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, T.res);
         gl.blitFramebuffer(0, 0, W, H, 0, 0, W, H, gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT, gl.NEAREST);
       }
+      let src = T.col;
+      if (grade) { try { src = grade(T.col, T.dep, W, H) || T.col; } catch (err) { console.warn('[room] the post pass failed:', err && err.message); src = T.col; } }
       gl.disable(gl.DEPTH_TEST); gl.depthMask(false); gl.disable(gl.BLEND); gl.disable(gl.CULL_FACE);
       gl.bindVertexArray(vao);
       const now = performance.now(), dt = last ? Math.min(0.25, (now - last) / 1000) : 1;
@@ -198,7 +202,7 @@ export function createRoomDof(gl, { phone = false } = {}) {
       // 2. the lens, onto the canvas. The blur is sized to the picture's height, so it reads the same at any res.
       gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, W, H);
       gl.useProgram(LENS.p);
-      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, T.col);
+      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, src);
       gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, T.dep);
       gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, T.ft[0]);
       gl.uniform1i(LENS.u('uScene'), 0); gl.uniform1i(LENS.u('uDepth'), 1); gl.uniform1i(LENS.u('uFocus'), 2);

@@ -10,6 +10,10 @@
     "interactions": [
       "lean"
     ],
+    "spot": {
+      "along": -10.55,
+      "wall": "back"
+    },
     "wardrobe": true
   },
   "hp": null,

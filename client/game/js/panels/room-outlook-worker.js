@@ -8,7 +8,7 @@
 // ⚠ ONE FRAME AT A TIME. Each `frame` is answered with `painted`, and the page sends the next only then, so
 // this always paints the newest camera and never works through a backlog.
 
-import { eyeBase, viewOf } from './room-view.js';
+import { eyeBase, facadePaint, viewOf } from './room-view.js';
 
 const ID = 'room-outlook-canvas';
 const quiet = () => ({ add() {}, remove() {}, contains: () => false, toggle() {} });
@@ -47,11 +47,14 @@ function warm() {
   return warming;
 }
 
+// a balcony room's building's face, for the room to paint its outside with (room-view.js facadePaint)
+const paintOf = () => { try { return facadePaint(msg, base, G.modelFaceAt); } catch { return null; } };
+
 async function start(m) {
   msg = m.msg;
   await warm();
   base = eyeBase(msg, G.modelTopZAt);
-  self.postMessage({ type: 'ready', eye: base.z, eyeX: base.x, eyeY: base.y, fxK: G.viewLatFocal(1000, null) / 500, vfK: G.viewFocal(1000, 1) / 1000 });
+  self.postMessage({ type: 'ready', eye: base.z, eyeX: base.x, eyeY: base.y, paint: paintOf(), fxK: G.viewLatFocal(1000, null) / 500, vfK: G.viewFocal(1000, 1) / 1000 });
 }
 
 // ⚠ GLASS 2 COMES BACK HERE ON ITS OWN. A lost context (a GPU reset, the machine waking from sleep) makes GLASS switch
@@ -85,7 +88,7 @@ self.onmessage = (e) => {
     // the next room of the same building: the eye moves, the map stays (room-outlook.js `place`)
     else if (m.type === 'place') {
       msg = { ...msg, ...m.msg };
-      if (G) { base = eyeBase(msg, G.modelTopZAt); self.postMessage({ type: 'placed', eye: base.z, eyeX: base.x, eyeY: base.y }); }
+      if (G) { base = eyeBase(msg, G.modelTopZAt); self.postMessage({ type: 'placed', eye: base.z, eyeX: base.x, eyeY: base.y, paint: paintOf() }); }
     }
     else if (m.type === 'frame' && G && base) frame(m).catch((err) => self.postMessage({ type: 'failed', why: String(err?.message || err) }));
     // for a harness: what the worker last painted, whether or not the page is presenting frames

@@ -14,7 +14,7 @@
 //   doorcam               one frame from the camera over the door
 //   shutters [up|down|<scene>]   the digital shutters over a glass wall, and the scene they show
 import { emit } from '../../server/engine/events.js';
-import { SCENES, BLINDS_KIND, scenesOf, findScene, paintOf, hexOf, colourName } from './scenes.js';
+import { SCENES, BLINDS_KIND, DRAPES_KIND, scenesOf, findScene, paintOf, hexOf, colourName } from './scenes.js';
 import { getZone, getZoneFurniture, getFurnitureById, updateFurniture } from '../../server/engine/world.js';
 import { zoneOwnerId } from '../../server/engine/zone-filth.js';
 import { getZonePowerStatus, getZoneTemperature, registerHeatSource, recalcZoneLoad, recomputePower, syncZoneLighting } from '../../server/engine/environment.js';
@@ -110,14 +110,18 @@ async function doorFrame(panel) {
 // a scene needs a wall of glass to show on.
 const DEFAULT_LEVEL = 50;
 const curtainOf = (panel) => { const g = getZone(panel.zone_id)?.flags?.room?.glass; return Array.isArray(g) && g.length > 0; };
-const sashBlinds = (panel) => { const r = getZone(panel.zone_id)?.flags?.room; return !!r && r.blinds === true && !r.windowless && !curtainOf(panel); };
+// a sash window's drapes (`flags.room.sash.drapes`) can be drawn from the panel too, blinds or not
+const sashDrapes = (panel) => { const r = getZone(panel.zone_id)?.flags?.room; return !!r && !r.windowless && !curtainOf(panel) && /^#[0-9a-f]{6}$/i.test(r.sash?.drapes || ''); };
+const sashBlinds = (panel) => { const r = getZone(panel.zone_id)?.flags?.room; return (!!r && r.blinds === true && !r.windowless && !curtainOf(panel)) || sashDrapes(panel); };
 const hasGlass = (panel) => curtainOf(panel) || sashBlinds(panel);
 const isBlinds = (scene) => SCENES[scene]?.kind === BLINDS_KIND;
+const isDrapes = (scene) => SCENES[scene]?.kind === DRAPES_KIND;
 const offeredOf = (panel) => {
   const all = scenesOf(cfg(panel));
   if (!sashBlinds(panel)) return all;
-  const own = all.filter(isBlinds);
-  return own.length ? own : Object.keys(SCENES).filter(isBlinds);
+  const r = getZone(panel.zone_id)?.flags?.room || {};
+  const own = all.filter(isBlinds), blinds = r.blinds === true ? (own.length ? own : Object.keys(SCENES).filter(isBlinds)) : [];
+  return [...blinds, ...(sashDrapes(panel) ? Object.keys(SCENES).filter(isDrapes) : [])];
 };
 const levelOf = (n) => Math.max(0, Math.min(100, Math.round(Number(n) / 5) * 5));
 function shutOf(panel) {
@@ -152,7 +156,7 @@ function summary(s) {
   const lit = s.lights.filter((l) => l.on).length;
   const climate = s.climate.target == null ? 'climate off' : `holding ${s.climate.target}°C`;
   const cam = s.cam.frame ? `door camera: ${s.cam.frame}` : `door camera: ${s.cam.status === 'none' ? 'not fitted' : 'NO SIGNAL'}`;
-  const shut = !s.shutters?.down ? '' : isBlinds(s.shutters.scene) ? ` · blinds drawn, ${s.shutters.level}% light` : ` · shutters down: ${SCENES[s.shutters.scene].name}`;
+  const shut = !s.shutters?.down ? '' : isDrapes(s.shutters.scene) ? ' · curtains drawn' : isBlinds(s.shutters.scene) ? ` · blinds drawn, ${s.shutters.level}% light` : ` · shutters down: ${SCENES[s.shutters.scene].name}`;
   return `${s.name}: lights ${lit}/${s.lights.length} on · ${s.climate.now}°C, ${climate}${shut}${s.power === 'unpowered' ? ' · NO POWER' : ''}\n${cam}`;
 }
 // Every verb answers with the panel's whole state, so the screen redraws from the answer.
@@ -306,19 +310,22 @@ async function cmdShutters(args, raw, player, broadcast) {
     if (!scene) return usage;
     down = true;
   }
-  const blinds = isBlinds(scene), name = SCENES[scene].name;
+  const blinds = isBlinds(scene), drapes = isDrapes(scene), name = SCENES[scene].name;
   const recoloured = colour !== was.colour, cname = colourName(paintOf(blindsId || scene, colour).b);
   if (down === was.down && scene === was.scene && (!blinds || (level === was.level && !recoloured))) {
-    if (!down) return reply(panel, 'The shutters are already up.');
+    if (!down) return reply(panel, sashBlinds(panel) ? 'The window is already clear.' : 'The shutters are already up.');
+    if (drapes) return reply(panel, 'The curtains are already drawn.');
     return reply(panel, blinds ? `The blinds are already drawn, letting in ${level}% of the light.` : `The shutters are already down, showing ${name}.`);
   }
   if (!powered(panel.zone_id)) return reply(panel, 'The shutter controls are greyed out. No power reaches the flat.');
   await updateFurniture(panel.id, { flags: JSON.stringify({ ...panel.flags, envctl: { ...cfg(panel), shutters: { down, scene, level, colour } } }) });
   panel = panelFor(player.current_zone) || panel;
   emit('room.glassChanged', { zoneId: panel.zone_id, glass: glassOf(panel) });
-  const wasBlinds = was.down && isBlinds(was.scene);
+  const wasBlinds = was.down && isBlinds(was.scene), wasDrapes = was.down && isDrapes(was.scene);
   let mine, seen;
-  if (!down && wasBlinds) { mine = 'You draw the blinds back.'; seen = 'The blinds are drawn back from the glass.'; }
+  if (!down && wasDrapes) { mine = 'You open the curtains and tie them back.'; seen = 'The curtains are opened.'; }
+  else if (drapes) { mine = wasBlinds ? 'You draw the blinds back and pull the curtains across.' : 'You draw the curtains across the window.'; seen = 'The curtains are drawn across the window.'; }
+  else if (!down && wasBlinds) { mine = 'You draw the blinds back.'; seen = 'The blinds are drawn back from the glass.'; }
   else if (!down) { mine = 'You raise the shutters. The slats fold away into the head of the glass.'; seen = 'The shutters over the glass go up.'; }
   else if (blinds && wasBlinds && recoloured) { mine = `You change the blinds to ${cname}.`; seen = `The blinds change to ${cname}.`; }
   else if (blinds && wasBlinds) { mine = level ? `You turn the blinds to let in ${level}% of the light.` : 'You turn the blinds shut.'; seen = 'The blinds turn.'; }
@@ -346,14 +353,28 @@ async function cmdBlinds(args, raw, player, broadcast) {
   return cmdShutters(to, raw, player, broadcast);
 }
 
-export const commands = { panel: cmdPanel, lights: cmdLights, dim: cmdDim, thermostat: cmdThermostat, doorcam: cmdDoorcam, shutters: cmdShutters, blinds: cmdBlinds };
+// `curtains` draws a sash window's drapes: bare toggles them, `close` or `draw` pulls them across, `open` ties them back.
+async function cmdCurtains(args, raw, player, broadcast) {
+  const panel = panelFor(player.current_zone);
+  if (!panel) return noPanel;
+  if (!hasGlass(panel) || !offeredOf(panel).some(isDrapes)) return reply(panel, 'There are no curtains here.');
+  const w = String(args[0] || '').toLowerCase(), s = shutOf(panel), drawn = s.down && isDrapes(s.scene);
+  let to;
+  if (!w) to = drawn ? ['up'] : ['curtains'];
+  else if (UP.has(w)) to = ['up'];
+  else if (DOWN.has(w) || w === 'draw') to = ['curtains'];
+  else return { type: 'error', message: 'Usage: curtains [open|close]' };
+  return cmdShutters(to, raw, player, broadcast);
+}
+
+export const commands = { panel: cmdPanel, lights: cmdLights, dim: cmdDim, thermostat: cmdThermostat, doorcam: cmdDoorcam, shutters: cmdShutters, blinds: cmdBlinds, curtains: cmdCurtains };
 
 export const hooks = {
   // the Room Stage's card: the screen first, so a click on the panel opens it
   // (a sash window's line is Blinds: it has nothing else)
-  'furniture.acts': (f) => (isPanel(f) ? [{ verb: 'panel', bare: true }, { verb: 'lights', bare: true }, { verb: 'doorcam', bare: true }, ...(hasGlass(f) ? [{ verb: sashBlinds(f) ? 'blinds' : 'shutters', bare: true }] : [])] : undefined),
+  'furniture.acts': (f) => (isPanel(f) ? [{ verb: 'panel', bare: true }, { verb: 'lights', bare: true }, { verb: 'doorcam', bare: true }, ...(hasGlass(f) && offeredOf(f).some((id) => !isDrapes(id)) ? [{ verb: sashBlinds(f) ? 'blinds' : 'shutters', bare: true }] : []), ...(hasGlass(f) && offeredOf(f).some(isDrapes) ? [{ verb: 'curtains', bare: true }] : [])] : undefined),
   // ⚠ SYNC: the Room Stage gathers it building `room_view`. The glass of a room whose panel runs it.
   'room.glass': (zoneId) => { const p = panelIn(zoneId); return p ? glassOf(p) ?? undefined : undefined; },
 };
 
-export const _test = { isPanel, panelFor, annexOf, lightsOf, heldAt, targetOf, limits, ramps, stateOf, RAMP_C_PER_MIN, hasGlass, sashBlinds, offeredOf, shutOf, glassOf, levelOf };
+export const _test = { isPanel, panelFor, annexOf, lightsOf, heldAt, targetOf, limits, ramps, stateOf, RAMP_C_PER_MIN, hasGlass, sashBlinds, sashDrapes, offeredOf, shutOf, glassOf, levelOf };

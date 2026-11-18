@@ -20,6 +20,8 @@ import { state } from '../state.js';
 import { makeCornerResizable } from './corner-resize.js';
 import { createTvDesk } from './tv-desk.js';
 import { createTvStage, stageWanted, rememberStage } from './tv-stage.js';
+import { isCameraLine } from '../../../shared/sequence.js';
+import { FIELD } from '../../../shared/field-recordings.js';
 
 // The two sports sub-screens (gameday.js, gameday-rink.js) are about 209 KB, and they
 // were in the boot download for every player. They load on the first sports broadcast
@@ -31,6 +33,13 @@ function loadGamedayViews() {
   return (_gamedayViews ??= Promise.all([import('./gameday-grandstand.js'), import('./gameday-rink.js')])
     .then(([g, r]) => ({ createGrandstandView: g.createGrandstandView, createRinkView: r.createRinkView, warmGrandstand: g.warmGrandstand }))
     .catch((err) => { _gamedayViews = null; throw err; }));   // a failed fetch retries next time
+}
+// The holding picture (tv-hold.js) the Gameday box shows while its view loads and until the game's
+// first play: the broadcast already on air over the venue, never a loading screen. It's small, so it's
+// up long before the views arrive.
+let _holdMod = null;
+function loadHold() {
+  return (_holdMod ??= import('./tv-hold.js').catch((err) => { _holdMod = null; throw err; }));
 }
 
 // Render an NPC say line in screenplay style: the speaker's name (in the TV
@@ -106,8 +115,10 @@ function packageStingDef(key, fm) {
 const CROWD_WORDS = [
   [/applau|clap|cheer|ovation|erupt|whoop|goes up|breaks|\brises\b|\bstands\b/i, 'applause'],
   [/laugh|chuckl|giggl|loses it|howl|\bHA!/i, 'laugh'],
-  [/groan|\bboos?\b|jeer|a+ww+/i, 'groan'],
-  [/gasp|o{3,}h|wince/i, 'gasp'],
+  [/\bboo(?:s|ing|ed)?\b|jeer|hiss/i, 'boo'],
+  [/groan|a+ww+|sympath/i, 'groan'],
+  [/\bo+h+s?\b|\ba+h+s?\b|impressed|\bwow|marvel/i, 'ooh'],
+  [/gasp|wince/i, 'gasp'],
   [/murmur|mutter|whisper|\byells\b|\bshouts\b/i, 'murmur'],
 ];
 // `sweep` slides the band ({ to, time }), since noise has no pitch to bend.
@@ -129,6 +140,8 @@ const CROWD_DEFS = {
     crowdNoise(560, 5, 0.55, { a: 0.12, d: 0.4, s: 0.6, r: 0.6 }, { sweep: { to: 380, time: 1.1 } }),
     crowdNoise(900, 5, 0.3, { a: 0.15, d: 0.4, s: 0.5, r: 0.5 }, { sweep: { to: 620, time: 1.1 } }),
   ] }),
+  boo: () => CROWD_DEFS.groan(),
+  ooh: () => CROWD_DEFS.gasp(),
   gasp: () => ({ duration: 0.7, layers: [
     crowdNoise(1100, 1.2, 0.4, { a: 0.04, d: 0.15, s: 0.4, r: 0.3 }, { sweep: { to: 1700, time: 0.15 } }),
     crowdNoise(650, 4, 0.3, { a: 0.06, d: 0.15, s: 0.35, r: 0.3 }, { sweep: { to: 880, time: 0.2 } }),
@@ -139,6 +152,36 @@ const CROWD_DEFS = {
   ] }),
 };
 const CROWD_BIG = /big|roar|loses it|erupt|harder|absolutely|ovation|wave/i;
+// The studio audience is real people: CC0 recordings (scripts/audio/build-field-recordings.mjs, the studio_*
+// rows), a few of each kind so the same laugh doesn't come round twice running. The synth above stands in for
+// a kind with no recording (applause) and for one that hasn't loaded yet.
+const CROWD_SAMPLES = {
+  laugh: { small: ['studio_laugh_small', 'studio_laugh_soft', 'studio_laugh_brief', 'studio_laugh_sitcom'], big: ['studio_laugh_genuine', 'studio_laugh_sitcom', 'studio_laugh_small'] },
+  ooh: { small: ['studio_ooh', 'studio_ooh_aah', 'studio_oohs'] },
+  gasp: { small: ['studio_ooh'] },
+  groan: { small: ['studio_aww'] },
+  boo: { small: ['studio_boo_small', 'studio_boo'], big: ['studio_boo_big', 'studio_boo'] },
+};
+const _crowdLast = {};
+let _crowdLoaded = false;
+function crowdSample(kind, big) {
+  const pool = CROWD_SAMPLES[kind], ae = window.AudioEngine;
+  if (!pool) return null;
+  if (!_crowdLoaded && ae?.preloadSamples) {
+    _crowdLoaded = true;
+    const keys = new Set(Object.values(CROWD_SAMPLES).flatMap((p) => [...p.small, ...(p.big || [])]));
+    ae.preloadSamples([...keys].map((k) => FIELD[k]?.id).filter(Boolean));
+  }
+  const slices = ((big && pool.big) || pool.small)
+    .flatMap((k) => (FIELD[k]?.slices || []).map((s) => ({ id: FIELD[k].id, s })))
+    .filter((x) => ae?.sampleReady?.(x.id));
+  if (!slices.length) return null;
+  let i = Math.floor(Math.random() * slices.length);
+  if (slices.length > 1 && slices[i].s === _crowdLast[kind]) i = (i + 1) % slices.length;
+  const { id, s: [offset, length] } = slices[i];
+  _crowdLast[kind] = slices[i].s;
+  return { duration: length + 0.1, layers: [{ sample: id, offset, length, gain: big ? 0.9 : 0.7, rate: 0.95 + Math.random() * 0.1, adsr: { a: 0.04, r: 0.4 } }] };
+}
 function playCrowd(text) {
   const ae = window.AudioEngine;
   if (!ae?.playSfx) return;
@@ -150,11 +193,15 @@ function playCrowd(text) {
   }
   hits.sort((a, b) => a.at - b.at);
   const big = CROWD_BIG.test(plain);
-  hits.slice(0, 2).forEach((h, i) => {
-    const config = CROWD_DEFS[h.kind](big);
+  // the second reaction comes in as the first one tails off
+  let at = 0;
+  hits.slice(0, 2).forEach((h) => {
+    const config = crowdSample(h.kind, big) || CROWD_DEFS[h.kind](big);
     const fire = () => { try { ae.playSfx({ id: `tv_crowd_${h.kind}`, category: 'tv', priority: 3, config }); } catch { /* no audio */ } };
-    if (i) setTimeout(fire, 1100); else fire();
+    if (at) setTimeout(fire, at); else fire();
+    at += Math.max(700, Math.min(2200, (config.duration || 1.5) * 650));
   });
+  return hits.length > 0;
 }
 
 const MAX_TV_HISTORY = 200;
@@ -243,6 +290,10 @@ export function createTvView(root, opts = {}) {
   let _gamedayOpen = false;
   let _gamedayDismissed = false;   // the viewer shut it this broadcast; don't reopen it on the next play
   let _lastGameday = null;
+  // The holding picture up in the Gameday box (tv-hold.js), whether this game's view has said it's
+  // live, and what its graphics are made from: the pregame open, the last league table and the venue
+  // the arrival named (only the arrival carries it).
+  let _hold = null, _holdLive = false, _holdLoading = false, _lastPregame = null, _lastTable = null, _holdVenue = '';
   let _scheduleOpen = false;
   let _scheduleTimer = null;
   let _standingsPanelOpen = false;
@@ -387,9 +438,10 @@ export function createTvView(root, opts = {}) {
     // so the queue drains immediately instead of stalling forever on a dead voice.
     // `dl` is the line's delivery from the broadcast, when it has one: `excite` (how hard the
     // booth is selling it, a goal call or a death), `lex` (how to say the names in it) and
-    // `voice` (the booth's own voice). See AudioEngine.speak().
+    // `voice` (the booth's own voice). See AudioEngine.speak(). `vary`: on air, a voice
+    // performs, so its pitch, range and pace move from line to line.
     const trace = _desk?.open || _stage?.open ? [] : null;
-    const res = window.AudioEngine?.speak(item.speech, { seed: item.seed, budget: item.budget, ...(item.dl || null), ...(trace ? { trace } : {}) });
+    const res = window.AudioEngine?.speak(item.speech, { seed: item.seed, budget: item.budget, vary: 1, ...(item.dl || null), ...(trace ? { trace } : {}) });
     if (trace && res) { _desk?.voice(item.seed, trace, res); _stage?.voice(item.seed, trace, res); }
     const spoke = !!(res && res.duration > 0);
     // The authority on whether there is a voice to wait for. If the engine produced
@@ -759,6 +811,8 @@ export function createTvView(root, opts = {}) {
 
   function close() {
     if (_speechOwner === view) { window.AudioEngine?.cancelSpeech('tv'); _clearSpeech(); _speechOwner = null; }
+    // a set shut while it's full screen leaves the screen with it, not a black one behind
+    { const d = root?.ownerDocument; if (d?.fullscreenElement && root.contains(d.fullscreenElement)) d.exitFullscreen?.().catch(() => {}); }
     _tvOpen = false;
     _tvShuttingDown = false;
     _tvPoweredOff = false;
@@ -871,7 +925,10 @@ export function createTvView(root, opts = {}) {
     // warmGrandstand). Only on the visual rung, where the game opens by itself.
     if (overlay && overlay.overlayType === 'warm') {
       const rung = state.player?.displayRung;
-      if (!rung || rung === 'visual') loadGamedayViews().then((v) => (overlay.sport === 'hockey' ? null : v.warmGrandstand?.(window))).catch(() => { /* the game loads them itself */ });
+      if (!rung || rung === 'visual') {
+        loadHold().catch(() => { /* the box opens without it */ });
+        loadGamedayViews().then((v) => (overlay.sport === 'hockey' ? null : v.warmGrandstand?.(window))).catch(() => { /* the game loads them itself */ });
+      }
       return;
     }
     if (overlay && overlay.overlayType === 'gameday') { if (overlay.phase !== 'arrive' && packageUp()) _clearSportsFx(); _handleGameday(overlay); return; }
@@ -1018,6 +1075,7 @@ export function createTvView(root, opts = {}) {
     if (!host) return;
     const prev = _lastScorebug;
     _lastScorebug = sb;
+    _hold?.update(_holdInfo());
     const away = _esc(sb.awayAbbr || sb.away || 'AWY');
     const home = _esc(sb.homeAbbr || sb.home || 'HOM');
     const aScore = Number.isFinite(sb.awayScore) ? sb.awayScore : 0;
@@ -1045,13 +1103,28 @@ export function createTvView(root, opts = {}) {
     // A bug that carries the box (`pp`, hockey-narrator.js ppOf) names the club with the extra
     // man and the time it has at the bug's clock; the beat's own `strength` is the attacking
     // side's and flips PP to SH with the puck, so then it only says an empty net.
-    let strength = '';
+    let strength = '', boxLine = '';
+    // which row has the extra man and which is short: each club's row says so itself
+    // ('PP' and 'SH'), so nobody has to work out from an abbreviation whose power play it is
+    const manTag = { away: '', home: '' };
+    const clock = (s) => { const t = Math.max(0, Math.ceil(s)); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; };
     if (sb.pp && sb.pp.left > 0) {
       const p = sb.pp, men = `${Math.max(p.away, p.home)}-ON-${Math.min(p.away, p.home)}`;
-      const t = Math.ceil(p.left), time = `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
-      const what = !p.team ? men : Math.abs(p.away - p.home) > 1 ? `${p.abbr || ''} ${men}` : `${p.abbr || ''} PP`;
-      strength = `<div class="tv-sb-strength ${p.team ? 'pp' : 'even'}">${_esc(what.trim())} ${time}</div>`;
+      if (p.team) {
+        manTag[p.team] = `<span class="tv-sb-man pp" title="Power play">PP</span>`;
+        manTag[p.team === 'away' ? 'home' : 'away'] = `<span class="tv-sb-man sh" title="Shorthanded">SH</span>`;
+      }
+      strength = `<div class="tv-sb-strength ${p.team ? 'pp' : 'even'}">${_esc(men)} ${clock(p.left)}</div>`;
+      // who is in the box and how long each has left (the bug's clock; the rink counts it down)
+      const men2 = [...(p.box?.away || []).map((m) => ({ ...m, team: sb.away })), ...(p.box?.home || []).map((m) => ({ ...m, team: sb.home }))]
+        .filter((m) => m.left > 0).sort((x, y) => x.left - y.left);
+      if (men2.length) {
+        boxLine = `<div class="tv-sb-box" aria-label="penalty box"><i>BOX</i>` +
+          men2.map((m) => `<span>${_crest(m.team, 12, 'tv-sb-crest')}${_esc(String(m.name).split(' ').pop().toUpperCase())} <b>${clock(m.left)}</b></span>`).join('') + `</div>`;
+      }
     }
+    // a delayed penalty (sim v9): the arm is up on that club and play goes on until it touches the puck
+    if (sb.delayed) strength += `<div class="tv-sb-strength delayed" title="Delayed penalty">DELAYED · ${_esc(sb.delayed)}</div>`;
     if (sb.strength === 'en' || (!sb.pp && sb.strength)) {
       const label = { pp: 'PP', sh: 'SH', en: 'EN' }[sb.strength] || String(sb.strength).toUpperCase();
       strength += `<div class="tv-sb-strength ${_esc(sb.strength)}">${_esc(label)}</div>`;
@@ -1082,17 +1155,17 @@ export function createTvView(root, opts = {}) {
       ? `<span class="tv-sb-half ${half[1].toLowerCase()}" aria-label="${half[1].toUpperCase() === 'TOP' ? 'top' : 'bottom'}"></span>${_esc(half[2])}`
       : _esc(sb.status || '');
     const sport = sb.sport === 'hockey' ? 'hockey' : 'baseball';
-    const row = (name, abbr, score, lead, bump) =>
+    const row = (name, abbr, score, lead, bump, man = '') =>
       `<div class="tv-sb-row ${lead ? 'lead' : ''}"><span class="tv-sb-chip" style="--chip:${_teamColour(name, sport)}"></span>` +
-      `${_crest(name, 16, 'tv-sb-crest')}<span class="tv-sb-team">${abbr}</span><span class="tv-sb-num${bump}">${score}</span></div>`;
+      `${_crest(name, 16, 'tv-sb-crest')}<span class="tv-sb-team">${abbr}</span>${man}<span class="tv-sb-num${bump}">${score}</span></div>`;
     const tag = _networkTag();
     host.classList.toggle('tv-sb-net', !!tag);
     host.innerHTML =
       (tag ? `<div class="tv-sb-top">${tag}${brand}</div>` : brand) +
       `<div class="tv-sb-body">` +
-        `<div class="tv-sb-scores">` + row(sb.away, away, aScore, aLead, aBump) + row(sb.home, home, hScore, hLead, hBump) + `</div>` +
+        `<div class="tv-sb-scores">` + row(sb.away, away, aScore, aLead, aBump, manTag.away) + row(sb.home, home, hScore, hLead, hBump, manTag.home) + `</div>` +
         `<div class="tv-sb-state">${diamond}${strength}${rivalChip}<div class="tv-sb-status">${status}</div>${outs}${sog}</div>` +
-      `</div>`;
+      `</div>` + boxLine;
     host.classList.add('on');
     // A score-bug means a game is on air — that's when the standings button is worth
     // offering. Same reveal pattern as the Gameday toggle.
@@ -1144,7 +1217,16 @@ export function createTvView(root, opts = {}) {
     _gamedayBox = document.createElement('div');
     _gamedayBox.style.display = 'contents';
     hostEl.appendChild(_gamedayBox);
-    _gamedayView = want === 'hockey' ? createRinkView(_gamedayBox, { commentary: _commentary, ...opts.gameday }) : createGrandstandView(_gamedayBox, { station: _networkLabel() || _stationName, commentary: _commentary, ...opts.gameday });
+    // a new view has a load ahead of it: the holding picture covers it (and stands in for the view's
+    // own "waiting for" veil) until the view says its game is live
+    _holdLive = false;
+    _showHold();
+    const live = { holding: true, onLive: _holdDone };
+    // The view's full-screen button takes the whole set, so its buttons (3D, Gameday, the guide,
+    // the channels) are still there to press. Not the wall's: that set is a page painted into ROOM.
+    // (the tablet hands over the set itself as the root)
+    const fullscreen = chassis === 'wall' ? null : root?.matches?.('[data-tv="window"]') ? root : el('window');
+    _gamedayView = want === 'hockey' ? createRinkView(_gamedayBox, { commentary: _commentary, fullscreen, ...live, ...opts.gameday }) : createGrandstandView(_gamedayBox, { station: _networkLabel() || _stationName, commentary: _commentary, fullscreen, ...live, ...opts.gameday });
     return _gamedayView;
   }
   // Take the mounted view out of the page and keep it for its sport's next game.
@@ -1162,6 +1244,58 @@ export function createTvView(root, opts = {}) {
     _parkGameday();
     for (const k of Object.keys(_parkedViews)) { try { _parkedViews[k].view.clear(); } catch { /* gone */ } delete _parkedViews[k]; }
   }
+
+  // ── the holding picture ──
+  // Up from the moment the box opens on a game whose view hasn't drawn yet, to the view's first play
+  // (its `onLive`). Everything on it is what this set already knows: the arrival, the score-bug, the
+  // pregame open and the last table.
+  function _holdInfo() {
+    const gd = _lastGameday || {}, sb = _lastScorebug;
+    const sport = (gd.sport || sb?.sport) === 'hockey' ? 'hockey' : 'baseball', hockey = sport === 'hockey';
+    const awayName = sb?.away || gd.awayTeam || gd.away || '', homeName = sb?.home || gd.homeTeam || gd.home || '';
+    // the open's records only if they're for this game
+    const pg = _lastPregame && _lastPregame.away?.name === awayName && _lastPregame.home?.name === homeName ? _lastPregame : null;
+    const side = (name, t) => ({ name, record: t?.record || '', rank: t?.rank || 0, colour: _teamColour(name, sport), crest: _crest(name, 40) });
+    const tbl = _lastTable?.sport === sport ? _lastTable : null;
+    const started = !!sb && !/^pre/i.test(String(sb.status || ''));
+    return {
+      sport,
+      away: side(awayName, pg?.away), home: side(homeName, pg?.home),
+      venue: gd.venue || _holdVenue || '',
+      net: _networkTag(),
+      brand: hockey ? `${cphlMark('16px')}${pg?.show ? `<span>${_esc(pg.show)}</span>` : ''}` : '',
+      show: pg?.show || '',
+      kickoff: hockey ? 'Puck drop coming up' : 'First pitch coming up',
+      score: started ? { away: sb.awayScore | 0, home: sb.homeScore | 0, status: sb.status || '' } : null,
+      rowsTitle: tbl ? String(tbl.title || 'Standings').replace(/^.*:\s*/, '') : '',
+      rows: (tbl?.rows || []).map((r) => ({
+        rank: r.rank, team: r.team, colour: _teamColour(r.team, sport),
+        rec: hockey ? `${r.wins}-${r.losses}-${r.otl || 0}` : `${r.wins}-${r.losses}`,
+        tail: hockey ? `${r.points || 0} pts` : `${r.rd > 0 ? '+' : ''}${r.rd || 0}`,
+      })),
+    };
+  }
+  function _showHold() {
+    if (_holdLive || !_gamedayOpen) return;
+    const host = el('gameday');
+    if (!host) return;
+    const info = _holdInfo();
+    // a different sport's picture (a hockey game after a ballgame on the same channel) goes first
+    if (_hold && _hold.kind !== (info.sport === 'hockey' ? 'rink' : 'park')) _dropHold();
+    if (_hold) { _hold.update(info); return; }
+    if (_holdLoading) return;
+    _holdLoading = true;
+    loadHold().then((m) => {
+      _holdLoading = false;
+      const box = el('gameday');
+      if (_hold || _holdLive || !_gamedayOpen || !box) return;
+      const fresh = _lastSpoken && performance.now() - _lastSpoken.at < 15000;
+      _hold = m.createHold(box, { ..._holdInfo(), line: fresh ? _lastSpoken.text : '' });
+    }).catch((err) => { _holdLoading = false; console.warn('[tv] the holding picture failed to load:', err?.message); });
+  }
+  // the view's first play: the game is live, so the picture fades and goes
+  function _holdDone() { _holdLive = true; _hold?.live(); _hold = null; }
+  function _dropHold() { _hold?.dispose(); _hold = null; }
 
   // ONE 3D BUTTON. The 3D button is the way into every 3-D picture the TV has: during a game it
   // opens that sport's view (Cluster Puck's rink, Deadball's park), and for any other programme it
@@ -1225,6 +1359,8 @@ export function createTvView(root, opts = {}) {
 
   function _handleGameday(gd) {
     _lastGameday = gd;
+    if (gd.venue) _holdVenue = gd.venue;
+    _hold?.update(_holdInfo());
     _stage?.close(); _stageKey = '';
     _paintStageBtn();
     loadGamedayViews().catch(() => { /* retried when the button is pressed */ });
@@ -1233,7 +1369,12 @@ export function createTvView(root, opts = {}) {
     if (!_gamedayOpen && !_gamedayDismissed && _tvOpen && (!rung || rung === 'visual')) { _toggleGameday(); return; }
     if (_gamedayOpen) {
       _gamedayViewFor(gd, el('gameday'))
-        .then((view) => { if (view && _gamedayOpen && _lastGameday === gd) view.apply(gd); })
+        .then((view) => {
+          if (!view || !_gamedayOpen || _lastGameday !== gd) return;
+          view.apply(gd);
+          // the 2-D Gameday never says it's live: its first payload is
+          if (!view.tellsLive) _holdDone();
+        })
         .catch((err) => console.error('[tv] gameday view failed to load:', err));
     }
   }
@@ -1247,12 +1388,14 @@ export function createTvView(root, opts = {}) {
     host.classList.toggle('on', _gamedayOpen);
     btn?.classList.toggle('on', _gamedayOpen);
     _paintStageBtn();
+    if (!_gamedayOpen) _dropHold();   // shut before its game was live: it comes up again on the next open
     if (_gamedayOpen) {
       const gd = _lastGameday;
+      _showHold();
       _gamedayViewFor(gd, host).then((view) => {
         // closed again while the views loaded, or a newer payload came, whose own call mounts its sport
         if (!view || !_gamedayOpen || _lastGameday !== gd) return;
-        if (gd) view.apply(gd);
+        if (gd) { view.apply(gd); if (!view.tellsLive) _holdDone(); }
         else view.showIdle();   // opened before a play arrived — never blank
       }).catch((err) => {
         // A failed chunk (a deploy mid-session, a dropped connection) must not leave
@@ -1268,6 +1411,7 @@ export function createTvView(root, opts = {}) {
     _gamedayOpen = false;
     _gamedayDismissed = false;
     _lastGameday = null;
+    _dropHold(); _holdLive = false;
     _parkGameday();   // a channel change: the next sport takes its own view back, if it has one
     _desk?.close();
     _stage?.close(); _stageKey = '';
@@ -1511,6 +1655,8 @@ export function createTvView(root, opts = {}) {
   // sports broadcast. Its own container (top-left) so it coexists with the persistent
   // score-bug, and it auto-dismisses on a timer (the server flashes it, doesn't hold it).
   function _applyStandingsBug(sb) {
+    // the holding picture's crawl reads the last table, open or not
+    if (Array.isArray(sb?.rows) && sb.rows.length) { _lastTable = { sport: sb.sport === 'hockey' ? 'hockey' : 'baseball', rows: sb.rows, title: sb.title }; _hold?.update(_holdInfo()); }
     // While the Gameday sub-screen is open it carries its own persistent standings
     // dock (rides the gameday payload), so the full-screen flash would only collide.
     if (_gamedayOpen) return;
@@ -1677,6 +1823,33 @@ export function createTvView(root, opts = {}) {
           `<div class="tv-fx-fight-names"><span class="win">${_esc(fx.winner)}</span><span class="vs">def.</span><span class="lose">${_esc(fx.loser)}</span></div>` +
           `<div class="tv-fx-fight-sub">Five for the loser · ${_esc(fx.team)} on the power play</div>` +
         `</div>`;
+    } else if (fx.kind === 'hockeypenalty') {
+      // A penalty: the arm going up (a delayed call, play still on), the call made with his time
+      // in the box and who gets the power play, or a goal wiping it out.
+      const mins = Number(fx.minutes) || 2;
+      const title = fx.phase === 'delayed' ? 'DELAYED PENALTY' : fx.phase === 'waived' ? 'PENALTY WIPED OUT' : mins >= 5 ? 'MAJOR PENALTY' : 'PENALTY';
+      const sub = fx.phase === 'delayed' ? `${fx.benefit} play on with the extra man`
+        : fx.phase === 'waived' ? 'The goal cancels the call'
+        : `${fx.benefit} on the power play · ${fx.team} shorthanded`;
+      inner =
+        `<div class="tv-fx-pen ${_esc(fx.phase || 'called')}">` +
+          `<div class="tv-fx-brand">${_crest(fx.team, 56, 'tv-fx-club') || cphlMark('26px')}</div>` +
+          `<div class="tv-fx-pen-title">${title}</div>` +
+          `<div class="tv-fx-pen-who"><span class="nm">${_esc(fx.player)}</span><span class="inf">${_esc(fx.infraction)}</span>` +
+            (fx.phase === 'waived' ? '' : `<span class="min">${mins}:00</span>`) + `</div>` +
+          `<div class="tv-fx-pen-sub">${_esc(sub)}</div>` +
+        `</div>`;
+    } else if (fx.kind === 'hockeyinjury') {
+      // A man carried off. Out for the game, and nobody comes on in his place.
+      const left = Number.isFinite(fx.remaining) ? `${fx.team} down to ${fx.remaining} skater${fx.remaining === 1 ? '' : 's'}, no replacement` : `${fx.team} play a man short`;
+      inner =
+        `<div class="tv-fx-inj">` +
+          `<div class="tv-fx-brand">${_crest(fx.team, 56, 'tv-fx-club') || cphlMark('26px')}</div>` +
+          `<div class="tv-fx-inj-title">INJURY</div>` +
+          `<div class="tv-fx-inj-name">${_esc(fx.player)}</div>` +
+          (fx.wound ? `<div class="tv-fx-inj-wound">${_esc(fx.wound)}</div>` : '') +
+          `<div class="tv-fx-inj-sub">Out for the game · ${_esc(left)}</div>` +
+        `</div>`;
     } else if (fx.kind === 'hockeydeath') {
       // Sudden death, literally. Deliberately the quietest card on the channel —
       // no rays, no bounce; the league does not celebrate this, it just continues.
@@ -1758,10 +1931,10 @@ export function createTvView(root, opts = {}) {
     // every card goes up under the network's tag, as everything on a sports desk does
     const tag = _networkTag();
     host.innerHTML = (tag ? `<div class="tv-fx-net">${tag}</div>` : '') + inner;
-    host.className = `tv-fx-host on fx-${fx.kind}`;
+    host.className = `tv-fx-host on fx-${fx.kind}`; _stage?.split(false);
     _pregameUp = false;
     if (_fxTimer) clearTimeout(_fxTimer);
-    _fxTimer = setTimeout(_clearSportsFx, (fx.duration || 3.5) * 1000);
+    _fxTimer = setTimeout(_clearSportsFx, (fx.duration || fx.show || 3.5) * 1000);
   }
 
   // ── the pregame open ──────────────────────────────────────────────────────
@@ -1770,6 +1943,10 @@ export function createTvView(root, opts = {}) {
   // Graphical on the visual rung; on 'textgames' the same open is drawn in characters. The
   // 'log' rung never gets here: the server writes the open to the log (pregameLines).
   function _applyPregame(fx) {
+    // the holding picture's records and crawl
+    _lastPregame = fx;
+    if (Array.isArray(fx?.rows) && fx.rows.length) _lastTable = { sport: fx.sport === 'hockey' ? 'hockey' : 'baseball', rows: fx.rows, title: fx.title };
+    _hold?.update(_holdInfo());
     const host = el('fx');
     if (!host) return;
     const rung = state.player?.displayRung;
@@ -1835,7 +2012,7 @@ export function createTvView(root, opts = {}) {
     }
     const tag = text ? '' : _networkTag();
     host.innerHTML = (tag ? `<div class="tv-fx-net">${tag}</div>` : '') + inner;
-    host.className = 'tv-fx-host on fx-pregame';
+    host.className = 'tv-fx-host on fx-pregame'; _stage?.split(false);
     _pregameUp = true;
     // The line that brought the open up is already on screen; carry it into the strip.
     if (_lastSpoken && performance.now() - _lastSpoken.at < 4000) _pregameCaption(_lastSpoken.text);
@@ -1924,7 +2101,7 @@ export function createTvView(root, opts = {}) {
     // a new page keeps the strip's line, which the booth is still reading
     const said = el('fx')?.querySelector('.tv-pg-caption')?.textContent || '';
     host.innerHTML = (tag ? `<div class="tv-fx-net">${tag}</div>` : '') + inner;
-    host.className = 'tv-fx-host on fx-pregame fx-package';
+    host.className = 'tv-fx-host on fx-pregame fx-package'; _stage?.split(false);
     _pregameUp = true;
     // each page goes up on the sting, in the key of the final's open
     const sting = fx.sting ? packageStingDef(fx.sting, cphl) : null;
@@ -2038,6 +2215,7 @@ export function createTvView(root, opts = {}) {
       } else return;
       host.innerHTML = inner;
       host.className = `tv-fx-host on fx-wx fx-wx-${wx.kind}${text ? ' fx-wx-txt' : ''}`;
+      _stage?.split(true);
       _wxKind = wx.kind;
       if (wx.kind === 'radar' && !text) _drawRadar(host.querySelector('canvas'), wx);
     }
@@ -2112,6 +2290,7 @@ export function createTvView(root, opts = {}) {
     if (_fxTimer) { clearTimeout(_fxTimer); _fxTimer = null; }
     const host = el('fx');
     if (host) { host.innerHTML = ''; host.className = 'tv-fx-host'; }
+    _stage?.split(false);
   }
 
   // ── tuning ────────────────────────────────────────────────────────────────
@@ -2309,6 +2488,9 @@ export function createTvView(root, opts = {}) {
   function _renderMessage(text, style, duration, hasGameday, dl) {
     const container = el('messages');
     if (!container) return;
+    // a narrator line that's only the camera ("The camera slowly pulls back.") is direction, not the show:
+    // it's never shown or read, and the 3-D picture does what it says
+    if ((!style || style === 'raw' || style === 'narrate') && isCameraLine(new DOMParser().parseFromString(String(text), 'text/html').body.textContent)) { _stage?.camera(text); return; }
 
     const isTitleCard = style === 'svg' || style === 'ascii_art' || style === 'credits';
 
@@ -2317,11 +2499,13 @@ export function createTvView(root, opts = {}) {
     // only place the speech queue is allowed to resync. See _sceneBeat().
     const spoken = !style || style === 'raw' || style === 'emote' || style === 'narrate' || style === 'system';
     if (!spoken) _sceneBeat();
-    if (dl?.crowd) playCrowd(text);
+    // a crowd beat that names a reaction is heard, not read: the audience laughing replaces the words saying so
+    if (dl?.crowd && playCrowd(text)) return;
     // The pregame open shows the booth's line along its bottom edge.
     if (spoken) {
       _lastSpoken = { text: new DOMParser().parseFromString(String(text), 'text/html').body.textContent, at: performance.now() };
       _pregameCaption(_lastSpoken.text);
+      _hold?.caption(_lastSpoken.text);
       _stage?.line(text, style);
       // a set across a room is too small to read, so its surface puts the line up itself (room-tv.js)
       opts.onLine?.(_lastSpoken.text, style);
@@ -2700,6 +2884,8 @@ export function createTvView(root, opts = {}) {
 
     header?.addEventListener('mousedown', (e) => {
       if (e.target.closest('[data-tv="close-btn"]')) return;
+      // (full screen, it fills the screen: a drag there would only move where it lands after)
+      if (win.ownerDocument.fullscreenElement === win) return;
       _dragWin = true;
       const rect = win.getBoundingClientRect();
       _dragWinX = e.clientX - rect.left;

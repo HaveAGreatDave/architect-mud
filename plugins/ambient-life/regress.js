@@ -6,6 +6,9 @@ import { _talk } from './home-talk.js';
 import { drinkUp, tipsyOf } from './tipsy.js';
 import { _intrusion } from './intrusion.js';
 import { _eviction } from './eviction.js';
+import { _panic, startPanic, bystanders, knowsAdmin } from './panic.js';
+import { _remarks } from './remarks.js';
+import { actOfLine } from '../../client/shared/npc-acts.js';
 import { _blackout, zoneIsDark } from './blackout.js';
 import { isDwellingZone } from '../../server/engine/zone-tags.js';
 import { world, getZone, getZoneFurniture } from '../../server/engine/world.js';
@@ -158,14 +161,15 @@ export default async function regress({ run, check }) {
   // doesn't. Every one of these gates existed as a bug first: a guest NPC
   // objecting to the owner, a corpse speaking, a shopkeeper defending a counter.
   {
-    const { residentsOf, ADMIN_LINES, INTRUDER_LINES } = _intrusion;
-    check('intrusion: admin lines exist and name the NPC',
-      ADMIN_LINES.length >= 3 && ADMIN_LINES.every(l => l.includes('{npc}')));
+    const { residentsOf, INTRUDER_LINES } = _intrusion;
+    const ADMIN_LINES = [..._panic.ADMIN_START, ..._panic.ADMIN_KNOWN];
+    check('intrusion: an admin gets a fright and then a recognition',
+      _panic.ADMIN_START.length >= 3 && _panic.ADMIN_KNOWN.length >= 3 && _panic.ADMIN_KNOWN.some(l => /just you/i.test(l)));
     check('intrusion: intruder lines exist and name the NPC',
       INTRUDER_LINES.length >= 3 && INTRUDER_LINES.every(l => l.includes('{npc}')));
-    // An admin is startled, never evicted — the whole point of the split.
-    check('intrusion: no admin line throws the player out',
-      ADMIN_LINES.every(l => !/\b(out|leave|get out|five seconds)\b/i.test(l)), ADMIN_LINES.join(' | '));
+    // An admin is startled, never evicted or reported: the whole point of the split.
+    check('intrusion: no admin line throws the player out or calls anybody',
+      ADMIN_LINES.every(l => !/\b(out|leave|get out|five seconds|police|cops)\b/i.test(l)), ADMIN_LINES.join(' | '));
     check('intrusion: the intruder is actually challenged',
       INTRUDER_LINES.some(l => /\b(out|leave|turn around|my home)\b/i.test(l)));
 
@@ -180,6 +184,59 @@ export default async function regress({ run, check }) {
     check('intrusion: an unknown zone yields nobody', residentsOf('zone_nope').length === 0);
     for (const id of ['n_home', 'n_guest', 'n_dead', 'n_optout']) world.npcs.delete(id);
     world.zones.delete(zoneId);
+  }
+
+  // ── Panic and the police call (panic.js) ──
+  // The words are what animate a body in ROOM (npc-acts.js reads an act off each line), so every line a
+  // frightened NPC says has to name something the body does, and the admin path must never reach the phone.
+  {
+    const { PULSE, CALL_HOME, CALL_HACK, OPEN_HACK, CALM, clipFor, panics, recognised } = _panic;
+    const acted = (l) => actOfLine(l);
+    check('panic: every call line reads as a call to the police', [...CALL_HOME, ...CALL_HACK].every((l) => acted(l) === 'callcops' || acted(l) === 'backoff'),
+      [...CALL_HOME, ...CALL_HACK].map((l) => `${acted(l)}: ${l}`).join(' | '));
+    check('panic: every reaction while you stay is a body act', PULSE.every((l) => !!acted(l) && !!clipFor(l)), PULSE.map((l) => `${acted(l)}/${clipFor(l)}: ${l}`).join(' | '));
+    check('panic: the opening and the calming lines animate too', [...OPEN_HACK, ...CALM].every((l) => !!acted(l)), [...OPEN_HACK, ...CALM].map((l) => `${acted(l)}: ${l}`).join(' | '));
+
+    const zoneId = 'zone_panic_test';
+    world.zones.set(zoneId, { id: zoneId, name: 'Landing', flags: {}, exits: {}, npcs: new Set(['n_pan', 'n_cop', 'n_cat']), enemies: new Set(), players: new Set() });
+    world.npcs.set('n_pan', { id: 'n_pan', name: 'Pam Test', zone_id: zoneId });
+    world.npcs.set('n_cop', { id: 'n_cop', name: 'Officer Test', zone_id: zoneId, flags: { police: true } });
+    world.npcs.set('n_cat', { id: 'n_cat', name: 'Cat', zone_id: zoneId, flags: { animal: true } });
+    const who = bystanders(zoneId).map((n) => n.id);
+    check("panic: a cop and a cat don't panic, a bystander does", who.length === 1 && who[0] === 'n_pan', who.join(','));
+    // An admin: the fright, then recognised, and after that nothing at all.
+    const admin = { id: 'p_panic_admin', handle: 'Boss', role: 'admin' };
+    check('panic: an admin startles somebody the first time', startPanic(world.npcs.get('n_pan'), admin, zoneId) === true);
+    check('panic: …and is recognised from then on', knowsAdmin(world.npcs.get('n_pan'), admin));
+    for (const p of panics.values()) for (const t of p.timers) clearTimeout(t);
+    panics.clear();
+    check('panic: a recognised admin gets no reaction', startPanic(world.npcs.get('n_pan'), admin, zoneId) === false);
+    recognised.clear();
+    for (const id of ['n_pan', 'n_cop', 'n_cat']) world.npcs.delete(id);
+    world.zones.delete(zoneId);
+  }
+
+  // ── Said to you (remarks.js) ──
+  // The register follows how well they know you, and what they can see beats small talk.
+  {
+    const { remarkFor, HELLO, CHAT, ABOUT } = _remarks;
+    const npc = { id: 'n_remark', name: 'Rita Test' };
+    const stranger = { id: 'p_r1', handle: 'Newbie', hp: 100, hp_max: 100, _relations: new Map() };
+    const regular = { ...stranger, id: 'p_r2', handle: 'Regular Joe', _relations: new Map([[npc.id, { familiarity: 30, warmth: 80 }]]) };
+    const enemy = { ...stranger, id: 'p_r3', _relations: new Map([[npc.id, { familiarity: 30, warmth: -80 }]]) };
+    const all = (o) => Object.values(o).flat();
+    check('remarks: every line is speech or an emote', [...all(HELLO), ...all(CHAT), ...all(ABOUT)].every((l) => !!(l.say || l.act)));
+    check('remarks: no em dashes in what they say', [...all(HELLO), ...all(CHAT), ...all(ABOUT)].every((l) => !/—/.test(l.say || l.act)));
+    check('remarks: a stranger gets no hello', remarkFor(npc, stranger, { hello: true }) === null);
+    check('remarks: a regular gets one', !!remarkFor(npc, regular, { hello: true }));
+    let hurtSeen = 0, enemyNice = 0;
+    for (let i = 0; i < 40; i++) {
+      const l = remarkFor(npc, { ...stranger, hp: 10 });
+      if (ABOUT.hurt.includes(l)) hurtSeen++;
+      if (!CHAT.hostile.includes(remarkFor(npc, enemy, { stars: 3 }))) enemyNice++;
+    }
+    check('remarks: somebody bleeding mostly gets asked about it', hurtSeen >= 20, hurtSeen);
+    check('remarks: somebody who hates you only tells you to go away', enemyNice === 0, enemyNice);
   }
 
   // ── …and then they mean it (eviction.js) ──

@@ -140,9 +140,14 @@ export function buildLocks(L, ways, locks) {
     if (!o) { panels.push(null); return; }
     const F = frameOf(L, o), m = (o.a + o.b) / 2, half = (o.b - o.a) / 2, hue = lockHue(k);
     const { R, c, pad } = readerFrame(L, o, F);
-    if (look) {
+    // a hand-opened glass pair (`glass`, room-stage.js): the street door draws its own leaves, so this is the reader alone
+    if (k.glass) { /* no leaves */ } else if (look) {
       // hinged on the end of the doorway further from the reader, and an architrave round it on this side
-      const rd = R.world(c, 0, 0), dist = (a) => { const q = F.world(a, 0, 0); return Math.hypot(q[0] - rd[0], q[2] - rd[2]); };
+      // An en-suite's door is the same doorway seen from both sides, and each side puts its reader on its own
+      // right, so a hinge picked by this side's reader changed ends as you walked through. Pick it from the
+      // outside's reader on both sides: annexWay keeps a and b the same either way.
+      const ho = k.annex && k.inside ? annexWay(L.spec, false, k.to) : o, HF = ho === o ? F : frameOf(L, ho), HR = ho === o ? { R, c } : readerFrame(L, ho, HF);
+      const rd = HR.R.world(HR.c, 0, 0), dist = (a) => { const q = HF.world(a, 0, 0); return Math.hypot(q[0] - rd[0], q[2] - rd[2]); };
       const inward = !!hallOf(L.spec, o) || (!!k.annex && !!k.inside);
       leaves.push(panelLeaf(L, F, o, { DH, look, hingeAt: dist(o.a) > dist(o.b) ? o.a : o.b, inward, way, to: k.to }));
       const cas = (b0, b1, y0, y1) => fixedK.box(...F.span(b0, b1, -0.022, 0), y0, y1, look.wood, 0.85, null, MAT.SATIN);

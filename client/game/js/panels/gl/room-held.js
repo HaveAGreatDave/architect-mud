@@ -1,23 +1,33 @@
 // GLASS 2 · WHAT'S IN A HAND. Somebody in a room doing something with their hands that brought nothing of its own
-// to draw: a player eating or dosing (plugins/roomstage sends their `act`), or a resident's habit taken standing
-// (plugins/npc-drugs). gl/figure-reach.js says what's held in each hand and where it sits in the hand's frame
-// (HELD), and has already bent the arm so its tip arrives; this draws it off the hand's bone of the figure
-// gl/room-people.js posed. A meal (gl/room-meals.js) and a session at the table (gl/room-stash.js) draw their own.
+// to draw: a player eating or dosing (plugins/roomstage sends their `act`), a resident's habit taken standing
+// (plugins/npc-drugs), somebody on their phone, at a meal, writing, counting money, dealing. gl/figure-reach.js says
+// what's held in each hand, and gl/figure-grips.js where it sits in the hand (its frame: x along it, y its face, z
+// across), with the fingers already closed on it; this draws it there off the hand's bone of the figure
+// gl/room-people.js posed. A meal's plate and pans (gl/room-meals.js) and a session at the table (gl/room-stash.js)
+// draw their own.
 //
 // Posed every frame into the room's props layer after the meals and the stash, into the same batch.
 
-import { grid, ellipsoid, box, lin, MAT } from './ballpark-mesh.js';
+import { grid, ellipsoid, lin, vtx, MAT } from './ballpark-mesh.js';
 import { FIGURE_BONE } from '../figure.js';
 import { heldFrame } from './figure-reach.js';
 import { handScaleOf } from '../figure.js';
+import { PHONE_SIZE } from './figure-grips.js';
 
 const UNLIT = 40;
 const C = (h) => lin(h);
-const GLASS_G = C('#2f5a2a'), GLASS_B = C('#6a3a14'), CAP = C('#c8a040'), PAPER = C('#ecebe4'), FILTER = C('#c8884a'), EMBER = [1.6, 0.5, 0.12];
+// a cigarette's filter is the city's cyan for most people (gl/actor-smoke.js FILTERS, on the street), cork for the rest
+const GLASS_G = C('#2f5a2a'), GLASS_B = C('#6a3a14'), PAPER = C('#ecebe4'), FILTER = C('#15c4d0'), CORK = C('#c8884a'), EMBER = [1.6, 0.5, 0.12];
 const PILL = C('#eceef4'), BARREL = C('#dfe8ee'), PLUNGER = C('#2a2c30'), STEEL = C('#c4c8cc'), PIPE = C('#d8eaf0'), RAG = C('#b8a888');
 const CAN = C('#b8342a'), CAN_TOP = C('#c8ccd0'), BREAD = C('#c89a5a'), FILL = C('#7a9a3a'), LIGHTER = C('#d84a2a');
+const BUN = C('#d9a05c'), BUN_TOP = C('#b8743a'), FRANK = C('#9a3c1c'), MUSTARD = C('#e8c020'), PATTY = C('#4a2a18'), CHEESE = C('#f0b830'), LETTUCE = C('#6aa83a');
+const CUTLERY = C('#b8bcc0'), KNIFE_H = C('#2a2420'), NOTE = C('#9ab48a'), NOTE_INK = C('#5a7a52'), CARD_BACK = C('#a0282a'), CARD_FACE = C('#f2f0ea');
+const PAD_PAPER = C('#efe9c8'), PAD_BACK = C('#6a5a44'), PEN = C('#20304a'), PEN_TIP = C('#d8d8d8');
+const MUGS = ['#e8e2d6', '#2a4a6a', '#a83a2a', '#3a3a3a', '#d8b040'].map(C);
 
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+const mul = (a, k) => [a[0] * k, a[1] * k, a[2] * k];
 const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 const unit = (v) => { const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; };
 // a bind-space point carried into the room by a hand's bone (the record's 3×4 rows)
@@ -35,11 +45,29 @@ function lathe(b, A, B, prof, col, mat, segs = 12) {
   }, { col, mat, centre: mid });
 }
 const lerp3 = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+// a point given in a frame's own terms (x along, y its face, z across)
+const P = (F, x, y, z) => [F.o[0] + F.X[0] * x + F.Y[0] * y + F.Z[0] * z, F.o[1] + F.X[1] * x + F.Y[1] * y + F.Z[1] * z, F.o[2] + F.X[2] * x + F.Y[2] * y + F.Z[2] * z];
+// One face, four corners in order round it, facing n.
+function face(b, a, bb, c, d, n, col, mat) {
+  for (const v of [a, bb, c, a, c, d]) vtx(b, v, n, [0, 0], col, mat);
+}
+// A box in a frame: its middle (x, y, z in the frame) and half sizes. `cols` colours its six faces, +x -x +y -y +z -z.
+function obox(b, F, [x, y, z], [hx, hy, hz], cols, mat) {
+  const c = (i) => (Array.isArray(cols[0]) ? cols[i] : cols);
+  const q = (sx, sy, sz) => P(F, x + sx * hx, y + sy * hy, z + sz * hz);
+  const nx = F.X, ny = F.Y, nz = F.Z, neg = (v) => mul(v, -1);
+  face(b, q(1, -1, -1), q(1, 1, -1), q(1, 1, 1), q(1, -1, 1), nx, c(0), mat);
+  face(b, q(-1, -1, 1), q(-1, 1, 1), q(-1, 1, -1), q(-1, -1, -1), neg(nx), c(1), mat);
+  face(b, q(-1, 1, -1), q(-1, 1, 1), q(1, 1, 1), q(1, 1, -1), ny, c(2), mat);
+  face(b, q(-1, -1, 1), q(-1, -1, -1), q(1, -1, -1), q(1, -1, 1), neg(ny), c(3), mat);
+  face(b, q(-1, -1, 1), q(1, -1, 1), q(1, 1, 1), q(-1, 1, 1), nz, c(4), mat);
+  face(b, q(1, -1, -1), q(-1, -1, -1), q(-1, 1, -1), q(1, 1, -1), neg(nz), c(5), mat);
+}
 
 // ── A phone ──────────────────────────────────────────────────────────────────────────────────────────────────────
-// A slab in a case, the screen on whichever face looks at the face (`eye`, set by heldProps). What's on it is
-// picked per person and moves on every few seconds, so a room of people on their phones isn't one screen copied:
-// a feed scrolling, a chat, a video, a map, a game, a call, a page of text, or the lock screen.
+// A slab in a case, the screen on its face (the grip's y), its top along x. What's on it is picked per person and
+// moves on every few seconds, so a room of people on their phones isn't one screen copied: a feed scrolling, a chat,
+// a video, a map, a game, a call, a page of text, or the lock screen.
 const CASES = ['#1c1d22', '#2a3550', '#6a2a2a', '#d8d4cc', '#3a5a3a', '#c86a9a'].map(C);
 const SCREENS = [
   { bg: [0.9, 0.92, 0.95], rows: [[0.35, 0.55, 0.95], [0.75, 0.75, 0.78]], kind: 'feed' },
@@ -53,39 +81,61 @@ const SCREENS = [
 ];
 const SCREEN_MS = 4200;
 const hash = (n) => { let h = n * 2654435761 >>> 0; h ^= h >>> 13; h = Math.imul(h, 1274126177) >>> 0; return (h ^ (h >>> 16)) >>> 0; };
-// a flat quad, its normal turned away from `behind`
-function quad(b, o, U, V, w, h, behind, col, mat) {
-  grid(b, 2, 2, (i, j) => [0, 1, 2].map((k) => o[k] + U[k] * (j - 0.5) * w + V[k] * (i - 0.5) * h), { wrap: false, col, mat, centre: behind });
+// a flat rectangle in the frame's x-z plane at height y, `w` across and `h` along, facing +y
+function plate(b, F, x, y, z, h, w, col, mat) {
+  face(b, P(F, x - h / 2, y, z - w / 2), P(F, x - h / 2, y, z + w / 2), P(F, x + h / 2, y, z + w / 2), P(F, x + h / 2, y, z - w / 2), F.Y, col, mat);
 }
-function drawPhone(b, c, tip, end, seed, eye) {
-  const V = unit(sub(tip, end)), H = 0.144, W = 0.07, T = 0.009;
-  // the screen faces whoever's holding it: the slab's normal is the one with the eye on its side
-  let N = unit(eye ? cross(V, cross(sub(eye, c), V)) : cross(V, [0, 1, 0]));
-  const U = unit(cross(V, N));
-  const caseCol = CASES[seed % CASES.length], back = c.map((v, k) => v - N[k] * T);
-  quad(b, c, U, V, W, H, back, caseCol, MAT.SATIN);
-  quad(b, back, U, V, W, H, c, caseCol, MAT.SATIN);
-  for (const [s, AX, BX, a, bl] of [[1, U, V, W, H], [-1, U, V, W, H], [1, V, U, H, W], [-1, V, U, H, W]]) {
-    const edge = c.map((v, k) => v + AX[k] * s * a * 0.5 - N[k] * T * 0.5);
-    quad(b, edge, BX, N, bl, T, c.map((v, k) => v - N[k] * T * 0.5), caseCol, MAT.SATIN);
-  }
-  // what's on it now
+function drawPhone(b, F, seed) {
+  const { H, W, T } = PHONE_SIZE;
+  obox(b, F, [0, 0, 0], [H / 2, T / 2, W / 2], CASES[seed % CASES.length], MAT.SATIN);
+  // what's on it now: the glass, then rows of whatever the app shows, scrolling when it's a feed
   const tick = Math.floor(performance.now() / SCREEN_MS), h = hash(seed * 31 + tick), sc = SCREENS[(hash(seed) + (h % 5 === 0 ? tick : 0)) % SCREENS.length];
-  const face = c.map((v, k) => v + N[k] * 0.0006), behind = c.map((v, k) => v - N[k] * 0.004);
-  quad(b, face, U, V, W * 0.9, H * 0.9, behind, sc.bg, UNLIT);
-  const lift = (d) => face.map((v, k) => v + N[k] * 0.0004 * d);
+  const y0 = T / 2 + 0.0004;
+  plate(b, F, 0, y0, 0, H * 0.92, W * 0.88, sc.bg, UNLIT);
   const rows = sc.kind === 'lock' || sc.kind === 'call' ? 2 : sc.kind === 'video' || sc.kind === 'game' ? 3 : 6;
+  const scroll = sc.kind === 'feed' || sc.kind === 'text' ? ((performance.now() / 1000) * 0.4 + (seed % 7)) % 1 : 0;
   for (let r = 0; r < rows; r++) {
-    const g = hash(h + r * 7), y = 0.38 - (r + 0.5) * (0.76 / rows), wide = 0.35 + (g % 50) / 100;
-    const left = sc.kind === 'chat' ? (g % 2 ? -0.18 : 0.18) : sc.kind === 'lock' ? 0 : -0.4 + wide / 2;
+    const g = hash(h + r * 7), x = 0.38 - ((r + 0.5 + scroll) % rows) * (0.76 / rows), wide = 0.35 + (g % 50) / 100;
+    const z = sc.kind === 'chat' ? (g % 2 ? -0.18 : 0.18) : sc.kind === 'lock' ? 0 : -0.4 + wide / 2;
     const tall = sc.kind === 'video' || sc.kind === 'game' ? 0.18 : sc.kind === 'lock' && !r ? 0.12 : 0.05;
-    const at = lift(1 + r % 2).map((v, k) => v + V[k] * y * H + U[k] * left * W);
-    quad(b, at, U, V, W * 0.9 * (sc.kind === 'video' ? 0.9 : wide), H * tall, behind, sc.rows[r % 2], UNLIT);
+    plate(b, F, x * H, y0 + 0.0004 * (1 + (r % 2)), z * W, H * tall, W * 0.88 * (sc.kind === 'video' ? 0.9 : wide), sc.rows[r % 2], UNLIT);
   }
 }
 
-// One thing in one hand. `end` and `tip` are its two ends in the room, `c` where it's held.
-function draw(b, kind, { c, tip, end, eye }, seed) {
+// ── Knives and forks ──────────────────────────────────────────────────────────────────────────────────────────────
+// From where the index presses (0) back to the handle's end (x < 0) and out to the business end (x > 0), the handle's
+// top up (y). A fork's head bends a little toward its hollow: up for a fork eaten with (forkUp), down for one held
+// tines down to pin (forkDown).
+function drawCutlery(b, F, kind) {
+  if (kind === 'knife') {
+    obox(b, F, [-0.068, 0, 0], [0.0525, 0.0045, 0.0085], KNIFE_H, MAT.SATIN);
+    obox(b, F, [-0.012, 0, 0], [0.004, 0.003, 0.005], STEEL, MAT.METAL);
+    // the blade, its edge down, narrowing to the point
+    for (let i = 0; i < 5; i++) {
+      const x0 = -0.008 + i * 0.02, w = 0.0095 - i * 0.0013;
+      obox(b, F, [x0 + 0.01, -0.0035 + (0.0095 - w) * 0.5, 0], [0.01, w, 0.0009], STEEL, MAT.METAL);
+    }
+    return;
+  }
+  const bend = kind === 'forkDown' ? -1 : 1;
+  // the handle, wider toward its end, and the neck
+  for (let i = 0; i < 4; i++) obox(b, F, [-0.11 + i * 0.026, 0, 0], [0.013, 0.0016, 0.0058 - i * 0.0008], CUTLERY, MAT.METAL);
+  obox(b, F, [0.003, 0, 0], [0.012, 0.0014, 0.0026], CUTLERY, MAT.METAL);
+  if (kind === 'spoon') {
+    const c = P(F, 0.046, 0.003 * bend, 0);
+    ellipsoid(b, c, [F.X, F.Y, F.Z], [0.024, 0.006, 0.017], 4, 10, CUTLERY, MAT.METAL);
+    return;
+  }
+  // the fork's head, then its four tines out from it, rising toward the hollow
+  obox(b, F, [0.026, 0.001 * bend, 0], [0.01, 0.0015, 0.011], CUTLERY, MAT.METAL);
+  for (let t = 0; t < 4; t++) {
+    const z = (t - 1.5) * 0.0062;
+    obox(b, F, [0.052, 0.003 * bend, z], [0.017, 0.0012, 0.0013], CUTLERY, MAT.METAL);
+  }
+}
+
+// One thing in one hand. `end` and `tip` are its two ends in the room, `c` where it's held, `F` its whole frame.
+function draw(b, kind, { c, tip, end, F }, seed) {
   if (kind === 'bottle') {
     const brown = seed % 2 ? GLASS_B : GLASS_G;
     // the body from the base, the shoulder, the neck to the lip, and the cap's rim
@@ -111,14 +161,22 @@ function draw(b, kind, { c, tip, end, eye }, seed) {
   } else if (kind === 'can') {
     lathe(b, end, tip, [[0, 0.026], [0.04, 0.033], [0.92, 0.033], [1, 0.028]], CAN, MAT.METAL, 14);
     lathe(b, lerp3(end, tip, 0.985), tip, [[0, 0.028], [1, 0.0005]], CAN_TOP, MAT.METAL, 14);
+  } else if (kind === 'mug' && F) {
+    // the body up its x, a ring of coffee at the top, and the handle out along y
+    const col = MUGS[seed % MUGS.length], lo = P(F, -0.048, 0, 0), hi = P(F, 0.048, 0, 0);
+    lathe(b, lo, hi, [[0, 0.001], [0.01, 0.039], [0.08, 0.041], [1, 0.042]], col, MAT.GLOSS, 16);
+    lathe(b, P(F, 0.036, 0, 0), P(F, 0.038, 0, 0), [[0, 0.038], [1, 0.0005]], C('#2a1608'), MAT.GLOSS, 14);
+    // the handle: the arc of a ring round (0, 0.058) in the x-y plane that's outside the body, joined to it at both ends
+    const ring = (a) => P(F, Math.sin(a) * 0.026, 0.058 + Math.cos(a) * 0.026, 0), n = 10, a0 = -2.0, a1 = 2.0;
+    for (let i = 0; i < n; i++) lathe(b, ring(a0 + ((a1 - a0) * i) / n), ring(a0 + ((a1 - a0) * (i + 1)) / n), [[0, 0.0055], [1, 0.0055]], col, MAT.GLOSS, 6);
   } else if (kind === 'cigarette' || kind === 'joint') {
     // the filter (a joint's roach is paper) at the mouth's end, the paper, and the ember out past the back of the hand
-    const r = kind === 'joint' ? 0.0058 : 0.0045, filt = kind === 'joint' ? PAPER : FILTER;
+    const r = kind === 'joint' ? 0.0058 : 0.0045, filt = kind === 'joint' ? PAPER : seed % 6 === 5 ? CORK : FILTER;
     lathe(b, tip, lerp3(tip, end, 0.27), [[0, r], [1, r]], filt, MAT.MATTE, 8);
     lathe(b, lerp3(tip, end, 0.27), lerp3(tip, end, 0.95), [[0, r], [1, kind === 'joint' ? r * 1.25 : r]], PAPER, MAT.MATTE, 8);
     lathe(b, lerp3(tip, end, 0.95), end, [[0, kind === 'joint' ? r * 1.25 : r], [1, r * 0.6]], EMBER, UNLIT, 8);
   } else if (kind === 'pill') {
-    ellipsoid(b, c, [[1, 0, 0], [0, 1, 0], [0, 0, 1]], [0.0055, 0.0034, 0.0042], 5, 8, PILL, MAT.GLOSS);
+    ellipsoid(b, c, F ? [F.X, F.Y, F.Z] : [[1, 0, 0], [0, 1, 0], [0, 0, 1]], [0.0055, 0.0034, 0.0042], 5, 8, PILL, MAT.GLOSS);
   } else if (kind === 'syringe') {
     // the plunger's thumb rest at the end, the barrel, and the needle out to the tip
     lathe(b, end, lerp3(end, tip, 0.06), [[0, 0.0001], [0.1, 0.009], [1, 0.009]], PLUNGER, MAT.SATIN, 10);
@@ -136,33 +194,72 @@ function draw(b, kind, { c, tip, end, eye }, seed) {
     const d = unit(sub(tip, end)), U = unit(cross(d, [0, 1, 0])), V = cross(d, U), m = lerp3(end, tip, 0.5);
     ellipsoid(b, m, [U, V, d], [0.028, 0.024, 0.05], 7, 12, BREAD, MAT.SATIN);
     ellipsoid(b, lerp3(m, tip, 0.15), [U, V, d], [0.03, 0.008, 0.045], 4, 10, FILL, MAT.SATIN);
+  } else if (kind === 'hotdog') {
+    // a frank in a split bun, the frank out past both ends and a line of mustard along it, both halves of the bun
+    // either side of it so it shows from any side
+    const d = unit(sub(tip, end)), U = unit(cross(d, [0, 1, 0])), V = cross(d, U), m = lerp3(end, tip, 0.5);
+    for (const s of [-1, 1]) ellipsoid(b, add(m, mul(U, s * 0.014)), [U, V, d], [0.014, 0.02, 0.072], 6, 14, BUN, MAT.SATIN);
+    ellipsoid(b, m, [U, V, d], [0.012, 0.012, 0.094], 6, 14, FRANK, MAT.GLOSS);
+    for (const s of [-1, 1]) ellipsoid(b, add(m, mul(V, s * 0.011)), [U, V, d], [0.004, 0.003, 0.072], 4, 10, MUSTARD, MAT.SATIN);
+  } else if (kind === 'burger') {
+    // a burger stacked up the hand's face: the heel, the patty, cheese over its edge, lettuce, and the domed crown
+    const d = unit(sub(tip, end)), U = unit(cross(d, [0, 1, 0])), V = cross(d, U), m = lerp3(end, tip, 0.5), ax = [U, V, d];
+    const at = (y) => add(m, mul(V, y));
+    ellipsoid(b, at(-0.022), ax, [0.048, 0.012, 0.048], 5, 14, BUN, MAT.SATIN);
+    ellipsoid(b, at(-0.006), ax, [0.05, 0.011, 0.05], 5, 14, PATTY, MAT.SATIN);
+    ellipsoid(b, at(0.004), ax, [0.052, 0.003, 0.052], 3, 12, CHEESE, MAT.SATIN);
+    ellipsoid(b, at(0.008), ax, [0.054, 0.004, 0.054], 3, 12, LETTUCE, MAT.SATIN);
+    ellipsoid(b, at(0.016), ax, [0.049, 0.024, 0.049], 6, 14, BUN_TOP, MAT.SATIN);
   } else if (kind === 'rag') {
     const d = unit(sub(tip, end)), U = unit(cross(d, [0, 1, 0]));
     ellipsoid(b, c, [U, cross(d, U), d], [0.045, 0.04, 0.014], 5, 9, RAG, MAT.CLOTH);
-  } else if (kind === 'phone') {
-    drawPhone(b, c, tip, end, seed, eye);
-  } else if (kind === 'lighter') {
-    const d = unit(sub(tip, end));
-    box(b, c, [0.009, 0.022, 0.006], (Math.atan2(d[0], d[2]) * 180) / Math.PI, LIGHTER, MAT.GLOSS);
+  } else if (kind === 'phone' && F) {
+    drawPhone(b, F, seed);
+  } else if (kind === 'lighter' && F) {
+    obox(b, F, [0, 0, 0], [0.03, 0.006, 0.011], LIGHTER, MAT.GLOSS);
+    obox(b, F, [0.033, 0, 0], [0.004, 0.005, 0.008], STEEL, MAT.METAL);
+  } else if ((kind === 'forkUp' || kind === 'forkDown' || kind === 'spoon' || kind === 'knife') && F) {
+    drawCutlery(b, F, kind);
+  } else if (kind === 'pen' && F) {
+    lathe(b, P(F, -0.115, 0, 0), P(F, 0.012, 0, 0), [[0, 0.003], [0.04, 0.0046], [1, 0.0046]], PEN, MAT.GLOSS, 8);
+    lathe(b, P(F, 0.012, 0, 0), P(F, 0.026, 0, 0), [[0, 0.0046], [0.7, 0.0018], [1, 0.0006]], PEN_TIP, MAT.METAL, 8);
+  } else if ((kind === 'note' || kind === 'wad') && F) {
+    // a note folded long, its print showing; a wad is a few, fanned
+    const n = kind === 'wad' ? 5 : 1;
+    for (let i = 0; i < n; i++) {
+      const y = (i - (n - 1) / 2) * 0.0013, z = (i - (n - 1) / 2) * 0.0025;
+      obox(b, F, [0.02 + i * 0.002, y, z], [0.034, 0.0003, 0.0175], [NOTE, NOTE, NOTE_INK, NOTE_INK, NOTE, NOTE], MAT.MATTE);
+    }
+  } else if (kind === 'card' && F) {
+    obox(b, F, [0.03, 0, 0], [0.044, 0.0003, 0.032], [CARD_FACE, CARD_FACE, CARD_BACK, CARD_FACE, CARD_FACE, CARD_FACE], MAT.SATIN);
+  } else if (kind === 'deck' && F) {
+    obox(b, F, [0, 0, 0], [0.044, 0.0075, 0.032], [CARD_FACE, CARD_FACE, CARD_BACK, CARD_FACE, CARD_FACE, CARD_FACE], MAT.SATIN);
+  } else if (kind === 'pad' && F) {
+    obox(b, F, [0, -0.0015, 0], [0.075, 0.0025, 0.052], PAD_BACK, MAT.MATTE);
+    obox(b, F, [0, 0.0025, 0], [0.074, 0.0015, 0.051], PAD_PAPER, MAT.MATTE);
   }
 }
+
+// a frame in bind space on a bone, carried into the room
+function frameOnBone(rec, bone, F) {
+  const o = onBone(rec, bone, F.o), way = (v) => unit(sub(onBone(rec, bone, add(F.o, v)), o));
+  return { o, X: way(F.X), Y: way(F.Y), Z: way(F.Z) };
+}
+const seedOf = (body) => [...String(body?.id || body?.name || '')].reduce((n, ch) => n * 31 + ch.charCodeAt(0) >>> 0, 7);
 
 // Into `b`: what each body holds that nothing else draws. `bodies` as room-stage.js hands figurePeople and `recs`
 // what that gave back, one for one; each record's `hold` (gl/figure-reach.js finishArms) names what's in each hand.
 export function heldProps(b, bodies, recs) {
   recs.forEach((rec, i) => {
     const body = bodies[i];
-    if (!rec?.hold || !rec.key?.sculpt || body?.meal || body?.stash) return;
+    if (!rec?.hold || !rec.key?.sculpt || body?.stash) return;
     for (const [L, s] of [['L', 1], ['R', -1]]) {
       const kind = rec.hold[L];
       if (!kind) continue;
-      const shape = rec.hands ? null : 'cup', fr = heldFrame(kind, s, handScaleOf(rec.key, s), kind === 'pill' ? 'pinch' : shape || 'cup');
+      const fr = heldFrame(kind, s, handScaleOf(rec.key, s), kind === 'pill' ? 'pinch' : 'cup');
       if (!fr) continue;
-      const bone = FIGURE_BONE['hand' + L], P = (p) => onBone(rec, bone, p);
-      // a phone's screen turns to the eyes (bind space, between them), carried by the head's bone
-      const eye = kind === 'phone' ? onBone(rec, FIGURE_BONE.head, [0, 1.62, 0.09]) : null;
-      const seed = kind === 'phone' ? [...String(body?.id || body?.name || '')].reduce((n, ch) => n * 31 + ch.charCodeAt(0) >>> 0, 7) : String(body?.id || '').length;
-      draw(b, kind, { c: P(fr.c), tip: P(fr.tip), end: P(fr.end), eye }, seed);
+      const bone = FIGURE_BONE['hand' + L], Q = (p) => onBone(rec, bone, p);
+      draw(b, kind, { c: Q(fr.c), tip: Q(fr.tip), end: Q(fr.end), F: fr.F ? frameOnBone(rec, bone, fr.F) : null }, seedOf(body));
     }
   });
   return b;

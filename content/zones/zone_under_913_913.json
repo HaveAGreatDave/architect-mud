@@ -4,7 +4,7 @@
   "color": "#8fae9a",
   "description": "A grimy trunk of storm tunnel under Foundry Way, the concrete cracked and weeping, the air thick with the sour breath of the drains.",
   "exits": {
-    "east": "zone_under_914_913",
+    "east": "zone_seam_914_913_l1",
     "north": "zone_under_913_912"
   },
   "flags": {

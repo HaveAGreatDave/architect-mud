@@ -1,0 +1,86 @@
+<!doctype html><meta charset="utf-8"><title>cloud shadow lab</title>
+<style>body{background:#222;color:#ccc;font:12px sans-serif;margin:8px}canvas{display:block}td{padding:4px;vertical-align:top}</style>
+<!-- Serve the repo root (any static server) and open tools/sandbox/cloud-shadow.html. Left: the deck
+     seen from straight above. Right: the shadow the volume bakes for the city (gl/cloudshadow.js),
+     over the same patch of ground. With the sun overhead the two should be the same shapes; with a
+     low sun the shadow slides away from the sun. Also compiles the wall and road programs, which
+     read it. -->
+<table><tr id="row"></tr></table><pre id="log"></pre>
+<script type="module">
+import { createCloudVolume } from '/client/game/js/panels/gl/cloudvol.js';
+import { createGLView } from '/client/game/js/panels/gl/context.js';
+import { createGroundLayer } from '/client/game/js/panels/gl/ground.js';
+import { cloudShadowFor } from '/client/game/js/panels/gl/cloudshadow.js';
+const log = (s) => (document.getElementById('log').textContent += s + '\n');
+window.onerror = (m) => log('ERR ' + m);
+const N = 190, R = 14;   // pixels, and tiles either side of the centre shown
+function persp(fov, a, n, f) { const t = 1 / Math.tan(fov / 2); return [t / a,0,0,0, 0,t,0,0, 0,0,(f+n)/(n-f),-1, 0,0,2*f*n/(n-f),0]; }
+function look(eye, at, up) {
+  const sub=(a,b)=>a.map((v,i)=>v-b[i]), nrm=(a)=>{const l=Math.hypot(...a);return a.map(v=>v/l);}, cr=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]], dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+  const z = nrm(sub(eye, at)), x = nrm(cr(up, z)), y = cr(z, x);
+  return [x[0],y[0],z[0],0, x[1],y[1],z[1],0, x[2],y[2],z[2],0, -dot(x,eye),-dot(y,eye),-dot(z,eye),1];
+}
+const mul = (a, b) => { const o = new Array(16); for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) { let v = 0; for (let k = 0; k < 4; k++) v += a[k*4+r]*b[c*4+k]; o[c*4+r] = v; } return o; };
+const cells = [{ x: -6, y: -4, r: 5, i: 0.9 }, { x: 6, y: 5, r: 6, i: 0.85 }, { x: 7, y: -8, r: 3, i: 0.8 }];
+const H = 13 + R;   // eye height that frames ±R tiles at the deck's top with a 90° view
+const vp = mul(persp(Math.PI / 2, 1, 0.1, 200), look([0, 0, H], [0, 0, 0], [0, -1, 0]));
+const show = (label, el) => { const td = document.getElementById('row').insertCell(); td.append(label, el); };
+
+// The map drawn as the ground sees it: grey, darkened by the shadow at each ground point.
+const SH_VS = `#version 300 es
+void main() { vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2)); gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0); }`;
+const SH_FS = `#version 300 es
+precision highp float;
+uniform sampler2D uMap; uniform vec4 uBox; uniform vec2 uSlope; uniform float uBase; uniform float uN; uniform float uR;
+out vec4 o;
+void main() {
+  vec2 g = (gl_FragCoord.xy / uN * 2.0 - 1.0) * uR;
+  g = -g;   // the overhead view above has screen right at world -x and screen up at world -y
+  vec2 q = g + uSlope * uBase;
+  float k = texture(uMap, (q - uBox.xy) * uBox.zw).r;
+  o = vec4(vec3(0.75 * (1.0 - 0.8 * k)), 1.0);
+}`;
+function sh(gl, t, src) { const s = gl.createShader(t); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; }
+
+for (const [name, sun] of [['sun overhead', [0, 0, 1]], ['low sun from the east', [0.8, 0, 0.6]]]) {
+  const cv = document.createElement('canvas'); cv.width = N; cv.height = N; show(name + ': deck from above', cv);
+  const gl = cv.getContext('webgl2', { preserveDrawingBuffer: true });
+  try {
+    const v = createCloudVolume(gl);
+    gl.clearColor(0.42, 0.58, 0.80, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    const vol = { cells, base: 8, top: 13, cum: 0.8, ox: 500, oy: 300, far: 48, sun, sunStr: 1, wind: [0, 0] };
+    v.draw(null, N, N, N, vol, { vp, over: true, fb: null, linOut: 0, now: 1000, res: 0.5, steps: 64, temporal: 0, shadow: true });
+    const fr = v.shadowFrame();
+    log(name + ': frame ' + JSON.stringify({ cx: fr.cx, cy: fr.cy, half: fr.half, base: fr.base, slope: fr.slope }));
+    // As world.js would hand it to the walls, with the window centred on the camera's world tile.
+    const C = cloudShadowFor(fr, { x: 500, y: 300 }, 1, { alpha: 0.4 }, 1000);
+    const c2 = document.createElement('canvas'); c2.width = N; c2.height = N; show(name + ': shadow on the ground', c2);
+    const g2 = c2.getContext('webgl2');
+    // Read the R8 map back through a pixel buffer is awkward across contexts; redraw it here instead
+    // by baking again in this context and drawing the ground off it.
+    const v2 = createCloudVolume(g2);
+    g2.clearColor(0, 0, 0, 1); g2.clear(g2.COLOR_BUFFER_BIT);
+    v2.draw(null, N, N, N, vol, { vp, over: true, fb: null, linOut: 0, now: 1000, res: 0.25, steps: 16, temporal: 0, shadow: true });
+    const f2 = v2.shadowFrame();
+    const C2 = cloudShadowFor(f2, { x: 500, y: 300 }, 1, { alpha: 0.4 }, 1000);
+    const p = g2.createProgram(); g2.attachShader(p, sh(g2, g2.VERTEX_SHADER, SH_VS)); g2.attachShader(p, sh(g2, g2.FRAGMENT_SHADER, SH_FS)); g2.linkProgram(p);
+    g2.useProgram(p); g2.bindFramebuffer(g2.FRAMEBUFFER, null); g2.viewport(0, 0, N, N); g2.disable(g2.DEPTH_TEST); g2.disable(g2.BLEND);
+    g2.activeTexture(g2.TEXTURE0); g2.bindTexture(g2.TEXTURE_2D, C2.tex);
+    const U = (n) => g2.getUniformLocation(p, n);
+    g2.uniform1i(U('uMap'), 0); g2.uniform4f(U('uBox'), ...C2.box); g2.uniform2f(U('uSlope'), ...C2.slope); g2.uniform1f(U('uBase'), C2.base);
+    g2.uniform1f(U('uN'), N); g2.uniform1f(U('uR'), H - 10.5);   // a 90° view spans its distance each way: the slab's middle
+    g2.drawArrays(g2.TRIANGLES, 0, 3);
+    log(name + ': read box ' + C.box.map((x) => x.toFixed(3)).join(', ') + ', wall ' + C.wall + ', ground ' + C.ground);
+  } catch (e) { log(name + ' threw ' + e.message); }
+}
+// The two programs that read the map: they must still compile and link.
+try {
+  const c = document.createElement('canvas'); c.width = 64; c.height = 64;
+  const view = createGLView(c);
+  log('wall program: ' + (view ? 'built' : 'null'));
+  createGroundLayer(view.gl);
+  log('road program: built');
+  const e = view.gl.getError(); if (e) log('glError ' + e);
+} catch (e) { log('program threw: ' + e.message); }
+log('done');
+</script>

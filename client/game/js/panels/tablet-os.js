@@ -2356,6 +2356,10 @@ const TOS_OPT_GROUPS = [
     { v: 'off', t: 'Off: the city as it is lit now', g: '◐' },
     { v: 'on', t: 'On: flat light and ink outlines', g: '✎' },
     { v: 'comic', t: 'Comic: two tones and heavy ink, everywhere', g: '✒' } ] },
+  // How the light falls under the cel look (main.js _applyCelShade, gl/house-style.js comicLightOn).
+  { key: 'shadowStyle', label: 'Shadows', opts: [
+    { v: 'comic', t: 'Comic: painted two-tone shadows', g: '▙' },
+    { v: 'real', t: 'Traditional: smooth light, soft shadows, ink kept', g: '◑' } ] },
   // Depth of field in the walk-round rooms (gl/room-dof.js): focuses on what's in the middle of the view.
   { key: 'roomDof', label: 'Depth of Field', opts: [
     { v: 'on', t: 'On: rooms focus on what you look at', g: '◉' },
@@ -5846,18 +5850,22 @@ function mountWorldmap() {
 }
 function unmountWorldmap() { _worldmapGen++; _worldmap?.destroy(); _worldmap = null; }
 
-// The control row's right-hand button takes the picture full screen; Esc or the button again
-// comes back. render() holds off repainting while the screen is full (see its first guard). A
-// browser that can't take an element full screen (an iPhone) gets no button.
+// The control row's right-hand button takes the set full screen; Esc or the button again comes
+// back. ⚠ THE SET, NOT THE SCREEN: full screen on the picture alone left the control row (3D,
+// Gameday, the guide, the channels, and this button, the only way out on a tablet with no Esc key)
+// off the screen. A sports view's own full-screen button takes the same set (tv.js). render() holds
+// off repainting while the set is full (see its first guard). A browser that can't take an element
+// full screen (an iPhone) gets no button.
 const TV_FS_ON = '<svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>';
 const TV_FS_OFF = '<svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M6 2v4H2M14 6h-4V2M10 14v-4h4M2 10h4v4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>';
 function bindTabletTvFullscreen(set) {
   const btn = set.querySelector('.tos-tv-fs');
-  const screen = set.querySelector('.tos-tv-screen');
-  if (!btn || !screen) return;
-  if (!document.fullscreenEnabled || typeof screen.requestFullscreen !== 'function') { btn.remove(); return; }
+  if (!btn) return;
+  if (!document.fullscreenEnabled || typeof set.requestFullscreen !== 'function') { btn.remove(); return; }
+  // (anything of the set's full screen counts, so the button always leads back out)
+  const full = () => !!document.fullscreenElement && set.contains(document.fullscreenElement);
   const paint = () => {
-    const on = document.fullscreenElement === screen;
+    const on = full();
     btn.innerHTML = on ? TV_FS_OFF : TV_FS_ON;
     btn.title = on ? 'Leave full screen (Esc)' : 'Full screen';
     btn.setAttribute('aria-label', btn.title);
@@ -5867,8 +5875,8 @@ function bindTabletTvFullscreen(set) {
   paint();
   btn.addEventListener('click', (e) => {
     e.stopPropagation();
-    if (document.fullscreenElement === screen) document.exitFullscreen?.().catch(() => {});
-    else screen.requestFullscreen().catch(() => {});
+    if (full()) document.exitFullscreen?.().catch(() => {});
+    else set.requestFullscreen().catch(() => {});
   });
   // the set is rebuilt on every fresh mount, so the listener goes when its button does
   const sync = () => { if (!btn.isConnected) document.removeEventListener('fullscreenchange', sync); else paint(); };

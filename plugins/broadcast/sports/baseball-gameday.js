@@ -109,7 +109,7 @@ export function runnerMoves(before, after, kind, scored) {
 // because it's the standings cache's own. Returns Map(beat -> fields):
 //
 //   bl   the batter's [AB, H, HR, RBI, SB]
-//   pl   the pitcher's [W, L, outs, ER, K]
+//   pl   the pitcher's [W, L, outs, ER, K], and his saves sixth once he has any (sim v5)
 //   sb   on a steal, the runner's steals with this one (the lead runner's on a double steal)
 const NO_LINE = Object.freeze([0, 0, 0, 0, 0]);
 function nightLines(game, ledger) {
@@ -131,7 +131,8 @@ function nightLines(game, ledger) {
       const r = acc.bats.get(b.batter), a = acc.arms.get(b.pitcher);
       out.set(b, {
         bl: r ? [r.ab, r.hits, r.hr, r.rbi, r.sb] : NO_LINE,
-        pl: a ? [a.w, a.l, a.outs, a.er, a.k] : NO_LINE,
+        // and a reliever's saves (sim v5), only once he has one
+        pl: a ? [a.w, a.l, a.outs, a.er, a.k, ...(a.sv ? [a.sv] : [])] : NO_LINE,
       });
     },
     after(b) {
@@ -224,6 +225,8 @@ export function gamedayPayloads(game, seed, { abbr, ordinal, ledger = null, venu
       line: line.get(s) || null,
       // the fielding side's First Generation men by their place (baseball.js simGameFor), for the TV's cast
       ...(game.gen1?.[s.fieldingName] ? { gen1: game.gen1[s.fieldingName] } : {}),
+      // sim v5: a new man on the mound for the half
+      ...(s.mound ? { mound: s.mound } : {}),
     };
     half.set(s, hp); order.push(hp);
     let prev = [false, false, false];
@@ -248,6 +251,12 @@ export function gamedayPayloads(game, seed, { abbr, ordinal, ledger = null, venu
         battingAbbr: abbr(b.battingName), fieldingAbbr: abbr(b.fieldingName),
         inning: b.inning, inningOrd: ordinal(b.inning), half: b.half,
         ...(game.gen1?.[b.fieldingName] ? { gen1: game.gen1[b.fieldingName] } : {}),
+        // sim v5: his pitch count before the play, the trip to the mound the park plays before it
+        // (the coach's visit or the manager's change), and the man who's started throwing in the pen
+        ...(Number.isFinite(b.pc) ? { pc: b.pc } : {}),
+        // (with the arm of the man going off, so the park has his glove on the right hand)
+        ...(b.mound ? { mound: b.mound.kind === 'change' ? { ...b.mound, outThrows: handOf(b.mound.out).throws } : b.mound } : {}),
+        ...(b.warm ? { warm: b.warm } : {}),
       };
       // A sim v2 game names its runners and hands over each man's fate; a v1 game's are
       // worked out from the bags.

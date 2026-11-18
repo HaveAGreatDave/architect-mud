@@ -76,7 +76,7 @@ const mount = fakeEl();
 await fl.loadWindshield();
 let api = null;
 try {
-  api = fl.openFreelook({ mount, gx: 918, gy: 903, map, sky, onExit: () => {} });
+  api = fl.openFreelook({ mount, gx: 919, gy: 903, map, sky, onExit: () => {} });
 } catch (e) {
   ck('openFreelook does not throw', false, e.message);
 }
@@ -104,7 +104,7 @@ ck('paintWindshield ran', !!lv, 'lastViewState() is null — the frame never rea
 ck('…with this panel\'s own canvas', !!lv && String(lv.id).startsWith('freelook-'), lv && String(lv.id));
 ck('…as an external view', !!lv && lv.external === true, lv && String(lv.external));
 ck('…on the window it was handed', !!lv && lv.mapR === R, lv && String(lv.mapR));
-ck('…centred on the tile it was given', !!lv && lv.mapCenter?.x === 918 && lv.mapCenter?.y === 903, JSON.stringify(lv && lv.mapCenter));
+ck('…centred on the tile it was given', !!lv && lv.mapCenter?.x === 919 && lv.mapCenter?.y === 903, JSON.stringify(lv && lv.mapCenter));
 ck('…and it rearmed the loop', typeof pending() === 'function');
 
 fl.freelookSetSky({ hour: 3.25, weather: 'storm', field: { cells: [] } });
@@ -112,11 +112,11 @@ ck('a streamed sky does not throw', step(1016) === null, logged);
 
 // Re-centring is an OPEN with a new window, never a second view — the server sends the identical
 // `freelook_open` either way, so this is the path `freelook <x> <y>` takes on an open camera.
-const api2 = fl.openFreelook({ mount, gx: 920, gy: 905, map, sky });
+const api2 = fl.openFreelook({ mount, gx: 921, gy: 905, map, sky });
 ck('re-centring keeps the same view', fl.isFreelookActive() && api2 === api);
 const moved = step(1032);
 const lv2 = ws.lastViewState();
-ck('…and the window moved under the camera', !moved && lv2?.mapCenter?.x === 920 && lv2?.mapCenter?.y === 905, moved || JSON.stringify(lv2 && lv2.mapCenter));
+ck('…and the window moved under the camera', !moved && lv2?.mapCenter?.x === 921 && lv2?.mapCenter?.y === 905, moved || JSON.stringify(lv2 && lv2.mapCenter));
 
 try { fl.closeFreelook(); } catch (e) { ck('closeFreelook does not throw', false, e.message); }
 ck('closes clean', fl.isFreelookActive() === false);
@@ -129,13 +129,13 @@ ck('…and a second close is harmless', (() => { try { fl.closeFreelook(); retur
 // paint, and the real open of the same doorstep must wake that view rather than build a second one.
 console.log('— the street warmed ahead —');
 {
-  const foot = { foot: true, x: 0, y: 0.36, yaw: 180, leash: 0, label: 'STREET', step: { gx: 914, gy: 909 } };
-  try { fl.openFreelook({ holder: fakeEl(), gx: 914, gy: 909, map, sky, stand: foot, prewarm: true, onExit: () => {} }); } catch (e) { ck('a warm open does not throw', false, e.message); }
+  const foot = { foot: true, x: 0, y: 0.36, yaw: 180, leash: 0, label: 'STREET', step: { gx: 915, gy: 909 } };
+  try { fl.openFreelook({ holder: fakeEl(), gx: 915, gy: 909, map, sky, stand: foot, prewarm: true, onExit: () => {} }); } catch (e) { ck('a warm open does not throw', false, e.message); }
   ck('a warm street is not the view on screen', fl.isFreelookActive() === false);
   ck('…but it paints, to build its city', step(2000) === null && String(ws.lastViewState()?.id).startsWith('freelook-'), logged || String(ws.lastViewState()?.id));
   const warmId = ws.lastViewState()?.id, minted = [...canvases.keys()].filter((k) => k.startsWith('freelook-')).length;
   let woke = null;
-  try { woke = fl.openFreelook({ mount, gx: 914, gy: 909, map, sky, stand: foot, onExit: () => {} }); } catch (e) { ck('walking out does not throw', false, e.message); }
+  try { woke = fl.openFreelook({ mount, gx: 915, gy: 909, map, sky, stand: foot, onExit: () => {} }); } catch (e) { ck('walking out does not throw', false, e.message); }
   ck('walking out wakes it', !!woke && fl.isFreelookActive() === true);
   ck('…rather than building another', [...canvases.keys()].filter((k) => k.startsWith('freelook-')).length === minted, `${minted} → ${[...canvases.keys()].filter((k) => k.startsWith('freelook-')).length}`);
   const stepped = step(2016);
@@ -143,11 +143,11 @@ console.log('— the street warmed ahead —');
   fl.closeFreelook();
   ck('…and it comes down', fl.isFreelookActive() === false);
   // the Stage closing any other way drops it; a view somebody is using is never replaced by a warm one
-  fl.openFreelook({ holder: fakeEl(), gx: 914, gy: 909, map, sky, stand: foot, prewarm: true });
+  fl.openFreelook({ holder: fakeEl(), gx: 915, gy: 909, map, sky, stand: foot, prewarm: true });
   fl.dropWarmFreelook();
   ck('a warm street nobody walked into is dropped', fl.isFreelookActive() === false && pending() === null);
   const live = fl.openFreelook({ mount, gx: 900, gy: 900, map, sky, onExit: () => {} });
-  fl.openFreelook({ holder: fakeEl(), gx: 914, gy: 909, map, sky, stand: foot, prewarm: true });
+  fl.openFreelook({ holder: fakeEl(), gx: 915, gy: 909, map, sky, stand: foot, prewarm: true });
   step(2032);
   ck('a warm open leaves a view in use alone', !!live && fl.isFreelookActive() === true && ws.lastViewState()?.mapCenter?.x === 900, JSON.stringify(ws.lastViewState()?.mapCenter));
   fl.closeFreelook();

@@ -1,0 +1,36 @@
+{
+  "ambient_events": [
+    "Somewhere inside the decks a carousel turns with a long hydraulic groan and stops.",
+    "A small VTOL drops onto the roof pad and its rotors wind down.",
+    "The lift tower's red light blinks on top."
+  ],
+  "ambient_theme": "urban",
+  "color": "#7fe6ff",
+  "description": "Five open decks of grey precast on Marrow Street, between Adequate! and The Flute, with small aircraft parked on every one behind a steel mesh. A steel lift tower runs up the north-east corner to a landing pad on the roof. STACKED DECK is lit in blue over the door, and a board under it says VTOL PARKING: FREE.",
+  "exits": {
+    "north": "zone_sdeck_lobby",
+    "south": "zone_district_913_909"
+  },
+  "flags": {
+    "airfield_id": "af_stackeddeck",
+    "building_name": "Stacked Deck",
+    "building_type": "vtol_park",
+    "district": "marrow",
+    "entrance": "south",
+    "facade": true,
+    "floors": 5,
+    "hangar_interior_zone": "zone_sdeck_pad",
+    "is_building": true,
+    "region_id": "region_coldwater",
+    "world_exit_zone": "zone_district_913_909"
+  },
+  "grid_x": 913,
+  "grid_y": 908,
+  "grid_z": 0,
+  "id": "zone_seam_914_908",
+  "map_id": "map_world",
+  "name": "Stacked Deck",
+  "parent_zone": null,
+  "marker": "SD",
+  "bg_color": "#1a2228"
+}

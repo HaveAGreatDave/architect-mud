@@ -25,6 +25,7 @@
 // in the host's own frame, in metres: the park is feet with y up, the rink feet with z up.
 
 import { figurePeople, figureLooks } from './room-people.js';
+import { softHead } from '../actor-head.js';
 import { figureAhead } from '../figure-ahead.js';
 import { figureBuilt, FIGURE_CROWN } from '../figure.js';
 import { FAN_CLIPS } from './fan-vat.js';
@@ -194,7 +195,7 @@ export function createCrowdHD(hostName, layer) {
     const sig = shirt.map((v) => v.toFixed(3)).join() + (kit ? kit.cut + kit.trim.map((v) => v.toFixed(3)).join() : '');
     if (!F || F.sig !== sig) {
       const figure = figureOf(T, shirt, skin, kit, rgb);
-      const body = { id, sex: figure.head === 3 ? 'female' : 'male', figure, sculpt: true, at: [0, 0], yaw: 0, seated: false };
+      const body = { id, sex: softHead(figure.head) ? 'female' : 'male', figure, sculpt: true, at: [0, 0], yaw: 0, seated: false };
       F = { id, T, figure, body, sig, ready: false, keys: figureLooks(body), away, level: 'lite' };
       fans.set(id, F);
     }
@@ -288,7 +289,7 @@ export function createCrowdHD(hostName, layer) {
     }
     const turn = (v) => (v ? [0, 1, 2].map((i) => B[0][i] * v[0] + B[1][i] * v[1] + B[2][i] * v[2]) : v);
     // (the coat's hem rests on a floor along Y; nobody here wears one long enough for it)
-    return { ...r, rows, sway: turn(r.sway), jiggle: turn(r.jiggle), seatJ: turn(r.seatJ), floor: hostName === 'park' ? T[1] : -1e4 };
+    return { ...r, rows, sway: turn(r.sway), jiggle: turn(r.jiggle), seatJ: turn(r.seatJ), hairJ: turn(r.hairJ), floor: hostName === 'park' ? T[1] : -1e4 };
   }
 
   return {

@@ -14,7 +14,7 @@
 // and with these off it samples nothing at all.
 // ⚠ ONE CASTER BUFFER FOR EVERY LAMP. buildPropCasters is run once with no light direction, so each
 // slab is an X and casts from any side; the maps differ only in their matrices.
-import { perspective, lookAt, mul4 } from '../diamond/camera.js';
+import { perspective, lookAt, multiply } from './core/mat4.js';
 import { buildPropCasters, keptArena, keptGroupsIn, keptAnchor, keptMatrix, PROP_SHADOW_TUNE } from './propshadow.js';
 import { compileShader } from './programs.js';
 
@@ -85,9 +85,9 @@ export function pickShadowLamps(lights, eye, T = LAMP_SHADOW_TUNE) {
 // lamp heights, from `near` under the lamp to just past the ground.
 export function lampMatrix(p, T = LAMP_SHADOW_TUNE) {
   const h = Math.max(0.05, p[2]);
-  const fov = 2 * Math.atan(T.reach * 1.05) * 180 / Math.PI;
+  const fov = 2 * Math.atan(T.reach * 1.05);
   const n = Math.min(T.near, h * 0.5);
-  return mul4(perspective(fov, 1, n, h + 0.05), lookAt([p[0], p[1], p[2]], [p[0], p[1], p[2] - 1]));
+  return multiply(perspective(fov, 1, n, h + 0.05), lookAt([p[0], p[1], p[2]], [p[0], p[1], p[2] - 1]));
 }
 
 // The ground the chosen lamps light, as buildPropCasters' box.

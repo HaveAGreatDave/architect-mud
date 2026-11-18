@@ -4,8 +4,17 @@
     "aliases": "rack,clothes horse,laundry",
     "look": {
       "arche": "store",
+      "dims": [
+        1,
+        0.4,
+        1.5
+      ],
       "form": "shelves",
       "wear": 0.95
+    },
+    "spot": {
+      "along": -1.8,
+      "wall": "front"
     }
   },
   "hp": null,

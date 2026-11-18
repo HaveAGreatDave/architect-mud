@@ -1,0 +1,90 @@
+{
+  "description": "A Second Helpings machine, lit green and humming, with eight buttons for eight flavours and a slot that takes coins nobody carries. The first pouch is on the house. The cable runs out of its back to a socket you can only reach if you drag it off the wall.",
+  "flags": {
+    "aliases": "vending machine soylent vendor",
+    "interactions": [
+      "vend"
+    ],
+    "look": {
+      "arche": "prop",
+      "dims": [
+        1,
+        0.8,
+        1.95
+      ],
+      "form": "vendor",
+      "label": "Second Helpings",
+      "sub": "Soylent Solutions",
+      "tint": "#1d5a3c"
+    },
+    "nudge": true,
+    "plugged_in": true,
+    "spot": {
+      "along": 0,
+      "wall": "back"
+    },
+    "vend_cooldown_s": 30,
+    "vend_line": "The machine thinks about it, a coil turns inside the glass, and a pouch drops into the tray with a slap.",
+    "vend_menu": [
+      {
+        "item": "item_soylent",
+        "label": "Sunshine",
+        "price": 0,
+        "tint": "#c9ccd2"
+      },
+      {
+        "item": "item_soylent_clinical",
+        "label": "Plain",
+        "price": 0,
+        "tint": "#8a8f94"
+      },
+      {
+        "item": "item_soylent_marrow",
+        "label": "Marrow",
+        "price": 1,
+        "tint": "#9a1f24"
+      },
+      {
+        "item": "item_soylent_ember",
+        "label": "Ember",
+        "price": 1,
+        "tint": "#3a3a3e"
+      },
+      {
+        "item": "item_soylent_citrus",
+        "label": "Citrus",
+        "price": 1,
+        "tint": "#f2d21a"
+      },
+      {
+        "item": "item_soylent_verdant",
+        "label": "Verdant",
+        "price": 1,
+        "tint": "#3fa34a"
+      },
+      {
+        "item": "item_soylent_birthday",
+        "label": "Birthday",
+        "price": 1,
+        "tint": "#f07ab8"
+      },
+      {
+        "item": "item_soylent_family",
+        "label": "Family",
+        "price": 1,
+        "tint": "#7a5a3a"
+      }
+    ],
+    "vends": "item_soylent"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_clone_soylent_vendor",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "soylent machine",
+  "object_type": "fixture",
+  "power_draw_kw": 0.3,
+  "price": null,
+  "zone_id": "zone_start"
+}

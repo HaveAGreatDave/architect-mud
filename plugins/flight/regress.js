@@ -14,7 +14,8 @@ import { liveriesFor, liveryById, unlockedLiveries, aircraftLiveryModel } from '
 import { crashSeverity, collateralBill, isSeverelyImpaired } from './collateral.js';
 import { boundUnpoweredClimb, hangarTileFor, toDeg, gearRetracts } from './state.js';
 import { thermalLift } from '../../client/shared/thermals.js';
-import { sellAircraft, cancelRental, flushAirborne, pushHangarBay, _liveryTest } from './hangars.js';
+import { sellAircraft, cancelRental, flushAirborne, pushHangarBay, _liveryTest, _setRideMs } from './hangars.js';
+import { standAt } from '../../server/engine/vehicle-stand.js';
 import { getBroadcast, setBroadcast } from '../../server/engine/messaging.js';
 import { computeStats, perfAxes, kitAxes, KIT_AXES, tuneRange, installedKits, KITS, TUNE_DIAL_MAX,
   PARTS, PART_SLOTS, slotsFor, installedParts, partDefs, partEnvelope, PYLON_MIN_TOW,
@@ -38,8 +39,9 @@ import { startTextPilot, stopTextPilot, textPilotTick, landingGrade, statusLines
 import { query } from '../../server/models/db.js';
 import { world } from '../../server/engine/world.js';
 import { isOpenTile, parkedIn } from '../../server/engine/vehicle-access.js';
-import { parkAt } from './state.js';
-import { unindexAircraft } from './access.js';
+import { parkAt, underglowOf } from './state.js';
+import { unindexAircraft, indexAircraft } from './access.js';
+import { scuttleDamage } from './scuttle.js';
 import { TYPES as FM_TYPES, SURFACES as FM_SURFACES, createState as fmCreate, step as fmStep } from '../../client/game/js/panels/flight-model.js';
 
 // ── Flight-model harness ──────────────────────────────────────────────────────
@@ -659,6 +661,47 @@ async function regressBody({ run, check, getPlayer }) {
   const savedPosture = p.posture, savedCombat = p.npcCombatTargetId, savedAc = p.aircraftId;
   p.posture = 'standing'; p.npcCombatTargetId = null; delete p.aircraftId; delete p.seat;
 
+  // `garage` belongs to a sky_garage terminal; anywhere else it falls through and claims nothing.
+  { const g = await run('garage'); check('garage away from a terminal claims nothing', !/SKY GARAGE/.test(g?.message || ''), g?.message); }
+
+  // The Stacked Deck: park on the roof pad, ride the carousel down, get a ticket; pull it back up.
+  {
+    const acId = 'aircraft_regress_sdeck', fac = 'zone_seam_914_908', savedZ = p.current_zone;
+    const cleanup = async () => {
+      await query('DELETE FROM aircraft WHERE id=$1', [acId]);
+      await query("DELETE FROM hangars WHERE field_zone=$1 AND owner_id=$2", [fac, p.id]);
+      await query("DELETE FROM player_inventory WHERE player_id=$1 AND item_id='item_skypark_ticket'", [p.id]);
+    };
+    try {
+      await cleanup();
+      await query(`INSERT INTO aircraft (id,type_id,name,owner_id,rental,is_wreck,airborne,parked_zone_id) VALUES ($1,'ac_dragonfly','REGR-SD',$2,0,0,0,$3)`, [acId, p.id, fac]);
+      p.current_zone = 'zone_sdeck_pad';
+      _setRideMs(20);
+      const wait = () => new Promise((r) => setTimeout(r, 120));
+      const park = await run('garage park');
+      check('stacked deck: park starts the ride and leaves you on the pad until it ends', /PARK/.test(park?.message || '') && p.current_zone === 'zone_sdeck_pad', `${p.current_zone} ${park?.message?.slice?.(0, 120)}`);
+      await wait();
+      check('…then sets you down in the slot bay', p.current_zone === 'zone_sdeck_s1', p.current_zone);
+      check('…with the craft standing in its cradle', standAt('zone_sdeck_s1')?.id === acId, JSON.stringify(standAt('zone_sdeck_s1')));
+      const { rows: tk } = await query("SELECT custom_data FROM player_inventory WHERE player_id=$1 AND item_id='item_skypark_ticket'", [p.id]);
+      const tcd = tk[0] && (typeof tk[0].custom_data === 'string' ? JSON.parse(tk[0].custom_data) : tk[0].custom_data);
+      check('…and hands over a ticket for that craft and slot', tcd?.aircraft_id === acId && tcd?.slot === 1, JSON.stringify(tcd));
+      const { rows: [inBay] } = await query('SELECT hangar_id FROM aircraft WHERE id=$1', [acId]);
+      check('…and the craft is off the pad', !!inBay?.hangar_id);
+      const pull = await run('garage pull');
+      await wait();
+      const { rows: [up] } = await query('SELECT hangar_id, parked_zone_id FROM aircraft WHERE id=$1', [acId]);
+      check('stacked deck: the ticket brings it up to the pad, rider and all', !up?.hangar_id && up?.parked_zone_id === fac && p.current_zone === 'zone_sdeck_pad', `${p.current_zone} ${pull?.message?.slice?.(0, 120)}`);
+      check('…and the cradle is empty', !standAt('zone_sdeck_s1'));
+      const { rows: gone } = await query("SELECT 1 FROM player_inventory WHERE player_id=$1 AND item_id='item_skypark_ticket'", [p.id]);
+      check('…and keeps the ticket', gone.length === 0);
+    } finally {
+      await cleanup();
+      _setRideMs(11000);
+      p.current_zone = savedZ;
+    }
+  }
+
   // ── Core verbs gate when not aboard ─────────────────────────────────────────
   // `embark` (primary) is aircraft-only; `board` (backup) delegates to poker off-context.
   let r = await run('embark');
@@ -1174,6 +1217,15 @@ async function regressBody({ run, check, getPlayer }) {
   r = await run('checkride');
   check('checkride is player-accessible (not access-denied) and gates on being aboard', /climb out/i.test(r?.message || ''), r?.message);
   if (savedAcC) p.aircraftId = savedAcC; else delete p.aircraftId;
+  // The Merlin's underglow: the verb needs a craft under you, and the colour rides on the contact.
+  {
+    const savedU = p.aircraftId; delete p.aircraftId;
+    const ru = await run('underglow #ff00aa');
+    check('underglow needs a craft under you', /not aboard/i.test(ru?.message || ''), ru?.message);
+    if (savedU) p.aircraftId = savedU;
+    check('underglowOf reads a hex, lowercased, and nothing else',
+      underglowOf({ custom_data: { underglow: '#FF00AA' } }) === '#ff00aa' && underglowOf({ custom_data: { underglow: 'red' } }) === null && underglowOf({}) === null);
+  }
 
   // ── Text-only passenger travel (textmode.js) ────────────────────────────────
   // The accessibility opt-out: a passenger who never wants the graphical cabin.
@@ -1382,7 +1434,7 @@ async function regressBody({ run, check, getPlayer }) {
   const savedZoneTP = p.current_zone;
   const tpId = 'aircraft_regress_textpilot';
   await query('DELETE FROM aircraft WHERE id=$1', [tpId]);
-  await query(`INSERT INTO aircraft (id,type_id,name,owner_id,rental,is_wreck,airborne,parked_zone_id,fuel,grid_x,grid_y,heading) VALUES ($1,'ac_mayfly','REGR-TP',$2,0,0,0,$3,40,925,903,'n')`, [tpId, p.id, savedZoneTP]);
+  await query(`INSERT INTO aircraft (id,type_id,name,owner_id,rental,is_wreck,airborne,parked_zone_id,fuel,grid_x,grid_y,heading) VALUES ($1,'ac_mayfly','REGR-TP',$2,0,0,0,$3,40,926,903,'n')`, [tpId, p.id, savedZoneTP]);
   const tpLive = await loadAircraft(tpId);
   // try/finally, not straight-line: this row is PARKED IN THE PLAYER'S ZONE, so if a
   // check throws before the cleanup below, the leftover row survives into the NEXT run
@@ -1464,13 +1516,13 @@ async function regressBody({ run, check, getPlayer }) {
     // for want of a runway, however slow she is.
     try {
       tpLive.type = { ...stolType, takeoff_mode: 'strip' };
-      tpLive.row.grid_x = 940; tpLive.row.grid_y = 940;
+      tpLive.row.grid_x = 941; tpLive.row.grid_y = 940;
       const offStrip = cmdTextLand([], p);
       check('a strip-rated craft refuses a land order with no runway under her',
         /needs a runway/i.test(offStrip?.message || ''), offStrip?.message);
       check('...and names the nearest strip instead of just saying no',
-        /nearest strip/i.test(offStrip?.message || '') || !nearestAirfield(940, 940, { needsRunway: true }), offStrip?.message);
-      tpLive.row.grid_x = 925; tpLive.row.grid_y = 903;
+        /nearest strip/i.test(offStrip?.message || '') || !nearestAirfield(941, 940, { needsRunway: true }), offStrip?.message);
+      tpLive.row.grid_x = 926; tpLive.row.grid_y = 903;
       const onStrip = cmdTextLand([], p);
       check('...but takes it with a runway under her', /final/i.test(onStrip?.message || ''), onStrip?.message);
     } finally { tpLive.type = stolType; }
@@ -1515,14 +1567,14 @@ async function regressBody({ run, check, getPlayer }) {
     const tile = hangarTileFor(ramp);
     check('Coldwater Regional finds its GLASS hangar', tile?.id === 'zone_district_927_902', tile?.id);
     const { surfaceAt, deriveSurfaceCell } = await import('./state.js');
-    const hc = surfaceAt(927, 902), hcell = hc ? deriveSurfaceCell(hc, 927, 902, surfaceAt) : null;
+    const hc = surfaceAt(928, 902), hcell = hc ? deriveSurfaceCell(hc, 928, 902, surfaceAt) : null;
     check('…and its tile derives as an aircraft bay', hcell?.mark === 'bay' && hcell?.bk === 'air', JSON.stringify({ mark: hcell?.mark, bk: hcell?.bk }));
     // Both hangars stand on the east taxiway, off the ramp, so each names its field with `hangar_field`.
-    // The heavy bay (Coldwater Regional Heavy Hangar, 929,904) takes a Leviathan; everything else goes
+    // The heavy bay (Coldwater Regional Heavy Hangar, 930,904) takes a Leviathan; everything else goes
     // to the regular one.
     const heavyTile = hangarTileFor(ramp, true);
     check('…and a heavy aircraft is sent to the heavy bay', heavyTile?.id === 'zone_district_929_904', heavyTile?.id);
-    const vc = surfaceAt(929, 904), vcell = vc ? deriveSurfaceCell(vc, 929, 904, surfaceAt) : null;
+    const vc = surfaceAt(930, 904), vcell = vc ? deriveSurfaceCell(vc, 930, 904, surfaceAt) : null;
     check('…which derives as the heavy bay', vcell?.mark === 'bay' && vcell?.bk === 'heavy', JSON.stringify({ mark: vcell?.mark, bk: vcell?.bk }));
     // A helicopter can't taxi out of a shed, so a VTOL is stood on the field's helipad instead.
     const { standTileFor, helipadTileFor, airfieldForRunway } = await import('./state.js');
@@ -1531,12 +1583,12 @@ async function regressBody({ run, check, getPlayer }) {
     check('…which the field owns, so a shutdown there parks at the field', airfieldForRunway(pad)?.id === ramp.id, airfieldForRunway(pad)?.id);
     check('…and a VTOL is stood on it, not in the shed', standTileFor(ramp, { vtol: true })?.id === 'zone_district_926_905', standTileFor(ramp, { vtol: true })?.id);
     check('…while a fixed-wing still gets the hangar floor', standTileFor(ramp, {})?.id === 'zone_district_927_902', standTileFor(ramp, {})?.id);
-    const pc = surfaceAt(926, 905), pcell = pc ? deriveSurfaceCell(pc, 926, 905, surfaceAt) : null;
+    const pc = surfaceAt(927, 905), pcell = pc ? deriveSurfaceCell(pc, 927, 905, surfaceAt) : null;
     check('…and the pad derives as a painted helipad', pcell?.rwy === 'pad' && pcell?.hp === 1, JSON.stringify({ rwy: pcell?.rwy, hp: pcell?.hp }));
     const hid = 'aircraft_regress_hangar';
     const savedZone = p.current_zone, savedBc = getBroadcast(), sent = [];
     await query('DELETE FROM aircraft WHERE id=$1', [hid]);
-    await query(`INSERT INTO aircraft (id,type_id,name,owner_id,rental,is_wreck,airborne,parked_zone_id,grid_x,grid_y,fuel) VALUES ($1,'ac_mule','REGR-HG',$2,0,0,0,'zone_district_925_903',925,903,40)`, [hid, p.id]);
+    await query(`INSERT INTO aircraft (id,type_id,name,owner_id,rental,is_wreck,airborne,parked_zone_id,grid_x,grid_y,fuel) VALUES ($1,'ac_mule','REGR-HG',$2,0,0,0,'zone_district_925_903',926,903,40)`, [hid, p.id]);
     await setFlag('player', 'air_pilot_licensed', '1', p);
     p.current_zone = 'zone_hangar_outskirts';
     setBroadcast((zoneId, message, excludeId, targetId) => { sent.push({ targetId, message }); });
@@ -1545,7 +1597,7 @@ async function regressBody({ run, check, getPlayer }) {
       const live = liveAircraft.get(hid);
       check('hangaract service seats you in her', p.aircraftId === hid, r?.message);
       check('…standing on the hangar floor, nose to the door',
-        !!live && live.row.grid_x === 927 && live.row.grid_y === 902 && toDeg(live.row.heading) === 180,
+        !!live && live.row.grid_x === 928 && live.row.grid_y === 902 && toDeg(live.row.heading) === 180,
         live && JSON.stringify({ x: live.row.grid_x, y: live.row.grid_y, h: live.row.heading }));
       check('…still parked at the field, so paint, fuel and repair resolve', live?.row.parked_zone_id === 'zone_district_925_903');
       const bay = sent.find(x => x.message?.type === 'hangar_bay_open')?.message?.data;
@@ -1597,32 +1649,32 @@ async function regressBody({ run, check, getPlayer }) {
   }
 
   // ── A runway tile belongs to the field its paving joins ──────────────────────────
-  // Coldwater Regional's field tile is 925,903 and its strip runs north to 925,897, six tiles
+  // Coldwater Regional's field tile is 926,903 and its strip runs north to 926,897, six tiles
   // away. The resolver gave a runway tile to a field only within three, and it was handed the
   // surface cell `land` passes, which has no grid_x, so it never resolved anything: a Mule shut
   // down at the north end parked on the runway tile, off the field, and a Leviathan was towed
   // and billed. Buzzard Field's field tile is beside its strip, so every landing there did the same.
   {
     const { surfaceAt, airfieldForRunway } = await import('./state.js');
-    const north = surfaceAt(925, 898);
-    check('925,898 is a runway tile and not the field tile', !!north?.flags?.runway && !north.flags.airfield_id, JSON.stringify(north?.flags));
+    const north = surfaceAt(926, 898);
+    check('926,898 is a runway tile and not the field tile', !!north?.flags?.runway && !north.flags.airfield_id, JSON.stringify(north?.flags));
     check('…and the surface cell resolves to Coldwater Regional', airfieldForRunway(north)?.flags?.airfield_id === 'af_regional', airfieldForRunway(north)?.id);
-    for (const [x, y] of [[925, 907], [926, 899], [924, 899], [928, 904]])
+    for (const [x, y] of [[926, 907], [927, 899], [925, 899], [929, 904]])
       check(`Coldwater Regional paving at ${x},${y} resolves to the field`, airfieldForRunway(surfaceAt(x, y))?.flags?.airfield_id === 'af_regional', airfieldForRunway(surfaceAt(x, y))?.id);
     check('Buzzard Field\'s strip (909,1040) resolves to Buzzard Field', airfieldForRunway(surfaceAt(909, 1040))?.flags?.airfield_id === 'buzzard_field', airfieldForRunway(surfaceAt(909, 1040))?.id);
 
     const hid = 'aircraft_regress_northend';
     const savedZone = p.current_zone, savedPosture = p.posture, savedCredits = p.credits || 0, savedBc = getBroadcast();
     await query('DELETE FROM aircraft WHERE id=$1', [hid]);
-    await query(`INSERT INTO aircraft (id,type_id,name,owner_id,rental,is_wreck,airborne,parked_zone_id,grid_x,grid_y,fuel) VALUES ($1,'ac_mule','REGR-NE',$2,0,0,0,'zone_district_925_903',925,903,40)`, [hid, p.id]);
+    await query(`INSERT INTO aircraft (id,type_id,name,owner_id,rental,is_wreck,airborne,parked_zone_id,grid_x,grid_y,fuel) VALUES ($1,'ac_mule','REGR-NE',$2,0,0,0,'zone_district_925_903',926,903,40)`, [hid, p.id]);
     setBroadcast(() => {});
     try {
       await setBalance(p, 1000);
       const live = await loadAircraft(hid);
       live.occupants.add(p.id); live.pilotId = p.id; p.aircraftId = hid; p.seat = 'pilot';
       live.row.airborne = 1; live.row.parked_zone_id = null; live.rolloutField = null;
-      await run('flightevent land B 100 925.00 898.00');
-      check('a shutdown at the north end of the strip (925,898) parks her at Coldwater Regional',
+      await run('flightevent land B 100 926.00 898.00');   // 926: the strip moved a tile east with the x 914 insert
+      check('a shutdown at the north end of the strip (926,898) parks her at Coldwater Regional',
         live.row.airborne === 0 && live.row.parked_zone_id === 'zone_district_925_903',
         JSON.stringify({ air: live.row.airborne, parked: live.row.parked_zone_id }));
       check('…without a recovery tow or its bill', p.credits === 1000, `credits=${p.credits}`);
@@ -1645,7 +1697,7 @@ async function regressBody({ run, check, getPlayer }) {
     const hid = 'aircraft_regress_resume';
     const savedZone = p.current_zone, savedPosture = p.posture, savedBc = getBroadcast();
     await query('DELETE FROM aircraft WHERE id=$1', [hid]);
-    await query(`INSERT INTO aircraft (id,type_id,name,owner_id,rental,is_wreck,airborne,parked_zone_id,grid_x,grid_y,fuel) VALUES ($1,'ac_drake','REGR-RS','someone_else',0,0,0,'zone_district_925_903',925,903,400)`, [hid]);
+    await query(`INSERT INTO aircraft (id,type_id,name,owner_id,rental,is_wreck,airborne,parked_zone_id,grid_x,grid_y,fuel) VALUES ($1,'ac_drake','REGR-RS','someone_else',0,0,0,'zone_district_925_903',926,903,400)`, [hid]);
     setBroadcast(() => {});
     const forget = () => { liveAircraft.delete(hid); delete p.aircraftId; delete p.seat; p.posture = 'standing'; };
     try {
@@ -1658,7 +1710,7 @@ async function regressBody({ run, check, getPlayer }) {
       check('wheels-up writes the pilot onto the row', live.row.custom_data?.aloft?.pilot === p.id && live.row.custom_data.aloft.home === 'zone_district_925_903',
         JSON.stringify(live.row.custom_data?.aloft));
       await run('flightsync 922.00 903.00 400 120 260 70 0 0 0');
-      await query('UPDATE aircraft SET grid_x=922, grid_y=903 WHERE id=$1', [hid]);
+      await query('UPDATE aircraft SET grid_x=923, grid_y=903 WHERE id=$1', [hid]);
 
       // The restart. Somebody else's resume is refused (she is not theirs to fly) and must not
       // leave her loaded into the tick either.
@@ -2113,12 +2165,12 @@ async function regressBody({ run, check, getPlayer }) {
 
     // THE DIRT IS THE SLUM'S (docs/proposals/coldwater-streets.md). Condition falls by column, but
     // the far east of the city stops at unmaintained: Ironside and Kessler aren't Old Coldwater.
-    check('Ironside Street, at the east end of the gradient, is unmaintained and not dirt', der(919, 905)?.sc === 3, der(919, 905)?.sc);
-    // 925,913 runs beside the slum and is flagged street_dirt (coldwater-streets.md), so test the stretch up by the yards.
-    check('Kessler Street, at the east end of the gradient, is unmaintained and not dirt', der(925, 908)?.sc === 3, der(925, 908)?.sc);
-    check('Kessler Street beside the slum is dirt by its street_dirt flag', der(925, 913)?.sc === 4, der(925, 913)?.sc);
+    check('Ironside Street, at the east end of the gradient, is unmaintained and not dirt', der(920, 905)?.sc === 3, der(920, 905)?.sc);
+    // 926,913 runs beside the slum and is flagged street_dirt (coldwater-streets.md), so test the stretch up by the yards.
+    check('Kessler Street, at the east end of the gradient, is unmaintained and not dirt', der(926, 908)?.sc === 3, der(926, 908)?.sc);
+    check('Kessler Street beside the slum is dirt by its street_dirt flag', der(926, 913)?.sc === 4, der(926, 913)?.sc);
     const slumRoad = { flags: { terrain: 'road', region_id: 'region_coldwater', district: 'slum' } };
-    check('a road painted into the slum is dirt', deriveSurfaceCell(slumRoad, 923, 916, surfaceAt).sc === 4);
+    check('a road painted into the slum is dirt', deriveSurfaceCell(slumRoad, 924, 916, surfaceAt).sc === 4);
 
     // The Reach, north end → south end. Buzzard Field's hangar sits BESIDE the strip (910,1042),
     // which is the layout that once made a clean landing read as off-field — see the ⚠ in the
@@ -2143,7 +2195,8 @@ async function regressBody({ run, check, getPlayer }) {
     // ⚠ AND A PAVED FIELD IS LEFT ALONE. Coldwater Regional already has paint, lights and a PAPI;
     // drums down the side of it would read as roadworks. The gate is the DUST surface, not the
     // runway flag, and this is the case that proves the difference is being read.
-    const paved = [897, 898, 899, 900, 901, 902, 903, 904, 905, 906].map(y => der(925, y));
+    // the strip is column 926 since the x 914 column insert moved everything east of it a tile
+    const paved = [897, 898, 899, 900, 901, 902, 903, 904, 905, 906].map(y => der(926, y));
     check('a paved runway carries the flag but is never drum-marked',
       paved.every(d => d && d.mark !== 'strip'), paved.map(d => d?.mark).join(','));
 
@@ -2153,7 +2206,7 @@ async function regressBody({ run, check, getPlayer }) {
     // were bare floor. The cell now says which it is (`rwy`), and a taxiway says where its line goes.
     check('every paved runway tile says it is runway, and is not a road',
       paved.every(d => d?.rwy === 'ns' && d.road === 0), paved.map(d => `${d?.rwy}/${d?.road}`).join(','));
-    const twy = der(927, 903);
+    const twy = der(928, 903);
     check('a taxiway tile is a pad carrying its centreline', twy?.rwy === 'pad' && /n/.test(twy.twy || '') && /w/.test(twy.twy || ''),
       JSON.stringify({ rwy: twy?.rwy, twy: twy?.twy }));
     check('a dust strip carries no paved-runway field', strip.every(d => d && d.rwy === undefined));
@@ -2192,7 +2245,7 @@ async function regressBody({ run, check, getPlayer }) {
   }
 
   // ── A CAMP ON THE CURTAIN KNOWS WHICH SIDE IS IN ───────────────────────────
-  // `ci` is what keeps the tents off the wall (`drawTentCamp` folds onto it). 927,917 shipped
+  // `ci` is what keeps the tents off the wall (`drawTentCamp` folds onto it). 928,917 shipped
   // without one: its west neighbour is a building that opens north, so "the side with no exit is
   // out" read both sides as out, and the client's land test read both as in. Every camp on a
   // Curtain tile has to carry an inland side, and it must point away from the blocked wall.
@@ -2393,6 +2446,65 @@ async function regressBody({ run, check, getPlayer }) {
         liveAircraft.delete(acId);
         unindexAircraft(acId);
         await query('DELETE FROM aircraft WHERE id=$1', [acId]).catch(() => {});
+      }
+    }
+  }
+
+  // ── Left out in the open: kept, taken, wrecked (scuttle.js) ──────────────────
+  // A craft parked off a hangar stays on its tile: the boot seed's own query still finds her. A
+  // stranger can spring a locked one with `jimmy`; anybody can `scuttle` one into a wreck. A craft
+  // put away in a hangar (`hangar_id`) is off the index, so neither verb reaches her.
+  {
+    const OTHER = 'regress_aircraft_owner_fake2';
+    const acA = 'aircraft_regress_open_a', acB = 'aircraft_regress_open_b', acH = 'aircraft_regress_open_h';
+    const zones = [...world.zones.values()];
+    const open = zones.find((z) => isOpenTile(z.id) && !z.flags?.airfield_id && !z.flags?.hangar_ramp && !z.flags?.yacht);
+    const { rows: [t] } = await query("SELECT id FROM aircraft_types WHERE class <> 'wreck' ORDER BY price_buy LIMIT 1");
+    const savedZone = p.current_zone, savedAc = p.aircraftId, savedPosture = p.posture;
+    const ids = [acA, acB, acH];
+    const cleanup = async () => { for (const id of ids) { liveAircraft.delete(id); unindexAircraft(id); } await query('DELETE FROM aircraft WHERE id = ANY($1)', [ids]).catch(() => {}); };
+    if (open && t) {
+      try {
+        await cleanup();
+        const ins = (id, name, owner, hangar) => query(
+          `INSERT INTO aircraft (id,type_id,name,owner_id,map_id,grid_x,grid_y,altitude_band,parked_zone_id,fuel,engine_temp,rental,hangar_id,custom_data)
+           VALUES ($1,$2,$3,$4,'map_world',$5,$6,'ground',$7,10,20,0,$8,'{"locked":true}'::jsonb)`,
+          [id, t.id, name, owner, open.grid_x, open.grid_y, open.id, hangar]);
+        await ins(acA, 'REGR-OPA', OTHER, null);
+        await ins(acB, 'REGR-OPB', p.id, null);
+        await ins(acH, 'REGR-OPH', OTHER, 'h_regress');
+        // What the boot seed (access.js) reads: the open craft, never the hangared one.
+        const { rows: seed } = await query(
+          `SELECT a.id, a.name, a.owner_id, a.rental, a.parked_zone_id, a.hangar_id, a.is_wreck, a.airborne, a.custom_data
+             FROM aircraft a WHERE a.id = ANY($1) AND a.owner_id IS NOT NULL AND a.rental = 0 AND a.is_wreck = 0 AND a.airborne = 0 AND a.hangar_id IS NULL`, [ids]);
+        check('open: a restart reseeds a craft parked off a hangar, not a hangared one', seed.length === 2 && !seed.some((r) => r.id === acH), seed.map((r) => r.id).join());
+        for (const r of seed) indexAircraft(r);
+        indexAircraft({ id: acH, owner_id: OTHER, rental: 0, hangar_id: 'h_regress', parked_zone_id: open.id, custom_data: {} });
+        check('open: the hangared craft is not on the tile index', !parkedIn(open.id).some((v) => v.id === acH));
+        p.current_zone = open.id; delete p.aircraftId; p.posture = 'standing';
+
+        let r = await run('scuttle REGR-OPH');
+        check('open: scuttle cannot reach a hangared craft', /no aircraft/i.test(r?.message || ''), r?.message);
+        r = await run('jimmy REGR-OPB');
+        check('open: jimmy is for somebody else\'s craft', /no aircraft/i.test(r?.message || ''), r?.message);
+        let popped = false;
+        for (let i = 0; i < 80 && !popped; i++) { r = await run('jimmy REGR-OPA'); popped = /latch pops/.test(r?.message || ''); }
+        const { rows: [a] } = await query('SELECT custom_data FROM aircraft WHERE id=$1', [acA]);
+        check('open: jimmy springs a locked craft\'s latch', popped && a?.custom_data?.locked === false, `${r?.message} ${JSON.stringify(a?.custom_data)}`);
+        check('…and the index reads her unlocked, so a stranger may take her', parkedIn(open.id).find((v) => v.id === acA)?.locked === false
+          && _test.boardGate({ id: acA, owner_id: OTHER, rental: 0, hangar_id: null, custom_data: a?.custom_data }, p).ok === true);
+
+        const goes = Math.ceil(1 / scuttleDamage(p.stat_brawn));
+        for (let i = 0; i < goes; i++) r = await run('scuttle REGR-OPB');
+        const { rows: [b] } = await query('SELECT is_wreck, damage, custom_data FROM aircraft WHERE id=$1', [acB]);
+        check(`open: ${goes} goes of scuttle wreck a parked craft`, b?.is_wreck === 1 && Number(b.damage) === 1 && b.custom_data?.crashed_at > 0, JSON.stringify(b));
+        check('…and take her off the tile index', !parkedIn(open.id).some((v) => v.id === acB));
+        const { rows: [h] } = await query('SELECT is_wreck, damage FROM aircraft WHERE id=$1', [acH]);
+        check('open: the hangared craft is untouched', h?.is_wreck === 0 && !Number(h.damage), JSON.stringify(h));
+      } finally {
+        p.current_zone = savedZone; p.posture = savedPosture;
+        if (savedAc) p.aircraftId = savedAc;
+        await cleanup();
       }
     }
   }

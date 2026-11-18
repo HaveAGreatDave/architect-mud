@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_mercenary_03",
+  "lines": [
+    "\"Who do you trust out there?\"",
+    "\"The person who pays up front.\"",
+    "\"And after?\"",
+    "\"Nobody after.\""
+  ],
+  "personality": "mercenary",
+  "sort_order": 665
+}

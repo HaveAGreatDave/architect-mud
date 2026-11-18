@@ -7,8 +7,11 @@
 // draws made inside it and the program's uViewProj and uMassShift at the time, so a pass that culled
 // everything shows up with no draws rather than not at all. For each culled pass (the depth prepass,
 // the main pass, the puddle mirror), every triangle of the buffer it didn't draw must be degenerate or
-// wholly past one clip plane of that pass's matrix, so the GPU would have clipped it whole. The sun
-// pass (uLightVP) must draw everything, and so must every pass of one view per seat with glMassCull 0.
+// wholly past one clip plane of that pass's matrix, so the GPU would have clipped it whole. A sun
+// pass (uLightVP) is held to its own matrix the same way: the whole-window map draws everything, and
+// the near cascade (RENDER_TUNE.glShadowNear) sends only what's in its box, so a triangle it skips
+// must be wholly outside that box. At least one sun pass must draw everything, and so must every
+// pass of one view per seat with glMassCull 0.
 // The far dissolve (uFadePass 2) draws only its band by design and is left out, and a binding that
 // uploads (massLayout) isn't a pass. Exits 1 on any visible triangle dropped, or when no pass culled
 // anything (a gate that checks nothing).
@@ -33,7 +36,7 @@ const closeSpan = () => {
   const u = uni.get(s.prog) || {};
   if (u.uFadePass === 2) return;
   // The sun pass is the program with uLightVP and no uViewProj: the main program has a uLightVP too.
-  passes.push({ prog: s.prog, buf: mirrors.get(b), ranges: s.draws, vp: u.uViewProj ? u.uViewProj.slice() : null, light: !!u.uLightVP && !u.uViewProj, shift: u.uMassShift || [0, 0] });
+  passes.push({ prog: s.prog, buf: mirrors.get(b), ranges: s.draws, vp: u.uViewProj ? u.uViewProj.slice() : null, light: !!u.uLightVP && !u.uViewProj, lvp: u.uLightVP ? u.uLightVP.slice() : null, shift: u.uMassShift || [0, 0] });
 };
 const record = (ranges) => { if (span) for (const r of ranges) span.draws.push(r); };
 const setU = (loc, v) => { if (loc && loc.p) { let u = uni.get(loc.p); if (!u) uni.set(loc.p, u = {}); u[loc.name] = v; } };
@@ -104,7 +107,8 @@ const degenerate = (buf, i) => {
   return nx * nx + ny * ny + nz * nz < 1e-18;
 };
 
-let shifted = 0, bad = 0, checked = 0, tris = 0, culled = 0, offFull = 0, offPasses = 0, sunPasses = 0;
+let shifted = 0, bad = 0, checked = 0, tris = 0, culled = 0, offFull = 0, offPasses = 0, sunPasses = 0, wholeSun = 0, nearSun = 0;
+const NO_SHIFT = [0, 0];
 const shown = [];
 const check = (p, where, on) => {
   const nV = Math.floor(p.buf.length / MASS_STRIDE / 3) * 3;
@@ -117,14 +121,16 @@ const check = (p, where, on) => {
     if (degenerate(p.buf, 3 * t)) continue;
     live++;
     skipped++;
-    if (p.light || !on || !p.vp) { bad++; if (shown.length < 6) shown.push(`${where}: a ${p.light ? 'sun' : on ? 'matrixless' : 'glMassCull 0'} pass skipped triangle ${t}`); continue; }
-    clipOf(p.buf, 3 * t, p.vp, p.shift, A); clipOf(p.buf, 3 * t + 1, p.vp, p.shift, B); clipOf(p.buf, 3 * t + 2, p.vp, p.shift, C);
+    if (!on || !(p.light ? p.lvp : p.vp)) { bad++; if (shown.length < 6) shown.push(`${where}: a ${p.light ? 'sun' : on ? 'matrixless' : 'glMassCull 0'} pass skipped triangle ${t}`); continue; }
+    // A sun pass carries its mass shift in its matrix (context.js shiftVP), so it's clipped with none.
+    const m = p.light ? p.lvp : p.vp, sh = p.light ? NO_SHIFT : p.shift;
+    clipOf(p.buf, 3 * t, m, sh, A); clipOf(p.buf, 3 * t + 1, m, sh, B); clipOf(p.buf, 3 * t + 2, m, sh, C);
     if (!outside()) { bad++; if (shown.length < 6) shown.push(`${where}: triangle ${t} is in view and wasn't drawn`); }
   }
   checked++;
   if (on && !p.light && (p.shift[0] || p.shift[1])) shifted++;
   kinds.add(p.prog);
-  if (p.light) sunPasses++;
+  if (p.light) { sunPasses++; if (skipped) nearSun++; else wholeSun++; }
   if (!on) { offPasses++; if (!skipped) offFull++; }
   else if (!p.light) { tris += live; culled += skipped; if (!p.ranges.length) emptied++; }
 };
@@ -162,5 +168,5 @@ if (bad) { console.error(`masscull: ${bad} triangles dropped that a pass should 
 if (!culled) { console.error(`masscull: ${checked} passes checked and none culled a triangle; the switch isn't reaching the draw`); process.exit(1); }
 if (!offPasses || offFull !== offPasses) { console.error(`masscull: ${offPasses - offFull} of ${offPasses} passes with glMassCull 0 culled something`); process.exit(1); }
 if (!shifted) { console.error('masscull: no culled pass drew through a mass shift, so a recentre is unchecked'); process.exit(1); }
-if (!sunPasses) { console.error('masscull: no sun pass was seen, so the check that it draws everything checked nothing'); process.exit(1); }
-console.log(`✓ masscull: ${checked} mass passes by ${kinds.size} programs (${sunPasses} sun, all whole; ${shifted} culled through a mass shift, ${emptied} culled whole with nothing in view); the culled passes skipped ${(100 * culled / Math.max(1, tris)).toFixed(0)}% of their triangles, each one wholly outside the view.`);
+if (!wholeSun) { console.error('masscull: no sun pass drew the whole mass, so the check that the whole-window map draws everything checked nothing'); process.exit(1); }
+console.log(`✓ masscull: ${checked} mass passes by ${kinds.size} programs (${sunPasses} sun: ${wholeSun} whole, ${nearSun} near cascades culled to their box; ${shifted} culled through a mass shift, ${emptied} culled whole with nothing in view); the culled passes skipped ${(100 * culled / Math.max(1, tris)).toFixed(0)}% of their triangles, each one wholly outside the view.`);

@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "id": "bt_more_gen_06",
+  "lines": [
+    "\"The Architect fixed the lift in my block.\"",
+    "\"After how long?\"",
+    "\"Three years.\"",
+    "\"It was busy.\"",
+    "\"Doing what?\"",
+    "\"Nobody knows. That's the whole problem.\""
+  ],
+  "personality": null,
+  "sort_order": 605
+}

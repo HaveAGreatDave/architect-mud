@@ -51,10 +51,11 @@ Flagged onto fitting zones (the `zones.flags.airfield_id` pattern):
 | Field | `airfield_id` | Ramp zone (x,y) | Services |
 |---|---|---|---|
 | Threshold Helipad | `af_helipad` | `zone_district_893_909` (890,904; moved off Halcyon Boulevard for the Coliseum on 2026-11-02 and kept its id) | charter + rental · charge/hydrogen/jet · **VTOL-only** |
-| **Coldwater Regional** | `af_regional` | `zone_district_925_903` (925,903) | **dealer + charter + rental** · all fuels |
+| **Coldwater Regional** | `af_regional` | `zone_district_925_903` (926,903) | **dealer + charter + rental** · all fuels |
 | The Echelon — Helipad | `echelon_helipad` | `zone_echelon_exterior` (897,898) | charter only · VTOL-only |
 | Buzzard Field | `buzzard_field` | `zone_the_reach_870_1958` (910,986) | charter only · **lawless** · dust strip |
-| **Solenne Sky Pad** | `af_solenne` | `zone_district_914_908` (914,908) | **private** — residents only · charge/hydrogen/jet · **VTOL-only** |
+| **Solenne Sky Pad** | `af_solenne` | `zone_district_914_908` (915,908) | **private** — residents only · charge/hydrogen/jet · **VTOL-only** |
+| **Stacked Deck** | `af_stackeddeck` | `zone_seam_914_908` (913,908) | public VTOL parking, free · a carousel under the roof pad, ticket per craft · charge · **VTOL-only** |
 
 **Fuels (2026-11-01).** The fleet is 2070s equipment (docs/story.md), so it runs on 2070s fuel. The
 ids and the words the pumps use are in `client/shared/fuels.js`, read by the server and the hangar.
@@ -232,7 +233,7 @@ reason; it now draws it field green and the taxiways a darker green.
 
 What the painter lays down:
 
-- **Runway:** ten tiles, 925,897 to 925,906. It can't reach row 896: that would cut the Basin's water in
+- **Runway:** ten tiles, 926,897 to 925,906. It can't reach row 896: that would cut the Basin's water in
   two. Composite panel seams, a blue light rail inside each edge line with a pulse running down it at
   night, and blue chevrons on the tiles clear of the touchdown markings. Then edge lines, a dashed centreline stopping short of the numbers, piano keys and the
   designator at each end (18 at the north, 36 at the south, each upright to a pilot landing over
@@ -508,6 +509,28 @@ from `boardFound`, so `embark`/`board` and the SIFT replay all go through it.
   the lock verbs. Seeded once at boot with one query; `parkAt`, `disembark` and `hangar pull` add a
   craft, and takeoff, a crew dispatch, a crash, `hangar store`, a sale and a deletion take it out.
   Boarding always re-reads the row, so a stale entry costs a wrong line, never a wrong aircraft.
+
+### Left out in the open *(as built, 2026-11-18)*
+
+A craft you park anywhere but a hangar bay, at a helipad, a field's ramp or a street, stays exactly
+there until you fly her somewhere else. Logging off doesn't move her and nor does a restart: the row
+keeps `parked_zone_id`, and `access.js` seeds the open-tile index from it at boot (one query). Out
+there she's visible in the room's "Parked here" line, and she can be taken and wrecked. The only
+protection is a hangar: fly her to a field with storage and `hangar store` (or the Stacked Deck),
+which sets `hangar_id` and takes her off the index.
+
+- **`jimmy <aircraft>`** (`scuttle.js`) springs the latch on somebody else's locked craft parked on
+  the tile: a Security check at `JIMMY_DIFF` (6). It writes `locked: false` to the row, the live row
+  and the index. It isn't the theft; climbing in and going is, through the ordinary `boardGate` and
+  `vehicle.taken`.
+- **`scuttle <aircraft>`** wrecks one, yours or anybody's. Each go adds `scuttleDamage(brawn)` (0.25,
+  plus 0.02 a Brawn point over 3) to `damage`; at 1 she's `is_wreck` with `crashed_at` stamped, off
+  the index, and `flight.crashed` fires with `reason: 'scuttled'`. That starts the wreck sweep's
+  clock (salvage window, then cleared) and pays the owner's hull policy when a stranger did it
+  (`combat: true`, the insurer's "not your fault"); the crash accolade skips it. A stranger's go is
+  charged as `vandalism` through `CHARGE_CRIME`.
+- Both verbs read targets from the open-tile index (RAM) and write with guards on `hangar_id IS NULL`
+  and the player's tile, so a hangared or departed craft is never touched. Nobody aboard, too.
 
 ### NPC companions — somebody in the back *(as built, 2026-08-04)*
 The charter pilot proved an NPC can be an occupant: pulled out of the world (no zone),
@@ -903,7 +926,25 @@ via CSS var `--d`, toggles `.act` past ±0.04). Physics: `flight-model.js` `step
 feeds `pedal * rudderYaw * auth` into the heading integrator; a sheared rudder
 zeroes pedal authority.
 
-### ← → : a bank she holds *(as built, 2026-11-09)*
+### The flight keys *(as built, 2026-11-17)*
+The same in every aircraft (cockpit.js `onKeyDown`):
+
+| Keys | What they do |
+| --- | --- |
+| W / S | The stick forward and back. W pushes the nose down, so a helicopter or the Merlin tips forward and goes; S pulls. |
+| A / D | The stick left and right. |
+| R / F | The throttle up and down; a helicopter's collective, so up and down. Shift or Alt moves one side's levers on a twin. |
+| Q / E, X / C, comma / period | The pedals (yaw). |
+| ← → ↓ | Hold to look left, right and behind; ↑ is ahead. |
+| Z, the mouse wheel | Zoom from the seat: Z held is 2.8x, the wheel steps 1x to 4x. A focal multiplier, so the cabin and the world zoom together. In the chase view the wheel still moves the camera. |
+| N | Flares (F until 2026-11-17). Shift+N is the Drake's night vision, Shift+R her ramp. |
+
+Each stick key eases its axis out to the stop over about a third of a second while it's held, so a tap
+is a nudge and a hold a smooth full pull, and the spring centres it when it's let go; a held key beats
+the mouse stick. Boats and trucks keep their own keys (boat-view.js, cab-view.js).
+
+### ← → : a bank she holds *(as built, 2026-11-09; its keys removed 2026-11-17)*
+The arrows are look keys now and A/D roll the stick, so nothing in the cockpit presses the bank hold. bank-hold.js and its gate stay for a control that wants it. As it was built:
 In the air the arrow keys set a bank and the aircraft holds it when you let go. A tap moves the
 target 5°, holding a key rolls it on at 30° a second after a 0.3 s pause, and a released key leaves
 it snapped to the nearest 5°. Rolling back through level stops at level (the detent), so holding ←
@@ -1401,7 +1442,7 @@ content (`content/zones/zone_hangar_*.json`).
 Room text: `describeAirfield`/`describeHangarInterior` share a `serviceBits` builder.
 
 **Coldwater Regional's terminal** *(as built, 2026-10-03)* is the passenger side of the same
-desk. It's two facades, arrivals (924,902) and departures (924,903), over seven rooms: Arrivals
+desk. It's two facades, arrivals (925,902) and departures (925,903), over seven rooms: Arrivals
 Hall, Baggage Reclaim and a utility room on `map_int_cw_arrivals`, and Check-in Hall, Security
 Screening, Departure Lounge and Gate 1 on `map_int_cw_departures`, joined by an internal link
 from the arrivals hall south to check-in.
@@ -1459,22 +1500,22 @@ has **Fly** (`hangaract launch <id>`), Refuel, Store or Roll out, and Sell or Re
   airframe there for `hangaract service|launch` instead of the hangar floor, and the bench's `hangar`
   flag goes false so its copy and camera treat it as a pad. The cell carries `hp`, and
   `paintAirfieldTile` draws a white ring, an H upright from the lead-in, and green lamps. Coldwater
-  Regional's is the stand at 926,905, at the end of the parallel taxiway.
-- **Coldwater Regional's hangars have their own taxiway**, away from the tower (924,901) and the
-  terminal (arrivals 924,902, departures 924,903) on the runway's west edge. It runs east off the
-  parallel taxiway over 927–928 × 903–904. The Hangar is at 927,902 with its door south onto 927,903;
-  the Heavy Hangar is at 929,904 at the end of the spur, door west onto 928,904, so the Leviathan
+  Regional's is the stand at 927,905, at the end of the parallel taxiway.
+- **Coldwater Regional's hangars have their own taxiway**, away from the tower (925,901) and the
+  terminal (arrivals 925,902, departures 925,903) on the runway's west edge. It runs east off the
+  parallel taxiway over 928–929 × 903–904. The Hangar is at 928,902 with its door south onto 928,903;
+  the Heavy Hangar is at 930,904 at the end of the spur, door west onto 929,904, so the Leviathan
   rolls out along the taxiway. A shutdown on paving resolves through `airfieldForRunway`: a field owns
   every `flags.runway` tile within three of its field tile, plus every `flags.runway` tile joined to
-  those edge to edge. So the north end of the strip (925,897), the apron at 924,899 and the lead-in to
-  Kessler Street (925,907) all belong to Coldwater Regional. A new taxiway tile needs `flags.runway`
+  those edge to edge. So the north end of the strip (926,897), the apron at 925,899 and the lead-in to
+  Kessler Street (926,907) all belong to Coldwater Regional. A new taxiway tile needs `flags.runway`
   (`pad`) and an edge shared with the paving; a tile without the flag, or one that touches only at a
   corner, reads as off-strip.
 - **The taxiway network is painted** *(as built, 2026-10-04)*. Each paved tile's `flags.taxiway` is
-  the sides its yellow centreline leaves by: a parallel taxiway down x=926 from the north threshold (926,897), a loop
-  from the spur round the helipad to the south threshold (928,905 to 926,906), with exits onto the runway
+  the sides its yellow centreline leaves by: a parallel taxiway down x=926 from the north threshold (927,897), a loop
+  from the spur round the helipad to the south threshold (929,905 to 927,906), with exits onto the runway
   at 899, 901 and 903, the spur east to both hangar doors, a lead-in off the runway's south end
-  (925,907) running down to Kessler Street, two stands (924,900, 927,904) and the helipad (926,905). See
+  (926,907) running down to Kessler Street, two stands (925,900, 928,904) and the helipad (927,905). See
   [The paved field](#the-paved-field-as-built-2026-10-04) for how it is drawn.
 - **The doors are roller doors, shut by default.** One goes up as an aircraft taxis at it, stays up
   while one that came in through it is inside, goes up when an aircraft on the floor starts her engine,
@@ -1917,3 +1958,20 @@ The pilot always wins: dragging the yoke pad or deflecting the mouse stick disen
 ## Cockpit makers and stick rules
 
 Every aircraft's stick or yoke is dead ahead of the pilot, and a stick's grip goes forward as the mouse goes up: `stickY` positive is a pull, and shell `+y` is forward, so pulling moves the grip to `-y`. Pulling still climbs. The 2076 cockpits share four makers in [interior-brands.js](../client/shared/interior-brands.js): Corvane Aerospace (Viper, Reaper, Shrike), Harcourt Airframes (Mule, Leviathan), Lumen Light Aircraft (Mayfly, Dragonfly, Grasshopper) and Ostler Works (Locust, Carcass). A maker sets cabin colours, the light-line colour and surface finish. Red, amber and green stay warning colours, so a maker's line colour must never be one of them.
+
+### The Stacked Deck *(as built, 2026-11-17)*
+
+Free public VTOL parking at 913,908 on Marrow Street (`af_stackeddeck`, building type `vtol_park`, model
+`stackeddeck.json`, black and cyan). Land on the roof pad (`zone_sdeck_pad`), climb out and `garage park`. The server sends
+`carousel_ride` and the client plays the ride (`panels/carousel-ride.js`: the pad sinks, the drum turns, the craft goes into its
+slot) for exactly `ms`; when it ends the server moves you into that slot's bay (`zone_sdeck_s1` to `s12`, three off each
+level landing) and raises the `sdeck` vehicle stand there, so in ROOM the cradle draws your aircraft in beside you. You get an
+`item_skypark_ticket` naming craft, slot and level. The stand is the bay's Board key: `garage pull` at your slot plays the ride up
+and sets you on the pad. At the lobby pay station `garage pull` just sends the craft up. A lost ticket costs nothing while
+parking is free.
+
+It's the sky garage's code with `flags.public` on the terminals (`publicGarage` in hangars.js): a rent-0 `hangars` row per
+player, the slot on `custom_data.garage_slot`, three a level from `flags.levels`, bays named `flags.slot_prefix` + slot.
+Terminals name their field in `flags.field_zone`, because `fieldFor` only knows the ramp and the pad. A bay is `flags.sdeck_slot`;
+entering one raises your craft's stand if it's parked there (one query). Only `ultralight` and `heli` fit. Outside, GLASS
+doesn't animate the pad: the ride is the overlay only.

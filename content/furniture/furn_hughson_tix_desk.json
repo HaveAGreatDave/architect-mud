@@ -1,0 +1,27 @@
+{
+  "description": "An oak desk under the strip light with the cash box chained to its leg, a date stamp, a rubber band ball the size of a fist and a ledger open at tonight.",
+  "flags": {
+    "aliases": [
+      "desk",
+      "cash box",
+      "box",
+      "stamp",
+      "ledger"
+    ],
+    "look": {
+      "arche": "surface",
+      "form": "desk"
+    },
+    "spot": {
+      "at": [
+        0.6,
+        4
+      ],
+      "turn": 90
+    }
+  },
+  "id": "furn_hughson_tix_desk",
+  "name": "the clerk's desk",
+  "object_type": "furniture",
+  "zone_id": "zone_hughson_tickets"
+}

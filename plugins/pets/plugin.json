@@ -1,10 +1,11 @@
 {
   "name": "pets",
   "version": "0.4.0",
-  "description": "Pets (docs/proposals/pets.md): an animal that lives in somebody's home. A pet is its NPC (flags.pet names its row), which the engine already lists, describes, sends home and lets you pet, plus a row in `pets` holding its body (the cat kit's numbers) and personality. Answers the Room Stage's roomstage.npcBeast hook so the stage draws the NPC as the cat instead of a person, with its nature, its bowls and whatever beat it's on. What a cat does on its own is client/shared/cat-life.js, from its id and the clock, including which piece of furniture it's up on and its goes at its bowls; this plugin says it in the room as it changes, so the text and the 3D cat agree. Its beats are RAM: it greets whoever comes in (zone.entered) at the door they came through and waits to be stroked, and it claims `pet` (npc.petAttempt) to purr, then warn, then swat whoever keeps going; `pet <cat> <where>` (the engine hands the spot over: chin, cheek, head, ears, back, tail, paws, belly) weighs on that ladder by what the spot is to a cat, and ROOM sends it as you stroke him with the mouse. A feeding station (furniture with flags.pet_bowls) holds two meals and a day's water; `refill` fills it at a small price for what's gone. How hungry and thirsty a pet is comes from when its bowls were last filled (cat-life.js catNeeds), worked out when read: hungry at an empty dish it pesters, greets people by demanding food, and says so when examined (npc.describeAnimal); thirsty at an empty bowl it drinks from the kitchen tap. A litter tray (furniture with flags.pet_tray) is scooped with `scoop`, free; how dirty it is comes from when it was last scooped and the cat's own times, and a full one he goes beside and the room smells of it (zone.smells). Carers, bond and the other pet verbs are still to come.",
+  "description": "Pets (docs/proposals/pets.md): an animal that lives in somebody's home. A pet is its NPC (flags.pet names its row), which the engine already lists, describes, sends home and lets you pet, plus a row in `pets` holding its body (the cat kit's numbers) and personality. Answers the Room Stage's roomstage.npcBeast hook so the stage draws the NPC as the cat instead of a person, with its nature, its bowls and whatever beat it's on. What a cat does on its own is client/shared/cat-life.js, from its id and the clock, including which piece of furniture it's up on and its goes at its bowls; this plugin says it in the room as it changes, so the text and the 3D cat agree. Its beats are RAM: it greets whoever comes in (zone.entered) at the door they came through and waits to be stroked, and it claims `pet` (npc.petAttempt) to purr, then warn, then swat whoever keeps going; `pet <cat> <where>` (the engine hands the spot over: chin, cheek, head, ears, back, tail, paws, belly) weighs on that ladder by what the spot is to a cat, and ROOM sends it as you stroke him with the mouse. A feeding station (furniture with flags.pet_bowls) holds two meals and a day's water; `refill` fills it at a small price for what's gone. How hungry and thirsty a pet is comes from when its bowls were last filled (cat-life.js catNeeds), worked out when read: hungry at an empty dish it pesters, greets people by demanding food, and says so when examined (npc.describeAnimal); thirsty at an empty bowl it drinks from the kitchen tap. A litter tray (furniture with flags.pet_tray) is scooped with `scoop`, free; how dirty it is comes from when it was last scooped and the cat's own times, and a full one he goes beside and the room smells of it (zone.smells). Carers, bond and the other pet verbs are still to come. Street cats (strays.js): a batch of twelve rolled onto Coldwater's streets, more to the east, as RAM NPCs from `stray_cats`; `adopt` takes one home to your flat, where it becomes a pet. The Strays dev tab lists them and rolls another batch.",
   "commands": [
     "refill",
-    "scoop"
+    "scoop",
+    "adopt"
   ],
   "objectGatedCommands": {
     "refill": {
@@ -45,5 +46,20 @@
     "npcs.flags.pet",
     "furniture.flags.pet_bowls",
     "furniture.flags.pet_tray"
-  ]
+  ],
+  "routePrefix": "/strays",
+  "dataSchema": [
+    "pets",
+    "pet_bowls",
+    "pet_trays",
+    "stray_cats"
+  ],
+  "devPanel": {
+    "id": "strays",
+    "nav": "🐈 Strays",
+    "navGroup": "live",
+    "scripts": [
+      "panel.js"
+    ]
+  }
 }

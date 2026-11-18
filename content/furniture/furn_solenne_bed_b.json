@@ -10,11 +10,8 @@
       "form": "platform"
     },
     "spot": {
-      "at": [
-        -3.4,
-        7.6
-      ],
-      "turn": 90
+      "along": 5.45,
+      "wall": "left"
     }
   },
   "hp": null,

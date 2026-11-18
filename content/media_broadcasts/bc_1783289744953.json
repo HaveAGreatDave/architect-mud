@@ -36,6 +36,104 @@
     ],
     "analyst": "Dusty Merriman",
     "announcer": "Chip Vega",
+    "bullpens": {
+      "Basin Blue Birds": {
+        "coach": "Ray Adebola",
+        "manager": "Walt Henning",
+        "pen": [
+          "Castellano",
+          "Engstrom",
+          "Tamura",
+          "Quarles",
+          "Asante",
+          "Pacheco"
+        ]
+      },
+      "Boomtown Bombers": {
+        "coach": "Lou Santangelo",
+        "manager": "Gus Merrill",
+        "pen": [
+          "\"Mad Dog\" Sturgill",
+          "Merriwether",
+          "Novak",
+          "Hargrove",
+          "Saldana",
+          "Vukovich"
+        ]
+      },
+      "Coldwater Crows": {
+        "coach": "Hector Villalobos",
+        "manager": "Abe Donnelly",
+        "pen": [
+          "Wainwright",
+          "Sheffield",
+          "Onyango",
+          "Kurtz",
+          "Dalby",
+          "Meeks"
+        ]
+      },
+      "Docks District Dolphins": {
+        "coach": "Frank Odum",
+        "manager": "Sal Pirrone",
+        "pen": [
+          "Archuleta",
+          "Kimbrough",
+          "Gilchrist",
+          "Sikora",
+          "Takeda",
+          "Purcell"
+        ]
+      },
+      "Marquee Mastodons": {
+        "coach": "Benny Calderwood",
+        "manager": "Del Kostner",
+        "pen": [
+          "\"Fireman\" Yost",
+          "Lacey",
+          "Eriksen",
+          "Lassiter",
+          "Wozniak",
+          "Kittredge"
+        ]
+      },
+      "Rustpile Red Sox": {
+        "coach": "Earl Mutombo",
+        "manager": "Hank Voigt",
+        "pen": [
+          "Stanek",
+          "Dorsey",
+          "Paquette",
+          "Ruffin",
+          "Mancuso",
+          "Ogle"
+        ]
+      },
+      "Westside White Sox": {
+        "coach": "Vern Tibbets",
+        "manager": "Joe Tamayo",
+        "pen": [
+          "Bolton",
+          "Kaczmarek",
+          "Pennington",
+          "Amador",
+          "Tsai",
+          "Hurley"
+        ]
+      },
+      "Yards Yellowjackets": {
+        "coach": "Cy Balogun",
+        "manager": "Mickey Doran",
+        "pen": [
+          "\"Gas\" Gorman",
+          "Ridley",
+          "Lozano",
+          "Rinaldi",
+          "Hollander",
+          "Pocock"
+        ]
+      }
+    },
     "clubs": {
       "Basin Blue Birds": {
         "colours": [
@@ -3807,6 +3905,86 @@
         "The {away} bring their {awayRecord} mark in against the {home}, sitting at {homeRecord}. Standings on the line, such as they are.",
         "It's {home} ({homeRecord}) hosting {away} ({awayRecord}), two clubs clawing up a league table nobody escapes."
       ],
+      "mound.change": [
+        "And here comes {manager}. That's the end of the night for {out}.",
+        "{skipper} is out of the dugout, and he isn't coming out to chat. {out} is done.",
+        "{manager} makes the walk. He wants {in}.",
+        "That's it for {out}. {skipper} is going to the bullpen."
+      ],
+      "mound.change.again": [
+        "{manager} is coming out, and that's the second trip to {out} this inning. That means he's out of the game.",
+        "Second visit of the inning, so {out} has to go. || And {skipper} wasn't going to leave him in anyway."
+      ],
+      "mound.change.late": [
+        "The tying run's up, and {skipper} isn't taking any chances. {out} is done.",
+        "{manager} doesn't want {out} facing this man with the game on the line. He's going to his pen."
+      ],
+      "mound.change.shelled": [
+        "{manager} has seen enough. {out} is done, and it wasn't his night.",
+        "Here comes {skipper}, and {out} won't be sorry to see him. || Rough one. He'll want it forgotten by the time he's in the shower.",
+        "That's all for {out}. They got to him tonight."
+      ],
+      "mound.change.tired": [
+        "{out} is up to {outPc} pitches, and {skipper} has seen enough. Here he comes.",
+        "{outPc} pitches for {out}. {manager} is coming to get the ball. || He gave them what he had. You can't ask for more than that.",
+        "That's {outPc} pitches, and {out} is running on empty. {skipper} makes the walk."
+      ],
+      "mound.in": [
+        "Coming in from the bullpen, {in}.",
+        "{in} jogs in from the pen. He's {wl} on the year with a {era} earned run average.",
+        "Now pitching for the {fielding}, {in}."
+      ],
+      "mound.in.closer": [
+        "And it's {in}, the closer. {skipper} wants this one over.",
+        "{in} comes in to close it. The crowd knows what that means."
+      ],
+      "mound.in.closer.saves": [
+        "{in} is coming in. He's got {svs} this season.",
+        "Here's the closer, {in}, with {svs} on the year. || He doesn't say much. He doesn't have to."
+      ],
+      "mound.in.long": [
+        "{in} comes in. He's the long man, and it looks like he's got some work to do.",
+        "{skipper} goes to {in}, his long man. He can give them three or four if he has to."
+      ],
+      "mound.in.setup": [
+        "Here's {in}, the setup man. His job is to get it to the closer.",
+        "{in} is the man for the late innings. He'll try to get this one to the ninth."
+      ],
+      "mound.inning": [
+        "New pitcher for the {fielding} this inning: {in}.",
+        "{in} is on the mound for the {fielding} now. He's {wl}, {era}.",
+        "The {fielding} make a change. {in} takes over."
+      ],
+      "mound.inning.closer": [
+        "{in} is coming in to close it for the {fielding}.",
+        "Here's {in}. The {fielding} want three outs, and he's the man they pay to get them."
+      ],
+      "mound.inning.setup": [
+        "{in} is on to pitch the {inningOrd} for the {fielding}.",
+        "The {fielding} bring in {in}, their setup man."
+      ],
+      "mound.visit": [
+        "{coach} is out of the dugout. He wants a word with {pitcher}.",
+        "Here comes {coach}, the pitching coach. Time for a talk.",
+        "{coach} takes a slow walk out to the mound. That buys {pitcher} a minute.",
+        "The pitching coach is coming out. {pitcher} could use the breather."
+      ],
+      "mound.visit.tension": [
+        "Big spot, and {coach} goes out to talk it over with {pitcher}.",
+        "{coach} walks out before this one. He wants {pitcher} to know how to pitch this man. || Or he just wants him to breathe.",
+        "The pitching coach comes out. Nobody's in trouble yet, and he'd like to keep it that way."
+      ],
+      "mound.visit.trouble": [
+        "{coach} is on his way out. {pitcher} has let this inning get away from him. || He's trying to throw it through the backstop. Somebody has to tell him.",
+        "That'll bring out {coach}. {pitcher} can't find the plate right now.",
+        "{coach} is coming out to settle him down. || What do you say to a man in that spot? || Slow down. That's about all there is.",
+        "Mound visit. {coach} goes out, the catcher goes out, and {pitcher} stands there and nods."
+      ],
+      "mound.warm": [
+        "Somebody's throwing in the {fielding} bullpen. That's {warm}.",
+        "There's movement in the pen. {warm} is loosening up. || Never a good sign for the man on the mound.",
+        "{warm} is up in the bullpen. {skipper} wants him ready."
+      ],
       "outro": [
         "That's DEADBALL. {leader} take the day. Chip Vega saying: go home, lock the door, and dream of extra innings.",
         "For the {leader} and everyone still upright out there, this has been Chip Vega. Good night, and mind the radiation.",
@@ -4198,6 +4376,10 @@
         "It's been a hard year for {pitcher}. His earned run average is {era}. He keeps getting the ball, though.",
         "{pitcher}'s earned run average is {era}. || That's a big number. || It's a long season. He'll bring it down."
       ],
+      "story.pitcher.saves": [
+        "{pitcher} has {svs} this season. When he comes in, the game's usually over.",
+        "{svs} for {pitcher}. || He's the reason nobody leaves early."
+      ],
       "story.pitcher.winning": [
         "{pitcher} is {wl} this season. He's been winning, whatever the rest of the numbers say.",
         "{wl} for {pitcher}. His club scores runs for him, and he takes them."
@@ -4244,6 +4426,11 @@
         "{batter} is {tonight} tonight. He's seeing it well.",
         "{tonight} for {batter} so far. He's hit the ball hard every time up."
       ],
+      "tonight.pitcher.count": [
+        "{pitcher} is at {pc} pitches. He won't be out there much longer.",
+        "That's {pc} pitches for {pitcher}. Somebody in the pen will be stirring soon. || If they're awake.",
+        "{pc} pitches so far for {pitcher}. || He's starting to labour. Look how long he takes between them."
+      ],
       "tonight.pitcher.k": [
         "{pitcher} has {nks} already. The {team} haven't figured him out.",
         "That's {nks} for {pitcher} tonight. His {pitch} is working.",
@@ -4251,7 +4438,7 @@
       ],
       "tonight.pitcher.rocky": [
         "{pitcher} has given up {runsWord} runs. He's leaving it up, and the {team} aren't missing.",
-        "Hard night for {pitcher}. {runsWord} runs against him. || They'll leave him in? || He pitches nine. Everybody pitches nine here. || That's a long nine."
+        "Hard night for {pitcher}. {runsWord} runs against him. || They'll leave him in? || Not much longer, I'd say. || Somebody's going to have to."
       ],
       "tonight.pitcher.zeros": [
         "{pitcher} hasn't allowed a run tonight. Good command, and the {fielding} are catching everything.",
@@ -4390,7 +4577,7 @@
     },
     "sim": {
       "firstGen": true,
-      "version": 4
+      "version": 5
     },
     "sport": "baseball",
     "teams": [

@@ -212,9 +212,11 @@ export function narrate(ctx) {
     const left = Math.min(...[...(box.away || []), ...(box.home || [])].map((p) => p.left));
     if (!Number.isFinite(left) || left <= 0) return null;
     const team = a > h ? 'away' : h > a ? 'home' : '';
-    return { team, abbr: team === 'away' ? awayAbbr : team === 'home' ? homeAbbr : '', away: a, home: h, left };
+    // and who is in each box, with the seconds each has left, for the broadcast's penalty box graphic
+    const men = (side) => (box[side] || []).map((p) => ({ name: p.name, left: p.left }));
+    return { team, abbr: team === 'away' ? awayAbbr : team === 'home' ? homeAbbr : '', away: a, home: h, left, box: { away: men('away'), home: men('home') } };
   };
-  const bug = (status, aScore, hScore, strength, pp) => ({
+  const bug = (status, aScore, hScore, strength, pp, delayed) => ({
     sport: 'hockey',
     ...(clubsRev ? { clubsRev } : {}),
     away: away.name, home: home.name, awayAbbr, homeAbbr,
@@ -223,10 +225,14 @@ export function narrate(ctx) {
     ...(rivalry ? { rivalry: true } : {}),
     ...(strength && strength !== 'even' ? { strength } : {}),
     ...(pp ? { pp } : {}),
+    ...(delayed ? { delayed } : {}),
   });
   const beatBug = (b) => bug(
     `${b.section || ''}${b.clockStr ? ` ${b.clockStr}` : ''}`.trim() || 'LIVE',
     b.awayScore, b.homeScore, b.strength, ppOf(b),
+    // (sim v9) the side the delayed call is on: the `delayed` beat's own team, or on a play made
+    // with the arm up, the side without the puck
+    b.type === 'delayed' ? abbr(b.teamName || '') : b.delayed && b.type === 'chance' ? abbr(b.oppName || '') : '',
   );
   // A goal's beat carries the score after the goal. Everything shown before the puck goes
   // in (the rush, the shot, the rink's header) wears the score before it, or the bug calls
@@ -273,6 +279,8 @@ export function narrate(ctx) {
     player: b.player || b.shooter || '',
     strength: b.strength || '',
     infraction: b.infraction || '', penaltyMin: b.penaltyMin ?? '',
+    // a delayed penalty (sim v9): the club playing on with the extra man
+    benefit: b.benefit || '',
     fighters: Array.isArray(b.fighters) ? b.fighters.join(' and ') : '',
     winner: b.winner || '', loser: b.loser || '',
     winnerTeam: b.winnerTeam || '', loserTeam: b.loserTeam || '',
@@ -327,12 +335,66 @@ export function narrate(ctx) {
   const tonight = { g: new Map(), a: new Map(), sog: new Map(), sa: new Map(), sv: new Map() };
   const bump = (m, k) => m.set(k, (m.get(k) || 0) + 1);
   const linesAt = [];
+  // THE SPOTLIGHT: at a draw, now and then, the rink cuts to one man close at ice level and the
+  // booth says a word about him, his stat line up. Who's worth it at that beat: tonight's scorer,
+  // the man behind a big hit, a goalie having a night. Worked out here with the counts as they
+  // stood, so the card says what the man had done by then.
+  const spotAt = [], hits = new Map(), spotGoalie = new Map(), goalieTens = new Map();
+  let lastGoal = null, lastHit = null, lastSpot = -99;
+  const spotFor = (i) => {
+    if (i - lastSpot < 14) return null;
+    const c = [];
+    if (lastGoal && i - lastGoal.i <= 3) c.push({ kind: 'scorer', line: skaterLine(lastGoal.name, lastGoal.team) });
+    if (lastHit && i - lastHit.i <= 3) c.push({ kind: 'hitter', line: { ...skaterLine(lastHit.name, lastHit.team), tonightHits: hits.get(lastHit.name) || 1 } });
+    // (a goalie once at each ten saves he passes)
+    for (const [team, name] of spotGoalie) {
+      const tens = Math.floor((tonight.sv.get(name) || 0) / 10);
+      if (tens > (goalieTens.get(name) || 0)) c.push({ kind: 'goalie', line: goalieLine(name, team), tens });
+    }
+    if (!c.length) return null;
+    lastSpot = i;
+    const s = c[sportsHashStr(`${gs?.seed ?? ''}|spot|${i}`) % c.length];
+    if (s.kind === 'goalie') goalieTens.set(s.line.name, s.tens);
+    return s;
+  };
   for (const b of beats) {
     if (b.type === 'goal') { bump(tonight.g, b.shooter); if (b.assist) bump(tonight.a, b.assist); bump(tonight.sog, b.shooter); if (b.goalie) bump(tonight.sa, b.goalie); }
     else if (b.type === 'chance' && onGoal.has(b.kind)) { bump(tonight.sog, b.shooter); if (b.goalie) { bump(tonight.sa, b.goalie); bump(tonight.sv, b.goalie); } }
     linesAt.push(b.type === 'goal' ? { scorerLine: skaterLine(b.shooter, b.teamName) }
       : b.type === 'chance' && BIG_SAVES.has(b.kind) && b.goalie ? { goalieLine: goalieLine(b.goalie, b.oppName) } : null);
+    const i = linesAt.length - 1;
+    if ((b.type === 'goal' || b.type === 'chance') && b.goalie && b.oppName) spotGoalie.set(b.oppName, b.goalie);
+    if (b.type === 'goal' && b.shooter) lastGoal = { i, name: b.shooter, team: b.teamName };
+    if (b.type === 'boards' && b.hitter) { bump(hits, b.hitter); lastHit = { i, name: b.hitter, team: b.hitterTeam }; }
+    spotAt.push(b.type === 'faceoff' && b.reason !== 'period' ? spotFor(i) : null);
   }
+  // What the booth says over the close-up. Short, and about the man.
+  const SPOT_LINES = {
+    scorer: [
+      "There's {name}. {g} on the season now.",
+      '{name}, with {pts} this year.',
+    ],
+    // (a man with two or more tonight)
+    hot: [
+      '{name} has the hot hand tonight.',
+      'That makes {tg} tonight for {name}.',
+    ],
+    hitter: [
+      "That's {name}, who put him into the boards.",
+      '{name}. Nobody wants to be on the wall with him.',
+      "{name} is out here looking for the next one.",
+    ],
+    goalie: [
+      "{name} has stopped {sv} of {sa} tonight.",
+      "{name} is keeping them in this one.",
+      "They can't get one by {name}.",
+    ],
+  };
+  const spotLine = (s, i) => {
+    const L = s.line, pool = SPOT_LINES[s.kind === 'scorer' && L.tonightG >= 2 ? 'hot' : s.kind] || [];
+    const raw = pool[sportsHashStr(`${gs?.seed ?? ''}|spotline|${i}`) % Math.max(1, pool.length)] || '';
+    return raw.replace(/\{(\w+)\}/g, (m, k) => String({ name: surnameOf(L.name), tg: L.tonightG, g: L.g, pts: `${L.pts} point${L.pts === 1 ? '' : 's'}`, sv: L.tonightSv, sa: L.tonightSa }[k] ?? m));
+  };
   function skaterLine(name, team) {
     const s = (season.players || {})[name] || { gp: 0, g: 0, a: 0, sog: 0 };
     const g = s.g + (tonight.g.get(name) || 0), a = s.a + (tonight.a.get(name) || 0), sog = s.sog + (tonight.sog.get(name) || 0);
@@ -365,14 +427,15 @@ export function narrate(ctx) {
     awayColours: away.profile?.colours || null,
     homeColours: home.profile?.colours || null,
     rivalry, gate,
-    // the Cup final: the Zamboni comes out in its driver's livery (rink/livery.js)
-    ...(ws ? { cup: true } : {}),
+    // the Cup final: the Zamboni comes out in its driver's livery (rink/livery.js), and centre
+    // ice is the Cup's, lettered with which inaugural Cup this is (rink/centre-ice.js)
+    ...(ws ? { cup: true, ...(ctx.finalNo ? { cupNo: ctx.finalNo } : {}) } : {}),
     // A seed for the club's own goal horn — every barn's horn should sound like that
     // barn's horn, and the soundset already varies a preset from a seed.
     hornSeed: hornSeedFor(b.teamName || away.name),
     attackingColours: (b.teamName === home.name ? home : away).profile?.colours || null,
     defendingColours: (b.teamName === home.name ? away : home).profile?.colours || null,
-    section: b.section || '', clock: b.clockStr || '', clockSecs: b.clock ?? 0,
+    section: b.section || '', clock: b.clockStr || '', clockSecs: b.clock ?? 0, period: b.period ?? 0,
     kind: b.kind || b.type, type: b.type, strength: b.strength || 'even',
     // the power play by club, and how long it has to run at this beat's clock (ppOf)
     ...(ppOf(b) ? { pp: ppOf(b) } : {}),
@@ -389,6 +452,10 @@ export function narrate(ctx) {
     rushNames: Array.isArray(b.rushNames) ? b.rushNames.slice() : null,
     frozen: !!b.frozen,
     nextDot: nextDot(idx),
+    // The sim's next play is the putback off this save: the rink keeps the puck loose in front
+    // until it comes, rather than letting the between-plays game clear it up the ice and the
+    // putback start from the neutral zone, its shot seconds after its save was called.
+    reboundNext: b.type === 'chance' && !b.frozen && !!beats[idx]?.rebound,
     // Faceoff facts, so the view can put the right two men on the right dot. `winnerSide`
     // is which of the two on-ice sides won it, in the view's own att/def frame.
     dot: b.dot || '', reason: b.reason || '',
@@ -419,7 +486,18 @@ export function narrate(ctx) {
     hitStyle: b.hitStyle || '',
     // a slash: where it landed, and whether the referee saw it (the rink raises his arm)
     slashAt: b.slashAt || '', caught: !!b.caught,
+    // a penalty and a delayed call: who, what for and for how long, the club he plays for, and
+    // (sim v9) whether the whistle waited for his side to touch the puck, or a goal wiped it out
+    ...(b.type === 'penalty' || b.type === 'delayed' ? {
+      player: b.player || '', infraction: b.infraction || '', penaltyMin: b.penaltyMin ?? 2, penaltyTeam: b.teamName || '',
+      penaltySide: b.teamName === away.name ? 'away' : 'home', delayed: !!b.delayed || b.type === 'delayed', waived: !!b.waived,
+      touch: b.touch || '', benefit: b.benefit || '',
+    } : {}),
+    // a play made with the arm up: the side with the puck has its goalie off for the extra man
+    ...(b.delayed && (b.type === 'chance' || b.type === 'goal') ? { delayed: true } : {}),
     injured: b.type === 'injury' || b.type === 'death' || !!injuryAfter(b, idx),
+    // an injury: how many skaters his side has left, with no replacement coming
+    ...(b.type === 'injury' ? { remaining: b.remaining ?? null } : {}),
     wound: b.wound || injuryAfter(b, idx)?.wound || '',
     woundPart: b.woundPart || injuryAfter(b, idx)?.woundPart || '',
     sever: !!(b.sever || injuryAfter(b, idx)?.sever),
@@ -462,6 +540,19 @@ export function narrate(ctx) {
     sport: 'hockey', kind, for: forTeam, against: otherSide(forTeam),
     away: away.name, home: home.name, awayScore: b.awayScore, homeScore: b.homeScore, ...over,
   } });
+  // A penalty's card: the call going up (sim v9's delayed arm), the call made, or a goal wiping
+  // it out. `benefit` is the club that gets the power play.
+  const penaltyFx = (b) => ({
+    overlayType: 'sportsfx', kind: 'hockeypenalty',
+    phase: b.type === 'delayed' ? 'delayed' : b.waived ? 'waived' : 'called',
+    player: b.player || '', team: b.teamName || '', infraction: b.infraction || '', minutes: b.penaltyMin ?? 2,
+    // (`show`, not `duration`: the pacer holds a line for its card's duration, and these mustn't move the game's timing)
+    benefit: otherSide(b.teamName), show: b.type === 'delayed' ? 3 : 4.2,
+  });
+  const injuryFx = (b) => ({
+    overlayType: 'sportsfx', kind: 'hockeyinjury',
+    player: b.player || '', team: b.teamName || '', wound: b.wound || '', remaining: b.remaining ?? null, show: 4.4,
+  });
   const deathFx = (b) => ({
     overlayType: 'sportsfx', kind: 'hockeydeath',
     player: b.player || '', team: b.teamName || '', winner: b.winnerTeam || '', duration: 4.6,
@@ -907,7 +998,7 @@ export function narrate(ctx) {
     else if (b.type === 'boards' || b.type === 'slash' || b.type === 'fight' || b.type === 'brawl') push += M.hit;
     // a draw in their end keeps the siege going; a penalty or the buzzer ends it
     else if (b.type === 'faceoff') push *= M.whistle;
-    else if (b.type === 'penalty' || b.type === 'period_end' || b.type === 'final') { push *= M.whistle; pressBy = ''; pressRun = 0; }
+    else if ((b.type === 'penalty' && !b.waived) || b.type === 'period_end' || b.type === 'final') { push *= M.whistle; pressBy = ''; pressRun = 0; }
     push = Math.max(0, Math.min(1, push));
   };
 
@@ -929,7 +1020,7 @@ export function narrate(ctx) {
     if (per) {
       if (b.type === 'goal') per.goals.push({ shooter: b.shooter, assist: b.assist, teamName: b.teamName, clockStr: b.clockStr, strength: b.strength });
       else if (b.type === 'chance' && b.shot) { if (b.teamName === away.name) per.shotsAway++; else per.shotsHome++; }
-      else if (b.type === 'penalty') per.pens++;
+      else if (b.type === 'penalty' && !b.waived) per.pens++;
       else if (b.type === 'fight') per.fights++;
       else if (b.type === 'brawl') per.fights += (b.pairs?.length || 0) + 1;
       else if (b.type === 'boards') per.hits++;
@@ -976,7 +1067,7 @@ export function narrate(ctx) {
 
       case 'goal': {
         pendingHit = null;
-        const key = b.strength === 'pp' ? 'goal.pp' : b.strength === 'sh' ? 'goal.sh' : b.strength === 'en' ? 'goal.en' : 'goal';
+        const key = b.strength === 'pp' ? 'goal.pp' : b.strength === 'sh' ? 'goal.sh' : b.strength === 'en' ? 'goal.en' : b.delayed ? 'goal.delayed' : 'goal';
         // some goals are a man in alone: the rink stages them that way and the booth says so
         const alone = !b.rebound && (!b.strength || b.strength === 'even') ? ['wrist', 'backhand', 'snap'].includes(b.shotType) && nrng() < 0.22 : false;
         const bb = (alone && breakawayBeat(b)) || b;
@@ -1016,11 +1107,16 @@ export function narrate(ctx) {
         const loud = b.reason === 'goal' || b.reason === 'period' || b.reason === 'penalty';
         // Every draw is called now, in two short lines: where, then who won it. The old
         // one-sentence pools still air on the draws that mean something.
-        call(`pbp.faceoff.${sub}`, t, null, sb, null, gameday(b, idx));
         // (a hit brought up keeps the drop line, so the puck isn't down before the rink has run
         // the hit back: a routine draw without one goes down at once)
         const recalled = !!pendingHit && !pendingHit.hurt && b.reason !== 'period';
+        // the spotlight (`spotAt`): the rink cuts to him on the `spot` cue, so the drop waits for it
+        const spot = !recalled ? spotAt[idx - 1] : null;
+        const fgd = gameday(b, idx);
+        if (spot) fgd.spot = { kind: spot.kind, line: spot.line };
+        call(`pbp.faceoff.${sub}`, t, null, sb, null, fgd);
         if (recalled) recallHit('pbp.hit.recall', t, sb);
+        if (spot) { const sl = spotLine(spot, idx); if (sl) { say(sl, t, sb, null, null, { cue: { ev: 'spot' }, opt: 'colour' }); said++; } }
         // The first draw of a period (the teams back out after an intermission, or the
         // building on its feet for the 1st); then the drop itself, which the linesman
         // makes as the line airs.
@@ -1066,9 +1162,18 @@ export function narrate(ctx) {
         break;
       }
 
+      case 'delayed':
+        // sim v9: the arm's up and play goes on; the other club pulls its goalie for the extra man
+        say(pick('penalty.delayed', 'penalty'), t, sb, penaltyFx(b), gameday(b, idx)); said++;
+        break;
+
       case 'penalty':
+        // a goal on the delayed call wiped out the minor: nobody goes to the box
+        if (b.waived) { say(pick('penalty.waived', 'powerplay.kill'), t, sb, penaltyFx(b), gameday(b, idx)); said++; break; }
+        // the whistle that waited for the offending side to touch the puck says how they did
+        if (b.delayed && b.touch) { say(pick(`penalty.touch.${b.touch}`, 'penalty.touch', 'penalty'), t, sb); said++; }
         // the rink shows the whistle and the man going to the box (its `penalty` beat)
-        say(pick(b.penaltyMin >= 5 ? 'penalty.major' : 'penalty', 'penalty'), t, sb, null, gameday(b, idx)); said++;
+        say(pick(b.penaltyMin >= 5 ? 'penalty.major' : 'penalty', 'penalty'), t, sb, penaltyFx(b), gameday(b, idx)); said++;
         // The team that DIDN'T take it goes on the power play.
         boxes.push({ against: b.teamName, until: b.clock - b.penaltyMin * 60 });
         say(pick('powerplay.start'), { ...t, team: b.teamName === away.name ? home.name : away.name }, sb); said++;
@@ -1172,7 +1277,7 @@ export function narrate(ctx) {
       // Then the wound, by name, so a viewer reading text knows as much as one watching the
       // arm come off.
       case 'injury':
-        say(pick('injury'), t, sb, null, gameday(b, idx), playMeta(b, 'injury', otherSide(b.teamName), { player: b.player || '', sever: !!b.sever })); said++;
+        say(pick('injury'), t, sb, injuryFx(b), gameday(b, idx), playMeta(b, 'injury', otherSide(b.teamName), { player: b.player || '', sever: !!b.sever })); said++;
         if (pendingHit && pendingHit.hurt && pendingHit.victim === b.player) recallHit('pbp.hit.recall.hurt', t, sb);
         call('pbp.injury.mates', t, null, sb, { opt: true });
         call('pbp.injury.medics', t, null, sb, { cue: { ev: 'medics' } });

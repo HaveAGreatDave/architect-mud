@@ -29,6 +29,7 @@
 import { RL, RW, BOARD_H, GLASS_H, GOAL_X, MID_Y, NET_HALF, NET_DEPTH, NET_H, SEGS, PANELS, PANEL_X0, PANEL_W } from '../rink/geo.js';
 import { CX0, CX1, CROWS, ROWH, sharedTextures } from '../rink/textures.js';
 import { createRinkCamera, matrices } from '../rink/camera.js';
+import { timeMethods } from './core/timer.js';
 import { bodyOpts, drawHud, hudActive, maskColours, drawnJoints, drawnAt, drawnPuck, glowTail, GLOW } from '../rink/hud.js';
 import { TAU, clamp, hash, rng } from '../rink/util.js';
 import { inkOf, figureLightOf, rinkInkOf, comicOn, HOUSE } from './house-style.js';
@@ -1349,6 +1350,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
     const api = { render, dispose, stats: st, cam: camera.cam, view: 'broadcast', glow: false, ink: true, xrayGore: 'full', kind: 'gl', lost: false, rungs: ARENA_RUNGS, quality: { ...ARENA_RUNGS[0] }, cut: null,
       // the reflection buffer, for a bench that wants to know it isn't empty
       mirrorPeak: () => mirror.peak() };
-    return api;
+    // a bench's GPU time per pass (gl/core/timer.js): the whole rink frame, as 'rink'
+    return timeMethods(gl, api, [['render', 'rink']]);
   }
 }

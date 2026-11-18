@@ -54,6 +54,10 @@ const BASE = {
 
 // Each gait is the base with a few numbers changed. The names are the clips' ('walk' + the key).
 export const GAITS = {
+  // an ordinary walk, the base as it stands: what anybody close up walks with when nothing says otherwise. The
+  // street's `walk` (actor3d.js walkPose) is joint curves, and its trailing toes slide sideways about 4 cm through
+  // every push-off, which a close-up shows; it stays for the baked far crowd, where nobody can see a toe
+  Easy: {},
   // long, quick steps, leaning in, elbows bent, arms driving
   Brisk: { step: 0.69, duty: 0.58, lift: 0.06, strike: 12, push: 24, tilt: 4, yaw: 6, roll: 6, lean: 5.5, arm: 26, elbow: 48, elbowSwing: 24, abduct: 0.12, head: -1 },
   // wide, slow and rolling: the shoulders roll, the arms held off the lats, the chin up
@@ -80,7 +84,7 @@ export const GAIT_NAMES = Object.keys(GAITS);
 // The clips, built with actor3d.js's own skeleton helpers so this file has no copy of the rig.
 // K = { newPose, setR, fk, B, REST, BONES, bump, smooth, TAU, DEG }.
 export function gaitClips(K) {
-  const { newPose, setR, zeroR, fk, B, BONES, REST, bump, smooth, TAU, DEG } = K;
+  const { newPose, setR, zeroR, fk, B, BONES, REST, bump, smooth, TAU, DEG, aimFoot } = K;
   const len = (b) => Math.hypot(...BONES[B[b]][2]);
   const A = len('shinL'), Bn = len('footL');              // thigh and shin: each bone's offset is its child's
   const BALL = BONES[B.toeL][2];                            // ankle to the ball of the foot, [0, -y, z]
@@ -114,7 +118,7 @@ export function gaitClips(K) {
       const clear = hurt ? G.lift * 0.7 : G.lift;
       lift = clear * Math.pow(Math.sin(Math.PI * Math.pow(s, 0.8)), 1.3);
       e = G.push * (1 - smooth(0, 0.3, s)) - G.strike * smooth(0.55, 1, s);
-      w = smooth(0.88, 1, s) * 0.6;
+      w = smooth(0.7, 1, s);   // loaded by the time it lands, so the hips don't drop a step at the strike
       // a stiff leg swings round the side instead of bending
       if (hurt) circ = 0.07 * G.limp * Math.sin(Math.PI * s);
     }
@@ -128,9 +132,13 @@ export function gaitClips(K) {
       const yy = py * c - pz * sn, zz = py * sn + pz * c;
       if (-yy > ay) { ay = -yy; az = z + pz - zz; }
     }
-    // a drunk's feet land where they land: every step a little in or out, the same each cycle
-    const wob = G.stagger * 0.045 * Math.sin(TAU * q * 1 + side * 1.7 + 0.6 * Math.sin(TAU * q * 2));
-    return { x: side * (G.width + circ + wob), y: ay + lift, z: az, e, w, lift };
+    // a drunk's feet land where they land, each a little in or out of line, and stay there while they're down; the
+    // swing wanders on its way between (it used to wander through the stance too, sliding the planted foot sideways)
+    const wob = G.stagger * (0.03 * Math.sin(side * 1.7 + 0.4) + (q < D ? 0 : 0.035 * Math.sin(Math.PI * (q - D) / (1 - D)) * Math.sin(side * 2.3 + 1.1)));
+    // the roll goes along the foot, which is toed out: straight ahead, a toed-out foot's pad slid sideways as the
+    // heel came up (4 cm a step for the swagger)
+    const h = side * G.toeOut * DEG, roll = az - z;
+    return { x: side * (G.width + circ + wob) + Math.sin(h) * roll, y: ay + lift, z: z + Math.cos(h) * roll, e, w, lift };
   }
 
   // Two-bone IK in the hip's own frame (F, column-major, the thigh's joint before its rotation).
@@ -211,10 +219,10 @@ export function gaitClips(K) {
       // the feet pitched to what the ground wants of them, measured off the leg as solved
       const WL = fk(P);
       for (const [f, sd] of [[fR, 'R'], [fL, 'L']]) {
-        const m = WL[B['foot' + sd]], has = Math.atan2(-m[9], Math.hypot(m[8], m[10]));
-        // and rolled flat: a wide step's abduction and the pelvis's drop would stand it on an edge
-        const roll = Math.asin(Math.max(-1, Math.min(1, m[1])));
-        setR(P, 'foot' + sd, f.e * DEG - has, 0, -roll);
+        // flat across (a wide step's abduction and the pelvis's drop would stand it on an edge) and pointing where
+        // the walk goes, toed out: the hips turn with every step and a foot that turned with them would scrub
+        // round on the floor (actor-plant.js aimFoot)
+        aimFoot(P, WL[B['shin' + sd]], sd, (sd === 'L' ? 1 : -1) * G.toeOut * DEG, f.e);
         // the toes lie flat on the ground while the heel is up, and let go after toe-off
         setR(P, 'toe' + sd, f.e > 0 && f.w > 0.25 ? -f.e * DEG : 0, 0, 0);
       }
@@ -246,10 +254,10 @@ export function gaitClips(K) {
 // The gait a body walks with when nobody's said. `gait` (the server's, or flags.figure.gait) wins; then
 // how they are (drunk, tired, sad, angry, afraid, happy), their age and weight; then a habit off their id.
 // Returns a clip name.
-const HABITS = ['', '', '', 'Brisk', 'Brisk', 'Swagger', 'Poise', 'Jaunty', 'Glum'];
+const HABITS = ['Easy', 'Easy', 'Easy', 'Brisk', 'Brisk', 'Swagger', 'Poise', 'Jaunty', 'Glum'];
 export function gaitFor(body, rnd) {
   const g = body.gait || body.figure?.gait;
-  if (g) { const k = g[0].toUpperCase() + g.slice(1); return GAITS[k] ? 'walk' + k : 'walk'; }
+  if (g) { const k = g[0].toUpperCase() + g.slice(1); return GAITS[k] ? 'walk' + k : 'walkEasy'; }
   const m = body.mood;
   if (m === 'drunk') return 'walkDrunk';
   if (m === 'tired' || (body.age ?? 0) > 0.75) return 'walkShuffle';
@@ -257,6 +265,5 @@ export function gaitFor(body, rnd) {
   if (m === 'angry' || m === 'annoyed' || m === 'afraid' || (body.feel ?? 0) < 0) return 'walkBrisk';
   if (m === 'happy' || m === 'amused') return 'walkJaunty';
   if ((body.weight ?? 0) >= 0.85) return 'walkHeavy';
-  const h = HABITS[Math.floor(rnd * HABITS.length) % HABITS.length];
-  return h ? 'walk' + h : 'walk';
+  return 'walk' + HABITS[Math.floor(rnd * HABITS.length) % HABITS.length];
 }

@@ -10,6 +10,10 @@
       "fabric": "#b8704e",
       "form": "bed",
       "wear": 0.08
+    },
+    "spot": {
+      "along": -3.45,
+      "wall": "back"
     }
   },
   "hp": null,

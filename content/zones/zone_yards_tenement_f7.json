@@ -1,7 +1,7 @@
 {
   "ambient_theme": "indoors",
   "bg_color": "#5a5450",
-  "description": "A narrow landing off the stairwell, six numbered doors crowded around it, the stencilled numbers worn to grey ghosts. The carpet gave up years ago and the smell never will. A bare bulb buzzes overhead, throwing more shadow than light.",
+  "description": "A narrow landing off the stairwell, tighter than the ones below where the building steps in, six numbered doors crowded round it, the stencilled numbers worn to grey ghosts. The carpet gave up years ago and the smell never will. A bare bulb buzzes overhead, throwing more shadow than light.",
   "exits": {
     "down": "zone_yards_tenement_f6",
     "east": "zone_yards_tenement_u7_2",

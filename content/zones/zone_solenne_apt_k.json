@@ -1,0 +1,54 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#2b3a34",
+  "color": "#e8ddc7",
+  "description": "A long one-bedroom down the east side of the twenty-fourth floor, glass on three sides, the bay along the whole of it. Oak, pale plaster, a platform bed, a galley kitchen in grey stone. Leave <b>west</b> to the landing.",
+  "exits": {
+    "in": "zone_solenne_apt_k_bath",
+    "west": "zone_solenne_hall_24"
+  },
+  "flags": {
+    "building_name": "Solenne Residences",
+    "floor": "boards",
+    "is_apartment": true,
+    "is_interior": true,
+    "rent_cost": 520,
+    "rest_multiplier": 1.5,
+    "room": {
+      "balcony": false,
+      "d": 4.4,
+      "doors": {
+        "west": 0
+      },
+      "ensuite": {
+        "d": 1.8,
+        "dress": "spa",
+        "w": 2.8
+      },
+      "finish": "fine",
+      "glass": [
+        "front",
+        "left",
+        "right"
+      ],
+      "h": 3,
+      "storeys": 45,
+      "w": 14
+    },
+    "window": {
+      "description": "A tall pane runs floor to ceiling down one wall, black-framed, holding the city out there like something in a case.",
+      "light": 0.9,
+      "name": "the window",
+      "visibility": 0.9
+    }
+  },
+  "grid_x": 1,
+  "grid_y": -1,
+  "grid_z": 10,
+  "id": "zone_solenne_apt_k",
+  "map_id": "map_int_solenne",
+  "marker": "24",
+  "name": "Solenne Residence 24-B",
+  "parent_zone": "zone_district_914_908"
+}

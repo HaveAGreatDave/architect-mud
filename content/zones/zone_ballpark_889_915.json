@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Hughson Way, swept more often than the public streets. Yarrow Lane crosses it here, between towers on all four corners.",
+  "description": "Yarrow Lane at the corner of the West Gardens. Hughson Way stops here and a gravel walk carries on east into the gardens.",
   "exits": {
     "east": "zone_ballpark_890_915",
     "north": "zone_ballpark_889_914",

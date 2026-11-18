@@ -1,0 +1,29 @@
+{
+  "description": "A tall glass vat of lit green fluid over a drain in the floor. A body floats asleep in it, masked, its hose running up through the crown into the tubes overhead. The plate gives its number.",
+  "flags": {
+    "look": {
+      "arche": "prop",
+      "dims": [
+        1.2,
+        1.2,
+        3
+      ],
+      "form": "vat",
+      "tag": "B-15"
+    },
+    "spot": {
+      "along": 8.8,
+      "wall": "right"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_clone_vat_15",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "growing vat",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": null,
+  "zone_id": "zone_start"
+}

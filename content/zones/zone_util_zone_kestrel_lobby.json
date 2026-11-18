@@ -13,6 +13,6 @@
   "grid_z": -1,
   "id": "zone_util_zone_kestrel_lobby",
   "map_id": "map_int_kestrel",
-  "name": "Kestrel Court, The Boiler Room",
+  "name": "The Flute, The Boiler Room",
   "parent_zone": "zone_district_913_908"
 }

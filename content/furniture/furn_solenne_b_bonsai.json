@@ -9,11 +9,8 @@
       "form": "bonsai"
     },
     "spot": {
-      "at": [
-        5.45,
-        0.5
-      ],
-      "turn": 200
+      "along": 0.31,
+      "wall": "right"
     }
   },
   "hp": null,

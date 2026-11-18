@@ -12,6 +12,9 @@
 //     plants: [{ foot, from, to, ease? }],    when a foot is held on the ground, and how long it
 //                                             takes going on and off it (diamond/anim.js
 //                                             PLANT_EASE unless it says)
+//     hands?: [{ t, L?, R? }],                the hands' shapes by name (diamond/hands.js HANDS), each held
+//                                             from its t till a later one names that hand again, closing
+//                                             into it over HAND_BLEND; '' is the hand as it'd be unkeyed
 //     root?:  [{ t, at: [x, z], yaw? }] }     a clip that travels: where its frame has got to, in
 //                                             the frame it started in (diamond/anim.js rootAt),
 //                                             from [0, 0] facing 0 at 0 s to the duration; a
@@ -33,6 +36,7 @@
 
 import { solvePose } from './rig.js';
 import { completePose, limitBreaks, FEET, DIRS } from './anim.js';
+import { HAND_NAMES } from './hands.js';
 
 export const CLIP_ROLES = Object.freeze(['pitcher', 'batter', 'catcher', 'ump', 'fielder', 'runner', 'coach', 'any']);
 // An event's kind and what else it carries: the hand that lets go of or takes the ball, the way a
@@ -121,7 +125,7 @@ export function validateClip(doc, file = '<clip>') {
   const errors = [], warnings = [];
   const err = (m) => errors.push(`${file}: ${m}`);
   if (!doc || typeof doc !== 'object' || Array.isArray(doc)) { err('a clip is an object'); return { errors, warnings }; }
-  for (const k of Object.keys(doc)) if (!['id', 'role', 'duration', 'loop', 'moving', 'note', 'keys', 'events', 'plants', 'root'].includes(k)) err(`'${k}' isn't part of a clip`);
+  for (const k of Object.keys(doc)) if (!['id', 'role', 'duration', 'loop', 'moving', 'note', 'keys', 'events', 'plants', 'root', 'hands'].includes(k)) err(`'${k}' isn't part of a clip`);
   if (typeof doc.id !== 'string' || !ID_RE.test(doc.id)) err('id is lower case letters, digits and underscores, starting with a letter');
   else if (file !== '<clip>' && file !== clipFileName(doc.id)) err(`a clip called ${doc.id} lives in ${clipFileName(doc.id)}`);
   if (!CLIP_ROLES.includes(doc.role)) err(`role is one of ${CLIP_ROLES.join(', ')}`);
@@ -181,6 +185,24 @@ export function validateClip(doc, file = '<clip>') {
     for (const S of FEET) {
       const mine = plants.filter((p) => p && p.foot === S && isNum(p.from)).sort((a, b) => a.from - b.from);
       for (let i = 1; i < mine.length; i++) if (mine[i].from <= mine[i - 1].to) err(`foot ${S} is planted twice at once, ${mine[i - 1].from} to ${mine[i - 1].to} and from ${mine[i].from}`);
+    }
+  }
+  // the hands' shapes: names from the library, in order, inside the clip
+  if ('hands' in doc) {
+    const H = doc.hands;
+    if (!Array.isArray(H) || H.length > MAX_KEYS) err(`hands is a list of up to ${MAX_KEYS} { t, L?, R? }`);
+    else {
+      let prevT = -Infinity;
+      H.forEach((h, i) => {
+        const where = `hands ${i}`;
+        if (!h || typeof h !== 'object' || !isNum(h.t)) { err(`${where} is { t, L?, R? }`); return; }
+        if (h.t < 0 || h.t > D) err(`${where}: t is within the clip, 0 to ${D} s`);
+        if (h.t < prevT) err(`${where} at ${h.t} s comes before the one ahead of it`);
+        prevT = h.t;
+        for (const x of Object.keys(h)) if (!['t', 'L', 'R'].includes(x)) err(`${where}: '${x}' isn't part of a hands key (t, L, R)`);
+        if (!('L' in h) && !('R' in h)) err(`${where} names a hand, L or R`);
+        for (const S of ['L', 'R']) if (S in h && h[S] !== '' && !HAND_NAMES.includes(h[S])) err(`${where}: ${S} is '' or a hand shape (diamond/hands.js): ${HAND_NAMES.join(', ')}`);
+      });
     }
   }
   // the frame's travel: in order from where the clip starts to its end, a turn of no more than
@@ -266,9 +288,10 @@ export function formatClip(doc) {
   if ('events' in doc) head.push(`  "events": ${list(doc.events)}`);
   if ('plants' in doc) head.push(`  "plants": ${list(doc.plants)}`);
   if ('root' in doc) head.push(`  "root": ${list(doc.root)}`);
+  if ('hands' in doc) head.push(`  "hands": ${list(doc.hands)}`);
   const keys = doc.keys.map((k) => `    {\n      "t": ${num(k.t)},\n${'tension' in k ? `      "tension": ${num(k.tension)},\n` : ''}      "pose": ${poseText(k.pose, '      ')}\n    }`);
   head.push(`  "keys": [\n${keys.join(',\n')}\n  ]`);
-  const rest = Object.keys(doc).filter((k) => !['id', 'role', 'duration', 'loop', 'moving', 'note', 'events', 'plants', 'root', 'keys'].includes(k)).sort();
+  const rest = Object.keys(doc).filter((k) => !['id', 'role', 'duration', 'loop', 'moving', 'note', 'events', 'plants', 'root', 'hands', 'keys'].includes(k)).sort();
   for (const k of rest) head.push(`  ${JSON.stringify(k)}: ${lit(doc[k])}`);
   return '{\n' + head.join(',\n') + '\n}\n';
 }

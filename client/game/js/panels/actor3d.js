@@ -14,9 +14,11 @@
 // GLASS's ground-plane tiles; windshield.js decides how many tiles a metre is (see actorMetreTiles).
 
 import { actorFace, faceHair, faceLip, FACE_LAYOUTS } from './actor-faces.js';
-import { buildFigure, figureCut, figureSole, FIGURE_BONES, FIGURE_CUTS, FIG_SLOT } from './figure.js';
+import { buildFigure, figureCut, figureSole, FIGURE_BONES, FIGURE_BONE, FIGURE_CUTS, FIG_SLOT } from './figure.js';
 import { simplifyMesh } from './mesh-simplify.js';
 import { gaitClips } from './actor-gait.js';
+import { planter } from './actor-plant.js';
+import { moodClips, MOOD_ACTS, MOOD_IDLES } from './actor-moods.js';
 
 // ── Matrices: column-major 4×4, element (row r, col c) at m[c * 4 + r] ─────────────────────────────
 function m4() { const m = new Float64Array(16); m[0] = m[5] = m[10] = m[15] = 1; return m; }
@@ -68,6 +70,9 @@ function fk(P) {
   return W;
 }
 const skinMats = (W) => W.map((w, i) => mulTo(new Float64Array(16), w, transTo(_t, -REST[i][0], -REST[i][1], -REST[i][2])));
+// Feet on the floor (actor-plant.js): a standing clip says where the feet are and the legs are solved to them, so
+// the hips can sway, turn and dip over feet that stay put.
+const { plant, aimFoot, ankleAt } = planter({ fk, B, BONES, REST, setR, zeroR, DEG });
 
 // ── The mesh ───────────────────────────────────────────────────────────────────────────────────────
 // Each vertex carries two bones and the weight of the first, plus a material slot the shader colours
@@ -207,10 +212,12 @@ function hdBody(lod, sil, tris = HD_TRIS[lod ? 1 : 0]) {
   const same = [E, Me, En, Wo].every((G) => G.nv === F.nv);
   const along = (G, v, H = F) => (G.P[v * 3] - H.P[v * 3]) * F.N[v * 3] + (G.P[v * 3 + 1] - H.P[v * 3 + 1]) * F.N[v * 3 + 1] + (G.P[v * 3 + 2] - H.P[v * 3 + 2]) * F.N[v * 3 + 2];
   const out = { p: [], b0: [], b1: [], w: [], m: [], body: [], i: Array.from(I) };
+  // the bake has the 19 clip bones only: the close-up figure's collarbones go back on the chest
+  const bake = (b) => (b === FIGURE_BONE.clavL || b === FIGURE_BONE.clavR ? FIGURE_BONE.chest : b);
   for (const v of ids) {
     const w0 = F.W[v * 4], w1 = F.W[v * 4 + 1];
     out.p.push(F.P[v * 3], F.P[v * 3 + 1], F.P[v * 3 + 2]);
-    out.b0.push(F.B[v * 4]); out.b1.push(w1 > 0 ? F.B[v * 4 + 1] : F.B[v * 4]); out.w.push(w0 / (w0 + w1 || 1));
+    out.b0.push(bake(F.B[v * 4])); out.b1.push(bake(w1 > 0 ? F.B[v * 4 + 1] : F.B[v * 4])); out.w.push(w0 / (w0 + w1 || 1));
     out.m.push(cls[v]);
     out.body.push(same ? along(E, v) : 0, same ? along(Me, v) : 0, same ? along(En, v) : 0, same ? along(Wo, v, Me) : 0);
   }
@@ -346,15 +353,16 @@ function walkPose(p) {
 }
 
 // Standing about: weight on the right leg, the left relaxed, breathing, looking up and down the street.
-function idlePose(p) {
+// Both feet are on the floor (plant): the right under the hips, the left a little forward and out with its
+// toe turned out, and the left hip dropped, so the left knee bends because the hip has come down over it.
+const IDLE_FEET = { R: { x: -0.085, z: -0.01, turn: 7 }, L: { x: 0.12, z: 0.06, turn: 14 } };
+// `planted` false leaves the legs straight and the root where it was, for a clip that plants them itself (the
+// first plant would be thrown away: it rewrites every leg bone and the root).
+function idlePose(p, planted = true) {
   const P = newPose();
   const s1 = Math.sin(TAU * p), s2 = Math.sin(2 * TAU * p + 0.7);
-  P.root[0] = -0.028 + 0.006 * s1;
   setR(P, 'pelvis', 1 * DEG, 3 * DEG, -3.5 * DEG + 0.8 * DEG * s1);
-  setR(P, 'thighR', 0, 0, 3.5 * DEG - 0.8 * DEG * s1);
-  setR(P, 'thighL', -5 * DEG, -8 * DEG, 1.5 * DEG - 0.8 * DEG * s1);
-  setR(P, 'shinL', 10 * DEG, 0, 0);
-  setR(P, 'footL', 4 * DEG, 0, 0);
+  if (planted) plant(P, IDLE_FEET, { weight: 0.28 + 0.03 * s1, dx: 0.004 * s1 });
   setR(P, 'spine', -1 * DEG + 0.8 * DEG * s1, -2 * DEG, 2.5 * DEG);
   setR(P, 'chest', 1.2 * DEG * Math.cos(TAU * p), -1 * DEG, 1.5 * DEG);
   setR(P, 'neck', 0, 8 * DEG * s1, 0);
@@ -385,8 +393,8 @@ function wavePose(p) {
 // negative forward, the right arm's abduction is negative outward and the left's positive, and a
 // twist about the upper arm's own Y turns the forearm across the body (positive for the right arm).
 const ARMS = ['neck', 'head', 'uarmR', 'farmR', 'handR', 'uarmL', 'farmL', 'handL'];
-function stance(p) {
-  const P = idlePose(0.25 + 0.06 * Math.sin(TAU * p));
+function stance(p, planted = true) {
+  const P = idlePose(0.25 + 0.06 * Math.sin(TAU * p), planted);
   for (const b of ARMS) zeroR(P, b);
   return P;
 }
@@ -477,6 +485,61 @@ function smokePose(p) {
   setR(P, 'handR', mix(-20, -27.4) * DEG, 0, 6 * DEG);
   setR(P, 'neck', 0, 5 * DEG * Math.sin(TAU * p), 0);
   setR(P, 'head', (2 - 3 * lift - 9 * out) * DEG, (-6 * lift + 8 * Math.sin(TAU * p + 1.4)) * DEG, 0);
+  return P;
+}
+
+// Leaning back on a wall. The wall is behind them (the clip faces +Z, out to the road), and glass/street-life.js
+// stands them LEAN.wall metres in front of it. The hips go back and the trunk tips back until the shoulders are on
+// it; the weight is on the right foot, planted out in front. `up` puts the left foot flat on the wall behind, the
+// knee forward, the way somebody settles in for a smoke; otherwise both feet are out in front, a little apart.
+// The arms, neck and head are another clip's (takeArms): the cigarette going, or folded.
+export const LEAN = { wall: 0.3, back: 8, dz: -0.27 };
+function leanBody(p, up) {
+  const P = newPose(), s1 = Math.sin(TAU * p);
+  setR(P, 'pelvis', -4 * DEG, 4 * DEG, -2.5 * DEG + 0.6 * DEG * s1);
+  const R = { x: -0.1, z: 0.19, turn: 12 };
+  if (up) {
+    // the left leg up: the knee forward, the shin back from it to the wall a little under knee height, and the foot
+    // pitched toes down so its sole is flat on the wall (the pelvis's tilt, the thigh and the shin come to 74°)
+    setR(P, 'thighL', -40 * DEG, -12 * DEG, 3 * DEG);
+    setR(P, 'shinL', 118 * DEG, 0, 0);
+    setR(P, 'footL', 16 * DEG, 0, 0);
+    plant(P, { R, L: { air: true } }, { weight: 0, dz: LEAN.dz + 0.004 * s1 });
+  } else {
+    plant(P, { R, L: { x: 0.11, z: 0.21, turn: 16 } }, { weight: 0.42 + 0.04 * s1, dz: LEAN.dz - 0.01 + 0.004 * s1 });
+  }
+  setR(P, 'spine', -LEAN.back * DEG + 0.5 * DEG * s1, -3 * DEG, 1.5 * DEG);
+  setR(P, 'chest', -2 * DEG + 0.8 * DEG * Math.cos(TAU * p), -2 * DEG, 1 * DEG);
+  return P;
+}
+// With a cigarette going: smokePose's arms and head over the lean, the head brought forward off the wall a little.
+function leanSmokePose(p) {
+  const P = takeArms(leanBody(p, true), smokePose(p));
+  setR(P, 'neck', 5 * DEG, 0, 0);
+  return P;
+}
+// Arms folded, both feet out in front.
+function leanWallPose(p) {
+  const P = takeArms(leanBody(p, false), waitPose(p));
+  setR(P, 'neck', 5 * DEG, 0, 0);
+  return P;
+}
+
+// Walking with a cigarette going: the walk's legs and left arm, four strides to a cycle, the right forearm carried
+// up a little with the cigarette in it, and once a cycle the hand up to the mouth for a drag on the move and down
+// again. Four strides, because a drag every stride would be a chain-smoker's; its stride is four of the walk's
+// (actorStrideM), so the feet still cover the ground the figure does.
+const WALK_SMOKE_STRIDES = 4;
+function walkSmokePose(p) {
+  const q = (p * WALK_SMOKE_STRIDES) % 1, P = walkPose(q);
+  const lift = smooth(0.30, 0.40, p) * (1 - smooth(0.54, 0.64, p)), out = bump(p, 0.72, 0.05);
+  const ca = Math.cos(TAU * (q - 0.05)), mix = (a, b) => a + (b - a) * lift;
+  for (const b of ['uarmR', 'farmR', 'handR']) zeroR(P, b);
+  // carried: a small swing, the elbow bent so the cigarette's held out in front of the hip
+  setR(P, 'uarmR', mix(-(6 - 8 * ca), -76.1) * DEG, mix(14, 71.5) * DEG, mix(-0.08, 0.629));
+  setR(P, 'farmR', mix(-62, -110.0) * DEG, 0, 0);
+  setR(P, 'handR', mix(-24, -27.4) * DEG, 0, 6 * DEG);
+  setR(P, 'head', -6 * DEG * out, -4 * DEG * lift, 0);
   return P;
 }
 
@@ -659,8 +722,9 @@ const held = (p, a = 0.1, b = 0.8) => smooth(a, a + 0.14, p) * (1 - smooth(b, b 
 function idleShiftPose(p) {
   const A = idlePose(p), Bm = mirrored(idlePose(p)), k = held(p, 0.05, 0.75), P = newPose();
   for (let i = 0; i < P.r.length; i++) P.r[i] = A.r[i] + (Bm.r[i] - A.r[i]) * k;
-  P.root = A.root.map((v, i) => v + (Bm.root[i] - v) * k);
-  return P;
+  // the feet stay where they are and the weight goes across onto the other one; mirroring the stance would slide
+  // both feet across the floor
+  return plant(P, IDLE_FEET, { weight: mixN(0.28, 0.72, k) + 0.03 * Math.sin(TAU * p), dx: 0.004 * Math.sin(TAU * p) });
 }
 // Looking over one shoulder, then the other, the chest going with it.
 function idleLookPose(p) {
@@ -725,8 +789,10 @@ function watchPose(p) {
 // Both arms up and the back arched, up on the toes for it.
 function stretchPose(p) {
   const P = stance(p), k = held(p, 0.1, 0.5), m = (a, b) => a + (b - a) * k;
-  setR(P, 'uarmL', m(-2, -14) * DEG, 0, m(0.07, 2.75)); setR(P, 'uarmR', m(-2, -14) * DEG, 0, m(-0.07, -2.75));
-  setR(P, 'farmL', m(-12, -22) * DEG, 0, 0); setR(P, 'farmR', m(-10, -22) * DEG, 0, 0);
+  // reached up all the way, near enough straight, one arm a little higher than the other (the close-up figure's
+  // shoulders rise to meet it: gl/room-people.js girdle)
+  setR(P, 'uarmL', m(-2, -10) * DEG, 0, m(0.07, 2.97)); setR(P, 'uarmR', m(-2, -13) * DEG, 0, m(-0.07, -3.05));
+  setR(P, 'farmL', m(-12, -16) * DEG, 0, 0); setR(P, 'farmR', m(-10, -11) * DEG, 0, 0);
   setR(P, 'handL', m(-6, 12) * DEG, 0, 0); setR(P, 'handR', m(-6, 12) * DEG, 0, 0);
   P.root[1] += 0.014 * k;
   setR(P, 'spine', -5 * DEG * k, 0, 0);
@@ -747,6 +813,23 @@ function yawnPose(p) {
   return P;
 }
 // A long breath in and all of it out, the shoulders dropping.
+// Asleep in a clone vat (gl/room-vat.js): weightless, so nothing hangs straight. The toes point, the knees are soft
+// and not alike, the arms float a little off the body with the hands limp, the head is bowed and over to one side.
+// Two slow breaths a cycle lift the chest and the arms with it, and once a cycle the right hand twitches.
+function vatFloatPose(p) {
+  const P = newPose(), b = Math.sin(2 * TAU * p), d = Math.sin(TAU * p), tw = bump(p, 0.63, 0.012);
+  setR(P, 'pelvis', 3 * DEG, 2 * DEG * d, -1.5 * DEG);
+  setR(P, 'thighL', (-9 - 2 * d) * DEG, -4 * DEG, 5 * DEG); setR(P, 'shinL', (16 + 3 * d) * DEG, 0, 0); setR(P, 'footL', 30 * DEG, 0, 3 * DEG);
+  setR(P, 'thighR', (-3 + 1.5 * d) * DEG, 5 * DEG, -3 * DEG); setR(P, 'shinR', (9 - 2 * d) * DEG, 0, 0); setR(P, 'footR', 24 * DEG, 0, -4 * DEG);
+  setR(P, 'spine', 5 * DEG, -2 * DEG, 1.5 * DEG);
+  setR(P, 'chest', (4 - 2.5 * b) * DEG, 1.5 * DEG, -1 * DEG);
+  arm(P, 'L', -8 - 3 * b, -6, 0.3 + 0.05 * b + 0.03 * d, -26 - 4 * b, -16, -6);
+  arm(P, 'R', -4 - 2 * b, 8, -0.24 - 0.04 * b, -18 - 3 * b - 14 * tw, -12 - 20 * tw, 4);
+  setR(P, 'neck', (16 + 1.5 * b) * DEG, -3 * DEG, 4 * DEG);
+  setR(P, 'head', (13 + 1 * b) * DEG, -6 * DEG, 7 * DEG);
+  return P;
+}
+
 function sighPose(p) {
   const P = stance(p), inn = smooth(0.12, 0.34, p) * (1 - smooth(0.38, 0.5, p)), out = smooth(0.38, 0.5, p) * (1 - smooth(0.62, 0.8, p));
   armTo(P, 'L', 'hangL'); armTo(P, 'R', 'hangR');
@@ -1193,9 +1276,10 @@ function stirPose(p) {
 }
 // Bent into a cupboard or a fridge, both hands going through it, and straight again.
 function rummagePose(p) {
-  const P = stance(p), k = held(p, 0.08, 0.78), w = Math.sin(5 * TAU * p);
+  const P = stance(p, false), k = held(p, 0.08, 0.78), w = Math.sin(5 * TAU * p);
   setR(P, 'spine', 22 * DEG * k, 0, 0); setR(P, 'chest', 12 * DEG * k, 0, 0);
-  setR(P, 'thighL', -6 * DEG * k, 0, 0); setR(P, 'thighR', -6 * DEG * k, 0, 0); setR(P, 'shinL', 10 * DEG * k, 0, 0); setR(P, 'shinR', 10 * DEG * k, 0, 0);
+  // bent over: the knees give and the hips go back over the heels to balance the lean
+  plant(P, IDLE_FEET, { weight: 0.4, sink: 0.035 * k, dz: -0.04 * k });
   arm(P, 'R', -12 - 48 * k, 15 * k, -0.08, -14 - 16 * k + 10 * w * k, -6);
   arm(P, 'L', -12 - 44 * k, -15 * k, 0.08, -14 - 18 * k - 10 * w * k, -6);
   setR(P, 'head', 15 * DEG * k, 8 * DEG * w * k, 0);
@@ -1214,10 +1298,10 @@ function fridgeOpenPose(p) {
 // Stood in the open door with a hand on its top, leant in from the hips, looking the shelves over top to bottom
 // and side to side, the other hand going in after something halfway through and coming out again.
 function fridgeLookPose(p) {
-  const P = stance(p), scan = 0.5 + 0.5 * Math.sin(TAU * p - Math.PI / 2), side = Math.sin(2 * TAU * p);
+  const P = stance(p, false), scan = 0.5 + 0.5 * Math.sin(TAU * p - Math.PI / 2), side = Math.sin(2 * TAU * p);
   const k = held(p, 0.45, 0.72), w = Math.sin(6 * TAU * p) * k;
   setR(P, 'spine', 16 * DEG, 0, 0); setR(P, 'chest', 8 * DEG, 0, 0);
-  setR(P, 'thighL', -5 * DEG, 0, 0); setR(P, 'thighR', -5 * DEG, 0, 0); setR(P, 'shinL', 8 * DEG, 0, 0); setR(P, 'shinR', 8 * DEG, 0, 0);
+  plant(P, IDLE_FEET, { weight: 0.4, sink: 0.025, dz: -0.035 });
   arm(P, 'L', -56, 16, 0.42, -16, -12);
   arm(P, 'R', -10 - 58 * k, 14 * k, -0.08 - 0.02 * k, -14 - 12 * k + 8 * w, -6);
   setR(P, 'neck', (4 + 8 * scan) * DEG, 0, 0);
@@ -1278,10 +1362,9 @@ const chewK = (p) => 0.14 * Math.abs(Math.sin(6 * TAU * p)) * (1 - biteK(p));
 // Squatting on the heels at a camping stove on the floor: knees apart, the right hand stirring the pan low in
 // front, the left forearm on the knee, and now and then a lean in to look. The soles find the floor (room-people.js).
 function squatStirPose(p) {
-  const P = stance(p), c = Math.cos(3 * TAU * p), s = Math.sin(3 * TAU * p), look = held(p, 0.55, 0.8);
-  for (const [sd, k] of [['L', 1], ['R', -1]]) {
-    setR(P, 'thigh' + sd, -98 * DEG, 0, k * 16 * DEG); setR(P, 'shin' + sd, 128 * DEG, 0, 0); setR(P, 'foot' + sd, -30 * DEG, 0, 0);
-  }
+  const P = stance(p, false), c = Math.cos(3 * TAU * p), s = Math.sin(3 * TAU * p), look = held(p, 0.55, 0.8);
+  // down on the haunches over feet a little apart and turned out, the heels just up, the hips back behind them
+  plant(P, { L: { x: 0.17, z: 0.08, turn: 22, heel: 10 }, R: { x: -0.16, z: 0.03, turn: 18, heel: 12 } }, { weight: 0.55, sink: 0.5, dz: -0.1 });
   setR(P, 'spine', (24 + 6 * look) * DEG, 0, 0); setR(P, 'chest', 10 * DEG, 0, 0);
   arm(P, 'R', -48 + 6 * c, 18 + 10 * s, -0.12, -38, -6);
   arm(P, 'L', -40, -18, 0.2, -52, -8);
@@ -1417,9 +1500,10 @@ function leanInPose(p) {
 }
 // A trip: the body pitches forward, the arms go everywhere, and they catch themselves.
 function stumblePose(p) {
-  const P = stance(p), k = held(p, 0.05, 0.5), fl = Math.sin(9 * TAU * p) * k;
+  const P = stance(p, false), k = held(p, 0.05, 0.5), fl = Math.sin(9 * TAU * p) * k;
   setR(P, 'spine', 26 * DEG * k, 0, 0); setR(P, 'chest', 8 * DEG * k, 6 * DEG * fl, 0);
-  setR(P, 'thighR', -32 * DEG * k, 0, 0); setR(P, 'shinR', 30 * DEG * k, 0, 0);
+  // the right foot caught and up off the floor, all the weight thrown onto the left and forward over it
+  plant(P, { L: IDLE_FEET.L, R: { ...IDLE_FEET.R, heel: 30 * k, lift: 0.07 * k } }, { weight: mixN(0.28, 0.95, smooth(0, 0.5, k)), sink: 0.04 * k, dz: 0.05 * k });
   arm(P, 'R', -2 - 90 * k + 20 * fl, 0, -0.07 - 0.6 * k, -20, -8);
   arm(P, 'L', -2 - 70 * k - 20 * fl, 0, 0.07 + 0.7 * k, -30, -8);
   setR(P, 'head', -10 * DEG * k, 0, 0);
@@ -1446,8 +1530,8 @@ function sitRapPose(p) {
   return P;
 }
 // At somebody's door (plugins/roomstage knockPost): the right fist comes up to the leaf at head height and raps three
-// times, rap-rap, rap, then drops, and they stand back and wait with the weight on one hip. One loop is one knock
-// and the wait after it (gametable's KNOCK_EVERY_MS).
+// times, rap-rap, rap, then drops, and they stand back and wait with the weight on one hip. One loop is one knock;
+// roomstage plays it once per knock and stands them at the door between knocks (gametable's KNOCK_EVERY_MS).
 const knockRap = (p) => bump(p, 0.1, 0.012) + bump(p, 0.135, 0.012) + bump(p, 0.19, 0.012);
 function knockPose(p) {
   const P = stance(p * 2), k = held(p, 0.02, 0.24), r = knockRap(p);
@@ -1494,62 +1578,248 @@ const sitOf = (fn, lean = 8) => (p) => takeArms(sitting(lean), fn(p));
 
 // Frightened: crouched, the arms up over the head, shaking.
 function cowerPose(p) {
-  const P = stance(p), sh = Math.sin(30 * TAU * p);
-  for (const s of ['L', 'R']) { setR(P, 'thigh' + s, -35 * DEG, 0, 0); setR(P, 'shin' + s, 55 * DEG, 0, 0); setR(P, 'foot' + s, -18 * DEG, 0, 0); }
+  const P = stance(p, false), sh = Math.sin(30 * TAU * p);
+  // crouched over the feet where they were, up on the balls, the hips back under the bent back
+  plant(P, { L: { ...IDLE_FEET.L, heel: 18 }, R: { ...IDLE_FEET.R, heel: 14 } }, { weight: 0.45, sink: 0.24, dz: -0.07 });
   setR(P, 'spine', 22 * DEG, 0, 0); setR(P, 'chest', 10 * DEG, 2 * DEG * sh, 0);
   arm(P, 'R', -115, 55, 0.35, -125, -10); arm(P, 'L', -115, -55, -0.35, -125, -10);
   setR(P, 'head', 25 * DEG, 0, 0);
   return P;
 }
-// Dancing on the spot, two beats a cycle: the weight from foot to foot, the knees going, the arms bent.
-// Dancing: the hips in a figure of eight over the feet, the knee giving on whichever side the weight leaves,
-// a roll up the spine a beat behind the hips, and the right hand swept up over the head and down again
-// once a cycle while the left stays near the hip.
-function dancePose(p) {
-  const P = stance(p), s = Math.sin(2 * TAU * p), c = Math.cos(2 * TAU * p), b = Math.sin(4 * TAU * p);
-  const up = 0.5 - 0.5 * Math.cos(TAU * p);
-  P.root[0] += 0.045 * s;
-  setR(P, 'pelvis', 4 * DEG * b, 10 * DEG * c, 9 * DEG * s);
-  for (const [sd, w, z] of [['L', Math.max(0, -s), 3], ['R', Math.max(0, s), -3]]) {
-    setR(P, 'thigh' + sd, -(6 + 8 * w) * DEG, 0, z * DEG);
-    setR(P, 'shin' + sd, (10 + 20 * w + 4 * (0.5 + 0.5 * b)) * DEG, 0, 0);
+// ── A dancer's clips. Every one lasts a whole number of beats at the club's 124 bpm (gl/room.js's `beat` lamp
+// runs on the same clock), and gl/room-people.js starts each slot on a bar, so the hips land when the red wash
+// fires. `beats(p, n)` is where in the beat a clip of n beats is: 0 on the beat, rising to 1 just before the next.
+export const DANCE_BEAT = 60 / 124;
+const beatOf = (p, n) => { const x = p * n; return x - Math.floor(x); };
+// a dip that lands on the beat and lets go before the next, as a knee gives on a downbeat
+const onBeat = (p, n, w = 4) => Math.exp(-beatOf(p, n) * w);
+// ── Her feet. Every dancer's clip is footwork on two footholds (plant, actor-plant.js): the feet stay where she put
+// them and the legs are solved to them, so nothing the hips do slides a foot or lifts one off the floor. Dancing
+// in place is the weight going from foot to foot:
+//   - the hips go over the foot that has the weight, and the hip on the other side drops, so the loaded leg is
+//     long and nearly straight and the free one bends;
+//   - the free foot comes up onto its ball with the heel turned out, which brings its knee in across the other;
+//     it goes flat again as the weight comes back, heel first down, never sliding;
+//   - a knee gives because the hips go down (`sink`), and both bend, because both feet are still on the floor;
+//   - the weight moves on the beat and stays a moment, rather than swinging back and forth like a pendulum.
+// `w` is the share on the left. o: { x, half the stance's width; z, how far the left foot is ahead of the right;
+// heel, how far a free heel comes up; turn, toe out on a loaded foot; turnIn, how far a free one turns in; sink,
+// dx, dz; hike, how far the free side's hip drops, degrees; shift }. Set the pelvis's tilt and turn before it.
+function footwork(P, w, o = {}) {
+  const { x = 0.11, z = 0, heel = 30, turn = 9, turnIn = 8, sink = 0, dx = 0, dz = 0, hike = 7, shift, liftL = 0, liftR = 0 } = o;
+  const free = (k) => clamp01((0.5 - k) * 2.4);
+  const fL = free(w), fR = free(1 - w);
+  // a foothold at the ball: the free foot swivels on it, heel out, as it comes up; `liftL`/`liftR` raise a free one
+  // off the floor, toe pointed
+  const foot = (sg, f, zz, up) => ({ x: sg * x, z: zz + 0.11, ball: true, heel: heel * Math.pow(f, 0.75) + 90 * up, lift: up, turn: turn - (turn + turnIn) * smooth(0.25, 1, f) });
+  setR(P, 'pelvis', 0, 0, hike * (2 * w - 1) * DEG);
+  return plant(P, { L: foot(1, fL, z / 2, liftL), R: foot(-1, fR, -z / 2, liftR) }, { weight: w, sink, dx, dz, shift });
+}
+// A planted leg taken off the floor into the clip's own angles (degrees, [x, y, z] for the thigh, shin and foot) by
+// `k`, 0 planted and 1 the clip's, so a kick leaves the floor from where the foot was rather than jumping to it.
+// Put the weight on the other foot first: a leg can't come up while it's holding her.
+function liftLeg(P, sd, k, thigh, shin, foot) {
+  if (!(k > 0)) return P;
+  for (const [b, a] of [['thigh', thigh], ['shin', shin], ['foot', foot], ['toe', [0, 0, 0]]]) {
+    const i = B[b + sd] * 3;
+    for (let c = 0; c < 3; c++) P.r[i + c] += (a[c] * DEG - P.r[i + c]) * k;
   }
-  setR(P, 'spine', 5 * DEG * Math.sin(2 * TAU * p - 0.8), -6 * DEG * c, -5 * DEG * s);
-  setR(P, 'chest', 6 * DEG * Math.sin(2 * TAU * p - 1.6), -6 * DEG * c, -4 * DEG * s);
-  arm(P, 'R', -40 - 120 * up, 20, -0.15 - 0.15 * up, -60 + 40 * up, -10);
-  arm(P, 'L', -18 - 10 * s, -40, 0.25, -70, -10);
-  setR(P, 'neck', -4 * DEG * up, 0, 0); setR(P, 'head', (3 * b - 6 * up) * DEG, 10 * DEG * c, 6 * DEG * s);
   return P;
 }
-// A body roll: the wave goes up from the knees through the hips and the chest to the head, twice a cycle,
-// and both hands run down the front of the body from the ribs to the thighs as it goes.
+// the weight on the beat: from one foot to the other quickly, then staying there (`n` steps over the clip, the
+// first onto the left)
+const onFeet = (p, n, hold = 0.7) => { const s = Math.sin(n * Math.PI * p); return 0.5 + 0.5 * Math.sign(s) * Math.pow(Math.abs(s), hold); };
+
+// Dancing on the spot over eight beats: the weight goes from foot to foot on every beat, the free heel up and its
+// knee in, a dip on each downbeat, the hips rolling a figure of eight with the chest turning against them and the
+// head a little behind the chest. The right hand sweeps up over the head through the first bar, the left through
+// the second.
+function dancePose(p) {
+  const P = stance(p, false), s = Math.sin(4 * TAU * p), c = Math.cos(4 * TAU * p), dip = onBeat(p, 8);
+  const upR = Math.sin(Math.PI * Math.min(1, 2 * p)) ** 2, upL = Math.sin(Math.PI * Math.max(0, 2 * p - 1)) ** 2;
+  const w = onFeet(p, 8);
+  setR(P, 'pelvis', (3 + 4 * dip) * DEG, 9 * DEG * c, 0);
+  footwork(P, w, { sink: 0.03 + 0.035 * dip, dx: 0.025 * (2 * w - 1), hike: 9 });
+  setR(P, 'spine', (2 * dip + 4 * Math.sin(4 * TAU * p - 0.9)) * DEG, -6 * DEG * c, -5 * DEG * s);
+  setR(P, 'chest', 5 * DEG * Math.sin(4 * TAU * p - 1.7), -9 * DEG * c, -5 * DEG * s);
+  arm(P, 'R', -32 - 128 * upR + 6 * s, 22, -0.18 - 0.2 * upR, -64 + 44 * upR, -10, 10 * s);
+  arm(P, 'L', -32 - 128 * upL - 6 * s, -22, 0.18 + 0.2 * upL, -64 + 44 * upL, -10, -10 * s);
+  setR(P, 'neck', -4 * DEG * (upR + upL), 0, 0);
+  setR(P, 'head', (4 * dip - 8 * (upR + upL)) * DEG, 9 * DEG * Math.cos(4 * TAU * p - 0.6), 6 * DEG * Math.sin(4 * TAU * p - 0.6));
+  return P;
+}
+// A body roll over eight beats, one every two: the wave goes up from the knees through the hips, the waist, the
+// chest and the neck to the head, each a little after the one below, and the hands run down the front from the
+// ribs to the thighs with it. The fourth roll ends with a pop of the hip.
 function bodyRollPose(p) {
-  const P = stance(p), w = (ph) => Math.sin(2 * TAU * p - ph), k = 0.5 - 0.5 * Math.cos(2 * TAU * p);
-  setR(P, 'thighL', -12 * DEG * (0.5 + 0.5 * w(0)), 0, 4 * DEG); setR(P, 'thighR', -12 * DEG * (0.5 + 0.5 * w(0)), 0, -4 * DEG);
-  setR(P, 'shinL', 22 * DEG * (0.5 + 0.5 * w(0)), 0, 0); setR(P, 'shinR', 22 * DEG * (0.5 + 0.5 * w(0)), 0, 0);
-  setR(P, 'pelvis', 12 * DEG * w(0.7), 0, 0);
-  setR(P, 'spine', -9 * DEG * w(1.4), 0, 0); setR(P, 'chest', -10 * DEG * w(2.1), 0, 0);
-  setR(P, 'neck', -6 * DEG * w(2.8), 0, 0); setR(P, 'head', -8 * DEG * w(3.3), 0, 0);
-  arm(P, 'R', -38 + 30 * k, 40, -0.12, -100 + 50 * k, -14); arm(P, 'L', -38 + 30 * k, -40, 0.12, -100 + 50 * k, -14);
+  const P = stance(p, false), w = (ph) => Math.sin(4 * TAU * p - ph), k = 0.5 - 0.5 * Math.cos(4 * TAU * p), pop = bump(p, 0.88, 0.04);
+  const kn = 0.5 + 0.5 * w(0);
+  // the knees go forward and down first, then the hips come through over them: the feet flat, a little apart,
+  // the left a touch ahead, the weight even until the pop puts it on the left
+  setR(P, 'pelvis', 13 * DEG * w(0.6), 0, 0);
+  footwork(P, 0.5 + 0.4 * pop, { x: 0.1, z: 0.06, sink: 0.07 * kn, dz: 0.035 * w(0.6) - 0.02, heel: 22, hike: 10 });
+  setR(P, 'spine', -9 * DEG * w(1.3), 0, -5 * DEG * pop); setR(P, 'chest', -11 * DEG * w(2.0), 0, -5 * DEG * pop);
+  setR(P, 'neck', -6 * DEG * w(2.6), 0, 0); setR(P, 'head', -9 * DEG * w(3.2), 0, 4 * DEG * pop);
+  arm(P, 'R', -40 + 32 * k, 40, -0.12, -102 + 52 * k, -14); arm(P, 'L', -40 + 32 * k, -40, 0.12, -102 + 52 * k, -14);
   return P;
 }
-// A hair whip: both hands up behind the head, the chest and head going round in a circle and flung back at the top.
+// A hair whip over eight beats: both hands up behind the head, the chest and head circling once a bar and flung
+// back on its third beat, the knees giving into the fling.
 function hairWhipPose(p) {
-  const P = stance(p), s = Math.sin(TAU * p), c = Math.cos(TAU * p), fling = bump(p, 0.75, 0.06);
-  setR(P, 'thighL', 0, 0, 5 * DEG); setR(P, 'thighR', 0, 0, -5 * DEG);
-  setR(P, 'pelvis', 0, 6 * DEG * s, 4 * DEG * c);
+  const P = stance(p, false), s = Math.sin(2 * TAU * p), c = Math.cos(2 * TAU * p), fling = bump(p, 0.31, 0.035) + bump(p, 0.81, 0.035);
+  // feet wide and flat to throw from, the knees giving into each fling and the weight going round with the head
+  setR(P, 'pelvis', 4 * fling * DEG, 7 * DEG * s, 0);
+  footwork(P, 0.5 + 0.18 * c, { x: 0.14, turn: 12, sink: 0.02 + 0.06 * fling, dz: -0.02 * fling, hike: 5 });
   arm(P, 'R', -150, 30, -0.35, -110, -10); arm(P, 'L', -150, -30, 0.35, -110, -10);
-  setR(P, 'spine', (6 * c - 6 * fling) * DEG, 0, 6 * DEG * s);
-  setR(P, 'chest', (8 * c - 8 * fling) * DEG, 0, 8 * DEG * s);
-  setR(P, 'neck', (10 * c - 14 * fling) * DEG, 0, 8 * DEG * s);
-  setR(P, 'head', (12 * c - 18 * fling) * DEG, 0, 10 * DEG * s);
+  setR(P, 'spine', (6 * c - 7 * fling) * DEG, 0, 6 * DEG * s);
+  setR(P, 'chest', (8 * c - 9 * fling) * DEG, 0, 8 * DEG * s);
+  setR(P, 'neck', (10 * c - 16 * fling) * DEG, 0, 8 * DEG * s);
+  setR(P, 'head', (12 * c - 22 * fling) * DEG, 0, 10 * DEG * s);
+  return P;
+}
+// Hip circles over eight beats, one a bar: the hips going round over soft knees, the left hand on the hip and the
+// right drawn slowly up the thigh and the side to the hair, and down again.
+function hipCirclePose(p) {
+  const P = stance(p, false), s = Math.sin(2 * TAU * p), c = Math.cos(2 * TAU * p), up = 0.5 - 0.5 * Math.cos(TAU * p);
+  // the hips go round over feet that don't move: out over the left foot, forward, over the right, back, the
+  // weight following them and the heel of whichever foot they've left coming up a little
+  setR(P, 'pelvis', 9 * DEG * c, 0, 0);
+  footwork(P, 0.5 + 0.38 * s, { x: 0.12, sink: 0.045, dx: 0.02 * s, dz: 0.045 * c, heel: 16, hike: 12 });
+  setR(P, 'spine', -4 * DEG * c, 0, -8 * DEG * s); setR(P, 'chest', -4 * DEG * c, 0, -5 * DEG * s);
+  arm(P, 'L', -14, -34, 0.34, -84, -10);
+  arm(P, 'R', -10 - 150 * up, 30 * up, -0.14 - 0.24 * up, -20 - 90 * up, -10);
+  setR(P, 'head', (-6 * up + 3 * c) * DEG, 0, 6 * DEG * s);
+  return P;
+}
+// Dropping low over eight beats: down into a deep squat with the knees wide through the first bar, the hands on
+// the knees and the back flat, a beat held there, and up again through the second with a roll up the spine.
+function dropLowPose(p) {
+  const P = stance(p, false), down = smooth(0, 0.42, p) * (1 - smooth(0.56, 0.96, p)), roll = bump(p, 0.74, 0.08);
+  // a wide stance, toes out, so the knees open over the feet; the hips go down and back to keep her over them,
+  // and the heels come up at the bottom, as they do in heels
+  setR(P, 'pelvis', -10 * roll * DEG, 0, 0);
+  plant(P, { L: { x: 0.2, z: 0.12, ball: true, turn: 30, heel: 24 * down * down }, R: { x: -0.2, z: 0.12, ball: true, turn: 30, heel: 24 * down * down } },
+    { sink: 0.44 * down, dz: -0.1 * down });
+  setR(P, 'spine', (26 * down - 10 * roll) * DEG, 0, 0); setR(P, 'chest', (6 * down - 12 * roll) * DEG, 0, 0);
+  arm(P, 'R', -18 - 34 * down, 24, -0.12 - 0.3 * down, -18 - 20 * down, -10); arm(P, 'L', -18 - 34 * down, -24, 0.12 + 0.3 * down, -18 - 20 * down, -10);
+  setR(P, 'neck', -10 * down * DEG, 0, 0); setR(P, 'head', (-16 * down - 8 * roll) * DEG, 0, 0);
+  return P;
+}
+// An arch over eight beats: the right hand up behind the head and the left on the hip, the back arched and let go
+// once a bar, the hip popped out on the second and fourth beats.
+function backArchPose(p) {
+  const P = stance(p, false), arch = Math.sin(Math.PI * beatOf(p, 2)) ** 2, pop = bump(p, 0.125, 0.035) + bump(p, 0.375, 0.035) + bump(p, 0.625, 0.035) + bump(p, 0.875, 0.035);
+  // all the weight on the left, its leg long; the right up on its ball with the knee in, and the hip popped out
+  // over the left foot on the second and fourth beats
+  setR(P, 'pelvis', -6 * arch * DEG, 6 * DEG * pop, 6 * DEG * pop);
+  footwork(P, 0.86 + 0.1 * pop, { x: 0.1, z: -0.04, dx: 0.035 * pop, sink: 0.015 + 0.02 * arch, heel: 34, hike: 9 });
+  setR(P, 'spine', -12 * arch * DEG, 0, -5 * DEG * pop); setR(P, 'chest', -14 * arch * DEG, 0, -4 * DEG * pop);
+  arm(P, 'R', -150, 30, -0.35, -110, -10); arm(P, 'L', -14, -34, 0.34, -84, -10);
+  setR(P, 'neck', -10 * arch * DEG, 0, 0); setR(P, 'head', -14 * arch * DEG, 10 * DEG, 4 * DEG * pop);
+  return P;
+}
+// A look back over eight beats: turned half away with the hips, the chest further, looking back over the right
+// shoulder, the right hand flat on the hip behind, the hips swaying on every beat.
+function lookBackPose(p) {
+  const P = stance(p, false), s = Math.sin(4 * TAU * p), turn = smooth(0, 0.12, p) * (1 - smooth(0.88, 1, p)), dip = onBeat(p, 8);
+  // the hips turned away over feet that stay facing the room (the thighs turn in their sockets), the weight
+  // from foot to foot on every beat
+  setR(P, 'pelvis', 3 * dip * DEG, -28 * turn * DEG, 0);
+  const w = onFeet(p, 8);
+  footwork(P, w, { x: 0.1, z: 0.05, sink: 0.02 + 0.025 * dip, dx: 0.02 * (2 * w - 1), heel: 26, hike: 9 });
+  setR(P, 'spine', -4 * DEG, -10 * turn * DEG, -4 * DEG * s); setR(P, 'chest', -4 * DEG, -14 * turn * DEG, -4 * DEG * s);
+  arm(P, 'R', 22, 30, -0.3, -44, -10); arm(P, 'L', -14, -34, 0.3, -70, -10);
+  setR(P, 'neck', 0, -14 * turn * DEG, 0); setR(P, 'head', -4 * DEG, -30 * turn * DEG, 5 * DEG * s);
+  return P;
+}
+// A shimmy over four beats: leaning in a touch with the arms open low, the shoulders going back and forth twice a
+// beat while the hips and head hold still.
+function shimmyPose(p) {
+  const P = stance(p, false), sh = Math.sin(8 * TAU * p), dip = onBeat(p, 4);
+  // feet flat and a little wide, knees soft, the hips back to balance the lean
+  footwork(P, 0.5, { x: 0.13, sink: 0.035 + 0.02 * dip, dz: -0.03 });
+  setR(P, 'spine', 10 * DEG, 0, 0); setR(P, 'chest', 2 * DEG, 13 * DEG * sh, 0);
+  arm(P, 'R', -36, 10, -0.62, -30, -10); arm(P, 'L', -36, -10, 0.62, -30, -10);
+  setR(P, 'neck', -6 * DEG, -10 * DEG * sh, 0); setR(P, 'head', -6 * DEG, -3 * DEG * sh, 0);
+  return P;
+}
+// Kneeling on the stage over sixteen beats: up on both knees, the body rolling up from the hips once every two
+// beats, the arms going up overhead through the first two bars and back down the body through the last two, and an
+// arch back on the last beat of each bar.
+function kneelRollPose(p) {
+  const P = stance(p, false), w = (ph) => Math.sin(8 * TAU * p - ph), up = Math.sin(Math.PI * p) ** 2, arch = bump(p, 0.22, 0.03) + bump(p, 0.47, 0.03) + bump(p, 0.72, 0.03) + bump(p, 0.97, 0.03);
+  zeroR(P, 'pelvis'); setR(P, 'pelvis', 10 * DEG * w(0), 0, 4 * DEG * Math.sin(4 * TAU * p));
+  // On her knees, which are on the floor and stay there, the toes tucked under and the shins along the floor
+  // behind. The roll and the arch move the hips forward of the knees and back, so the thighs lean, not the knees.
+  const lean = (-3 + 7 * arch + 5 * w(0)) * DEG;
+  kneel(P, lean, 0.12, 0.04);
+  setR(P, 'spine', (-8 * w(0.8) - 8 * arch) * DEG, 0, 0); setR(P, 'chest', (-9 * w(1.6) - 10 * arch) * DEG, 0, 0);
+  arm(P, 'R', -30 - 130 * up, 26, -0.16 - 0.2 * up, -80 + 60 * up, -10); arm(P, 'L', -30 - 130 * up, -26, 0.16 + 0.2 * up, -80 + 60 * up, -10);
+  setR(P, 'neck', -6 * DEG * w(2.2), 0, 0); setR(P, 'head', (-8 * w(2.8) - 14 * arch) * DEG, 0, 0);
+  return P;
+}
+// Kneeling (plant): both knees on the floor `x` either side and `z` ahead of the figure's spot, the shins back
+// along the floor and the toes tucked under, the hips over the knees with the thighs leaning `lean` (radians,
+// positive is the hips forward). The knee's joint is a few centimetres up, where the kneecap's front puts it.
+const KNEE_UP = 0.06, TUCK = 80;
+function kneel(P, lean, x = 0.12, z = 0) {
+  const A = Math.hypot(...BONES[B.shinL][2]), Bn = Math.hypot(...BONES[B.footL][2]);
+  const [ay, dz] = ankleAt(TUCK), back = Math.sqrt(Math.max(0, Bn * Bn - (ay - KNEE_UP) ** 2));
+  const foot = (sg) => ({ x: sg * x, z: z - back - dz, turn: 0, heel: TUCK });
+  return plant(P, { L: foot(1), R: foot(-1) }, { shift: 0, dz: z + A * Math.sin(lean), y: KNEE_UP + A * Math.cos(lean) - REST[B.thighL][1] });
+}
+// Taking a tip, played once: down to a crouch at the rail with the right hand out for the note, the note tucked in
+// at the hip, up again, and a kiss blown to whoever gave it.
+function tipTakePose(p) {
+  const P = stance(p, false), low = smooth(0.04, 0.24, p) * (1 - smooth(0.52, 0.7, p)), take = smooth(0.12, 0.26, p), tuck = smooth(0.32, 0.46, p);
+  const kiss = smooth(0.66, 0.76, p), blow = smooth(0.8, 0.88, p), done = smooth(0.9, 1, p);
+  // down into a crouch on the balls of her feet, knees open over toes turned out, the hips back over the heels;
+  // stood, the hips sway from foot to foot
+  const sw = Math.sin(2 * TAU * p) * (1 - low);
+  setR(P, 'pelvis', 0, 0, 8 * DEG * sw);
+  plant(P, { L: { x: 0.15, z: 0.12, ball: true, turn: 24, heel: 30 * low }, R: { x: -0.15, z: 0.12, ball: true, turn: 24, heel: 30 * low } },
+    { weight: 0.5 + 0.3 * sw - 0.08 * low, sink: 0.38 * low, dz: -0.07 * low });
+  setR(P, 'spine', 22 * low * DEG, 0, 0); setR(P, 'chest', 6 * low * DEG, 0, 0);
+  let f = mixN(-10, -62, take), tw = 0, ab = mixN(-0.1, -0.12, take), el = mixN(-14, -12, take);
+  f = mixN(f, -8, tuck); tw = mixN(tw, 40, tuck); ab = mixN(ab, -0.28, tuck); el = mixN(el, -50, tuck);   // at the hip
+  f = mixN(f, -64, kiss); tw = mixN(tw, 64, kiss); ab = mixN(ab, -0.14, kiss); el = mixN(el, -128, kiss);   // to the mouth
+  f = mixN(f, -84, blow); tw = mixN(tw, 20, blow); el = mixN(el, -20, blow);                              // and out
+  f = mixN(f, -12, done); tw = mixN(tw, 0, done); ab = mixN(ab, -0.1, done); el = mixN(el, -16, done);
+  arm(P, 'R', f, tw, ab, el, -8);
+  arm(P, 'L', mixN(-14, -40, low), -34, mixN(0.34, 0.3, low), mixN(-84, -30, low), -10);
+  setR(P, 'head', (-10 * low - 4 * kiss * (1 - blow)) * DEG, 0, 6 * DEG * kiss * (1 - done));
+  return P;
+}
+const kissK = (p) => smooth(0.7, 0.76, p) * (1 - smooth(0.86, 0.92, p));
+// Holding a tip out to a dancer, played once: the right hand up and out with the note in it, a lean in after it,
+// and back.
+function tipOfferPose(p) {
+  const P = stance(p), k = held(p, 0.08, 0.66);
+  arm(P, 'R', -6 - 82 * k, 6, -0.08 - 0.06 * k, -14 + 4 * k, -4);
+  setR(P, 'chest', 10 * DEG * k, -8 * DEG * k, 0); setR(P, 'head', -8 * DEG * k, 0, 0);
+  return P;
+}
+// Cheering a dancer on over four beats: the right fist pumped up on the first and third, the left down with a
+// drink, the head going with it.
+function fistPumpPose(p) {
+  const P = stance(p), pump = bump(p, 0.02, 0.06) + bump(p, 0.52, 0.06);
+  arm(P, 'R', -70 - 70 * pump, 24, -0.2, -100 + 60 * pump, -10);
+  arm(P, 'L', -24, -50, 0.16, -76, -10);
+  setR(P, 'chest', -4 * pump * DEG, 0, 0); setR(P, 'head', -10 * pump * DEG, 0, 0);
+  return P;
+}
+// A note held up and waved for the dancer to see, over four beats: the right arm up, the hand going on each beat.
+function billWavePose(p) {
+  const P = stance(p), wv = Math.sin(4 * TAU * p);
+  arm(P, 'R', -132, 16, -0.26, -34, -10, 14 * wv);
+  setR(P, 'chest', -3 * DEG, -6 * DEG, 0); setR(P, 'head', -8 * DEG, 0, 0);
   return P;
 }
 const mixN = (a, b, k) => a + (b - a) * k;
 // Taking a layer off, played once: the hands down to the hem, the garment drawn up over the head with the
 // arms crossed, flung away to the right, and back to the hips with a roll of them.
 function undressPose(p) {
-  const P = stance(p), a = smooth(0.04, 0.28, p), b = smooth(0.3, 0.58, p), c = smooth(0.6, 0.72, p), d = smooth(0.78, 0.98, p);
+  const P = stance(p, false), a = smooth(0.04, 0.28, p), b = smooth(0.3, 0.58, p), c = smooth(0.6, 0.72, p), d = smooth(0.78, 0.98, p);
   for (const [sd, s] of [['R', 1], ['L', -1]]) {
     let f = mixN(-6, -24, a), tw = mixN(0, s * 34, a), ab = mixN(-s * 0.1, -s * 0.05, a), el = mixN(-10, -48, a);
     f = mixN(f, -168, b); tw = mixN(tw, s * 8, b); ab = mixN(ab, s * 0.05, b); el = mixN(el, -36, b);   // crossed over the head
@@ -1560,15 +1830,17 @@ function undressPose(p) {
   setR(P, 'spine', (8 * a * (1 - b) - 6 * b * (1 - d)) * DEG, 0, 0);
   setR(P, 'chest', -6 * DEG * b * (1 - d), -10 * DEG * c * (1 - d), 0);
   setR(P, 'head', (10 * a * (1 - b) - 12 * b * (1 - c)) * DEG, -14 * DEG * c * (1 - d), 0);
-  setR(P, 'pelvis', 0, 8 * DEG * Math.sin(2 * TAU * p) * d, 6 * DEG * Math.sin(2 * TAU * p));
+  // the hips sway from foot to foot over feet that stay put
+  setR(P, 'pelvis', 0, 8 * DEG * Math.sin(2 * TAU * p) * d, 0);
+  footwork(P, 0.5 + 0.3 * Math.sin(2 * TAU * p), { hike: 6 });
   return P;
 }
 // Putting a layer back on, played once: a dip to pick it up, then pulling it up the body and over the shoulders,
 // and a smooth of it down at the hips.
 function redressPose(p) {
-  const P = stance(p), dip = held(p, 0.04, 0.3), up = smooth(0.38, 0.7, p), sm = held(p, 0.74, 0.86);
-  setR(P, 'thighL', -34 * DEG * dip, 0, 3 * DEG); setR(P, 'thighR', -34 * DEG * dip, 0, -3 * DEG);
-  setR(P, 'shinL', 60 * DEG * dip, 0, 0); setR(P, 'shinR', 60 * DEG * dip, 0, 0);
+  const P = stance(p, false), dip = held(p, 0.04, 0.3), up = smooth(0.38, 0.7, p), sm = held(p, 0.74, 0.86);
+  // down for it over her feet, the knees bending because the hips go down and back, then up
+  footwork(P, 0.5, { x: 0.12, sink: 0.17 * dip, dz: -0.06 * dip, heel: 10 });
   setR(P, 'spine', 30 * DEG * dip, 0, 0); setR(P, 'chest', (10 * dip - 4 * up) * DEG, 0, 0);
   setR(P, 'head', (14 * dip - 6 * up) * DEG, 0, 0);
   for (const [sd, s] of [['R', 1], ['L', -1]]) {
@@ -1581,12 +1853,15 @@ function redressPose(p) {
 // Leaning out from the pole on one straight arm, the right leg hooked round it and the head hung back,
 // swinging out and in.
 function poleLeanPose(p) {
-  const P = stance(p), s = Math.sin(TAU * p), k = 0.5 + 0.5 * s;
+  const P = stance(p, false), s = Math.sin(TAU * p), k = 0.5 + 0.5 * s;
   arm(P, 'R', -128 + 10 * s, 8, -0.06, -6, -10);
   arm(P, 'L', -60 - 50 * k, -30, 0.55 + 0.2 * k, -20, -6);
-  setR(P, 'thighR', (-48 - 14 * k) * DEG, 10 * DEG, -10 * DEG); setR(P, 'shinR', (72 + 10 * k) * DEG, 0, 0); setR(P, 'footR', 30 * DEG, 0, 0);
-  setR(P, 'thighL', 4 * DEG, 0, 3 * DEG);
   setR(P, 'pelvis', -6 * DEG * k, 14 * DEG * s, 6 * DEG);
+  // standing on the left alone, the right leg hooked round the pole; held up by the arm, the hips can go back
+  // past the foot as she swings out
+  for (const b of ['thighR', 'shinR', 'footR', 'toeR']) zeroR(P, b);
+  setR(P, 'thighR', (-48 - 14 * k) * DEG, 10 * DEG, -10 * DEG); setR(P, 'shinR', (72 + 10 * k) * DEG, 0, 0); setR(P, 'footR', 30 * DEG, 0, 0);
+  plant(P, { L: { x: 0.07, z: -0.02, turn: 10 }, R: { air: true } }, { shift: 0.9, sink: 0.02 + 0.02 * k, dz: -0.06 * k });
   setR(P, 'spine', (-10 - 8 * k) * DEG, 0, 4 * DEG); setR(P, 'chest', (-8 - 6 * k) * DEG, -6 * DEG * s, 0);
   setR(P, 'neck', -10 * DEG * k, 0, 0); setR(P, 'head', (-10 - 12 * k) * DEG, 8 * DEG * s, 0);
   return P;
@@ -1637,17 +1912,16 @@ function rollPose(p) {
 // Arms folded and a foot tapping.
 function tapPose(p) {
   const P = waitPose(p), tap = Math.max(0, Math.sin(8 * TAU * p)) * held(p, 0.1, 0.7);
-  setR(P, 'thighR', -5 * DEG * tap, 0, 0); setR(P, 'shinR', 9 * DEG * tap, 0, 0);
-  return P;
+  // the right toes tapping, the heel down where it is and the weight on the left
+  return plant(P, { L: IDLE_FEET.L, R: { ...IDLE_FEET.R, heel: -16 * tap } }, { weight: 0.62 });
 }
 // Stooping for something on the floor: the knees give and part, the back goes over, the right hand goes down to
 // it with the left on the knee, and up again with it.
 const stoopK = (p) => smooth(0.12, 0.34, p) * (1 - smooth(0.5, 0.74, p));
 function pickUpPose(p) {
-  const P = stance(p), k = stoopK(p);
-  for (const [sd, z] of [['L', 1], ['R', -1]]) {
-    setR(P, 'thigh' + sd, -92 * DEG * k, 0, z * 12 * DEG * k); setR(P, 'shin' + sd, 122 * DEG * k, 0, 0); setR(P, 'foot' + sd, -30 * DEG * k, 0, 0);
-  }
+  const P = stance(p, false), k = stoopK(p);
+  // down over the feet where they are, onto the balls, the hips going back as the back goes over
+  plant(P, { L: { ...IDLE_FEET.L, heel: 22 * k }, R: { ...IDLE_FEET.R, heel: 16 * k } }, { weight: 0.45, sink: 0.42 * k, dz: -0.1 * k });
   setR(P, 'spine', 40 * DEG * k, 0, 0); setR(P, 'chest', 18 * DEG * k, 0, 0);
   arm(P, 'R', -2 - 62 * k, 0, -0.07, -10 + 4 * k, -6);
   arm(P, 'L', -2 - 34 * k, -18 * k, 0.07 + 0.12 * k, -12 - 44 * k, -8);
@@ -1656,10 +1930,9 @@ function pickUpPose(p) {
 }
 // Squats, two a cycle: down with the arms out in front for balance, and up.
 function squatsPose(p) {
-  const P = stance(p), k = 0.5 - 0.5 * Math.cos(2 * TAU * p);
-  for (const [sd, z] of [['L', 1], ['R', -1]]) {
-    setR(P, 'thigh' + sd, -72 * DEG * k, 0, z * 8 * DEG * k); setR(P, 'shin' + sd, 96 * DEG * k, 0, 0); setR(P, 'foot' + sd, -24 * DEG * k, 0, 0);
-  }
+  const P = stance(p, false), k = 0.5 - 0.5 * Math.cos(2 * TAU * p);
+  // a proper squat: feet shoulder-width and turned out, flat, the hips back and down, the arms out to balance
+  plant(P, { L: { x: 0.15, z: 0.02, turn: 15 }, R: { x: -0.15, z: 0.02, turn: 15 } }, { sink: 0.36 * k, dz: -0.13 * k });
   setR(P, 'spine', 22 * DEG * k, 0, 0);
   arm(P, 'R', -2 - 80 * k, 0, -0.07, -12, -6); arm(P, 'L', -2 - 80 * k, 0, 0.07, -12, -6);
   setR(P, 'head', -10 * DEG * k, 0, 0);
@@ -1686,9 +1959,9 @@ function coldBlowPose(p) {
 // Stamping the feet with the arms wrapped: one knee up and down, then the other, shaking all the while.
 function coldStampPose(p) {
   const P = shiverPose(p), s = Math.sin(3 * TAU * p), a = Math.max(0, s) ** 2, b = Math.max(0, -s) ** 2;
-  setR(P, 'thighL', -20 * DEG * a, 0, 0); setR(P, 'shinL', 34 * DEG * a, 0, 0);
-  setR(P, 'thighR', -20 * DEG * b, 0, 0); setR(P, 'shinR', 34 * DEG * b, 0, 0);
-  return P;
+  // stamping: each foot straight up and down on its own spot, the weight onto the other one while it's up
+  return plant(P, { L: { ...IDLE_FEET.L, lift: 0.07 * a, heel: 12 * a }, R: { ...IDLE_FEET.R, lift: 0.07 * b, heel: 12 * b } },
+    { weight: 0.5 + 0.45 * (Math.max(0, -s) ** 0.6 - Math.max(0, s) ** 0.6), sink: 0.015 });
 }
 // Too hot: fanning the face with the right hand, the head back.
 function hotFanPose(p) {
@@ -1736,24 +2009,48 @@ function coughPose(p) {
 }
 // On guard: the feet apart, the hands together low in front, the chest up, the head going round the room.
 // At a dancer's pole, which stands a quarter of a metre in front of her: the right hand high on it, the
-// weight on the left leg with the right knee bent, the hips rolling round the pole and the body leaning back.
+// weight on the left leg with the right knee bent and its heel up, the hips rolling round the pole once every four
+// beats over sixteen, the chest a little behind them and the body leaning back, the left hand drawn up the body
+// and away through the second half.
 function poleHoldPose(p) {
-  const P = stance(p), s = Math.sin(TAU * p), c = Math.cos(TAU * p);
-  P.root[0] += 0.05 * s;
-  setR(P, 'pelvis', 0, 12 * DEG * s, 7 * DEG * s);
-  setR(P, 'thighR', -14 * DEG, 0, -4 * DEG); setR(P, 'shinR', 24 * DEG, 0, 0);
+  const P = stance(p, false), s = Math.sin(4 * TAU * p), c = Math.cos(4 * TAU * p), dip = onBeat(p, 16, 5), up = Math.sin(Math.PI * Math.max(0, 2 * p - 1)) ** 2;
+  // the hips go round the pole over feet that stay put: mostly on the left, the right up on its ball with the
+  // knee in, the weight easing onto it as the hips come round that side
+  setR(P, 'pelvis', 3 * dip * DEG, 12 * DEG * s, 3 * DEG * c);
+  footwork(P, 0.8 - 0.12 * Math.max(0, -s), { x: 0.1, z: -0.05, sink: 0.015 + 0.025 * dip, dx: 0.03 * s, dz: 0.03 * c, heel: 34, hike: 9 });
   arm(P, 'R', -152, 8, -0.08, -18, -10);
-  arm(P, 'L', -26 + 16 * c, -30, 0.26, -58, -10);
-  setR(P, 'spine', -6 * DEG, 0, 0); setR(P, 'chest', -6 * DEG, -8 * DEG * s, -4 * DEG * s);
-  setR(P, 'head', -8 * DEG, 12 * DEG * s, 5 * DEG * s);
+  arm(P, 'L', -26 + 12 * c - 120 * up, -30 + 40 * up, 0.26 + 0.2 * up, -58 + 30 * up, -10);
+  setR(P, 'spine', -6 * DEG, -4 * DEG * Math.sin(4 * TAU * p - 0.8), 0); setR(P, 'chest', -6 * DEG, -8 * DEG * Math.sin(4 * TAU * p - 1.4), -4 * DEG * s);
+  setR(P, 'head', (-8 - 8 * up) * DEG, 12 * DEG * Math.sin(4 * TAU * p - 1.9), 5 * DEG * s);
+  return P;
+}
+// A kick at the pole over sixteen beats: the right hand high on it and the weight on the right foot, the left leg
+// swept up and round in a fan through the second bar with the body leaning back from it and the left arm out for
+// balance, then down and a hip roll till the end.
+function poleKickPose(p) {
+  const P = stance(p, false), k = smooth(0.2, 0.36, p) * (1 - smooth(0.48, 0.62, p)), arc = Math.sin(Math.PI * smooth(0.2, 0.62, p)), s = Math.sin(4 * TAU * p) * (1 - k);
+  // the weight goes all onto the right foot before the kick (`ready`) and stays there till the leg's down, so the
+  // kick comes off a leg that's already carrying her; then it's the hips swaying from foot to foot again
+  const ready = smooth(0.12, 0.2, p) * (1 - smooth(0.62, 0.7, p));
+  setR(P, 'pelvis', -8 * k * DEG, 10 * DEG * s, 0);
+  // the foot comes straight up off its spot first, the knee leading, and only clear of the floor does the leg open
+  // out into the fan; down, the same in reverse, so the foot lands where it left
+  const off = smooth(0, 0.4, k), out = smooth(0.3, 1, k);
+  footwork(P, mixN(0.5 + 0.3 * s, 0.04, ready), { x: 0.1, sink: 0.02, dx: 0.02 * s, dz: -0.04 * k, heel: 30, hike: 8, liftL: 0.2 * off });
+  liftLeg(P, 'L', out, [-78, 0, 2 + 34 * arc], [6, 0, 0], [30, 0, 0]);
+  setR(P, 'spine', -10 * k * DEG, 0, -4 * DEG * s); setR(P, 'chest', -10 * k * DEG, -6 * DEG * s, 0);
+  arm(P, 'R', -152 + 10 * k, 8, -0.08, -18 + 10 * k, -10);
+  arm(P, 'L', -26 - 54 * k, -30 + 20 * k, 0.26 + 0.8 * k, -58 + 46 * k, -10);
+  setR(P, 'head', (-8 - 10 * k) * DEG, 10 * DEG * s, 0);
   return P;
 }
 // Both hands high on the pole, sinking slowly to a squat with the knees apart and the back arched, and up again.
 function poleSlidePose(p) {
-  const P = stance(p), k = 0.5 - 0.5 * Math.cos(TAU * p);
-  for (const [sd, z] of [['L', 1], ['R', -1]]) {
-    setR(P, 'thigh' + sd, -78 * k * DEG, 0, z * (6 + 20 * k) * DEG); setR(P, 'shin' + sd, 112 * k * DEG, 0, 0); setR(P, 'foot' + sd, -26 * k * DEG, 0, 0);
-  }
+  const P = stance(p, false), k = 0.5 - 0.5 * Math.cos(TAU * p);
+  // down the pole into a squat over a wide stance, toes and knees out, onto the balls of the feet at the bottom;
+  // she's holding the pole, so the hips can stay further forward than a free squat's
+  plant(P, { L: { x: 0.19, z: 0.1, ball: true, turn: 28, heel: 26 * k * k }, R: { x: -0.19, z: 0.1, ball: true, turn: 28, heel: 26 * k * k } },
+    { sink: 0.42 * k, dz: -0.05 * k });
   arm(P, 'R', -166 + 40 * k, 4, -0.06, -10 - 30 * k, -10); arm(P, 'L', -166 + 40 * k, -4, 0.06, -10 - 30 * k, -10);
   setR(P, 'spine', (-8 + 22 * k) * DEG, 0, 0); setR(P, 'chest', -6 * DEG * (1 - k), 0, 0);
   setR(P, 'head', (-14 + 18 * k) * DEG, 0, 0);
@@ -1761,8 +2058,8 @@ function poleSlidePose(p) {
 }
 
 function guardPose(p) {
-  const P = stance(p), look = Math.sin(TAU * p);
-  setR(P, 'thighL', 0, 0, 5 * DEG); setR(P, 'thighR', 0, 0, -5 * DEG);
+  const P = stance(p, false), look = Math.sin(TAU * p);
+  plant(P, { L: { x: 0.16, z: 0.04, turn: 12 }, R: { x: -0.15, z: -0.02, turn: 10 } }, { weight: 0.5, sink: 0.015 });
   arm(P, 'R', -6, 70, -0.2, -50, -8); arm(P, 'L', -6, -70, 0.2, -50, -8);
   setR(P, 'chest', -3 * DEG, 0, 0);
   setR(P, 'neck', 0, 10 * DEG * look, 0); setR(P, 'head', 0, 20 * DEG * look, 0);
@@ -1940,8 +2237,19 @@ const CLIPS = [
   { name: 'smoke', frames: 36, dur: 9.0, fn: smokePose },
   { name: 'sit', frames: 12, dur: 8.0, fn: sitPose },
   { name: 'cheer', frames: 16, dur: 1.2, fn: cheerPose },
+  // ⚠ NEW CLIPS GO ON THE END: windshield.js PARK_CLIP and the arms' figure lists index this list.
+  // A smoker's (glass/street-life.js): leaning on a wall with one going or with the arms folded, and walking with
+  // one, which is the walk four strides at a time (`of`, `n`): 16 frames a stride, where the walk has 32, because
+  // nobody close enough to count them is drawn with the bake.
+  { name: 'leanSmoke', frames: 36, dur: 9.0, fn: leanSmokePose },
+  { name: 'leanWall', frames: 16, dur: 6.0, fn: leanWallPose },
+  { name: 'walkSmoke', frames: 16 * WALK_SMOKE_STRIDES, dur: 1.10 * WALK_SMOKE_STRIDES, fn: walkSmokePose, walk: true, of: 'walk', n: WALK_SMOKE_STRIDES },
 ];
 export const ACTOR_CLIPS = CLIPS.map(({ name, frames, dur }) => ({ name, frames, dur }));
+// The clips that walk, whose phase is the distance walked over actorStrideM(name) rather than the clock.
+export const ACTOR_WALKS = new Set(CLIPS.filter((c) => c.walk).map((c) => c.name));
+// The clips with a cigarette in the right hand, which gl/actor-smoke.js draws and lights.
+export const ACTOR_SMOKES = new Set(['smoke', 'leanSmoke', 'walkSmoke']);
 // Never baked: actorSkinAt plays them. 'once' runs from its start and holds there, so the Stage
 // gives it a phase of its own (room-stage.js eased) rather than a looping one.
 const ROOM_CLIPS = [
@@ -1987,9 +2295,18 @@ const ROOM_CLIPS = [
   { name: 'squatStir', dur: 6, fn: squatStirPose },
   { name: 'laugh', dur: 5, fn: laughPose, face: (p) => ({ open: 0.45 * laughK(p) * (0.7 + 0.3 * Math.sin(14 * TAU * p)) }) },
   { name: 'shrug', dur: 4, fn: shrugPose }, { name: 'cower', dur: 6, fn: cowerPose, face: () => ({ open: 0.2, round: 0.3 }) },
-  { name: 'dance', dur: 2.4, fn: dancePose }, { name: 'poleHold', dur: 5, fn: poleHoldPose }, { name: 'poleSlide', dur: 7, fn: poleSlidePose }, { name: 'poleLean', dur: 6, fn: poleLeanPose },
-  { name: 'bodyRoll', dur: 4, fn: bodyRollPose }, { name: 'hairWhip', dur: 3, fn: hairWhipPose },
+  // a dancer's, each a whole number of beats at the club's 124 bpm (DANCE_BEAT)
+  { name: 'dance', dur: 8 * DANCE_BEAT, fn: dancePose }, { name: 'poleHold', dur: 16 * DANCE_BEAT, fn: poleHoldPose }, { name: 'poleSlide', dur: 16 * DANCE_BEAT, fn: poleSlidePose }, { name: 'poleLean', dur: 16 * DANCE_BEAT, fn: poleLeanPose },
+  { name: 'poleKick', dur: 16 * DANCE_BEAT, fn: poleKickPose }, { name: 'bodyRoll', dur: 8 * DANCE_BEAT, fn: bodyRollPose }, { name: 'hairWhip', dur: 8 * DANCE_BEAT, fn: hairWhipPose },
+  { name: 'hipCircle', dur: 8 * DANCE_BEAT, fn: hipCirclePose }, { name: 'dropLow', dur: 8 * DANCE_BEAT, fn: dropLowPose }, { name: 'backArch', dur: 8 * DANCE_BEAT, fn: backArchPose },
+  { name: 'lookBack', dur: 8 * DANCE_BEAT, fn: lookBackPose }, { name: 'shimmy', dur: 4 * DANCE_BEAT, fn: shimmyPose }, { name: 'kneelRoll', dur: 16 * DANCE_BEAT, fn: kneelRollPose },
+  { name: 'tipTake', dur: 3.4, fn: tipTakePose, once: true, face: (p) => ({ round: 0.9 * kissK(p), open: 0.08 * kissK(p) }) },
+  // and the punters': a note held out, and cheering her on
+  { name: 'tipOffer', dur: 2.6, fn: tipOfferPose, once: true }, { name: 'sitTipOffer', dur: 2.6, fn: sitOf(tipOfferPose, 18), once: true },
+  { name: 'fistPump', dur: 4 * DANCE_BEAT, fn: fistPumpPose, face: (p) => ({ open: 0.3 * (bump(p, 0.02, 0.06) + bump(p, 0.52, 0.06)) }) }, { name: 'sitFistPump', dur: 4 * DANCE_BEAT, fn: sitOf(fistPumpPose, 4), face: (p) => ({ open: 0.3 * (bump(p, 0.02, 0.06) + bump(p, 0.52, 0.06)) }) },
+  { name: 'billWave', dur: 4 * DANCE_BEAT, fn: billWavePose }, { name: 'sitBillWave', dur: 4 * DANCE_BEAT, fn: sitOf(billWavePose, 6) },
   { name: 'undress', dur: 4, fn: undressPose, once: true }, { name: 'redress', dur: 4.5, fn: redressPose, once: true }, { name: 'shiver', dur: 6, fn: shiverPose },
+  { name: 'vatFloat', dur: 11, fn: vatFloatPose, face: () => ({ shut: 1 }) },
   { name: 'cough', dur: 5, fn: coughPose, face: (p) => ({ open: 0.4 * coughK(p) }) }, { name: 'guard', dur: 12, fn: guardPose },
   // a show's stage directions, on their feet and in a chair
   { name: 'point', dur: 3, fn: pointPose }, { name: 'sitPoint', dur: 3, fn: sitOf(pointPose) },
@@ -2033,9 +2350,9 @@ const ROOM_CLIPS = [
 export const ACTOR_IDLES = {
   stand: [['idle', 5], ['idleShift', 2], ['idleLook', 2], ['idleHip', 1.5], ['idleHipR', 1.5], ['idlePockets', 2], ['idleBehind', 1], ['wait', 1.5], ['listen', 1],
     ['idleScratch', 0.7], ['idleNeck', 0.7], ['idleWatch', 0.7], ['idleStretch', 0.4], ['idleYawn', 0.4], ['idleSigh', 0.7],
-    ['idleRock', 1.2], ['idleTap', 0.8], ['idleRoll', 0.6], ['idleRub', 0.5], ['idleKnuckles', 0.5]],
+    ['idleRock', 1.2], ['idleTap', 0.8], ['idleRoll', 0.6], ['idleRub', 0.5], ['idleKnuckles', 0.5], ...MOOD_IDLES.stand],
   sit: [['sitRest', 4], ['sitSprawl', 3], ['sitBack', 2.5], ['sitClasp', 1], ['sitLean', 0.8], ['sitFold', 1.5], ['sitPhone', 1], ['sitRead', 0.6],
-    ['sitScratch', 0.5], ['sitNeck', 0.5], ['sitWatch', 0.5], ['sitStretch', 0.4], ['sitYawn', 0.4], ['sitRub', 0.4]],
+    ['sitScratch', 0.5], ['sitNeck', 0.5], ['sitWatch', 0.5], ['sitStretch', 0.4], ['sitYawn', 0.4], ['sitRub', 0.4], ...MOOD_IDLES.sit],
   // a room past room temperature, mild and then harsh (client/shared/comfort.js feelBand): gl/room-people.js
   // gives somebody one of these in place of their own for some of their slots, more of them the worse it is
   cool: [['coldRub', 3], ['wait', 2], ['coldBlow', 1], ['shiver', 0.5]],
@@ -2056,16 +2373,22 @@ export const ACTOR_IDLES = {
   bar: [['wipe', 2.5], ['polish', 2.5], ['pour', 2], ['tapPull', 1.5], ['shakeTin', 1.2], ['checkBottle', 0.8], ['slideGlass', 0.8], ['counter', 2], ['idle', 1.5], ['wait', 1], ['idleLook', 1], ['count', 0.5]],
   shop: [['counter', 3], ['idle', 3], ['count', 1.5], ['write', 1.5], ['wait', 1.5], ['idleWatch', 1], ['idleLook', 1], ['idleBehind', 1]],
   // a dancer on shift: at her pole, or working the floor where there isn't one
-  pole: [['poleHold', 3.5], ['poleLean', 2.5], ['poleSlide', 2.5], ['dance', 1.5], ['bodyRoll', 1], ['hairWhip', 0.5]],
-  floorwork: [['dance', 4], ['bodyRoll', 2.5], ['hairWhip', 1.5], ['idleHip', 1], ['idleHipR', 1]],
+  pole: [['poleHold', 3], ['poleLean', 2.5], ['poleSlide', 2.5], ['poleKick', 1.5], ['dance', 1], ['bodyRoll', 1], ['backArch', 1], ['hairWhip', 0.5]],
+  floorwork: [['dance', 3], ['hipCircle', 2], ['bodyRoll', 2], ['shimmy', 1.5], ['lookBack', 1.5], ['dropLow', 1.5], ['backArch', 1], ['hairWhip', 1], ['kneelRoll', 0.8]],
   // half undressed or more (plugins/roomstage `peel`): no standing about, more of the big moves
-  poleHot: [['poleLean', 3.5], ['poleSlide', 3], ['poleHold', 2], ['bodyRoll', 1.5], ['hairWhip', 1]],
-  floorHot: [['bodyRoll', 3.5], ['dance', 3], ['hairWhip', 2.5]],
+  poleHot: [['poleLean', 3], ['poleSlide', 3], ['poleKick', 2], ['poleHold', 1.5], ['bodyRoll', 1.5], ['dropLow', 1], ['backArch', 1], ['hairWhip', 1]],
+  floorHot: [['bodyRoll', 3], ['dropLow', 2.5], ['hipCircle', 2], ['hairWhip', 2], ['kneelRoll', 2], ['dance', 2], ['lookBack', 1.5], ['backArch', 1.5]],
+  // somebody in the room watching a dancer (plugins/roomstage `punter`): looking, clapping, a note in the air
+  punter: [['stare', 3], ['clap', 1.5], ['fistPump', 1], ['billWave', 1], ['leanIn', 1], ['idleHip', 1], ['idle', 1], ['wink', 0.5]],
+  sitPunter: [['sitStare', 3], ['sitBack', 2], ['sitClap', 1.5], ['sitFistPump', 1], ['sitBillWave', 1], ['sitLean', 1], ['sitDrink', 1], ['sitWink', 0.5]],
   guard: [['guard', 5], ['wait', 2], ['idleBehind', 2], ['idleLook', 2], ['idle', 1]],
   rough: [['idle', 3], ['shiver', 1.5], ['idleScratch', 1.5], ['cough', 1], ['idleNeck', 1], ['wait', 1], ['idleSigh', 1]],
 };
 // How long one of those is held before the next: a sleeper turns over now and then, not every ten seconds.
-export const ACTOR_IDLE_SLOT = { sleep: 45, out: 60, lie: 20, sitSleep: 30, sitOut: 60 };
+// A dancer's is eight bars, so every clip of hers plays a whole number of times in it (gl/room-people.js starts it on a bar).
+export const ACTOR_IDLE_SLOT = { sleep: 45, out: 60, lie: 20, sitSleep: 30, sitOut: 60, pole: 32 * DANCE_BEAT, floorwork: 32 * DANCE_BEAT, poleHot: 32 * DANCE_BEAT, floorHot: 32 * DANCE_BEAT };
+// The lists that keep the club's beat: their slots start on a bar, not anywhere off the id.
+export const ACTOR_ON_BEAT = new Set(['pole', 'floorwork', 'poleHot', 'floorHot']);
 // What a body does when an emote line says it's doing something (client/shared/npc-acts.js names the act),
 // by how it is: on its feet, sitting, lying. Missing means it carries on as it was.
 export const ACTOR_ACTS = {
@@ -2090,6 +2413,7 @@ export const ACTOR_ACTS = {
   lens: { stand: 'stare', sit: 'sitStare' }, wink: { stand: 'wink', sit: 'sitWink' }, leanin: { stand: 'leanIn', sit: 'sitLean' },
   stumble: { stand: 'stumble' }, toss: { stand: 'toss', sit: 'sitToss' }, adjust: { stand: 'adjust', sit: 'sitAdjust' },
   slouch: { stand: 'counter', sit: 'sitBar' }, barsmoke: { stand: 'smoke', sit: 'sitBarSmoke' }, brace: { stand: 'guard' }, enter: { stand: 'idleLook', sit: 'sitRest' },
+  ...MOOD_ACTS,
 };
 // A man's seat: the same clip with his knees out over his feet. sitting()'s hip twist keeps the knees in and
 // swings the feet out, which reads as a woman's; this undoes the twist and opens the thighs. gl/room-people.js
@@ -2101,7 +2425,9 @@ function wideKnees(P) {
   return P;
 }
 // ROOM's gaits (actor-gait.js): walks solved by IK from where the feet go, each with its own stride
-ROOM_CLIPS.push(...gaitClips({ newPose, setR, zeroR, fk, B, BONES, REST, bump, smooth, TAU, DEG }));
+ROOM_CLIPS.push(...gaitClips({ newPose, setR, zeroR, fk, B, BONES, REST, bump, smooth, TAU, DEG, aimFoot }));
+// panic, and more to idle at (actor-moods.js); its seated ones are already sitOf's, so they get their Wide below
+ROOM_CLIPS.push(...moodClips({ stance, arm, setR, held, bump, smooth, TAU, DEG, sitOf, plant, feet: IDLE_FEET, poses: { pockets: pocketsPose, wait: waitPose } }));
 for (const c of ROOM_CLIPS.slice()) {
   if (c.name.startsWith('sit') && !WIDE_SKIP.test(c.name)) ROOM_CLIPS.push({ ...c, name: c.name + 'Wide', fn: (p) => wideKnees(c.fn(p)) });
 }
@@ -2114,6 +2440,14 @@ export const ACTOR_BONE = B;
 // first use rather than at import, because windshield.js imports this module at boot. ──────────────
 function solveRoot(clip) {
   if (clip.surge) return;
+  // a walk played n strides to a cycle (walkSmoke) takes its root off the walk it's made of
+  if (clip.of) {
+    const w = CLIPS.find((c) => c.name === clip.of);
+    solveRoot(w);
+    clip.stride = w.stride * clip.n;
+    clip.surge = (p) => w.surge((p * clip.n) % 1);
+    return;
+  }
   // Points along each sole in the foot bone's own frame, heel to toe: the shoe's own sole line
   // (figure.js figureSole), which curves up at the heel and the toe. The one lowest on the ground is
   // what the foot is pivoting on, so it's the one that has to stay still: locking the ankle instead
@@ -2153,7 +2487,7 @@ function solveRoot(clip) {
 // Metres covered by one walk cycle (two steps). A walker's phase is distance / stride.
 // `name` is any walk clip: the street's `walk` or one of ROOM's gaits.
 export function actorStrideM(name = 'walk') {
-  const c = name === 'walk' ? CLIPS[0] : ROOM_CLIPS.find((x) => x.name === name && x.walk) || CLIPS[0];
+  const c = CLIPS.find((x) => x.name === name && x.walk) || ROOM_CLIPS.find((x) => x.name === name && x.walk) || CLIPS[0];
   solveRoot(c); return c.stride;
 }
 
@@ -2200,13 +2534,14 @@ function toHalf(v) {
 // silhouette's near body stands on the first one's ground (`ground`, a frame's drop), so the one set of
 // head bones fits them all. The whole of it is several seconds of work, so in a browser it goes to a
 // worker (actor-bake-worker.js) and the street draws the billboard until it's back.
-export const ACTOR_HEAD_BONES = { texels: 6, head: 0, neck: 3 };
+// The right hand rides along at 6, for the cigarette (gl/actor-smoke.js).
+export const ACTOR_HEAD_BONES = { texels: 9, head: 0, neck: 3, handR: 6 };
 let _bake = null, _job = null, _done = [], _bakeHead = null, _worker = null;
 // The far body's clips have half the frames: at a few pixels nobody can count them.
 const clipFrames = (clip, lod) => (lod ? clip.frames >> 1 : clip.frames);
 const silCount = () => (ACTOR_BAKE.hd ? ACTOR_SILHOUETTES.length : 1);
 function bakeBegin(lod = 0, head = true, sil = 0, ground = null) {
-  solveRoot(CLIPS[0]);
+  for (const c of CLIPS) if (c.walk) solveRoot(c);
   const M = buildBody(lod, head, sil);
   const nv = M.p.length / 3, rows = Math.ceil(nv / 1024), W = Math.ceil(nv / rows);
   const frames = CLIPS.reduce((x, c) => x + clipFrames(c, lod), 0), H = frames * rows;
@@ -2271,7 +2606,7 @@ function bakeFrame(J) {
   }
   J.preview.set(P, F * nv * 3);
   if (J.bones) {
-    for (const [bone, at] of [[B.head, ACTOR_HEAD_BONES.head], [B.neck, ACTOR_HEAD_BONES.neck]]) {
+    for (const [bone, at] of [[B.head, ACTOR_HEAD_BONES.head], [B.neck, ACTOR_HEAD_BONES.neck], [B.handR, ACTOR_HEAD_BONES.handR]]) {
       const m = S[bone], o = (F * ACTOR_HEAD_BONES.texels + at) * 4;
       for (let r = 0; r < 3; r++) {
         J.bones[o + r * 4] = m[r]; J.bones[o + r * 4 + 1] = m[4 + r]; J.bones[o + r * 4 + 2] = m[8 + r];

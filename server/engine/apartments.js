@@ -66,7 +66,7 @@ function formatGameDate(ymdStr) {
 // connection, so its far side is the connection's other end — one fact, authored,
 // and immune to the exits lookup below drifting. The fallbacks stay for the door
 // a lint gate hasn't caught yet and for transient zones, which have no rows.
-function doorFarIds(door) {
+export function doorFarIds(door) {
 	const conn = door.connection_id ? getConnection(door.connection_id) : null;
 	if (conn) return [conn.a === door.zone_id ? conn.b : conn.a];
 	if (door.target_zone) return [door.target_zone];

@@ -4,7 +4,7 @@
   "color": "#b5744a",
   "description": "Thin grass on red dirt, with a dry ditch along one side. Nobody has decided what goes here yet.",
   "exits": {
-    "east": "zone_district_914_921",
+    "east": "zone_seam_914_921",
     "north": "zone_district_913_924",
     "south": "zone_district_913_926",
     "west": "zone_district_912_925"

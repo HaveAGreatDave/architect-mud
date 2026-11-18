@@ -396,6 +396,39 @@ export const FIELD = {
    [ 0.98, 0.354,
     -9.5 ] ]
  },
+ "bubbles": {
+  "id": "smp_field_bubbles",
+  "kind": "calls",
+  "dur": 12.774,
+  "slices": [
+   [ 0.3, 0.69,
+    -15.1 ],
+   [ 1.24, 1.55,
+    -15.2 ],
+   [ 3.04, 1.16,
+    -16.7 ],
+   [ 4.45, 0.87,
+    -19.5 ],
+   [ 5.57, 0.69,
+    -17.4 ],
+   [ 6.51, 1.62,
+    -19.1 ],
+   [ 8.38, 0.67,
+    -18.9 ],
+   [ 9.3, 0.46,
+    -19.2 ],
+   [ 10.01, 1.48,
+    -18.7 ],
+   [ 11.74, 0.76,
+    -15.8 ] ]
+ },
+ "tank_bubbling": {
+  "id": "smp_field_tank_bubbling",
+  "kind": "bed",
+  "dur": 24.555,
+  "loop": [ 0.3, 24.3 ],
+  "lufs": -28.5
+ },
  "cat_meow": {
   "id": "smp_field_cat_meow",
   "kind": "calls",
@@ -771,6 +804,260 @@ export const FIELD = {
    [ 0.3, 1.43,
     -21.1 ] ]
  },
+ "cat_meow_plain": {
+  "id": "smp_field_cat_meow_plain",
+  "kind": "calls",
+  "dur": 1.176,
+  "slices": [
+   [ 0.3, 0.62,
+    -14.8 ] ]
+ },
+ "cat_meow_new": {
+  "id": "smp_field_cat_meow_new",
+  "kind": "calls",
+  "dur": 0.784,
+  "slices": [
+   [ 0.3, 0.22,
+    -13.1 ] ]
+ },
+ "cat_meow_ask": {
+  "id": "smp_field_cat_meow_ask",
+  "kind": "calls",
+  "dur": 0.836,
+  "slices": [
+   [ 0.3, 0.28,
+    -12.8 ] ]
+ },
+ "cat_meow_callie": {
+  "id": "smp_field_cat_meow_callie",
+  "kind": "calls",
+  "dur": 3.527,
+  "slices": [
+   [ 0.3, 0.36,
+    -22.5 ],
+   [ 0.91, 0.2,
+    -25.8 ],
+   [ 1.36, 0.28,
+    -22.7 ],
+   [ 1.89, 0.19,
+    -26.2 ],
+   [ 2.33, 0.33,
+    -19.1 ],
+   [ 2.91, 0.35,
+    -20.2 ] ]
+ },
+ "cat_meow_polite": {
+  "id": "smp_field_cat_meow_polite",
+  "kind": "calls",
+  "dur": 3.814,
+  "slices": [
+   [ 0.3, 0.53,
+    -15.8 ],
+   [ 1.08, 0.3,
+    -19.3 ],
+   [ 1.63, 0.97,
+    -16.3 ],
+   [ 2.85, 0.7,
+    -14.5 ] ]
+ },
+ "cat_meow_pearl": {
+  "id": "smp_field_cat_meow_pearl",
+  "kind": "calls",
+  "dur": 1.228,
+  "slices": [
+   [ 0.3, 0.66,
+    -9.9 ] ]
+ },
+ "cat_meow_happy": {
+  "id": "smp_field_cat_meow_happy",
+  "kind": "calls",
+  "dur": 1.254,
+  "slices": [
+   [ 0.3, 0.23,
+    -13.9 ],
+   [ 0.78, 0.2,
+    -16.4 ] ]
+ },
+ "cat_meow_begs": {
+  "id": "smp_field_cat_meow_begs",
+  "kind": "calls",
+  "dur": 4.702,
+  "slices": [
+   [ 0.3, 0.65,
+    -12.4 ],
+   [ 1.2, 0.22,
+    -17.7 ],
+   [ 1.67, 0.31,
+    -14.8 ],
+   [ 2.23, 0.64,
+    -10.7 ],
+   [ 3.12, 0.75,
+    -14.7 ],
+   [ 4.12, 0.31,
+    -19.7 ] ]
+ },
+ "cat_meow_call": {
+  "id": "smp_field_cat_meow_call",
+  "kind": "calls",
+  "dur": 3.553,
+  "slices": [
+   [ 0.3, 0.61,
+    -15.5 ],
+   [ 1.16, 0.89,
+    -13.4 ],
+   [ 2.3, 0.99,
+    -12.3 ] ]
+ },
+ "cat_meow_food": {
+  "id": "smp_field_cat_meow_food",
+  "kind": "calls",
+  "dur": 7.367,
+  "slices": [
+   [ 0.3, 0.51,
+    -16.6 ],
+   [ 1.06, 0.52,
+    -18.8 ],
+   [ 1.83, 1.54,
+    -18.6 ],
+   [ 3.62, 1.55,
+    -14.5 ],
+   [ 5.42, 1.69,
+    -12.8 ] ]
+ },
+ "cat_meow_stray": {
+  "id": "smp_field_cat_meow_stray",
+  "kind": "calls",
+  "dur": 5.669,
+  "slices": [
+   [ 0.3, 1.07,
+    -21.7 ],
+   [ 1.62, 0.52,
+    -20.1 ],
+   [ 2.39, 0.55,
+    -19 ],
+   [ 3.19, 0.78,
+    -13.4 ] ]
+ },
+ "cat_mew_kitten": {
+  "id": "smp_field_cat_mew_kitten",
+  "kind": "calls",
+  "dur": 0.967,
+  "slices": [
+   [ 0.3, 0.39,
+    -10.7 ] ]
+ },
+ "cat_mew_kitten_b": {
+  "id": "smp_field_cat_mew_kitten_b",
+  "kind": "calls",
+  "dur": 4.728,
+  "slices": [
+   [ 0.3, 0.34,
+    -16.8 ],
+   [ 0.89, 0.49,
+    -13 ],
+   [ 1.63, 0.59,
+    -11.6 ],
+   [ 2.47, 0.53,
+    -13.2 ],
+   [ 3.25, 0.53,
+    -15 ],
+   [ 4.03, 0.43,
+    -12.7 ] ]
+ },
+ "cat_mew_kitten_c": {
+  "id": "smp_field_cat_mew_kitten_c",
+  "kind": "calls",
+  "dur": 0.758,
+  "slices": [
+   [ 0.3, 0.19,
+    -11.7 ] ]
+ },
+ "cat_mew_kitten_d": {
+  "id": "smp_field_cat_mew_kitten_d",
+  "kind": "calls",
+  "dur": 4.65,
+  "slices": [
+   [ 0.3, 0.44,
+    -14.6 ],
+   [ 0.99, 0.5,
+    -11.2 ],
+   [ 2.24, 0.6,
+    -8.7 ],
+   [ 3.09, 0.59,
+    -8.6 ] ]
+ },
+ "cat_mew_kitten_e": {
+  "id": "smp_field_cat_mew_kitten_e",
+  "kind": "calls",
+  "dur": 4.598,
+  "slices": [
+   [ 0.3, 0.64,
+    -10.2 ],
+   [ 1.19, 0.79,
+    -12.1 ],
+   [ 2.23, 0.66,
+    -17.3 ],
+   [ 3.14, 1.2,
+    -11.3 ] ]
+ },
+ "cat_yowl_b": {
+  "id": "smp_field_cat_yowl_b",
+  "kind": "calls",
+  "dur": 0.967,
+  "slices": [
+   [ 0.3, 0.4,
+    -11.7 ] ]
+ },
+ "cat_chirp_c": {
+  "id": "smp_field_cat_chirp_c",
+  "kind": "calls",
+  "dur": 2.429,
+  "slices": [
+   [ 0.3, 0.21,
+    -15.8 ],
+   [ 0.76, 0.24,
+    -21.2 ],
+   [ 1.71, 0.46,
+    -24.2 ] ]
+ },
+ "cat_hiss_c": {
+  "id": "smp_field_cat_hiss_c",
+  "kind": "calls",
+  "dur": 1.254,
+  "slices": [
+   [ 0.3, 0.69,
+    -13.4 ] ]
+ },
+ "cat_hiss_d": {
+  "id": "smp_field_cat_hiss_d",
+  "kind": "calls",
+  "dur": 1.097,
+  "slices": [
+   [ 0.3, 0.53,
+    -12 ] ]
+ },
+ "cat_purr_b": {
+  "id": "smp_field_cat_purr_b",
+  "kind": "bed",
+  "dur": 6.06,
+  "loop": [ 0.3, 5.8 ],
+  "lufs": -27.1
+ },
+ "cat_purr_c": {
+  "id": "smp_field_cat_purr_c",
+  "kind": "bed",
+  "dur": 10.553,
+  "loop": [ 0.3, 10.3 ],
+  "lufs": -26.7
+ },
+ "cat_sneeze": {
+  "id": "smp_field_cat_sneeze",
+  "kind": "calls",
+  "dur": 0.758,
+  "slices": [
+   [ 0.3, 0.2,
+    -23.6 ] ]
+ },
  "crowd_arena": {
   "id": "smp_field_crowd_arena",
   "kind": "bed",
@@ -832,6 +1119,112 @@ export const FIELD = {
   "slices": [
    [ 0.3, 1.66,
     -9.3 ] ]
+ },
+ "studio_laugh_sitcom": {
+  "id": "smp_field_studio_laugh_sitcom",
+  "kind": "calls",
+  "dur": 20.193,
+  "slices": [
+   [ 0.3, 2.32,
+    -19.1 ],
+   [ 2.87, 3.24,
+    -13.8 ],
+   [ 6.36, 2.51,
+    -16 ],
+   [ 9.12, 1.97,
+    -17.2 ],
+   [ 12.5, 0.7,
+    -22.2 ],
+   [ 15.37, 2.86,
+    -20.3 ] ]
+ },
+ "studio_laugh_genuine": {
+  "id": "smp_field_studio_laugh_genuine",
+  "kind": "shot",
+  "dur": 5.068,
+  "slices": [
+   [ 0.05, 5,
+    -13.8 ] ]
+ },
+ "studio_laugh_small": {
+  "id": "smp_field_studio_laugh_small",
+  "kind": "shot",
+  "dur": 3.5,
+  "slices": [
+   [ 0.05, 3.43,
+    -13.4 ] ]
+ },
+ "studio_laugh_soft": {
+  "id": "smp_field_studio_laugh_soft",
+  "kind": "shot",
+  "dur": 1.75,
+  "slices": [
+   [ 0.05, 1.68,
+    -14.8 ] ]
+ },
+ "studio_laugh_brief": {
+  "id": "smp_field_studio_laugh_brief",
+  "kind": "shot",
+  "dur": 3.056,
+  "slices": [
+   [ 0.05, 3,
+    -13.3 ] ]
+ },
+ "studio_ooh": {
+  "id": "smp_field_studio_ooh",
+  "kind": "shot",
+  "dur": 2.638,
+  "slices": [
+   [ 0.05, 2.58,
+    -11.8 ] ]
+ },
+ "studio_ooh_aah": {
+  "id": "smp_field_studio_ooh_aah",
+  "kind": "shot",
+  "dur": 4.075,
+  "slices": [
+   [ 0.05, 4,
+    -13 ] ]
+ },
+ "studio_oohs": {
+  "id": "smp_field_studio_oohs",
+  "kind": "shot",
+  "dur": 4.075,
+  "slices": [
+   [ 0.05, 4,
+    -13.5 ] ]
+ },
+ "studio_aww": {
+  "id": "smp_field_studio_aww",
+  "kind": "shot",
+  "dur": 1.776,
+  "slices": [
+   [ 0.05, 1.71,
+    -13.2 ] ]
+ },
+ "studio_boo": {
+  "id": "smp_field_studio_boo",
+  "kind": "shot",
+  "dur": 4.075,
+  "slices": [
+   [ 0.05, 4,
+    -11.4 ] ]
+ },
+ "studio_boo_small": {
+  "id": "smp_field_studio_boo_small",
+  "kind": "shot",
+  "dur": 2.064,
+  "slices": [
+   [ 0.05, 1.99,
+    -11.7 ] ]
+ },
+ "studio_boo_big": {
+  "id": "smp_field_studio_boo_big",
+  "kind": "shot",
+  "dur": 4.075,
+  "slices": [
+   [ 0.05, 4,
+    -10.9 ] ]
  }
 };
 

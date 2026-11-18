@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#c9a884",
-  "description": "Unit 3B, at the back over the alley. Slate-blue walls, a terrazzo island, open shelves, and a cast-iron radiator painted the colour of the walls. Two low sofas face each other across a chess table. The alley smell stops at the window, which shuts properly now.",
+  "description": "Unit 3B, a long room at the back with its window on Dray Lane. Slate-blue walls and a cast-iron radiator painted the same colour. Two low sofas face each other across a chess table. The lane's smell stops at the window, which shuts properly now.",
   "exits": {
     "in": "zone_apt_6_bath",
     "north": "zone_embassy_floor2"
@@ -14,11 +14,11 @@
     "rent_cost": 50,
     "room": {
       "blinds": true,
-      "d": 10,
+      "d": 12.3,
       "decor": {
         "art": [
           {
-            "at": 3,
+            "at": 2.95,
             "h": 1,
             "seed": 11,
             "w": 1.5,
@@ -26,7 +26,7 @@
             "y": 1.85
           },
           {
-            "at": 0.6,
+            "at": 0.55,
             "h": 1,
             "seed": 23,
             "w": 0.8,
@@ -38,7 +38,7 @@
             "h": 1,
             "seed": 37,
             "w": 0.8,
-            "wall": "front",
+            "wall": "right",
             "y": 1.6
           }
         ],
@@ -56,18 +56,18 @@
         },
         "plants": [
           [
-            -3.55,
+            -1.25,
             0.45,
             1.1
           ]
         ],
         "rug": {
           "at": [
-            -1.7,
+            -0.3,
             2.8
           ],
           "d": 2.2,
-          "w": 3
+          "w": 2.1
         },
         "sconces": {
           "hex": "#a8a49c",
@@ -84,14 +84,11 @@
           "y": 1.8
         }
       },
-      "h": 3,
-      "kitchen": {
-        "front": "#d8d0c0",
-        "grade": 2,
-        "island": true,
-        "top": "terrazzo",
-        "uppers": "shelves"
+      "ensuite": {
+        "d": 2.8
       },
+      "face": 90,
+      "h": 3.93,
       "sash": {
         "drapes": "#e6dcc6",
         "head": true,
@@ -99,13 +96,14 @@
         "transom": 0.4,
         "w": 1.8
       },
+      "studio": false,
       "tone": {
         "accent": "#a8a49c",
         "ceiling": "#f0f0ea",
         "trim": "#eef0ec",
         "wall": "#6a7e94"
       },
-      "w": 8
+      "w": 3.3
     },
     "window": {
       "description": "A tall sash window, reglazed, that opens and shuts and keeps the weather where it belongs.",

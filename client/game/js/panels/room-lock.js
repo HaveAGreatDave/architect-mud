@@ -65,6 +65,18 @@ export function piecesBlock(L, a, b) {
   return false;
 }
 
+// Whether a person stands across the line from a to b, as piecesBlock does for furniture: each body a box about
+// the size of a person at its `at` ([u, v]), as tall as its pose. Somebody next door is left to the walls.
+export function peopleBlock(bodies, a, b) {
+  const placed = [];
+  for (const p of bodies || []) {
+    if (p.next || !Array.isArray(p.at)) continue;
+    const h = p.pose === 'lie' ? 0.6 : p.pose === 'sit' ? 1.3 : 1.75;
+    placed.push({ u: p.at[0], v: p.at[1], w: 0.5, d: 0.5, h, turn: 0 });
+  }
+  return placed.length > 0 && piecesBlock({ placed }, a, b);
+}
+
 // The CSS transform that lays a w x h page over four points on screen (top left, top right, bottom right,
 // bottom left), or null when they don't make a quad.
 export function quadMatrix(w, h, p) {
@@ -105,7 +117,7 @@ const stateWord = (k) => (k.shop ? 'CLOSED' : k.open ? 'OPEN' : !k.locked ? (k.l
 /**
  * The locks of one open Stage. `project(p, w, h)` is the renderer's; `send(cmd)` types a verb.
  */
-export function createRoomLocks({ host, project, send, setBatch }) {
+export function createRoomLocks({ host, project, send, setBatch, glass = null }) {
   ensureStyles();
   const layer = document.createElement('div');
   layer.className = 'rl-layer';
@@ -294,6 +306,7 @@ export function createRoomLocks({ host, project, send, setBatch }) {
     const i = list.findIndex((k) => k.to === to);
     if (i < 0) return 'go';
     const k = list[i];
+    if (k.glass) return 'go';   // the glass pair's own leaves stop you (room-stage.js watchSlideDoors)
     if (!k.open && !k.pass) { bump(to); return 'no'; }
     if (!k.open && k.annex) { if ((shut[i] ?? 1) > GAP) { bump(to); return 'no'; } return 'go'; }
     if (!k.open) pushed[i] = performance.now() + PUSH_MS;
@@ -310,7 +323,7 @@ export function createRoomLocks({ host, project, send, setBatch }) {
     const m = 0.9 * (L.ft || 1);
     for (let i = 0; i < list.length; i++) {
       const g = geo.panels[i], k = list[i];
-      if (!g?.local || k.open || (shut[i] ?? 1) <= GAP) continue;
+      if (!g?.local || k.glass || k.open || (shut[i] ?? 1) <= GAP) continue;
       const [a, p] = g.local(to[0], to[1]);
       if (p <= -m || a < g.span[0] - 0.05 || a > g.span[1] + 0.05) continue;
       const p0 = g.local(from[0], from[1])[1];
@@ -357,6 +370,8 @@ export function createRoomLocks({ host, project, send, setBatch }) {
     if (!pn || !a || game) return;
     acted = pn;
     say(pn, '');
+    // a glass pair's panel (`glass`) works the doors here on the client; there's no lock for the server to ask
+    if (pn.lock.glass) { glass?.(pn.lock.to, a); return; }
     pn.chain = a.then ? { cmd: a.then, until: performance.now() + 3000 } : null;
     if (a.verb !== 'hack') {
       const was = stateOf(pn.lock);
@@ -450,7 +465,7 @@ export function createRoomLocks({ host, project, send, setBatch }) {
   }
 
   // Each hologram laid over its four points, every frame. `at` is where you stand, to walk off a bypass.
-  function draw(w, h, eye, at) {
+  function draw(w, h, eye, at, bodies) {
     if (game && at && Math.hypot(at[0] - game.pn.g.door[0], at[1] - game.pn.g.door[1]) > REACH + 0.8) endGame();
     const comic = comicOn();
     for (const pn of panels) {
@@ -466,7 +481,7 @@ export function createRoomLocks({ host, project, send, setBatch }) {
       const here = at || L.local(eye);
       // nor through anything standing in front of it: each corner and the middle, eye to card
       const E = L.local(eye), pts3 = [pn.g.mid, ...(board ? pn.g.board : pn.g.card)].map((p) => L.local(p));
-      const seen = (!here || (roomSees(L, here, pn.g.door) && roomSees(L, here, pts3[0]))) && !pts3.some((p) => piecesBlock(L, E, p));
+      const seen = (!here || (roomSees(L, here, pn.g.door) && roomSees(L, here, pts3[0]))) && !pts3.some((p) => piecesBlock(L, E, p) || (!board && peopleBlock(bodies, E, p)));
       if (front && seen && q.every(Boolean) && dist < SEEN) {
         let pts = q.map((p) => [p.x, p.y]);
         // seen the other way round (the wall's `along` runs right to left from here): turn it to read
@@ -491,8 +506,14 @@ export function createRoomLocks({ host, project, send, setBatch }) {
     if (pn && !game) setTimeout(() => { if (panels.includes(pn)) burst(pn, fx.cue === 'lock' ? 'KA-CHUNK!' : 'CLACK!'); }, fx.cue === 'lock' ? 900 : 0);
   }
 
+  // Every card off the screen, for a frame that doesn't draw them (arranging from above, room-arrange.js):
+  // left alone, each kept its last place on the screen and floated over the overhead view.
+  function hide() {
+    for (const pn of panels) if (!pn.hidden) { pn.el.style.display = 'none'; pn.hidden = true; }
+  }
+
   return {
-    load, slide, enter, fence, pass, bump, aim, run: runFor, said, hack, key, draw, play,
+    load, slide, enter, fence, pass, bump, aim, run: runFor, said, hack, key, draw, hide, play,
     get hacking() { return !!game; },
     get count() { return list.length; },
     stop() { endGame(); clearTimeout(sayT); clearTimeout(tried?.t); layer.remove(); },

@@ -13,7 +13,7 @@ Enough sets grant a point, with a **rising rep cost per level**. But the point i
 - `lift` · `spar` · `drill`
 
 ## Where the stations are
-- **Ring Fenced** (916,905, Lever Lane): the boxing gym, with all three. Its bags are `spar` in the `bag` style.
+- **Ring Fenced** (917,905, Lever Lane): the boxing gym, with all three. Its bags are `spar` in the `bag` style.
 - **The Sump's back room**: the rebound wall (`spar`) and the circuit (`drill`).
 - **Precinct 9's cells**: a bench (`lift`).
 

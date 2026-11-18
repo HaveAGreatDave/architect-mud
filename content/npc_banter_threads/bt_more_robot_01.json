@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_robot_01",
+  "lines": [
+    "beeps twice.",
+    "beeps once back.",
+    "beeps twice, slower.",
+    "whirs, and goes back to its task."
+  ],
+  "personality": "robot",
+  "sort_order": 708
+}

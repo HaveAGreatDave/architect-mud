@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_more_corporate_02",
+  "lines": [
+    "\"Do you think the Architect is a shareholder?\"",
+    "\"In what?\"",
+    "\"Everything.\"",
+    "\"Then we all work for it.\"",
+    "\"We always did. Now it's on paper.\""
+  ],
+  "personality": "corporate",
+  "sort_order": 680
+}

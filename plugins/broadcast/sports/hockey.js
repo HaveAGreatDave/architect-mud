@@ -57,6 +57,7 @@ const GAP_MIN = 18, GAP_MAX = 54;          // seconds of clock between chances
 const PP_GOAL_MULT = 2.6;                  // a power play is worth ~2.6x on the chance
 const SH_GOAL_MULT = 0.22;                 // shorthanded goals are a rare tail
 const EN_GOAL_MULT = 3.4;                  // shooting at an unguarded cage
+const DELAYED_GOAL_MULT = 1.35;            // six on five while the arm is up (v9)
 const PENALTY_CHANCE = 0.055;              // per chance-gap
 const FIGHT_CHANCE = 0.030;                // per chance-gap; suppressed during a PP
 const BOARDS_CHANCE = 0.075;               // a hit finished into the boards
@@ -356,7 +357,9 @@ export function playDesc(b) {
     const s = b.strength === 'pp' ? ' (PP)' : b.strength === 'sh' ? ' (SH)' : b.strength === 'en' ? ' (EN)' : '';
     return `Goal${s}: ${b.shooter}`;
   }
+  if (b.type === 'penalty' && b.waived) return `${b.infraction} on ${b.player} wiped out by the goal`;
   if (b.type === 'penalty') return `${b.penaltyMin}:00 ${b.infraction}: ${b.player}`;
+  if (b.type === 'delayed') return `Delayed penalty: ${b.infraction}, ${b.player}`;
   if (b.type === 'fight') return b.draw ? `Fight: ${b.winner} and ${b.loser}, a draw` : `Fight: ${b.winner} over ${b.loser}`;
   if (b.type === 'brawl') return `Line brawl: ${(b.teams || []).join(' and ')}`;
   if (b.type === 'injury') return `${b.player}, out for the game`;
@@ -755,6 +758,15 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
   // v8 times the penalty box right. The period clock counts down, and before v8 a man counted
   // as serving only once his time was up, so a power play started when the penalty ended.
   const v8 = Number(opts.version) >= 8;
+  // v9 holds the whistle on a DELAYED PENALTY. A foul by the side without the puck isn't blown
+  // dead at once: the arm goes up (a `delayed` beat), the side with the puck pulls its goalie for
+  // the extra attacker and plays the chance out six on five, and the whistle goes when the
+  // offending side touches the puck (its goalie's save, a block, a clear). A goal in that time
+  // wipes out a minor; a major is served anyway. A foul by the side WITH the puck is whistled at
+  // once, as before: it touched the puck the moment the arm went up.
+  const v9 = Number(opts.version) >= 9;
+  // v10 keeps a man who's serving out of every pick (onIce).
+  const v10 = Number(opts.version) >= 10;
   // A final is the game that matters most; the caller says so (sportsGameForSlot).
   const important = !!opts.important;
   let brawled = false;
@@ -796,7 +808,17 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
   const elapsed = (at) => played + periodLen - at;
 
   const live = (t) => t.skaters.filter(s => !s.out);
-  const anyone = (t) => { const l = live(t); return l.length ? l[Math.floor(rand() * l.length)] : null; };
+  // v10 never picks a man who's in the box (or waiting on a delayed call): before it, one man
+  // could be called for holding twice before he'd served the first. Same one roll either way.
+  const onIce = (t) => {
+    const l = live(t);
+    if (!v10) return l;
+    const sat = new Set([...t.box.filter((p) => p.until > elapsed(clock)).map((p) => p.name), ...waiting.filter((w) => w.team === t).map((w) => w.s.name)]);
+    const free = l.filter((s) => !sat.has(s.name));
+    return free.length ? free : l;
+  };
+  const sitting = (t, s) => t.box.some((p) => p.name === s.name && p.until > elapsed(clock)) || waiting.some((w) => w.team === t && w.s.name === s.name);
+  const anyone = (t) => { const l = onIce(t); return l.length ? l[Math.floor(rand() * l.length)] : null; };
   const serving = (t, at) => t.box.filter(p => (v8 ? p.until > elapsed(at) : p.until > at)).length;
   const boxUntil = (at, mins) => (v8 ? elapsed(at) + mins * 60 : at - mins * 60);
 
@@ -829,9 +851,11 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
   // `att`/`def` carry the two clubs' profiles: a good shooting side against a weak
   // goaltender is the swing, and it compounds with the strength multiplier exactly as
   // it should — a power play against a bad netminder is where games get away.
-  function rollChance(strength, att, def) {
+  // `extra` is the extra attacker's edge on a delayed penalty (v9); 1 everywhere else, which
+  // multiplies exactly, so older versions roll the same numbers.
+  function rollChance(strength, att, def, extra = 1) {
     const base = strength === 'pp' ? PP_GOAL_MULT : strength === 'sh' ? SH_GOAL_MULT : strength === 'en' ? EN_GOAL_MULT : 1;
-    const mult = base * ((att?.profile?.shooting ?? 1) / (def?.profile?.goaltending ?? 1));
+    const mult = base * extra * ((att?.profile?.shooting ?? 1) / (def?.profile?.goaltending ?? 1));
     let total = 0;
     const weights = CHANCE_TABLE.map(o => { const w = o.kind === 'goal' ? o.w * mult : o.w; total += w; return w; });
     let roll = rand() * total;
@@ -874,13 +898,40 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
   }
 
   function penalise(team, at, forced, who) {
-    const s = who || anyone(team); if (!s) return null;
+    const s = who || anyone(team); if (!s || (v10 && sitting(team, s))) return null;
     const [infraction, mins] = forced || pick(INFRACTIONS, rand);
     team.box.push({ name: s.name, until: boxUntil(at, mins) });
     push({ type: 'penalty', teamName: team.name, player: s.name, infraction, penaltyMin: mins,
       strength: '', section: ordinal(period) });
     return s;
   }
+
+  // ── the delayed penalty (v9) ──────────────────────────────────────────────
+  // Calls waiting on the offending side's touch: [{ team, s, infraction, mins }].
+  const waiting = [];
+  function delay(team, at, forced, who) {
+    const s = who || anyone(team); if (!s || (v10 && sitting(team, s))) return null;
+    const [infraction, mins] = forced || pick(INFRACTIONS, rand);
+    waiting.push({ team, s, infraction, mins });
+    push({ type: 'delayed', teamName: team.name, player: s.name, infraction, penaltyMin: mins,
+      benefit: (team === away ? home : away).name, section: ordinal(period) });
+    return s;
+  }
+  // The play's over. `scored`: the side with the puck scored on it, which wipes out a minor.
+  // `touch` is how the offending side got the puck ('goalie', 'block' or 'clear'), for the booth.
+  function settleDelayed(at, scored, touch) {
+    for (const w of waiting.splice(0)) {
+      if (scored && w.mins < 5) {
+        push({ type: 'penalty', waived: true, delayed: true, teamName: w.team.name, player: w.s.name, infraction: w.infraction,
+          penaltyMin: w.mins, strength: '', section: ordinal(period) });
+        continue;
+      }
+      w.team.box.push({ name: w.s.name, until: boxUntil(at, w.mins) });
+      push({ type: 'penalty', delayed: true, touch: scored ? '' : touch, teamName: w.team.name, player: w.s.name,
+        infraction: w.infraction, penaltyMin: w.mins, strength: '', section: ordinal(period) });
+    }
+  }
+  const touchOf = (kind) => (kind === 'blocked' ? 'block' : kind === 'wide' || kind === 'post' ? 'clear' : 'goalie');
 
   // A fight: both men throw, one wins, the LOSER serves five and the winner's side
   // goes on the power play. Not the real rule — a much better one.
@@ -1009,14 +1060,16 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
   function slash(att, def, at, meanness) {
     const r = sportsRng(strSeed('slash', att.name, def.name, period, Math.round(at), beats.length));
     if (r() >= SLASH_CHANCE * meanness) return;
-    const ls = live(def), lv = live(att);
+    const ls = onIce(def), lv = onIce(att);
     if (!ls.length || !lv.length) return;
     const slasher = ls[Math.floor(r() * ls.length)], victim = lv[Math.floor(r() * lv.length)];
     const caught = r() < SLASH_CALLED;
     const slashAt = SLASH_AT[Math.floor(r() * SLASH_AT.length)];
     push({ type: 'slash', hitter: slasher.name, victim: victim.name, hitterTeam: def.name, victimTeam: att.name,
       caught, slashAt, section: ordinal(period) });
-    if (caught && penalise(def, at, ['slashing', 2], slasher)) faceoff(endDot(def), 'penalty');
+    // the slasher's side hasn't got the puck, so from v9 the arm goes up and play goes on
+    if (caught && v9) delay(def, at, ['slashing', 2], slasher);
+    else if (caught && penalise(def, at, ['slashing', 2], slasher)) faceoff(endDot(def), 'penalty');
   }
 
   function scrum(att, def) {
@@ -1092,23 +1145,28 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
         // rather than the league simply calling more of them.
         const pt = rand() < 0.5 ? att : def;
         if (rand() < PENALTY_CHANCE * rivalryPen / (pt.profile?.discipline || 1)) {
-          if (penalise(pt, clock)) faceoff(endDot(pt), 'penalty');
+          // (from v9 the side without the puck gets the delayed call: see `delay`)
+          if (v9 && pt === def) delay(def, clock);
+          else if (penalise(pt, clock)) faceoff(endDot(pt), 'penalty');
         }
       }
       const ppLive = serving(away, clock) || serving(home, clock);
       const meanness = ((att.profile?.violence || 1) + (def.profile?.violence || 1)) / 2 * rivalryVio;
-      if (!ppLive && rand() < FIGHT_CHANCE * meanness) { fight(att, def, clock); faceoff(neutralDot(def), 'fight'); }
-      if (rand() < BOARDS_CHANCE * (att.profile?.violence || 1) * rivalryVio) bigHit(att, def, clock);
-      if (rand() < SCRUM_CHANCE) { scrum(att, def); faceoff(neutralDot(def), 'scrum'); }
+      // With the arm up (v9) play can't stop for anything else until the offenders touch the puck,
+      // so the stoppages (a fight, a big hit, a scrum, a brawl, a body in overtime) wait their turn.
+      const armUp = () => v9 && waiting.length > 0;
+      if (!ppLive && !armUp() && rand() < FIGHT_CHANCE * meanness) { fight(att, def, clock); faceoff(neutralDot(def), 'fight'); }
+      if (!armUp() && rand() < BOARDS_CHANCE * (att.profile?.violence || 1) * rivalryVio) bigHit(att, def, clock);
+      if (!armUp() && rand() < SCRUM_CHANCE) { scrum(att, def); faceoff(neutralDot(def), 'scrum'); }
       if (v5) slash(att, def, clock, meanness);
       // v3: the line brawl, once a game at most, only between rivals and only when it
       // matters (a final, or one goal in it in the third). The roll is v3's own, so the
       // older versions never spend it.
-      if (v3 && rivalry && !brawled && !ppLive && ((important && period >= 2) || (period >= PERIODS && Math.abs(away.score - home.score) <= 1))
+      if (v3 && rivalry && !brawled && !ppLive && !armUp() && ((important && period >= 2) || (period >= PERIODS && Math.abs(away.score - home.score) <= 1))
         && rand() < BRAWL_CHANCE) { brawled = true; brawl(att, def, clock); faceoff('C', 'brawl'); }
 
       // sudden death can end on a body rather than a goal
-      if (sudden && rand() < OT_FATAL) {
+      if (sudden && !armUp() && rand() < OT_FATAL) {
         const victim = anyone(def);
         if (victim) {
           victim.out = true; victim.dead = true; deadPlayer = victim.name;
@@ -1124,9 +1182,12 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
       }
 
       const strength = strengthOf(att, def, clock);
-      const out = rollChance(strength, att, def);
+      // a delayed penalty: the side with the puck has its goalie off and an extra man on
+      const delayed = armUp();
+      const out = rollChance(strength, att, def, delayed ? DELAYED_GOAL_MULT : 1);
       const shooter = anyone(att), goalie = def.goalie;
-      if (!shooter) break;
+      if (!shooter) { if (delayed) settleDelayed(clock, false, 'clear'); break; }
+      const dly = delayed ? { delayed: true } : {};
 
       if (out.kind === 'goal') {
         att.score += 1; shooter.goals += 1;
@@ -1147,14 +1208,18 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
           // WHAT HE HIT IT WITH, on the same beat as the outcome, so the call and the
           // animation are reading one fact rather than two that can disagree.
           shotType: goalShot.id, shotLabel: goalShot.label,
-          possession: goalNodes });
+          possession: goalNodes, ...dly });
         if (hat) push({ type: 'hattrick', player: shooter.name, teamName: att.name, section: ordinal(period) });
-        if (sudden) { gameOver = true; break; }
+        if (sudden) { waiting.length = 0; gameOver = true; break; }
+        // the call the goal came on: a minor is wiped out, a major is served
+        if (delayed) settleDelayed(clock, true, '');
         faceoff('C', 'goal');   // a goal is the ONLY thing that sends it back to centre
       } else {
         // The goalie either covers it (whistle → a draw in his own end) or it stays
         // live. This is what makes end-zone dots the commonest in the game.
-        const frozen = (out.kind === 'save' || out.kind === 'glove') && rand() < FREEZE_ON_SAVE;
+        let frozen = (out.kind === 'save' || out.kind === 'glove') && rand() < FREEZE_ON_SAVE;
+        // with the arm up, any save is the offending side's touch, and the whistle goes on it
+        if (delayed && touchOf(out.kind) === 'goalie') frozen = true;
         const chanceNodes = synthPossession(Math.floor(rand() * 1e9), out.kind, attackAway ? 0 : 1, opts.version);
         const chanceShot = rollShot(chanceNodes, out.kind === 'breakaway');
         const chanceNames = live(att).map(s => s.name);
@@ -1162,8 +1227,11 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
           teamName: att.name, oppName: def.name, strength, frozen, section: ordinal(period),
           rush: describeRush(chanceNodes, chanceNames, rand), rushNames: chanceNames,
           shotType: chanceShot.id, shotLabel: chanceShot.label,
-          possession: chanceNodes });
-        if (frozen) faceoff(endDot(def), 'freeze');
+          possession: chanceNodes, ...dly });
+        // The offending side has the puck: whistle, the man (or men) to the box, and the draw
+        // in their end. No rebound: the touch killed the play.
+        if (delayed) { settleDelayed(clock, false, touchOf(out.kind)); faceoff(endDot(def), 'penalty'); }
+        else if (frozen) faceoff(endDot(def), 'freeze');
         else if (v6 && REBOUND_AFTER.has(out.kind) && rand() < REBOUND_CHANCE) {
           // The second whack: somebody else on the same side, if there's anybody, and the
           // first shooter gets the assist when it goes in.
@@ -1371,7 +1439,7 @@ export const HOCKEY = {
   // v2 reprints a dead man (reprintSlots); broadcast records the slot it plays from.
   // v3 plays fights by the fighters and the game's momentum (simFightV3); v4 fights harder;
   // v5 has open-ice cross-checks and slashes.
-  simVersions: [1, 2, 3, 4, 5, 6, 7, 8],
+  simVersions: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
   section: 'period',
   sectionPlural: 'periods',
   simGame,

@@ -73,10 +73,11 @@
 // Pure: no DOM and no GL, so the gates run it.
 
 import { eventTime, SWEET_SPOT, handPoint } from './anim.js';
-import { solvePose } from './rig.js';
+import { solvePose, boneFrames, BONE, BONES, FRAME_FLOATS } from './rig.js';
 import { pitchPoint } from './hud.js';
 import { pitchPath, throwPath, hitPath, BALL_R } from './flight.js';
 import { CLIPS } from './clips.js';
+import { signsFor, BALL_IN_FINGERS } from './hands.js';
 import { castOf, crewDue } from './cast.js';
 import { toPark } from './world.js';
 import { planPlay } from './plays.js';
@@ -88,7 +89,8 @@ import { strideOf, digOf, scarsOf } from './marks.js';
 import { planBetween, planPile, deckPlan, shotsBetween, BETWEEN } from './between.js';
 import { planCrew, crewShots } from './crew.js';
 import { planMob, mobShots, planCeremony } from './ceremony.js';
-import { budgetOf } from './timing.js';
+import { budgetOf, tripOf } from './timing.js';
+import { planTrip } from './mound.js';
 import { BAGS } from './geo.js';
 import { SHOTS } from './camera.js';
 
@@ -377,6 +379,72 @@ function planViews(S, budget, lead = 0) {
   return views;
 }
 
+// The pitcher's ball until he lets it go, as a path for W.setBall: in his glove as he walks back with it,
+// and in the fingers of his throwing hand once his hands come together in the set, where he takes his grip
+// on it inside the glove, through to the release. Before his motion starts at `tGo` it slides from the
+// glove's pocket to his fingers as his hands close from HAND_APART to HAND_TOGETHER apart, so it never jumps.
+// The fingers hold it out off the palm, where the figure's fingertips and thumb meet it (hands.js
+// BALL_IN_FINGERS, along his hand bone's own axes). It's null from the release at `tRel` on, where the pitch's own path takes over: a replay asking where the ball will be at its
+// key moment gets nothing from the hand, as it did before the hand had it. `type` is the pitch, which the
+// path carries as `grip` so his fingers take its grip (figure-rig.js gripOf): the grip shot's a live tell.
+export const HAND_TOGETHER = 0.5, HAND_APART = 1.0;
+const BALL_FRAMES = new Float32Array(BONES.length * FRAME_FLOATS);
+export function pitcherBall(W, slot, hand, tGo, tRel, type = null) {
+  const glove = hand === 'L' ? 'R' : 'L';
+  return Object.assign((t) => {
+    if (!(t < tRel)) return null;
+    const Q = W.pose(slot, t, { look: false });
+    if (!Q) return null;
+    const s = Q.scale || 1, sol = solvePose(Q), fr = boneFrames(sol, BALL_FRAMES), o = BONE['hand' + hand] * FRAME_FLOATS, c = BALL_IN_FINGERS[hand], wr = sol.J['wr' + hand];
+    const fingers = [0, 1, 2].map((i) => wr[i] + (fr[o + i] * c[0] + fr[o + 3 + i] * c[1] + fr[o + 6 + i] * c[2]) * s);
+    if (t >= tGo) return fingers;
+    const bare = handPoint(Q, hand, 'bare', s), pocket = handPoint(Q, glove, 'glove', s);
+    const d = Math.hypot(bare[0] - pocket[0], bare[1] - pocket[1], bare[2] - pocket[2]) / s;
+    const k = Math.min(1, Math.max(0, (HAND_APART - d) / (HAND_APART - HAND_TOGETHER))), e = k * k * (3 - 2 * k), pk = toPark(Q, pocket);
+    return [0, 1, 2].map((i) => pk[i] + (fingers[i] - pk[i]) * e);
+  }, { grip: type });
+}
+
+// The catcher's signs for the pitch (hands.js signsFor) over the catch_sign clip's own, which puts fingers down at
+// SIGN_AT into it and takes the hand back at SIGN_DONE: the one, held; or with a man on second three, a beat each.
+// Laid on at `from` (after the cut in clears his layers), on the clip started at `start`.
+export const SIGN_AT = [0.3, 0.55, 0.8], SIGN_DONE = 1.25;
+function signsOver(W, slot, from, start, type, onSecond, seed) {
+  const signs = signsFor(type, onSecond, seed);
+  const keys = [...signs.map((R, k) => ({ t: start + SIGN_AT[k], R })), { t: start + SIGN_DONE, R: '' }];
+  W.at(from, () => W.layer(slot, 'hands', { from: start, to: start + SIGN_DONE + 0.2, keys }));
+  return signs;
+}
+
+// THE GRIP SHOT (camera.js `grip`): one pitch in GRIP_ONE_IN that he comes set for on camera from the stretch,
+// chosen off the at-bat and the pitch, with no look over at a runner, the centre-field camera goes tight on his
+// hands from when they're together in his set (GRIP_SET into pitch_set). In the glove his grip's hidden, as a
+// pitcher means it to be; it's the arm coming back that shows it, the ball in his fingers turned to centre
+// field. So from GRIP_BREAK into his delivery, as his hands come apart, the lens widens to the centre-field
+// shot's own framing, done GRIP_OPEN after the release, and the director cuts to `cf` there: this pitch is
+// seen from behind him whichever camera the viewer has picked. Not from a windup: he faces the plate, and centre
+// field has his back. Tight for less than GRIP_MIN, it isn't cut to. `frame` is GRIP_FRAME feet top to bottom.
+export const GRIP_ONE_IN = 4, GRIP_SET = 1.9, GRIP_BREAK = 0.9, GRIP_OPEN = 0.15, GRIP_MIN = 0.9, GRIP_FRAME = 2.2;
+function gripWindow(S, T, v, salt) {
+  if (!T.show || S.windup || v.lead !== 'set' || v.look) return null;
+  // (FNV-1a alone clusters keys that differ in their last digit, as the pitch's index does: murmur3's finaliser)
+  let h = hashStr(`grip|${salt}|${T.i}`);
+  h = Math.imul(h ^ (h >>> 16), 0x85ebca6b); h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35); h = (h ^ (h >>> 16)) >>> 0;
+  if (h % GRIP_ONE_IN !== 0) return null;
+  const from = T.tSet + GRIP_SET / S.tempo, open = T.pStart + GRIP_BREAK / S.tempo, to = T.tRel + GRIP_OPEN;
+  return open - from >= GRIP_MIN ? { from, open, to } : null;
+}
+// Between his hands, the glove's pocket and his throwing hand, as a track for a camera.
+function handsOf(W, slot, hand) {
+  const glove = hand === 'L' ? 'R' : 'L';
+  return (t) => {
+    const Q = W.pose(slot, t, { look: false });
+    if (!Q) return null;
+    const s = Q.scale || 1, a = handPoint(Q, hand, 'bare', s), b = handPoint(Q, glove, 'glove', s);
+    return toPark(Q, [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2]);
+  };
+}
+
 // A plan (plays.js, runs.js) on the world's clock: the bodies placed at the cut in and every clip at
 // its time, the glove reaching for the ball at each catch, every head on the ball, the ball and the
 // hands it rides in, the cuts and the sounds. `h` is the director's { play, cut, sound }.
@@ -441,7 +509,7 @@ export function createDirector(W, opts = {}) {
   // pitcher's ('cf', the long lens from centre field), as the viewer picks it (`opts.pitchShot()`)
   const pitchCam = () => (opts.pitchShot?.() === 'cf' ? 'cf' : 'bat');
   // `fx`: the payload's spectacle (diamond/spectacle.js), which the view hands the renderer
-  const D = { log: [], played: [], views: null, landed: true, landAt: 0, until: 0, t0: 0, budget: 0, payload: null, fx: [], marks: [], queued: new Map(), drags: [], crew: null };
+  const D = { log: [], grips: [], signs: [], played: [], views: null, landed: true, landAt: 0, until: 0, t0: 0, budget: 0, payload: null, fx: [], marks: [], queued: new Map(), drags: [], crew: null };
   // the last clip the director has queued for each body (`D.queued`, by slot: { clip, at, start,
   // speed, frame }), so the dead time starts each man from what he'll be doing, not what he's doing
   // now: a strikeout's walk off starts after the call's landed
@@ -463,31 +531,36 @@ export function createDirector(W, opts = {}) {
   // `o.motion` false: the viewer has asked for less motion, so no camera rides with a home run and
   // nothing bursts or sparks.
   D.stage = (p, cast = castOf(p), o = {}) => {
-    D.payload = p; D.cast = cast; D.log = []; D.played = []; D.views = null; D.landed = false; D.play = null; D.trot = null; D.inningOver = false; D.fx = []; D.marks = []; D.between = null; D.queued = new Map(); D.drags = []; D.crew = null; D.opening = null; D.homer = null;
+    D.payload = p; D.cast = cast; D.log = []; D.grips = []; D.signs = []; D.played = []; D.views = null; D.landed = false; D.play = null; D.trot = null; D.inningOver = false; D.fx = []; D.marks = []; D.between = null; D.queued = new Map(); D.drags = []; D.crew = null; D.opening = null; D.homer = null; D.trip = null;
     W.clearQueue();
     const motion = o.motion !== false;
     if (p?.phase === 'run') { stageRun(p, cast, o); return; }
     const S = prepare(W, p, cast || []);
     if (!S) { D.landed = true; D.landAt = D.until = W.t; opts.onLand?.(); return; }
+    // a trip to the mound first (sim v5, diamond/mound.js): its time comes before the pitches', which
+    // keep their whole budget after it (timing.js landBy), and it stands in for a cutaway, since every
+    // man in it is put where the at-bat wants him as it cuts in
+    const trip = tripOf(p);
     // the cutaway gives way to the play: shortened where the at-bat can't fit round it, and left
     // out (`squeezed`) where even a third of a second won't fit
-    const budget = budgetOf(p);
-    let lead = o.cutaway ? (o.cutaway === 'street' ? PACE.street : PACE.cutaway) : 0, views = planViews(S, budget, lead);
+    const budget = budgetOf(p) + trip;
+    let lead = trip || (o.cutaway ? (o.cutaway === 'street' ? PACE.street : PACE.cutaway) : 0), views = planViews(S, budget, lead);
     const over = timeline(S, views, PACE.in + lead).landAt - budget;
-    if (lead && over > 0) {
+    if (lead && !trip && over > 0) {
       lead = lead - over >= 0.3 ? lead - over : 0;
       views = planViews(S, budget, lead);
     }
     const t0 = W.t + PACE.in + lead;
+    D.trip = trip ? stageTrip(p, cast || [], S, W.t + PACE.in, t0) : null;
     // the last at-bat's bat lies where he dropped it till this one cuts in
     W.at(t0, () => W.clearBats());
     D.views = views;
     const TL = timeline(S, views, t0);
     // the shortest this at-bat can be: its last pitch and what comes of it, from the cut in
     const floor = timeline(S, S.pitches.map((q, i) => ({ show: i === S.pitches.length - 1, lead: 'quick', react: false, ritual: false })), PACE.in).landAt;
-    const opening = lead ? (o.cutaway === 'street' && lead >= PACE.streetMin ? 'street' : 'sky') : null;
-    Object.assign(D, { t0, budget, floor, landAt: TL.landAt, cutaway: !!lead, opening, squeezed: !!o.cutaway && !lead });
-    if (lead) W.at(W.t, () => emit('shot', opening));
+    const opening = lead && !trip ? (o.cutaway === 'street' && lead >= PACE.streetMin ? 'street' : 'sky') : null;
+    Object.assign(D, { t0, budget, floor, landAt: TL.landAt, cutaway: !!lead && !trip, opening, squeezed: !!o.cutaway && !lead });
+    if (lead && !trip) W.at(W.t, () => emit('shot', opening));
     const { P, C, H, U, tempo, delivery, hand, bats, from } = S;
     const side = sideShot(bats);
     let until = TL.landAt + 0.5;
@@ -533,6 +606,13 @@ export function createDirector(W, opts = {}) {
       if (T.ritual) play(P, 'pitch_return', T.retStart, T.retStart, { speed: tempo });
       if (v.look) cut(T.pStart - PACE.lookCut, pitchCam());
       else if (T.ritual) cut(T.tSet, pitchCam());
+      // now and then the grip: tight on his hands in the set, widening to centre field as he throws
+      const grip = gripWindow(S, T, v, salt);
+      if (grip) {
+        cut(grip.from, { shot: 'grip', eye: SHOTS.grip.eye, frame: GRIP_FRAME, track: handsOf(W, P.slot, S.hand), open: [grip.open, grip.to], ball: (t) => W.ballAt(t) });
+        cut(grip.to, 'cf');
+        D.grips.push({ i, from: grip.from, open: grip.open, to: grip.to, type: q.type });
+      }
       if (v.lead === 'set' && !S.windup) play(P, 'pitch_set', T.tSet, T.tSet, { speed: tempo });
       // the look over: held in his set, his head round to the runner and back before he goes
       if (v.look) {
@@ -552,9 +632,13 @@ export function createDirector(W, opts = {}) {
         });
         sound(T.arrive, 'glove');
       }
+      // the ball his till he lets it go: in his glove, then in his fingers once his hands come apart
+      W.at(T.ritual ? T.arrive + 0.03 : T.tIn, () => W.setBall(pitcherBall(W, P.slot, hand, T.pStart, T.tRel, q.type)));
       const tReady = T.tCatch - sh.catchT;
       const signEnd = Math.min(tReady, T.pStart + S.MOTION + 0.2);
-      play(C, 'catch_sign', Math.max(T.tIn, T.ritual ? T.throwStart + CLIPS.catch_throwback.duration : T.tIn), signEnd - CLIPS.catch_sign.duration);
+      const signFrom = Math.max(T.tIn, T.ritual ? T.throwStart + CLIPS.catch_throwback.duration : T.tIn);
+      play(C, 'catch_sign', signFrom, signEnd - CLIPS.catch_sign.duration);
+      D.signs.push({ i, from: signFrom, start: signEnd - CLIPS.catch_sign.duration, type: q.type, signs: signsOver(W, C.slot, signFrom, signEnd - CLIPS.catch_sign.duration, q.type, !!p.basesBefore?.[1], hashStr(`signs|${salt}|${i}`)) });
       play(C, sh.catchClip.id, Math.max(T.tIn, tReady), tReady);
       if (sh.caught) {
         const box = sh.catchClip.events.find((e) => e.kind === 'catch');
@@ -691,6 +775,30 @@ export function createDirector(W, opts = {}) {
     function stageBodies(bodies, T) { stageBodiesOf(W, bodies, T.tIn, play); }
   };
 
+  // ── a trip to the mound ──
+  // Before the at-bat cuts in at t1 (sim v5's `mound`): the trip's men from T0 as mound.js plans
+  // them, the battery included, and its cuts. As the at-bat cuts in the battery goes back where the
+  // cast has it, and the staff man and the man who came out back on the bench, stills again.
+  function stageTrip(p, cast, S, T0, t1) {
+    const plan = planTrip({ p, cast, T0, t1 });
+    if (!plan) return null;
+    for (const B of plan.bodies) {
+      W.place(B.slot, { id: B.id, role: B.role, at: B.base.at, yaw: B.base.yaw, scale: B.scale, mirror: B.mirror });
+      W.clearLayers(B.slot);
+      for (const e of B.clips) {
+        if (onOf(e) >= t1) continue;
+        W.at(onOf(e), () => { W.play(B.slot, e.clip, { at: e.start, speed: e.speed, fade: e.fade, frame: e.given ? e.F : undefined, from: e.from, carry: e.carry }); D.played.push({ t: e.start, role: B.role, slot: B.slot, clip: e.clip, start: e.start, trip: true }); });
+      }
+    }
+    for (const x of plan.shots) W.at(x.at, () => emit('shot', x.shot));
+    const home = (b) => { const c = cast.find((x) => x.look.slot === b.slot); if (c) W.place(b.slot, { id: c.id, role: c.look.role, at: c.at, yaw: c.yaw, scale: c.scale, mirror: c.mirror }); };
+    W.at(t1, () => {
+      for (const b of [S.P, S.C]) if (b) { home(b); W.clearLayers(b.slot); }
+      for (const B of plan.bodies) if (B.slot !== S.P?.slot && B.slot !== S.C?.slot) W.drop(B.slot);
+    });
+    return plan;
+  }
+
   // ── a play on the bases ──
   // A run payload (sim v2's steals, throws over and wild pitches): the pitch it's made on, thrown
   // from the stretch as an at-bat's are, and the play round it (runs.js planRun). A steal's
@@ -701,7 +809,10 @@ export function createDirector(W, opts = {}) {
     const q = runPitch(p) || { n: 0, result: 'ball', type: 'four-seam fastball', velo: 90, x: 0.5, y: 0.5 };
     const S = prepare(W, { ...p, pitches: [q] }, cast || []);
     if (!S) { D.landed = true; D.landAt = D.until = W.t; opts.onLand?.(); return; }
-    const lead = o.cutaway ? PACE.cutaway : 0, t0 = W.t + PACE.in + lead;
+    // a trip to the mound before it (sim v5) stands in for the cutaway, as an at-bat's does
+    const trip = tripOf(p);
+    const lead = trip || (o.cutaway ? PACE.cutaway : 0), t0 = W.t + PACE.in + lead;
+    D.trip = trip ? stageTrip(p, cast || [], S, W.t + PACE.in, t0) : null;
     const sh = S.shapes[0], { P, C, H, U, delivery, from, hand } = S;
     const tempo = Number.isFinite(p.plate) ? tempoFor(delivery, p.plate, sh.tMitt) : S.tempo;
     const rand = (k) => (hashStr(`${p.batter}|${p.inning}|${p.half}|${p.kind}|run:${k}`) % 10007) / 10007;
@@ -720,7 +831,7 @@ export function createDirector(W, opts = {}) {
     };
     const cut = (at, shot) => W.at(at, () => emit('shot', shot));
     const sound = (at, cue) => W.at(at, () => emit('sound', cue));
-    if (lead) W.at(W.t, () => emit('shot', 'sky'));
+    if (lead && !trip) W.at(W.t, () => emit('shot', 'sky'));
     cut(t0, pitchCam());
     onDeck(cast, W.t, tMitt + 1, `${p.batter}|${p.inning}|${p.half}|${p.kind}`);
     const setup = [CATCHER_AT[0] + sh.setupX, CATCHER_AT[1], CATCHER_AT[2]];
@@ -730,6 +841,7 @@ export function createDirector(W, opts = {}) {
     // the catcher's signs, done as the pitcher comes set; the plan has him from there
     const signStart = Math.min(tMitt - 0.6, pStart + 0.2) - CLIPS.catch_sign.duration;
     play(C, 'catch_sign', t0, signStart);
+    signsOver(W, C.slot, t0, signStart, q.type, !!p.basesBefore?.[1], hashStr(`signs|${p.batter}|${p.inning}|${p.half}|${p.kind}`));
     const ballOr = (t) => (t < tRel ? from : path(Math.min(t, tMitt)));
     W.at(t0, () => W.layer(C.slot, 'look', { target: ballOr, from: tRel - 0.5, full: tRel - 0.2, hold: tMitt + 0.1, to: tMitt + 0.5 }));
     // the hitter takes it; the umpire follows it in and comes up to watch
@@ -741,6 +853,7 @@ export function createDirector(W, opts = {}) {
       W.at(t0, () => W.layer(U.slot, 'look', { target: ballOr, from: tRel - 0.4, full: tRel - 0.1, hold: tMitt + 0.1, to: tMitt + 0.5 }));
       play(U, 'ump_rise', tMitt + 0.35, tMitt + 0.35, { fade: 0.15 });
     }
+    W.at(t0, () => W.setBall(pitcherBall(W, P.slot, hand, pStart, tRel, q.type)));
     W.at(tRel, () => W.setBall(path));
     // a steal's pitch is caught; one that gets by makes its own sounds (runs.js)
     const by = p.kind === 'wildpitch' || p.kind === 'passedball';
@@ -757,7 +870,7 @@ export function createDirector(W, opts = {}) {
     pitchMarks(S, salt, 0, t0, pStart + (S.stride?.tau ?? 0) / tempo);
     if (plan) { D.play = plan; stagePlan(W, plan, t0, { play, cut, sound, mark, salt }); }
     const landAt = plan ? plan.landAt : tMitt + 0.8;
-    Object.assign(D, { t0, budget: budgetOf(p), floor: landAt - W.t, landAt, cutaway: !!lead, squeezed: false });
+    Object.assign(D, { t0, budget: budgetOf(p), floor: landAt - W.t, landAt, cutaway: !!lead && !D.trip, squeezed: false });
     D.log.push({ i: 0, n: 0, result: q.result, shown: true, run: true, release: tRel, from, through: sh.through, path, tFirst, tempo, tPlate: path.cross(0.7), catch: { t: tMitt, at: sh.atMitt, setupX: sh.setupX }, play: plan });
     W.at(landAt, () => { if (!D.landed) { D.landed = true; opts.onLand?.(); } });
     // the third out on the bases: everyone off, as after an at-bat's
@@ -785,7 +898,7 @@ export function createDirector(W, opts = {}) {
     };
     const cut = (at, shot) => W.at(at, () => emit('shot', shot));
     const sound = (at, cue) => W.at(at, () => emit('sound', cue));
-    if (lead) W.at(W.t, () => emit('shot', 'sky'));
+    if (lead && !D.trip) W.at(W.t, () => emit('shot', 'sky'));
     cut(t0, 'high');
     W.at(t0, () => { for (const b of [P, C, H, U]) if (b) W.clearLayers(b.slot); C.at = CATCHER_AT.slice(); W.setBall(null); W.clearBats(); });
     play(P, 'pitch_set', t0, t0 - 1.0);
@@ -801,7 +914,7 @@ export function createDirector(W, opts = {}) {
     const plan = planRun(ctx, { tMove });
     if (plan) { D.play = plan; stagePlan(W, plan, t0, { play, cut, sound, mark, salt: `${p.batter}|${p.inning}|${p.half}|${p.kind}` }); }
     const landAt = plan ? plan.landAt : tMove + 1.5;
-    Object.assign(D, { t0, budget: budgetOf(p), floor: landAt - W.t, landAt, cutaway: !!lead, squeezed: false });
+    Object.assign(D, { t0, budget: budgetOf(p), floor: landAt - W.t, landAt, cutaway: !!lead && !D.trip, squeezed: false });
     D.log.push({ i: 0, n: 0, shown: true, run: true, over: true, tMove, play: plan });
     W.at(landAt, () => { if (!D.landed) { D.landed = true; opts.onLand?.(); } });
     D.inningOver = (p.outs | 0) >= 3 && !p.walkoff;
@@ -822,7 +935,7 @@ export function createDirector(W, opts = {}) {
   // off the dirt; the leaders' table comes down for the crew camera (a 'table' emit) and the high
   // camera has them going off. `o.motion` false holds the crew camera still.
   D.changeover = (p, cast = castOf(p), o = {}) => {
-    D.payload = p; D.cast = cast; D.log = []; D.played = []; D.views = null; D.play = null; D.trot = null; D.cutaway = false; D.opening = null; D.fx = []; D.marks = []; D.drags = []; D.crew = null;
+    D.payload = p; D.cast = cast; D.log = []; D.grips = []; D.signs = []; D.played = []; D.views = null; D.play = null; D.trot = null; D.cutaway = false; D.opening = null; D.fx = []; D.marks = []; D.drags = []; D.crew = null;
     W.clearQueue();
     for (const slot of [...W.bodies.keys()]) W.drop(slot);
     const t0 = W.t + PACE.in;
@@ -873,6 +986,7 @@ export function createDirector(W, opts = {}) {
         if (stride) mark({ t: tRel - REL + stride.tau / tempo, kind: 'stride', at: stride.at, dir: stride.dir, seed: hashStr(`warm|${p.pitcher}|${p.inning}|${p.half}|${k}`) });
         play(sC, 'catcher', recv.id, tCatch - box.t, tCatch - box.t, { fade: 0.35, frame: { at: [CATCHER_AT[0] + setupX, CATCHER_AT[1], CATCHER_AT[2]], yaw: 0 } });
         W.at(tCatch - 0.3, () => W.layer(sC, 'reach', { hand: 'L', kind: 'mitt', target: atMitt.slice(), follow: box.reach.follow, from: tCatch - 0.28, full: tCatch - 0.005, hold: tCatch + 0.3, to: tCatch + 0.7 }));
+        W.at(tRel - REL, () => W.setBall(pitcherBall(W, sP, hand, tRel - REL, tRel)));
         W.at(tRel, () => W.setBall(path));
         W.at(tCatch + 0.02, () => { if (W.ball === path) W.setBall(null); emit('sound', 'mitt'); });
         // back to him: out of the catcher's right hand, into his glove as he takes it walking back
@@ -1088,7 +1202,7 @@ export function createDirector(W, opts = {}) {
   // cameras going round them, till `o.until`. `D.cup` is who's holding the Cup when (ceremony.js
   // cupAt). Returns the plan.
   D.stageCrown = (p, cast, o = {}) => {
-    D.payload = p; D.cast = cast; D.log = []; D.played = []; D.views = null; D.play = null; D.trot = null; D.cutaway = false; D.opening = null; D.marks = []; D.drags = []; D.crew = null;
+    D.payload = p; D.cast = cast; D.log = []; D.grips = []; D.signs = []; D.played = []; D.views = null; D.play = null; D.trot = null; D.cutaway = false; D.opening = null; D.marks = []; D.drags = []; D.crew = null;
     D.between = null; D.pile = null; D.homer = null; D.queued = new Map();
     W.clearQueue();
     for (const slot of [...W.bodies.keys()]) W.drop(slot);

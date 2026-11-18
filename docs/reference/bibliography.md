@@ -134,6 +134,17 @@ In [pets.md](../proposals/pets.md) and [cat-kit.js](../../client/game/js/panels/
 | Source | What it gives | Where |
 |---|---|---|
 | t3ssel8r, "Giving Personality to Procedural Animations using Math" (2022) | Second-order dynamics set by frequency, damping and response: how a cat's head, heading, speed, ears and lean follow what they're after, with the numbers set from its nature. | [second-order.js](../../client/shared/second-order.js), [room-beasts.js](../../client/game/js/panels/gl/room-beasts.js) |
+| Miller and Allen, "GraspIt!" (IEEE Robotics & Automation Magazine, 2004) | The grasp closed on contact: every joint of a finger folds together, and as each link meets the object the joints behind it stop while the ones past it go on. How a figure's fingers close round a bottle, a phone or a deck. | [figure-grips.js](../../client/game/js/panels/gl/figure-grips.js), [hd-figure.md](../proposals/hd-figure.md#holding-things) |
+
+### Clouds
+
+| Source | What it gives | Where |
+|---|---|---|
+| Hillaire 2016, "Physically Based Sky, Atmosphere and Cloud Rendering in Frostbite" (SIGGRAPH course) | The two-lobe Henyey-Greenstein phase (forward and a weaker back lobe) and the way Wrenninge's octaves are summed off one light march. | [cloudvol.js](../../client/game/js/panels/gl/cloudvol.js) |
+| Schneider and Vos 2015, "The Real-Time Volumetric Cloudscapes of Horizon: Zero Dawn" (SIGGRAPH course) | Powder: a thin edge seen side-on or with the sun behind you is darker than the body. | [cloudvol.js](../../client/game/js/panels/gl/cloudvol.js) |
+| Wrenninge, Kulla and Lundqvist 2013, "Oz: The Great and Volumetric" (SIGGRAPH talk) | Multiple scattering as octaves, each with half the extinction, scattering and phase eccentricity of the last, which keeps a thick cloud bright inside. | [cloudvol.js](../../client/game/js/panels/gl/cloudvol.js) |
+| World Meteorological Organization, International Cloud Atlas (2017 edition) | The ten genera, which deck each sits in, and the company each weather keeps: cirrostratus ahead of a front, altostratus over rain, the cumulonimbus anvil and mammatus. | [cloudvol.js](../../client/game/js/panels/gl/cloudvol.js), `CLOUD_UPPER` in [windshield.js](../../client/game/js/panels/windshield.js) |
+| Liou 1986, "Influence of Cirrus Clouds on Weather and Climate Processes" (Monthly Weather Review) | Ice crystals scatter far more strongly forward than droplets, and hexagonal crystals make the 22° halo. | [cloudvol.js](../../client/game/js/panels/gl/cloudvol.js) |
 
 ### The sea
 
@@ -243,6 +254,8 @@ Every recording the game plays from [field-recordings.js](../../client/shared/fi
 | [robin song](https://freesound.org/people/Andrew.soundscape/sounds/671058/) | Andrew.soundscape | `robin`, calls |
 | [R30-34-Red Tailed Hawk.wav](https://freesound.org/people/craigsmith/sounds/479610/) | craigsmith | `hawk`, calls |
 | [Vulture](https://freesound.org/people/AntumDeluge/sounds/188041/) | AntumDeluge | `vulture`, calls |
+| [Bubbles In Water](https://freesound.org/people/calebrankin/sounds/529383/) | calebrankin | `bubbles`, calls (the clone hall's vats) |
+| [Indoor Nice Fish Tank Ambiance](https://freesound.org/people/7778/sounds/197805/) | 7778 | `tank_bubbling`, bed (the clone hall) |
 | [cat meow](https://freesound.org/people/tuberatanka/sounds/110011/) | tuberatanka | `cat_meow`, calls |
 | [Small Cat Meow](https://freesound.org/people/PolterKaist/sounds/795848/) | PolterKaist | `cat_meow_small`, calls |
 | [cat meow short](https://freesound.org/people/skymary/sounds/412017/) | skymary | `cat_meow_short`, calls |
@@ -281,6 +294,29 @@ Every recording the game plays from [field-recordings.js](../../client/shared/fi
 | [3_Cat, jump.wav](https://freesound.org/people/16GPanskaZlochova_Eliska/sounds/496278/) | 16GPanskaZlochova_Eliska | `cat_jump`, calls |
 | [cat_land_floor](https://freesound.org/people/superEGsonic/sounds/803297/) | superEGsonic | `cat_land`, calls |
 | [Cat Zoomies](https://freesound.org/people/qubodup/sounds/855106/) | qubodup | `cat_zoomies`, calls |
+| [Cat_Meow](https://freesound.org/people/Countrygirls13/sounds/763906/) | Countrygirls13 | `cat_meow_plain`, calls |
+| [New Cat Meow 1](https://freesound.org/people/steffcaffrey/sounds/479272/) | steffcaffrey | `cat_meow_new`, calls |
+| [Meow (Request)](https://freesound.org/people/sokworks/sounds/866535/) | sokworks | `cat_meow_ask`, calls |
+| [My Cat, Callie, Meowing.wav](https://freesound.org/people/erihamster/sounds/123146/) | erihamster | `cat_meow_callie`, calls |
+| [Cat Politely Meowing](https://freesound.org/people/HECKFRICKER/sounds/669532/) | HECKFRICKER | `cat_meow_polite`, calls |
+| [Cat meow](https://freesound.org/people/Sadiquecat/sounds/689324/) | Sadiquecat | `cat_meow_pearl`, calls |
+| [Cat happy meow](https://freesound.org/people/alizardguy/sounds/668632/) | alizardguy | `cat_meow_happy`, calls |
+| [cat_begging.wav](https://freesound.org/people/gecop/sounds/569756/) | gecop | `cat_meow_begs`, calls |
+| [A cat calling.](https://freesound.org/people/mudflea2/sounds/708180/) | mudflea2 | `cat_meow_call`, calls |
+| [The cat asks for food - 2](https://freesound.org/people/SpinOpel/sounds/757357/) | SpinOpel | `cat_meow_food`, calls |
+| [200412 Cat stray sad meows ms 6am.wav](https://freesound.org/people/TRP/sounds/567293/) | TRP | `cat_meow_stray`, calls |
+| [Cute Kitten Meow](https://freesound.org/people/Breviceps/sounds/448084/) | Breviceps | `cat_mew_kitten`, calls |
+| [Kitten meows](https://freesound.org/people/Luke100000/sounds/476918/) | Luke100000 | `cat_mew_kitten_b`, calls |
+| [Kitten miaowing.wav](https://freesound.org/people/barkenov/sounds/440697/) | barkenov | `cat_mew_kitten_c`, calls |
+| [Kitten mewing / young baby cat meowing](https://freesound.org/people/XxTamisxx/sounds/735643/) | XxTamisxx | `cat_mew_kitten_d`, calls |
+| [Kitten Meowing.wav](https://freesound.org/people/lolamadeus/sounds/196251/) | lolamadeus | `cat_mew_kitten_e`, calls |
+| [Cat Yowl 5.wav](https://freesound.org/people/HenKonen/sounds/682082/) | HenKonen | `cat_yowl_b`, calls |
+| [cat chirp.wav](https://freesound.org/people/dreamstobecome/sounds/451250/) | dreamstobecome | `cat_chirp_c`, calls |
+| [Cat_Hissing.wav](https://freesound.org/people/ken788/sounds/386738/) | ken788 | `cat_hiss_c`, calls |
+| [Cat hissing](https://freesound.org/people/rickismyname/sounds/819958/) | rickismyname | `cat_hiss_d`, calls |
+| [Cat purr](https://freesound.org/people/Richard1052/sounds/585775/) | Richard1052 | `cat_purr_b`, bed |
+| [Purr of a cat](https://freesound.org/people/lextrack/sounds/263778/) | lextrack | `cat_purr_c`, bed |
+| [Kitten Sneeze](https://freesound.org/people/toby_spin/sounds/877399/) | toby_spin | `cat_sneeze`, calls |
 
 ### Crowd recordings
 
@@ -295,6 +331,18 @@ The recordings the CPhL's and Deadball's crowd patches were fitted to: each patc
 | [small crowd gasp shock surprise](https://freesound.org/people/HowardV/sounds/264376/) | HowardV | `hk-crowd-gasp`, `db-crowd-gasp` | not shipped: one held breath, not a gasp |
 | [Crowd and field noise before and during homerun hit at MLB baseball stadium](https://freesound.org/people/bmadore/sounds/691975/) | bmadore | Deadball's `crowdBed()`, `db-crowd-cheer` | not shipped: its uploader notes stadium music under the crowd |
 | [baseball sounds.mp3](https://freesound.org/people/bowlingballout/sounds/58596/) | bowlingballout | `db-crowd-boo` | `crowd_park`, a loop; `crowd_boo_park`, one cut |
+| [Sitcom Laughter 9x, Small Audience](https://freesound.org/people/Kinoton/sounds/383207/) | Kinoton | the TV studio audience | `studio_laugh_sitcom` |
+| [live audience comedy show genuine laughter_moderate.wav](https://freesound.org/people/HowardV/sounds/581528/) | HowardV | the TV studio audience | `studio_laugh_genuine` |
+| [small audience laughter.wav](https://freesound.org/people/cognito%20perceptu/sounds/17121/) | cognito perceptu | the TV studio audience | `studio_laugh_small` |
+| [Laugh Crowd Soft.mp3](https://freesound.org/people/FunWithSound/sounds/588394/) | FunWithSound | the TV studio audience | `studio_laugh_soft` |
+| [Voice_Crowd_Small_Expression_Laugh_Stereo](https://freesound.org/people/Nox_Sound/sounds/752711/) | Nox_Sound | the TV studio audience | `studio_laugh_brief` |
+| [Group Ooh 1](https://freesound.org/people/CHallSmith/sounds/870650/) | CHallSmith | the TV studio audience | `studio_ooh` |
+| [Group Ooh Aah](https://freesound.org/people/CHallSmith/sounds/870652/) | CHallSmith | the TV studio audience | `studio_ooh_aah` |
+| [Crowd Ooohs and Ahhhs in Excitement](https://freesound.org/people/noah0189/sounds/264499/) | noah0189 | the TV studio audience | `studio_oohs` |
+| [Voice_Crowd_Small_Expression_Awww_Stereo](https://freesound.org/people/Nox_Sound/sounds/752706/) | Nox_Sound | the TV studio audience | `studio_aww` |
+| [crowd booing](https://freesound.org/people/HowardV/sounds/264378/) | HowardV | the TV studio audience | `studio_boo` |
+| [Voice_Crowd_Small_Expression_Boo_Stereo](https://freesound.org/people/Nox_Sound/sounds/752707/) | Nox_Sound | the TV studio audience | `studio_boo_small` |
+| [Booing Crowd](https://freesound.org/people/NeoSpica/sounds/504621/) | NeoSpica | the TV studio audience | `studio_boo_big` |
 
 ### Flight and physics
 

@@ -19,7 +19,7 @@
     "is_interior": true,
     "room": {
       "balcony": false,
-      "d": 3.2,
+      "d": 8,
       "decor": {
         "leaves": {
           "flush": true,
@@ -35,9 +35,19 @@
         },
         "rug": false
       },
+      "doors": {
+        "down": [
+          -0.55,
+          2.6
+        ],
+        "east": -3.15,
+        "north": -1.47,
+        "south": 1.47,
+        "west": 3.15
+      },
       "face": 0,
       "ground": "concrete",
-      "h": 3,
+      "h": 3.96,
       "studio": false,
       "tone": {
         "accent": "#5a4a3a",
@@ -45,7 +55,7 @@
         "trim": "#1e1814",
         "wall": "#8a6a66"
       },
-      "w": 16,
+      "w": 4.4,
       "windowless": true
     }
   },

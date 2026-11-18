@@ -101,7 +101,7 @@ function hockeyFacts(game, beats, at, ctx) {
       goals.push({ n: goals.length + 1, player: b.shooter, assist: b.assist || '', team: b.teamName, period: b.section, clock: b.clockStr, strength: b.strength || 'even', awayScore: b.awayScore, homeScore: b.homeScore });
       const lead = Math.sign((b.awayScore ?? 0) - (b.homeScore ?? 0));
       if (lead && lead !== lastLeader) { if (lastLeader) leadChanges++; lastLeader = lead; }
-    } else if (b.type === 'penalty') penalties.push({ n: penalties.length + 1, player: b.player, team: b.teamName, infraction: b.infraction, minutes: b.penaltyMin, period: b.section, clock: b.clockStr });
+    } else if (b.type === 'penalty' && !b.waived) penalties.push({ n: penalties.length + 1, player: b.player, team: b.teamName, infraction: b.infraction, minutes: b.penaltyMin, period: b.section, clock: b.clockStr });
     else if (b.type === 'fight') fights.push({ n: fights.length + 1, winner: b.winner, loser: b.loser, period: b.section });
     else if (b.type === 'boards') hits++;
     else if (b.type === 'injury') injuries.push({ n: injuries.length + 1, player: b.player || b.victim || '', team: b.teamName || b.victimTeam || '', wound: b.wound || b.label || '', period: b.section });

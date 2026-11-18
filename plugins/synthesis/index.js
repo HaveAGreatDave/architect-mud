@@ -149,7 +149,7 @@ async function cmdCook(args, raw, player, broadcast) {
       return { recipe: r.name, drug: drug?.name || r.name, form: drug?.flags?.form || null, family: cookFamily(drug), tier, difficulty: cookDiff(tier), ready: !res.missing, need, value: TIER_PRICE[tier] };
     });
     const hasLab = !!(await findWorkspace({ requires_station: 'chem_lab' }, player));
-    return { type: 'cook_menu', items, hasLab };
+    return { type: 'cook_menu', items, hasLab, dev: DEV_ROLES.includes(player.role) };
   }
 
   const recipe = findRecipeByName(name);
@@ -931,6 +931,32 @@ function cmdCookTest(args, raw, player) {
   return { type: 'synth_minigame', kind: 'test', family, difficulty: diff, recipeName: `TEST COOK · ${family.toUpperCase()}`, workspace: 'test bench' };
 }
 
+// Dev-only: the cook menu's DEBUG button. At an open chem lab, tops up your
+// inventory so every chemistry recipe can be cooked twice, plus three
+// stabilizers for splicing. Free: a test shortcut, not a shop. Answers with the
+// refreshed menu.
+async function cmdSynthStock(args, raw, player, broadcast) {
+  if (!DEV_ROLES.includes(player.role)) return { type: 'error', message: 'Dev command.' };
+  const ws = await findWorkspace({ requires_station: 'chem_lab' }, player);
+  if (!ws) return { type: 'error', message: 'Stand at an open chem lab first.' };
+  const want = new Map();
+  for (const r of synthRecipes()) for (const ing of r.ingredients || []) {
+    if (ing.item_id && ing.quantity) want.set(ing.item_id, Math.max(want.get(ing.item_id) || 0, ing.quantity * 2));
+  }
+  want.set(STABILIZER_ITEM, Math.max(want.get(STABILIZER_ITEM) || 0, 3));
+  const have = new Map();
+  for (const i of await playerInventory(player.id)) have.set(i.item_id, (have.get(i.item_id) || 0) + i.quantity);
+  let added = 0;
+  await withTransaction(async (q) => {
+    for (const [itemId, qty] of want) {
+      const short = qty - (have.get(itemId) || 0);
+      if (short > 0) { await stackAdd(q, player.id, itemId, short); added++; }
+    }
+  });
+  broadcast?.(null, { type: 'output', message: `<span class="text-dim">[debug] Stocked ${added} reagent${added === 1 ? '' : 's'} for every cook.</span>` }, null, player.id);
+  return cmdCook([], '', player, broadcast);
+}
+
 // Dev-only: open the FULL splice designer seeded from real drugs (live preview
 // computes for real) in test mode — the whole current experience: base+splice(+2)
 // picker panels, per-slot quantity/batching (test drugs are stackable), the full
@@ -1098,5 +1124,6 @@ export const commands = {
   unseal: cmdUnseal,
   reclaim: cmdReclaim,
   cooktest: cmdCookTest,
+  synthstock: cmdSynthStock,
   splicetest: cmdSpliceTest,
 };

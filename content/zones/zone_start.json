@@ -6,7 +6,7 @@
   ],
   "ambient_theme": "city",
   "bg_color": "#4bb36a",
-  "description": "Aseptic white tile floor that has long since gone grey at the grout lines. Vat chambers run along both walls: human-sized cylinders of cloudy fluid, most occupied, all humming at a frequency just below the threshold of comfort. Overhead fluorescents pulse with slow, clinical regularity. Somewhere in the walls, a machine breathes. This is where you come from. Every time.",
+  "description": "A hall built for machines, with room left over for you. Growing vats stand two deep down both walls, each lit green and holding a sleeping body. Tubes climb from every crown to the ceiling and in to a trunk over the floor. A step down in the middle of the hall, four release vats stand empty round the dressing gantry. The street is east.",
   "exits": {
     "down": "zone_clone_facility_z-1_1782276270002",
     "east": "zone_district_918_903"
@@ -20,459 +20,772 @@
     "is_interior": true,
     "room": {
       "balcony": false,
-      "d": 11,
+      "d": 16,
       "decor": {
-        "grates": [
-          [
-            0,
-            5.2,
-            0.7,
-            0.7
-          ],
-          [
-            -3.25,
-            7.2,
-            0.45,
-            0.9
-          ]
+        "marks": [
+          {
+            "at": 0,
+            "font": "Michroma",
+            "h": 1.15,
+            "kind": "neon",
+            "sub": "Printed while you wait",
+            "text": "Coldwater Clone Facility",
+            "tint": "#4dffb0",
+            "w": 6.4,
+            "wall": "front",
+            "y": 5.7
+          },
+          {
+            "accent": "#9ff4ff",
+            "at": 0,
+            "font": "Michroma",
+            "h": 1.02,
+            "kind": "logo",
+            "num_font": "Oxanium",
+            "sub": "BioSculpt Systems · You, but better",
+            "text": "Morphex|9000",
+            "tint": "#2fd8ff",
+            "w": 3.5,
+            "wall": "front",
+            "y": 3.42
+          },
+          {
+            "accent": "#ffc86a",
+            "at": -5.2,
+            "h": 1.65,
+            "kind": "poster",
+            "small": "Continuity Plus is a product of the Algorithm. No refunds on self.",
+            "sub": "Ask about Continuity Plus.|Memories not included.",
+            "text": "Your backup|is 94% you",
+            "tint": "#1d3a5c",
+            "w": 1.15,
+            "wall": "front",
+            "y": 3.3
+          },
+          {
+            "accent": "#ff6a5a",
+            "at": 5.2,
+            "h": 1.65,
+            "kind": "poster",
+            "small": "Complimentary cloning subject to review.",
+            "sub": "Every reprint is logged.|Every log is billed.",
+            "text": "Die|responsibly",
+            "tint": "#5c1d2a",
+            "w": 1.15,
+            "wall": "front",
+            "y": 3.3
+          },
+          {
+            "at": -4.55,
+            "h": 0.34,
+            "kind": "tag",
+            "sub": "do not restart - K.V. 3rd shift",
+            "text": "Out of service|Pump 2 · seal weeping",
+            "w": 0.62,
+            "wall": "front",
+            "y": 1.35
+          },
+          {
+            "at": 5.2,
+            "h": 0.32,
+            "kind": "label",
+            "sub": "Growth medium at 37°C",
+            "text": "Hot pipe",
+            "w": 1.1,
+            "wall": "front",
+            "y": 2.15
+          },
+          {
+            "arrow": "down",
+            "at": -4.2,
+            "h": 0.5,
+            "kind": "wayfinding",
+            "sub": "Street · Coldwater",
+            "text": "Exit",
+            "tint": "#4dffb0",
+            "w": 1.9,
+            "wall": "back",
+            "y": 3.15
+          },
+          {
+            "at": 0,
+            "h": 1.35,
+            "kind": "readout",
+            "sub": "Next print --:--",
+            "text": "Release queue|Bay 1 · ready|Bay 2 · ready|Bay 3 · cycling|Bay 4 · ready",
+            "tint": "#5affc8",
+            "w": 3.4,
+            "wall": "back",
+            "y": 4.75
+          },
+          {
+            "accent": "#ff8a2a",
+            "at": 0,
+            "font": "Tektur",
+            "h": 1.75,
+            "img": "posters/grady-two-cell.webp",
+            "kind": "poster",
+            "small": "Gear for every career path.",
+            "sub": "East along the street.|Honest prices. Honest work.",
+            "text": "Two-Cell|Supply",
+            "tint": "#2a1a10",
+            "w": 1.2,
+            "wall": "back",
+            "y": 3.05
+          },
+          {
+            "at": -1.4,
+            "h": 0.3,
+            "kind": "scrawl",
+            "text": "they keep the first one",
+            "w": 1.3,
+            "wall": "back",
+            "y": 1.15
+          },
+          {
+            "at": 5.4,
+            "drip": true,
+            "h": 2.4,
+            "kind": "stain",
+            "tint": "#4a3a24",
+            "w": 0.9,
+            "wall": "back",
+            "y": 3.8
+          },
+          {
+            "at": 8,
+            "font": "Big Shoulders Stencil Display",
+            "h": 0.7,
+            "kind": "stencil",
+            "text": "Growth row A",
+            "tint": "#d8dcd6",
+            "w": 3.6,
+            "wall": "left",
+            "y": 6.4
+          },
+          {
+            "at": 1.1,
+            "h": 0.7,
+            "kind": "readout",
+            "text": "Row A · 9 in growth|Mean gestation 31h|Defects 0.4%",
+            "tint": "#5ad8ff",
+            "w": 1.5,
+            "wall": "left",
+            "y": 4.3
+          },
+          {
+            "at": 5.5,
+            "h": 0.4,
+            "kind": "label",
+            "sub": "They can hear it",
+            "text": "Do not tap the glass",
+            "w": 1.4,
+            "wall": "left",
+            "y": 3.6
+          },
+          {
+            "at": 9.9,
+            "h": 0.62,
+            "kind": "placard",
+            "sub": "Infectious",
+            "text": "6.2",
+            "tint": "#f5f3ee",
+            "w": 0.62,
+            "wall": "left",
+            "y": 3.7
+          },
+          {
+            "at": 10.9,
+            "drip": true,
+            "h": 2.2,
+            "kind": "stain",
+            "tint": "#2a4a32",
+            "w": 0.7,
+            "wall": "left",
+            "y": 5.2
+          },
+          {
+            "at": 4.4,
+            "drip": true,
+            "h": 1.6,
+            "kind": "stain",
+            "tint": "#3a3426",
+            "w": 0.5,
+            "wall": "left",
+            "y": 5.6
+          },
+          {
+            "at": 14.6,
+            "h": 0.32,
+            "kind": "scrawl",
+            "text": "#4471 was here #4471 was here",
+            "tint": "#262630",
+            "w": 1.4,
+            "wall": "left",
+            "y": 1.1
+          },
+          {
+            "accent": "#4dffb0",
+            "at": 14.6,
+            "h": 1.35,
+            "kind": "poster",
+            "small": "The Algorithm cares about your outcomes.",
+            "sub": "Symptoms are billable.|Report it at the counter.",
+            "text": "Grief is|a symptom",
+            "tint": "#2a4a3a",
+            "w": 0.95,
+            "wall": "left",
+            "y": 2.7
+          },
+          {
+            "at": 8,
+            "font": "Big Shoulders Stencil Display",
+            "h": 0.7,
+            "kind": "stencil",
+            "text": "Growth row B",
+            "tint": "#d8dcd6",
+            "w": 3.6,
+            "wall": "right",
+            "y": 6.4
+          },
+          {
+            "at": 1.1,
+            "h": 0.7,
+            "kind": "readout",
+            "text": "Row B · 9 in growth|Next decant 00:41|Medium 97% nominal",
+            "tint": "#5ad8ff",
+            "w": 1.5,
+            "wall": "right",
+            "y": 4.3
+          },
+          {
+            "at": 5.5,
+            "h": 0.4,
+            "kind": "label",
+            "sub": "Growth medium · do not drink",
+            "text": "Biohazard",
+            "w": 1.4,
+            "wall": "right",
+            "y": 3.6
+          },
+          {
+            "at": 8,
+            "h": 0.36,
+            "kind": "label",
+            "sub": "Keep your limbs in your body",
+            "text": "Pinch point",
+            "tint": "#ff8a3a",
+            "w": 1.3,
+            "wall": "right",
+            "y": 2.3
+          },
+          {
+            "at": 9.9,
+            "h": 0.62,
+            "kind": "placard",
+            "sub": "Corrosive",
+            "text": "8",
+            "tint": "#202020",
+            "w": 0.62,
+            "wall": "right",
+            "y": 3.7
+          },
+          {
+            "at": 6.7,
+            "drip": true,
+            "h": 2,
+            "kind": "stain",
+            "tint": "#2a4a32",
+            "w": 0.6,
+            "wall": "right",
+            "y": 5.4
+          },
+          {
+            "at": 13.8,
+            "h": 0.3,
+            "kind": "scrawl",
+            "text": "count your fingers",
+            "tint": "#1a1a22",
+            "w": 1.2,
+            "wall": "right",
+            "y": 1.25
+          },
+          {
+            "at": 12.9,
+            "h": 0.33,
+            "kind": "tag",
+            "sub": "ok for now - P.",
+            "text": "Inspected|Seals · lines · faith",
+            "w": 0.6,
+            "wall": "right",
+            "y": 1.45
+          },
+          {
+            "floor": [
+              -1.9,
+              4.8500000000000005
+            ],
+            "h": 0.32,
+            "kind": "stencil",
+            "text": "Release 1",
+            "tint": "#ffc86a",
+            "turn": 180,
+            "w": 1.1
+          },
+          {
+            "floor": [
+              1.9,
+              4.8500000000000005
+            ],
+            "h": 0.32,
+            "kind": "stencil",
+            "text": "Release 2",
+            "tint": "#ffc86a",
+            "turn": 180,
+            "w": 1.1
+          },
+          {
+            "floor": [
+              -1.9,
+              11.15
+            ],
+            "h": 0.32,
+            "kind": "stencil",
+            "text": "Release 3",
+            "tint": "#ffc86a",
+            "turn": 180,
+            "w": 1.1
+          },
+          {
+            "floor": [
+              1.9,
+              11.15
+            ],
+            "h": 0.32,
+            "kind": "stencil",
+            "text": "Release 4",
+            "tint": "#ffc86a",
+            "turn": 180,
+            "w": 1.1
+          },
+          {
+            "floor": [
+              0,
+              6.45
+            ],
+            "h": 0.3,
+            "kind": "stencil",
+            "text": "Keep clear · gantry",
+            "tint": "#e8b818",
+            "turn": 180,
+            "w": 1.9
+          },
+          {
+            "floor": [
+              0,
+              9.55
+            ],
+            "h": 0.3,
+            "kind": "stencil",
+            "text": "Keep clear · gantry",
+            "tint": "#e8b818",
+            "turn": 0,
+            "w": 1.9
+          },
+          {
+            "floor": [
+              -4.2,
+              14.6
+            ],
+            "h": 0.35,
+            "kind": "stencil",
+            "text": "Exit",
+            "tint": "#4dffb0",
+            "turn": 180,
+            "w": 1.3
+          },
+          {
+            "floor": [
+              -2.25,
+              6.1000000000000005
+            ],
+            "h": 1.4,
+            "kind": "stain",
+            "tint": "#2f6a48",
+            "turn": 0,
+            "w": 1.7
+          },
+          {
+            "floor": [
+              2.25,
+              6.1000000000000005
+            ],
+            "h": 1.4,
+            "kind": "stain",
+            "tint": "#2f6a48",
+            "turn": 37,
+            "w": 1.7
+          },
+          {
+            "floor": [
+              -2.25,
+              10.299999999999999
+            ],
+            "h": 1.4,
+            "kind": "stain",
+            "tint": "#2f6a48",
+            "turn": 74,
+            "w": 1.7
+          },
+          {
+            "floor": [
+              2.25,
+              10.299999999999999
+            ],
+            "h": 1.4,
+            "kind": "stain",
+            "tint": "#2f6a48",
+            "turn": 111,
+            "w": 1.7
+          },
+          {
+            "floor": [
+              -5,
+              1.4
+            ],
+            "h": 1,
+            "kind": "stain",
+            "tint": "#4a3018",
+            "turn": 20,
+            "w": 1.6
+          },
+          {
+            "floor": [
+              5.3,
+              14.8
+            ],
+            "h": 1.1,
+            "kind": "stain",
+            "tint": "#4a3018",
+            "turn": 70,
+            "w": 1.4
+          },
+          {
+            "floor": [
+              -4.3,
+              8.9
+            ],
+            "h": 0.9,
+            "kind": "stain",
+            "tint": "#2f5a40",
+            "turn": 110,
+            "w": 1.2
+          },
+          {
+            "floor": [
+              4.3,
+              4.6
+            ],
+            "h": 0.8,
+            "kind": "stain",
+            "tint": "#2f5a40",
+            "turn": 15,
+            "w": 1.1
+          },
+          {
+            "floor": [
+              2.5,
+              12.6
+            ],
+            "h": 0.26,
+            "kind": "label",
+            "sub": "it is always wet",
+            "text": "Wet floor",
+            "tint": "#f2c230",
+            "turn": 180,
+            "w": 0.9
+          }
         ],
         "paint": [
           {
-            "kind": "hazard",
-            "rect": [
-              -4.98,
-              -3.68,
-              1.68,
-              3.12
-            ]
-          },
-          {
-            "kind": "hazard",
-            "rect": [
-              -4.98,
-              -3.68,
-              4.08,
-              5.52
-            ]
-          },
-          {
-            "kind": "hazard",
-            "rect": [
-              -4.98,
-              -3.68,
-              6.48,
-              7.92
-            ]
-          },
-          {
-            "kind": "hazard",
-            "rect": [
-              3.68,
-              4.98,
-              1.68,
-              3.12
-            ]
-          },
-          {
-            "kind": "hazard",
-            "rect": [
-              3.68,
-              4.98,
-              4.08,
-              5.52
-            ]
-          },
-          {
-            "kind": "hazard",
-            "rect": [
-              3.68,
-              4.98,
-              6.48,
-              7.92
-            ]
-          },
-          {
-            "arrows": true,
-            "from": [
-              -3.5,
-              7.2
-            ],
-            "hex": "#3fd27a",
-            "kind": "line",
-            "t": 0.08,
-            "to": [
-              -0.4,
-              9.2
-            ]
-          },
-          {
-            "from": [
-              -0.4,
-              9.2
-            ],
-            "hex": "#3fd27a",
-            "kind": "line",
-            "t": 0.08,
-            "to": [
-              -0.4,
-              10.6
-            ]
-          },
-          {
-            "arrows": true,
-            "from": [
-              -3.5,
-              6.7
-            ],
-            "hex": "#ff4fd8",
-            "kind": "line",
-            "t": 0.08,
-            "to": [
-              -2.2,
-              2
-            ]
-          },
-          {
-            "hex": "#ff4fd8",
+            "hex": "#e8b818",
             "kind": "box",
             "rect": [
-              -3.05,
-              -1.35,
-              0.15,
-              1.75
+              -2.8499999999999996,
+              -0.95,
+              4.95,
+              6.8500000000000005
             ],
-            "t": 0.05
+            "t": 0.06,
+            "y": -0.5
+          },
+          {
+            "hex": "#e8b818",
+            "kind": "box",
+            "rect": [
+              0.95,
+              2.8499999999999996,
+              4.95,
+              6.8500000000000005
+            ],
+            "t": 0.06,
+            "y": -0.5
+          },
+          {
+            "hex": "#e8b818",
+            "kind": "box",
+            "rect": [
+              -2.8499999999999996,
+              -0.95,
+              9.15,
+              11.049999999999999
+            ],
+            "t": 0.06,
+            "y": -0.5
+          },
+          {
+            "hex": "#e8b818",
+            "kind": "box",
+            "rect": [
+              0.95,
+              2.8499999999999996,
+              9.15,
+              11.049999999999999
+            ],
+            "t": 0.06,
+            "y": -0.5
+          },
+          {
+            "kind": "hazard",
+            "rect": [
+              -1,
+              1,
+              6.6,
+              9.4
+            ],
+            "t": 0.12,
+            "y": -0.5
+          },
+          {
+            "kind": "hazard",
+            "rect": [
+              -3.44,
+              3.44,
+              4.0600000000000005,
+              11.940000000000001
+            ],
+            "t": 0.12
+          },
+          {
+            "arrows": true,
+            "from": [
+              0,
+              12.1
+            ],
+            "hex": "#4dffb0",
+            "kind": "line",
+            "t": 0.09,
+            "to": [
+              -4.2,
+              15.6
+            ]
+          },
+          {
+            "from": [
+              -1.9,
+              11.25
+            ],
+            "hex": "#4dffb0",
+            "kind": "line",
+            "t": 0.07,
+            "to": [
+              -0.3,
+              11.25
+            ],
+            "y": -0.5
+          },
+          {
+            "from": [
+              1.9,
+              11.25
+            ],
+            "hex": "#4dffb0",
+            "kind": "line",
+            "t": 0.07,
+            "to": [
+              0.3,
+              11.25
+            ],
+            "y": -0.5
+          },
+          {
+            "from": [
+              -3.45,
+              1.2
+            ],
+            "hex": "#e8b818",
+            "kind": "line",
+            "t": 0.06,
+            "to": [
+              -3.45,
+              12.6
+            ]
+          },
+          {
+            "from": [
+              3.45,
+              1.2
+            ],
+            "hex": "#e8b818",
+            "kind": "line",
+            "t": 0.06,
+            "to": [
+              3.45,
+              14.6
+            ]
           }
         ],
-        "pipes": [
+        "piclights": [
           {
-            "from": [
-              -4.78,
-              0.8,
-              3.62
-            ],
-            "hex": "#c3c9ce",
-            "r": 0.085,
-            "to": [
-              -4.78,
-              8.2,
-              3.62
-            ]
+            "at": -5.2,
+            "h": 1.65,
+            "k": 0.8,
+            "w": 1.15,
+            "wall": "front",
+            "y": 3.3
           },
           {
-            "from": [
-              -4.6,
-              0.8,
-              3.78
-            ],
-            "hex": "#5fa890",
-            "r": 0.05,
-            "to": [
-              -4.6,
-              8.2,
-              3.78
-            ]
+            "at": 5.2,
+            "h": 1.65,
+            "k": 0.8,
+            "w": 1.15,
+            "wall": "front",
+            "y": 3.3
           },
           {
-            "from": [
-              -4.78,
-              2.4,
-              3.55
-            ],
-            "hex": "#c3c9ce",
-            "r": 0.045,
-            "to": [
-              -4.78,
-              2.4,
-              2.95
-            ]
+            "at": 0,
+            "h": 1.75,
+            "k": 1.1,
+            "w": 1.2,
+            "wall": "back",
+            "y": 3.05
           },
           {
-            "from": [
-              -4.78,
-              4.8,
-              3.55
-            ],
-            "hex": "#c3c9ce",
-            "r": 0.045,
-            "to": [
-              -4.78,
-              4.8,
-              2.95
-            ]
-          },
-          {
-            "from": [
-              -4.78,
-              7.2,
-              3.55
-            ],
-            "hex": "#c3c9ce",
-            "r": 0.045,
-            "to": [
-              -4.78,
-              7.2,
-              2.95
-            ]
-          },
-          {
-            "from": [
-              4.78,
-              0.8,
-              3.62
-            ],
-            "hex": "#c3c9ce",
-            "r": 0.085,
-            "to": [
-              4.78,
-              8.2,
-              3.62
-            ]
-          },
-          {
-            "from": [
-              4.6,
-              0.8,
-              3.78
-            ],
-            "hex": "#5fa890",
-            "r": 0.05,
-            "to": [
-              4.6,
-              8.2,
-              3.78
-            ]
-          },
-          {
-            "from": [
-              4.78,
-              2.4,
-              3.55
-            ],
-            "hex": "#c3c9ce",
-            "r": 0.045,
-            "to": [
-              4.78,
-              2.4,
-              2.95
-            ]
-          },
-          {
-            "from": [
-              4.78,
-              4.8,
-              3.55
-            ],
-            "hex": "#c3c9ce",
-            "r": 0.045,
-            "to": [
-              4.78,
-              4.8,
-              2.95
-            ]
-          },
-          {
-            "from": [
-              4.78,
-              7.2,
-              3.55
-            ],
-            "hex": "#c3c9ce",
-            "r": 0.045,
-            "to": [
-              4.78,
-              7.2,
-              2.95
-            ]
+            "at": 14.6,
+            "h": 1.35,
+            "k": 0.8,
+            "w": 0.95,
+            "wall": "left",
+            "y": 2.7
           }
         ],
         "rug": false,
-        "screens": [
-          {
-            "along": 3.6,
-            "h": 0.32,
-            "show": "vitals",
-            "w": 0.5,
-            "wall": "left",
-            "y": 1.75
-          },
-          {
-            "along": 3.6,
-            "h": 0.32,
-            "show": "vitals",
-            "w": 0.5,
-            "wall": "right",
-            "y": 1.75
-          },
-          {
-            "along": 6,
-            "h": 0.32,
-            "show": "vitals",
-            "w": 0.5,
-            "wall": "left",
-            "y": 1.75
-          },
-          {
-            "along": 6,
-            "h": 0.32,
-            "show": "vitals",
-            "w": 0.5,
-            "wall": "right",
-            "y": 1.75
-          },
-          {
-            "along": -2.45,
-            "h": 0.8,
-            "show": "ad",
-            "sub": "You, But Better.",
-            "text": "MORPHEX 9000",
-            "w": 1.4,
-            "wall": "back",
-            "y": 2.25
-          },
-          {
-            "along": 2.45,
-            "h": 0.8,
-            "show": "ad",
-            "sub": "Power For The Newly Printed",
-            "text": "Two-Cell",
-            "w": 1.4,
-            "wall": "back",
-            "y": 2.25
-          }
-        ],
-        "signs": [
-          {
-            "along": 0,
-            "h": 0.2,
-            "hex": "#eaf6ff",
-            "lit": true,
-            "plateHex": "#20262c",
-            "text": "Coldwater Clone Facility",
-            "wall": "front",
-            "y": 3.45
-          },
-          {
-            "along": 0,
-            "h": 0.07,
-            "hex": "#9be7ff",
-            "plate": false,
-            "text": "Printed While You Wait",
-            "wall": "front",
-            "y": 3.08
-          },
-          {
-            "along": 0,
-            "h": 0.13,
-            "hex": "#5aff9a",
-            "lit": true,
-            "plateHex": "#0e1a12",
-            "text": "Exit",
-            "wall": "back",
-            "y": 2.55
-          },
-          {
-            "along": 3.6,
-            "h": 0.075,
-            "plateHex": "#2a2f34",
-            "text": "Please Vacate Your Vat Promptly",
-            "wall": "left",
-            "y": 3.2
-          },
-          {
-            "along": 3.6,
-            "h": 0.075,
-            "plateHex": "#2a2f34",
-            "text": "Do Not Tap The Glass",
-            "wall": "right",
-            "y": 3.2
-          }
-        ],
+        "sound": {
+          "bed": "tank_bubbling",
+          "call_level": -24,
+          "calls": "bubbles",
+          "every": [
+            1.2,
+            4
+          ],
+          "level": -27,
+          "spots": [
+            [
+              -4.3,
+              3.3,
+              1.8
+            ],
+            [
+              -4.3,
+              5.5,
+              1.8
+            ],
+            [
+              -4.3,
+              7.7,
+              1.8
+            ],
+            [
+              -4.3,
+              9.9,
+              1.8
+            ],
+            [
+              4.3,
+              3.3,
+              1.8
+            ],
+            [
+              4.3,
+              5.5,
+              1.8
+            ],
+            [
+              4.3,
+              7.7,
+              1.8
+            ],
+            [
+              4.3,
+              9.9,
+              1.8
+            ]
+          ]
+        },
         "strips": [
           {
-            "along": "v",
             "at": [
-              -2.4,
-              1.8
-            ],
-            "len": 1.5
+              0,
+              3.2
+            ]
           },
           {
-            "along": "v",
             "at": [
-              -2.4,
-              4.4
-            ],
-            "len": 1.5
-          },
-          {
-            "along": "v",
-            "at": [
-              -2.4,
-              7
-            ],
-            "len": 1.5
-          },
-          {
-            "along": "v",
-            "at": [
-              -2.4,
-              9.6
-            ],
-            "len": 1.5
-          },
-          {
-            "along": "v",
-            "at": [
-              2.4,
-              1.8
-            ],
-            "len": 1.5
-          },
-          {
-            "along": "v",
-            "at": [
-              2.4,
-              4.4
-            ],
-            "len": 1.5
-          },
-          {
-            "along": "v",
-            "at": [
-              2.4,
-              7
-            ],
-            "len": 1.5
-          },
-          {
-            "along": "v",
-            "at": [
-              2.4,
-              9.6
-            ],
-            "len": 1.5
+              0,
+              12.8
+            ]
           }
         ]
       },
+      "dim": 0.18,
       "doors": {
+        "east": -4.2,
         "down": [
-          3.6,
-          9
+          6.2,
+          0.9
         ]
       },
       "finish": "plain",
-      "ground": "tile",
-      "h": 4,
+      "ground": "plant",
+      "h": 8,
+      "pit": {
+        "at": [
+          -3.3,
+          3.3,
+          4.2,
+          11.8
+        ],
+        "depth": 0.5,
+        "step": 0.42
+      },
+      "street_door": {
+        "glass": "#b8deee",
+        "kind": "sliding",
+        "dark": true,
+        "hand": true,
+        "own": true,
+        "trim": "#3a4a4e",
+        "w": 2.4
+      },
       "studio": false,
       "tone": {
-        "accent": "#ff4fd8",
-        "ceiling": "#f2f4f5",
-        "trim": "#8f979e",
-        "wall": "#e4e8ea"
+        "accent": "#4dffb0",
+        "ceiling": "#c8ccca",
+        "trim": "#3a4248",
+        "wall": "#c4ccc8"
       },
-      "w": 10,
-      "windowless": false
+      "w": 14,
+      "windowless": true
     },
     "scavenging_table_id": "scav_roadside_junk",
     "terrain": "grass",

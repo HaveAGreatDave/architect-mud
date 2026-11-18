@@ -1,0 +1,24 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "wasteland",
+  "color": "#b5744a",
+  "description": "The hardpan here is split into thousands of red tiles. Nothing grows in the cracks, and the wind keeps them swept.",
+  "exits": {
+    "east": "zone_district_914_925",
+    "north": "zone_seam_914_924",
+    "south": "zone_seam_914_926"
+  },
+  "flags": {
+    "district": "wilds",
+    "radiation": 30,
+    "region_id": "region_coldwater",
+    "terrain": "redrock"
+  },
+  "grid_x": 914,
+  "grid_y": 925,
+  "grid_z": 0,
+  "id": "zone_seam_914_925",
+  "map_id": "map_world",
+  "name": "The Ferric Wash",
+  "parent_zone": null
+}

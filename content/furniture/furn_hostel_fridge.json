@@ -11,7 +11,11 @@
       "form": "fridge",
       "wear": 0.95
     },
-    "preserves": "refrigerated"
+    "preserves": "refrigerated",
+    "spot": {
+      "along": -0.9,
+      "wall": "back"
+    }
   },
   "hp": null,
   "hp_max": null,
@@ -22,5 +26,5 @@
   "object_type": "container",
   "power_draw_kw": 0.1,
   "price": 20,
-  "zone_id": "zone_trackmarks_shop"
+  "zone_id": "zone_hostel_kitchen"
 }

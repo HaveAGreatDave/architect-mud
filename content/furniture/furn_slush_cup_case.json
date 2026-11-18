@@ -1,5 +1,5 @@
 {
-  "description": "The Coldwater Cup in a glass case on a stone plinth, lit from above. A stepped silver barrel banded in black, a gold collar and a bowl on top. The glass is smudged at child height all round.",
+  "description": "The Coldwater Cup in a glass case on a stone plinth, lit from above. Polished chrome, every edge in gold, a gold goose on top. Every winner is engraved on the bands, the club and the year. The glass is smudged at child height all round.",
   "flags": {
     "aliases": [
       "cup",
@@ -9,6 +9,7 @@
       "plinth",
       "glass case"
     ],
+    "cup_rolls": "hockey",
     "look": {
       "arche": "prop",
       "cup": "hockey",
@@ -18,6 +19,10 @@
         2.2
       ],
       "form": "trophy",
+      "inscription": [
+        "The Coldwater Cup",
+        "The Golden Goose Cup"
+      ],
       "label": "The Coldwater Cup"
     },
     "spot": {

@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_clerk_03",
+  "lines": [
+    "\"Do you think the Architect does paperwork?\"",
+    "\"It must.\"",
+    "\"Then why do we?\"",
+    "\"Somebody has to make it look like a person did it.\""
+  ],
+  "personality": "clerk",
+  "sort_order": 652
+}

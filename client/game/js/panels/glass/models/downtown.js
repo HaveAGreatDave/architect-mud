@@ -8,12 +8,14 @@ import {
   DECO_LIFT, DECO_PULL, DETAIL_LIFT, FACE_EPS, FLAT_OFF, GL_CELLS, MESH_SINK, SHAPE_SINK,
   TILE_REACH, TR, TUNE, WALL_COL, _bladeBasis, awning, bakeSignText, blinkLight, clamp,
   clipToAperture, decoHidden, dish, doorReveal, draw3DBoxAt, drawArmPart, drawBarrelRoof, drawFacetDrum,
-  drawGargoyle, drawRing, drawSmoke, dutyPhase, emitDecoFill, emitFace, emitFlat, emitLightRunner, faceAway,
+  drawGargoyle, drawRing, drawSmoke, dutyPhase, emitDecoFill, emitFace, emitFlat, emitLightRunner, faceAway, markDoorway,
   emitRecessBay, emitSurfaceText, emitWire, facePals, facePt, faceYaw, flatsDropped, frac, glowPool, helideck,
   hoistLine, keptOnCanvas, latticeTower, litStyle, markHidden, marqueeBand, mast, motionOn, motionPhase,
   moveSeg, movingBox, mullions, nearOrMesh, neonBlade, reserveSignBand, rgb, roofClutter, roofCross, shadeOf,
-  SIGN_PICTO, slideToPlane, wallBadge, wallDisc, wallRose,
+  SIGN_PICTO, SKY_DECK_Z, slideToPlane, wallBadge, wallDisc, wallRose,
 } from '../../windshield.js';
+import { TILE_M } from '../../../../../shared/world-scale.js';
+import { POD, zPod, STEM, RINGS, BOWL, RIM, zBowl0, zBowl1, zRim, CROWN_TH } from './solenne-profile.js';
 import { state } from '../../../state.js';
 import { drawEntrance } from '../entrance.js';
 
@@ -537,7 +539,10 @@ function palaisLights(ctx, cam, F, E, k, out, off, dX, night, alpha) {
 // fh; `z0`/`z1` its window band; `sh` a window's half-width in fh; `skip` faces with no bays.
 const MER_BRONZE = 'ty_meridian_bronze', MER_STONE = 'ty_palais_stone', MER_TRIM = 'ty_archive_col';
 function meridianStage(ctx, cam, F, E, W3, fh, seed, night, alpha, { half, z0, z1, floors, us, piers, sh, skip = [] }) {
-  const yaw = faceYaw(E), dn = night ? clamp(+night, 0, 1) : 0, plane = half * fh;
+  // ⚠ A box never reaches past 0.44 (segFit), so on a wide tile the podium's wall stands at 0.44, not
+  // half·fh: clamp the plane and pull the strips and piers in with it, or the bays float off the wall.
+  const yaw = faceYaw(E), dn = night ? clamp(+night, 0, 1) : 0, plane = Math.min(half * fh, 0.44), sq = plane / (half * fh);
+  fh *= sq;
   const fz = (z1 - z0) / floors, hh = fz * 0.34, w = sh * fh, fr = Math.min(w, hh) * 0.26, sp = fz * 0.14;
   const bronze = rgb([96, 68, 40].map((v) => v * (1 - 0.55 * dn))), gilt = rgb([214, 170, 92].map((v) => v * (1 - 0.4 * dn)));
   const pd = fh * 0.014, pw = fh * 0.017;
@@ -977,8 +982,9 @@ export const DOWNTOWN_ARMS = {
     for (const s of [-1, 1]) glowLine(W3(lxD + s * pyl, fh * 1.24 + 0.003, h * 0.02), W3(lxD + s * pyl, fh * 1.24 + 0.003, h * 0.32));
     glowLine(W3(lxD - fh * 0.28, fh * 1.355, h * 0.333), W3(lxD + fh * 0.28, fh * 1.355, h * 0.333));   // under the canopy's front edge
     const yD = WF + FACE_EPS * 3;
+    markDoorway(F, lxD, yD, dw, dz0, dTop, fh * 1.24);   // the street door (zone_start's street_door) stands here, under ARRIVALS
     flatOut(ctx, cam, W3, [[lxD - dw, yD, dTop], [lxD + dw, yD, dTop], [lxD + dw, yD, dz0], [lxD - dw, yD, dz0]], [0, 1, 0],
-      night ? 'rgb(206,240,232)' : 'rgb(46,64,66)', alpha);
+      night ? 'rgb(240,250,252)' : 'rgb(228,240,244)', alpha);   // the doorway: a white, lit arrivals hall behind the glass
     const head = [STEEL[0] * dusk, STEEL[1] * dusk, STEEL[2] * dusk], t0 = dTop + h * 0.024, t1 = h * 0.325;
     flatOut(ctx, cam, W3, [[lxD - tw, yD + 0.002, t0 - h * 0.006], [lxD + tw, yD + 0.002, t0 - h * 0.006], [lxD + tw, yD + 0.002, dTop], [lxD - tw, yD + 0.002, dTop]], [0, 1, 0], rgb(head), alpha, { lit: 'chrome', albedo: head });
     // ⚠ The lightbox is on the pylons' front plane: on the wall their lit edges cross it (`signfit`).
@@ -1002,7 +1008,8 @@ export const DOWNTOWN_ARMS = {
           .map(([u, z]) => { const [wx, wy] = F(lxD + u, yD + 0.003); return cam.proj(wx, wy, z); });
         if (q.every((p) => p.f > 0.12)) emitSurfaceText(ctx, cam, q, cloneBodyTex(2, night), false, alpha * clamp((open - 0.15) / 0.5, 0, 1), DETAIL_LIFT * 2, false, DETAIL_LIFT * 2.2);
       }
-      const leaf = night ? ['rgb(176,230,220)', 'rgb(112,170,160)'] : ['rgb(150,178,186)', 'rgb(64,86,92)'];
+      // light blue glass (the Vat Hall's own street door is the same, flags.room.street_door.glass)
+      const leaf = night ? ['rgb(200,234,248)', 'rgb(150,204,228)'] : ['rgb(184,222,238)', 'rgb(132,186,212)'];
       const yL = yD + 0.006;
       for (const s of [-1, 1]) {
         const a = lxD + s * dw * open, b = lxD + s * dw, u0 = Math.min(a, b), u1 = Math.max(a, b);
@@ -1078,110 +1085,306 @@ export const DOWNTOWN_ARMS = {
     }
     blinkLight(ctx, cam, dx, dy, topZ + h * 0.56, neonA, now, seed, alpha, 2);      // cyan beacon on the spire
   },
-  solenne(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // Solenne Residences: a warm champagne-glass spire, taller than Halcyon Towers, its rival.
+  // ── SOLENNE RESIDENCES: one tile, a crown wider than it ───────────────────────────────────────────────────
+  //
+  // A champagne flute in glass. A slim stem tapers and turns gently on the way up; at the top it flares out like
+  // the bowl of the glass, untwisting as it widens until it stands square to the street again and 3.6 m out over
+  // every side of the tile, two floors of bowl, and a broad teak terrace on top with the helipad in the middle, the
+  // lift house north of it and a pool along the far parapet. At the foot, a two-storey glass podium and the way in:
+  // a stone portal with a gold sunburst over sliding doors, a canopy with the name in brass, lit pylons, urns and
+  // lamp standards along the kerb.
+  //
+  // ⚠ THE TILE DRAWS FOUR QUARTERS. A square of half `S` turned by less than 45 degrees splits into four squares of
+  // half S/2 turned the same way, so a part wider than draw3DBoxAt's 0.44 clamp (the crown, the terrace) is four
+  // boxes that each stay under it. The sizes are solenne-profile.js's, in tiles, and the storey is the lift's 3.6 m;
+  // nothing reads `fh` or `h`. The rooms no longer fit the tower (the ⚠ in solenne-profile.js).
+  //
+  // ⚠ The pad is on the tile's middle, where an aircraft parks (af_solenne).
+  solenne(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {
     const gold = '255,206,120', warm = '255,232,190';
-    const baseZ = h * 0.30, topZ = h * 3.05, N = 24;         // taller than Halcyon; many thin glass plates
-    const twist = 0.52, fwBase = fh * 0.86;                  // ~30° gentle turn (elegant, not a helix)
-    const segZ = (i) => baseZ + (topZ - baseZ) * (i / N);
-    // Three setback tiers: the footprint steps in at ~1/3 and ~2/3 height, tapering within each tier.
-    const tierW = (t) => t < 0.34 ? fwBase * (1 - 0.10 * (t / 0.34))
-      : t < 0.68 ? fwBase * 0.80 * (1 - 0.12 * ((t - 0.34) / 0.34))
-      : fwBase * 0.62 * (1 - 0.18 * ((t - 0.68) / 0.32));
-    const segW = (i) => tierW(i / N);
-    const segYaw = (i) => twist * (i / N);
-    // The podium and its entrance. ⚠ An arm that draws no ground floor gets the kit's shopfront;
-    // this one draws its own and `KIT_DECLINE` keeps the kit's off.
-    const stone = 'ty_marble_col', bronze = 'ty_marble_bronze';   // pale ashlar reveal, warm bronze metalwork
-    // ⚠ Every part below is measured off `podW`, never `fh`, so it moves with the mass `segFit` trims.
-    const podW = fh * 1.34, eY = faceYaw(E);
-    // ⚠ The canopy sits low to leave the nameplate room: a proud fascia projects bigger than the wall.
-    const doorZ = baseZ * 0.46, headZ = baseZ * 0.58;             // the head of the doors, and the lintel over them
-    draw3DBoxAt(ctx, cam, dx, dy, podW, 0, baseZ, pal, seed + 4, night, alpha, true);            // the glazed podium
-    // Two jambs and a lintel (a single box would wall the doorway). ⚠ Jambs, lintel and doors share one
-    // plane, or the podium wall hides the doors. ⚠ That plane stands off min(podW, 0.44), the wall
-    // `segFit` actually leaves.
-    const entD = 0.02, entY = Math.min(podW, 0.44) + entD;   // the wall as segFit leaves it (half-width capped at 0.44), and the reveal standing off it
-    for (const s of [-1, 1]) { const [jx, jy] = F(s * podW * 0.42, entY);
-      draw3DBoxAt(ctx, cam, jx, jy, podW * 0.045, 0, headZ, stone, seed + 30 + s, night, alpha, true, eY, entD); }
-    { const [lx, ly] = F(0, entY);
-      draw3DBoxAt(ctx, cam, lx, ly, podW * 0.48, doorZ, headZ, stone, seed + 32, night, alpha, true, eY, entD); }
-    // The doors, flat and flush with the jambs. ⚠ Not a box: a box wears its palette's window skin.
-    { const yDr = entY + entD + 0.002, dw = podW * 0.375;
-      const L = (x, z, back = 0) => { const [wx, wy] = F(x, yDr - back); return [wx, wy, z]; };
+    const stone = 'ty_marble_col', bronze = 'ty_marble_bronze';
+    const M = 1 / TILE_M, ST = 3.6 * M, SEED = 7100;   // a metre and a storey in tiles; one seed so the quarters match
+    // One tile since 2026-11-16: the tower stands on its tile's centre and the tile draws all four quarters, so a
+    // square wider than the 0.44 clamp (the crown, the terrace) is four boxes that each stay under it.
+    const qx = 0, qy = 0;
+    let kx = 1, ky = 1;                                // the quarter being drawn
+    const eY0 = faceYaw(E);
+    // `rot` turns everything from the bowl up with the crown's twist (CROWN_TH); eY carries it for the boxes
+    let rot = 0, eY = eY0;
+    // a point in the block's own frame (centred on the block, turned by `th` and `rot`), in this tile's model frame
+    const B = (bx, by, th = 0) => { const c = Math.cos(th + rot), s = Math.sin(th + rot); return [qx + bx * c - by * s, qy + bx * s + by * c]; };
+    // this tile's quarter of a square of half `S` turned by `th`
+    const quad = (S, z0, z1, p, k, th = 0, roof = true) => {
+      const [lx, ly] = B(kx * S / 2, ky * S / 2, th), [wx, wy] = F(lx, ly);
+      draw3DBoxAt(ctx, cam, wx, wy, S / 2, z0, z1, p, SEED + k, night, alpha, roof, eY + th, S / 2);
+    };
+    // the outer corner of this quarter, `out` beyond it along the diagonal
+    const corner = (S, th = 0, out = 0) => B(kx * (S + out), ky * (S + out), th);
+    // a thin box along this quarter's two outer edges of a square of half `S`: the balustrades
+    const rail = (S, z0, z1, p, k) => {
+      const t = 0.004;
+      { const [lx, ly] = B(kx * (S - t), ky * S / 2), [wx, wy] = F(lx, ly);
+        draw3DBoxAt(ctx, cam, wx, wy, t, z0, z1, p, SEED + k, night, alpha, true, eY, S / 2); }
+      { const [lx, ly] = B(kx * S / 2, ky * (S - t)), [wx, wy] = F(lx, ly);
+        draw3DBoxAt(ctx, cam, wx, wy, S / 2, z0, z1, p, SEED + k + 1, night, alpha, true, eY, t); }
+    };
+
+    // ── the podium: two storeys of glass over all four tiles, stone at the corners, a bronze cornice ──
+    // ⚠ FWD: the two street tiles' podium comes FWD further forward, so the lobby's front is on the pavement with
+    // no lawn before it. A quarter is already at the 0.44 clamp, so it's a box of its own, not a bigger quad.
+    const FWD = 0;                                      // one tile: the portal's front (POD + 0.03) is at EDGE, where the street door stands
+    const zLift = zRim + 1.15 * ST, LY = -0.33, LHX = 0.10, LHY = 0.055;   // the lift house, north of the pad
+    for (const [KX, KY] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+    kx = KX; ky = KY; rot = 0; eY = eY0;
+    quad(POD, 0, zPod, pal, 1, 0, false);
+    if (FWD && ky > 0) { const [lx, ly] = B(kx * POD / 2, POD + FWD / 2), [wx, wy] = F(lx, ly);
+      draw3DBoxAt(ctx, cam, wx, wy, POD / 2, 0, zPod, pal, SEED + 4, night, alpha, false, eY, FWD / 2);
+      draw3DBoxAt(ctx, cam, wx, wy, POD / 2, zPod, zPod + 0.025, bronze, SEED + 5, night, alpha, true, eY, FWD / 2 + 0.006); }
+    // the corner stones stand a little proud of both faces: flush, they z-fought the glass and flickered
+    { const out = ky > 0 ? FWD : 0, [lx, ly] = B(kx * (POD - 0.027), ky * (POD + out - 0.027)), [wx, wy] = F(lx, ly);
+      draw3DBoxAt(ctx, cam, wx, wy, 0.03, 0, zPod, stone, SEED + 2, night, alpha, true, eY, 0.03); }
+    quad(POD, zPod, zPod + 0.025, bronze, 3);
+
+    // ── the stem: an hourglass (solenne-profile.js), a storey a segment, narrowing and turning to the waist at the
+    // Aerie's floor and widening and turning square again to the flare, a gold runner up each corner ──
+    const N = STEM.length;
+    const segZ = (i) => (i < N ? STEM[i].z0 : STEM[N - 1].z1);
+    const segW = (i) => STEM[i].S, segYaw = (i) => (i < N ? STEM[i].th : 0);
+    for (let i = 0; i < N; i++) {
+      const narrower = i < N - 1 && segW(i + 1) < segW(i) - 1e-6;
+      quad(segW(i), segZ(i), segZ(i + 1), pal, 10 + i, segYaw(i), narrower);
+      // a bronze band at each step: round the top of a segment the next one is narrower than, round the foot of
+      // one wider than the last
+      if (narrower && i < N - 1) quad(segW(i) + 0.006, segZ(i + 1) - 0.012, segZ(i + 1), bronze, 60 + i, segYaw(i));
+      else if (i && segW(i) > segW(i - 1) + 1e-6) quad(segW(i) + 0.006, segZ(i), segZ(i) + 0.012, bronze, 60 + i, segYaw(i));
+    }
+    { const pts = [];
+      for (let i = 0; i < N; i++) { const [lx, ly] = corner(segW(i), segYaw(i), 0.004), [wx, wy] = F(lx, ly); pts.push([wx, wy, segZ(i)]); }
+      // on up the flare, one knot a ring, and up the bowl's corner: one unbroken line from the podium to the rim
+      { const [lx, ly] = corner(segW(N - 1), STEM[N - 1].th, 0.004), [wx, wy] = F(lx, ly); pts.push([wx, wy, segZ(N)]); }
+      for (const r of RINGS) { const [lx, ly] = corner(r.S, r.th, 0.004), [wx, wy] = F(lx, ly); pts.push([wx, wy, r.z1]); }
+      { const [lx, ly] = corner(BOWL, CROWN_TH, 0.004), [wx, wy] = F(lx, ly); pts.push([wx, wy, zBowl1]); }
+      // ⚠ A FIFTH OF DECO_PULL: the bowl's corner stands out over the tile next door, so the full pull draws it through
+      // that building's wall (`glneighbour`); 0.01 is still a tie-breaker against the bowl it lies on (`glself`).
+      emitLightRunner(ctx, cam, pts, `rgba(${gold},0.9)`, alpha * (night ? 0.92 : 0.5), night, gold, undefined, DECO_PULL * 0.2); }
+
+    // ── the flare: four corbelled rings, each wider than the last, the bowl, and the rim ──
+    RINGS.forEach(({ z0, z1, S, th }, j) => quad(S, z0, z1, pal, 110 + j, th, j === RINGS.length - 1));   // one glass, so the flare reads as one smooth shape
+    rot = CROWN_TH; eY = eY0 + rot;   // from here up everything stands on the crown's twist
+    quad(BOWL, zBowl0, zBowl1, pal, 70);                      // floors 44 and 45: the penthouse and the pad's hall
+    quad(RIM, zBowl1, zRim, stone, 72);                           // the rim: a stone terrace standing out over the bowl
+    rail(RIM, zBowl1 - 0.012, zRim + 0.006, bronze, 73);            // its bronze cornice
+    rail(RIM - 0.008, zRim, zRim + 0.06, pal, 75);                  // and a glass balustrade round it
+    // ── the railing: bronze posts through the glass every 3.6 m, a bronze handrail along the top, a travertine
+    // kerb along the foot, and a lantern on every other post ──
+    const RP = RIM - 0.008, zHand = zRim + 0.066, POST = 3.6 * M, lanterns = [];
+    rail(RP + 0.002, zRim + 0.06, zHand, bronze, 120);               // the handrail
+    rail(RP + 0.003, zRim, zRim + 0.008, 'ty_solenne_stone', 122);   // the kerb
+    { const n = Math.max(2, Math.round(RP / POST));
+      for (let i = 0; i <= n; i++) {
+        const t = i / n * RP;
+        for (const [e, px, py] of [[0, kx * RP, ky * t], [1, kx * t, ky * RP]]) {
+          if (i === n && e) continue;                                 // the corner post once
+          if (i === 0 && (e ? kx < 0 : ky < 0)) continue;             // the mid-edge post once, not by both quarters
+          const [lx, ly] = B(px, py), [wx, wy] = F(lx, ly);
+          draw3DBoxAt(ctx, cam, wx, wy, 0.0045, zRim, zHand + 0.006, bronze, SEED + 124, night, alpha, true, eY, 0.0045);
+          if (i % 2 === 1) { draw3DBoxAt(ctx, cam, wx, wy, 0.006, zHand + 0.006, zHand + 0.02, 'ty_solenne_stone', SEED + 125, night, alpha, true, eY, 0.006);
+            lanterns.push([wx, wy]); }
+        }
+      } }
+    // brass telescopes on the two outer edges, looking out over the city
+    for (const [px, py] of [[kx * (RP - 0.03), ky * 0.12], [kx * 0.12, ky * (RP - 0.03)]]) {
+      if (ky < 0 && py !== ky * 0.12) continue;                         // none over the pool
+      const [lx, ly] = B(px, py), [wx, wy] = F(lx, ly);
+      draw3DBoxAt(ctx, cam, wx, wy, 0.003, zRim, zRim + 0.045, bronze, SEED + 126, night, alpha, true, eY, 0.003);
+      draw3DBoxAt(ctx, cam, wx, wy, 0.012, zRim + 0.045, zRim + 0.055, bronze, SEED + 127, night, alpha, true, eY + (px === kx * (RP - 0.03) ? 0 : Math.PI / 2), 0.005);
+    }
+    // ── THE TERRACE IN THE CLOUD. Light only, never geometry: glows aren't captured, so they follow the live deck
+    // (SKY_DECK_Z) and nothing baked knows the weather. Above the deck the roof stands on a sea of cloud with the
+    // lanterns lit and a pale halo over it; in the deck it's a lit place inside the fog, mist drifting over the boards.
+    { const dz = SKY_DECK_Z, band = 4 * ST;
+      const veil = dz > 0 ? clamp(1 - Math.abs(dz - zRim) / band, 0, 1) : 0;       // inside the cloud
+      const above = dz > 0 && dz < zRim ? clamp((zRim - dz) / band, 0, 1) * (1 - veil * 0.5) : 0;   // standing on it
+      const myst = Math.max(veil, above), lit = night ? 1 : myst * 0.8;
+      const breathe = (p) => 0.8 + 0.2 * Math.sin(now * 0.0011 + p);
+      lanterns.forEach(([wx, wy], i) => {
+        if (night || myst > 0.05) glowPool(ctx, cam, wx, wy, zHand + 0.014, '255,214,150', 5 + myst * 6, alpha * lit * (0.55 + myst * 0.35) * breathe(i * 1.3));
+      });
+      if (myst > 0.05) {
+        // mist drifting across the deck, pale and slow, a few banks per quarter
+        for (let j = 0; j < 3; j++) {
+          const ph = now * 0.00004 + j * 2.1 + (kx + 2 * ky) * 0.7;
+          const bx = kx * (0.15 + 0.4 * (0.5 + 0.5 * Math.sin(ph))), by = ky * (0.15 + 0.4 * (0.5 + 0.5 * Math.cos(ph * 1.3)));
+          const [lx, ly] = B(bx, by), [wx, wy] = F(lx, ly);
+          glowPool(ctx, cam, wx, wy, zRim + 0.01, night ? '170,190,230' : '236,240,248', 26, alpha * veil * 0.3);
+        }
+        // the halo over the terrace and the cloud sea below lit gold round the rim (dawn-gold by day, lantern-gold at night)
+        const [cx, cy] = F(...B(kx * RIM * 0.6, ky * RIM * 0.6));
+        glowPool(ctx, cam, cx, cy, zRim + 0.25, night ? '210,200,255' : '255,236,200', 34, alpha * myst * 0.18 * breathe(kx + ky));
+        if (above > 0.05) { const [ex, ey] = F(...corner(RIM, 0, 0.12));
+          glowPool(ctx, cam, ex, ey, dz + 0.01, night ? '255,200,140' : '255,246,220', 40, alpha * above * 0.22); }
+      }
+    }
+    // a stone pinnacle on each corner of the rim, bronze-capped, with a lamp
+    { const [lx, ly] = corner(RIM, 0, -0.03), [wx, wy] = F(lx, ly);
+      draw3DBoxAt(ctx, cam, wx, wy, 0.024, zRim, zRim + 0.8 * ST, stone, SEED + 76, night, alpha, true, eY, 0.024);
+      draw3DBoxAt(ctx, cam, wx, wy, 0.016, zRim + 0.8 * ST, zRim + 1.05 * ST, bronze, SEED + 77, night, alpha, true, eY, 0.016);
+      glowPool(ctx, cam, wx, wy, zRim + 0.9 * ST, warm, 6, alpha * (night ? 0.75 : 0.25)); }
+
+    // ── the roof terrace: the whole rim decked in teak inside a travertine border, the lift house on the block's
+    // centre where the lantern spire used to stand, and the city all round past the glass balustrade ──
+    quad(RIM - 0.008, zRim, zRim + 0.003, 'ty_solenne_stone', 78);            // the travertine border
+    quad(RIM - 0.05, zRim + 0.003, zRim + 0.005, 'ty_solenne_deck', 79);      // the teak deck inside it
+    // loungers along each quarter's outer rail, looking out; none in the pool on the north rail
+    for (const t of [0.3, 0.5]) {
+      const [lx, ly] = B(kx * (RIM - 0.07), ky * t), [wx, wy] = F(lx, ly);
+      draw3DBoxAt(ctx, cam, wx, wy, 0.022, zRim + 0.005, zRim + 0.014, 'ty_solenne_deck', SEED + 96, night, alpha, true, eY, 0.04);
+      if (ky < 0) continue;
+      const [mx, my] = B(kx * t, ky * (RIM - 0.07)), [vx, vy] = F(mx, my);
+      draw3DBoxAt(ctx, cam, vx, vy, 0.04, zRim + 0.005, zRim + 0.014, 'ty_solenne_deck', SEED + 97, night, alpha, true, eY, 0.022);
+    }
+    // tall planters at the outer corner of each quarter, a small tree in each, uplit
+    { const [lx, ly] = corner(RIM, 0, -0.11), [wx, wy] = F(lx, ly);
+      draw3DBoxAt(ctx, cam, wx, wy, 0.035, zRim + 0.005, zRim + 0.03, 'ty_solenne_stone', SEED + 98, night, alpha, true, eY, 0.035);
+      draw3DBoxAt(ctx, cam, wx, wy, 0.03, zRim + 0.03, zRim + 0.09, 'ty_solenne_green', SEED + 99, night, alpha, true, eY + 0.4, 0.03);
+      if (night) glowPool(ctx, cam, wx, wy, zRim + 0.03, '180,230,170', 6, alpha * 0.4); }
+    // ── the rooftop lounge: a glass pavilion under a bronze roof on the north-east quarter ──
+    if (kx > 0 && ky < 0) {
+      const [lx, ly] = B(0.37, -0.31), [wx, wy] = F(lx, ly);
+      draw3DBoxAt(ctx, cam, wx, wy, 0.08, zRim, zRim + 0.9 * ST, pal, SEED + 93, night, alpha, false, eY, 0.06);
+      draw3DBoxAt(ctx, cam, wx, wy, 0.095, zRim + 0.9 * ST, zRim + 0.9 * ST + 0.02, bronze, SEED + 94, night, alpha, true, eY, 0.075);
+      if (night) glowPool(ctx, cam, wx, wy, zRim + 0.45 * ST, warm, 12, alpha * 0.5);
+    }
+    // ── a garden of stone planters on the south-west quarter, uplit ──
+    if (kx < 0 && ky > 0) {
+      for (const [bx, by] of [[-0.31, 0.33], [-0.43, 0.33], [-0.31, 0.45], [-0.43, 0.45]]) {
+        const [lx, ly] = B(bx, by), [wx, wy] = F(lx, ly);
+        draw3DBoxAt(ctx, cam, wx, wy, 0.04, zRim, zRim + 0.03, stone, SEED + 95, night, alpha, true, eY, 0.05);
+        if (night) glowPool(ctx, cam, wx, wy, zRim + 0.04, '180,230,170', 6, alpha * 0.4);
+      }
+    }
+    // ── and the pool along the north parapet, on the two north quarters ──
+    if (ky < 0) {
+      const y0 = -RIM + 0.03, y1 = -RIM + 0.13, xa = 0, xb = kx * (RIM - 0.08), zw = zRim + 0.004;
+      const P = (bx, by) => { const [lx, ly] = B(bx, by); return W3(lx, ly, zw); };
+      emitFlat(ctx, cam, [P(xa, y0), P(xb, y0), P(xb, y1), P(xa, y1)], night ? 'rgb(40,120,160)' : 'rgb(96,176,204)', alpha, { lift: DETAIL_LIFT });
+      if (night) { const [lx, ly] = B((xa + xb) / 2, (y0 + y1) / 2), [px, py] = F(lx, ly); glowPool(ctx, cam, px, py, zw, '120,210,255', 9, alpha * 0.45); }
+    }
+
+    }   // the quarters
+
+    // ════ once for the tower: the lift house, the pad, the garage terminal, the way in ════
+    // the lift house, on the terrace's north side: glass in bronze frames, the machine room on its roof
+    rot = CROWN_TH; eY = eY0 + rot;
+    { const [mx, my] = F(...B(0, LY));
+      draw3DBoxAt(ctx, cam, mx, my, LHX, zRim, zLift, pal, SEED + 80, night, alpha, true, eY, LHY);
+      draw3DBoxAt(ctx, cam, mx, my, LHX + 0.012, zLift, zLift + 0.02, bronze, SEED + 81, night, alpha, true, eY, LHY + 0.012);
+      draw3DBoxAt(ctx, cam, mx, my, LHX - 0.03, zLift + 0.02, zLift + 0.05, 'ty_solenne_stone', SEED + 82, night, alpha, true, eY, LHY - 0.02);
+      for (const s of [-1, 1]) { const [rwx, rwy] = F(...B(s * (LHX + 0.003), LY + LHY + 0.003));
+        emitLightRunner(ctx, cam, [[rwx, rwy, zRim + 0.005], [rwx, rwy, zLift]], `rgba(${gold},0.9)`, alpha * (night ? 0.95 : 0.5), night, gold, undefined, DECO_PULL); }
+      blinkLight(ctx, cam, mx, my, zLift + 0.06, '255,80,60', now, seed, alpha, 2);
+      // the lift's doors, on the south face toward the pad: lit glass in a bronze surround
+      const yD = LY + LHY + 0.001, L3 = (x, z) => { const [wx, wy] = F(...B(x, yD)); return [wx, wy, z]; };
+      emitFlat(ctx, cam, [L3(-0.04, zRim + 0.9 * ST), L3(0.04, zRim + 0.9 * ST), L3(0.04, zRim + 0.005), L3(-0.04, zRim + 0.005)], 'rgb(120,88,44)', alpha, { lift: DETAIL_LIFT });
+      emitFlat(ctx, cam, [L3(-0.032, zRim + 0.85 * ST), L3(0.032, zRim + 0.85 * ST), L3(0.032, zRim + 0.008), L3(-0.032, zRim + 0.008)], night ? 'rgba(255,220,160,0.97)' : 'rgba(40,52,62,0.95)', alpha, { lift: DETAIL_LIFT * 2 });
+      if (night) glowPool(ctx, cam, mx, my, zRim + 0.02, gold, 14, alpha * 0.4); }
+    // The helipad, on the rim over this tile's middle where an aircraft parks (af_solenne). ⚠ The deck is a captured
+    // box, so the sim lands on the pad you see, and nothing but its own lights stands inside the touchdown circle.
+    // An octagon (two squares, one turned 45 degrees) on a darker plinth, cyan light lines round its edge.
+    { const padH = 0.24, zd = zRim + 0.02, zb = zRim + 0.008, cyan = '110,230,255';
+      for (const t of [0, Math.PI / 4]) {
+        draw3DBoxAt(ctx, cam, dx, dy, padH * 0.97, zRim, zb, 'ty_solenne_stone', SEED + 90, night, alpha, true, eY + t, padH * 0.97);
+        draw3DBoxAt(ctx, cam, dx, dy, padH * 0.92, zb, zd, bronze, SEED + 91, night, alpha, true, eY + t, padH * 0.92);
+      }
+      { const R = padH * 0.92 / Math.cos(Math.PI / 8), pts = [];
+        for (let k = 0; k <= 8; k++) { const ang = Math.PI / 8 + k * Math.PI / 4, [wx, wy] = F(...B(Math.cos(ang) * R * 1.004, Math.sin(ang) * R * 1.004)); pts.push([wx, wy, zd - 0.002]); }
+        emitLightRunner(ctx, cam, pts, `rgba(${cyan},0.9)`, alpha * (night ? 0.95 : 0.55), night, cyan, undefined, DECO_PULL);
+        if (night) glowPool(ctx, cam, dx, dy, zd, cyan, 18, alpha * 0.25); }
+      helideck(ctx, cam, dx, dy, zd + 0.002, 0.22, cyan, '236,246,255', night, alpha, now, seed, eY, true);
+      // the garage terminal (furn_solenne_sky_garage) on a bronze post at the pad's inner edge
+      const [tx, ty] = F(...B(-0.30, -0.10));
+      draw3DBoxAt(ctx, cam, tx, ty, 0.008, zRim, zRim + 0.4 * ST, bronze, SEED + 92, night, alpha, true, eY, 0.008);
+      draw3DBoxAt(ctx, cam, tx, ty, 0.014, zRim + 0.4 * ST, zRim + 0.55 * ST, bronze, SEED + 93, night, alpha, true, eY, 0.006);
+      glowPool(ctx, cam, tx, ty, zRim + 0.48 * ST, '120,210,255', 4, alpha * (night ? 0.7 : 0.3)); }
+
+    rot = 0; eY = eY0;
+    // The portal: a stone bay standing out of the podium, two storeys high, the doorway in its face, on the tile's
+    // middle where the lobby's street door stands.
+    const PX = qx;
+    const face = qy + POD + FWD, front = face + 0.03;            // the podium's front and the portal's
+    const DH = 1.6 * M, JW = 0.025, JD = 0.012;            // half the opening, a jamb's half-width, its half-depth
+    const headZ = 3.4 * M, lintZ = headZ + 0.03, fanZ = 0.325, canZ0 = 0.33, canZ1 = 0.372;
+    { const [bx, by] = F(PX, (face - 0.01 + front) / 2);
+      draw3DBoxAt(ctx, cam, bx, by, 0.20, 0, zPod - 0.003, stone, SEED + 100, night, alpha, true, eY, (front - face + 0.01) / 2); }
+    // the jambs and the lintel, on the one plane just proud of the portal's face (glass/doorway-measure.js)
+    const jy = front + JD;
+    for (const s of [-1, 1]) { const [jx, jyw] = F(PX + s * (DH + JW), jy);
+      draw3DBoxAt(ctx, cam, jx, jyw, JW, 0, lintZ, bronze, SEED + 101 + s, night, alpha, true, eY, JD); }
+    { const [lx, ly] = F(PX, jy); draw3DBoxAt(ctx, cam, lx, ly, DH + 2 * JW, headZ, lintZ, bronze, SEED + 103, night, alpha, true, eY, JD); }
+    // the doorway: the lobby seen through it, one pane in a bronze frame; the leaves are glass/street-doors.js's
+    { const yDr = jy + JD + 0.002;
+      // the opening, from its frame panel to the jambs' face, for the doors that move in it (windshield.js doorBayAt)
+      markDoorway(F, PX, yDr - 0.003, DH, 0, headZ, yDr);
+      const L = (x, z, back = 0) => { const [wx, wy] = F(PX + x, yDr - back); return [wx, wy, z]; };
       const Pq = (x0, x1, z0, z1, fill, back) => emitFlat(ctx, cam, [L(x0, z1, back), L(x1, z1, back), L(x1, z0, back), L(x0, z0, back)], fill, alpha, { lift: DETAIL_LIFT });
-      const glass = night ? 'rgba(255,214,150,0.97)' : 'rgba(70,86,96,0.97)', frame = 'rgb(78,58,34)';
-      Pq(-dw, dw, 0, doorZ, frame, 0.003);                                                     // the bronze frame, a hair behind the glass
-      // ⚠ THE DOORWAY, NOT THE DOORS. The building has a Stage, so its leaves move (glass/street-doors.js draws them,
-      // a hair in front of this) and what's here is the lobby seen through them: one pane, with no meeting line.
-      Pq(-(dw - podW * 0.02), dw - podW * 0.02, doorZ * 0.04, doorZ * 0.94, night ? glass : 'rgba(34,42,48,0.97)', 0); }
-    // The canopy on two columns. `awning` places by the front edge, so the tile fit trims its back.
-    awning(ctx, cam, dx, dy, E, podW * 0.62, podW * 1.02, headZ, headZ + h * 0.022, bronze, seed + 34, night, alpha, podW * 0.30);
-    for (const s of [-1, 1]) { const [cx2, cy2] = F(s * podW * 0.56, podW * 0.92);
-      draw3DBoxAt(ctx, cam, cx2, cy2, podW * 0.026, 0, headZ, bronze, seed + 35 + s, night, alpha, false, eY, podW * 0.026);
-      glowPool(ctx, cam, cx2, cy2, headZ * 0.94, warm, 5, alpha * (night ? 0.52 : 0.22)); }       // a lamp on each column
-    // The building signs itself on the podium fascia, which keeps the kit's board and cables off it;
-    // see docs/reference/world-rendering.md#an-arm-that-signs-itself.
-    // ⚠ The plate's plane is a constant just inside the plot line, so `segFit` can't move it from under the words.
-    const sgnY = 0.485, sgnZ0 = baseZ * 0.68, sgnZ1 = baseZ * 0.97, pw = Math.min(podW * 0.66, 0.42);
-    // ⚠ The plate is flat: a box would wear its palette's window skin over the lettering.
-    { const L = (x, z) => { const [wx, wy] = F(x, sgnY); return [wx, wy, z]; };
-      emitFlat(ctx, cam, [L(-pw, sgnZ1), L(pw, sgnZ1), L(pw, sgnZ0), L(-pw, sgnZ0)], 'rgb(30,24,18)', alpha, { lift: DETAIL_LIFT }); }
-    reserveSignBand(pw, (sgnZ0 + sgnZ1) * 0.5);
+      Pq(-DH, DH, 0, headZ, 'rgb(78,58,34)', 0.003);
+      Pq(-(DH - 0.004), DH - 0.004, headZ * 0.03, headZ * 0.97, night ? 'rgba(255,214,150,0.97)' : 'rgba(34,42,48,0.97)', 0); }
+    // the sunburst over the doors: dark glass between the jambs, and gold rays fanned from the lintel's middle
+    // ⚠ the glass and the rays stand real steps proud of the portal and each other: on lift alone they flickered
+    { const yF = front + 0.006, top = fanZ, base = lintZ, half = DH + 2 * JW;
+      const L = (x, z, out = 0) => { const [wx, wy] = F(PX + x, yF + out); return [wx, wy, z]; };
+      emitFlat(ctx, cam, [L(-half, top), L(half, top), L(half, base), L(-half, base)], night ? 'rgb(120,88,40)' : 'rgb(30,26,22)', alpha, { lift: DETAIL_LIFT });
+      const rays = 11, r = Math.min(half, top - base);
+      for (let i = 0; i < rays; i++) {
+        const a0 = Math.PI * (i + 0.18) / rays, a1 = Math.PI * (i + 0.82) / rays;
+        emitFlat(ctx, cam, [L(0, base + 0.004, 0.005), L(Math.cos(a0) * r, base + Math.sin(a0) * r * 0.98, 0.005), L(Math.cos(a1) * r, base + Math.sin(a1) * r * 0.98, 0.005)], night ? `rgb(${gold})` : 'rgb(196,156,84)', alpha, { lift: DETAIL_LIFT * 2 });
+      } }
+    // tall glazed bays either side of the portal, bronze-framed, the lobby lit behind them
+    for (const s of [-1, 1]) {
+      const yB = face + 0.002, x0 = s * 0.215, x1 = s * 0.33;
+      const L = (x, z) => { const [wx, wy] = F(PX + x, yB); return [wx, wy, z]; };
+      emitFlat(ctx, cam, [L(x0, zPod * 0.9), L(x1, zPod * 0.9), L(x1, 0.02), L(x0, 0.02)], 'rgb(78,58,34)', alpha, { lift: DETAIL_LIFT });
+      emitFlat(ctx, cam, [L(x0 + s * 0.006, zPod * 0.88), L(x1 - s * 0.006, zPod * 0.88), L(x1 - s * 0.006, 0.026), L(x0 + s * 0.006, 0.026)], night ? 'rgba(255,214,150,0.92)' : 'rgba(40,52,62,0.95)', alpha, { lift: DETAIL_LIFT * 2 });
+      for (let k = 1; k < 4; k++) { const z = 0.02 + (zPod * 0.88 - 0.02) * k / 4;   // the glazing bars
+        emitFlat(ctx, cam, [L(x0, z + 0.003), L(x1, z + 0.003), L(x1, z - 0.003), L(x0, z - 0.003)], 'rgb(150,112,58)', alpha, { lift: DETAIL_LIFT * 3 }); }
+    }
+    // the canopy, cantilevered out over the pavement, its name in brass on the fascia; lit underneath
+    const LIP = 0.56;
+    awning(ctx, cam, ...F(PX, 0), E, 0.30, LIP, canZ0, canZ1, bronze, SEED + 104, night, alpha, LIP - front);
+    for (const cx of [-0.22, 0, 0.22]) { const [cx2, cy2] = F(PX + cx, (front + LIP) / 2); glowPool(ctx, cam, cx2, cy2, canZ0 * 0.97, warm, 5, alpha * (night ? 0.55 : 0.2)); }
+    const sgnY = LIP + 0.002;
+    reserveSignBand(0.17, (canZ0 + canZ1) * 0.5);
     if (frontVis) {
       // ⚠ Always bake, even without a name: the bake is what sets `armSignsItself` during capture.
-      // The first word large, the rest under it (`couture`).
       const words = ((name || '').trim() || 'Solenne Residences').split(/\s+/);
-      const nhw = pw * 0.90, iz0 = sgnZ0 + (sgnZ1 - sgnZ0) * 0.10, iz1 = sgnZ1 - (sgnZ1 - sgnZ0) * 0.10;
-      const quad = (ox, oz) => { const y = sgnY + (ox ? 0.002 : 0.004), sx = ox * podW * 0.004, sz = oz * (sgnZ1 - sgnZ0) * 0.02;
-        const [lx, ly] = F(-nhw + sx, y), [rx, ry] = F(nhw + sx, y);
+      const nhw = 0.16, iz0 = canZ0 + (canZ1 - canZ0) * 0.12, iz1 = canZ1 - (canZ1 - canZ0) * 0.12;
+      const quadAt = (ox, oz) => { const y = sgnY + (ox ? 0.002 : 0.004), sx2 = ox * 0.0008, sz = oz * (canZ1 - canZ0) * 0.02;
+        const [lx, ly] = F(PX - nhw + sx2, y), [rx, ry] = F(PX + nhw + sx2, y);
         return [cam.proj(lx, ly, iz1 + sz), cam.proj(rx, ry, iz1 + sz), cam.proj(rx, ry, iz0 + sz), cam.proj(lx, ly, iz0 + sz)]; };
-      embossText(ctx, cam, quad, words[0].toUpperCase(), '#f3dcae', '#0a0704', night, alpha,
+      embossText(ctx, cam, quadAt, words[0].toUpperCase(), '#f3dcae', '#0a0704', night, alpha,
         { font: 'couture', sub: words.slice(1).join(' ').toUpperCase() || undefined });
     }
-    haloRim(ctx, cam, F, sgnY - 0.012, pw, sgnZ0, sgnZ1, (sgnZ1 - sgnZ0) * 0.05, night ? `rgba(${gold},0.95)` : 'rgba(24,18,10,0.7)', alpha);
-    if (night) { const [sx2, sy2] = F(0, sgnY - 0.02); glowPool(ctx, cam, sx2, sy2, (sgnZ0 + sgnZ1) * 0.5, gold, 16, alpha * 0.45, { add: true }); }   // the halo behind the plate
-    // The lobby, lit by day too. ⚠ Glows are depth-tested, so they sit on the glass at the plot line,
-    // never inside the podium.
-    { const [wx, wy] = F(0, 0.50);
-      glowPool(ctx, cam, wx, wy, doorZ * 0.82, warm, 22, alpha * (night ? 0.40 : 0.13));
-      glowPool(ctx, cam, wx, wy, doorZ * 0.24, warm, 18, alpha * (night ? 0.34 : 0.10)); }        // the lobby, spilling out across the pavement
-    if (night) { const [ux, uy] = F(0, 0.50); glowPool(ctx, cam, ux, uy, headZ * 1.02, gold, 10, alpha * 0.34); }         // downlights in the canopy soffit
-    // The shaft. ⚠ Every plate that steps in caps, or the ring it leaves exposed is a hole.
-    for (let i = 0; i < N; i++) {
-      const capped = i === N - 1 || segW(i + 1) < segW(i) - 1e-6;
-      draw3DBoxAt(ctx, cam, dx, dy, segW(i), segZ(i), segZ(i + 1), pal, seed + i, night, alpha, capped, segYaw(i));
-    }
-    for (const dir of [[-1, -1], [1, 1]]) {
-      const pts = [];
-      for (let i = 0; i <= N; i++) {
-        const w = segW(Math.min(i, N - 1)), ya = segYaw(i), cw = Math.cos(ya), sw = Math.sin(ya), lx = dir[0] * w, ly = dir[1] * w;
-        pts.push([dx + lx * cw - ly * sw, dy + lx * sw + ly * cw, segZ(i)]);
-      }
-      if (pts.length > 1) emitLightRunner(ctx, cam, pts, `rgba(${gold},0.9)`, alpha * (night ? 0.92 : 0.5), night, gold, undefined, DECO_PULL);   // DECO_PULL: see Halcyon's runners
-    }
-    // The sky-deck pool band.
-    { const z = segZ(N) - h * 0.06, r = segW(N - 1) * 1.08;
-      drawRing(ctx, cam, dx, dy, z, r, 16, `rgba(${warm},${night ? 0.95 : 0.52})`, 2.2, alpha);
-      if (night) glowPool(ctx, cam, dx, dy, z, gold, 15, alpha * 0.3); }
-    // The lantern crown and helideck (af_solenne). ⚠ Never a mast over the touchdown circle.
-    draw3DBoxAt(ctx, cam, dx, dy, segW(N) * 0.86, topZ, topZ + h * 0.26, pal, seed + 20, night, alpha, true, twist);
-    { const deckZ0 = topZ + h * 0.26, deckZ1 = deckZ0 + h * 0.04, padR = segW(N) * 1.15;
-      // The deck is a captured box, so the sim lands on the pad you see.
-      draw3DBoxAt(ctx, cam, dx, dy, padR, deckZ0, deckZ1, pal, seed + 21, night, alpha, true, twist);
-      helideck(ctx, cam, dx, dy, deckZ1 + 0.002, padR * 0.86, gold, warm, night, alpha, now, seed);
-      // The stair head. ⚠ In the rear corner, the only ground outside the touchdown circle (0.86).
-      const sw = padR * 0.12, sa = padR * 0.8, sh = h * 0.045, ct = Math.cos(twist), st2 = Math.sin(twist);
-      const corners = [[sa, sa], [sa, -sa], [-sa, sa], [-sa, -sa]].map(([lx, ly]) => [lx * ct - ly * st2, lx * st2 + ly * ct]);
-      const [cxw, cyw] = corners.reduce((b, c) => (c[0] * E[0] + c[1] * E[1] < b[0] * E[0] + b[1] * E[1] ? c : b));
-      draw3DBoxAt(ctx, cam, dx + cxw, dy + cyw, sw, deckZ1, deckZ1 + sh, stone, seed + 23, night, alpha, true, twist);
-      const inX = -Math.sign(cxw * ct + cyw * st2), dxw = inX * (sw + 0.002) * ct, dyw = inX * (sw + 0.002) * st2;
-      draw3DBoxAt(ctx, cam, dx + cxw + dxw, dy + cyw + dyw, 0.002, deckZ1, deckZ1 + sh * 0.74, bronze, seed + 24, night, alpha, false, twist, sw * 0.42);
-      if (night) glowPool(ctx, cam, dx + cxw + dxw, dy + cyw + dyw, deckZ1 + sh * 0.82, warm, 5, alpha * 0.5); }
-    if (night) {
-      glowPool(ctx, cam, dx, dy, baseZ, warm, 22, alpha * 0.3);                     // warm lobby wash
-      glowPool(ctx, cam, dx, dy, baseZ + (topZ - baseZ) * 0.5, gold, 13, alpha * 0.2);  // mid sky-lobby glow
-      glowPool(ctx, cam, dx, dy, topZ + h * 0.1, gold, 16, alpha * 0.32);            // crown halo
-    }
+    // the pylons either side of the portal, stone with a lantern of bronze and glass on each
+    for (const s of [-1, 1]) { const [px, py] = F(PX + s * 0.205, front - 0.014);   // a little proud of the portal: flush, it flickered
+      draw3DBoxAt(ctx, cam, px, py, 0.02, 0, zPod + 0.07, stone, SEED + 107 + s, night, alpha, true, eY, 0.02);
+      draw3DBoxAt(ctx, cam, px, py, 0.016, zPod + 0.07, zPod + 0.11, bronze, SEED + 109 + s, night, alpha, true, eY, 0.016);
+      glowPool(ctx, cam, px, py, zPod + 0.09, warm, 7, alpha * (night ? 0.8 : 0.3)); }
+    // stone urns at the ends of the canopy, uplit, and a lamp standard beyond each
+    for (const s of [-1, 1]) {
+      const [ux, uy] = F(PX + s * 0.36, face + 0.022);
+      draw3DBoxAt(ctx, cam, ux, uy, 0.016, 0, 0.03, stone, SEED + 111, night, alpha, true, eY, 0.016);
+      draw3DBoxAt(ctx, cam, ux, uy, 0.02, 0.03, 0.05, stone, SEED + 112, night, alpha, true, eY, 0.02);
+      if (night) glowPool(ctx, cam, ux, uy, 0.06, warm, 6, alpha * 0.5);
+      const [lx, ly] = F(PX + s * 0.44, 0.49);
+      draw3DBoxAt(ctx, cam, lx, ly, 0.004, 0, 0.24, bronze, SEED + 113, night, alpha, false, eY, 0.004);
+      draw3DBoxAt(ctx, cam, lx, ly, 0.012, 0.24, 0.27, bronze, SEED + 114, night, alpha, true, eY, 0.012);
+      glowPool(ctx, cam, lx, ly, 0.255, warm, 8, alpha * (night ? 0.75 : 0.25)); }
+    // no steps: the doors are at pavement level, and the runner (glass/street-doors.js) lies flat out of them
+    // the lobby, warm through the doors and the bays, spilling out across the pavement
+    { const [wx, wy] = F(PX, front + 0.03);
+      glowPool(ctx, cam, wx, wy, headZ * 0.7, warm, 22, alpha * (night ? 0.42 : 0.14));
+      glowPool(ctx, cam, wx, wy, 0.02, warm, 18, alpha * (night ? 0.34 : 0.10));
+      if (night) glowPool(ctx, cam, wx, wy, canZ0 * 0.97, gold, 13, alpha * 0.38); }   // the canopy's soffit lights
   },
   chrome(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // Chrome Court: a tapered mirror-steel obelisk ringed with cyan LED bands.
     const led = '90,220,255';                              // cyan LED tech accent
@@ -1245,6 +1448,8 @@ export const DOWNTOWN_ARMS = {
       RB(0, face + fh * 0.15, fh * 0.46, fh * 0.05, 0, h * 0.008, trim, 51);                           // a single broad stone step
       // ⚠ The doors stand flush with the inner order's front: set back, DETAIL_LIFT pulls them through the jambs.
       const yD = face + fh * 0.107, Pq = (pts, fill, back = 0) => emitFlat(ctx, cam, pts.map(([x, z]) => L(x, yD - back, z)), fill, alpha, { lift: DETAIL_LIFT });
+      // the opening, frame panel to the inner order's face and threshold to the arch, for the doors that move in it
+      markDoorway(F, 0, yD - fh * 0.003, open, 0, zOpen, yD);
       const glass = night ? 'rgba(255,200,128,0.98)' : 'rgba(64,80,94,0.98)';
       const bronzeC = 'rgb(72,52,30)', gilt = 'rgb(214,170,92)';
       const zDoor = zOpen * 0.62, zBar = zDoor + h * 0.008;
@@ -1798,7 +2003,7 @@ export const DOWNTOWN_ARMS = {
     { const [cx, cy] = F(fh * 0.3, fh * 0.12); draw3DBoxAt(ctx, cam, cx, cy, fh * 0.2, h * 1.18, h * 1.25, 'ty_door', seed + 7, night, alpha, true); }         // lift/AC housing
     if (night) glowPool(ctx, cam, dx, dy, h * 0.6, '255,206,140', 10, alpha * 0.12);                   // scattered lit windows
   },
-  police(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // Precinct 9 (922,911), the only tile that reaches this arm; other civic and police tiles are
+  police(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // Precinct 9 (923,911), the only tile that reaches this arm; other civic and police tiles are
     // named and have their own. `TYPE_MODEL.civic`/`.police` stay as the fallback for an unnamed tile.
     const stone = pal, base = 'ty_precast_dk', attic = 'ty_precast';
     // ⚠ The order is `ty_marble_col` (STONE_WALL): `ty_precast` paints a window grid on the frieze.

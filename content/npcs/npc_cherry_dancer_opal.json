@@ -1,0 +1,256 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [],
+  "description": "A tall dancer with a shaved head and a silver ring through one eyebrow. Opens the afternoon shift for the regulars who drink lunch. Counts the room on her fingers when she thinks nobody's looking.",
+  "dialogue_tree": {},
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a cropped denim jacket",
+      "a silver bandeau",
+      "silver hotpants"
+    ],
+    "figure": {
+      "bottoms": false,
+      "cut": "bomber",
+      "fabric_legs": "denim",
+      "fabric_top": "leather",
+      "gear": false,
+      "hat": false,
+      "legs": [
+        40,
+        52,
+        78
+      ],
+      "scarf": false,
+      "shoes": [
+        20,
+        20,
+        22
+      ],
+      "top": [
+        70,
+        90,
+        130
+      ],
+      "shirt": [
+        70,
+        90,
+        130
+      ]
+    },
+    "figure_work": {
+      "cut": "stagehex",
+      "fabric_shoes": "leather",
+      "shirt": [
+        200,
+        200,
+        215
+      ],
+      "shoes": [
+        40,
+        40,
+        50
+      ],
+      "top": [
+        200,
+        200,
+        215
+      ]
+    },
+    "mis_requires_zone_flag": "mis_ok",
+    "mis_willing": true,
+    "personality": "stripper",
+    "stripper": true
+  },
+  "home_activities": [],
+  "home_zone": "zone_kestrel_3b",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_cherry_dancer_opal",
+  "name": "Opal Szandor",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "mon": [
+      {
+        "from": 14,
+        "to": 19
+      }
+    ],
+    "tue": [
+      {
+        "from": 14,
+        "to": 19
+      }
+    ],
+    "wed": [
+      {
+        "from": 14,
+        "to": 19
+      }
+    ],
+    "thu": [
+      {
+        "from": 14,
+        "to": 19
+      }
+    ],
+    "fri": [
+      {
+        "from": 14,
+        "to": 19
+      }
+    ],
+    "sat": [
+      {
+        "from": 14,
+        "to": 19
+      }
+    ],
+    "sun": [
+      {
+        "from": 14,
+        "to": 19
+      }
+    ]
+  },
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_mq_cherry_floor"
+}

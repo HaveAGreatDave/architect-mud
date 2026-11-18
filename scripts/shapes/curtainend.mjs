@@ -127,7 +127,7 @@ for (const [cur, [ax, ay]] of Object.entries(ENDS)) {
 // ── 5. AND A RUN THAT FINISHES IN THE SEA IS DRAWN THERE ─────────────────────
 //
 // A perimeter has to stop somewhere and that somewhere is the shoreline, so the last tile of a run
-// is authored on WATER: `927,908` carries `terrain: water` and `flags.curtain`, and its own prose
+// is authored on WATER: `928,908` carries `terrain: water` and `flags.curtain`, and its own prose
 // says the Curtain "walks straight on out into the channel". The world sweep skips open water
 // along with your own tile and a bare airfield, and that skip had no exception for the Curtain —
 // so the wall drew nothing out there, and the land tile behind it stopped being a free end as

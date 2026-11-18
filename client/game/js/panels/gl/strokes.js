@@ -36,7 +36,9 @@ import { linearOut, applyLinOut } from './colour.js';
 const WIRE_PULL = 0.05;
 
 // a3, b3, param2 (side, end), style3 (width px, alpha, feather), colour3
-const STRIDE = 15;
+// 16th float: `wr`, a width in WORLD units (tiles) sized by the vertex shader from its own depth, on
+// top of the pixel width. A stroke with one is camera-independent, so it can be retained (gl/retain.js).
+const STRIDE = 16;
 
 const VERT = `#version 300 es
 in vec3 aA;
@@ -48,6 +50,8 @@ in vec3 aColor;
 // ray to max(0.06, depth - pull) / depth of the way out, which is what cam.unproj does. 0 means the
 // ends arrive already pulled. Stage 3 of glass-headroom.
 in float aPull;
+in float aWorld;
+uniform float uFocal;
 uniform vec3 uEye;
 uniform mat4 uViewProj;
 uniform vec2 uViewport;
@@ -83,7 +87,15 @@ void main() {
   vec2 dir = len > 1e-4 ? d / len : vec2(1.0, 0.0);
   vec2 perp = vec2(-dir.y, dir.x);
   vec4 clip = mix(ca, cb, aParam.y);
-  clip.xy += perp * aParam.x * (aStyle.x * 0.5) * (2.0 / uViewport) * clip.w;
+  // A world width is the same sum the CPU made for a screen one, (r0 + r1) * FL / max(0.25, f), at
+  // this vertex's own depth, and the canvas's floor of one pixel with the shortfall in the alpha.
+  float wPx = aStyle.x, aK = 1.0;
+  if (aWorld > 0.0) {
+    wPx += aWorld * uFocal / max(0.25, clip.w);
+    aK = min(1.0, wPx);
+    wPx = max(1.0, wPx);
+  }
+  clip.xy += perp * aParam.x * (wPx * 0.5) * (2.0 / uViewport) * clip.w;
   // A HAIR TOWARD THE CAMERA, for the reason the sprite layer needs one: a rail sits ON the deck it
   // runs along and a light-runner ON the corner it traces, so at exactly that depth the wire
   // z-fights its own host into a stipple.
@@ -100,7 +112,7 @@ void main() {
   vSide = aParam.x;
   vFeather = aStyle.z;
   vColor = aColor;
-  vAlpha = aStyle.y;
+  vAlpha = aStyle.y * aK;
   // Gas-tube hum on glow haloes only (feather 1). The phase is hashed from the tube's own end, so
   // every sign breathes on its own and the same sign breathes the same way every frame.
   if (aStyle.z > 0.99) {
@@ -161,13 +173,15 @@ export function createStrokeLayer(gl) {
     time: gl.getUniformLocation(prog, 'uTime'),
     eye: gl.getUniformLocation(prog, 'uEye'),
     pullA: gl.getAttribLocation(prog, 'aPull'),
+    world: gl.getAttribLocation(prog, 'aWorld'),
+    focal: gl.getUniformLocation(prog, 'uFocal'),
   };
 
   const vao = gl.createVertexArray();
   // One stream, set up once: the attribute pointers are recorded into the VAO here and never
   // touched again, and the storage grows by doubling instead of being reallocated every frame.
   // See gl/stream.js.
-  const ATTRS = [[loc.a, 3, 0], [loc.b, 3, 12], [loc.param, 2, 24], [loc.style, 3, 32], [loc.color, 3, 44], [loc.pullA, 1, 56]];
+  const ATTRS = [[loc.a, 3, 0], [loc.b, 3, 12], [loc.param, 2, 24], [loc.style, 3, 32], [loc.color, 3, 44], [loc.pullA, 1, 56], [loc.world, 1, 60]];
   const stream = makeVertexStream(gl, vao, STRIDE, ATTRS, 4096);
   let data = new Float32Array(0);
   let count = 0, split = 0, deep = 0;
@@ -205,7 +219,7 @@ export function createStrokeLayer(gl) {
   // width; a wire leaves it unset and stays hard. The rain columns are the one caller: a veil laid
   // OVER the scene, so it can't be an additive halo, and a hard-edged one read as a grey plank.
   // 1 is the glow profile and stays the halo's.
-  const putCore = (d, o, st, ox, oy) => { const w = Math.max(1, st.w || 1); const f = st.feather > 0 && st.feather < 0.99 ? st.feather : 0; return putStroke(d, o, st, w, f, (st.alpha == null ? 1 : st.alpha) * Math.min(1, (st.w || 1) / w), ox, oy); };
+  const putCore = (d, o, st, ox, oy) => { if (st.wr > 0) return putStroke(d, o, st, st.w || 0, 0, st.alpha == null ? 1 : st.alpha, ox, oy); const w = Math.max(1, st.w || 1); const f = st.feather > 0 && st.feather < 0.99 ? st.feather : 0; return putStroke(d, o, st, w, f, (st.alpha == null ? 1 : st.alpha) * Math.min(1, (st.w || 1) / w), ox, oy); };
   const putHalo = (d, o, st, ox, oy) => st.add
     ? putStroke(d, o, st, Math.max(1, st.w || 1), st.feather == null ? 0.5 : st.feather, st.alpha == null ? 1 : st.alpha, ox, oy)
     : putStroke(d, o, st, Math.max(1, st.w || 1) + st.glow * 2, 1, (st.alpha == null ? 1 : st.alpha) * 0.38, ox, oy);
@@ -240,6 +254,7 @@ export function createStrokeLayer(gl) {
   }
   // One stroke's quad into `d` at `o`; returns the next offset. `ox`/`oy`: see the sprite layer's upload.
   function putStroke(d, o, st, w, feather, alpha, ox, oy) {
+    const wr = st.wr > 0 ? st.wr : 0;
     const [r, g, b] = st.rgb || [255, 255, 255];
     const cr = r / 255, cg = g / 255, cb = b / 255;
     const A = st.pl > 0 ? st.ra : st.a, B = st.pl > 0 ? st.rb : st.b, pl = st.pl > 0 ? st.pl : 0;
@@ -250,6 +265,7 @@ export function createStrokeLayer(gl) {
       d[o + 8] = w; d[o + 9] = alpha; d[o + 10] = feather;
       d[o + 11] = cr; d[o + 12] = cg; d[o + 13] = cb;
       d[o + 14] = pl;
+      d[o + 15] = wr;
       o += STRIDE;
     }
     return o;
@@ -265,6 +281,7 @@ export function createStrokeLayer(gl) {
     gl.useProgram(prog); applyLinOut(gl, prog);
     gl.uniformMatrix4fv(loc.viewProj, false, mat4f(viewProjMatrix(cam, cssH || H)));
     gl.uniform2f(loc.viewport, W, H);
+    gl.uniform1f(loc.focal, ((cam && cam.FL) || 0) * H / (cssH || H));
     const zr = zRow((cam && cam.near) || NEAR);
     gl.uniform2f(loc.ab, zr[0], zr[1]);
     gl.uniform1f(loc.pull, WIRE_PULL);

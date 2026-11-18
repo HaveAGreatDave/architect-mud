@@ -1,6 +1,16 @@
 {
   "description": "A galvanised feed trough plumbed in as a sink. One tap, cold. A cake of grey soap sits in a jam-jar lid beside it.",
-  "flags": {},
+  "flags": {
+    "look": {
+      "arche": "sink",
+      "form": "trough",
+      "wear": 0.95
+    },
+    "spot": {
+      "along": 1.6,
+      "wall": "front"
+    }
+  },
   "hp": null,
   "hp_max": null,
   "id": "furn_trackmarks_3",

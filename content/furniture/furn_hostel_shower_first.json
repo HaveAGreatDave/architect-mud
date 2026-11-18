@@ -1,0 +1,29 @@
+{
+  "description": "The first shower runs cold. The head has been bashed with something to clear it and now sprays mostly at the wall.",
+  "flags": {
+    "aliases": [
+      "shower",
+      "showers",
+      "first shower"
+    ],
+    "look": {
+      "arche": "shower",
+      "form": "stall",
+      "wear": 0.95
+    },
+    "spot": {
+      "along": -2.3,
+      "wall": "back"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_hostel_shower_first",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "first shower",
+  "object_type": "shower",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_trackmarks_back"
+}

@@ -166,6 +166,41 @@ export const TYPES = {
     rollFric: 12,
     ceiling: 26000,
   },
+  // Merlin: Corvane's fan-lift supercar (docs/proposals/road-vtol.md). Four ducted fans and a pusher,
+  // light and stiff: the quickest roll in the fleet, a sharp pitch, very little self-levelling (you fly
+  // it, it doesn't fly you), a fast spool because a fan has no rotor's inertia, and a slippery wedge
+  // body for a high top end. The ducts give no translational-lift bump, so vs0 is low. No tail rotor:
+  // yaw is fan differential, quick but not a helicopter's pedal turn.
+  merlin: {
+    name: 'Merlin', heli: true, mass: 1.1,
+    vne: 230, cruise: 175, vs0: 12,
+    vr: 0, aoaCrit: 90, liftScale: 1,
+    pitchRate: 34, pitchTau: 0.28, rollRate: 62, rollTau: 0.24,
+    pitchStable: 0.9, rollStable: 1.0,
+    yawRate: 80,
+    engineLag: 0.45,
+    cyclicThrust: 6.2,
+    dragP: 0.00082,
+    liftMax: 2.6, hoverThrust: 1.0,
+    vsGain: 1100, vsGainUp: 2300, vsMax: 3000, vsTau: 0.7,
+    vrsVs: 900,                           // ducted fans resist vortex ring: it settles late
+    rollFric: 10,                         // on its feet, the pucks grip
+    ceiling: 22000,
+    boostK: 0.85, boostVne: 0.22,         // BOOST: 85% more push off the tilted ducts, 22% over vne (merlin-modes.js)
+  },
+  // The Merlin on the road (merlin-modes.js HOVER): `road: true` dispatches stepRoad, a hover car a
+  // hand's width over whatever's under it. Every surface is the same to it: it doesn't touch them.
+  // Speeds in knots, as the rest of the flight sim. A supercar's numbers: 0 to 52 kt (60 mph) in about
+  // three seconds, a 120 kt top, brakes that stop it from there in under four.
+  merlin_road: {
+    name: 'Merlin (road)', road: true, mass: 1.1,
+    accel: 18, topSpeed: 120, dragP: 0.00125, rollFric: 1.2, brake: 34,
+    reverse: 6, reverseMax: 14,           // pull with it stopped and it backs up, slowly
+    steerRate: 95,                        // deg/s at full lock, at the speed it bites best
+    rideFt: 1.6,                          // the cushion: half a metre
+    engineLag: 0.45, boostK: 0.8, pitKt: 16,
+    vne: 150, cruise: 120, vs0: 12,       // read by the HUD and the gauges, not by stepRoad
+  },
   // Drake, wing mode (conversion past halfway): wings out, rotor folded. Convert back to land.
   drake_wing: {
     // She leaves the conversion at the hover's 40-60% lever, so thrust is sized for 50% to hold cruise.
@@ -497,10 +532,12 @@ function stepHeli(state, input, p, dt) {
   }
 
   // 4. Horizontal accel: disc tilt, plus gravity when nose-low so a dive builds real speed.
-  const accel = s.onGround ? 0 : (-s.pitch * (p.cyclicThrust || 2) * Nr) + clamp(-s.pitch, 0, 35) * 0.16;
+  // BOOST (the Merlin): more push off the disc while it's held, and a little more speed before vne.
+  const bst = input.boost ? (p.boostK || 0) : 0;
+  const accel = s.onGround ? 0 : (-s.pitch * (p.cyclicThrust || 2) * Nr) * (1 + bst) + clamp(-s.pitch, 0, 35) * 0.16;
   // Retractable gear (the Viper): the tuned top speed is gear up. Skids and fixed gear pass 0.
   const drag = p.dragP * (1 + clamp(input.gear || 0, 0, 1) * (p.gearDragFrac ?? 0)) * s.airspeed * Math.abs(s.airspeed);
-  s.airspeed = clamp(s.airspeed + (accel - drag) * dt, -0.18 * p.cruise, p.vne * 1.03);
+  s.airspeed = clamp(s.airspeed + (accel - drag) * dt, -0.18 * p.cruise, p.vne * 1.03 * (1 + (input.boost ? p.boostVne || 0 : 0)));
   if (s.onGround) s.airspeed -= Math.sign(s.airspeed) * Math.min(Math.abs(s.airspeed), p.rollFric * dt);
   s.groundSpeed = Math.abs(s.airspeed);
 
@@ -558,6 +595,51 @@ function stepHeli(state, input, p, dt) {
     if (!s.onGround && p.groundPitch) s.tailDown = clamp(s.pitch / p.groundPitch, 0, 1);
     s.altitude = floor; s.onGround = true; s.vs = Math.max(0, s.vs);
   } else s.onGround = false;
+  return s;
+}
+
+// ── Road integrator (the Merlin on its cushion) ──────────────────────────────
+// A hover car: the collective lever is the accelerator, `input.brake` is the brake (and, from a
+// standstill, reverse), the stick's roll is the steering. The stick's pitch does nothing here: the
+// Merlin's yoke is locked fore and aft on the road. The fans hold it at `rideFt` over the floor
+// on a stiff spring, so a kerb or a ramp lifts and drops it. It isn't on the ground: `onGround` stays
+// false, so the building collision and the server's airborne rules apply as in flight.
+// BOOST adds thrust and lifts the top speed; PIT holds it to `pitKt`.
+function stepRoad(state, input, p, dt) {
+  const s = state;
+  s.events = [];
+  const thr = clamp(input.throttle || 0, 0, 1);
+  const steer = clamp((input.aileron || 0) + (input.pedal || 0) * 0.5, -1, 1);
+  const brake = clamp(input.brake || 0, 0, 1);
+  const powered = input.power !== false;
+  s.rpm += ((powered ? 0.3 + 0.7 * thr : 0) - s.rpm) * Math.min(1, dt / p.engineLag);
+  const bst = input.boost ? p.boostK : 0;
+  const vmax = input.pit ? p.pitKt : p.topSpeed * (1 + bst * 0.3);
+  let a = powered ? thr * p.accel * (1 + bst) * clamp(s.rpm / 0.7, 0, 1.2) : 0;
+  a -= p.dragP * s.airspeed * Math.abs(s.airspeed) + Math.sign(s.airspeed) * p.rollFric;
+  if (brake > 0.05) {
+    if (s.airspeed > 0.5) a -= brake * p.brake;
+    else if (thr < 0.1) a = -brake * p.reverse;
+  }
+  s.airspeed = clamp(s.airspeed + a * dt, -p.reverseMax, Math.max(vmax, s.airspeed));
+  // Over the limiter (PIT pressed at speed): brought down to it firmly but not instantly.
+  if (s.airspeed > vmax) s.airspeed = Math.max(vmax, s.airspeed - p.brake * 0.6 * dt);
+  if (Math.abs(s.airspeed) < 0.05 && thr < 0.05 && brake < 0.05) s.airspeed = 0;
+  // Steering bites from walking pace, best around 40 kt, a little less at the top end.
+  const v = Math.abs(s.airspeed), grip = clamp(v / 10, 0, 1) * (1 - 0.45 * clamp(v / p.topSpeed, 0, 1));
+  s.heading = wrap360(s.heading + steer * p.steerRate * grip * (s.airspeed < 0 ? -1 : 1) * dt);
+  // The body leans out of a turn and squats as it pulls away, sprung.
+  const tBank = -steer * grip * 7, tPitch = clamp(a * 0.12, -4, 5);
+  s.bank += (tBank - s.bank) * Math.min(1, dt * 4);
+  s.pitch += (tPitch - s.pitch) * Math.min(1, dt * 3);
+  // The cushion: a stiff spring to rideFt over the floor.
+  const tgt = (s.groundFt || 0) + p.rideFt;
+  const vsT = clamp((tgt - s.altitude) * 60 * 3, -900, 900);
+  s.vs += (vsT - s.vs) * Math.min(1, dt * 8);
+  s.altitude = Math.max((s.groundFt || 0) + 0.3, s.altitude + (s.vs / 60) * dt);
+  s.onGround = false; s.groundSpeed = v;
+  s.aoa = 0; s.stalled = false; s.stallDepth = 0; s.buffet = 0; s.g = 1; s.stallMargin = 1;
+  s.lowNr = false; s.vrs = false; s.autorot = false;
   return s;
 }
 
@@ -1364,6 +1446,7 @@ export function stepBoat(s, input, p, dt) {
 }
 
 export function step(state, input, p, dt) {
+  if (p.road) return stepRoad(state, input, p, dt);
   if (p.ground) return stepTruck(state, input, p, dt);
   if (p.water) return stepBoat(state, input, p, dt);
   if (p.heli) return stepHeli(state, input, p, dt);

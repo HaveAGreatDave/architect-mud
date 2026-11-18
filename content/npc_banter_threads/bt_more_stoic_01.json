@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "id": "bt_more_stoic_01",
+  "lines": [
+    "\"Bad news about your sister.\"",
+    "\"I heard.\"",
+    "\"You all right?\"",
+    "\"I'm standing.\"",
+    "\"That's not what I asked.\"",
+    "\"It's what I've got.\""
+  ],
+  "personality": "stoic",
+  "sort_order": 701
+}

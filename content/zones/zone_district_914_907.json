@@ -1,23 +1,32 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "ambient_events": [
+    "A resident walks a small expensive dog past you without looking down.",
+    "Somebody on a high balcony shakes out a rug over the gardens."
+  ],
+  "ambient_theme": "urban",
+  "color": "#8fd08a",
+  "description": "Gravel walks and lit planters beside the Solenne Residences. A sign on a brass post says the gardens are for residents, and nobody enforces it.",
   "exits": {
     "east": "zone_district_915_907",
     "north": "zone_district_914_906",
-    "west": "zone_district_913_907"
+    "west": "zone_seam_914_907"
   },
   "flags": {
-    "district": "wasteland",
+    "district": "marrow",
+    "park_feature": "forecourt",
+    "park_focus": {
+      "x": 915,
+      "y": 908
+    },
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "street_life": true,
+    "terrain": "park"
   },
-  "grid_x": 914,
+  "grid_x": 915,
   "grid_y": 907,
   "grid_z": 0,
   "id": "zone_district_914_907",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Solenne Gardens",
   "parent_zone": null
 }

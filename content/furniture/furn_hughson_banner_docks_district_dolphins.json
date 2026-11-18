@@ -1,0 +1,37 @@
+{
+  "description": "A felt banner in the District Dolphins' colours on a brass rod, cut to a point at the foot with a gold tassel. The crest is stitched on, and the name under it. Someone has pinned a ticket stub to the hem.",
+  "flags": {
+    "aliases": [
+      "banner",
+      "banners",
+      "district dolphins banner",
+      "district dolphins",
+      "flag",
+      "pennant"
+    ],
+    "club_banner": {
+      "club": "Docks District Dolphins",
+      "sport": "baseball"
+    },
+    "look": {
+      "arche": "prop",
+      "dims": [
+        1.1,
+        0.1,
+        4.8
+      ],
+      "form": "banner"
+    },
+    "spot": {
+      "at": [
+        10.2,
+        0.06
+      ],
+      "turn": 180
+    }
+  },
+  "id": "furn_hughson_banner_docks_district_dolphins",
+  "name": "the District Dolphins banner",
+  "object_type": "furniture",
+  "zone_id": "zone_hughson_concourse"
+}

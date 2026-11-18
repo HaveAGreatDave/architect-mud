@@ -11,6 +11,7 @@ import { declareProgram, layerProgram } from './programs.js';
 import { linearOut, applyLinOut, LIN, LIN_IN_GLSL } from './colour.js';
 import { PROP_SHADOW_GLSL, PROP_SHADOW_UNIFORMS, bindPropShadow } from './propshadow.js';
 import { LAMP_SHADOW_GLSL, LAMP_SHADOW_UNIFORMS, bindLampShadow } from './lampshadow.js';
+import { CLOUD_SHADOW_GLSL, CLOUD_SHADOW_UNIFORMS, bindCloudShadow } from './cloudshadow.js';
 import { LIGHTGRID_TUNE, LIGHTGRID_GLSL, LIGHTGRID_UNIFORMS, createLightGridTextures, bindNoLightGrid, makeGroundGrid, buildGroundGrid } from './lightgrid.js';
 
 const STRIDE = 14;  // pos3, colour3, alpha1, road1, lat1, kerb1, tile2, kerbN2
@@ -607,6 +608,17 @@ uniform float uPropTexel;
 uniform float uPropBias;
 uniform float uPropGround;
 ${PROP_SHADOW_GLSL}
+// The weather's shadow (gl/cloudshadow.js, RENDER_TUNE.glCloudShadow); uCloudOn is as dark as a
+// hull gets, times the knob. uOver is 1 while the hulls themselves draw (range 3), which fade under
+// a cloud: no direct sun, no hard shadow.
+uniform sampler2D uCloudMap;
+uniform vec4 uCloudBox;
+uniform vec2 uCloudSlope;
+uniform float uCloudBase;
+uniform float uCloudOn;
+uniform float uShaftOn;
+uniform float uOver;
+${CLOUD_SHADOW_GLSL}
 // What stands under a street lamp, out of that lamp's pool (gl/lampshadow.js, RENDER_TUNE.glLampShadow).
 uniform highp sampler2D uLshMap0;
 uniform highp sampler2D uLshMap1;
@@ -810,7 +822,14 @@ void main() {
   // Greyer as well as darker after dark, as the walls are (context.js); the pools add colour back.
   if (uSurface > 0.5) surf = mix(surf, vec3(dot(surf, vec3(0.299, 0.587, 0.114))), clamp((1.0 - uNightDim) * 1.1, 0.0, 0.85));
   if (uSurface > 0.5 && uPropOn > 0.0) surf *= 1.0 - propShadow(vWorld) * uPropGround;
-  vec3 c = mix(surf, uFog, gfog);
+  // ⚠ NOT ON THE HULLS' OWN COLOUR (uOver): they fade below instead, or a building's shadow under a
+  // cloud would be the cloud's darkness twice.
+  float cloudK = uCloudOn > 0.0 ? cloudShadow(vWorld) : 0.0;
+  if (uSurface > 0.5 && uOver < 0.5) surf *= 1.0 - cloudK;
+  // Sun shafts: the haze in a cloud's shadow is darker (gl/cloudshadow.js), as on the walls.
+  vec3 fogCol = uFog;
+  if (uShaftOn > 0.0 && gfog > 0.01) fogCol *= 1.0 - airShadow(vec3(uEye, uEyeH), vWorld);
+  vec3 c = mix(surf, fogCol, gfog);
   // ⚠ AFTER THE FOG, because the fog is already folded into c above: a road that has receded into
   // the horizon has nothing left to reflect in, and adding light to it would put a streak on top of
   // the haze. The term's own distance falloff does the rest.
@@ -1513,7 +1532,9 @@ void main() {
     }
     c += scat;
   }
-  outColor = vec4(c * vAlpha, vAlpha);   // premultiplied, like every other layer on this canvas
+  // A hull under a cloud: cloudK tops out at the hull's own darkness (0.4), so 2.5x is all of it.
+  float va = uOver > 0.5 ? vAlpha * (1.0 - min(1.0, cloudK * 2.5)) : vAlpha;
+  outColor = vec4(c * va, va);   // premultiplied, like every other layer on this canvas
 }`, 'outColor');
 
 
@@ -1605,6 +1626,8 @@ export function createGroundLayer(gl) {
   for (const n of LIGHTGRID_UNIFORMS) loc[n] = gl.getUniformLocation(prog, n);
   for (const n of PROP_SHADOW_UNIFORMS) loc[n] = gl.getUniformLocation(prog, n);
   loc.propGround = gl.getUniformLocation(prog, 'uPropGround');
+  for (const n of CLOUD_SHADOW_UNIFORMS) loc[n] = gl.getUniformLocation(prog, n);
+  loc.over = gl.getUniformLocation(prog, 'uOver');
   for (const n of LAMP_SHADOW_UNIFORMS) loc[n] = gl.getUniformLocation(prog, n);
   loc.lgStreakW = gl.getUniformLocation(prog, 'uLGStreakW');
   loc.lgStreakK = gl.getUniformLocation(prog, 'uLGStreakK');
@@ -1839,6 +1862,9 @@ export function createGroundLayer(gl) {
     gl.uniform1f(loc.propGround, opts.prop ? opts.prop.ground : 0);
     // Units 7 to 10. Every draw, on or off, for the prop map's reason.
     bindLampShadow(gl, loc, 7, opts.lamp || null);
+    // Unit 11, past the lamp maps' 7 to 10.
+    bindCloudShadow(gl, loc, 11, opts.cloudShadow || null, 'ground');
+    gl.uniform1f(loc.over, 0);
     gl.uniform1f(loc.lgStreakW, LIGHTGRID_TUNE.streakW > 0 ? LIGHTGRID_TUNE.streakW : 1);
     gl.uniform1f(loc.lgStreakK, LIGHTGRID_TUNE.streakK >= 0 ? LIGHTGRID_TUNE.streakK : 1);
     gl.uniform1f(loc.lgGlintW, LIGHTGRID_TUNE.glintW > 0 ? Math.min(2, LIGHTGRID_TUNE.glintW) : 1);
@@ -1881,7 +1907,9 @@ export function createGroundLayer(gl) {
       gl.uniform1f(loc.surface, 1);
       gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     }
+    gl.uniform1f(loc.over, 1);
     drawRange(3, splitB, count - splitB);
+    gl.uniform1f(loc.over, 0);
     gl.depthMask(true);
     gl.disable(gl.POLYGON_OFFSET_FILL);
     gl.bindVertexArray(null);

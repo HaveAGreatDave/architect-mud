@@ -165,6 +165,42 @@ export const HOLO = [90, 232, 210], HOLO_LINE = [150, 255, 232], HOLO_AMBER = [2
 PANE.set(HOLO, 0.16); PANE.set(HOLO_LINE, 0.7); PANE.set(HOLO_AMBER, 0.8); PANE.set(HOLO_RED, 0.85);
 export const HUD_LINE = [150, 255, 205], HUD_DIM = [90, 214, 172], HUD_AMBER = [255, 206, 110], HUD_RED = [255, 100, 90];
 PANE.set(HUD_LINE, 0.88); PANE.set(HUD_DIM, 0.5); PANE.set(HUD_AMBER, 0.9); PANE.set(HUD_RED, 0.92);
+// THE HUD'S COLOURS, the pilot's choice (the HUD key on a seat that has one, cockpit.js `ck:hud`). Each is
+// a line weight and a dim weight, registered translucent like HUD_LINE and HUD_DIM. Red, amber and green
+// are warning colours everywhere else in the cockpit, so the choices steer clear of the first two;
+// green is the stock phosphor and stays the default.
+export const HUD_TINTS = {
+  green: { name: 'GREEN', line: HUD_LINE, dim: HUD_DIM },
+  cyan: { name: 'CYAN', line: [130, 236, 255], dim: [70, 170, 200] },
+  violet: { name: 'VIOLET', line: [196, 176, 255], dim: [130, 112, 210] },
+  ice: { name: 'ICE', line: [214, 234, 255], dim: [140, 168, 200] },
+  magenta: { name: 'MAGENTA', line: [255, 130, 230], dim: [196, 80, 170] },
+  gold: { name: 'GOLD', line: [255, 232, 160], dim: [200, 176, 110] },
+};
+export const HUD_TINT_ORDER = Object.keys(HUD_TINTS);
+for (const t of Object.values(HUD_TINTS)) { if (t.line !== HUD_LINE) { PANE.set(t.line, 0.88); PANE.set(t.dim, 0.5); } }
+// A colour off a colour wheel is stored as '#rrggbb'. Each one is made once and kept, because PANE is
+// keyed on the array object.
+const CUSTOM_TINTS = new Map();
+export const isHudHex = (id) => typeof id === 'string' && /^#[0-9a-f]{6}$/i.test(id);
+export function hudTint(id) {
+  if (HUD_TINTS[id]) return HUD_TINTS[id];
+  if (!isHudHex(id)) return HUD_TINTS.green;
+  let t = CUSTOM_TINTS.get(id);
+  if (!t) {
+    const n = parseInt(id.slice(1), 16), line = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+    t = { name: 'CUSTOM', line, dim: line.map((c) => Math.round(c * 0.68)) };
+    PANE.set(t.line, 0.88); PANE.set(t.dim, 0.5);
+    CUSTOM_TINTS.set(id, t);
+  }
+  return t;
+}
+// The wheel's colours: twelve hues, light enough to read on the glass by day.
+export const HUD_WHEEL = Array.from({ length: 12 }, (_, i) => {
+  const h = i / 12, s = 0.55, f = (k) => { const x = (k + h * 6) % 6; return 1 - s * Math.max(0, Math.min(x, 4 - x, 1)); };
+  const rgb = [f(5), f(3), f(1)].map((c) => Math.round(c * 255));
+  return '#' + rgb.map((c) => c.toString(16).padStart(2, '0')).join('');
+});
 export const GLASS_TINT = [14, 30, 34];
 PANE.set(GLASS_TINT, 0.55);
 
@@ -307,7 +343,10 @@ export function windscreenHud(K, R, o = {}) {
   const k = dist * Math.tan(Math.PI / 180);                  // metres per degree on the plane
   const Hp = K.panel([0, dist, cz], [1, 0, 0], [0, 0, 1], 'dash', 0);
   const bore = [0, -cz];                                     // where the straight-ahead ray crosses the plane
-  const col = o.warn ? HUD_RED : o.caution ? HUD_AMBER : HUD_LINE;
+  // The pilot's colour (o.tint, or the seat's live.hudTint): HUD_TINTS. A warning and a caution are
+  // red and amber whatever it is, so the colour is never a warning colour.
+  const tint = hudTint(o.tint ?? R?.L?.hudTint), dim = tint.dim;
+  const col = o.warn ? HUD_RED : o.caution ? HUD_AMBER : tint.line;
   const inside = (pts) => {
     let c = false;
     for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
@@ -342,8 +381,8 @@ export function windscreenHud(K, R, o = {}) {
     const half = d === 0 ? hw * 0.92 : Math.min(0.055, hw * 0.3), gap = d === 0 ? 0.03 : 0.022;
     for (const s of [-1, 1]) {
       const a = rot([s * gap, off]), b = rot([s * half, off]);
-      seg(a, b, d === 0 ? 0.0013 : 0.001, d === 0 ? col : HUD_DIM);
-      if (d !== 0) seg(b, rot([s * half, off + (d > 0 ? -0.008 : 0.008)]), 0.001, HUD_DIM);   // the rung's end tick points at the horizon
+      seg(a, b, d === 0 ? 0.0013 : 0.001, d === 0 ? col : dim);
+      if (d !== 0) seg(b, rot([s * half, off + (d > 0 ? -0.008 : 0.008)]), 0.001, dim);   // the rung's end tick points at the horizon
     }
   }
   // The flight path marker: where she's going, the climb angle off the nose.
@@ -358,7 +397,7 @@ export function windscreenHud(K, R, o = {}) {
   const ra = hh * 0.82;
   for (const d of [-45, -30, -20, -10, 0, 10, 20, 30, 45]) {
     const t = Math.PI / 2 + d * Math.PI / 180;
-    seg([Math.cos(t) * ra, bore[1] + Math.sin(t) * ra], [Math.cos(t) * (ra + (d % 30 === 0 ? 0.012 : 0.007)), bore[1] + Math.sin(t) * (ra + (d % 30 === 0 ? 0.012 : 0.007))], 0.0009, HUD_DIM);
+    seg([Math.cos(t) * ra, bore[1] + Math.sin(t) * ra], [Math.cos(t) * (ra + (d % 30 === 0 ? 0.012 : 0.007)), bore[1] + Math.sin(t) * (ra + (d % 30 === 0 ? 0.012 : 0.007))], 0.0009, dim);
   }
   { const t = Math.PI / 2 - R.bank * Math.PI / 180, c = [Math.cos(t) * (ra - 0.003), bore[1] + Math.sin(t) * (ra - 0.003)], n = [Math.cos(t), Math.sin(t)], p = [-n[1], n[0]];
     poly([c, [c[0] - n[0] * 0.01 + p[0] * 0.005, c[1] - n[1] * 0.01 + p[1] * 0.005], [c[0] - n[0] * 0.01 - p[0] * 0.005, c[1] - n[1] * 0.01 - p[1] * 0.005]]); }
@@ -367,7 +406,7 @@ export function windscreenHud(K, R, o = {}) {
   for (let d = Math.floor((R.hdg - span) / 5) * 5; d <= R.hdg + span; d += 5) {
     const u = (d - R.hdg) * k * 0.9;
     if (Math.abs(u) > hw * 0.6 || Math.abs(u) < 0.016) continue;
-    seg([u, hy - (d % 10 === 0 ? 0.008 : 0.004)], [u, hy], 0.0008, HUD_DIM);
+    seg([u, hy - (d % 10 === 0 ? 0.008 : 0.004)], [u, hy], 0.0008, dim);
   }
   const H = String(Math.round(((R.hdg % 360) + 360) % 360)).padStart(3, '0');
   Hp.digits(-0.012, hy - 0.01, 0.011, H, col, false);
@@ -379,17 +418,17 @@ export function windscreenHud(K, R, o = {}) {
   box(hw * 0.72, by, 0.036, 0.011);
   Hp.digits(hw * 0.72 - 0.031, by - 0.0075, 0.013, String(Math.round(R.alt)).padStart(5, ' '), col, false);
   const vsS = (R.vsi >= 0 ? '' : '-') + String(Math.min(9990, Math.round(Math.abs(R.vsi) / 10) * 10));
-  Hp.digits(hw * 0.72 - 0.024, by - 0.03, 0.009, vsS.padStart(5, ' '), HUD_DIM, false);
+  Hp.digits(hw * 0.72 - 0.024, by - 0.03, 0.009, vsS.padStart(5, ' '), dim, false);
   // The mirrors: hands and feet.
   const M = o.mirrors;
   if (M) {
     const sx = -hw * 0.8, sy = -hh * 0.62, sb2 = 0.017;
     box(sx, sy, sb2, sb2);
-    seg([sx, sy - sb2], [sx, sy + sb2], 0.0005, HUD_DIM); seg([sx - sb2, sy], [sx + sb2, sy], 0.0005, HUD_DIM);
+    seg([sx, sy - sb2], [sx, sy + sb2], 0.0005, dim); seg([sx - sb2, sy], [sx + sb2, sy], 0.0005, dim);
     if (M.stick) { const d = [sx + M.stick[0] * (sb2 - 0.003), sy - M.stick[1] * (sb2 - 0.003)]; poly([[d[0] - 0.003, d[1] - 0.003], [d[0] + 0.003, d[1] - 0.003], [d[0] + 0.003, d[1] + 0.003], [d[0] - 0.003, d[1] + 0.003]]); }
     if (M.thrs && M.thrs.length) {
       const tx = -hw * 0.97, t0 = -hh * 0.75, t1 = hh * 0.25;
-      seg([tx, t0], [tx, t1], 0.0007, HUD_DIM);
+      seg([tx, t0], [tx, t1], 0.0007, dim);
       M.thrs.forEach((t, i) => {
         const y = lerpN(t0, t1, clamp(t, 0, 1)), s = M.thrs.length > 1 ? (i < M.thrs.length / 2 ? -1 : 1) : 1;
         poly(s > 0 ? [[tx + 0.002, y], [tx + 0.01, y - 0.004], [tx + 0.01, y + 0.004]] : [[tx - 0.002, y], [tx - 0.01, y + 0.004], [tx - 0.01, y - 0.004]]);
@@ -397,8 +436,8 @@ export function windscreenHud(K, R, o = {}) {
     }
     if (M.rud != null) {
       const py = -hh * 0.9;
-      seg([-0.04, py], [0.04, py], 0.0007, HUD_DIM);
-      seg([0, py - 0.004], [0, py + 0.004], 0.0006, HUD_DIM);
+      seg([-0.04, py], [0.04, py], 0.0007, dim);
+      seg([0, py - 0.004], [0, py + 0.004], 0.0006, dim);
       const x = clamp(M.rud, -1, 1) * 0.036;
       poly([[x - 0.0025, py - 0.004], [x + 0.0025, py - 0.004], [x + 0.0025, py + 0.004], [x - 0.0025, py + 0.004]]);
     }

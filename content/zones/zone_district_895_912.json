@@ -1,27 +1,34 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "city",
+  "ambient_events": [
+    "The fountains drop for a second, then come back up.",
+    "A groundskeeper picks ticket stubs out of a hedge one at a time.",
+    "Somebody eats a hot dog on a bench and watches the Coliseum wall."
+  ],
+  "ambient_theme": "urban",
   "color": "#8fd08a",
-  "description": "A square of mown grass behind the boulevard frontage, with four benches set facing inward at the corners and a bin that is emptied. The backs of five expensive buildings look down into it. It is completely private and completely overlooked, which is a combination the plan does not seem to have noticed.",
+  "description": "The North Gardens, a pergola of limestone piers and timber with wisteria hanging through. There are benches underneath and lavender along the edges.",
   "exits": {
-    "east": "zone_district_896_912",
-    "north": "zone_ballpark_894_910",
-    "south": "zone_ballpark_893_914"
+    "east": "zone_ballpark_897_912",
+    "north": "zone_ballpark_894_914",
+    "south": "zone_northgardens_2",
+    "west": "zone_ballpark_896_910"
   },
   "flags": {
     "district": "halcyon_fields",
-    "park_feature": "benches",
+    "park_feature": "pergola",
+    "park_focus": {
+      "x": 894.5,
+      "y": 913.5
+    },
     "region_id": "region_coldwater",
-    "set_aside": true,
-    "set_aside_from": "895,912",
     "street_life": true,
     "terrain": "park"
   },
-  "grid_x": 1,
-  "grid_y": 2,
+  "grid_x": 896,
+  "grid_y": 912,
   "grid_z": 0,
   "id": "zone_district_895_912",
-  "map_id": "map_set_aside",
-  "name": "Vetch Green",
+  "map_id": "map_world",
+  "name": "North Gardens",
   "parent_zone": null
 }

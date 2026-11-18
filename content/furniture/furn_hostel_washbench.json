@@ -9,6 +9,10 @@
       "arche": "bench",
       "form": "bench",
       "wear": 0.95
+    },
+    "spot": {
+      "along": 1.3,
+      "wall": "left"
     }
   },
   "hp": null,

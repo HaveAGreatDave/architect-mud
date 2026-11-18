@@ -4,6 +4,10 @@
     "interactions": [
       "lean"
     ],
+    "spot": {
+      "along": 3.9,
+      "wall": "right"
+    },
     "stove_tier": "mid"
   },
   "hp": null,

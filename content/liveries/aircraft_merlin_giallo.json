@@ -1,0 +1,20 @@
+{
+  "blurb": "Yellow with black trim. Nobody buys this colour to be left alone.",
+  "default": false,
+  "exterior": {
+    "base": "#f2c21e",
+    "finish": "gloss",
+    "pattern": "factory",
+    "trim": "#141416",
+    "variant": "giallo"
+  },
+  "id": "giallo",
+  "interior": {
+    "cabin": "#1c1a14",
+    "uphol": "leather"
+  },
+  "kind": "aircraft",
+  "model": "merlin",
+  "name": "Giallo",
+  "unlock": null
+}

@@ -51,7 +51,9 @@ export const NAMED_MODELS = {
   // Their words are here, so the arms carry none of Coldwater's. `dead` is the letter that's out.
   ksabtvstudiostage:              { type: 'lot_stage', pal: 'ty_dw_paint', neon: '#39d6ff', noKit: true, letters: 'KSAB', dead: 2, number: '7', lamp: 'ON AIR', card: 'TICKETS HERE' },
   ksab5:                          { type: 'lot_wing',  pal: 'ty_dw_paint', neon: '#39d6ff', noKit: true, nameplate: 'KSAB5', marquee: 'ALL GAMES LIVE' },
-  solenneresidences:              { type: 'solenne',   pal: 'ty_solenne',   neon: '#ffce78' },
+  // One tile since 2026-11-16 (glass/models/solenne-profile.js); its crown and terrace stand out over the
+  // neighbours. `q` [0, 0] and `group` keep the wide frustum margin and the group collision on that overhang.
+  solenneresidences:              { type: 'solenne',   pal: 'ty_solenne',   neon: '#ffce78', noKit: true, q: [0, 0], door: true, group: 'solenne' },
   coldwatersentinel:              { type: 'lot_paper', pal: 'ty_dw_paint', neon: '#dcb25e', noKit: true, masthead: 'COLDWATER SENTINEL', stencil: 'NO PARKING' },
   // These two were keyed to names the buildings no longer have — a rename silently
   // dropped them back to the generic shop/office mesh, because namedModel() misses and
@@ -496,6 +498,9 @@ export const TYPE_MODEL = {
   // The deck repeats along the run, so it obeys the wall rule (symmetric masses only — see the ⚠ on
   // trm_wall) and is in NO_TILE_FIT for the reason a rampart is: a pier trimmed back to its own
   // plot line is a pier with a hole at every joint.
+  // ── SOLENNE RESIDENCES' OTHER THREE QUARTERS (glass/models/downtown.js, docs/proposals/multi-tile-buildings.md) ──
+  // Registered by type, never by name: a building_name of Solenne Residences would bind the facade's named row,
+  // door and all, on every tile. `q` is where the block's centre is from each tile's centre, in the model frame.
   pier:              { type: 'pier',              pal: 'ty_quay_deck' },
   harbour_yard:      { type: 'harbour_yard',      pal: 'ty_yard_tarmac', neon: '#ffc24a' },
   // The working half of the basin, east of the jetty: hardstanding with a compact harbour crane on

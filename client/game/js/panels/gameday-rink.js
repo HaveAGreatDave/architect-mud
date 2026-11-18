@@ -22,6 +22,7 @@ import { cphlMark, cphlLockup } from './cphl-brand.js';
 import { addFullscreenButton, leaveFullscreen } from './view-fullscreen.js';
 import { addCommentaryButton } from './commentary-button.js';
 import { crestSvg, clubOf, onClubs } from './club-crest.js';
+import { paintMatchupCard } from './matchup-card.js';
 import { venueOf, onVenue } from './venue.js';
 import { GEO, DOTS } from './rink/geo.js';
 import { DT } from './rink/rig.js';
@@ -219,8 +220,8 @@ export function createRinkView(host, opts = {}) {
     if (crowdBack) { clearTimeout(crowdBack); crowdBack = null; }
     switch (p.type) {
       case 'intermission': case 'injury': case 'death': c.setState('quiet'); break;
-      case 'penalty': c.setState('penalty'); crowdSettle(4); break;
-      case 'pull': c.setState('chance'); break;
+      case 'penalty': if (!p.waived) { c.setState('penalty'); crowdSettle(4); } break;
+      case 'pull': case 'delayed': c.setState('chance'); break;
       // (a fight is long now: the crowd stays up through it and comes down at the box)
       case 'fight': c.setState('shot').cheer(); crowdSettle(20); break;
       case 'brawl': c.setState('fight').cheer(); crowdSettle(30); break;
@@ -329,24 +330,100 @@ export function createRinkView(host, opts = {}) {
     if (!ppNow || clk.shown == null) return 0;
     return ppNow.left + (ppNow.held && clk.shown > ppNow.aim ? 0 : clk.shown - ppNow.aim);
   }
+  // Both sides say what they are: the club with the extra man POWER PLAY with the time it has,
+  // the other SHORTHANDED, each with its crest, so nobody reads an abbreviation to work out whose
+  // power play it is. A delayed call (sim v9) puts its own chip up for the club the arm is on.
   function ppHtml(p) {
     const left = ppLeft();
-    if (!ppNow || left <= 0) return '';
-    const col = (ppNow.team === 'home' ? p.homeColours : ppNow.team === 'away' ? p.awayColours : null)?.[0];
-    const men = `${Math.max(ppNow.away, ppNow.home)}-ON-${Math.min(ppNow.away, ppNow.home)}`;
-    const what = !ppNow.team ? men : Math.abs(ppNow.away - ppNow.home) > 1 ? `PP ${men}` : 'POWER PLAY';
-    const team = ppNow.team ? `${_crest(ppNow.team === 'home' ? p.homeTeam : p.awayTeam, 14)}<b>${_esc(ppNow.abbr || '')}</b> ` : '';
-    ppText = clockText(left);
-    return `<span class="gdr-pp${ppNow.team ? '' : ' even'}"${col ? ` style="--pp:${_esc(col)}"` : ''}>${team}<i>${what}</i> <span class="gdr-pp-time">${ppText}</span></span>`;
+    let out = '';
+    if (ppNow && left > 0) {
+      const men = `${Math.max(ppNow.away, ppNow.home)}-ON-${Math.min(ppNow.away, ppNow.home)}`;
+      ppText = clockText(left);
+      if (!ppNow.team) out = `<span class="gdr-pp even"><i>${men}</i> <span class="gdr-pp-time">${ppText}</span></span>`;
+      else {
+        const home = ppNow.team === 'home';
+        const col = (home ? p.homeColours : p.awayColours)?.[0];
+        const shTeam = home ? p.awayTeam : p.homeTeam, shAbbr = home ? p.awayAbbr : p.homeAbbr;
+        out = `<span class="gdr-pp"${col ? ` style="--pp:${_esc(col)}"` : ''}>${_crest(home ? p.homeTeam : p.awayTeam, 14)}<b>${_esc(ppNow.abbr || '')}</b> <i>POWER PLAY</i>` +
+          `${Math.abs(ppNow.away - ppNow.home) > 1 ? ` <em>${men}</em>` : ''} <span class="gdr-pp-time">${ppText}</span></span>` +
+          `<span class="gdr-sh">${_crest(shTeam, 14)}<b>${_esc(shAbbr || '')}</b> <i>SHORTHANDED</i></span>`;
+      }
+    }
+    if (armUp) out += `<span class="gdr-delayed">${_crest(armUp.team, 14)}<b>${_esc(armUp.abbr)}</b> <i>DELAYED PENALTY</i></span>`;
+    return out;
   }
   function ppTick() {
+    boxTick();
     if (!ppNow) return;
     const left = ppLeft();
-    if (left <= 0) { ppNow = null; host?.querySelector('.gdr-pp')?.remove(); return; }
+    if (left <= 0) { ppNow = null; host?.querySelector('.gdr-pp')?.remove(); host?.querySelector('.gdr-sh')?.remove(); return; }
     const t = clockText(left);
     if (t === ppText) return;
     ppText = t;
     const el = host?.querySelector('.gdr-pp-time'); if (el) el.textContent = t;
+  }
+
+  // THE PENALTY BOX, on the picture: who is in it, for what, and the time each has left, counted
+  // down with the clock as the power play is. The names and their seconds are the payload's box
+  // (`pp.box`, hockey-narrator.js ppOf); what each went for is remembered off his penalty's payload.
+  // Not in a seat: the arena's own clock is the scoreboard, and the seat has no graphics.
+  const sentFor = new Map();   // player -> { infraction, mins }
+  let armUp = null;            // { team, abbr } while a delayed call waits on a touch (sim v9)
+  let boxText = '';
+  function boxMen() {
+    if (!ppNow || !ppNow.box || clk.shown == null) return [];
+    const run = ppNow.held && clk.shown > ppNow.aim ? 0 : clk.shown - ppNow.aim;
+    const side = (k, team) => (ppNow.box[k] || []).map((m) => ({ ...m, team, left: m.left + run }));
+    return [...side('away', last?.awayTeam), ...side('home', last?.homeTeam)].filter((m) => m.left > 0).sort((a, b) => a.left - b.left);
+  }
+  function boxTick() {
+    const rink = host?.querySelector('.gdr-rink');
+    if (!rink || opts.seat) return;
+    const men = boxMen();
+    const text = men.map((m) => `${m.name}|${clockText(m.left)}`).join(',');
+    if (text === boxText) return;
+    boxText = text;
+    let el = rink.querySelector('.gdr-boxp');
+    if (!men.length) { el?.remove(); return; }
+    if (!el) { el = doc.createElement('div'); el.className = 'gdr-boxp'; el.setAttribute('aria-label', 'Penalty box'); rink.appendChild(el); }
+    el.innerHTML = `<div class="gdr-boxp-h">PENALTY BOX</div>` + men.map((m) => {
+      const why = sentFor.get(m.name);
+      return `<div class="gdr-boxp-row">${_crest(m.team, 14)}<span class="nm">${_esc(String(m.name).split(' ').pop().toUpperCase())}</span>` +
+        `<span class="inf">${_esc(why ? why.infraction : '')}</span><span class="t">${clockText(m.left)}</span></div>`;
+    }).join('');
+  }
+
+  // THE CALLS AS LOWER THIRDS: the arm going up on a delayed call, the penalty with his time in
+  // the box and who has the power play, a goal wiping it out, and a man carried off. Each goes up
+  // once the picture has got to it (the whistle, the medics), over the play's own lower third.
+  function callGraphics(p) {
+    if (p.type === 'delayed') armUp = { team: p.penaltyTeam || '', abbr: p.penaltySide === 'home' ? p.homeAbbr : p.awayAbbr };
+    else if (p.type === 'penalty' || p.type === 'goal' || p.type === 'faceoff' || p.type === 'intermission') armUp = null;
+    if (p.type === 'penalty' && !p.waived && p.player) sentFor.set(p.player, { infraction: p.infraction || '', mins: p.penaltyMin || 2 });
+    if (opts.seat) return;
+    const benefit = p.penaltySide === 'home' ? p.awayAbbr : p.homeAbbr;
+    const id = (name, team) => {
+      const num = bodyOf({ name, team })?.num;
+      return `<div class="gdr-l3-id">${_crest(team, 30) || ''}${num ? `<span class="num">${num | 0}</span>` : ''}<span class="nm">${_esc(String(name || '').toUpperCase())}</span><span class="tm">${_esc(team || '')}</span></div>`;
+    };
+    const later = (secs, html, hold, why) => win?.setTimeout(() => { if (last === p) showL3(html, hold, why); }, secs * 1000);
+    if (p.type === 'delayed') {
+      later(0.6, id(p.player, p.penaltyTeam) +
+        `<div class="gdr-l3-row"><span class="lbl pen">Delayed penalty</span><span>${_esc(p.infraction || '')}</span><span class="tag">${_esc(benefit || '')} extra attacker</span></div>`, 5, 'call');
+    } else if (p.type === 'penalty' && p.waived) {
+      later(1, id(p.player, p.penaltyTeam) +
+        `<div class="gdr-l3-row"><span class="lbl">Penalty wiped out</span><span>${_esc(p.infraction || '')}</span><span class="tag">Goal on the delayed call</span></div>`, 5, 'call');
+    } else if (p.type === 'penalty') {
+      const mins = Number(p.penaltyMin) || 2;
+      later(1.6, id(p.player, p.penaltyTeam) +
+        `<div class="gdr-l3-row"><span class="lbl pen">${mins >= 5 ? 'Major penalty' : 'Penalty'}</span><span>${_esc(p.infraction || '')}</span>` +
+        `<span><i>BOX</i>${mins}:00</span><span class="tag">${_esc(benefit || '')} power play</span></div>`, 7, 'call');
+    } else if (p.type === 'injury') {
+      const team = p.victimTeam || '', abbr = team === p.homeTeam ? p.homeAbbr : p.awayAbbr;
+      const left = Number.isFinite(p.remaining) ? `${abbr} down to ${p.remaining} skaters` : `${abbr} a man short`;
+      later(2.4, id(p.victim, team) +
+        `<div class="gdr-l3-row"><span class="lbl hurt">Injury</span>${p.wound ? `<span>${_esc(p.wound)}</span>` : ''}<span>Out for the game</span><span class="tag">${_esc(left)}</span></div>`, 7, 'call');
+    }
   }
   // the header redraws with crests when the club identities turn up mid-game
   let offClubs = null;
@@ -354,7 +431,7 @@ export function createRinkView(host, opts = {}) {
   // score after the goal, and the strip names the result. Up there during the rush they
   // would call the goal before it happens, so the strip reads LIVE until then.
   function head(p) {
-    if (!offClubs) offClubs = onClubs(() => { if (last && host) head(last); });
+    if (!offClubs) offClubs = onClubs(() => { if (last && host) head(last); paintIdle(); });
     const el = host?.querySelector('.gdr-head'); if (!el) return;
     const live = !landed && p.type !== 'intermission';
     const sc = live && p.scoreBefore ? p.scoreBefore : { away: p.awayScore, home: p.homeScore };
@@ -377,6 +454,8 @@ export function createRinkView(host, opts = {}) {
         `<span class="gdr-strip-names">${_esc(p.shooter || '')}${p.assist ? ` · assist ${_esc(p.assist)}` : ''}${p.goalie ? ` · vs ${_esc(p.goalie)}` : ''}</span>`;
     const ru = host.querySelector('.gdr-rush');
     if (ru) { ru.hidden = !p.rush; ru.textContent = p.rush || ''; }
+    // (and the box, at once: the clock's own tick keeps it counting after)
+    boxTick();
   }
 
   // ── the intermission board ────────────────────────────────────────────────
@@ -523,7 +602,8 @@ export function createRinkView(host, opts = {}) {
     if (!host || mounted) return;
     mounted = true;
     host.innerHTML = shell();
-    addFullscreenButton(host.querySelector('.gdr-rink'), host);
+    // on a TV, the whole set goes full screen, its buttons and all (tv.js passes it)
+    addFullscreenButton(host.querySelector('.gdr-rink'), host, opts.fullscreen);
     // spoken commentary on or off, when the host has a switch for it (commentary-button.js)
     syncVoice = addCommentaryButton(host.querySelector('.gdr-rink'), opts.commentary, doc);
     canvas = host.querySelector('.gdr-canvas');
@@ -553,6 +633,8 @@ export function createRinkView(host, opts = {}) {
       onIntro: (c) => introCard(c),
       // and each man as he puts the Cup over his head (rink/director.js stageCrown)
       onLift: (c) => liftCard(c),
+      // the spotlight between plays: the man close up at ice level, his line under him (null: done)
+      onSpot: (s) => { if (s && s.line) showL3(statCard(s.line, s.kind === 'goalie') + spotTag(s), 0, 'spot'); else if (l3Up === 'spot') hideL3(); },
     });
     // the scorer's stat line goes up with his goal's replay and comes down with it (and the
     // frame loop checks again, for a replay that runs out on its own)
@@ -711,12 +793,16 @@ export function createRinkView(host, opts = {}) {
       if (last !== p) return;
       mount();
       host.querySelector('.gdr-idle')?.remove();
+      // the game is live: a TV's holding picture goes (tv.js)
+      opts.onLive?.();
       // Cup night dresses the graphics in gold (styles.css .gdr-wrap.cup)
       host.querySelector('.gdr-wrap')?.classList.toggle('cup', !!p.cup);
       if (p.type === 'arrive') { arrive(p); return; }
       if (p.type === 'anthem' || p.type === 'crown') { ceremony(p); return; }
       stopFly();
       landed = false;
+      // (first: it says whether the arm is up, which the header shows)
+      callGraphics(p);
       head(p);
       board(p.type === 'intermission' ? p : null);
       crowdPlay(p);
@@ -803,6 +889,11 @@ export function createRinkView(host, opts = {}) {
       `<div class="gdr-l3-row"><span class="lbl">This season</span>${stats}${tag ? `<span class="tag">${_esc(tag)}</span>` : ''}</div>` +
       (bars ? `<div class="gdr-l3-bars">${bars}</div>` : '');
   }
+  // (a hitter's card says what he's done tonight; the scorer's and the goalie's say it already)
+  function spotTag(s) {
+    const n = s.kind === 'hitter' ? s.line.tonightHits | 0 : 0;
+    return n ? `<div class="gdr-l3-row"><span class="lbl">Tonight</span><span class="tag">${n} hit${n === 1 ? '' : 's'}</span></div>` : '';
+  }
   function showL3(html, secs, why) {
     if (opts.seat) return;     // the broadcast's lower third, not the arena's
     const pic = host?.querySelector('.gdr-rink');
@@ -839,6 +930,12 @@ export function createRinkView(host, opts = {}) {
   }
   function clearCard() { if (cardTimer) { clearTimeout(cardTimer); cardTimer = null; } host?.querySelector('.gdr-jumbo')?.remove(); }
 
+  // The loading card: the CPhL mark over tonight's two crests (matchup-card.js).
+  function paintIdle(veil = host?.querySelector('.gdr-idle')) {
+    if (!veil) return;
+    paintMatchupCard(veil, { brand: cphlLockup('Rinkside', '64px'), sport: 'hockey', away: last?.awayTeam, home: last?.homeTeam, line: 'Waiting for the drop…' });
+  }
+
   // Opened before a beat arrived: the ice, the men warming up, and the lockup over it.
   function showIdle() {
     if (!host) return;
@@ -848,10 +945,11 @@ export function createRinkView(host, opts = {}) {
       if (mine !== era) return;      // cleared while the modules loaded: the host is somebody else's now
       mount();
       if (last) head(last);
-      if (host.querySelector('.gdr-idle')) return;
+      // on a TV its holding picture (tv-hold.js) is up over the ice instead
+      if (opts.holding || host.querySelector('.gdr-idle')) return;
       const veil = doc.createElement('div');
       veil.className = 'gdr-idle';
-      veil.innerHTML = cphlLockup('Rinkside', '46px') + `<div class="gdr-idle-sub">Waiting for the drop…</div>`;
+      paintIdle(veil);
       // over the ice only, so the pre-game call under it stays readable
       (host.querySelector('.gdr-rink') || host.querySelector('.gdr-wrap'))?.appendChild(veil);
     };
@@ -886,6 +984,8 @@ export function createRinkView(host, opts = {}) {
   }
 
   return {
+    // it calls `opts.onLive` when its game is live, so a TV's holding picture can wait for it (tv.js)
+    tellsLive: true,
     apply, clear, rest, wake, setCaption, showIdle, showCard,
     // `opts.manual`: one frame, now (panels/room-rink.js); and the rooms the view is drawn from (gl/arena.js api.cut)
     tick(now) { if (running && R && W) step(now); },

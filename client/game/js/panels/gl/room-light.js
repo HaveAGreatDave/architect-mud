@@ -4,6 +4,7 @@
 // person stands in the same light as the chair beside them.
 
 import { COMIC_LIGHT_GLSL } from './comic-light.js';
+import { ACES_GLSL } from './core/glsl/tone.js';
 
 // The comic look (uComic) lights each light's share through the comic light's terminator
 // (gl/comic-light.js comicStep): a surface turned from the lamp keeps about a third of it as fill,
@@ -55,6 +56,7 @@ vec2 specOf(float m) {
   if (m == 4.0) return vec2(90.0, 0.55);   // GLOSS
   if (m == 6.0) return vec2(42.0, 0.6);    // METAL
   if (m == 45.0) return vec2(160.0, 1.4);  // CHROME (room.js mirrors the room in it)
+  if (m == 49.0) return vec2(420.0, 2.2);  // POLISH (gl/room-cup.js: a trophy's chrome and gold)
   if (m == 3.0) return vec2(24.0, 0.2);    // LEATHER
   if (m == 5.0) return vec2(30.0, 0.12);   // SATIN
   if (m == 1.0) return vec2(4.0, 0.02);    // CLOTH
@@ -64,7 +66,7 @@ vec2 specOf(float m) {
 // how far the surface's normal turns across a pixel, 0 flat to 1 curved. A caller with flat faces sets
 // it at the top of its main, before any return that depends on a varying, or fwidth is undefined.
 float gCurve = 1.0;
-vec3 aces(vec3 x) { return clamp(x * (2.51 * x + 0.03) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0); }
+${ACES_GLSL}
 vec3 finish(vec3 c) {
   // 3: the ballpark's float target (gl/ballpark-figures.js), which tone-maps the whole frame itself, so the
   // light goes in linear and unmapped, as the park's own players' does

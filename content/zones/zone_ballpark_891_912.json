@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "The east end of Burnet Walk, with Hughson Way in front of you and the terraces of 2 Hughson Way across it.",
+  "description": "The east end of Burnet Walk, with Hughson Way in front of you and the North Gardens across it.",
   "exits": {
     "east": "zone_ballpark_892_912",
     "south": "zone_ballpark_891_913",

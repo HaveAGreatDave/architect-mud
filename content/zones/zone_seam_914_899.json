@@ -1,0 +1,24 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "coast",
+  "color": "#7fd3ff",
+  "description": "The shoreline drops off fast. A step out and the water is cold around your legs, and the channel ahead is deep and dark.",
+  "exits": {
+    "east": "zone_district_914_899",
+    "north": "zone_seam_914_898",
+    "south": "zone_seam_914_900",
+    "west": "zone_district_913_899"
+  },
+  "flags": {
+    "district": "water",
+    "region_id": "region_coldwater",
+    "terrain": "water"
+  },
+  "grid_x": 914,
+  "grid_y": 899,
+  "grid_z": 0,
+  "id": "zone_seam_914_899",
+  "map_id": "map_world",
+  "name": "Coldwater Basin",
+  "parent_zone": null
+}

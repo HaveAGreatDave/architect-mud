@@ -44,16 +44,17 @@
 // of the clock (client/shared/window-sky.js), so nothing has to send them.
 
 import { furnitureActs } from '../../server/engine/furnitureActions.js';
-import { gatherHookSync } from '../../server/engine/plugins.js';
-import { world, getZone, getRegion, facadeStreetTile, getZoneFurniture, getFurnitureById, getZonePlayers, getZoneNpcs, getZoneEnemies, getApartment, updateFurniture, updateFurnitureWhere, insertFurniture, deleteFurnitureWhere, getLivePlayer, doorOnLink, frontDoorOf, getMap } from '../../server/engine/world.js';
+import { gatherHook, gatherHookSync } from '../../server/engine/plugins.js';
+import { world, getZone, getRegion, facadeStreetTile, getZoneFurniture, getFurnitureById, getZonePlayers, getZoneNpcs, getZoneEnemies, getApartment, updateFurniture, updateFurnitureWhere, insertFurniture, deleteFurnitureWhere, getLivePlayer, doorOnLink, frontDoorOf, getMap, moveNpcToZone } from '../../server/engine/world.js';
 import { walkPlans, buildingView, placeFrom, streetDoorAt } from '../../client/shared/building-graph.js';
+import { streetDoorKind, streetDoorLook } from '../../client/shared/street-door.js';
 import { getItem, getItemCache } from '../../server/engine/items-cache.js';
 import { primaryExits } from '../../server/engine/exits.js';
 import { on, emit } from '../../server/engine/events.js';
 import { createNpcLife } from './npc-life.js';
 import { createActs } from './acts.js';
 import { cmdRoomPack } from './pack.js';
-import { isNpcAsleep, isNpcAtWork } from '../../server/engine/ai-behaviour.js';
+import { isNpcAsleep, isNpcAtWork, registerLifeDriver, walkNpcToward } from '../../server/engine/ai-behaviour.js';
 import { npcMoodOf, onNpcMoodChange } from '../../server/engine/npc-mood.js';
 import { resolve as siftResolve } from '../../server/engine/sift.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
@@ -83,6 +84,7 @@ import { TRAFFIC } from '../../client/shared/window-sky.js';
 import { floorsOf, GROUND_FLOOR } from '../elevator/floors.js';
 import { shopClosedFor, shopDoorDefeated, shopPlaceName, tradingHoursLine, reopensPhrase, shutOnPresenceOnly, livesHere } from '../commerce/shopdoor.js';
 import { fillOf, noteView, warm } from './fill.js';
+import { loadPlants, plantsOf, plantPieces, isPlantId, savePlants, loadRugs, rugMovable, rugOf, rugPiece, isRugId, saveRug } from './plants.js';
 
 // zoneId -> Set of player ids with the Stage open there
 const viewers = new Map();
@@ -114,6 +116,10 @@ export function specOf(zoneId) {
   // vacant flat has a Stage too
   const spec = zone ? roomSpecOf(zone.flags, !!(zone.flags?.is_apartment || getApartment(zoneId)), { storey: Number.isFinite(mark) ? mark : null }) : null;
   if (!spec) return null;
+  // the room's potted plants come out of its decor and are sent as pieces you can move (plants.js)
+  if (spec.decor?.plants) { spec.pots = plantsOf(zoneId, spec.decor.plants); spec.decor = { ...spec.decor }; delete spec.decor.plants; }
+  // …and so does a rug with a place of its own (plants.js rugOf); the decor then lays none
+  if (rugMovable(spec.decor?.rug)) { spec.rug = rugOf(zoneId, spec.decor.rug); spec.decor = { ...spec.decor, rug: false }; }
   const annex = annexOf(zoneId);
   return annex ? withAnnex(spec, annex.id, annex.name) : spec;
 }
@@ -121,7 +127,9 @@ export function specOf(zoneId) {
 // One room's pieces with their spots, laid out by layRows (client/shared/room-layout.js). With
 // `stamp`, a player's piece that has no spot yet has the one it was given written to its row.
 async function piecesOf(zoneId, spec, { stamp, annex, finish }) {
-  const { pieces, stamps } = layRows(getZoneFurniture(zoneId), spec, { annex, finish, itemOf: (f) => (f.flags?.item_id ? getItem(f.flags.item_id) : null) });
+  // the plants are pieces now (plants.js), but a new piece laid out by the rules still keeps off them
+  const laySpec = spec.pots?.length && !annex ? { ...spec, decor: { ...spec.decor, plants: spec.pots } } : spec;
+  const { pieces, stamps } = layRows(getZoneFurniture(zoneId), laySpec, { annex, finish, itemOf: (f) => (f.flags?.item_id ? getItem(f.flags.item_id) : null) });
   if (stamp && stamps.length) await Promise.all(stamps.map(({ row, spot }) => updateFurniture(row.id, { flags: JSON.stringify({ ...row.flags, spot }) })));
   const rows = new Map(getZoneFurniture(zoneId).map((f) => [f.id, f]));
   // a chess table carries the position on it (plugins/gametable `room.boards`, RAM)
@@ -192,13 +200,12 @@ export function streetDoorsNear(gx, gy, r) {
       const o = (buildingView(bld, entry, spec, { specOf }).spec.openings || []).find((x) => x.kind === 'front' && x.to === f.id);
       if (!o) continue;
       // the building rides along unsent (not enumerable), for buildingRoomsNear
-      // how the glass doors look from the street, if the building says (flags.room.street_door: glass, trim, monogram)
-      // (a plain door's leaf: `leaf` its colour and `bars` a steel grille over it, as the Cherry Pit's; `fanlight` a
-      // glazed fan over a swing pair, and `runner` a carpet's colour out across the pavement, as the Embassy's;
-      // `dark` black behind the doors instead of the lobby, so going in is a step into the dark and the loading veil)
-      const sd = getZone(entry)?.flags?.room?.street_door, look = sd && (sd.glass || sd.trim || sd.monogram || sd.kind === 'swing' || sd.leaf || sd.bars || sd.dark) ? { glass: sd.glass || null, trim: sd.trim || null, monogram: sd.monogram ? String(sd.monogram).slice(0, 2) : null, ...(sd.handle === 's' ? { handle: 's' } : {}), ...(sd.leaf ? { leaf: String(sd.leaf) } : {}), ...(sd.bars ? { bars: true } : {}), ...(sd.fanlight ? { fanlight: true } : {}), ...(sd.dark ? { dark: true } : {}), ...(/^#[0-9a-f]{6}$/i.test(sd.runner || '') ? { runner: sd.runner } : {}) } : null;
+      // what kind of door it is and how it looks from the street, as the entry room's flags.room.street_door says
+      // (client/shared/street-door.js: the kinds, and every look key with what it does)
+      const sd = getZone(entry)?.flags?.room?.street_door, look = streetDoorLook(sd);
+      const kind = sd ? streetDoorKind(sd) : o.slide ? (o.swing ? 'swing' : 'sliding') : 'plain';
       const card = entryCard(f.id);
-      doorList.push(Object.defineProperty({ gx: f.grid_x, gy: f.grid_y, edge, w: +Math.abs(o.b - o.a).toFixed(2), slide: !!o.slide, ...(o.swing ? { swing: true } : {}), ...(look ? { look } : {}), ...(card ? { place: card } : {}) }, 'bld', { value: bld }));
+      doorList.push(Object.defineProperty({ gx: f.grid_x, gy: f.grid_y, edge, w: +Math.abs(o.b - o.a).toFixed(2), kind, slide: !!o.slide, ...(o.swing ? { swing: true } : {}), ...(look ? { look } : {}), ...(card ? { place: card } : {}) }, 'bld', { value: bld }));
     }
   }
   return doorList.filter((d) => Math.abs(d.gx - gx) <= r && Math.abs(d.gy - gy) <= r);
@@ -258,7 +265,7 @@ function watchersOf(zoneId) {
 // The pieces of a flat, and of its en-suite when it has one. A piece in the en-suite carries `annex`
 // and its spot is in the en-suite's own frame.
 export async function roomPieces(zoneId, spec, { stamp = false } = {}) {
-  const out = await piecesOf(zoneId, spec, { stamp, annex: false, finish: spec.finish });
+  const out = [...await piecesOf(zoneId, spec, { stamp, annex: false, finish: spec.finish }), ...plantPieces(spec.pots || [], true), ...(spec.rug ? [rugPiece(spec.rug, true)] : [])];
   if (!spec.annex) return out;
   const A = annexFrame(spec);
   return [...out, ...await piecesOf(spec.annex.zone, A.spec, { stamp, annex: true, finish: spec.annex.finish })];
@@ -313,7 +320,9 @@ function frameOf(zoneId, tile, player) {
   const car = bld.plan.lifts?.[zoneId];
   if (car) { const parked = liftOf(player, zoneId).parked, stop = parked && car.stops.find((s) => s.zone === parked); if (stop) floor = stop.y; }
   const side = BEARING[String(tile.flags?.entrance || '').toLowerCase()] ?? bld.plan.rooms[bld.b.entry]?.face ?? 0;
-  return { entry: entry.at, front: bld.plan.rooms[bld.b.entry].face, side, floor, face: R.face, door: streetDoorAt(bld.plan, bld.b.entry) };
+  // `along`: a street door off its tile's middle along the street (room-view.js anchorOf), the Solenne's on its block's
+  const along = Number(getZone(bld.b.entry)?.flags?.room?.street_door?.along) || 0;
+  return { entry: entry.at, front: bld.plan.rooms[bld.b.entry].face, side, floor, face: R.face, door: streetDoorAt(bld.plan, bld.b.entry), ...(along ? { along } : {}) };
 }
 
 // The world round the building, for GLASS to draw out of the window.
@@ -468,26 +477,30 @@ function walkIn(zoneId, pieces, t) {
   return { at: q.at.map((x) => +x.toFixed(2)), route: { path: [q.at, ...r.path.slice(q.leg)], ms: Math.round(r.ms - gone) } };
 }
 
-// Somebody knocking at a locked door (plugins/gametable `door.knock`): seen from the room they're knocking from, stood
-// just inside its doorway to the room they want, facing it, rapping on it. Held a few seconds past each knock.
-const KNOCK_HOLD_MS = 9_000;
-const knockers = new Map();   // npcId -> { to, until }
+// Somebody knocking at a shut door (plugins/gametable `door.knock`): seen from the room they're knocking from, stood
+// just inside its doorway to the room they want, facing it. They rap for KNOCK_HOLD_MS after each knock, then stand
+// there waiting until the next one (the event's `waitMs`), and go back to their own life once they give up.
+const KNOCK_HOLD_MS = 7_000;   // one loop of actor3d's 'knock' clip
+const knockers = new Map();   // npcId -> { to, at, until }
 function knockPost(npcId, zoneId, pieces) {
-  const k = knockers.get(npcId);
-  if (!k || Date.now() > k.until) { if (k) knockers.delete(npcId); return null; }
+  const k = knockers.get(npcId), now = Date.now();
+  if (!k || now > k.until) { if (k) knockers.delete(npcId); return null; }
   const spec = stageSpec(zoneId), o = spec && doorwaysOf(spec).find((x) => x.to === k.to);
   if (!o) return null;
   const L = roomLayout(spec, pieces), p = openingInside(L, o).at;
   // facing out through the doorway: the way into the room from it, turned round
   const face = o.wall === 'front' ? [0, -1] : o.wall === 'back' ? [0, 1] : o.wall === 'left' ? [-1, 0] : [1, 0];
-  return { at: p.map((x) => +x.toFixed(2)), face, clip: 'knock' };
+  return { at: p.map((x) => +x.toFixed(2)), face, ...(now - k.at < KNOCK_HOLD_MS ? { clip: 'knock' } : {}) };
 }
-on('door.knock', ({ outside, inside, knockerId }) => {
+on('door.knock', ({ outside, inside, knockerId, waitMs }) => {
   if (!viewers.size) return;
-  if (knockerId && outside) knockers.set(knockerId, { to: inside, until: Date.now() + KNOCK_HOLD_MS });
+  const now = Date.now();
+  if (knockerId && outside) knockers.set(knockerId, { to: inside, at: now, until: now + Math.max(KNOCK_HOLD_MS, waitMs || 0) });
   // (the knock itself is heard through plugins/audio; the room outside is sent its people, the knocker at the door)
   const z = outside && mainOf(outside);
   if (z && viewersOf(z).size) sendPeople(z).catch(() => {});
+  // and again once the rap's done, so they stand and wait rather than rapping on a loop till the next knock
+  if (z) setTimeout(() => { if (viewersOf(z).size) sendPeople(z).catch(() => {}); }, KNOCK_HOLD_MS + 100).unref?.();
 });
 
 function peopleIn(zoneId, pieces) {
@@ -551,7 +564,50 @@ function peopleIn(zoneId, pieces) {
     if (have) { Object.assign(have, t.on ? { posture: 'sitting', on: t.on } : { dealerAt: t.dealerAt }); delete have.at; delete have.manner; continue; }
     out.push({ ...t, ...(feel ? { feel } : {}) });
   }
+  return clubFloor(out);
+}
+// A dancer and her crowd (plugins/strippers calls tipped()): whoever handed her a note in the last few seconds holds
+// it out and she comes down for it, turned to them; and everybody else in the room who isn't working keeps an eye on
+// the nearest dancer, an NPC among them idling as a punter does (actor3d.js ACTOR_IDLES.punter). RAM only.
+const TIP_TAKE_MS = 3400, TIP_GIVE_MS = 2600;
+function clubFloor(out) {
+  const now = Date.now(), dancers = out.filter((o) => o.tip && Array.isArray(o.at));
+  if (!dancers.length) return out;
+  for (const d of dancers) {
+    const tip = world.npcs.get(d.id)?._tipped;
+    if (!tip || now - tip.at > TIP_TAKE_MS) continue;
+    Object.assign(d, { clip: 'tipTake', beat: tip.n });
+    const by = out.find((o) => o.id === tip.by);
+    if (by && Array.isArray(by.at)) {
+      const du = by.at[0] - d.at[0], dv = by.at[1] - d.at[1], m = Math.hypot(du, dv);
+      if (m > 0.1) d.face = [+(du / m).toFixed(3), +(dv / m).toFixed(3)];
+    }
+  }
+  for (const o of out) {
+    if (o.tip || o.annex || o.asleep || o.out) continue;
+    const gave = o.npc ? world.npcs.get(o.id)?._tipGave : null;
+    if (gave && now - gave.at < TIP_GIVE_MS) Object.assign(o, { clip: o.on ? 'sitTipOffer' : 'tipOffer', beat: gave.n });
+    // somebody at work (behind the bar, on the door) watches the room, not the stage
+    if (o.manner && o.manner !== 'punter') continue;
+    if (o.npc && !o.clip && !o.manner) o.manner = 'punter';
+    let best = null, bd = Infinity;
+    for (const d of dancers) { const q = Array.isArray(o.at) ? Math.hypot(d.at[0] - o.at[0], d.at[1] - o.at[1]) : 0; if (q < bd) { bd = q; best = d; } }
+    if (best) o.watch = [best.at[0], best.at[1], +((best.lift || 0) + 1.25).toFixed(2)];
+  }
   return out;
+}
+// A tip just handed over (plugins/strippers): the dancer comes down for it and the giver holds it out, a player by
+// their act and an NPC by a mark on them, and the room is sent again once she's back up so the clips end on time.
+export function tipped(zoneId, dancer, giver) {
+  if (!dancer) return;
+  const now = Date.now();
+  dancer._tipped = { at: now, by: giver?.id, n: (dancer._tipped?.n || 0) + 1 };
+  if (giver?.npc) giver.npc._tipGave = { at: now, n: (giver.npc._tipGave?.n || 0) + 1 };
+  else if (giver?.id) acts.play(giver.id, 'tip', null, TIP_GIVE_MS);
+  const z = mainOf(zoneId);
+  if (!z || !watchersOf(z).size) return;
+  sendPeople(z).catch(() => {});
+  setTimeout(() => { if (watchersOf(z).size) sendPeople(z).catch(() => {}); }, TIP_TAKE_MS + 150).unref?.();
 }
 
 // The animals in a room: an enemy whose content names a fauna model (flags.fauna, "kind/id") is drawn on the Stage's
@@ -736,7 +792,7 @@ async function viewPayload(player, zoneId, spec, { stamp = true, locks = true } 
   if (lockable) lockSeen.set(zoneId, lockSig(zoneId, spec));
   // the building it's in, for the loading veil (entryCard): its street door's facade, or the facade its map hangs off
   const card = entryCard(bld ? streetDoorOf(bld.b.entry) : (streetDoorOf(zoneId) || getMap(zone?.map_id)?.parent_zone_id));
-  return { type: 'room_view', zone: zoneId, here: player.current_zone, name: zone?.name || '', spec, ...(building ? { building } : {}), ...(card ? { entry: card } : {}), ...(lift ? { lift: { floors: lift.floors, at: lift.at } } : {}), hasView: !!place, ...(place ? { place } : {}), mine: !!controls(player, zoneId), ...(adminHere(player) ? { admin: true } : {}), you: player.id,
+  return { type: 'room_view', zone: zoneId, here: player.current_zone, name: zone?.name || '', spec, ...(building ? { building } : {}), ...(card ? { entry: card } : {}), ...(lift ? { lift: { floors: lift.floors, at: lift.at, ...(lift.brand ? { brand: lift.brand } : {}) } } : {}), hasView: !!place, ...(place ? { place } : {}), mine: !!controls(player, zoneId), ...(adminHere(player) ? { admin: true } : {}), you: player.id,
     pieces, people: peopleIn(zoneId, pieces), beasts: beastsIn(zoneId), tv: setOn(zoneId), clock: getBirdClock(), ...(ways.length ? { locks: ways } : {}),
     // whether the mains are on (powerOf); the switch by the door is the viewer's own, kept per room on the client
     power: powerOf(zoneId),
@@ -787,7 +843,9 @@ function liftOf(player, zoneId) {
   const car = getZone(zoneId), at = player?._elevatorAt;
   const parked = at && at.car === zoneId && at.zone !== zoneId ? at.zone : null;
   const floors = floorsOf(car).map((f) => ({ n: f.n, label: f.label })).sort((a, b) => a.n - b.n);
-  return { floors, parked, at: parked ? at.n : GROUND_FLOOR };
+  // the building's name for the plate over the panel (`flags.building_name` on the car), if it has one
+  const brand = typeof car?.flags?.building_name === 'string' ? car.flags.building_name : '';
+  return { floors, parked, at: parked ? at.n : GROUND_FLOOR, ...(brand ? { brand } : {}) };
 }
 
 const viewersOf = (zoneId) => viewers.get(zoneId) || new Set();
@@ -870,7 +928,7 @@ function busy(zoneId, pieces) {
 const watching = new Set();
 const tvOn = (zoneId) => [...viewersOf(zoneId)].some((id) => watching.has(id));
 // (residents walk round the room as its Stage lays it out, doorways and all)
-const life = createNpcLife({ viewers, annexOf, mainOf, specOf: stageSpec, roomPieces, sendPeople, busy, tvOn, feelOf: (zoneId) => feelOf(getZoneTemperature(zoneId)) });
+const life = createNpcLife({ viewers, annexOf, mainOf, specOf: stageSpec, roomPieces, sendPeople, busy, tvOn, feelOf: (zoneId) => feelOf(getZoneTemperature(zoneId)), whereOf: (id) => where.get(id) || null });
 // a player's act changed: the room they're in, if anybody has it open
 // a MORPHEX change shows on the body at once, to everyone with the room open (client/shared/player-figure.js)
 on('appearance.changed', ({ actor }) => { const z = actor?.current_zone && mainOf(actor.current_zone); if (z && watchersOf(z).size) sendPeople(z).catch(() => {}); });
@@ -901,11 +959,30 @@ on('npc.bathroom', (e) => { life.bathroom(e).catch((err) => console.error('[room
 // a face changes as soon as the mood does
 onNpcMoodChange((n) => { const z = n.zoneId ?? n.zone_id; if (z && watchersOf(mainOf(z)).size) sendPeople(mainOf(z)).catch(() => {}); });
 on('npc.ritual', (e) => life.ritual(e));
+on('npc.panic', (e) => { if (e?.npc) life.panic(e); });
 on('npc.banter.start', (e) => life.talkStart(e));
 on('npc.banter.end', (e) => life.talkEnd(e));
 // home talk (plugins/ambient-life/home-talk.js): a gesture per line, and what they do about how it went
 on('npc.talk.line', (e) => life.talkLine(e));
 on('npc.talk.after', (e) => life.afterTalk(e));
+
+// A vatdrop's NPC: held in the vat while the Stage plays the cycle, then, dressed, walked out of the facility and
+// back to where they died, the same road-graph walk as any commute. VAT_DONE_MS is VAT_CYCLE.done in
+// panels/room-vatcycle.js, when the body steps out. RAM only; a walk that sticks or runs long just lets go.
+const VAT_DONE_MS = 16600, VAT_WALK_LIMIT_MS = 10 * 60_000;
+const vatWalks = new Map();
+registerLifeDriver((npc, { broadcast, query, ai }) => {
+  const w = vatWalks.get(npc.id);
+  if (!w) return false;
+  const now = Date.now();
+  if (npc._dead) { vatWalks.delete(npc.id); return false; }
+  if (now < w.out) return true;
+  const r = now - w.out > VAT_WALK_LIMIT_MS ? 'stuck' : walkNpcToward(npc, w.home, broadcast, query);
+  if (r === 'moving') return true;
+  vatWalks.delete(npc.id);
+  if (ai) { ai.patrolPath = []; ai.patrolTarget = null; }
+  return false;
+});
 
 // ── room ────────────────────────────────────────────────────────────────────────────────────────
 async function cmdRoom(args, raw, player) {
@@ -917,6 +994,21 @@ async function cmdRoom(args, raw, player) {
     if (loggedPanelsSync(player)) return { type: 'error', message: 'The 3-D view needs the Visual or Text Games display mode.' };
     emit('roomstage.onfoot', { player, zone: player.current_zone, close: a0 === 'close' || a0 === 'leave' });
     return { type: 'noop' };
+  }
+  // `room vatdrop` (staff, a local server; the Stage's Vat test button): a random NPC from anywhere else in the world
+  // dies there and is reprinted here, down a tube into a release vat, so the vat cycle can be watched on somebody
+  if (a0 === 'vatdrop') {
+    if (!adminHere(player)) return { type: 'error', message: 'The vat test is for staff, on a local server.' };
+    if (!spec) return { type: 'error', message: 'There are no vats here.' };
+    const L = roomLayout(spec, await roomPieces(zoneId, spec));
+    if (!L.placed.some((p) => p.form === 'vat' && p.state === 'release')) return { type: 'error', message: 'There are no release vats here.' };
+    const pool = [...world.npcs.values()].filter((n) => n && !n._dead && n.zone_id && mainOf(n.zone_id) !== zoneId && !npcBeastOf(n) && !n.flags?.animal);
+    if (!pool.length) return { type: 'error', message: 'Nobody out there to reprint.' };
+    const n = pool[Math.floor(Math.random() * pool.length)], from = getZone(n.zone_id)?.name || 'somewhere';
+    vatWalks.set(n.id, { home: n.zone_id, out: Date.now() + VAT_DONE_MS });
+    moveNpcToZone(n.id, zoneId);
+    emit('vat.emerging', { actor: n, zone: zoneId, t0: Date.now(), npc: true });
+    return { type: 'output', message: `<span class="clone-vat-message">${n.name} dies in ${from}. The trunk overhead thumps, and something starts down a tube.</span>` };
   }
   if (a0 === 'close' || a0 === 'leave') {
     dropViewer(player.id, zoneId);
@@ -966,6 +1058,7 @@ function occupied(f, zoneId) {
 async function cmdArrange(args, raw, player, broadcast) {
   if (args[0] === 'layout') return arrangeLayout(raw, player, broadcast);
   if (args[0] === 'catalog') return arrangeCatalog(player);
+  if (args[0] === 'sheets') return arrangeSheetStock(player);
   const zoneId = player.current_zone;
   const { target, wall } = parseArrange(args);
   if (!target) return { type: 'output', message: 'Arrange what? `arrange <piece> <wall>`, where the wall is left, right, window or door. Leave the wall off to put it back where it goes.' };
@@ -1022,15 +1115,33 @@ async function arrangeLayout(raw, player, broadcast) {
   const spec = stageSpec(main);
   if (!spec) return tell(false, 'You can only arrange furniture in a flat or a furnished room.');
   if (!admin && !controls(player, main)) return tell(false, "This isn't your place to rearrange.");
-  const all = parseLayout(String(raw || '').trim().split(/\s+/).slice(2), LAYOUT_MAX);
+  const words = String(raw || '').trim().split(/\s+/).slice(2);
+  // paper on the walls rides in the same Save: `sheet:<id>@<spot>` moves a hung sheet, `sheet+<inv>@<spot>` hangs one
+  // the player carries (arrangeSheets below); the rest is furniture
+  const sheetOps = parseSheetOps(words.filter((w) => w.startsWith('sheet')));
+  if (!sheetOps) return tell(false, "That layout didn't make sense. Nothing moved.");
+  const all = parseLayout(words.filter((w) => !w.startsWith('sheet')), LAYOUT_MAX);
   if (!all) return tell(false, "That layout didn't make sense. Nothing moved.");
-  if (!all.length) return tell(true, 'Nothing to move.');
+  if (!all.length && !sheetOps.length) return tell(true, 'Nothing to move.');
+  if (!all.length) {
+    const r = await arrangeSheets(sheetOps, player, main, admin);
+    if (!r.ok) return tell(false, r.message, r.bad);
+    broadcast?.(zoneId, { type: 'zone_event', message: `${player.handle} rearranges the posters.` }, player.id);
+    return tell(true, r.message);
+  }
+  if (sheetOps.length) {
+    const r = await arrangeSheets(sheetOps, player, main, admin, { check: true });
+    if (!r.ok) return tell(false, r.message, r.bad);
+  }
   const adds = all.filter((m) => m.add), removes = all.filter((m) => m.remove), moves = all.filter((m) => !m.add && !m.remove);
   if (!admin && (adds.length || removes.length)) return tell(false, 'Adding and removing pieces is for staff, on a local server. Nothing moved.');
   const rows = new Map(getZoneFurniture(main).filter(drawn).map((f) => [f.id, f]));
   const pieces = (await roomPieces(main, spec)).filter((p) => !p.annex);
   const byId = new Map(pieces.map((p) => [p.id, p]));
   for (const m of [...moves, ...removes]) {
+    // a potted plant (plants.js): moved, never taken out
+    if (isPlantId(m.id)) { if (m.remove || !byId.has(m.id)) return tell(false, "The plants stay; you can only move them. Nothing moved.", [m.id]); continue; }
+    if (isRugId(m.id)) { if (m.remove || !byId.has(m.id)) return tell(false, "The rug stays; you can only move it. Nothing moved.", [m.id]); continue; }
     const row = rows.get(m.id);
     if (!row || !byId.has(m.id)) return tell(false, "Something you moved isn't there any more. Nothing moved.", [m.id]);
     if (admin) continue;
@@ -1040,12 +1151,15 @@ async function arrangeLayout(raw, player, broadcast) {
   const items = adds.map((m) => getItem(m.item));
   const noItem = adds.find((m, i) => items[i]?.type !== 'furniture');
   if (noItem) return tell(false, `There's no furniture item "${noItem.item}". Nothing moved.`);
-  // the room as it would stand, then each moved piece checked against everything else in it (staff place freely)
+  // the room as it would stand, then each moved piece checked against the pieces that stayed put (staff place freely).
+  // Pieces moved together keep their own shape (chairs tucked under a table overlap it), so they aren't checked
+  // against each other: the client's arrange mode moves a group the same way (room-arrange.js moveHeld)
   if (!admin) {
+    const moved = new Set(moves.map((m) => m.id));
     const after = pieces.map((p) => { const m = moves.find((x) => x.id === p.id); return m ? { ...p, spot: m.spot } : p; });
-    const bad = moves.filter((m) => { const p = after.find((x) => x.id === m.id); return !spotFits(spec, after.filter((x) => x !== p), p, m.spot); });
+    const bad = moves.filter((m) => { const p = after.find((x) => x.id === m.id); return !spotFits(spec, after.filter((x) => x !== p && !moved.has(x.id)), p, m.spot, { byHand: true }); });
     if (bad.length) {
-      const names = [...new Set(bad.map((m) => rows.get(m.id).name))];
+      const names = [...new Set(bad.map((m) => byId.get(m.id).name))];
       return tell(false, `There's no room for the ${names.slice(0, 3).join(', the ')} where you put ${names.length > 1 ? 'them' : 'it'}. Nothing moved.`, bad.map((m) => m.id));
     }
   }
@@ -1055,12 +1169,21 @@ async function arrangeLayout(raw, player, broadcast) {
     lastLayout.set(player.id, now);
   }
   const touched = [];
-  if (moves.length) {
-    const spots = Object.fromEntries(moves.map((m) => [m.id, m.spot]));
+  const plantMoves = moves.filter((m) => isPlantId(m.id));
+  if (plantMoves.length) {
+    const pots = (spec.pots || []).map((c) => c.slice());
+    for (const m of plantMoves) { const i = +m.id.slice(6), p = byId.get(m.id), q = resolveSpot(spec, m.spot, p.dims); if (pots[i]) pots[i] = [q.u, q.v, pots[i][2] || 1]; }
+    await savePlants(main, pots);
+  }
+  const rugMove = moves.find((m) => isRugId(m.id));
+  if (rugMove) { const q = resolveSpot(spec, rugMove.spot, byId.get('rug').dims); await saveRug(main, q.u, q.v, q.turn); }
+  const furnMoves = moves.filter((m) => !isPlantId(m.id) && !isRugId(m.id));
+  if (furnMoves.length) {
+    const spots = Object.fromEntries(furnMoves.map((m) => [m.id, m.spot]));
     const saved = await updateFurnitureWhere(
       `UPDATE furniture SET flags = jsonb_set(COALESCE(flags, '{}'::jsonb), '{spot}', ($1::jsonb) -> id) WHERE id = ANY($2::text[]) AND zone_id = $3${admin ? '' : " AND origin = 'player'"}`,
-      [JSON.stringify(spots), moves.map((m) => m.id), main]);
-    if (saved.length !== moves.length) console.warn(`[roomstage] arrange layout wrote ${saved.length} of ${moves.length} pieces in ${main}`);
+      [JSON.stringify(spots), furnMoves.map((m) => m.id), main]);
+    if (saved.length !== furnMoves.length) console.warn(`[roomstage] arrange layout wrote ${saved.length} of ${furnMoves.length} pieces in ${main}`);
     touched.push(...saved.filter((r) => r.origin === 'authored').map((r) => r.id));
   }
   if (removes.length) {
@@ -1073,11 +1196,65 @@ async function arrangeLayout(raw, player, broadcast) {
     touched.push(row.id);
   }
   if (admin && syncFiles) for (const id of touched) await syncEntityFile('furniture', id).catch((e) => console.warn('[roomstage] content file', id, e.message));
+  if (sheetOps.length) await arrangeSheets(sheetOps, player, main, admin);
   emit('furniture.changed', { zoneId: main });
   broadcast?.(zoneId, { type: 'zone_event', message: `${player.handle} rearranges the furniture.` }, player.id);
   const files = admin && syncFiles && touched.length ? ` ${touched.length} content file${touched.length > 1 ? 's' : ''} written under content/furniture.` : '';
   const what = [moves.length && `${moves.length} moved`, adds.length && `${adds.length} added`, removes.length && `${removes.length} removed`].filter(Boolean).join(', ');
-  return tell(true, (all.length === 1 && moves.length === 1 ? `You move the ${rows.get(moves[0].id).name}.` : `You rearrange the room: ${what}.`) + files);
+  return tell(true, (all.length === 1 && moves.length === 1 ? `You move the ${byId.get(moves[0].id).name}.` : `You rearrange the room: ${what}.`) + files);
+}
+
+// ── paper on the walls in the arrange mode ────────────────────────────────────────────────────────
+// A sheet (`room.sheets`) is a furniture row a plugin hangs as a run; where the run goes is `flags.sheet_spot`
+// `{ wall, along? }` on its rows (along in the room's units; none, the clearest stretch of that wall). The arrange mode drags a
+// run along the walls and sends `sheet:<id>@<wall>[:<along>]` for each of its sheets, and hangs a carried one from its
+// Posters menu (`arrange sheets`, the `room.sheetStock` gather) as `sheet+<inv>@<spot>`, which the plugin that owns
+// the roll does (`room.sheetHang`). The stage only checks the wall is one of the room's and the row is a sheet.
+const SHEET_WALL = new Set(['left', 'right', 'front', 'back']);
+function parseSheetOps(words) {
+  const out = [];
+  for (const w of words) {
+    const m = /^sheet([:+])([\w:.-]{1,80})@(left|right|front|back)(?::(-?\d+(?:\.\d+)?))?$/.exec(w);
+    if (!m) return null;
+    const spot = { wall: m[3], ...(m[4] != null ? { along: Math.round(Number(m[4]) * 100) / 100 } : {}) };
+    out.push(m[1] === '+' ? { inv: m[2], spot } : { id: m[2], spot });
+  }
+  return out.length > 14 ? null : out;
+}
+// `check`: say whether they'd all go, writing nothing. Otherwise do them: one write per moved sheet (a run is seven at
+// most), then each carried roll hung by its plugin.
+async function arrangeSheets(ops, player, main, admin, { check = false } = {}) {
+  const spec = stageSpec(main);
+  const hung = new Set(sheetsOf(main).map((s) => s.id)), rows = new Map(getZoneFurniture(main).map((f) => [f.id, f]));
+  for (const op of ops) {
+    if (op.spot.wall && Array.isArray(spec?.glass) && spec.glass.includes(op.spot.wall)) return { ok: false, message: "Paper won't stick to glass. Nothing moved.", bad: [op.id || op.inv] };
+    if (op.inv) continue;
+    const f = rows.get(op.id);
+    if (!f || !hung.has(op.id)) return { ok: false, message: "A poster you moved isn't there any more. Nothing moved.", bad: [op.id] };
+    if (!admin && f.origin !== 'player') return { ok: false, message: `The ${f.name} is pasted down for good. Nothing moved.`, bad: [op.id] };
+  }
+  if (check) return { ok: true };
+  let moved = 0, put = 0;
+  for (const op of ops.filter((o) => o.id)) {
+    const f = rows.get(op.id);
+    if (JSON.stringify(f.flags?.sheet_spot || null) === JSON.stringify(op.spot)) continue;
+    await updateFurniture(f.id, { flags: JSON.stringify({ ...(f.flags || {}), sheet_spot: op.spot }) });
+    moved++;
+  }
+  for (const op of ops.filter((o) => o.inv)) {
+    const done = await gatherHook('room.sheetHang', { player, zoneId: main, inv: op.inv, spot: op.spot });
+    if (done.some(Boolean)) put++;
+  }
+  if (moved) emit('room.sheetsChanged', { zoneId: main });
+  const what = [put && `${put} poster${put > 1 ? 's' : ''} put up`, moved && 'the posters moved'].filter(Boolean).join(', ');
+  return { ok: true, message: what ? `You rearrange the walls: ${what}.` : 'The posters stay where they are.' };
+}
+// The Posters menu: what this player carries that would hang as a sheet. Sent once when the menu opens.
+async function arrangeSheetStock(player) {
+  if (!controls(player, mainOf(player.current_zone)) && !adminHere(player)) return { type: 'error', message: "This isn't your place to rearrange." };
+  const items = (await gatherHook('room.sheetStock', player)).flat().filter((s) => s && s.inv && s.set);
+  sendToPlayer(player.id, { type: 'room_sheet_stock', items });
+  return { type: 'noop' };
 }
 
 // ── arrange catalog ───────────────────────────────────────────────────────────────────────────────
@@ -1231,6 +1408,30 @@ on('vehicle.calledUp', ({ player, zoneId }) => {
   const main = mainOf(zoneId);
   if (!player || viewersOf(main).has(player.id) || !specOf(main) || loggedPanelsSync(player)) return;
   cmdRoom([], 'room', player).catch(() => {});
+});
+
+// A body reprinted in a room with release vats (the Vat Hall; the engine's `vat.emerging`): one of them, in turn, is
+// the one it comes down to. They're stood just out of its front, where they'll be when the picture hands them back,
+// and everybody with the room open is told which vat and when, so the Stage plays it (panels/room-vatcycle.js). RAM only.
+const bayTurn = new Map();
+on('vat.emerging', async ({ actor, zone, t0, npc = false }) => {
+  try {
+    const main = zone && mainOf(zone), spec = main && stageSpec(main);
+    if (!actor?.id || !spec) return;
+    const L = roomLayout(spec, await roomPieces(main, spec));
+    const bays = L.placed.filter((p) => p.form === 'vat' && p.state === 'release');
+    if (!bays.length) return;
+    const n = bayTurn.get(main) || 0;
+    bayTurn.set(main, n + 1);
+    const p = bays[n % bays.length], [fu, fv] = facing(p.turn), o = L.world(p.u, p.v, 0), f = L.world(p.u + fu, p.v + fv, 0);
+    where.set(actor.id, { zone: main, at: [+(p.u + fu).toFixed(2), +(p.v + fv).toFixed(2)], yaw: +Math.atan2(f[0] - o[0], f[2] - o[2]).toFixed(3), seat: null });
+    const cue = { type: 'room_vat', zone: main, who: actor.id, piece: p.id, t0: t0 || Date.now() };
+    // the room opens round somebody who plays with the panels, so they wake in the vat; the log and text rungs keep
+    // the words alone
+    if (!npc && !viewersOf(main).has(actor.id) && !loggedPanelsSync(actor)) await cmdRoom([], 'room', actor).catch(() => {});
+    for (const id of new Set([...watchersOf(main), ...(npc ? [] : [actor.id])])) sendToPlayer(id, cue);
+    sendPeople(main).catch(() => {});
+  } catch (e) { console.warn('[roomstage] vat.emerging:', e?.message); }
 });
 
 // Somebody settled: where they stand now, sent on to everybody else with the room open. `seat` is
@@ -1392,6 +1593,9 @@ on('player.drugUsed', (e) => acts.fromDose(e));
 
 // `roompack`: the Pack, ROOM's inventory and paper doll (pack.js)
 export const commands = { room: cmdRoom, arrange: cmdArrange, roompack: cmdRoomPack };
+
+await loadRugs().catch((e) => console.error(`[roomstage] room rugs failed to load: ${e.message}`));
+await loadPlants().catch((e) => console.error(`[roomstage] room plants failed to load: ${e.message}`));
 
 // a box's count on every open, put and take (fill.js); the view is only read, never changed
 export const hooks = {

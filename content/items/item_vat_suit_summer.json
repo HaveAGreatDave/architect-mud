@@ -1,0 +1,29 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_vat_suit_summer",
+  "name": "short-sleeved vat suit",
+  "tags": {
+    "armor_soak": {
+      "edged": 1,
+      "kinetic": 1
+    },
+    "bulkiness": 1,
+    "covers": [
+      "legs"
+    ],
+    "description": "A short-sleeved one-piece in pale vat orange, thin enough to see daylight through at the seams. The left knee has a patch stitched on and the right is waiting its turn. A batch tape across the right breast, a snap pocket on the left, and a zip that sticks at the collar.",
+    "gets_wet": true,
+    "insulation": 2.5,
+    "layer": "outerwear",
+    "slot": "torso",
+    "wear_look": {
+      "col": "#f39a42",
+      "cut": "vatsuit_summer",
+      "fabric": "plain"
+    }
+  },
+  "type": "clothing",
+  "value": 20,
+  "weight": 500
+}

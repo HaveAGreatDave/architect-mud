@@ -598,7 +598,8 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
   // `cmdRenameShop`), so this is the same trust level as every zone_event
   // broadcast. `html: false` still opts out. `.msg` is `white-space: pre-wrap`,
   // so the `\n` in a two-line prompt survives the switch to innerHTML.
-  if (veto) return veto.silent ? null : { type:'error', message: veto.message, html: veto.html !== false };
+  // `door` is a gate's account of a shut door (its hours, its lock), which the client shows as a dialog
+  if (veto) return veto.silent ? null : { type:'error', message: veto.message, html: veto.html !== false, ...(veto.door ? { door_refused: veto.door } : {}) };
 
   let doorWasClosed = false;
   let doorWasLocked = false;

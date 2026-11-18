@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_dealer_02",
+  "lines": [
+    "\"You know you're being watched?\"",
+    "\"Everybody's being watched.\"",
+    "\"By the Watch.\"",
+    "\"Then I'll wave.\""
+  ],
+  "personality": "dealer",
+  "sort_order": 696
+}

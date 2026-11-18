@@ -12,6 +12,7 @@ import { birdCue, shoreLayers } from './field-audio.js';
 import { thunderDelay } from '../../../shared/window-sky.js';
 import { flybyClass, flybyCue, FLYBY_LOUD, FLYBY_FAR_REFS } from './engine-audio.js';
 import { TILE_M } from '../../../shared/world-scale.js';
+import { fieldBed, fieldCall, fieldIds, FIELD } from '../../../shared/field-recordings.js';
 
 // how many flights past the window get a voice at once
 const FLIGHT_VOICES = 2;
@@ -128,6 +129,34 @@ export function createRoomSound() {
     for (const id of [...flying.keys()]) if (!want.has(id)) { A.stopLoop(id); flying.delete(id); }
   }
 
+  // THE ROOM'S OWN SOUND. A room that makes a noise of its own says so in its content (`flags.room.decor.sound`):
+  // `bed` a field recording looped under everything, `calls` one played now and then from a random spot in the
+  // room (`spots`, plan [u, v, y] points, or the ear's own place), `every` [min, max] seconds between them,
+  // `level` the bed's LUFS. A clone hall's vats bubble. Nothing here knows which room it is.
+  let amb = null, ambNext = 0, ambSeed = 1;
+  function ambience(snd, ear, world) {
+    const A = eng();
+    const key = snd ? JSON.stringify([snd.bed, snd.level]) : '';
+    if ((amb?.key || '') !== key) {
+      if (amb?.bed) A.stopLoop?.('room:ambience');
+      amb = snd ? { key, bed: false } : null;
+      if (snd) A.preloadSamples?.(fieldIds([snd.bed, snd.calls].filter((k) => FIELD[k])));
+      if (snd?.bed && FIELD[snd.bed]) {
+        const layer = fieldBed(snd.bed, Number(snd.level) || -24);
+        if (layer) { A.loopSound({ id: 'room:ambience', category: 'ambient', priority: 1, loop: true, config: { gain: 1, layers: [layer] } }, { whole: true, gain: 1 }); amb.bed = true; }
+      }
+    }
+    if (!snd?.calls || !FIELD[snd.calls] || ear.now < ambNext) return;
+    const [lo, hi] = Array.isArray(snd.every) ? snd.every : [2, 6];
+    ambNext = ear.now + (lo + Math.random() * (hi - lo)) * 1000;
+    ambSeed = (ambSeed * 16807) % 2147483647;
+    const layer = fieldCall(snd.calls, ambSeed, Number(snd.call_level) || -26, { rate: 0.85 + Math.random() * 0.3 });
+    if (!layer) return;
+    const spots = Array.isArray(snd.spots) ? snd.spots : [];
+    const at = spots.length && world ? world(...spots[Math.floor(Math.random() * spots.length)]) : null;
+    A.playSfx({ id: 'room:bubble', category: 'ambient', priority: 1, config: { duration: layer.length || 2, layers: [layer] } }, 1, at ? { position: at, rolloff: 1, ref: 2, doppler: false } : {});
+  }
+
   function later(ms, fn) { const t = setTimeout(() => { timers.delete(t); if (!stopped) fn(); }, ms); timers.add(t); }
 
   return {
@@ -161,8 +190,12 @@ export function createRoomSound() {
         later(thunderDelay(b.dist) * 1000, () => { const def = cue(b.dist < 18 ? 'room-thunder' : 'room-thunder-far'); if (def) eng()?.playSfx(def, through * (0.5 + 0.5 * Math.exp(-b.dist / 30)) * 0.6, at); });
       }
     },
+    // the room's own sound (see ambience above), once a frame beside tick
+    room(snd, ear, world) { if (!stopped && eng()?.loopSound) { try { ambience(snd, ear, world); } catch { /* no sound is better than a dead frame */ } } },
     stop() {
       stopped = true;
+      if (amb?.bed) eng()?.stopLoop?.('room:ambience');
+      amb = null;
       for (const t of timers) clearTimeout(t);
       timers.clear();
       for (const id of live.keys()) eng()?.stopLoop?.(`window:${id}`);

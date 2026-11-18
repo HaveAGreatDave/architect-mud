@@ -1,0 +1,30 @@
+{
+  "description": "An iron turnstile with a brass counter on its lid and three arms worn smooth. The counter reads in the millions.",
+  "flags": {
+    "aliases": [
+      "turnstile",
+      "arms",
+      "counter"
+    ],
+    "look": {
+      "arche": "prop",
+      "dims": [
+        0.34,
+        0.95,
+        1.02
+      ],
+      "form": "turnstile"
+    },
+    "spot": {
+      "at": [
+        0.9,
+        11.2
+      ],
+      "turn": 180
+    }
+  },
+  "id": "furn_hughson_turnstile_3",
+  "name": "a turnstile",
+  "object_type": "furniture",
+  "zone_id": "zone_hughson_rotunda"
+}

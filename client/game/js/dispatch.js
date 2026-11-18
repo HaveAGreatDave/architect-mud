@@ -1,6 +1,7 @@
 import { state } from './state.js';
 import { saveRememberToken, forgetRememberToken } from './remember.js';
 import { sessionGet, sessionSet, sessionRemove } from './session-store.js';
+import { floatCredits } from './credits-float.js';
 import { appendMsg, appendHtml, appendPre, updateVitals, parseZoneInfo, showDevPanelButton, setRoomButton, roomButtonAvailable, setAreaPane, setPaneSilent, showSkyBanner, pointAtRoomTarget, setRoomBeacon, clearRoomBeacons, isAreaPaneVisible } from './render.js';
 import { sendCmd, sendCmdSilent, sendRaw, closeConnection, attemptAutoReauth, showVerifyScreen, rememberDisplayRung, setRoomOpener } from './net.js';
 import { preVeil, dropPreVeil } from './panels/glass-veil.js';
@@ -13,7 +14,7 @@ import { receiveClubs } from './panels/club-crest.js';
 import { receiveVenue } from './panels/venue.js';
 import { setDreamFx } from './panels/environment.js';
 import { openDialogue, closeDialogue, openShop, notifyZoneChanged } from './panels/dialogue.js';
-import { updateInventoryCache, consumeSilentInventory, refreshWeaponChip } from './panels/inventory-state.js';
+import { updateInventoryCache, consumeSilentInventory, refreshWeaponChip, seedWeaponChip } from './panels/inventory-state.js';
 import { renderRecipesPanel } from './panels/recipes.js';
 import { renderStatsPanel } from './panels/stats.js';
 import { renderSkillsPanel } from './panels/skills.js';
@@ -57,7 +58,7 @@ import { pullConfig, receiveConfig } from './configsync.js';
 import { setTabletAccess, showTabletOffer } from './panels/smartbar.js';
 import { offerInterfaceTour, startInterfaceTour, startTabletTour, consumeTourHandoff } from './panels/tour.js';
 import { playIntroCinematic } from './panels/lazy-views.js';
-import { updateCockpit, closeCockpit, cabinAudio, openTargeting, openFlightSim, flightSimContext, flightSimGps, drakeSubmerged, drakeChampagne, flightBurst, flightSimContacts, flightSimHopper, flightSimAirHit, flightSimKill, flightSimAaTracer, flightSimAirThreat, flightSimFireworks, isFlightSimActive, isCockpitHudActive, resumeFlightAfterLogin } from './panels/lazy-views.js';
+import { updateCockpit, closeCockpit, holdForDoors, cabinAudio, openTargeting, openFlightSim, flightSimContext, flightSimGps, drakeSubmerged, drakeChampagne, flightBurst, flightSimContacts, flightSimHopper, flightSimAirHit, flightSimKill, flightSimAaTracer, flightSimAirThreat, flightSimFireworks, isFlightSimActive, isCockpitHudActive, resumeFlightAfterLogin } from './panels/lazy-views.js';
 import { openTextCockpit, updateTextCockpit, closeTextCockpit, isTextCockpitActive } from './panels/textcockpit.js';
 import { openHelm, closeHelm, isHelmActive, helmSetSky, helmSetWorld, helmSetContacts, helmSetFar, helmEndTransit, helmBeginTransit } from './panels/lazy-views.js';
 import { openCab, closeCab, cabContext, cabGalley, isCabActive } from './panels/lazy-views.js';
@@ -65,7 +66,7 @@ import { openBoat, closeBoat, boatSetWorld, isBoatActive } from './panels/lazy-v
 import { openPodracer, closePodracer, podracerSetWorld, isPodracerActive, isPodracerDepotActive, openPodracerDepot, closePodracerDepot, closePodracerBay } from './panels/lazy-views.js';
 import { openMarina, closeMarina, marinaSetData, isMarinaActive, openMarinaService, closeMarinaService } from './panels/lazy-views.js';
 import { openFreelook, closeFreelook, parkFreelook, warmFreelookReady, openUnderLook, closeUnderLook, isFreelookActive, freelookSetSky, freelookSetActors, freelookSetContacts, freelookStep, freelookTakeRoom, freelookInside, freelookPack, freelookPackDirty } from './panels/lazy-views.js';
-import { noteFirework, noteAAState, noteAAFire, noteVenueLit, noteVenueRoof, noteVenuePlay } from './panels/world-feed.js';
+import { noteFirework, noteAAState, noteAAFire, noteVenueLit, noteVenueRoof, noteVenuePlay, notePadLift } from './panels/world-feed.js';
 import { airHorn, loadTv } from './panels/lazy-views.js';
 import { openTruckDepot, closeTruckDepot, closeBayService, isTruckDepotActive } from './panels/lazy-views.js';
 import { setDrugFx, clearDrugFx } from './panels/flight-drugfx.js';
@@ -410,11 +411,22 @@ const loadRoom = () => (roomMod ??= import('./panels/room-stage.js').then((m) =>
 // come back, the Stage's module had loaded and the room was built: a second or more, longer on a cold cache. Now the
 // loading veil goes up over the pane as the command goes (glass-veil.js preVeil, which the Stage takes over), and the
 // module starts loading beside the round trip. Only where the server has said there's a room (the button lit).
+// ⚠ IT COVERS BOTH PANES, THE ROOM TEXT AND THE LOG, until the room is drawn: the Stage claiming the top pane moves
+// the split between them, and the log filled with the room's lines beside a veil over the top pane alone. The input
+// row stays clear. `cover` keeps it fitted to the two as they move, the Stage's own time under it too.
+const paneSpan = () => {
+  const rs = ['area-pane', 'output'].map((id) => document.getElementById(id)?.getBoundingClientRect()).filter((r) => r && r.width > 0 && r.height > 0);
+  if (!rs.length) return null;
+  const left = Math.min(...rs.map((r) => r.left)), top = Math.min(...rs.map((r) => r.top));
+  const right = Math.max(...rs.map((r) => r.right)), bottom = Math.max(...rs.map((r) => r.bottom));
+  return { left, top, width: right - left, height: bottom - top };
+};
 function roomOpening() {
   if (!roomButtonAvailable() || roomLoaded?.roomStageOpen?.() || !isAreaPaneVisible()) return;
-  const r = document.getElementById('area-content')?.getBoundingClientRect();
+  const r = paneSpan();
   const name = document.getElementById('zone-name-display')?.textContent?.trim();
-  preVeil('room-stage', r, { place: name ? { kicker: 'ENTERING', title: name, room: true } : { room: true } });
+  // 20 s: a cold module load and a big building take a while, and a refusal drops it at once (error, below)
+  preVeil('room-stage', r, { cover: paneSpan, ttl: 20000, place: name ? { kicker: 'ENTERING', title: name, room: true } : { room: true } });
   loadRoom().catch(() => {});
 }
 setRoomOpener(roomOpening);
@@ -489,7 +501,7 @@ const handlers = {
     if (bmcBtn) bmcBtn.style.display = 'none';
     document.getElementById('handle-display').textContent = state.player.handle;
     updateVitals(state.player);
-    refreshWeaponChip();   // seed the mobile weapon chip; no-op on desktop
+    seedWeaponChip(msg.weapon);   // from the login payload; no inventory fetch on connect
     if (msg.env) updateEnvironmentHUD(msg.env);
     else fetch('/api/environment/state').then(r => r.json()).then(updateEnvironmentHUD).catch(() => {});
     // The dev token encodes playerId:role:timestamp and no name, so the handle
@@ -522,7 +534,9 @@ const handlers = {
     // (gl/figure-hd.js warmFigure). Start it in the background now, so the first room or TV has it.
     // Not on a text rung, which never draws one.
     if (!wasReconnect && state.player.displayRung !== 'textgames' && state.player.displayRung !== 'log') {
-      setTimeout(() => { import('./panels/gl/figure-hd.js').then((m) => m.warmFigure()).catch(() => {}); }, FIGURE_WARM_MS);
+      // and then ROOM's own module, whose load makes a spare room canvas with every room program compiling
+      // (room-stage.js warmSpares), so the first room opened doesn't wait on a fresh context's shaders either
+      setTimeout(() => { import('./panels/gl/figure-hd.js').then((m) => m.warmFigure()).then(() => loadRoom()).catch(() => {}); }, FIGURE_WARM_MS);
     }
     // Push this device's Extra Lore preference — the server keeps the per-player
     // flag, but the Settings toggle is local, so re-assert it each login.
@@ -909,7 +923,10 @@ const handlers = {
   // the look the player is composing on the doll.
   wardrobe_view: (msg) => {
     if (msg.mainMsg) appendHtml(msg.mainMsg, 'help');
-    if (getActiveWardrobeId()) refreshWardrobePanel(msg);
+    // Refresh only a panel that's actually up: an id left behind by a panel shut some other way
+    // used to swallow every later open, so the wardrobe never came up again.
+    const up = document.getElementById('wardrobe-panel')?.classList.contains('active');
+    if (up && getActiveWardrobeId()) refreshWardrobePanel(msg);
     else openWardrobePanel(msg);
   },
 
@@ -1041,6 +1058,12 @@ const handlers = {
   // A quest changed state server-side (objective ticked / completed / turned in) —
   // live-refresh the Tablet OS Quests app if it's open on that app (no-op otherwise).
   quest_update: () => { tabletQuestUpdate(); },
+  // Every spend and refused spend, from adjustCredits: a chip floats off the
+  // credits counter, so a purchase always shows what it cost or why it didn't go.
+  credits_delta: (msg) => {
+    if (msg.credits != null && state.player) { state.player.credits = msg.credits; updateVitals(state.player); }
+    floatCredits(msg);
+  },
   // A structured beat for a quest's per-quest action log in the Tablet (start /
   // arrive / emote / objective / complete, tagged with quest_id). Bucketed by
   // quest and rendered on that quest's detail screen.
@@ -1152,6 +1175,12 @@ const handlers = {
     // A `leave` issued from the poker bar when the server has no table for us:
     // the pane is stale, so drop it and re-show the room instead of the error.
     if (msg.closePoker) { sendCmdSilent('look'); return; }
+    // a shut door that turned you away (commerce's shop-hours gate): its hours card, and its lock to look at
+    if (msg.door_refused) {
+      const D = msg.door_refused, rows = (D.hours || []).map((h) => ({ group: 'Hours', label: h.label, detail: h.hours }));
+      if (D.lock && D.dir) rows.push({ group: 'The door', label: 'View the hololock', command: 'hack ' + D.dir });
+      openListDialog({ title: (D.place || 'The door') + ': closed', subtitle: String(msg.message || '').replace(/<[^>]*>/g, ''), rows });
+    }
     // A whisper we already echoed optimistically was rejected — pull it back out.
     if (msg.whisperFailed) rollbackSelfEcho(msg.whisperFailed);
     if (msg.player_update && state.player) { Object.assign(state.player, msg.player_update); updateVitals(state.player); }
@@ -1403,7 +1432,13 @@ const handlers = {
   channel_history: (msg) => { initChannelHistory(msg.history || {}); },
   motd: (msg) => { receiveMOTD(msg); },
   lightview: (msg) => { openLightViewDialog(msg); refreshZoneVisibility(); },
-  morphex_panel: (msg) => { openMorphexPanel(msg.data); },
+  // On the visual rung a room with a MORPHEX pod uses the pod's animated menu (room-stage.js roomMorphex); the
+  // 2D panel is for the text rungs and for a machine with no pod in a Room Stage
+  morphex_panel: (msg) => {
+    const visual = state.player?.displayRung !== 'textgames' && state.player?.displayRung !== 'log';
+    if (visual && roomLoaded?.roomStageOpen?.() && typeof WebGL2RenderingContext !== 'undefined' && roomLoaded.roomMorphex?.()) { closeMorphexPanel(); return; }
+    openMorphexPanel(msg.data);
+  },
   // Server-side dismissal — the prologue's chargen terminal releases you the
   // moment the attendant accepts your shape, so its reaction isn't delivered to
   // the back of a modal the player is still standing in front of.
@@ -1469,6 +1504,8 @@ const handlers = {
   room_arranged: (msg) => { roomMod?.then((m) => m.roomArranged(msg)).catch(() => {}); },
   // the admin arrange mode's Furniture menu (plugins/roomstage arrangeCatalog)
   room_catalog: (msg) => { roomMod?.then((m) => m.roomCatalog(msg)).catch(() => {}); },
+  // the arrange mode's Posters menu (plugins/roomstage arrangeSheetStock)
+  room_sheet_stock: (msg) => { roomMod?.then((m) => m.roomSheetStock(msg)).catch(() => {}); },
   room_people: (msg) => { roomMod?.then((m) => m.roomPeople(msg)).catch(() => {}); },
   // a move on a chess table in the room (plugins/gametable `room.boards`)
   room_board: (msg) => { roomMod?.then((m) => m.roomBoard(msg)).catch(() => {}); },
@@ -1476,6 +1513,8 @@ const handlers = {
   room_pack: (msg) => { roomMod?.then((m) => m.roomPack(msg)).catch(() => {}); freelookPack(msg); },
   // how the locks on the room's doorways stand now (panels/room-lock.js)
   room_locks: (msg) => { roomMod?.then((m) => m.roomLocks(msg)).catch(() => {}); },
+  // a body coming down a tube to a release vat (plugins/roomstage, on a respawn): the Vat Hall plays it
+  room_vat: (msg) => { roomMod?.then((m) => m.roomVat(msg)).catch(() => {}); },
   // the shutters over a room's glass and the scene on them, changed from its control panel (plugins/envcontrol)
   room_glass: (msg) => { roomMod?.then((m) => m.roomGlass(msg)).catch(() => {}); },
   room_power: (msg) => { roomMod?.then((m) => m.roomPower(msg)).catch(() => {}); },
@@ -1660,6 +1699,7 @@ const handlers = {
   emergency_console_close: () => closeEmergencyConsole(),
 
   hololock_game: (msg) => {
+    closeListDialog();   // a shut door's hours card gives way to its lock
     const resolveCmd = msg.resolveCmd || 'hackresolve';
     const args = {
       skill: msg.skill ?? 4,
@@ -1732,13 +1772,14 @@ const handlers = {
   },
   // Fishing from an anchored boat: one message type with a phase (docs/proposals/boat-fishing.md §5b).
   boatfish: (msg) => { loadBoatFish().then((m) => m.onBoatFishMessage(msg)).catch((e) => console.error('[boatfish]', e?.message)); },
+  carousel_ride: (msg) => { import('./panels/carousel-ride.js').then((m) => m.playCarouselRide(msg)).catch((e) => console.error('[carousel]', e?.message)); },
 
   // ── Flight (cockpit HUD + takeoff/landing minigames) ─────────────────────
   cockpit_update: (msg) => { updateCockpit(msg.state); },
   drake_champagne: (msg) => { drakeChampagne(msg.n); },
   // The birds our aircraft hit, so the canopy stops drawing them until their flock lands (bird-strikes.js).
   bird_strike: (msg) => { noteBirdStrikes(msg.flocks); },
-  cockpit_close: () => { closeCockpit(); closeTextCockpit(); sendCmdSilent('look'); },   // hand the area pane back to the room view
+  cockpit_close: () => { const done = () => { closeCockpit(); closeTextCockpit(); sendCmdSilent('look'); }; if (!holdForDoors(done)) done(); },   // hand the area pane back to the room view; a landed Merlin opens its doors first
   // Text cockpit — the same top pane, drawn in characters for a text-mode pilot.
   // No canvas in this path at all; `cockpit_close` above hands the pane back.
   text_cockpit_open: (msg) => { openTextCockpit(msg); },
@@ -1977,6 +2018,7 @@ const handlers = {
   venue_play: (msg) => { noteVenuePlay(msg); },
   // A venue's roof has started to open or close (the Hughson Coliseum's, on the weather).
   venue_roof: (msg) => { noteVenueRoof(msg); standsMod?.then((m) => m.setStandsRoof(msg)).catch(() => {}); },
+  pad_lift: (msg) => { notePadLift(msg); },
   aa_fire: (msg) => { noteAAFire(msg); },
   // A shell climbing before it bursts: one tile away (or on the launch tile) on-foot players see
   // a streaking trail rise and detonate at its apex — the whistle is tuned to peak there. Farther

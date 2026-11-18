@@ -1,0 +1,27 @@
+{
+  "description": "A swivel chair with a cushion tied to it. It leans to the left.",
+  "flags": {
+    "aliases": [
+      "chair",
+      "swivel chair"
+    ],
+    "interactions": [
+      "sit"
+    ],
+    "look": {
+      "arche": "seat",
+      "form": "office"
+    },
+    "spot": {
+      "at": [
+        -0.5,
+        4
+      ],
+      "turn": 90
+    }
+  },
+  "id": "furn_hughson_tix_chair",
+  "name": "the clerk's chair",
+  "object_type": "furniture",
+  "zone_id": "zone_hughson_tickets"
+}

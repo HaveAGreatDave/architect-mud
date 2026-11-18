@@ -12,7 +12,7 @@
 
 import { MAT } from './ballpark-mesh.js';
 import { HUNG_AT, LACQUER_BODY } from '../../../../shared/room-layout.js';
-import { drawLab } from './lab-mesh.js';
+import { drawLab, glassLathe, liquidLathe, fillOf } from './lab-mesh.js';
 import { OFFICE_FORMS } from './room-office.js';
 import { SHOP_FORMS, shopGoods } from './room-shop.js';
 import { saloonBar, saloonBackBar, SALOON_FORMS } from './room-saloon.js';
@@ -184,43 +184,123 @@ export function baseRun(c, y1, opts = {}) {
   return y1;
 }
 
-// A sink let into a worktop at `y`, through the hole baseRun cut at (x, z), bw by bd, of the kitchen's grade:
-// chipped enamel with old pillar taps; steel with a drainer; deeper steel; a black undermounted bowl.
-function sinkIn(c, g, x, z, bw, bd, y) {
-  const { pbox } = c.F, x0 = x - bw / 2, x1 = x + bw / 2, z0 = z - bd / 2, z1 = z + bd / 2, depth = [0.15, 0.16, 0.19, 0.2][g];
-  const body = ['#e2dccc', '#b8bcc0', '#c0c4c8', '#26282c'][g], inner = ['#a89e88', '#8e9298', '#9a9ea4', '#1c1d20'][g], surf = g === 0 ? GLOSS : g === 3 ? SATIN : METAL;
-  hollow(c, x0, x1, z0, z1, y, y - depth, 0.014, body, inner, g === 0 ? 0.88 : 1, surf);
+// ── a kitchen sink, by how well the flat is let ───────────────────────────────────────────────────
+// The tier is the flat's (room-layout.js flatTierOf, `spec.tier`), or the row's own `look.tier`; with neither, the
+// units' grade. Each tier is its own bowl, drainer and tap:
+//   0  chipped white enamel with a rust ring, two old pillar taps, the hot one's head gone and a pair of grips on it
+//   1  a stainless bowl and ribbed drainer on a steel lip, a chrome mixer with two capped knobs and a swinging spout
+//   2  a deep white fireclay bowl on a broad rim, a fluted drainer cut in the worktop, a brass bridge tap, cross heads
+//   3  a black bowl under the stone, drainer grooves cut in the stone, a gunmetal pull-down tap and its soap pump
+// SINK_BOWL is each bowl's [w, d]; SINK_SPAN how wide a run it needs, drainer and all.
+export const SINK_BOWL = Object.freeze([[0.44, 0.34], [0.4, 0.36], [0.5, 0.38], [0.56, 0.38]]);
+export const SINK_SPAN = Object.freeze([0.7, 1.0, 1.0, 1.1]);
+export const sinkTier = (c) => c.p.tier ?? c.L?.spec?.tier ?? kitchenGrade(c);
+
+// A sink let into a worktop at `y`, through the hole baseRun cut at (x, z), bw by bd, of tier s.
+function sinkIn(c, s, x, z, bw, bd, y, stop = Infinity) {
+  const { pbox } = c.F, x0 = x - bw / 2, x1 = x + bw / 2, z0 = z - bd / 2, z1 = z + bd / 2, depth = [0.15, 0.17, 0.22, 0.2][s];
+  const body = ['#e2dccc', '#b8bcc0', '#f2f0ea', '#26282c'][s], inner = ['#a89e88', '#8e9298', '#dcdad2', '#1c1d20'][s], surf = s === 1 ? METAL : s === 3 ? SATIN : GLOSS;
+  hollow(c, x0, x1, z0, z1, y, y - depth, s === 2 ? 0.03 : 0.014, body, inner, s === 0 ? 0.88 : 1, surf);
   // the drain, and a slum sink's rust ring round it and the stain down from the tap
-  pbox(x - 0.03, x + 0.03, y - depth + 0.001, y - depth + 0.003, z - 0.03, z + 0.03, g === 3 ? '#8a8c8e' : '#2a2c30', 0.9, null, METAL);
-  if (g === 0) {
+  pbox(x - 0.03, x + 0.03, y - depth + 0.001, y - depth + 0.003, z - 0.03, z + 0.03, s === 3 ? '#8a8c8e' : '#2a2c30', 0.9, null, METAL);
+  if (s === 0) {
     pbox(x - 0.06, x + 0.06, y - depth + 0.0005, y - depth + 0.0012, z - 0.06, z + 0.06, '#7a4a22', 0.7, null, MATTE);
     pbox(x - 0.012, x + 0.012, y - depth + 0.02, y - 0.01, z0 + 0.0142, z0 + 0.0146, '#8a5a2a', 0.7, null, MATTE);
+    // a chip out of the enamel on the front edge, black iron showing
+    pbox(x + bw * 0.18, x + bw * 0.18 + 0.03, y - 0.03, y - 0.004, z1 - 0.0146, z1 - 0.014, '#1e1c1a', 0.9, null, MATTE);
   }
-  // the rim over the cut, all but the undermounted bowl: a rolled enamel edge or a steel lip
-  if (g < 3) for (const [a, b, c0, d] of [[x0 - 0.02, x1 + 0.02, z0 - 0.02, z0], [x0 - 0.02, x1 + 0.02, z1, z1 + 0.02], [x0 - 0.02, x0, z0, z1], [x1, x1 + 0.02, z0, z1]]) pbox(a, b, y, y + 0.006, c0, d, body, 1, null, surf);
+  // the rim over the cut, all but the undermounted bowl: a rolled enamel edge, a steel lip, a broad fireclay rim
+  const e = s === 2 ? 0.035 : s < 3 ? 0.02 : 0, rh = s === 2 ? 0.014 : 0.006;
+  if (s < 3) for (const [a, b, c0, d] of [[x0 - e, x1 + e, z0 - e, z0], [x0 - e, x1 + e, z1, z1 + e], [x0 - e, x0, z0, z1], [x1, x1 + e, z0, z1]]) pbox(a, b, y, y + rh, c0, d, body, 1, null, surf);
   // the ink round it
-  const e = g < 3 ? 0.02 : 0, o = 0.004;
+  const o = 0.004;
   for (const [a, b, c0, d] of [[x0 - e - o, x1 + e + o, z0 - e - o, z0 - e], [x0 - e - o, x1 + e + o, z1 + e, z1 + e + o], [x0 - e - o, x0 - e, z0 - e, z1 + e], [x1 + e, x1 + e + o, z0 - e, z1 + e]]) pbox(a, b, y, y + 0.0015, c0, d, INK, 1);
-  // a drainer to the right on the steel ones: a plate with grooves running into the bowl
-  if (g === 1 || g === 2) {
-    const d0 = x1 + 0.02, d1 = Math.min(x1 + 0.4, c.p.w / 2 - 0.05);
-    if (d1 - d0 > 0.15) {
-      pbox(d0, d1, y, y + 0.005, z0 - 0.02, z1 + 0.02, body, 1, null, METAL);
-      for (let i = 1; i < 7; i++) { const zz = z0 + i * bd / 7; pbox(d0 + 0.02, d1 - 0.03, y + 0.005, y + 0.0058, zz - 0.003, zz + 0.003, '#6a6e74', 0.9, null, METAL); }
-      pbox(d0, d1 + 0.004, y, y + 0.0015, z1 + 0.02, z1 + 0.024, INK, 1);
+  // the drainer to the right: a ribbed steel plate on the steel sink, grooves cut into the worktop on the better two
+  // (`stop`: where the first thing standing on the worktop begins, so a microwave never stands on the grooves)
+  const d0 = x1 + e + 0.03, d1 = Math.min(x1 + e + 0.42, c.p.w / 2 - 0.05, stop - 0.04);
+  if (s === 0 || d1 - d0 < 0.15) return;
+  if (s === 1) {
+    pbox(x1 + e, d1, y, y + 0.005, z0 - e, z1 + e, body, 1, null, METAL);
+    for (let i = 1; i < 7; i++) { const zz = z0 + i * bd / 7; pbox(d0, d1 - 0.03, y + 0.005, y + 0.0058, zz - 0.003, zz + 0.003, '#6a6e74', 0.9, null, METAL); }
+    pbox(x1 + e, d1 + 0.004, y, y + 0.0015, z1 + e, z1 + e + o, INK, 1);
+    return;
+  }
+  const n = s === 2 ? 6 : 8, groove = s === 2 ? '#4a3220' : '#3a3c40';
+  for (let i = 1; i < n; i++) { const zz = z0 + i * bd / n; pbox(d0, d1, y + 0.0004, y + 0.0011, zz - 0.004, zz + 0.004, groove, 0.85, null, MATTE); }
+}
+
+// Tier 0: two pillar taps with cross heads. The hot one, on the left as you stand at it (the piece's +x), has lost
+// its head, and a pair of locking grips clamped on the bare spindle turns it; the cold one drips.
+function pillarTaps(c, x, y, z) {
+  const { F } = c, metal = '#b8b4a8', reach = 0.1;
+  for (const dx of [-0.08, 0.08]) {
+    c.lat(x + dx, z, [[0.02, y], [0.016, y + 0.01], [0.012, y + 0.1], [0, y + 0.1]], metal, 0.95, 8, METAL);
+    c.rod(F.P(x + dx, y + 0.08, z), F.P(x + dx, y + 0.07, z + reach), 0.009, metal, 0.95);
+    if (dx < 0) {
+      c.rod(F.P(x + dx - 0.03, y + 0.11, z), F.P(x + dx + 0.03, y + 0.11, z), 0.006, '#d8d4c8', 1);
+      c.rod(F.P(x + dx, y + 0.11, z - 0.03), F.P(x + dx, y + 0.11, z + 0.03), 0.006, '#d8d4c8', 1);
+      // the drip, hanging off the spout
+      c.lat(x + dx, z + reach, [[0, y + 0.048], [0.004, y + 0.052], [0.003, y + 0.058], [0, y + 0.061]], '#cfe0e8', 1.2, 8, GLOSS);
+      continue;
     }
+    // the bare spindle, the grips' jaws on it, and their two handles out past the end, the lower one red-dipped
+    c.rod(F.P(x + dx, y + 0.1, z), F.P(x + dx, y + 0.125, z), 0.004, '#8a8478', 0.9);
+    c.F.pbox(x + dx - 0.012, x + dx + 0.012, y + 0.11, y + 0.124, z - 0.008, z + 0.008, '#5a5c60', 1, null, METAL);
+    c.rod(F.P(x + dx + 0.01, y + 0.12, z), F.P(x + dx + 0.17, y + 0.16, z + 0.01), 0.006, '#6a6c70', 1);
+    c.rod(F.P(x + dx + 0.01, y + 0.114, z), F.P(x + dx + 0.1, y + 0.122, z + 0.02), 0.006, '#6a6c70', 1);
+    c.rod(F.P(x + dx + 0.1, y + 0.122, z + 0.02), F.P(x + dx + 0.16, y + 0.126, z + 0.03), 0.008, '#a82a1e', 1, GLOSS);
   }
 }
 
-// a slum sink's taps: two pillars with cross heads, one dripping
-function pillarTaps(c, x, y, z) {
-  const { F } = c;
-  for (const dx of [-0.08, 0.08]) {
-    c.lat(x + dx, z, [[0.02, y], [0.016, y + 0.01], [0.012, y + 0.1], [0, y + 0.1]], '#b8b4a8', 0.95, 8, METAL);
-    c.rod(F.P(x + dx, y + 0.08, z), F.P(x + dx, y + 0.07, z + 0.07), 0.009, '#b8b4a8', 0.95);
-    c.rod(F.P(x + dx - 0.03, y + 0.11, z), F.P(x + dx + 0.03, y + 0.11, z), 0.006, '#d8d4c8', 1);
-    c.rod(F.P(x + dx, y + 0.11, z - 0.03), F.P(x + dx, y + 0.11, z + 0.03), 0.006, '#d8d4c8', 1);
+// Tier 1: a chrome monobloc mixer. A short body on the deck, a capped knob each side (a red dot for hot, a blue
+// for cold) and a low spout that swings out over the bowl.
+function monoMixer(c, x, y, z, reach) {
+  const { F } = c, chrome = '#d4d8dc';
+  c.lat(x, z, [[0.026, y], [0.024, y + 0.012], [0.017, y + 0.03], [0.016, y + 0.085], [0.012, y + 0.095], [0, y + 0.097]], chrome, 1.08, 12, METAL);
+  c.rod(F.P(x, y + 0.075, z), F.P(x, y + 0.095, z + reach * 0.4), 0.01, chrome, 1.08);
+  c.rod(F.P(x, y + 0.095, z + reach * 0.4), F.P(x, y + 0.075, z + reach), 0.01, chrome, 1.08);
+  c.lat(x, z + reach, [[0.012, y + 0.06], [0.012, y + 0.078], [0, y + 0.078]], chrome, 1.08, 8, METAL);
+  for (const [dx, dot] of [[0.065, '#c83a2a'], [-0.065, '#2a5ad8']]) {
+    c.lat(x + dx, z, [[0.016, y], [0.012, y + 0.01], [0.011, y + 0.045], [0.02, y + 0.05], [0.021, y + 0.068], [0.014, y + 0.078], [0, y + 0.08]], chrome, 1.05, 10, METAL);
+    c.lat(x + dx, z, [[0.008, y + 0.0795], [0, y + 0.0815]], dot, 1, 8, GLOSS);
   }
+}
+
+// Tier 2: a brass bridge tap. Two pillars through the deck joined by a bar, a swan neck up off its middle and over
+// the bowl, and a cross head on each pillar with a white button, H on the left, C on the right.
+function bridgeTap(c, x, y, z, reach) {
+  const { F } = c, brass = '#b08a4a', s = 0.1, top = y + 0.07;
+  for (const dx of [-s, s]) {
+    c.lat(x + dx, z, [[0.024, y], [0.022, y + 0.008], [0.014, y + 0.014], [0.013, top + 0.04], [0.018, top + 0.045], [0.016, top + 0.06], [0, top + 0.062]], brass, 1.05, 12, METAL);
+    for (const [a, b] of [[[-0.042, 0], [0.042, 0]], [[0, -0.042], [0, 0.042]]]) c.rod(F.P(x + dx + a[0], top + 0.055, z + a[1]), F.P(x + dx + b[0], top + 0.055, z + b[1]), 0.006, brass, 1.05);
+    for (const [ex, ez] of [[-0.042, 0], [0.042, 0], [0, -0.042], [0, 0.042]]) c.lat(x + dx + ex, z + ez, [[0.009, top + 0.048], [0.009, top + 0.062], [0, top + 0.064]], brass, 1.05, 8, METAL);
+    c.lat(x + dx, z, [[0.011, top + 0.062], [0.009, top + 0.068], [0, top + 0.069]], '#f4f0e8', 1.05, 10, GLOSS);
+  }
+  c.rod(F.P(x - s, top, z), F.P(x + s, top, z), 0.011, brass, 1.05, METAL, 8);
+  c.lat(x, z, [[0.016, top - 0.012], [0.018, top + 0.012], [0.012, top + 0.03], [0.012, top + 0.1], [0, top + 0.1]], brass, 1.05, 12, METAL);
+  // the swan neck: a half-turn over from the stem, ending in a short drop
+  const R = reach / 2, cz = z + R, cy = top + 0.1;
+  let prev = F.P(x, cy, z);
+  for (let i = 1; i <= 8; i++) { const t = (i / 8) * Math.PI, q = F.P(x, cy + Math.sin(t) * R, cz - Math.cos(t) * R); c.rod(prev, q, 0.0095, brass, 1.05, METAL, 8); prev = q; }
+  c.rod(prev, F.P(x, cy - 0.035, z + reach), 0.0095, brass, 1.05, METAL, 8);
+  c.lat(x, z + reach, [[0.013, cy - 0.05], [0.012, cy - 0.032], [0, cy - 0.03]], brass, 1.05, 10, METAL);
+}
+
+// Tier 3: a gunmetal pull-down tap. A tall column, an arc over the bowl and the spray head docked at the end of it,
+// a joystick lever on the side; a soap pump in the same metal on the deck beside it.
+function pullDown(c, x, y, z, reach, pump) {
+  const { F } = c, gun = '#3e4044', col = y + 0.32, R = reach / 2;
+  c.lat(x, z, [[0.032, y], [0.032, y + 0.007], [0.022, y + 0.012], [0.018, y + 0.02], [0.017, col], [0, col]], gun, 1.05, 14, METAL);
+  let prev = F.P(x, col, z);
+  for (let i = 1; i <= 10; i++) { const t = (i / 10) * Math.PI, q = F.P(x, col + Math.sin(t) * R, z + R - Math.cos(t) * R); c.rod(prev, q, 0.014, gun, 1.05, METAL, 8); prev = q; }
+  // the spray head: a fat collar on the hose's end, its face a ring of nozzles
+  c.lat(x, z + reach, [[0.021, col - 0.1], [0.022, col - 0.03], [0.016, col - 0.004], [0.014, col], [0, col]], gun, 1.05, 14, METAL);
+  c.lat(x, z + reach, [[0.017, col - 0.1005], [0, col - 0.1005]], '#16171a', 1, 14, SATIN);
+  c.rod(F.P(x + 0.017, col - 0.1, z), F.P(x + 0.065, col - 0.06, z - 0.01), 0.006, gun, 1.05);
+  c.lat(x + 0.065, z - 0.01, [[0.008, col - 0.065], [0.008, col - 0.05], [0, col - 0.048]], gun, 1.05, 8, METAL);
+  if (pump == null) return;
+  c.lat(pump, z + 0.02, [[0.022, y], [0.022, y + 0.006], [0.017, y + 0.01], [0.017, y + 0.07], [0.008, y + 0.075], [0, y + 0.076]], gun, 1.05, 12, METAL);
+  c.rod(F.P(pump, y + 0.075, z + 0.02), F.P(pump, y + 0.082, z + 0.06), 0.005, gun, 1.05);
 }
 
 // Bottles in a row on a shelf at `y`, from x0 to x1, each its own height and glass.
@@ -241,53 +321,109 @@ function bottles(c, x0, x1, y, z, n) {
 const LIQUOR = ['#5a2a14', '#2a4a2a', '#b8862a', '#8a2a1a', '#dfe8ec', '#1e2e4a', '#6a2a4a', '#c8a050', '#3a1a10'];
 const LABEL = { t: 'roomCanvas', c: '#ece2c6' };
 const BAND = ['#8a1a1a', '#1a2a4a', '#c8a050', '#1a1a1c', '#2a5a3a', '#e8e0d0'];
+// what's in each kind, and the glass it comes in: the glass is drawn see-through (glassLathe's tint) and the liquor
+// in it to its own level (liquidLathe), so a lit back bar reads as bottles of drink and not as coloured rods
+const POUR = {
+  wine: { glass: ['#2a4a2a', '#3a2a1a'], drink: ['#5a0a14', '#7a1020', '#e8d890'] },
+  whisky: { glass: [null], drink: ['#c8701a', '#a0500c', '#d88a24', '#8a3a08'] },
+  gin: { glass: [null, '#5aa8d8'], drink: ['#f4fbff'] },
+  liqueur: { glass: ['#5a2a14', null], drink: ['#8a1028', '#d07a14', '#4a8a14', '#e8c030', '#5a2a0a'] },
+  vodka: { glass: [null], drink: ['#f6fbff'] },
+  champagne: { glass: ['#1e3a22'], drink: ['#e8c040'] },
+};
+// two hex colours mixed, `k` of the way from a to b
+function mixHex(a, b, k) {
+  const ch = (h, i) => parseInt(h.slice(1 + i * 2, 3 + i * 2), 16);
+  return '#' + [0, 1, 2].map((i) => Math.round(ch(a, i) + (ch(b, i) - ch(a, i)) * k).toString(16).padStart(2, '0')).join('');
+}
+// the part of a profile from `y0` up: a bottle's empty glass over its drink
+function aboveOf(prof, y0) {
+  const out = [];
+  for (let i = 0; i < prof.length; i++) {
+    const [rr, yy] = prof[i];
+    if (yy < y0) continue;
+    const [rp, yp] = prof[i - 1] || [rr, yy];
+    if (!out.length && yp < y0 && yy > y0) out.push([rp + ((rr - rp) * (y0 - yp)) / (yy - yp), y0]);
+    out.push([rr, yy]);
+  }
+  return out;
+}
 function barBottle(c, x, z, y, kind, s = 1, pour = false) {
-  const { pbox } = c.F, r = c.r, col = kind === 'vodka' ? '#dfe8ec' : pick(r, LIQUOR), band = pick(r, BAND);
+  const { pbox } = c.F, r = c.r, band = pick(r, BAND), kit = POUR[kind] || POUR.wine;
+  const tint = pick(r, kit.glass), drink = pick(r, kit.drink), fill = 0.35 + r() * 0.5;
+  // A back bar holds a couple of hundred of these, so each is cheap: 8 sides on a shelf, 10 on the worktop where
+  // you stand over them, and one see-through layer, not two. The drink fills the body out to the glass, coloured
+  // by the glass it's in, and the glass is drawn only above the drink line, where there's nothing else to see.
+  const seg = pour ? 10 : 8;
   const label = (rr, y0, y1) => {
-    c.lat(x, z, [[rr, y0], [rr, y1]], LABEL, 1.05, 10, SATIN);
+    c.lat(x, z, [[rr, y0], [rr, y1]], LABEL, 1.05, seg, SATIN);
     const ym = y0 + (y1 - y0) * (0.3 + r() * 0.4);
-    c.lat(x, z, [[rr + 0.0015, ym - 0.007], [rr + 0.0015, ym + 0.007]], band, 1.05, 10, SATIN);
+    c.lat(x, z, [[rr + 0.0015, ym - 0.007], [rr + 0.0015, ym + 0.007]], band, 1.05, seg, SATIN);
+  };
+  const glassy = (prof, body) => {
+    const ly = y + 0.006 + body * fill;
+    liquidLathe(c, x, z, fillOf(prof, ly, 0.985), tint ? mixHex(drink, tint, 0.45) : drink, 1, seg);
+    glassLathe(c, x, z, aboveOf(prof, ly), seg, tint);
   };
   let top;
   if (kind === 'whisky') {
-    // square shouldered glass, a short neck and a wooden-topped cork
-    const a = 0.034 * s, hb = 0.17 * s;
-    pbox(x - a, x + a, y, y + hb, z - a * 0.8, z + a * 0.8, col, 1, null, GLOSS);
-    pbox(x - a * 0.8, x + a * 0.8, y + hb, y + hb + 0.02 * s, z - a * 0.62, z + a * 0.62, col, 1, null, GLOSS);
-    pbox(x - a * 0.85, x + a * 0.85, y + hb * 0.2, y + hb * 0.62, z + a * 0.8, z + a * 0.8 + 0.002, '#ffffff', 1.05, LABEL, SATIN);
-    pbox(x - a * 0.85, x + a * 0.85, y + hb * 0.5, y + hb * 0.56, z + a * 0.8 + 0.002, z + a * 0.8 + 0.003, band, 1.05, null, SATIN);
-    c.lat(x, z, [[0.012 * s, y + hb + 0.02 * s], [0.012 * s, y + hb + 0.06 * s]], col, 1, 8, GLOSS);
+    // square shouldered glass (eight-sided), a short neck and a wooden-topped cork
+    const a = 0.036 * s, hb = 0.17 * s;
+    glassy([[0, y], [a, y], [a, y + hb], [a * 0.7, y + hb + 0.018 * s], [0.013 * s, y + hb + 0.03 * s], [0.013 * s, y + hb + 0.06 * s]], hb);
+    const fz = a * 0.93;
+    pbox(x - a * 0.7, x + a * 0.7, y + hb * 0.2, y + hb * 0.62, z + fz, z + fz + 0.002, '#ffffff', 1.05, LABEL, SATIN);
+    pbox(x - a * 0.7, x + a * 0.7, y + hb * 0.5, y + hb * 0.56, z + fz + 0.002, z + fz + 0.003, band, 1.05, null, SATIN);
     c.lat(x, z, [[0, y + hb + 0.06 * s], [0.017 * s, y + hb + 0.06 * s], [0.017 * s, y + hb + 0.085 * s], [0, y + hb + 0.085 * s]], '#6a4a2a', 1, 8, SATIN);
     top = y + hb + 0.085 * s;
   } else if (kind === 'liqueur') {
     // a squat round body, a long neck and a dripped wax seal
     const rb = 0.042 * s;
-    c.lat(x, z, [[0, y], [rb * 0.8, y], [rb, y + 0.04 * s], [rb, y + 0.09 * s], [rb * 0.6, y + 0.13 * s], [0.012 * s, y + 0.15 * s], [0.012 * s, y + 0.22 * s], [0, y + 0.22 * s]], col, 1, 10, GLOSS);
+    glassy([[0, y], [rb * 0.8, y], [rb, y + 0.04 * s], [rb, y + 0.09 * s], [rb * 0.6, y + 0.13 * s], [0.012 * s, y + 0.15 * s], [0.012 * s, y + 0.2 * s]], 0.12 * s);
     label(rb * 1.01, y + 0.045 * s, y + 0.085 * s);
-    c.lat(x, z, [[0, y + 0.2 * s], [0.016 * s, y + 0.2 * s], [0.017 * s, y + 0.235 * s], [0, y + 0.24 * s]], pick(r, ['#8a1a1a', '#1a1a1c', '#c8a050']), 1, 8, GLOSS);
+    const wax = pick(r, ['#8a1a1a', '#1a1a1c', '#c8a050']);
+    c.lat(x, z, [[0, y + 0.2 * s], [0.016 * s, y + 0.2 * s], [0.017 * s, y + 0.235 * s], [0, y + 0.24 * s]], wax, 1, 8, GLOSS);
+    // the wax run down the neck in drips
+    for (let i = 0; i < 3; i++) { const a = r() * Math.PI * 2, dy = (0.015 + r() * 0.025) * s; c.rod(c.F.P(x + Math.cos(a) * 0.014 * s, y + 0.2 * s, z + Math.sin(a) * 0.014 * s), c.F.P(x + Math.cos(a) * 0.014 * s, y + 0.2 * s - dy, z + Math.sin(a) * 0.014 * s), 0.004 * s, wax, 1, GLOSS, 5); }
     top = y + 0.24 * s;
   } else {
     // round bottles: wine, gin, vodka and champagne differ in girth, height and shoulders
     const sh = { wine: [0.036, 0.3, 0.6, 0.82], gin: [0.035, 0.29, 0.72, 0.8], vodka: [0.032, 0.32, 0.7, 0.8], champagne: [0.044, 0.32, 0.55, 0.84] }[kind] || [0.035, 0.3, 0.62, 0.8];
     const rb = sh[0] * s, h = sh[1] * s, rn = rb * (kind === 'champagne' ? 0.4 : 0.36);
-    c.lat(x, z, [[0, y], [rb, y], [rb, y + h * sh[2]], [rn * 1.25, y + h * sh[3]], [rn, y + h * 0.9], [rn, y + h], [0, y + h]], col, kind === 'vodka' ? 1.1 : 0.95, 10, GLOSS);
+    glassy([[0, y], [rb, y], [rb, y + h * sh[2]], [rn * 1.25, y + h * sh[3]], [rn, y + h * 0.9], [rn, y + h]], h * sh[2]);
     label(rb * 1.01, y + h * 0.16, y + h * (kind === 'gin' ? 0.62 : 0.48));
+    // a neck label on the wine and the champagne, a small crest on the gin's shoulder
+    if (kind === 'wine' || kind === 'champagne') c.lat(x, z, [[rn * 1.2, y + h * 0.84], [rn * 1.12, y + h * 0.88]], LABEL, 1.05, seg, SATIN);
+    if (kind === 'gin') pbox(x - rb * 0.3, x + rb * 0.3, y + h * 0.64, y + h * 0.7, z + rb * 0.92, z + rb * 0.96, band, 1.1, null, METAL);
     if (kind === 'wine' || kind === 'champagne') {
       // the capsule: foil down the neck, and on champagne a gold cage over a fatter one
       const foil = kind === 'champagne' ? '#c8a050' : pick(r, ['#8a1a1a', '#1a1a1c', '#c8a050', '#d8d8d0']);
-      c.lat(x, z, [[rn * 1.06, y + h * (kind === 'champagne' ? 0.8 : 0.86)], [rn * 1.06, y + h + 0.004]], foil, 1.1, 10, METAL);
-    } else c.lat(x, z, [[0, y + h], [rn * 1.15, y + h], [rn * 1.15, y + h + 0.02 * s], [0, y + h + 0.022 * s]], kind === 'gin' ? '#2a2a2e' : '#c8ccd0', 1.05, 8, METAL);
-    top = y + h + (kind === 'wine' || kind === 'champagne' ? 0.004 : 0.022 * s);
+      c.lat(x, z, [[rn * 1.06, y + h * (kind === 'champagne' ? 0.8 : 0.86)], [rn * 1.06, y + h + 0.004]], foil, 1.1, seg, METAL);
+      c.lat(x, z, [[0, y + h + 0.004], [rn * 1.06, y + h + 0.004], [0, y + h + 0.006]], foil, 1.1, seg, METAL);
+      if (kind === 'champagne') for (let i = 0; i < 4; i++) { const a = (i / 4) * Math.PI * 2; c.rod(c.F.P(x + Math.cos(a) * rn * 1.1, y + h * 0.9, z + Math.sin(a) * rn * 1.1), c.F.P(x, y + h + 0.01, z), 0.0012, '#d8c070', 1.2, METAL, 4); }
+    } else c.lat(x, z, [[0, y + h], [rn * 1.15, y + h], [rn * 1.15, y + h + 0.02 * s], [0, y + h + 0.022 * s]], kind === 'gin' ? '#2a2a2e' : '#c8ccd0', 1.05, seg, METAL);
+    top = y + h + (kind === 'wine' || kind === 'champagne' ? 0.006 : 0.022 * s);
   }
   // a speed pourer: a steel spout angled off the top
   if (pour) c.rod(c.F.P(x, top, z), c.F.P(x, top + 0.025, z + 0.02), 0.0035, '#d8dade', 1.2, METAL, 5);
 }
 const BOTTLE_KINDS = ['wine', 'whisky', 'gin', 'liqueur', 'vodka', 'wine', 'gin', 'whisky', 'champagne'];
-// a row of them along a shelf, spaced by their size, each kind off the seed
-function bottleRow(c, x0, x1, y, z, s = 1, pour = false) {
+// a row of them along a shelf, spaced by their size. With `kinds`, it's stocked as a back bar is: in runs of one
+// kind (the whiskies together, the gins together), a gap of shelf between runs, and now and then a bottle out.
+function bottleRow(c, x0, x1, y, z, s = 1, pour = false, kinds = null) {
   const step = 0.095 * s;
-  for (let x = x0 + step / 2; x < x1 - step / 2 + 1e-6; x += step) barBottle(c, x + (c.r() - 0.5) * 0.01, z, y, pick(c.r, BOTTLE_KINDS), s * (0.9 + c.r() * 0.1), pour);
+  if (!kinds) {
+    for (let x = x0 + step / 2; x < x1 - step / 2 + 1e-6; x += step) barBottle(c, x + (c.r() - 0.5) * 0.01, z, y, pick(c.r, BOTTLE_KINDS), s * (0.9 + c.r() * 0.1), pour);
+    return;
+  }
+  let x = x0 + step / 2;
+  while (x < x1 - step / 2 + 1e-6) {
+    const kind = pick(c.r, kinds), run = 3 + Math.floor(c.r() * 4);
+    for (let i = 0; i < run && x < x1 - step / 2 + 1e-6; i++, x += step) if (c.r() > 0.08) barBottle(c, x + (c.r() - 0.5) * 0.01, z, y, kind, s * (0.92 + c.r() * 0.08), pour);
+    x += step * (0.6 + c.r() * 0.6);
+  }
 }
+// what each tier of a back bar holds, bottom up: the pours, the spirits, the good stuff
+const TIERS = [['gin', 'vodka', 'whisky'], ['whisky', 'liqueur', 'gin', 'wine'], ['whisky', 'champagne', 'wine', 'liqueur']];
 // Wine laid down in a cubby of the base: a dark recess between x0 and x1, a shelf under each row, each bottle on its
 // side with its foil end out. Drawn along z, so nothing passes the front at hd.
 // Each shelf is lit along its front from underneath, so the bottles under it catch the light and the bay reads as
@@ -363,10 +499,10 @@ function insideOf(c) {
 // shoes in pairs on the floor, as much of each as its level. A wardrobe too short to hang a coat in is all shelves.
 function wardrobeInside(c, x0, x1, y0, y1, z0, z1, lvl) {
   const { F, r } = c, { pbox } = F, S = STOCK[lvl], zm = (z0 + z1) / 2, shelf = y1 - 0.3;
-  pbox(x0, x1, shelf - 0.018, shelf, z0, z1 - 0.02, '#5a3a22', 0.8, c.wood, SATIN);
+  pbox(x0, x1, shelf - 0.018, shelf, z0, z1 - 0.02, '#2a3038', 0.8, null, METAL);
   const tall = shelf - 0.15 - 1.15 > y0 + 0.12;
   if (tall) c.rod(F.P(x0, shelf - 0.08, zm), F.P(x1, shelf - 0.08, zm), 0.011, '#c8ccd0', 1.05);
-  else pbox(x0, x1, (y0 + shelf) / 2 - 0.018, (y0 + shelf) / 2, z0, z1 - 0.02, '#5a3a22', 0.8, c.wood, SATIN);
+  else pbox(x0, x1, (y0 + shelf) / 2 - 0.018, (y0 + shelf) / 2, z0, z1 - 0.02, '#2a3038', 0.8, null, METAL);
   if (!lvl) return;
   const cloth = c.fine ? ['#2a2c30', '#3a3e46', '#c8c4b8', '#4a3a30'] : ['#3a4a5a', '#6a3a2a', '#4a5a3a', '#8a7a5a', '#c8c4b8'];
   if (tall) hanging(c, x0 + 0.03, x1 - 0.03, shelf - 0.09, zm, S);
@@ -510,58 +646,65 @@ const FORMS = {
 
   // ── keeping things ────────────────────────────────────────────────────────────────────────────
   wardrobe(c) {
-    // a timber wardrobe: a plinth, a cornice, two doors with sunk panels, and a pair of handles; on a
-    // worn one a door has dropped a little
-    const { F, p, r } = c, { pbox } = F, hw = p.w / 2, hd = p.d / 2, h = p.h, wood = c.wood, n = p.w > 1.1 ? 3 : 2;
-    pbox(-hw, hw, 0, 0.09, -hd, hd - 0.02, '#3a2a1e', 0.85, wood, SATIN);
+    // a smart closet: a lacquered carcass on a lit plinth, flush doors with a shadow gap and no knobs, a glowing
+    // pull line down each door's free edge, a status light, and a light line under the cornice; on a worn one a
+    // door has dropped a little and the strip's gone dim
+    const { F, p, r } = c, { pbox } = F, hw = p.w / 2, hd = p.d / 2, h = p.h, n = p.w > 1.1 ? 3 : 2;
+    const shell = '#1c2026', face = pick(r, ['#d8dde2', '#2a3038', '#c8ccd2']), glow = c.wear > 0.6 ? 1.15 : 1.7;
+    pbox(-hw, hw, 0, 0.07, -hd, hd - 0.05, '#0c0e10', 0.9, null, METAL);
+    pbox(-hw + 0.02, hw - 0.02, 0.012, 0.02, hd - 0.05, hd - 0.046, '#8ef0ff', glow);
     // open (its doors swinging, room-mesh.js swingParts) it's a carcass with what's kept in it; shut, a block
     if (c.K.mark) {
-      const t = 0.02, x0 = -hw + 0.01, x1 = hw - 0.01, y0 = 0.09, y1 = h - 0.08, zf = hd - 0.04;
-      carcass(c, x0, x1, y0, y1, -hd, zf, t, '#5a3a22', 0.85, wood, SATIN);
+      const t = 0.02, x0 = -hw + 0.01, x1 = hw - 0.01, y0 = 0.07, y1 = h - 0.06, zf = hd - 0.04;
+      carcass(c, x0, x1, y0, y1, -hd, zf, t, shell, 0.85, null, SATIN);
+      // the inside lit cool from above
+      pbox(x0 + t, x1 - t, y1 - t - 0.012, y1 - t, zf - 0.08, zf - 0.06, '#bff6ff', 1.5);
       wardrobeInside(insideOf(c), x0 + t, x1 - t, y0 + t, y1 - t, -hd + t, zf, stockOf(p));
-    } else pbox(-hw + 0.01, hw - 0.01, 0.09, h - 0.08, -hd, hd - 0.04, '#5a3a22', 0.85, wood, SATIN);
-    pbox(-hw - 0.012, hw + 0.012, h - 0.08, h, -hd - 0.0, hd + 0.01, '#5a3a22', 0.95, wood, SATIN);
+    } else pbox(-hw + 0.01, hw - 0.01, 0.07, h - 0.06, -hd, hd - 0.04, shell, 0.85, null, SATIN);
+    pbox(-hw - 0.01, hw + 0.01, h - 0.06, h, -hd, hd + 0.005, shell, 0.95, null, METAL);
+    pbox(-hw + 0.02, hw - 0.02, h - 0.066, h - 0.06, hd - 0.03, hd - 0.004, '#8ef0ff', glow);
     for (let i = 0; i < n; i++) {
-      const x0 = -hw + 0.02 + i * (p.w - 0.04) / n, x1 = x0 + (p.w - 0.04) / n - 0.006, sag = c.wear > 0.5 && i === 1 ? 0.012 : 0;
+      const x0 = -hw + 0.015 + i * (p.w - 0.03) / n, x1 = x0 + (p.w - 0.03) / n - 0.008, sag = c.wear > 0.5 && i === 1 ? 0.012 : 0;
       // the left half of the doors hang on the left and the right half on the right, so open they fan out like a
-      // book and never swing through each other; each handle is on its door's free edge
-      const left = i < n / 2;
+      // book and never swing through each other; each pull line is on its door's free edge
+      const left = i < n / 2, ex = left ? x1 - 0.035 : x0 + 0.035;
       c.K.mark?.('swing', { side: left ? -1 : 1 });
-      pbox(x0, x1, 0.1 - sag, h - 0.09 - sag, hd - 0.04, hd - 0.012, '#5a3a22', 0.97, wood, SATIN);
-      pbox(x0 + 0.06, x1 - 0.06, 0.24, h * 0.5, hd - 0.012, hd - 0.008, '#5a3a22', 0.9, wood, SATIN);
-      pbox(x0 + 0.06, x1 - 0.06, h * 0.5 + 0.08, h - 0.2, hd - 0.012, hd - 0.008, '#5a3a22', 0.9, wood, SATIN);
-      c.lat(left ? x1 - 0.05 : x0 + 0.05, hd + 0.012, [[0, 1.08], [0.016, 1.09], [0.016, 1.11], [0, 1.12]], '#c9a24a', 1.05, 8, METAL);
+      pbox(x0, x1, 0.075 - sag, h - 0.07 - sag, hd - 0.04, hd - 0.012, face, 1, null, GLOSS);
+      pbox(ex - 0.006, ex + 0.006, h * 0.3 - sag, h * 0.7 - sag, hd - 0.012, hd - 0.004, '#8ef0ff', glow);
+      if (i === 0) pbox(ex - 0.012, ex + 0.012, h * 0.76, h * 0.76 + 0.024, hd - 0.012, hd - 0.006, c.wear > 0.6 ? '#ffb24a' : '#6aff9a', 1.8);
     }
     c.K.mark?.('body');
-    // a suitcase on top of a lived-in one
-    if (c.wear > 0.3 && r() < 0.7) pbox(-hw * 0.5, hw * 0.3, h, h + 0.18, -hd * 0.6, hd * 0.5, '#6a4a2a', 0.9, null, LEATHER);
+    // a hard case on top of a lived-in one
+    if (c.wear > 0.3 && r() < 0.7) pbox(-hw * 0.5, hw * 0.3, h, h + 0.18, -hd * 0.6, hd * 0.5, '#3a4048', 0.9, null, METAL);
   },
   valet(c) {
     // a fitted dressing wall: flush panels with a shadow gap and no handles, a light line along the
     // plinth, and one bay left open with a lit rail and shelves of folded things
     const { F, p, r } = c, { pbox } = F, hw = p.w / 2, hd = p.d / 2, h = p.h, n = Math.max(3, Math.round(p.w / 0.55));
-    const panel = { t: 'roomOak', c: c.fine ? '#a88862' : '#8a6a4a' }, open = 1 + Math.floor(r() * (n - 2)), bw = p.w / n;
+    const panel = null, lac = c.fine ? '#d8dde2' : '#2a3038', open = 1 + Math.floor(r() * (n - 2)), bw = p.w / n;
     pbox(-hw, hw, 0, 0.06, -hd, hd - 0.05, '#101012', 0.9);
-    pbox(-hw + 0.01, hw - 0.01, 0.002, 0.008, hd - 0.05, hd - 0.046, '#ffe9c4', 1.6);
-    pbox(-hw, hw, h - 0.03, h, -hd, hd, '#7a5a3a', 1, panel, SATIN);
+    pbox(-hw + 0.01, hw - 0.01, 0.002, 0.008, hd - 0.05, hd - 0.046, '#8ef0ff', 1.7);
+    pbox(-hw, hw, h - 0.03, h, -hd, hd, '#1c2026', 1, null, METAL);
     pbox(-hw, hw, 0.06, h - 0.03, -hd, -hd + 0.03, '#26262a', 0.85, null, SATIN);
     for (let i = 0; i < n; i++) {
       const x0 = -hw + i * bw, x1 = x0 + bw;
       if (i === open) {
         // the open bay: a dark inside, a rail with a light over it, shelves below
-        pbox(x0, x0 + 0.015, 0.06, h - 0.03, -hd + 0.03, hd - 0.02, '#2a2420', 0.9, null, SATIN);
-        pbox(x1 - 0.015, x1, 0.06, h - 0.03, -hd + 0.03, hd - 0.02, '#2a2420', 0.9, null, SATIN);
-        pbox(x0 + 0.02, x1 - 0.02, h - 0.05, h - 0.035, -0.02, 0.02, '#ffe9c4', 1.7);
-        c.rod(F.P(x0 + 0.015, h - 0.2, 0), F.P(x1 - 0.015, h - 0.2, 0), 0.012, '#c9a24a', 1.05);
+        pbox(x0, x0 + 0.015, 0.06, h - 0.03, -hd + 0.03, hd - 0.02, '#14181c', 0.9, null, SATIN);
+        pbox(x1 - 0.015, x1, 0.06, h - 0.03, -hd + 0.03, hd - 0.02, '#14181c', 0.9, null, SATIN);
+        pbox(x0 + 0.02, x1 - 0.02, h - 0.05, h - 0.035, -0.02, 0.02, '#bff6ff', 1.7);
+        c.rod(F.P(x0 + 0.015, h - 0.2, 0), F.P(x1 - 0.015, h - 0.2, 0), 0.012, '#9aa4ae', 1.05);
         // as much on the rail and the shelves as it holds (stockOf)
         const lvl = stockOf(p);
         hanging(c, x0 + 0.03, x1 - 0.03, h - 0.21, 0, STOCK[lvl]);
         for (const [j, y] of [0.3, 0.56].entries()) {
-          pbox(x0 + 0.015, x1 - 0.015, y - 0.015, y, -hd + 0.03, hd - 0.04, '#7a5a3a', 1, panel, SATIN);
+          pbox(x0 + 0.015, x1 - 0.015, y - 0.015, y, -hd + 0.03, hd - 0.04, '#2a3038', 0.9, null, METAL);
           for (let k = 0; k < Math.round(3 * shelfKeep(lvl, j, 2) + (lvl === 1 ? 0.4 : 0)); k++) pbox(x0 + 0.05, x1 - 0.05, y + k * 0.04, y + k * 0.04 + 0.036, -hd + 0.1, hd - 0.14, pick(r, ['#3a3e46', '#c8c4b8', '#6a6e74', '#4a3a30']), 0.95, null, CLOTH);
         }
       } else {
-        pbox(x0 + 0.003, x1 - 0.003, 0.065, h - 0.035, hd - 0.05, hd - 0.012, '#7a5a3a', 1, panel, SATIN);
+        pbox(x0 + 0.003, x1 - 0.003, 0.065, h - 0.035, hd - 0.05, hd - 0.012, lac, 1, panel, GLOSS);
+        // a pull line of light down each panel's seam, as on the smart closet
+        pbox(x1 - 0.022, x1 - 0.012, h * 0.3, h * 0.7, hd - 0.012, hd - 0.004, '#8ef0ff', 1.6);
       }
     }
   },
@@ -781,15 +924,28 @@ const FORMS = {
 
   // ── kitchen ───────────────────────────────────────────────────────────────────────────────────
   kitchen(c) {
-    // a sink in a run of base units: a bowl at the left, a tap behind it, the worktop clear to the right
-    const { p } = c, hw = p.w / 2, g = kitchenGrade(c), x = -hw + 0.34, bw = 0.42, bd = 0.36, z = 0.03;
-    const top = baseRun(c, p.h, { grade: g, hole: [x - bw / 2, x + bw / 2, z - bd / 2, z + bd / 2] });
-    sinkIn(c, g, x, z, bw, bd, top);
-    if (g === 0) pillarTaps(c, x, top, -p.d / 2 + 0.06);
-    else tap(c, x, top, -p.d / 2 + 0.07, g === 3 ? 0.22 : 0.17, g === 3 ? '#2a2c30' : '#c8ccd0');
-    if (!c.fine) {
-      // a cloth over the tap's neck and a bottle of washing-up liquid
-      c.lat(x + 0.3, -p.d / 2 + 0.12, [[0, top], [0.03, top], [0.03, top + 0.15], [0.012, top + 0.19], [0, top + 0.19]], c.pick(['#3aa84a', '#d8a83a', '#2a6ad8']), 0.95, 10, GLOSS);
+    // a sink let into a run of base units against the wall, where the plumbing is: the bowl at one end with its tap
+    // behind it, and the drainer past it (on your left as you stand at it). In a studio the units are the kitchen's own (room-mesh.js drawKitchen
+    // hands over its grade and fronts), so the sink's stretch of the run matches the units either side of it.
+    const { p, L } = c, hw = p.w / 2, hd = p.d / 2, s = sinkTier(c), [bw, bd] = SINK_BOWL[s];
+    const studio = !!(L?.spec?.plan && !p.annex), g = studio ? (c.fine ? 3 : L.spec.kitchen?.grade ?? 2) : kitchenGrade(c);
+    // the tap at the back on the wall's pipes, the bowl's back edge just past where its spout runs
+    const lip = s === 2 ? 0.035 : 0.02, tz = -hd + 0.075, z = tz + 0.06 + lip + bd / 2;
+    // the bowl at the -x end when there's a drainer's width beside it, else in the middle
+    const x = p.w >= bw + 0.5 && s > 0 ? -hw + 0.08 + lip + bw / 2 : 0;
+    const top = baseRun(c, p.h, { grade: g, hole: [x - bw / 2, x + bw / 2, z - bd / 2, z + bd / 2], ...(c.studioFront && !c.front ? { front: c.studioFront } : {}) });
+    // what stands on this worktop (a kettle, a microwave: room-layout.js placeSpot `on`), from the -x end of the first
+    const on = (L?.placed || []).filter((o) => o.on != null && o.on === p.id).map((o) => (Number(o.spot?.x) || 0) - (o.w || 0) / 2);
+    sinkIn(c, s, x, z, bw, bd, top, on.length ? Math.min(...on) : Infinity);
+    const reach = z - tz;
+    if (s === 0) pillarTaps(c, x, top, tz);
+    else if (s === 1) monoMixer(c, x, top, tz, reach);
+    else if (s === 2) bridgeTap(c, x, top, tz, reach);
+    else pullDown(c, x, top, tz, reach, x - bw / 2 - 0.06 > -hw + 0.04 ? x - bw / 2 - 0.06 : x + bw / 2 + 0.08);
+    if (s < 3 && !c.fine) {
+      // a bottle of washing-up liquid at the back, past the drainer, or on a slum sink at the cold end, clear of the grips
+      const bx = s === 0 ? Math.max(-hw + 0.06, x - bw / 2 - 0.08) : Math.min(hw - 0.06, x + bw / 2 + 0.3);
+      c.lat(bx, tz + 0.04, [[0, top], [0.03, top], [0.03, top + 0.15], [0.012, top + 0.19], [0, top + 0.19]], c.pick(['#3aa84a', '#d8a83a', '#2a6ad8']), 0.95, 10, GLOSS);
     }
   },
   trough(c) {
@@ -1042,6 +1198,9 @@ const FORMS = {
     const { F, p, r } = c, { pbox } = F, hw = p.w / 2, hd = p.d / 2, h = p.h, club = !!c.L?.spec?.club, wal = club ? null : { t: 'roomOak', c: '#6a4a30' }, cab = club ? '#16141a' : '#4a3020';
     const brass = club ? '#8a1a2a' : '#b08a4a', glow = club ? '#ff3050' : '#e8b070';
     const top = { t: 'roomMarble', c: club ? '#202024' : '#3c3a3a' };
+    // a Cachet's opening takes the bar apart (gl/room-mesh.js assembly): the counter, then the back bar over it
+    const mark = (name) => c.K.mark?.(name);
+    mark('base');
     pbox(-hw, hw, 0, 0.08, -hd, hd - 0.06, '#101012', 0.9);
     // the base's bays: panelled doors, and the middle one open as a wine cubby. The carcass is solid but for the
     // cubby's bay, which is cut back to the cubby's own back wall (wineCubby, 0.32 deep), or its bottles are buried
@@ -1066,6 +1225,7 @@ const FORMS = {
       pbox(x - 0.07, x + 0.07, 0.8, 0.815, hd - 0.004, hd + 0.012, brass, 1.2, null, METAL);
     }
     pbox(-hw - 0.01, hw + 0.01, 0.92, 0.96, -hd, hd + 0.01, '#ffffff', 1, top, GLOSS);
+    mark('backbar');
     // the back: a smoked mirror in a thin frame, lit by a strip down each side and a wash from the cornice,
     // so the bottles stand dark against it with a rim of light
     pbox(-hw, hw, 0.96, h, -hd, -hd + 0.03, club ? '#1a0a10' : '#2a2018', 0.9, null, SATIN);
@@ -1092,12 +1252,13 @@ const FORMS = {
       if (deep) {
         pbox(-hw + 0.06, hw - 0.06, y, y + 0.07, -hd + 0.04, zb + 0.07, cab, 1, wal, SATIN);
         pbox(-hw + 0.06, hw - 0.06, y + 0.064, y + 0.07, zb + 0.07, zb + 0.074, glow, 1.4);
-        bottleRow(c, -hw + 0.1, hw - 0.1, y + 0.07, zb, s * 0.8);
+        bottleRow(c, -hw + 0.1, hw - 0.1, y + 0.07, zb, s * 0.8, false, TIERS[i]);
       }
-      bottleRow(c, -hw + 0.12, hw - 0.12, y, zf, s);
+      bottleRow(c, -hw + 0.12, hw - 0.12, y, zf, s, false, TIERS[i]);
     });
     // stemware under the cornice, where there's height for it over the top shelf
     if (h - 0.08 - 0.19 > shelves[2] + 0.38) hangingGlasses(c, -hw + 0.12, hw - 0.12, h - 0.08, deep ? hd - 0.3 : 0);
+    mark('base');
     // a lit toe-kick, and a brass edge to the worktop
     pbox(-hw + 0.02, hw - 0.02, 0.06, 0.07, hd - 0.065, hd - 0.055, glow, 1.4);
     pbox(-hw - 0.01, hw + 0.01, 0.92, 0.93, hd + 0.01, hd + 0.016, brass, 1.15, null, METAL);

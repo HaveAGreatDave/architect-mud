@@ -1,0 +1,46 @@
+{
+  "description": "A slab of brushed titanium on a low black marble console beside the desk, no bigger than a hardback and much heavier, with a bonsai in a lacquered pot at one end. Offer it a cassette and it draws it in over four seconds without a sound. An amber bar says what it's doing.",
+  "flags": {
+    "beta_player": true,
+    "channel_id": "ch_0_vcr",
+    "deck_active": "bc_the_meter_reader",
+    "deck_brand": "Polaris",
+    "deck_cassettes": [
+      "bc_the_meter_reader"
+    ],
+    "deck_mark": "✦",
+    "deck_silent": true,
+    "deck_style": "slab",
+    "interactions": [
+      "watch"
+    ],
+    "look": {
+      "dims": [
+        1.3,
+        0.38,
+        0.5
+      ],
+      "dress": "bonsai",
+      "tone": "black"
+    },
+    "media_deck": true,
+    "mini_deck": true,
+    "spot": {
+      "at": [
+        -6.1,
+        0.8
+      ],
+      "turn": -180
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_betamax_zone_solenne_apt_q",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "Polaris Executive Cassette Theatre",
+  "object_type": "media_deck",
+  "power_draw_kw": 0.04,
+  "price": null,
+  "zone_id": "zone_solenne_apt_q"
+}

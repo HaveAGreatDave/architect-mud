@@ -1,6 +1,24 @@
 {
   "description": "A fat ledger chained to the counter. Every line is a name and a time, and a lot of the names are the same name in different hands.",
-  "flags": {},
+  "flags": {
+    "look": {
+      "arche": "surface",
+      "dims": [
+        1.8,
+        0.6,
+        1.05
+      ],
+      "form": "reception",
+      "wear": 0.95
+    },
+    "spot": {
+      "at": [
+        1.2,
+        2.6
+      ],
+      "turn": 180
+    }
+  },
   "hp": null,
   "hp_max": null,
   "id": "furn_trackmarks_1",

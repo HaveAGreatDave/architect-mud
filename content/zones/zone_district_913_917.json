@@ -3,6 +3,7 @@
   "ambient_theme": "forest",
   "description": "Scrub and thin trees against the Gardens' west wall, where ICE is painted in letters a storey high. A path worn through the scrub leads round to the yard at the back.",
   "exits": {
+    "east": "zone_seam_914_917",
     "north": "zone_district_913_916",
     "south": "zone_district_913_918",
     "west": "zone_district_912_917"

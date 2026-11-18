@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_labourer_02",
+  "lines": [
+    "\"What are they building over there?\"",
+    "\"Nobody knows.\"",
+    "\"You're building it.\"",
+    "\"I'm pouring the concrete. That's not the same as knowing.\""
+  ],
+  "personality": "labourer",
+  "sort_order": 645
+}

@@ -14,11 +14,16 @@
     "is_building": true,
     "is_interior": true,
     "room": {
-      "d": 24,
+      "bay": "truck",
+      "d": 16.786,
+      "doors": {
+        "west": 5.27
+      },
+      "face": 270,
       "ground": "stone",
-      "h": 7.5,
+      "h": 5.33,
       "studio": false,
-      "w": 16,
+      "w": 16.786,
       "windowless": true
     },
     "truck_depot": {

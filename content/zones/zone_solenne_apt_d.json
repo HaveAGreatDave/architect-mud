@@ -3,7 +3,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#2b3a34",
   "color": "#e8ddc7",
-  "description": "A two-bedroom sky residence on the bay side: engineered oak, a full-width wall of glass, and a platform bed where the ceiling steps up. The kitchen is a single seam of stone. The second room is empty. Leave <b>south</b> to the landing.",
+  "description": "A sky residence on the bay side: engineered oak, two walls of glass, and a platform bed in the corner where they meet. The kitchen is a single seam of stone. Leave <b>south</b> to the landing.",
   "exits": {
     "in": "zone_solenne_apt_d_bath",
     "south": "zone_solenne_residences_34"
@@ -16,18 +16,20 @@
     "rent_cost": 460,
     "rest_multiplier": 1.5,
     "room": {
-      "d": 12,
+      "balcony": false,
+      "d": 6.6,
       "ensuite": {
-        "d": 3.4,
+        "d": 2.4,
         "dress": "spa",
         "w": 3.2
       },
       "finish": "fine",
       "glass": [
-        "front"
+        "front",
+        "left"
       ],
-      "h": 2.9,
-      "storeys": 36,
+      "h": 3,
+      "storeys": 45,
       "w": 11
     },
     "window": {
@@ -42,7 +44,7 @@
   "grid_z": 6,
   "id": "zone_solenne_apt_d",
   "map_id": "map_int_solenne",
-  "marker": "34",
-  "name": "Solenne Residence 34-D",
+  "marker": "10",
+  "name": "Solenne Residence 10-D",
   "parent_zone": "zone_district_914_908"
 }

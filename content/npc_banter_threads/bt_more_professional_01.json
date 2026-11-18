@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_professional_01",
+  "lines": [
+    "\"How's the firm?\"",
+    "\"Profitable. For someone.\"",
+    "\"Not you?\"",
+    "\"I get a mug at Christmas.\""
+  ],
+  "personality": "professional",
+  "sort_order": 677
+}

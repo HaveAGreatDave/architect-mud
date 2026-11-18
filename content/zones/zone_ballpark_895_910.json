@@ -1,30 +1,34 @@
 {
   "ambient_events": [
-    "Somebody cuts across the grass towards the gates with a folded scorecard.",
-    "A dog runs a long circle round nothing and comes back.",
-    "The wind brings over the smell of frying onions from Sorrel Way."
+    "The fountains drop for a second, then come back up.",
+    "A groundskeeper picks ticket stubs out of a hedge one at a time.",
+    "Somebody eats a hot dog on a bench and watches the Coliseum wall."
   ],
   "ambient_theme": "urban",
-  "color": "#8ba36a",
-  "description": "The green, level from the boulevard to Hughson Way. On a game night people bring blankets and listen to the crowd through the walls.",
+  "color": "#8fd08a",
+  "description": "The North Gardens, a pergola of limestone piers and timber with wisteria hanging through. There are benches underneath and lavender along the edges.",
   "exits": {
-    "east": "zone_ballpark_896_910",
+    "east": "zone_ballpark_895_914",
+    "north": "zone_ballpark_893_910",
     "south": "zone_district_896_912",
-    "west": "zone_ballpark_894_910"
+    "west": "zone_ballpark_892_912"
   },
   "flags": {
     "district": "halcyon_fields",
+    "park_feature": "pergola",
+    "park_focus": {
+      "x": 894.5,
+      "y": 913.5
+    },
     "region_id": "region_coldwater",
-    "set_aside": true,
-    "set_aside_from": "895,910",
     "street_life": true,
-    "terrain": "grass"
+    "terrain": "park"
   },
-  "grid_x": 2,
-  "grid_y": 1,
+  "grid_x": 893,
+  "grid_y": 912,
   "grid_z": 0,
   "id": "zone_ballpark_895_910",
-  "map_id": "map_set_aside",
-  "name": "Hughson Green",
+  "map_id": "map_world",
+  "name": "North Gardens",
   "parent_zone": null
 }

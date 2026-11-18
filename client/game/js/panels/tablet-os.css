@@ -3481,7 +3481,11 @@ html[data-density="compact"] #tablet-os-overlay .tos-mf:disabled { opacity:.35; 
    on a narrow tablet. Roughly the wall set's 760x520 proportion. */
 #tablet-os-overlay .tos-tv-screen { position:relative; width:100%; aspect-ratio:3/2;
   min-height:230px; overflow:hidden; background:var(--tv-bg); }
-#tablet-os-overlay .tos-tv-screen:fullscreen { width:100%; height:100%; aspect-ratio:auto; min-height:0; }
+/* Full screen takes the whole set (tablet-os.js bindTabletTvFullscreen), so the control row (3D,
+   Gameday, the guide, the channels, and the way back out on a tablet with no Esc key) stays under
+   the picture, and the picture takes the rest of the screen. */
+#tablet-os-overlay .tos-tv-set:fullscreen { border:0; border-radius:0; box-shadow:none; }
+#tablet-os-overlay .tos-tv-set:fullscreen .tos-tv-screen { flex:1 1 auto; aspect-ratio:auto; min-height:0; }
 #tablet-os-overlay .tos-tv-ctl button.tos-tv-fs { display:inline-flex; align-items:center; justify-content:center; }
 #tablet-os-overlay .tos-tv-screen [data-tv="content"] { position:absolute; inset:0; overflow:hidden; padding:12px 14px;
   transition:opacity .25s; }

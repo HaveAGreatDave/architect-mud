@@ -1,9 +1,11 @@
 // A fullscreen button for a sports view (Deadball's park, the CPhL's rink).
 //
-// The view puts it on its picture, and it takes the view's own host fullscreen: the TV's
-// sub-screen in the game, the tablet's, or the demo page's box, whichever mounted it. Esc or the
-// button again comes back. A browser that can't take an element fullscreen (an iPhone) gets no
-// button. The look is `.view-fs` in styles.css.
+// The view puts it on its picture, and it takes the view's own host fullscreen (the demo page's
+// box), or the whole set when a TV mounted it: a TV passes its `data-tv="window"` as the view's
+// `opts.fullscreen`, so the set's own buttons (3D, Gameday, the guide, the channels) come full
+// screen with the picture and still work there. Full screen on the view's box alone left them
+// behind, out of reach. Esc or the button again comes back. A browser that can't take an element
+// fullscreen (an iPhone) gets no button. The look is `.view-fs` in styles.css.
 
 const ICON_ON = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>';
 const ICON_OFF = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M6 2v4H2M14 6h-4V2M10 14v-4h4M2 10h4v4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>';
@@ -18,16 +20,18 @@ function paint(btn, host) {
   btn.setAttribute('aria-pressed', String(on));
 }
 
-// Adds the button to `into` (the picture's box) for `host`. Returns it, or null where there's no
-// fullscreen to be had.
-export function addFullscreenButton(into, host) {
+// Adds the button to `into` (the picture's box), taking `target` full screen: the view's `host`
+// unless the view was given something bigger to take (a TV set). Returns it, or null where there's
+// no fullscreen to be had.
+export function addFullscreenButton(into, host, target = null) {
+  host = target || host;
   const doc = host?.ownerDocument;
   if (!into || !doc?.fullscreenEnabled || typeof host.requestFullscreen !== 'function') return null;
-  // ⚠ THE HOST MAY HAVE NO BOX. The TV mounts a view in a 'display: contents' wrapper (tv.js
-  // _gamedayViewFor), and the views lay out 'position: absolute; inset: 0' against the nearest box.
-  // Full screen, a box-less host draws nothing, so the class gives it one while it's full screen
-  // (.view-fs-host:fullscreen in styles.css).
-  host.classList.add('view-fs-host');
+  // ⚠ THE HOST MAY HAVE NO BOX. A view mounted in a 'display: contents' wrapper lays out
+  // 'position: absolute; inset: 0' against the nearest box. Full screen, a box-less host draws
+  // nothing, so the class gives it one while it's full screen (.view-fs-host:fullscreen in
+  // styles.css). A TV set lays itself out, so it never takes the class.
+  if (!target) host.classList.add('view-fs-host');
   const btn = doc.createElement('button');
   btn.type = 'button';
   btn.className = 'view-fs';

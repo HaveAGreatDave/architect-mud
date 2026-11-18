@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_charter_pilot_02",
+  "lines": [
+    "\"What's it look like up there?\"",
+    "\"Grey, mostly.\"",
+    "\"And past the Curtain?\"",
+    "\"Red. Very red. And quiet. I don't go low.\""
+  ],
+  "personality": "charter_pilot",
+  "sort_order": 692
+}

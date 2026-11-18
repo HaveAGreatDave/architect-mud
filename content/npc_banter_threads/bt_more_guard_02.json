@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_guard_02",
+  "lines": [
+    "\"How long you got left?\"",
+    "\"Two hours.\"",
+    "\"Then what?\"",
+    "\"Then I go home and stand in my kitchen instead.\""
+  ],
+  "personality": "guard",
+  "sort_order": 637
+}

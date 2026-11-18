@@ -1,0 +1,15 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_grandstand_burger",
+  "name": "grandstand burger",
+  "tags": {
+    "consumable": true,
+    "description": "A thin beef patty pressed flat on the griddle under a slice of orange cheese, raw onion and a leaf of lettuce, in a soft white bun wrapped in wax paper. Sold at the Hughson Coliseum.",
+    "restore_hunger": 22,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 9,
+  "weight": 240
+}

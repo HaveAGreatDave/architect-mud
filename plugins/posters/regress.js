@@ -3,7 +3,8 @@
 // Kiyo/Cyd seam reveal. All DB rows it creates use throwaway ids/keys and are
 // cleaned up in a finally, so it never touches the six real posters.
 import { query } from '../../server/models/db.js';
-import { world, setApartmentCache, insertFurniture, deleteFurnitureWhere } from '../../server/engine/world.js';
+import { world, setApartmentCache, insertFurniture, deleteFurnitureWhere, getZoneFurniture } from '../../server/engine/world.js';
+import { spotOf } from './sheets.js';
 import { getFlag, clearFlag } from '../../server/engine/flags.js';
 import { hooks, _test, reconcileTakenPosters } from './index.js';
 
@@ -149,6 +150,45 @@ export default async function regress({ run, check, getPlayer }) {
     check('every sheet is cut from one print, a panel a slot',
       sheets.every((s) => s.art?.src === sheets[0].art?.src && s.art.cols.length === s.of + 1 && s.art.cols.every((c, i) => !i || c > s.art.cols[i - 1])), JSON.stringify(sheets[0]?.art));
     check('room.sheets answers nothing for a bare room', hooks['room.sheets']('__no_such_room__') === undefined);
+
+    // ── a wall for the run: putup <name> on <wall>, the arrange mode's stock and hang ──
+    check('a sheet spot reads a wall and its along', JSON.stringify(spotOf({ wall: 'left', along: 1.234 })) === '{"wall":"left","along":1.23}' && spotOf({ wall: 'ceiling' }) === null && JSON.stringify(spotOf('{"wall":"back"}')) === '{"wall":"back"}');
+    // the mural above is still up, and a hung sheet takes the whole run in the room with it (moveRun): take it down first
+    await deleteFurnitureWhere(`DELETE FROM furniture WHERE zone_id=$1 AND id LIKE 'furn_regress_mural_%'`, [zone]);
+    await query(`DELETE FROM player_inventory WHERE player_id=$1 AND item_id LIKE 'item_poster_%'`, [p.id]);
+    await query(`INSERT INTO player_inventory (id, player_id, item_id, quantity, custom_data) VALUES (gen_random_uuid(),$1,'item_poster_kiyo',1,$2), (gen_random_uuid(),$1,'item_poster_djerk',1,$3)`,
+      [p.id, JSON.stringify({ poster_key: 'kiyo', name: 'hero poster: KIYO, TEST' }), JSON.stringify({ poster_key: 'djerk', name: 'hero poster: DJERK, TEST' })]);
+    try {
+      r = await run('putup kiyo on the left wall');
+      const kiyoRow = getZoneFurniture(zone).find((f) => f.flags?.poster_key === 'kiyo');
+      check('putup <name> on the left wall hangs it there', /left wall/i.test(r?.message || '') && kiyoRow?.flags?.sheet_spot?.wall === 'left', r?.message);
+      const stock = await hooks['room.sheetStock'](p);
+      check('room.sheetStock lists the carried roll as a sheet', stock?.length === 1 && stock[0].slot === _test.MURAL.indexOf('djerk') && stock[0].inv, JSON.stringify(stock));
+      const hung = await hooks['room.sheetHang']({ player: p, zoneId: zone, inv: stock[0].inv, spot: { wall: 'right', along: 2 } });
+      const run2 = getZoneFurniture(zone).filter((f) => ['kiyo', 'djerk'].includes(f.flags?.poster_key));
+      check('room.sheetHang hangs it and moves the run with it', hung === true && run2.length === 2 && run2.every((f) => f.flags?.sheet_spot?.wall === 'right' && f.flags.sheet_spot.along === 2), JSON.stringify(run2.map((f) => f.flags)));
+      check('room.sheets carries the spot', hooks['room.sheets'](zone).every((s) => s.spot?.wall === 'right'));
+      check('room.sheetHang refuses a roll the player lacks', (await hooks['room.sheetHang']({ player: p, zoneId: zone, inv: stock[0].inv, spot: { wall: 'left' } })) === false);
+    } finally {
+      await deleteFurnitureWhere(`DELETE FROM furniture WHERE zone_id=$1 AND flags->>'poster_key' IN ('kiyo','djerk')`, [zone]);
+      await query(`DELETE FROM player_inventory WHERE player_id=$1 AND item_id LIKE 'item_poster_%'`, [p.id]);
+    }
+
+    // ── posterkit: staff get one rolled copy of each sheet; anyone else is told it isn't a verb ──
+    const savedRole = p.role;
+    try {
+      p.role = 'player';
+      r = await run('posterkit');
+      check('posterkit refuses a non-staff player', /unknown command/i.test(r?.message || ''), r?.message);
+      p.role = 'dev';
+      await query(`DELETE FROM player_inventory WHERE player_id=$1 AND item_id LIKE 'item_poster_%'`, [p.id]);
+      r = await run('posterkit');
+      const { rows: kit } = await query(`SELECT item_id, custom_data FROM player_inventory WHERE player_id=$1 AND item_id LIKE 'item_poster_%'`, [p.id]);
+      check('posterkit gives one of every sheet', _test.MURAL.every((k) => kit.some((x) => x.item_id === `item_poster_${k}` && x.custom_data?.poster_key === k)) && kit.length === _test.MURAL.length, `${kit.length}: ${r?.message}`);
+    } finally {
+      p.role = savedRole;
+      await query(`DELETE FROM player_inventory WHERE player_id=$1 AND item_id LIKE 'item_poster_%'`, [p.id]);
+    }
   } finally {
     await deleteFurnitureWhere(`DELETE FROM furniture WHERE id IN ('furn_regress_poster','furn_regress_cyd') OR id LIKE 'furn_regress_mural_%' OR flags->>'poster_key'='regress'`);
     await clearFlag('world', 'poster_taken:regress');

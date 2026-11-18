@@ -40,6 +40,7 @@ import { getZone, getLivePlayer, getZoneFurniture, getAllZones } from '../../ser
 import { sendToPlayer, getBroadcast } from '../../server/engine/messaging.js';
 import { cmdMove } from '../../server/engine/commands/movement.js';
 import { zoneAtTile } from '../../server/engine/world.js';
+import { hasTag } from '../../server/engine/tags.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { on } from '../../server/engine/events.js';
 import { mapWindow, skyState, FLIGHT_RADIUS, skylineNear, nearbyRegions, farRoadsNear, FAR_ROAD_R, worldContactsNear } from '../flight/state.js';
@@ -416,7 +417,10 @@ on('roomstage.indoors', ({ player }) => {
 // Each step on foot: where you are now. Into a room that has no Stage, the view goes and the room
 // text comes back; roomstage takes the ones that do (above), and runs in the same tick, so this
 // waits a turn to see whether it did.
-on('zone.entered', ({ actor, zone }) => {
+// ⚠ A MOVE THE VIEW DIDN'T MAKE IS `moved`. A typed `north`, a click on the minimap, a GPS walk, a step the pacing
+// queue held, being dragged: the server moved you and the view has to follow, or the text map and the 3-D eye are on
+// different tiles. Only a footstep's own answer (opts.footTo) leaves the eye where it is.
+on('zone.entered', ({ actor, zone, opts }) => {
   const v = actor?.id ? viewers.get(actor.id) : null;
   if (!v?.foot) return;
   const p = getLivePlayer(actor.id), z = getZone(zone);
@@ -428,7 +432,7 @@ on('zone.entered', ({ actor, zone }) => {
       sendToPlayer(p.id, { ...viewPayload(step.gx, step.gy, { foot: true }, p.id), recentre: true });
       v.gx = step.gx; v.gy = step.gy;
     }
-    sendToPlayer(p.id, { type: 'freelook_step', ...step });
+    sendToPlayer(p.id, { type: 'freelook_step', ...step, ...(opts?.footTo ? {} : { moved: true }) });
     return;
   }
   setImmediate(() => {
@@ -459,17 +463,33 @@ on('graffiti.removed', paintChanged);
 // what says where you can walk, so the grid's exits don't, and the pace is the camera's, so pacing doesn't queue it
 // (cmdMove `footTo`). The gates still run: a locked door, a checkpoint or too much to carry still stops you, and then
 // the view is told where you really are (`freelook_step` with `refused`) and puts you back.
+// ⚠ EVERY FOOTSTEP IS ANSWERED, even one onto the tile you're on, because the view keeps asking until the server's tile
+// is the eye's (freelook-view.js watchFoot): a step the rate limit dropped is sent again, and an unanswered one would be
+// sent forever.
+// ⚠ AN ALLEY IS A BUILDING'S TILE. The gap between two buildings is inside one of their tiles, and nobody stands on a
+// facade, so the view doesn't report a step into it: the server keeps you on the street tile nearest the eye, and the
+// step out the other end can land FOOT_REACH tiles away. Only onto open ground, never onto a building that far.
+const FOOT_REACH = 3;
+const isBuildingTile = (z) => !!(z?.flags?.is_building || z?.flags?.building_type || (z && hasTag(z, 'facade')));
+// ⚠ A FOOTSTEP FROM A VIEW THE SERVER FORGOT IS TAKEN UP AGAIN. A reconnect (player.logout), a restart, or any path
+// that dropped the row leaves the client walking the street with no viewer here, and every footstep was ignored
+// without an answer: the text self stayed put while the eye walked on. Only a step from a placed street tile is
+// adopted, and only when no other view (a staff camera, a vantage) holds the row; the move still runs every gate.
 async function cmdFootstep(args, raw, player) {
-  const v = player?.id ? viewers.get(player.id) : null;
-  if (!v?.foot) return null;
+  if (!player?.id) return null;
+  let v = viewers.get(player.id);
   const gx = Number(args[0]), gy = Number(args[1]);
   const here = getZone(player.current_zone), at = placedTile(here);
   if (!Number.isInteger(gx) || !Number.isInteger(gy) || !at) return null;
+  if (!v) { v = { gx: at.gx, gy: at.gy, foot: true }; viewers.set(player.id, v); player._onFoot = true; }
+  if (!v.foot) return null;
   const dx = gx - at.gx, dy = gy - at.gy;
-  if (!dx && !dy) return null;
+  if (!dx && !dy) { sendToPlayer(player.id, { type: 'freelook_step', gx: at.gx, gy: at.gy, zone: here.id }); return null; }
   // the gate's own words go with the refusal, so the view can say why rather than just putting you back
   const back = (message) => sendToPlayer(player.id, { type: 'freelook_step', gx: at.gx, gy: at.gy, zone: here.id, refused: true, ...(message ? { message } : {}) });
-  const to = Math.max(Math.abs(dx), Math.abs(dy)) === 1 ? zoneAtTile('map_world', gx, gy) : null;
+  const reach = Math.max(Math.abs(dx), Math.abs(dy));
+  let to = reach <= FOOT_REACH ? zoneAtTile('map_world', gx, gy) : null;
+  if (to && reach > 1 && isBuildingTile(to)) to = null;
   if (!to) { back(); return null; }
   const dir = Math.abs(dx) >= Math.abs(dy) ? (dx > 0 ? 'east' : 'west') : (dy > 0 ? 'south' : 'north');
   const r = await cmdMove(dir, player, getBroadcast(), { footTo: to.id, targetZoneId: to.id });

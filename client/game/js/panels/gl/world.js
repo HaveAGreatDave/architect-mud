@@ -7,11 +7,12 @@ import { createGLView, MAX_LIGHTS } from './context.js';
 import { buildAtlas, growAtlas, faceUVs } from './atlas.js';
 import { lightMatrix, eyePos, nearFor, viewProjMatrix, setJitter } from './camera.js';
 import { strokeRuns, bayCasterSplit } from './propshadow.js';
+import { cloudShadowFor } from './cloudshadow.js';
 import { pickShadowLamps } from './lampshadow.js';
 import { jitterFor, reprojMatrix, TAA_TUNE } from './taa.js';
 import { createSkylineStrip } from './skyline.js';
 import { FOG_H_SCALE } from './fog.js';
-import { SHADOW_BIAS_TILES } from './shadow.js';
+import { SHADOW_BIAS_TILES, SHADOW_SIZE } from './shadow.js';
 import { venueState, venueEpoch, serviceNear } from '../world-feed.js';
 import { roofsABerth } from '../glass/model-registry.js';
 
@@ -368,7 +369,7 @@ function windowKey(cells, world = false) {
 }
 // One tile's part of the key, which with `world` is also its group's key in the kept buffer.
 const tileKeyOf = (it, world) => (world ? it.wx + ',' + it.wy : it.gx + ',' + it.gy) + ':' + (it.c.bt || '') + ':' + (it.c.bn || '') + ':' + meshParams(it)
-  + ':' + (it.c.pw == null ? '' : it.c.pw) + (it.c.em ? 'e' : '') + (it.c.og ? 'o' : '');
+  + ':' + (it.c.pw == null ? '' : it.c.pw) + (it.c.em ? 'e' : '') + (it.c.og ? 'o' : '') + (LITE_R && LITE_FRAME && liteTile(it) ? 'L' : '');
 function windowKeyOf(cells, world = false) {
   // bt/bn say which model; meshParams says what it was built as. Both are needed.
   // ⚠ The grid state (pw) is in here so a blackout reaches the vertex buffer now, not at the next corner.
@@ -423,7 +424,7 @@ function venueKey(it) {
 // ⚠ Null is a hard gate: the pass is a full re-render, and len 0 makes the ortho box degenerate.
 // The moon casts too (`moonCast`), through the same len.
 // ⚠ Use `castDir`, never `dir`: `dir` stays the sun for the glint, wall key and hillshade.
-function sunShadowFor(g, opts) {
+function sunShadowFor(g, opts, camAt) {
   const str = opts.glShadow || 0;
   const sun = opts.sun;
   if (!(str > 0) || !sun || !(sun.len > 0) || !(sun.castDir || sun.dir)) return null;
@@ -437,9 +438,35 @@ function sunShadowFor(g, opts) {
   const sx = cd[0] * sun.len, sy = cd[1] * sun.len;
   const sl = Math.hypot(sx, sy, 1) || 1;
   return {
-    str, lightVP: lightMatrix(sun, b), bias: SHADOW_BIAS_TILES / span,
+    str, lightVP: lightMatrix(sun, b, SHADOW_SIZE), bias: SHADOW_BIAS_TILES / span,
     sunDir: [sx / sl, sy / sl, 1 / sl],
+    near: camAt ? nearShadowBox(b, sun, cd, opts.glShadowNear, eyePos(camAt)) : null,
   };
+}
+
+// ── THE NEAR CASCADE (RENDER_TUNE.glShadowNear, docs/proposals/gl-core.md phase 3) ─────────────
+// The map above covers the whole window, so close to the eye a texel is a sixtieth of a tile and a
+// window ledge's shadow is a smear. A second map covers only the tiles round the eye, `R` each way,
+// at the same 2048 texels: from a cab about three times the resolution.
+// ⚠ SNAPPED TO WHOLE TILES, so the map holds still while the eye moves inside one and is redrawn
+// only when it crosses into the next (context.js keeps it until the matrix moves). A box that slid
+// with the eye would shimmer every edge in the city and cost a depth pass a frame.
+// ⚠ AND STRETCHED TOWARD THE SUN by the tallest caster's shadow length, or a tower just outside the
+// box would cast a shadow into it that the near map doesn't hold, and the wall would come out lit
+// inside the box and shaded outside it. Clipped to the whole mesh, which already holds every caster.
+function nearShadowBox(b, sun, cd, R, eye) {
+  if (!(R > 0)) return null;
+  const cx = Math.round(eye[0]), cy = Math.round(eye[1]);
+  let x0 = cx - R, x1 = cx + R, y0 = cy - R, y1 = cy + R;
+  // the reach in whole tiles, so a mesh a little taller or shorter doesn't resize the box (and move every edge)
+  const reach = Math.ceil(Math.max(0, b.z1) * sun.len), dx = cd[0] * reach, dy = cd[1] * reach;
+  if (dx > 0) x1 += dx; else x0 += dx;
+  if (dy > 0) y1 += dy; else y0 += dy;
+  x0 = Math.max(x0, b.x0); x1 = Math.min(x1, b.x1); y0 = Math.max(y0, b.y0); y1 = Math.min(y1, b.y1);
+  if (!(x1 > x0 && y1 > y0)) return null;
+  const nb = { x0, x1, y0, y1, z0: b.z0, z1: b.z1 };
+  const span = Math.max(1, Math.hypot(x1 - x0, y1 - y0, b.z1 - b.z0));
+  return { lightVP: lightMatrix(sun, nb, SHADOW_SIZE), bias: SHADOW_BIAS_TILES / span };
 }
 
 // What the street-furniture map gets (gl/propshadow.js, RENDER_TUNE.glPropShadow), or null when off.
@@ -657,6 +684,9 @@ function skylineFaces(deps, cells) {
 }
 // Whether this frame is GLASS Lite's, set by glWorldPass before any tileMesh call it makes.
 let LITE_FRAME = false;
+// GLASS 2 Full's ring (windshield.js liteNear): only tiles further than LITE_R from LITE_C take the bake. 0 is every tile.
+let LITE_R = 0, LITE_C = 0;
+const liteTile = (it) => !LITE_R || Math.max(Math.abs(it.wx - Math.floor(LITE_C / 1e5)), Math.abs(it.wy - LITE_C % 1e5)) > LITE_R;
 // The GLASS Lite bake (scripts/lite/bake.mjs) builds a tile's faces with this, the function the pass
 // uses, and stores them with the tile's meshParams so the pass only takes them for the same build.
 export const meshParamsOf = (it) => meshParams(it);
@@ -668,7 +698,7 @@ export function captureTileMesh(deps, it) {
 function tileMesh(deps, it) {
   // GLASS Lite: the bake's faces for this tile, already in the shape this function returns, when the
   // bake holds the tile built exactly this way (its meshParams). Anything else is captured as usual.
-  if (LITE_FRAME && deps.bakedFaces) { const bf = deps.bakedFaces(it, meshParams(it)); if (bf) return bf; }
+  if (LITE_FRAME && deps.bakedFaces && liteTile(it)) { const bf = deps.bakedFaces(it, meshParams(it)); if (bf) return bf; }
   let byParam = meshCache.get(it.m);
   if (!byParam) { byParam = new Map(); meshCache.set(it.m, byParam); }
   const k = meshParams(it);
@@ -880,7 +910,11 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // know which source a tile's faces came from, so turning Lite on or off is a full rebuild.
   const liteF = opts.lite > 0 && !!deps.bakedFaces;
   LITE_FRAME = liteF;
-  if (key !== g.key || epoch !== g.epoch || matOn !== g.matOn || surfOn !== g.surfOn || liteF !== !!g.lite) {
+  LITE_R = liteF ? (opts.liteR || 0) : 0; LITE_C = LITE_R ? (opts.liteC || 0) : 0;
+  // ⚠ THE RING'S CENTRE IS PART OF THE KEY: a tile crossing it changes source, and its group's key says so (tileKeyOf)
+  const liteSig = LITE_R ? LITE_R + '@' + LITE_C : '';
+  if (key !== g.key || epoch !== g.epoch || matOn !== g.matOn || surfOn !== g.surfOn || liteF !== !!g.lite || liteSig !== (g.liteSig || '')) {
+    g.liteSig = liteSig;
     g.matOn = matOn; g.surfOn = surfOn;
     const liteFlip = liteF !== !!g.lite;
     g.lite = liteF;
@@ -1023,13 +1057,16 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   const signLift = LIGHT_TUNE.sign * Math.min(1, Math.max(0, opts.night || 0));
   const signOn = signLift > 0.01 && opts.glCluster === 1;
   const wallLights = (washOn || wetOn || scatterOn || liftOn) ? lightList : null;
+  const cloudShadow = cloudShadowFor(g.view.cloudShadowFrame ? g.view.cloudShadowFrame() : null, opts.wc, opts.glCloudShadow, opts.sun, opts.now, opts.glSunShafts);
   // The skyline strip the glass reflects (gl/skyline.js), from the same cells and eye.
   // ⚠ Set before `draw`, which binds it.
   if ((opts.glEnvCity == null ? 1 : opts.glEnvCity) > 0 && g.view.setSkyline) g.view.setSkyline(cells, eyePos(camAt), skylineFaces(deps, cells));
   // The wall walks the light grid for the lift, wash and wet lobe (not the shaft, which keeps slots).
   const drawOpts = { ...(opts.draw || {}), lights: wallLights, gridWall: washOn || wetOn || liftOn || signOn, signLift: signOn ? signLift : 0, lampLift: liftOn ? lampLift : 0, lightWrap: LIGHT_TUNE.wrap,
     lightFocus: LIGHT_TUNE.focus, cssH,
-    ao: opts.glAO || 0, aoFall: AO_TUNE.fall, bakedAo: opts.glBakedAo || 0, sunShadow: sunShadowFor(g, opts),
+    ao: opts.glAO || 0, aoFall: AO_TUNE.fall, bakedAo: opts.glBakedAo || 0, sunShadow: sunShadowFor(g, opts, camAt),
+    // The weather's shadow, off last frame's cloud bake (gl/cloudshadow.js); the road takes the same one.
+    cloudShadow,
     propShadow: propShadowFor(cam, camAt, cssH, dpr, opts),
     lampShadow: lampShadowFor(cam, camAt, cssH, dpr, opts, gridLights || lightList),
     // ⚠ The eye comes off `camAt`, the shifted camera; the plain cam slides every highlight.
@@ -1219,6 +1256,7 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     reflTex, reflGain: mirrorGain, pudScale: opts.glPuddle, time: tNow, ripple: opts.glRipple,
     glint: opts.glGlint,
     groundBias: opts.glGroundBias,
+    cloudShadow,
     vpW: g.canvas ? g.canvas.width : 0, vpH: g.canvas ? g.canvas.height : 0,
     // Linear light (gl/colour.js): at 2 the road shades in linear too, on the float target only.
     linear: drawOpts.linear,

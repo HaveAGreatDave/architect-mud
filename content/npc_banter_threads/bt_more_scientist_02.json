@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_scientist_02",
+  "lines": [
+    "\"Do you understand how the Architect works?\"",
+    "\"Nobody does.\"",
+    "\"Not even you?\"",
+    "\"Especially not me. I just know which parts are hot.\""
+  ],
+  "personality": "scientist",
+  "sort_order": 684
+}

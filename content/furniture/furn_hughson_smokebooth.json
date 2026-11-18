@@ -1,0 +1,69 @@
+{
+  "description": "A brown enamel booth under a red and cream awning, the packs priced under the glass and cartons up the back. Nobody's inside. Money goes in the slot and the pack drops down the chute at the side.",
+  "flags": {
+    "aliases": [
+      "booth",
+      "tobacco",
+      "tobacco booth",
+      "cigarettes",
+      "smokes",
+      "kiosk",
+      "chute",
+      "slot",
+      "awning"
+    ],
+    "examine_detail": "A card in the corner of the glass: Smoking in the stands is permitted. Smoking in the club level is encouraged.",
+    "look": {
+      "arche": "prop",
+      "dims": [
+        2.2,
+        1.5,
+        2.6
+      ],
+      "form": "smokebooth",
+      "label": "Tobacco"
+    },
+    "spot": {
+      "at": [
+        13.2,
+        5
+      ],
+      "turn": -90
+    },
+    "vend_cooldown_s": 5,
+    "vend_line": "Something rattles down the chute at the side of the booth and lands in the tray.",
+    "vend_menu": [
+      {
+        "item": "item_cigarettes",
+        "price": 15
+      },
+      {
+        "item": "item_menthol_cigarettes",
+        "price": 16
+      },
+      {
+        "item": "item_unfiltered_cigarettes",
+        "price": 14
+      },
+      {
+        "item": "item_cherry_cigarillo",
+        "price": 9
+      },
+      {
+        "item": "item_house_cigar",
+        "price": 18
+      }
+    ],
+    "vends": "item_cigarettes"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_hughson_smokebooth",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the tobacco booth",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_hughson_concourse"
+}

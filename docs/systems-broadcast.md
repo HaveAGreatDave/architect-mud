@@ -806,15 +806,28 @@ Two shows share the `sports` pipeline: **DEADBALL** (baseball, `bc_1783289744953
 pipeline may branch on it.
 
 **The daily slate** ([proposals/daily-slate.md](proposals/daily-slate.md), Phases 1 to 3
-and 4a built). The two sports share the day's eight 3-hour
-slots, taking turns, and the pattern swaps each day, so each gets the 18:00 game every other
-day (`sportsSlateForDay`, `sportsMatchupForSlot`; the order is SPORTS's). Six of the eight
-have a game: 09:00 and 21:00 (`SLATE_BUFFER_SODS`) are left empty on a regular day as the
-overflow, so no more than three games are played back to back and a game that runs long never
-pushes the next one past its gap. Both gaps are the same sport's on a given day, so that sport
-plays two games (four clubs sit out) and the other four, and it swaps the next day. The 09:00
-pairing is still drawn and dropped, so every later game that day is the one it always was. The
-18:00 game goes to the pairing whose clubs have had the fewest 18:00 games that month.
+and 4a built). A season is a double round robin: every club plays every other club twice, once
+at home and once away, so with eight clubs each plays fourteen games, seven at home, and every
+club plays the same number (2026-11-15; before, a day's dropped pairings left clubs a game or
+two apart).
+
+- **Slots.** 09:00 and 21:00 (`SLATE_BUFFER_SODS`) are no sport's and never have a game: they're
+  the overflow, so no more than three games are played back to back and a game that runs long
+  never pushes the next past its gap. The other six (`SLATE_GAME_SODS`) take turns between the
+  sports, and the pattern swaps each day, so each sport has three slots a day and the 18:00 game
+  every other day (`sportsSlateForDay`, `sportsMatchupForSlot`; the order is SPORTS's).
+- **Spreading the games.** `monthPlan` lays a sport's 56 games evenly over the month's regular
+  days, so most days it plays two and leaves one of its slots empty as well: four games a day
+  across both sports, two or six on a few days of a short or long month. No club plays twice in
+  a day, no club is ever two games behind another, and none goes five days without a game. The
+  plan is by club index, a function of the club count, the month's length and which days have
+  the sport at 18:00 only, and the month's shuffled club order names it. A month too short for
+  both legs plays one, so the games stay equal; the gate holds every month the calendar has to
+  both.
+- **18:00.** On a sport's 18:00 day the planner puts the game whose clubs have had the fewest
+  18:00 games that month there, from the next eight in the list, so every club is on KSAB-TV
+  within two games of every other. The day's other games go into the sport's other slots by the
+  day's seed.
 
 **Cup day.** A season is the in-game month, and its last day is Cup day. Nothing is played
 but the two finals, each at its sport's own hour (`season.finalAt` on the sport module): the
@@ -975,6 +988,46 @@ park are drawn from his mix (`synthPitches` takes his style; the draws are the s
 thrown changes), and strike three is his out pitch a little over half the time. The sim's outcomes
 never read a style, so games that have aired replay as they aired, and a power bat can have a lean
 season, which the booth makes a storyline of.
+
+**The bullpen and the dugout (sim v5, built; on from the day after `@sim 5` reaches the server).**
+Each club has a manager, a pitching coach and six relievers in its roles' order (the closer, the
+setup man, three middle men and the long man), from the `.bsm`'s `::bullpens` block into
+`sports_pools.bullpens`. The pens are the clubs' for good: they aren't dealt or traded with the
+thirteen. In [sports/baseball.js](../plugins/broadcast/sports/baseball.js) (`PEN`, `simGameV2`):
+
+- A pitcher has a pitch count, and it's the park's: each at-bat's pitches are `synthPitches`' off
+  the at-bat's own seed, and `pitchCountOf` replays their draws to count them. Past 78% of his limit
+  he tires, and three men on in a row in an inning rattle him; either leans the at-bat table toward
+  walks and hits (`TIRE`), read against the one draw the at-bat always took. A reliever is fresh, and
+  the closer and the setup man have the best stuff (`PEN.edge`). A starter's limit is 94 to 118
+  pitches off his name, and a manager's hook (`hookOf`, off his name) moves it 10 either way.
+- The manager calls it before every batter and before every half in the field, off the dugout's
+  own stream (salt 0x4d47), so every play draws what v4's did. A man past his limit, shelled, or
+  tired late with the tying run up comes out; a man in trouble gets the pitching coach first, once
+  an inning and three times a game at most, and if it goes on after that the manager's trip is the
+  second one and takes the ball. A close game's 8th is the setup man's and its 9th the closer's, and
+  an old-school manager leaves a starter who's cruising out there. Somebody starts throwing in the
+  pen when the starter's getting there.
+- Over a season of the real pens: starters average 5.7 innings and come out in the 6th or 7th at
+  about 97 pitches; a side uses 3.4 pitchers; a game has 4.8 changes and 1.5 visits; scoring is
+  within about 1% of v4's.
+- The beats carry `pc` (his count before the play), `mound` on the play after a call (a visit or a
+  change, with who, why and whether it was between innings, when the half's start carries it too)
+  and `warm`. A side's `pitchers` is everyone who pitched; `pitcher` stays the starter. `dugouts` is
+  the game's staff and pens.
+- The ledger (`foldGame`) charges a run to the man who put its runner on, gives the win to the
+  pitcher of record (a starter needs five innings), the loss to the man charged with the go-ahead
+  run, and keeps saves (`sv`) and blown saves (`bs`). With one pitcher a side these rules give what
+  they always gave, so every v1 to v4 ledger is unchanged. A payload's `pl` carries the saves sixth
+  once a man has one, and the park's pitcher card shows them where a starter's shows strikeouts.
+- The booth calls each trip before the man coming up (`mound` in baseball-booth.js, the `mound.*`
+  pools), counts the pitches late (`tonight.pitcher.count`) and knows a closer's saves.
+- The 3-D park plays the trip before the at-bat
+  ([diamond/mound.js](../client/game/js/panels/diamond/mound.js)): the coach out of the dugout and
+  a word behind the mound with the catcher, 14 seconds; or the manager out, the starter walking off,
+  the new man jogging in from the pen down the line and the ball handed over, 26 seconds
+  (`TRIP` in diamond/timing.js, which the pacer adds to the play's landing). A change between
+  innings is the changeover's. `scripts/shapes/mound-smoke.mjs` stages every trip of real v5 games.
 
 The broadcast adds `hold` to every payload (for Deadball the time to the next payload, booth lines and all, `holdSpansGap`; for hockey how long its own line holds, in ms), and the league
 table, `leaders` and `season` (its number, `regular` or `final`, and the seeds in a final) to the
@@ -1651,6 +1704,32 @@ the room's figure or the rink's shaders. Measured on Direct3D 11 with the cache 
 used to freeze 30 to 34 seconds at the hand-off; now the page never stops during the theme, and
 the park is up about 3 seconds after the card, with one block of about a second as it's built.
 
+**The holding picture (as built).** On a TV the gap before a game's first play isn't a loading
+screen: it's the broadcast already on air
+([tv-hold.js](../client/game/js/panels/tv-hold.js), [tv-hold.css](../client/game/js/panels/tv-hold.css)).
+A slow shot from high over a generic venue is painted on a canvas: the park from the blimp with its
+light towers, two searchlights and the grounds crew dragging the infield, or the rink from the
+rafters with the resurfacer doing its laps and the home club's crest at centre ice. Over it are the
+station's tag, a LIVE tag, "Live from" the venue, a lower third with both clubs (crest, record,
+place, and the score once the bug says the game's under way), the booth's last line, and the last
+league table crawling along the bottom. A low crowd bed (`crowd_park` or `crowd_arena`, on the
+`tv_fx` bus) plays under it.
+- Every TV surface gets it, because they all open a game through `_gamedayViewFor` in tv.js: the
+  popup, the tablet's TV app and a set on a room's wall. A stands seat or a box suite mounts its
+  view directly, so it never gets it; there you're at the game.
+- tv.js puts it up when the Gameday box opens on a fresh view, then passes the view
+  `{ holding: true, onLive }`. With `holding` the views don't show their own "Waiting for the drop"
+  or "Waiting for the first pitch" veils. A view calls `onLive` on each payload it lands (and the
+  Grandstand on its 2-D fallback too), and the picture fades and goes. A view that never calls it
+  (the 2-D Gameday) has no `tellsLive` on its API, so tv.js takes the picture down after that view's
+  first `apply`. A parked view woken for its sport's next game doesn't get it again.
+- Everything on it is something the set already holds: the arrival's `venue`, the score-bug, the
+  pregame open's records (only if they're for this game) and the last table from the open or a
+  standings bug.
+- The wall set paints the page with page-paint.js, which has no transforms or shadows. So the shot
+  and its drift are on the canvas, and nothing in the graphics needs a shadow or a rotation to be
+  read. With motion off the shot is one still frame and the crawl stands still.
+
 **The hockey theme.** Cluster Puck opens to the network's theme for the CPhL (`@theme
 ksab7_cphl_theme`), 25.6 seconds at 150 bpm, so a row is a tenth of a second. It's FM, like the
 rink ([systems-hockey-sound.md](systems-hockey-sound.md)): brass, a slap bass, a power chord, an
@@ -2289,11 +2368,43 @@ arrive by the time the clock next has to move (`runMs`). Before this the header 
 a second a second, faster the further behind it was, which raced and crawled.
 From sim v8 every beat carries `box`, each man serving and his game seconds left, and the
 narrator turns it into `pp` (`ppOf`): the club with the extra man, the men a side and the
-seconds until that changes. The header shows it as the club's crest and abbreviation with
-POWER PLAY (or `PP 5-ON-3`, or `4-ON-4` when both boxes are level) and the time, counted down
-with the clock; the TV's score bug shows the same at the bug's clock. A beat's `strength` is
-the attacking side's, so it flips PP to SH as the puck changes hands; with `pp` to read, both
-show `strength` only for an empty net.
+seconds until that changes. The header names both sides: the club with the extra man as its
+crest and abbreviation with POWER PLAY (and `5-ON-3` when it's two men), the time counted
+down with the clock, and the other club SHORTHANDED; `4-ON-4` when both boxes are level. The
+TV's score bug puts `PP` and `SH` on the two clubs' own rows, the men a side and the time in
+its state chip. A beat's `strength` is the attacking side's, so it flips PP to SH as the puck
+changes hands; with `pp` to read, both show `strength` only for an empty net.
+
+**Who is in the box.** `pp.box` names each man serving and his seconds left. The rink draws it
+as a PENALTY BOX panel on the picture (each man's crest, name, what he went for and his time,
+counted down with the clock), and the score bug as a BOX line under the scores. The calls get
+lower thirds on the rink: the penalty (the man, the infraction, his minutes and whose power
+play it is), a delayed call, a penalty a goal wiped out, and an injury (the man, the wound,
+out for the game, and how many skaters his side has left). On a TV without the 3-D view open
+the same calls are full-screen cards (`hockeypenalty` and `hockeyinjury` sportsfx). Their
+screen time is `show`, not `duration`, because the pacer holds a line for its card's
+`duration` and these must not move the game's timing. None of it shows in a seat.
+
+On the ice a man sits in the box until a play's game time (`period` and `clockSecs` on the
+payload) passes his minutes, then gets up and walks behind the boards to his own bench and is
+off (`outOfBox` in rink/director.js). He never steps onto the ice: his side got its man back
+when the play's strength said so, over the boards by the puck (`lineUp`), and a man skating
+out mid-rush moves the play off the booth's call. Until he's off he stays `boxed`, so his
+side's play doesn't count him (`W.mates`). Before this the director read the payload's
+`clock`, which is text ("07:12"), so a man sat in the box to the end of the period.
+
+**The delayed penalty (sim v9).** A foul by the side without the puck isn't whistled at once.
+The sim pushes a `delayed` beat (the man, the infraction, `benefit`: the club playing on), the
+side with the puck plays its chance six on five (`DELAYED_GOAL_MULT` on the goal weight), and
+the whistle goes when the offending side touches the puck: its goalie's save (any save counts
+as frozen), a block, or a clear (a wide or a post). That `penalty` beat carries `delayed` and
+`touch`, and the draw is in the offending end. A goal on the call wipes out a minor (a
+`penalty` beat with `waived`, nobody boxed); a major is still served. A foul by the side with
+the puck is whistled at once, as before. While the arm is up no fight, big hit, scrum, brawl
+or overtime death is rolled, because nothing else can stop play. The rink holds the referee's
+arm up, takes the benefiting goalie off for the extra attacker and brings him back at the
+stoppage (`stageDelayed`, `endDelayed`); the header shows DELAYED PENALTY and the bug
+`DELAYED · ABBR`. `scripts/shapes/rink-delayed.mjs` checks the sim, the booth and the view.
 
 **The picture comes first.** The view gets whatever box the set gives it: about 378×306 on
 a portrait phone, 536×251 on one turned sideways, 754×393 on a desktop. Its text is in rem,
@@ -2462,10 +2573,23 @@ the puck it needs, walks them through the beat and hands them back to the ambien
   into a defender who drops to block it, or, on a breakaway, a save (below). A dump
   goes in from about where the sim had it: when the play joined with the puck well short
   of that (his own end, say), he carries it up first, since a dump from there would be
-  icing and leave his side chasing it the length of the ice. A save
-  the sim marks `frozen` is a goalie under pressure: the two nearest attackers crash his
+  icing and leave his side chasing it the length of the ice. It comes to rest where it's
+  put (`W.dumpTo`): its drag counts only the ice it slides on, not the 10 ft it flies
+  first. Settled as if it slid all the way, every dump stopped 10 ft past its spot, and one
+  put in to the slot went round the back of the net and the shot came three seconds late.
+  A save the sim marks `frozen` is a goalie under pressure: the two nearest attackers crash his
   crease as he covers it, the whistle goes and the draw is in that end. A save he holds
   with nobody on him he plays to a defenceman.
+- *Rebounds* (sim v6 on). When the sim's next play is the putback off a save, a pad save or
+  the post, the narrator marks the save's payload `reboundNext`, and the director keeps it
+  live (`holdRebound`): the save leaves the puck in the slot rather than kicking it out at
+  speed (`reboundRest`), the beat stays on but isn't busy, two of the attackers go at the
+  puck and two defenders lean on them, and the between-plays game doesn't get it, so it
+  isn't cleared up the ice. The putback, whose payload lands as its shot is called, starts
+  from the crease. It waits up to fourteen seconds for a putback whose line was dropped.
+  Before this, the putback started wherever free play had taken the puck, often the
+  neutral zone, and on sim v8 4% of all shots landed two to six seconds after their
+  outcome was called; timed as it airs, it's now 1 in 700.
 - *Faceoffs* line both sides up on the named dot with the two named centres on it. The
   linesman brings the puck in his hand: out of the goalie's glove (the goalie tosses it
   to him), out of the net, off the man who had it (he flips it over), or off the ice,
@@ -2482,6 +2606,28 @@ the puck it needs, walks them through the beat and hands them back to the ambien
   couple of seconds before the drop. A stoppage with no dot (a man down on the boards, the
   end of a fight) hands the men to the sim, which has them coast to a stop and then keep
   moving, drifting clear of the other side; an injured man's teammates stay by him (`B.keep`).
+- *Offside and icing* (as built 2026-11-15). The between-plays game plays to the NHL's rules,
+  and a linesman calls them (`linesman` in `sim.js`); a play the director stages is the
+  sim's and is never called. Offside: the puck goes into their zone with a man of the side
+  taking it in already over the line, both skates past it. Carried in, it's called at once.
+  Dumped or passed in, it's delayed: the linesman's arm goes up (`point`), it's waved off
+  once every man of theirs is back out to the line or the puck comes out, and it's called if
+  one of them touches the puck first. The other side carrying it back into its own end puts
+  nobody offside. Icing: played from that side's half over the goal line untouched. It's
+  hybrid icing, so it's waved off (`washout`) if one of theirs will win the race to it (a tie is
+  icing), and a side a man short may ice it. On a call the director whistles, puts OFFSIDE or
+  ICING up on the picture and runs a draw as its own beat (`W.onCall`, a faceoff with
+  `local` set): offside at the neutral-zone dot outside the zone, on the side it happened;
+  icing in the offending side's end, on the dot the other side's centre wants (his forehand).
+  Neither is a penalty and the booth doesn't call them. A call is declined while any beat is
+  on, and a payload that arrives before the puck's down is staged at once rather than waiting
+  for the drop. The men play to stay out of both: nobody goes over their line ahead of the
+  puck (a man left in the zone when it comes out hurries back to the line), the carrier holds
+  up short of the line until the last man is out, nobody passes to a man over it, a dump-in
+  waits until he's over the red line, a side a man short clears it the length, and a man
+  pinned in his own end clears it off the boards, now and then the length of the ice.
+  Measured over six games, it comes to about one stoppage per four or five minutes of free
+  play, some 3 offsides to every icing. `scripts/shapes/rink-rules.mjs` holds each case.
 - *Boards hits* happen on the far wall, where the glass is in shot, in the sim's
   `hitStyle`: shoulder, glass (which can break a pane), from behind, hip check, elbow.
   The man hit becomes a ragdoll, so where and how hard he meets the boards decides how he
@@ -3076,6 +3222,12 @@ rink or the park), and otherwise it puts the show on its set (`_paintStageBtn` i
 old sport-marked Gameday toggle is still in the markup but is never shown.
 
 [scripts/shapes/rink-smoke.mjs](../scripts/shapes/rink-smoke.mjs) runs in `pretest:regress`, as two gates, one game each (`rink-smoke.mjs 37`, at sim v1, and `rink-smoke.mjs 289`, at v5), side by side; run bare, it plays both.
+It isn't timed as the game airs: it runs each play to the end and then the booth's lines
+for it, so free play gets the length of those lines again between one play and the next.
+[rink-onair.mjs](../scripts/shapes/rink-onair.mjs) is: one sim v8 game, every line for its
+hold and every payload as its line comes, checking that each shot lands as its outcome is
+called, that no play is replaced before it lands, and that every putback finds the puck
+still round the net.
 It plays two real games (the sim and the narrator, slots 37 and 914, which between them
 emit every beat type) through the view over a hand-cranked DOM, clock and canvas
 ([rink-dom-stub.mjs](../scripts/shapes/rink-dom-stub.mjs)). It checks that every beat

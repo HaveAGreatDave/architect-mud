@@ -248,6 +248,9 @@
       "hh": 0.02,
       "kind": "windowBay",
       "pal": "ty_guard",
+      "scale": {
+        "cy": "abs"
+      },
       "z": 0.42
     },
     {
@@ -258,6 +261,9 @@
       "hh": 0.04,
       "kind": "vent",
       "pal": "ty_stack_dk",
+      "scale": {
+        "cy": "abs"
+      },
       "w": 0.06,
       "z": 0.44
     },
@@ -269,6 +275,9 @@
       "kind": "conduit",
       "pal": "ty_stack_dk",
       "r": 0.009,
+      "scale": {
+        "cy": "abs"
+      },
       "z": 0.585
     },
     {
@@ -279,6 +288,9 @@
       "kind": "conduit",
       "pal": "ty_stack_dk",
       "r": 0.009,
+      "scale": {
+        "cy": "abs"
+      },
       "z": 0.585
     },
     {
@@ -410,7 +422,7 @@
   ],
   "id": "secondamendmentsuperstore",
   "neon": "#ff6a4a",
-  "note": "SECOND AMENDMENT SUPERSTORE — the gun shop on Ironside Street, and the meanest object on it.\n\nIt is built to the tile's prose: \"a low blockhouse of riveted plate with a slit window and a door\nlike a bank vault\", with YOU BREAK THE GLASS, YOU MEET THE OWNER on a board over the door.\n\nIt stays the lowest building on the street. A blockhouse looks dangerous because it is wide,\nnearly windowless and close to the ground, so the detail goes into the plate rather than the\nheight: riveted buttresses at the corners and between the bays, a heavy concrete fascia carrying\nthe name, a slit window with six bars, and a vault door set in a projecting steel surround under a\nhood and a concrete lintel. The range extension at the\nback is the only mass above the roofline, and its louvres are where the noise comes out.\n\nBoth flanks carry the same buttresses as the front, and the back has a fire door and bins, so the\nbuilding has four sides.\n\nNobody has tagged it. Every other frontage on this street carries a `tag` and this one doesn't.",
+  "note": "SECOND AMENDMENT SUPERSTORE — the gun shop on Ironside Street, and the meanest object on it.\n\nIt is built to the tile's prose: \"a low blockhouse of riveted plate with a slit window and a door\nlike a bank vault\", with YOU BREAK THE GLASS, YOU MEET THE OWNER on a board over the door.\n\nIt stays the lowest building on the street. A blockhouse looks dangerous because it is wide,\nnearly windowless and close to the ground, so the detail goes into the plate rather than the\nheight: riveted buttresses at the corners and between the bays, a heavy concrete fascia carrying\nthe name, a slit window with six bars, and a vault door set in a projecting steel surround under a\nhood and a concrete lintel. The range extension at the\nback is the only mass above the roofline, and its louvres are where the noise comes out.\n\nBoth flanks carry the same buttresses as the front, and the back has a fire door and bins, so the\nbuilding has four sides.\n\nNobody has tagged it. Every other frontage on this street carries a `tag` and this one doesn't.\n\n⚠ THE SIDE PARTS STAND AT THE WALL IN ABSOLUTE TILES (`scale.cy: abs`). The side wall is hw 0.43, which clamps at 0.44 once `fh` passes 0.409. At 921,905 (its tile since the column at x 914 went in) `fh` is 0.430, so a side part scaled by `fh` stood 3 cm off the wall, and perch.mjs caught a bird on the window bay with nothing behind it.",
   "pal": "ty_wharf_steel",
   "segs": [
     {

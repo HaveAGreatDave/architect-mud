@@ -9,7 +9,7 @@
     "floor": "concrete",
     "is_interior": true
   },
-  "grid_x": 918,
+  "grid_x": 919,
   "grid_y": 905,
   "grid_z": -2,
   "id": "zone_util_zone_under_alcove",

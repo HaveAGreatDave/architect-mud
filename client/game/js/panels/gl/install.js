@@ -196,7 +196,7 @@ export function installGL(hostFor) {
       // here the world pass draws the room inside the banked blit AND the late pass draws it again.
       interiorLater: opts.interiorLater,
       // GLASS Lite: a baked building's faces come from the bake (deps.bakedFaces, gl/lite.js).
-      lite: opts.lite,
+      lite: opts.lite, liteR: opts.liteR, liteC: opts.liteC,
       // ⚠ AND THE SNOW, WHICH REACHES THREE SHADERS AND WOULD GO QUIET IN ALL THREE. Eleventh
       // entry on the list this file keeps: the depth is integrated in windshield.js, the floor,
       // the ground and the mass each declare a uniform for it and each branch on it — and with
@@ -286,9 +286,11 @@ export function installGL(hostFor) {
       // `glShadow` is the strength the player set, `sun` is the frame's own light — the same two
       // numbers (`dir`, `len`) the ground hulls have always cast with, so the shadow on a wall and
       // the shadow on the pavement come from one source rather than two.
-      glShadow: opts.glShadow, sun: opts.sun,
+      glShadow: opts.glShadow, glShadowNear: opts.glShadowNear, sun: opts.sun,
       // What stands in the street, on its own near map (gl/propshadow.js). Dropped here it is off.
       glPropShadow: opts.glPropShadow,
+      glCloudShadow: opts.glCloudShadow,
+      glSunShafts: opts.glSunShafts,
       // ...and under the street lamps (gl/lampshadow.js). Dropped here it is off.
       glLampShadow: opts.glLampShadow,
       curtain: opts.curtain, decals: opts.decals, strokes: opts.strokes, scatter: opts.scatter, ground: opts.ground,

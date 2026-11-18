@@ -578,7 +578,10 @@ export const HALCYON_ARMS = {
     const podium = h * 0.05, cladTop = h * (0.05 + (0.88 - 0.05) * clad), shaftTop = h * 0.88;
     const PLATES = Math.max(3, Math.round((1 - clad) * 13));
     const craneUp = clad < 0.68;
-    drawFacetDrum(ctx, cam, dx, dy, 0, podium, fh * 0.92, fh * 0.88, 16, alpha, hfChrome([104, 118, 132], [214, 226, 236], 1.8), hfChrome([112, 126, 140], [190, 204, 214], 1.4), 'ty_hf_deck');
+    // ⚠ The podium stands INSIDE the hoarding below. At fh * 0.92 its facets met the hoarding's
+    //   faces once draw3DBoxAt clamped the box to 0.44, and the two flickered along the top of
+    //   the hoarding's glass. 0.84 leaves a clear gap at every footprint.
+    drawFacetDrum(ctx, cam, dx, dy, 0, podium, fh * 0.84, fh * 0.80, 16, alpha, hfChrome([104, 118, 132], [214, 226, 236], 1.8), hfChrome([112, 126, 140], [190, 204, 214], 1.4), 'ty_hf_deck');
     drawFacetDrum(ctx, cam, dx, dy, podium, shaftTop, fh * 0.26, fh * 0.22, 12, alpha, hfChrome([74, 88, 102], [196, 210, 222], 2.1), null, 'ty_hf_chrome_dk');   // the lift core, which goes up first and is the only part that is finished
     drawFacetDrum(ctx, cam, dx, dy, podium, cladTop, fh * 0.62, fh * 0.56, 16, alpha, hfGlass(night), null, pal);
     // ⚠ THE BARE FLOORS ARE SLABS WITH AIR BETWEEN THEM, and the air is the whole read. A

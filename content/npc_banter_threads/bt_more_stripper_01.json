@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_stripper_01",
+  "lines": [
+    "\"Feet sore?\"",
+    "\"Always.\"",
+    "\"Heels?\"",
+    "\"Heels, and a man who wouldn't stop clapping on the wrong beat.\""
+  ],
+  "personality": "stripper",
+  "sort_order": 693
+}

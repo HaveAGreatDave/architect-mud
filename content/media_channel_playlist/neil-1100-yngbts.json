@@ -1,0 +1,11 @@
+{
+  "broadcast_id": "bc_1783047001982",
+  "channel_id": "ch_7_1782953079593",
+  "conditions": [],
+  "days": 85,
+  "duration_override": 3600,
+  "id": "neil-1100-yngbts",
+  "priority": 0,
+  "slot_type": "broadcast",
+  "start_time": 39600
+}

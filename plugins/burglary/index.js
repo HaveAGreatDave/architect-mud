@@ -116,6 +116,9 @@ function alarmPulse(npc, state) {
   if (!live || !npcAlive(live)) { endAlarm(live || npc); return; }
 
   const inside = intruderInside(state.intr);
+  // the Room Stage holds the body between lines (plugins/roomstage npc-life.js `panic`): on the phone while
+  // you're at the door, backing off from you once you're in
+  emit('npc.panic', { npc: live, clip: inside ? 'backAway' : 'panicPhone', toward: state.intr.intruderId });
   alarmSay(live, state.intr, alarmLine(live, inside ? 'inside' : 'door', inside ? SCREAM_LINES : DOOR_YELL_LINES), !inside);
   state.timers.push(setTimeout(() => alarmPulse(live, state), inside ? INSIDE_LINE_MS : DOOR_LINE_MS));
 }
@@ -138,6 +141,7 @@ function startAlarm(npc, intr) {
 
   // Opening beat: startled awake, or (if already up) first realising the threat.
   alarmSay(npc, intr, alarmLine(npc, wasAsleep ? 'wake' : 'notice', wasAsleep ? WAKE_LINES : NOTICE_LINES), true);
+  emit('npc.panic', { npc, clip: 'startle', toward: intr.intruderId });
 
   // Then an escalating stream of reactions (through-the-door yells → screams once
   // the intruder is inside). The charge + calm-down are driven by the tick, so
@@ -207,6 +211,7 @@ function stepFlee(npc, state) {
 function endAlarm(npc) {
   const state = ALARMS.get(npc.id);
   if (state) { for (const t of state.timers) clearTimeout(t); ALARMS.delete(npc.id); }
+  if (npc) emit('npc.panic', { npc, clip: null });
   if (npc && npc._ai) { npc._ai.alarm = false; npc._ai.currentNode = null; npc._ai.waitUntil = 0; }
 }
 

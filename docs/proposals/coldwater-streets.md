@@ -36,16 +36,17 @@ dirt of Old Coldwater, and four bridges stack over the street by class.
   north of Old Coldwater stays unmaintained, however far east it runs.
 - **The streets along the slum are dirt too** (David, 2026-11-05). `flags.street_dirt` puts a road on the
   dirt level whatever its column or district says. Glacier and Kessler Street carry it from 919 to 923 on
-  row 915, then 923,914 and 924 to 926 on row 913, where they run beside the run-down buildings. The Gate
-  Road and the junctions at 918,915 and 923,913 stay paved, so the way to the South Gate isn't broken up.
+  row 915, then 924,914 and 924 to 926 on row 913, where they run beside the run-down buildings. The Gate
+  Road and the junctions at 919,915 and 924,913 stay paved, so the way to the South Gate isn't broken up.
 - **Every paved street is grey** (David, 2026-11-05). Unmaintained keeps its damage but is dull grey steel,
   not rust, so the east side reads as the same chrome street gone to seed. Brown is the dirt's, and the
   street-kit gate fails a brown walkway, kerb or lane on any paved level.
 - **The Clone Facility's frontage stays in view** (David, 2026-11-05). `flags.no_footbridge` on a road tile
-  refuses the block's footbridge, and the block goes without one. Ironside Street's 919,902 and 919,903
-  carry it, in front of Second Helpings and the facility; the crossing on 919,902 stays.
-  919,908 carries it too, in front of the Meridian's door, and so does Sorrel Way's 893,921, beside the
+  refuses the block's footbridge, and the block goes without one. Ironside Street's 920,902 and 920,903
+  carry it, in front of Second Helpings and the facility; the crossing on 920,902 stays.
+  920,908 carries it too, in front of the Meridian's door, and so does Sorrel Way's 893,921, beside the
   foot of Grandstand Walk, so the Coliseum's main gate stays in view from the street (David, 2026-11-09).
+  Glacier Street's 918,915 carries it, in front of Jolene's (David, 2026-11-16).
 - **No ride signs** (David, 2026-11-05). The ₵1 A RIDE lettering over the belts is gone at every level.
   The gate posts and comb plates stay, and `belt` still charges ₵1 if `STREET_SYSTEMS` goes on.
 - **Prices are whole credits.** ₵1 a strip ride. Never "CR".
@@ -120,11 +121,11 @@ bridges. `__glStreetKit({ height, cz })` paints the view from the air.
 | Lane | Matte near-black, a cyan guide dash down the middle and an edge line inside each drain. ⚠ It stands 0.07 m up, above `ROAD_EPS`: at 0.03 m it sat under the road it covers |
 | Metered strip | A belt in a steel housing with amber lights along it, chevrons the way it runs. The belt on your right carries you forward. Near to the chevrons move, at 1.4 m/s in the core and 0.45 in the middle ring |
 | Toll gate | Two posts with amber caps either side of each strip, a hazard comb plate across the belt |
-| Bollard | Octagonal, 0.95 m, on a base plate, a cyan ring near the top and a red sensor eye on the lane side; a gap of at least 5 m at the crossing |
+| Bollard | Solid to anybody on foot and to a rig that mounts the walkway (`kitFoot` `bollard`); one knocked flat is stepped over. Octagonal, 0.95 m, on a base plate, a cyan ring near the top and a red sensor eye on the lane side; a gap of at least 5 m at the crossing |
 | Planter | A steel box on a plinth with a lit rim, a trunk and a low-poly crown, and a bench along its strip side |
 | Vent, service channel | A grate in the walkway, one in two of them steaming; dark lids along the frontage edge with a cyan status pip every 5 m |
 | Crossing | An amber zebra, studded tactile pads where it meets each kerb, a pole each side with an arm over the lane, a blinking amber head, and no fee sign |
-| Footbridge | An open steel lift tower at the frontage edge of each walkway, glazed only at the back, with a car running a 20 s round; a deck 7.0 m clear of the lane, glass rails, an arched truss over each edge, a cyan line underneath, a camera hung off each side clear of the lane |
+| Footbridge | An open steel lift tower at the frontage edge of each walkway, glazed only at the back, walled to rail height on its sides, a door with a lintel, threshold and canopy on the lane side (both sides on a seam), an open-fronted car with a handrail, and a call button by each door at the foot and on the deck; a deck 7.0 m clear of the lane, glass rails, an arched truss over each edge, a cyan line underneath, a camera hung off each side clear of the lane |
 | Corner | A 1.0 m guard rail along each kerb for 4 m out of a junction, with a cyan line along the top |
 
 ⚠ **The lift towers are open frames on purpose.** The faces are opaque, so a tower glazed all round
@@ -246,6 +247,13 @@ walks to the tower, rides the lift up, crosses the deck and rides down; somebody
 A fixed share of people (`KIT_WALK.frugal`, by token) won't pay and go over the bridge; the rest pay
 and take the zebra when it's nearer. It moves at a walk with a brisk catch-up and invents nothing:
 the people and their tiles are the server's.
+
+**On foot you can use it too** (freelook-view.js `footLift`, street-kit.js `kitDeck`). Both cars of a bridge rest at the bottom.
+Step into either and both go up together after a beat (`kitLiftCall` in street-kit.js), wait
+8 s at the top and come back down; stepping in up top sends them down sooner. F at a call button presses it: the deck's
+fetches the cars up, the foot's sends them down. A tower is walled but for its door, and the door is shut while its
+car is at the other floor. The lifts answer to each viewer alone, and the street figures don't call them. Up top you walk the deck, and the rails hold you on it. It's all
+client side and on one tile, so the server never hears of it, as David's answer below asks.
 
 Without a footbridge or a crossing within reach of the search, the figure is put where the pass has it,
 as before. With the kit off the follower is dropped and nothing about the people changes.

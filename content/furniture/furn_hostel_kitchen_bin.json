@@ -1,0 +1,38 @@
+{
+  "description": "A pedal bin with the pedal snapped off and the lid propped open by what's inside it. The rota taped to the wall above says whose turn it is. It was their turn in the spring.",
+  "flags": {
+    "aliases": [
+      "bin",
+      "rubbish",
+      "rota",
+      "lid"
+    ],
+    "look": {
+      "arche": "small",
+      "dims": [
+        0.4,
+        0.4,
+        0.62
+      ],
+      "form": "box",
+      "wear": 1
+    },
+    "spot": {
+      "at": [
+        -1.3,
+        3.4
+      ],
+      "turn": 0
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_hostel_kitchen_bin",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the bin",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_hostel_kitchen"
+}

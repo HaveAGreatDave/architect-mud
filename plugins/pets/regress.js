@@ -275,4 +275,45 @@ export default async function regress({ check }) {
     const all = Object.keys(MEET_KINDS).map((kind) => meetLine({ kind, key: kind + ':1', on: null }, na, nb, null));
     check('pets: two-cat lines are all filled in', all.every((s) => s && !/\$/.test(s) && s.includes('Alpha') && s.includes('Beta')), JSON.stringify(all));
   }
+
+  // strays: a batch lands on Coldwater's streets, more to the east, and adopt refuses somebody with no flat
+  {
+    const S = pets.strays;
+    const tiles = S.streetTiles();
+    check('pets: strays have street tiles to land on', tiles.length > 50, String(tiles.length));
+    const made = await S.generateStrays(12, 4242);
+    try {
+      check('pets: a batch is twelve strays', made.length === 12, String(made.length));
+      check('pets: a batch has twelve names', new Set(made.map((m) => m.name)).size === made.length);
+      const mean = (a) => a.reduce((x, y) => x + y, 0) / a.length;
+      const xs = made.map((m) => world.zones.get(m.zone_id)?.grid_x);
+      check('pets: strays lean east', mean(xs) > mean(tiles.map((z) => z.grid_x)), `${mean(xs).toFixed(1)} vs ${mean(tiles.map((z) => z.grid_x)).toFixed(1)}`);
+      let built = true;
+      for (const m of made) {
+        const npc = world.npcs.get(S.npcIdOf(m.id));
+        if (!npc || !npc.flags?.stray || !npc.flags?.animal || !world.zones.get(npc.zone_id)?.npcs.has(npc.id)) built = false;
+        try { catLook(JSON.parse(JSON.stringify(m.look))); } catch { built = false; }
+      }
+      check('pets: every stray is an animal NPC on its tile with a cat body', built);
+      const first = made[0], npc = world.npcs.get(S.npcIdOf(first.id));
+      const r = await S.cmdAdopt([], '', { id: 'regress_no_flat', handle: 'Tester', current_zone: npc.zone_id });
+      check('pets: adopt with no flat is refused', r?.type === 'error' && /flat|Which one/.test(r.message), r?.message);
+      const slumZ = { flags: { district: 'slum' } }, cat = { id: 'npc_stray_t', name: 'Tester', sex: 'female' }, local = { name: 'Mags Doyle', sex: 'female' };
+      const said = [];
+      for (let t = 0; t < 4000; t++) { const l = S.streetLine(cat, slumZ, t * 5000, 14, false, [local]); if (l) said.push(l); }
+      check('pets: a stray speaks now and then, not every tick', said.length > 60 && said.length < 400, String(said.length));
+      check('pets: slum locals feed strays by name', said.some((l) => l.includes('Mags Doyle')));
+      check('pets: strays hunt birds and drink from puddles', said.some((l) => /pigeon|sparrow/.test(l)) && said.some((l) => /puddle|rain collected|drainpipe/.test(l)));
+      check('pets: every street line is filled in', said.every((l) => !l.includes('$') && l.includes('Tester')), said.find((l) => l.includes('$')));
+      const uptown = []; for (let t = 0; t < 4000; t++) { const l = S.streetLine(cat, { flags: { district: 'halcyon_fields' } }, t * 5000, 14, false, [local]); if (l) uptown.push(l); }
+      check('pets: nobody feeds strays in Halcyon Fields', !uptown.some((l) => l.includes('Mags')));
+      const n = made.filter((m) => world.zones.get(m.zone_id)?.flags?.district === 'slum').length;
+      check('pets: the slum gets more than its share of strays', n >= 2, String(n));
+      const c = await S.census();
+      check('pets: the census lists the batch', made.every((m) => c.cats.some((k) => k.id === m.id && !k.adopted)));
+    } finally {
+      for (const m of made) await S.removeStray(m.id);
+    }
+    check('pets: removed strays leave the world', made.every((m) => !world.npcs.has(S.npcIdOf(m.id))));
+  }
 }

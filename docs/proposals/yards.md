@@ -26,7 +26,7 @@ residential/Precinct-9 block (y ≥ 910), bounded east by Coldwater Basin water.
 runs E–W through y908.
 
 ```
-        x921    x922      x923    x924        x925     x926   x927
+        x922    x923      x924    x925        x926     x927   x928
  y903            ...        Hangar          ┃Runway    #apron  ≈≈≈   AIRPORT (af_regional)
  y906                                        #apron            ≈≈≈
  ────────────────────────────────────────────────────────────────
@@ -35,7 +35,7 @@ runs E–W through y908.
  y909            ...        Freight  General WH  Fab   Coldline      ┘
  ────────────────────────────────────────────────────────────────
  y910  NeonVig  HallRec                                              RESIDENTIAL / Precinct 9
- y911           P9(922)              PowerPlant→Watts(924)              (Watts stays here)
+ y911           P9(923)              PowerPlant→Watts(925)              (Watts stays here)
 ```
 
 ## Zone posture (all ~9 band tiles)
@@ -55,15 +55,15 @@ runs E–W through y908.
 
 | Tile | Building | Fiction | `building_type` (→ 3D model) | Corp flags |
 |---|---|---|---|---|
-| 921,907 | Air Freight Forwarder | — | `freight_forwarder` | — |
-| 922,907 | Bonded Warehouse | Customs Bonded Store 7 | `warehouse` | `claimable_asset:warehouse` + `claimable` |
-| 923,907 | Pallet & Fuel Yard | — | `fuel_yard` | — |
-| 924,907 | Container Yard | Interchange Stack | `container_yard` | `claimable_asset:warehouse` + `claimable` |
-| 926,908 | Wharf Transfer Shed | — | `wharf` | — |
-| 923,909 | Freight Office | Barlow's freight desk | `freight_office` | — |
-| 924,909 | General Warehouse | Dry Store 12 | `warehouse` | `claimable_asset:warehouse` + `claimable` |
-| 925,909 | Fabrication Shed | — | `fabrication` | — |
-| 926,909 | Cold Storage | Coldline Reefer Depot | `cold_storage` | `claimable_asset:warehouse` + `claimable` |
+| 922,907 | Air Freight Forwarder | — | `freight_forwarder` | — |
+| 923,907 | Bonded Warehouse | Customs Bonded Store 7 | `warehouse` | `claimable_asset:warehouse` + `claimable` |
+| 924,907 | Pallet & Fuel Yard | — | `fuel_yard` | — |
+| 925,907 | Container Yard | Interchange Stack | `container_yard` | `claimable_asset:warehouse` + `claimable` |
+| 927,908 | Wharf Transfer Shed | — | `wharf` | — |
+| 924,909 | Freight Office | Barlow's freight desk | `freight_office` | — |
+| 925,909 | General Warehouse | Dry Store 12 | `warehouse` | `claimable_asset:warehouse` + `claimable` |
+| 926,909 | Fabrication Shed | — | `fabrication` | — |
+| 927,909 | Cold Storage | Coldline Reefer Depot | `cold_storage` | `claimable_asset:warehouse` + `claimable` |
 
 Notes:
 - The **4 claimable warehouses** (Bonded, Container, General, Cold Storage) are each both **territory**
@@ -89,12 +89,12 @@ Notes:
   *(Superseded detail: this shipped with a second glyph in `BUILDING_ICON`
   (`client/game/js/panels/minimap.js`) for the map's "icons" overlay mode, and treated `marker` as
   dead legacy. That mode and that table are gone — `marker` is now what the map's lettering draws.)*
-- **Watts stays at the Coldwater Power Plant** (924,911, one block south) — adjacent, thematically the
+- **Watts stays at the Coldwater Power Plant** (925,911, one block south) — adjacent, thematically the
   Yards' grid/repair mechanic. Not relocated.
 
 ## Anchor NPC — Sten Barlow, the Yardmaster
 
-Weathered ex-hauler running the Freight Office (923,909). Vendor of salvage/haulage gear (crowbar,
+Weathered ex-hauler running the Freight Office (924,909). Vendor of salvage/haulage gear (crowbar,
 load straps, hand truck, hi-vis, work gloves, freight manifest) + a starter gig **"Lost Consignment"**
 (recover a misrouted crate). Fresh name (avoids the existing Voss NPCs). Built per the standard NPC
 content flow (dev API / content JSON; clothing/sex/npc_type auto-handled).

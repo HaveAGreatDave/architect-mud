@@ -6,7 +6,7 @@
 // plugins/trucking/state.js); the server never re-simulates.
 
 import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield,
-  groundObstructionAt, MODEL_MAX_EXTENT, TRUCK_STEP_Z, RENDER_TUNE, navMarks, cabTrim, cabWheelHub, cabWheelGeom, cabGpsRect, cabControlRects, cabDashCanvas , ROAD_RIG_MUL, interiorHotspots,
+  groundObstructionAt, streetKitFootAt, MODEL_MAX_EXTENT, TRUCK_STEP_Z, RENDER_TUNE, navMarks, cabTrim, cabWheelHub, cabWheelGeom, cabGpsRect, cabControlRects, cabDashCanvas , ROAD_RIG_MUL, interiorHotspots,
   perfBegin, perfEnd, perfTick, lastViewState, windshieldContext } from './windshield.js';
 import { TYPES, IDLE, createTruckState, truckReadout, step, truckShift, truckSplit, truckSelectGear, bestGear } from './flight-model.js';
 import { createFreeCam, freeCamHint, bindFreeCamPointer, bindFreeCamIdle } from './freecam.js';
@@ -2552,6 +2552,9 @@ export function cabContext(ctx) {
 // non-solid) and the altitude test. Kept: the sweep, or a fast truck tunnels through a wall.
 const SWEEP = 4;
 const TRUCK_CLEAR_Z = 0.010;   // cab roof in render world-z (FLOOR_Z is one storey ≈ 0.028)
+// Near half a rig's width in tiles (a tile is about 18 m), for the kerb's bollards: a little under the 1.25 m
+// half-width, so a rig in the 4 m lane with a hand's slack never scrapes them.
+const TRUCK_HALF_W = 1.0 / 18;
 // TRUCK_STEP_Z (windshield.js) is the height below which a thing is ridden over, such as a kerb.
 const BUMP_MPH = 12;           // at or below this it is a bump; above it, you hit something
 // Below this the server isn't told: the rebound and jolt say enough.
@@ -2597,6 +2600,9 @@ function obstructionAhead(st) {
     const t = i / SWEEP;
     const px = from.x + (st.sim.x - from.x) * t, py = from.y + (st.sim.y - from.y) * t;
     const wx = Math.round(px), wy = Math.round(py);
+    // The street kit's bollards along each kerb (glass/street-kit.js kitFoot): a rig that mounts the walkway
+    // hits them. Half the rig's width round its centreline.
+    if (streetKitFootAt(map, mc.x, mc.y, px, py, TRUCK_HALF_W)?.bollard) worst = Math.max(worst, TRUCK_CLEAR_Z);
     // Cheap reject first, as in the flight sweep.
     if (Math.abs(px - wx) > MODEL_MAX_EXTENT * (RENDER_TUNE.bldgFoot || 1)) continue;
     const rx = Math.round(wx - mc.x + R), ry = Math.round(wy - mc.y + R);

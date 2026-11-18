@@ -11,7 +11,7 @@ row whenever one comes off the map, and take it out when one goes back.
 
 | Building | Trade | Stood at | Stored | Where it is now | Why |
 |---|---|---|---|---|---|
-| Lather & Lye | barber and bathhouse | 916,908 Marrow Street | 2026-10-08 | rooms only, no tile | gave its plot to Nico's Noodle Bar |
+| Lather & Lye | barber and bathhouse | 917,908 Marrow Street | 2026-10-08 | rooms only, no tile | gave its plot to Nico's Noodle Bar |
 | Vetch Green | green, three tiles | 895 to 897,912 | 2026-10-18 | holding map 1 to 3,2 | the Hughson Coliseum |
 | Skeleton Crew | locksmith | 898,905 | 2026-10-18 | holding map 1,5 | out of place by the Glasshouse towers |
 | Rest Assured | lodging house | 900,905 | 2026-10-18 | holding map 3,5 | out of place by the Glasshouse towers |
@@ -20,7 +20,7 @@ row whenever one comes off the map, and take it out when one goes back.
 | Rod Almighty | fishing tackle | 908,914 Meltwater Row | 2026-10-18 | holding map 3,7 | taken out for now |
 | Loafing Around | bakery | 907,914 Meltwater Row | 2026-10-18 | holding map 5,7 | taken out for now |
 | Just My Type | jobbing printer | 913,911 Foundry Way | 2026-10-18 | holding map 1,9 | the Media Lot's gate court |
-| Wrap Party | pub | 914,911 Foundry Way | 2026-10-18 | holding map 3,9 | the Media Lot's car park |
+| Wrap Party | pub | 915,911 Foundry Way | 2026-10-18 | holding map 3,9 | the Media Lot's car park |
 | The Deadline | press bar | 912,910 Marrow Street | 2026-10-19 | holding map 5,9 | the Media Lot closed its block; the tile is the backlot |
 | Grind House | bladesmith | 912,913 Foundry Way | 2026-10-18 | holding map 7,7 | taken out for now; its film shows at Midway Parks |
 | 3, 5 and 7 Sorrel Way, and 19 Hughson Way | Halcyon glass and a sealed tower | 892, 893, 895 and 891,920 | 2026-11-09 | holding map 3, 5, 7 and 1,23 | Hughson Gardens ([hughson-gardens.md](hughson-gardens.md)) |
@@ -29,7 +29,7 @@ row whenever one comes off the map, and take it out when one goes back.
 ## Lather & Lye (stored 2026-10-08)
 
 The barber's and bathhouse that stood on Marrow Street at 916,908. It gave its tile to Nico's Noodle
-Bar, which moved one tile west so that 917,908 could become road (Lever Lane now runs south to
+Bar, which moved one tile west so that 918,908 could become road (Lever Lane now runs south to
 Marrow Street).
 
 What's kept:
@@ -132,3 +132,20 @@ rest is in [grounds-for-concern.md](grounds-for-concern.md).
 
 Their plots are `zone_greenside_904_908` (Greenside Gardens) and `zone_greenside_905_908` (Greenside
 Car Park). Teodor's signal boards, drone cores and loyalty chips are sold by the Clinkerman now.
+
+## The Yards Tenement's tenth floor (set aside 2026-11-16)
+
+Not a building, a floor of one. The tenement's GLASS model is ten storeys, the ground floor and nine, and its
+rooms had a lobby and ten floors of flats, so the top landing and its six flats stood above the roof.
+[scripts/content/yards-fit.mjs](../../scripts/content/yards-fit.mjs) moved them onto the holding map.
+
+| Was at | Rooms | Holding grid | People |
+|---|---|---|---|
+| map_int_yards_tenement, z 10 | Floor 10 and Units 1001 to 1006 | 31 to 33 by 1 to 3, z 10 | the four who lived in 1001 and 1002 moved to 901 and 902 |
+
+- Each room keeps its id, its exits to the landing and `set_aside_from`; its `parent_zone` is null, as the
+  holding map's tiles are. Floor 9's way up and `conn_yards_tenement_f10_down_3i9q` were removed.
+- Run `scripts\oneshots.bat prod` after the deploy: `set-aside-players.mjs` moves anybody left in these rooms
+  and lists any rented one.
+
+To put it back, the model has to grow a storey first (`flags.floors: 11` on 922,902, then `npm run lite:bake`).

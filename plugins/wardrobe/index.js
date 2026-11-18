@@ -26,6 +26,8 @@ import {
   cmdUndress, containerCapacity, containerContentsWeight, loadContainerById,
 } from '../../server/engine/commands/inventory.js';
 import { getZoneFurniture } from '../../server/engine/world.js';
+import { adjustCredits } from '../../server/engine/economy.js';
+import { giveItemById } from '../../server/engine/inventory.js';
 
 // What an outfit captures. Body slots plus accessories — a look includes the
 // rings and the shades. The wielded weapon is deliberately excluded: that's
@@ -110,6 +112,7 @@ function describeOutfit(row, availableIds) {
       slot: it?.tags?.slot || null,
       layer: it?.tags?.layer || null,
       available: availableIds.has(itemId),
+      price: Math.max(0, Math.round(Number(it?.value) || 0)),
     };
   });
   return { name: row.name, items, wearable: items.length > 0 && items.every(i => i.available) };
@@ -166,7 +169,7 @@ async function claimForWear(player, furnId, itemId) {
 // `wearOutfit` (a saved look, by name) and `wearNow` (whatever the doll currently
 // holds, unsaved) — the two are the same action with two different sources for
 // the id list, and had drifted into two copies of this once already.
-async function dressFrom(player, furnId, itemIds, broadcast, label) {
+async function dressFrom(player, furnId, itemIds, broadcast, label, { buyMissing = false } = {}) {
   if (!itemIds.length) return { ok: false, message: 'Nothing to wear.' };
 
   // Strip what's on first, in one statement — the same shape as `undress`, so
@@ -178,9 +181,22 @@ async function dressFrom(player, furnId, itemIds, broadcast, label) {
     [player.id, OUTFIT_SLOTS]
   );
 
-  const worn = [], missing = [];
+  const worn = [], missing = [], bought = [];
+  let spent = 0;
   for (const itemId of itemIds) {
-    const rowId = await claimForWear(player, furnId, itemId);
+    let rowId = await claimForWear(player, furnId, itemId);
+    // Not in hand or hanging: the wardrobe orders it in at the item's base
+    // price, if you can pay. One debit per piece, so a short purse buys what
+    // it can in outfit order and reports the rest missing.
+    if (!rowId && buyMissing) {
+      const tpl = getItem(itemId);
+      const price = Math.max(0, Math.round(Number(tpl?.value) || 0));
+      if (tpl && await adjustCredits(player, -price, query, 'wardrobe:order')) {
+        rowId = (await giveItemById(player.id, itemId, 1, { stack: false })).id;
+        spent += price;
+        bought.push(tpl.name || itemId);
+      }
+    }
     if (!rowId) { missing.push(getItem(itemId)?.name || itemId); continue; }
     // No per-piece broadcast: the room gets one line for the whole change.
     const res = await cmdEquipById(rowId, player, null);
@@ -197,7 +213,8 @@ async function dressFrom(player, furnId, itemIds, broadcast, label) {
   let msg = worn.length
     ? `You dress in ${label}: ${worn.join(', ')}.`
     : `You couldn't put any of ${label} together.`;
-  if (missing.length) msg += ` Missing: ${missing.join(', ')}.`;
+  if (bought.length) msg += ` Ordered in ${bought.join(', ')} for ${spent}₵.`;
+  if (missing.length) msg += ` Missing${buyMissing ? " (can't afford)" : ''}: ${missing.join(', ')}.`;
   return { ok: true, message: msg };
 }
 
@@ -208,7 +225,7 @@ async function wearOutfit(player, furnId, name, broadcast) {
   );
   if (!rows.length) return { ok: false, message: `No outfit called "${name}" in this wardrobe.` };
   const outfit = rows[0];
-  return dressFrom(player, furnId, outfit.item_ids || [], broadcast, `"${outfit.name}"`);
+  return dressFrom(player, furnId, outfit.item_ids || [], broadcast, `"${outfit.name}"`, { buyMissing: true });
 }
 
 // `outfitwearnowid <furnId> <itemId,itemId,…>` — the doll's "Wear Now" button.
@@ -564,6 +581,33 @@ async function cmdUndressId(args, raw, player, broadcast) {
   if (!wardrobe) return { type: 'container_error', message: 'Wardrobe not found.' };
   const res = await undressInto(player, wardrobe, broadcast);
   return viewWith(player, furnId, res.message);
+}
+
+// --- The Room Stage's Pack --------------------------------------------------
+
+// The saved outfits for the Pack (plugins/roomstage pack.js), opened at a wardrobe in ROOM. The same rows the 2D
+// panel saves; each says what it would cost to order in the pieces you have neither on you nor hanging here.
+export async function wardrobeForPack(player, furnId) {
+  const wardrobe = furnId && await loadWardrobeById(player, furnId);
+  if (!wardrobe) return null;
+  const [outfits, { rows }] = await Promise.all([
+    loadOutfits(player.id, furnId),
+    query('SELECT DISTINCT item_id FROM player_inventory WHERE (player_id=$1 AND container_id IS NULL) OR container_id=$2', [player.id, furnId]),
+  ]);
+  const have = new Set(rows.map((r) => r.item_id));
+  return {
+    id: wardrobe.id, name: wardrobe.name,
+    outfits: outfits.map((r) => {
+      const d = describeOutfit(r, have), buy = d.items.filter((i) => !i.available);
+      return { name: d.name, pieces: d.items.map((i) => ({ name: i.name, slot: i.slot, have: i.available, price: i.price })), buy: buy.length, cost: buy.reduce((s, i) => s + i.price, 0) };
+    }),
+  };
+}
+
+// Wear Now on a saved outfit in the Pack: order in what's missing, then dress in it (wearOutfit buys as it goes).
+export async function wearOutfitForPack(player, furnId, name, broadcast) {
+  if (!await loadWardrobeById(player, furnId)) return { ok: false, message: 'Wardrobe not found.' };
+  return wearOutfit(player, furnId, name, broadcast);
 }
 
 export const specializedActions = [

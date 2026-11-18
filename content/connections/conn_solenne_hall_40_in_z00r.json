@@ -1,0 +1,9 @@
+{
+  "a": "zone_solenne_hall_40r",
+  "b": "zone_solenne_elevator",
+  "blocked": false,
+  "dir": "in",
+  "id": "conn_solenne_hall_40_in_z00r",
+  "lockable": false,
+  "one_way": true
+}

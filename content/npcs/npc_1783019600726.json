@@ -188,7 +188,7 @@
     "stripper": true
   },
   "home_activities": [],
-  "home_zone": "zone_yards_tenement_u1_2",
+  "home_zone": "zone_yards_tenement_u7_1",
   "hp": 20,
   "hp_max": 20,
   "id": "npc_1783019600726",
@@ -201,44 +201,44 @@
   "vendor_schedule": {
     "mon": [
       {
-        "from": 19,
-        "to": 27
+        "from": 0,
+        "to": 4
       }
     ],
     "tue": [
       {
-        "from": 19,
-        "to": 27
+        "from": 0,
+        "to": 4
       }
     ],
     "wed": [
       {
-        "from": 19,
-        "to": 27
+        "from": 0,
+        "to": 4
       }
     ],
     "thu": [
       {
-        "from": 19,
-        "to": 27
+        "from": 0,
+        "to": 4
       }
     ],
     "fri": [
       {
-        "from": 19,
-        "to": 27
+        "from": 0,
+        "to": 4
       }
     ],
     "sat": [
       {
-        "from": 19,
-        "to": 27
+        "from": 0,
+        "to": 4
       }
     ],
     "sun": [
       {
-        "from": 19,
-        "to": 27
+        "from": 0,
+        "to": 4
       }
     ]
   },

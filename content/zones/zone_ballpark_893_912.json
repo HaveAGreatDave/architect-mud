@@ -10,7 +10,8 @@
   "exits": {
     "east": "zone_ballpark_893_913",
     "north": "zone_ballpark_891_915",
-    "south": "zone_district_891_921"
+    "south": "zone_district_891_921",
+    "west": "zone_hughsonpark_890_920"
   },
   "flags": {
     "district": "halcyon_fields",

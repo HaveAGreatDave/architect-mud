@@ -6,11 +6,12 @@
   "ambient_theme": "indoors",
   "bg_color": "#28323d",
   "color": "#d9e6f2",
-  "description": "The thirty-fourth floor, the same walnut and carpet as thirty with the doors further apart. Opposite the elevator a console holds dried thistle and something blue. 34-D is to the right of it, <b>north</b>; 34-F is at the <b>west</b> end and 34-E at the <b>east</b>. The elevator is <b>in</b> behind you.",
+  "description": "The tenth floor, the same walnut as the eighth with a green runner instead of blue. 10-D is <b>north</b>, 10-E <b>east</b>, 10-H <b>south</b> beside the lift and 10-F <b>west</b>. The elevator is <b>in</b> behind you.",
   "exits": {
     "east": "zone_solenne_apt_e",
     "in": "zone_solenne_elevator",
     "north": "zone_solenne_apt_d",
+    "south": "zone_solenne_apt_h",
     "west": "zone_solenne_apt_f"
   },
   "flags": {
@@ -19,23 +20,23 @@
     "is_interior": true,
     "room": {
       "balcony": false,
-      "d": 2.8,
+      "d": 6,
       "decor": {
         "art": [
           {
-            "at": -4.6,
+            "at": -1.6,
             "h": 1,
             "seed": 47,
             "w": 1.15,
-            "wall": "back",
+            "wall": "left",
             "y": 1.62
           },
           {
-            "at": 4.6,
+            "at": 4.4,
             "h": 1,
             "seed": 52,
             "w": 1.15,
-            "wall": "back",
+            "wall": "right",
             "y": 1.62
           }
         ],
@@ -48,9 +49,10 @@
         },
         "downlights": false,
         "plaques": {
-          "zone_solenne_apt_d": "34-D",
-          "zone_solenne_apt_e": "34-E",
-          "zone_solenne_apt_f": "34-F"
+          "zone_solenne_apt_d": "10-D",
+          "zone_solenne_apt_e": "10-E",
+          "zone_solenne_apt_f": "10-F",
+          "zone_solenne_apt_h": "10-H"
         },
         "rug": false,
         "runner": {
@@ -63,27 +65,19 @@
           "points": [
             [
               "front",
-              -1.25
+              1.2
             ],
             [
-              "front",
-              1.25
+              "left",
+              3.6
             ],
             [
-              "front",
-              2.7
-            ],
-            [
-              "front",
-              -3.6
+              "right",
+              1.4
             ],
             [
               "back",
-              -1.75
-            ],
-            [
-              "back",
-              1.75
+              -1.6
             ]
           ],
           "y": 1.82
@@ -96,7 +90,10 @@
         }
       },
       "doors": {
-        "north": 4.65
+        "east": 2.4,
+        "north": -2.4,
+        "south": 2.4,
+        "west": -2.4
       },
       "face": 0,
       "finish": "fine",
@@ -108,7 +105,7 @@
         "trim": "#17130f",
         "wall": "#3a2a20"
       },
-      "w": 12.4,
+      "w": 6,
       "windowless": true
     },
     "sanctuary": true
@@ -118,6 +115,6 @@
   "grid_z": 6,
   "id": "zone_solenne_residences_34",
   "map_id": "map_int_solenne",
-  "name": "Solenne Residences — The Upper Residences",
+  "name": "The Tenth Floor",
   "parent_zone": "zone_district_914_908"
 }

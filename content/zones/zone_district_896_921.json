@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Sorrel Way, where Hughson Way comes down from the Coliseum. On the south side is Kimble's Souvenirs & Cards, with pennants in the window.",
+  "description": "Sorrel Way, where a gravel walk comes down through the East Gardens from the Coliseum. On the south side is Kimble's Souvenirs & Cards, with pennants in the window.",
   "exits": {
     "east": "zone_district_897_921",
     "north": "zone_ballpark_892_920",

@@ -4,7 +4,7 @@
   "color": "#8fae9a",
   "description": "A grimy trunk of storm tunnel under Marrow Street, the concrete cracked and weeping, the air thick with the sour breath of the drains.",
   "exits": {
-    "east": "zone_under_914_909",
+    "east": "zone_seam_914_909_l1",
     "west": "zone_under_912_909"
   },
   "flags": {

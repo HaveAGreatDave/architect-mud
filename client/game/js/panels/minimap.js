@@ -116,8 +116,10 @@ function stepMinimapZoom(delta) {
 // when a runner has gone too winded to keep the pace.
 let runMode = false;
 const RUN_STEP_STAMINA = 4;        // must match movement.js RUN_STEP_STAMINA
-const WALK_STEP_MS = 1000;         // relaxed walking cadence
-const RUN_STEP_MS  = 480;          // brisk running cadence
+const WALK_STEP_MS = 940;          // walking, off-road (server 900)
+const WALK_ROAD_MS = 480;          // walking on a road (server 450)
+const RUN_OFFROAD_MS = 740;        // running off-road (server 700)
+const RUN_STEP_MS  = 380;          // running on a road (server 350)
 // Delay before the next auto-walk step: run cadence only while running AND with
 // stamina left to spend — otherwise a winded runner auto-drops to the walk pace.
 // The server's pacing plugin honours player.running too (RUN_COOLDOWN_MS, road-halved),
@@ -125,12 +127,14 @@ const RUN_STEP_MS  = 480;          // brisk running cadence
 // silently QUEUED — which the stuck-detector below would misread as no-progress. On-road
 // the server cooldown is ~350ms, so the brisk RUN_STEP_MS (480) clears it with margin.
 // Off-road we conservatively floor to the walk pace (server cooldown ~700ms there).
+// Each pace sits just above the server's step cooldown for that gear and ground (pacing:
+// walk 900, run 700, both halved on a road), so auto-walk goes as fast as the server lets it.
 function autoWalkDelay() {
   const sta = state.player?.stamina ?? 100;
-  if (!runMode || sta < RUN_STEP_STAMINA) return WALK_STEP_MS;
   const cur = (_lastMinimapNodes || []).find(n => n.is_current);
   const onRoad = cur?.terrain === 'road' || (Array.isArray(cur?.artery) && cur.artery.length > 0);
-  return onRoad ? RUN_STEP_MS : WALK_STEP_MS;
+  if (!runMode || sta < RUN_STEP_STAMINA) return onRoad ? WALK_ROAD_MS : WALK_STEP_MS;
+  return onRoad ? RUN_STEP_MS : RUN_OFFROAD_MS;
 }
 function runBtn() { return document.getElementById('mm-run-toggle'); }
 // Run-state subscribers outside this module (e.g. the Tablet Map app's Run button)
@@ -1225,7 +1229,7 @@ export function terrainOf(node) {
 // EMPTY cells are ever filled, so land tiles overlapping a band stay untouched.
 const WATER_VOID_REGIONS = [
   (x, y) => x <= 890 && y <= 901, // north-west bay
-  (x, y) => x >= 927 && y <= 908, // north-east bay
+  (x, y) => x >= 928 && y <= 908, // north-east bay
 ];
 export function isWorldWaterVoid(mapId, x, y) {
   if (mapId !== 'map_world' || x == null || y == null) return false;

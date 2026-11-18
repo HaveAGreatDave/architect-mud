@@ -1555,6 +1555,28 @@
   }
   // Fetch and decode ahead of need, so a call isn't a stand-in the first time.
   function preloadSamples(ids) { return Promise.all((ids || []).map(loadField)); }
+  // How loud a stretch of a decoded recording is, every `hop` seconds from `offset` for `length`, each 0..1 of the
+  // stretch's loudest: what a face moves its mouth to (a cat's meow, room-cat-sound.js). null until it's decoded.
+  const _env = new Map();
+  function sampleEnvelope(id, offset = 0, length = 0, hop = 0.02) {
+    const k = id + ':' + offset + ':' + length + ':' + hop;
+    if (_env.has(k)) return _env.get(k);
+    const buf = fieldBuffer(id);
+    if (!buf) return null;
+    const d = buf.getChannelData(0), sr = buf.sampleRate, n = Math.max(1, Math.ceil((length || buf.duration - offset) / hop));
+    const out = new Float32Array(n), w = Math.max(1, Math.round(hop * sr));
+    let top = 1e-6;
+    for (let i = 0; i < n; i++) {
+      const a = Math.round((offset + i * hop) * sr);
+      let s = 0;
+      for (let j = 0; j < w && a + j < d.length; j++) s += d[a + j] * d[a + j];
+      out[i] = Math.sqrt(s / w); top = Math.max(top, out[i]);
+    }
+    for (let i = 0; i < n; i++) out[i] /= top;
+    if (_env.size > 400) _env.clear();
+    _env.set(k, out);
+    return out;
+  }
 
   function buildSampleLayer(layer, destination, time, holdSeconds) {
     const buf = fieldBuffer(layer.sample);
@@ -2854,6 +2876,7 @@
     const DICT = {
       the:'DH AX', a:'AX', of:'AX V', to:'T AX', evening:'* IY V N IH NG',
       soylent:'S * OY L AX N T', coldwater:'K * OW L D W AO T ER', architect:'* AA R K AX T EH K T',
+      basin:'B * EY S AX N', basins:'B * EY S AX N Z',
       halcyon:'HH * AE L S IY AX N', deadball:'D * EH D B AO L',
       craniumtrust:'K R * EY N IY AX M T R AH S T', gleamtooth:'G L * IY M T UW TH',
       cyberware:'S * AY B ER W EH R', cybernetic:'S AY B ER N * EH T IH K',
@@ -3436,6 +3459,7 @@ return out;
       undershoot:  0.2,    // EXPLICIT coarticulation only — see the note in the loop
       lineGapMs:   180,    // breath between chained lines (tv.js reads this)
       excitement:  1.0,    // scales every line's delivery (opt.excite, see deliveryFor); 0 reads it all flat
+      vary:        1.0,    // scales a performing voice's line-to-line variety (opt.vary, see performLine); 0 is off
       compRatio:   3,      // the voice's compressor (1 is off)
     };
 
@@ -4272,17 +4296,38 @@ return out;
     // On air he's billed by his role, so a caption may name him either way.
     NAMED_VOICES['the control voice'] = NAMED_VOICES['control'] = NAMED_VOICES['leland vey'];
 
-    function voiceFromName(name){
+    // Where a voice sits on the spectrum, by the speaker's sex: a median pitch and tract
+    // (fshift: the PH table is adult male formants), and how wide each spreads. Measured
+    // adult speaking pitch is about 110Hz for men and 200 for women, each about two and
+    // a half semitones either way, with female formants some 15% up. The spread is
+    // logistic, not normal, so its tails are long: about one voice in fifty crosses the
+    // middle (a deep woman, a high man), and one in twelve gets well toward it. A voice
+    // that crosses keeps its own tract, so a deep woman still sounds like a woman.
+    // Anyone else ('other', 'nonbinary', 'none') sits in the middle and spreads wider.
+    const VOICE_SPECTRUM = {
+      female: { f0: 200, st: 2.4, ft: 1.12, ftSd: 0.035, oq: [0.58, 0.68, 0.78, 0.78] },
+      male:   { f0: 110, st: 2.4, ft: 0.96, ftSd: 0.035, oq: [0.48, 0.58, 0.68, 0.78] },
+      other:  { f0: 148, st: 3.6, ft: 1.04, ftSd: 0.05,  oq: [0.48, 0.58, 0.68, 0.78] },
+    };
+    // A uniform draw to a logistic deviate scaled to unit sd.
+    const logisticZ = u => { const p = Math.max(0.001, Math.min(0.999, u)); return 0.5513 * Math.log(p / (1 - p)); };
+
+    // `sex` ('female', 'male', anything else for the middle) places the voice; without
+    // one the name's own coin picks a side, as it always did.
+    function voiceFromName(name, sex){
       const r = mulberry32(hashName(name)); const pick = arr => arr[Math.floor(r()*arr.length)];
       const named = NAMED_VOICES[(name||'').toLowerCase().trim()];
       const high = r() < 0.5;
+      const S = VOICE_SPECTRUM[sex === 'female' || sex === 'male' ? sex : sex ? 'other' : high ? 'female' : 'male'];
+      const zP = logisticZ(r());
       return Object.assign({
-        f0:     high ? 120+r()*55 : 82+r()*38,
-        fshift: high ? 1.02+r()*0.16 : 0.9+r()*0.12,
+        f0:     Math.max(75, Math.min(290, S.f0 * 2 ** (S.st * zP / 12))),
+        // a higher voice tends to a smaller tract, loosely
+        fshift: S.ft * (1 + S.ftSd * (0.35 * zP + 0.94 * logisticZ(r()))),
         speed:  1.24+r()*0.24,
         ring:   r()<0.25 ? 0.10+r()*0.22 : r()*0.06,
-        // open quotient, see glottalWave()
-        oq:     pick([0.48, 0.58, 0.68, 0.78]),
+        // open quotient, see glottalWave(); women's voices run breathier on average
+        oq:     pick(S.oq),
         jitter: 0.004+r()*0.016,
         // Breath runs continuously, so two thirds of voices get none.
         breath: r() < 0.34 ? 0.010 + r()*0.014 : 0,
@@ -4391,6 +4436,29 @@ return out;
     }
     // Polysyllabic shortening, flattening out.
     const sylScale = n => 1 / (1 + 0.062 * Math.max(0, n - 1));
+    // Per index: a performing voice runs at its line's main word. Each phrase speeds up
+    // through the syllables before its nucleus (the held '^', else the light '+', else
+    // its last stress mark) by up to `rush` just before it; the nucleus and what follows
+    // keep their pace. null when there's no rush. Split at terminal pauses, as speak()'s
+    // phrases are, so a phrase estimated alone gets the same factors.
+    function tempoShape(phon, rush) {
+      if (!(rush > 0)) return null;
+      const out = new Array(phon.length).fill(1);
+      let from = 0;
+      const close = to => {
+        let nuc = -1;
+        for (let j = from; j < to; j++) if (phon[j] === '^' || phon[j] === '+') nuc = j;
+        if (nuc < 0) for (let j = from; j < to; j++) if (phon[j] === '*' || phon[j] === '!') nuc = j;
+        if (nuc < 0) return;
+        let n = 0; for (let j = from; j < nuc; j++) if (VOWELS.has(phon[j])) n++;
+        if (n < 3) return;
+        let k = 0;
+        for (let j = from; j < nuc; j++) { if (VOWELS.has(phon[j])) k++; out[j] = 1 - rush * k / n; }
+      };
+      for (let i = 0; i < phon.length; i++) if (isTerm(phon[i])) { close(i); from = i + 1; }
+      close(phon.length);
+      return out;
+    }
 
     function segmentDuration(p, code, ctx) {
       let dur = Math.max(0.03, (p.d/1000)/ctx.speed);
@@ -4446,6 +4514,8 @@ return out;
         // Quicker through the middle of a phrase; the ends keep their pace.
         if (ctx.pos >= 0) dur *= ev(1 - 0.07 * Math.sin(Math.PI * ctx.pos));
         if (ctx.aside) dur *= ev(0.9);
+        // a performing voice's run at the nucleus (tempoShape)
+        if (ctx.tempo && ctx.tempo !== 1) dur *= ctx.tempo;
       }
       if (p.t === 'P' && code !== '_' && ctx.pause) dur *= ctx.pause;
       return dur;
@@ -4467,6 +4537,7 @@ return out;
       let t = 0.08, stress = 0, prevCode = null, held = false, long = 0;
       let wordScale = sylScale(sylFrom(phon, 0));
       const fins = rhymeBreaks(phon), feet = footSizes(phon), clips = sonorantClips(phon), shape = phraseShape(phon);
+      const tempo = tempoShape(phon, dl && dl.rush);
       for (let i = 0; i < phon.length; i++) {
         const code = phon[i];
         if (code === '^') { held = true; continue; }
@@ -4476,7 +4547,7 @@ return out;
         let j = i + 1; while (isMark(phon[j])) j++;
         const nxtCode = phon[j], nxt = PH[nxtCode];
         if (p.t === 'P') wordScale = sylScale(sylFrom(phon, i + 1));
-        const ctx = { nxtCode, nxt, prevCode, stress, shout, wordScale, speed, held, hold: dl && dl.hold, pause: dl && dl.pause, long, longK: dl && dl.longK, nat: dl && dl.nat, fin: fins[i], foot: feet[i], sonClip: clips[i], pos: shape.pos[i], aside: shape.aside[i] };
+        const ctx = { nxtCode, nxt, prevCode, stress, shout, wordScale, speed, held, hold: dl && dl.hold, pause: dl && dl.pause, long, longK: dl && dl.longK, nat: dl && dl.nat, fin: fins[i], foot: feet[i], sonClip: clips[i], pos: shape.pos[i], aside: shape.aside[i], tempo: tempo ? tempo[i] : 1 };
         const dur = segmentDuration(p, code, ctx);
         long = 0;
         if (p.t === 'V') { stress = 0; held = false; }
@@ -4610,6 +4681,55 @@ return out;
     const CHANNELS = { tv: { lines: [] }, scene: { lines: [] }, npc: { lines: [] }, ui: { lines: [] } };
     const QUEUE_MAX = 3;          // lines that may wait behind the one speaking
     const GIVEN_S = 20;           // how long a word said on a channel stays given
+
+    // ── Performance: a voice that varies from line to line (`opt.vary`) ─────
+    // A booth that says every line from the voice's resting pitch, with the same accent
+    // on every stress, is a tape. With `vary` a speaker keeps a running state on its
+    // channel: register, range and pace each wander about the voice's own, a mean-
+    // reverting walk one step per line; a new topic starts high and the lines after it
+    // step down (a paratone); and the line's own dice pick how each accent is shaped.
+    // see docs/systems-procedural-audio.md#performance-vary
+    const PERF = {
+      keySd:    1.1,    // semitones: the register's spread, line to line
+      rangeSd:  0.14,   // log: how far the accents move
+      rateSd:   0.035,  // log: the pace
+      pull:     0.72,   // how much of the last line's offset a line keeps (0 none, 1 a free walk)
+      paraUp:   1.6,    // semitones a new topic starts above the speaker's level ...
+      paraStep: 0.55,   // ... and each line after it steps down ...
+      paraFloor: -0.6,  // ... to here
+      gapS:     4,      // this long since the speaker's last line ended is a new topic
+      jump:     0.3,    // so is a rise in excite this big over their last line
+    };
+    const _perf = new Map();   // `${channel}|${speaker}` → state
+    const NO_PERF = { on: false, amt: 0, key: 1, range: 1, rate: 1, r: () => 0.5, s: null, topic: false, n: 0 };
+    // A new topic: the caller says so (`opt.topic`), the speaker was quiet `gapS`, their
+    // excite jumped, or another speaker had the channel (the colour man's turn ends and
+    // the play-by-play starts fresh). Seeded off the speaker, the text and their line
+    // count, so a repeated line is said differently and a run from a fresh state repeats.
+    function performLine(chName, who, text, opt, nowS, e, amt) {
+      const id = chName + '|' + who;
+      let s = _perf.get(id);
+      if (!s) {
+        s = { key: 0, range: 0, rate: 0, n: 0, lines: 0, end: -1e9, e: 0 };
+        _perf.set(id, s);
+        if (_perf.size > 64) _perf.delete(_perf.keys().next().value);
+      }
+      const chan = CHANNELS[chName];
+      let h = (hashName(who + '|' + text + '|' + s.lines) >>> 0) || 1;
+      const r = () => { h = (h + 0x6D2B79F5) | 0; let x = Math.imul(h ^ (h >>> 15), 1 | h); x = (x + Math.imul(x ^ (x >>> 7), 61 | x)) ^ x; return ((x ^ (x >>> 14)) >>> 0) / 4294967296; };
+      const gauss = () => Math.max(-2.5, Math.min(2.5, Math.sqrt(-2 * Math.log(1 - r())) * Math.cos(2 * Math.PI * r())));
+      const a = PERF.pull, k = Math.sqrt(1 - a * a);
+      s.key   = s.key   * a + PERF.keySd   * k * gauss();
+      s.range = s.range * a + PERF.rangeSd * k * gauss();
+      s.rate  = s.rate  * a + PERF.rateSd  * k * gauss();
+      const turn = chan.lastWho != null && chan.lastWho !== who;
+      const topic = !!opt.topic || !s.lines || nowS - s.end > PERF.gapS || e - s.e >= PERF.jump || turn;
+      s.n = topic ? 0 : s.n + 1;
+      const para = Math.max(PERF.paraFloor, PERF.paraUp - PERF.paraStep * s.n);
+      s.lines++; s.e = e; chan.lastWho = who;
+      return { on: true, amt, r, s, topic, n: s.n,
+        key: 2 ** ((s.key + para) * amt / 12), range: Math.exp(s.range * amt), rate: Math.exp(s.rate * amt) };
+    }
     const READER_DUCK_DB = -12;
     const stopAll = (nodes) => nodes.forEach(n => { try { n.stop(); } catch { /* already stopped */ } });
     function cancel(channel){
@@ -4733,7 +4853,7 @@ return out;
       if (queued && chan.lines.length > QUEUE_MAX) return null;
       if (!queued) cancel(chName);
       // `opt.voice` overrides the rolled parameters (the Voice Lab auditions with it).
-      const V = Object.assign(voiceFromName(opt.seed || text), opt.voice || null);
+      const V = Object.assign(voiceFromName(opt.seed || text, opt.sex), opt.voice || null);
       if (V.vs) text = readMatchups(text);
       // A named voice can carry its accent; the caller's wins.
       const accent = opt.accent || V.accent;
@@ -4753,7 +4873,16 @@ return out;
       // Read Aloud; `natural` 0 is none.
       let lh = 0x9e3779b9; for (const ch of String(text)) lh = Math.imul(lh ^ ch.charCodeAt(0), 0x85ebca6b) >>> 0;
       const lineReg = ui || V.steps ? 1 : 2 ** (((lh >>> 8) / 16777216 - 0.5) * 0.7 * Math.max(0, Math.min(1, V.natural ?? 1)) / 12);
-      const F0 = V.f0 * D.pitch * lineReg, ringAmt = V.ring, fshift = V.fshift;
+      // A performing voice (opt.vary): this line's step of the speaker's state. Never on
+      // Read Aloud or a stepped (robot) voice.
+      const varyAmt = ui || V.steps ? 0 : Math.max(0, Math.min(1, opt.vary === true ? 1 : +opt.vary || 0)) * TUNING.vary * Math.max(0, Math.min(1, V.natural ?? 1));
+      const P = varyAmt > 0 ? performLine(chName, String(opt.seed || 'voice'), String(text), opt, c.currentTime, D.e - D.g, varyAmt) : NO_PERF;
+      if (P.on) {
+        D.rate *= P.rate;
+        // the run at the nucleus: harder when sold
+        D.rush = (0.05 + 0.1 * D.e) * varyAmt * (0.6 + 0.8 * P.r());
+      }
+      const F0 = V.f0 * D.pitch * lineReg * P.key, ringAmt = V.ring, fshift = V.fshift;
       // ⚠ No character (drive, growl, buzz, rmod, crush) on the accessibility
       // channel: texture costs intelligibility. `natural` is allowed.
       const driveAmt = ui ? 0 : (V.drive || 0);
@@ -5097,7 +5226,7 @@ return out;
         return D.e > 0 && end !== '_X' ? 2 ** (-2 * D.e * nat / 12) : 1;
       }).map((k, i) => (i > 0 && phrases[i - 1].at(-1) === '_P') ? k * 2 ** (1.5 * nat / 12) : k);   // a new paragraph starts 1.5 semitones up
       const phraseBang = phrases.map(ph => (ph[ph.length-1] === '_XX' ? 2 : ph[ph.length-1] === '_X' ? 1 : 0));
-      const lilt = V.lilt * D.range * nat;
+      const lilt = V.lilt * D.range * nat * P.range;
       let phraseIx = 0, phraseT0 = t;
       const totalDur = estimateDuration(phon, speed, undefined, D) || 1;
       // Intrinsic F0: high vowels (low F1) sit slightly higher.
@@ -5115,32 +5244,57 @@ return out;
       // '!' sits above all; '^' keeps its own climb.
       const ACC = { nuc: 1.6, pre: 1.15, down: 0.6, fall: 1.0, half: 0.3, low: 0.6, postFall: 0.9, postStress: 0.75 };
       const nucKind = end => (end === '_Q' ? 'low' : !end || isTerm(end) ? 'fall' : 'cont');
+      // A performing line rolls its own shapes: how high the nucleus goes, how far each
+      // peak steps down, how deep the fall and how late a rise peaks. Plain, it's ACC.
+      const pv = (lo, hi) => 1 + P.amt * (lo + (hi - lo) * P.r());
+      const AC = P.on
+        ? { ...ACC, nuc: ACC.nuc * pv(-0.2, 0.25), down: Math.min(0.9, ACC.down * pv(-0.2, 0.3)), fall: ACC.fall * pv(-0.25, 0.2) }
+        : ACC;
+      const peakAt = P.on ? 0.3 * pv(-0.4, 0.45) : 0.3;
+      // ... and each accent before the nucleus: a plain peak (H*), none at all (the
+      // stress stays, the pitch doesn't move), a fresh peak that undoes the downstep, or
+      // a scoop that starts low and peaks late (L+H*). Sold lines accent more, not less.
+      const accKind = () => {
+        if (!P.on) return 'H';
+        const x = P.r(), e = Math.max(0, D.e), a = P.amt;
+        const pf = 0.22 * (1 - e) * a, pu = (0.1 + 0.12 * e) * a, ps = 0.15 * a;
+        return x < pf ? 'flat' : x < pf + pu ? 'up' : x < pf + pu + ps ? 'scoop' : 'H';
+      };
       let afterNuc = null, downN = 0, declOff = 0;
       // Graph only (the worklet's `tense` does this): 0 at a phrase's start, 1 at its end,
       // weighted to the back. Voice quality relaxes with it: darker, breathier, softer.
       const relaxAt = frac => (wk || shoutLine) ? 0 : TUNING.relax * nat * Math.max(0, Math.min(1, frac - declOff)) ** 2;
       const pitchAt = (when, frac, stressed, f1, nextCode, nuc, dur) => {
         const fall = 1 - (phraseDecl[phraseIx] ?? V.decl) * Math.max(0, frac - declOff);   // declination
-        let lift, fallTo = 0;
+        let lift, fallTo = 0, scoop = false;
         if (stressed === 2) lift = 1 + lilt * 3.4 * TUNING.emphasis;
-        else if (nuc === 'low') lift = 1 - lilt * ACC.low;
+        else if (nuc === 'low') lift = 1 - lilt * AC.low;
         else if (nuc && !dur) lift = 1 + lilt;   // held or drawn: starts from a plain accent
-        else if (nuc) lift = 1 + lilt * ACC.nuc * (downN ? ACC.down : 1);
-        else if (afterNuc === 'fall') lift = 1 - lilt * (stressed ? ACC.postStress : ACC.postFall);
-        else if (afterNuc === 'cont') lift = 1 - lilt * ACC.half;
-        else if (stressed && !afterNuc) { lift = 1 + lilt * ACC.pre * ACC.down ** downN; downN++; }
+        else if (nuc) lift = 1 + lilt * AC.nuc * (downN ? AC.down : 1);
+        else if (afterNuc === 'fall') lift = 1 - lilt * (stressed ? AC.postStress : AC.postFall);
+        else if (afterNuc === 'cont') lift = 1 - lilt * AC.half;
+        else if (stressed && !afterNuc) {
+          const k = accKind();
+          if (k === 'flat') lift = 1 - lilt * 0.15;
+          else {
+            if (k === 'up') downN = 0;
+            lift = 1 + lilt * AC.pre * AC.down ** downN * (k === 'up' ? 1.2 : 1);
+            downN++; scoop = k === 'scoop';
+          }
+        }
         else lift = 1 - lilt * 0.45;
-        if (nuc === 'fall') fallTo = 1 - lilt * ACC.fall;
-        else if (nuc === 'cont') fallTo = 1 - lilt * ACC.half;
+        if (nuc === 'fall') fallTo = 1 - lilt * AC.fall;
+        else if (nuc === 'cont') fallTo = 1 - lilt * AC.half;
         if (nuc) afterNuc = nuc;
         const hold = mix(BOUNDARY[nextCode] || 1);
         const pk = (phraseK[phraseIx] ?? 1) * (curAside ? ASIDE_K : 1);
         const f = pq(F0 * pk * fall * lift * hold * intrinsicF0(f1) * mix(micro));
         // A rising accent peaks late in its vowel, not at the onset: start part way
         // up and reach the peak a third of the way through. A fall starts high.
+        // A scoop starts below the line and peaks past the vowel's middle.
         if (lift > 1 && dur && !fallTo && !V.steps) {
-          glot.frequency.setTargetAtTime(pq(f / (1 + (lift - 1) * 0.55 * nat)), when, 0.04);
-          glot.frequency.setTargetAtTime(f, when + dur * 0.3, 0.05);
+          glot.frequency.setTargetAtTime(pq(f / (1 + (lift - 1) * (scoop ? 1.1 : 0.55) * nat)), when, 0.04);
+          glot.frequency.setTargetAtTime(f, when + dur * (scoop ? 0.55 : peakAt), 0.05);
         } else glot.frequency.setTargetAtTime(f, when, V.steps ? 0.012 : 0.05);
         if (fallTo && dur) glot.frequency.setTargetAtTime(pq(F0 * pk * fall * fallTo * hold * intrinsicF0(f1)), when + dur * 0.35, Math.max(0.03, dur * 0.3));
         micro = 1;
@@ -5155,6 +5309,7 @@ return out;
 
       let wordScale = sylScale(sylFrom(phon, 0));
       const fins = rhymeBreaks(phon), feet = footSizes(phon), clips = sonorantClips(phon), shape = phraseShape(phon);
+      const tempo = tempoShape(phon, D.rush);
       let curAside = false, inhales = 0;
       const rounds = roundAhead(phon);
       let pendingStress = 0, pendingHeld = false, pendingLong = 0, prevNasal = false, prevP = null, prevCode = null;
@@ -5175,7 +5330,7 @@ return out;
         const nxt = phAt(i+1);
         let nj = i + 1; while (isMark(phon[nj])) nj++;
         const nxtCode = phon[nj];
-        const segCtx = { nxtCode, nxt, prevCode, stress: pendingStress, shout: shoutLine, wordScale, speed, held: pendingHeld, hold: holdK, pause: D.pause, long, longK: D.longK, nat, fin: fins[i], foot: feet[i], sonClip: clips[i], pos: shape.pos[i], aside: shape.aside[i] };
+        const segCtx = { nxtCode, nxt, prevCode, stress: pendingStress, shout: shoutLine, wordScale, speed, held: pendingHeld, hold: holdK, pause: D.pause, long, longK: D.longK, nat, fin: fins[i], foot: feet[i], sonClip: clips[i], pos: shape.pos[i], aside: shape.aside[i], tempo: tempo ? tempo[i] : 1 };
         curAside = shape.aside[i];
         curRound = rounds[i] && p.t !== 'V';
         let dur = segmentDuration(p, code, segCtx);
@@ -5405,6 +5560,7 @@ return out;
         if (code !== '_') { prevP = p; prevCode = code; }
       }
       const end = t + 0.08;
+      if (P.s) P.s.end = end;   // the speaker's gap is counted from here
       // `est` lets a gate hold the two timing callers to each other
       if (trace) trace.push({ p: 'END', at: t - t0, est: estimateDuration(phon, speed, undefined, D) - 0.08 });
       voiced.gain.setTargetAtTime(0, end, 0.02);
@@ -5494,6 +5650,8 @@ return out;
       chan.lines.push({ src, end: end + 0.1, duck: ducks.length ? { release: () => ducks.forEach(h => h.release()) } : null });
       // The real scheduled length; `delay` is a queued line's wait.
       const res = { duration: end - t0, delay: t0 - c.currentTime, channel: chName, backend: wk ? 'worklet' : 'graph', inhales };
+      // a performing line: its register against the voice's (semitones), and whether it began a topic
+      if (P.on) res.perf = { key: Math.round(1200 * Math.log2(P.key)) / 100, topic: P.topic, n: P.n };
       if (sp) { res.move = (pos, vel) => spatialMove(sp, pos, vel); res.state = () => spatialState(sp); }
       return res;
     }
@@ -5518,7 +5676,7 @@ return out;
 
   global.AudioEngine = {
     init, onUnlock, applyVolumeSettings, setMonoAudio,
-    playSfx, lastSfxAt, playSample, clearSampleCache, preloadSamples, sampleReady: (id) => !!fieldBuffer(id),
+    playSfx, lastSfxAt, playSample, clearSampleCache, preloadSamples, sampleEnvelope, sampleReady: (id) => !!fieldBuffer(id),
     renderSfx, renderSong, wavBytes, varyConfig,
     MOD_TARGETS,
     // the drive/fold curves, for the Rack's displays
@@ -5554,7 +5712,7 @@ return out;
     _setVoiceWorkletUrl: (url) => Speech.setWorkletUrl(url),
     _phonemesFor: (text, opt) => Speech.phonemesFor(text, opt),
     // for the gate on voiceFromName's draw ORDER
-    _voiceFor: (name) => Speech.voiceFor(name),
+    _voiceFor: (name, sex) => Speech.voiceFor(name, sex),
     // headless pacing check against broadcast's hold
     _estimateDuration: (phon, speed, shout) => Speech.estimate(phon, speed, shout),
     // an unknown phone is skipped silently on air, so content is checked against this

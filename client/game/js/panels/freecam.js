@@ -781,6 +781,9 @@ export function createFreeCam() {
     // `fn(x0, y0, x1, y1)`: a standing camera stepping from one spot to another, in `view()`'s offset tiles;
     // it answers [x, y], where the step ends (the wall it slid along), or nothing to let it through. A rebase
     // isn't a step. One per camera, set by the panel that has the map.
+    // The ground moving under somebody standing (a street's belt): the eye goes (dx, dy) tiles through `place`,
+    // so the leash and the walk block hold it as they hold a step.
+    carry(dx, dy) { if (!st.on || !st.stand || !Number.isFinite(dx) || !Number.isFinite(dy)) return false; place(st.x + dx, st.y + dy, st.z); return true; },
     setWalkBlock(fn) { st.walkBlock = typeof fn === 'function' ? fn : null; },
     // The pace of somebody on foot, changed while they walk (a crouch, freelook-view.js): `open`'s own `pace`.
     setPace(p) { if (!st.on || !st.stand || !p || !Number.isFinite(p.walk)) return false; st.pace = { walk: p.walk, run: Number(p.run) || 1.9 }; return true; },

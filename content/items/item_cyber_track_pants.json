@@ -8,7 +8,10 @@
     "description": "Black athletic track pants with bold vertical Japanese lettering running down one leg in crisp white, accented by subtle reflective piping. The relaxed fit and tapered ankles give them a sleek cyberpunk streetwear silhouette.",
     "insulation": 1.5,
     "layer": "outerwear",
-    "slot": "legs"
+    "slot": "legs",
+    "wear_look": {
+      "col": "#131316"
+    }
   },
   "type": "clothing",
   "value": 25,

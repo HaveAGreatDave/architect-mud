@@ -146,7 +146,7 @@ export const PILOT_IP = {
 // Craft flown on the continuous cockpit sim. The whole fleet is here now — the fixed-wing
 // set plus the Dragonfly (VTOL), which flies the client's dedicated hover model (collective
 // + cyclic + pedals) instead of the old modal VTOL-lift deck.
-export const CONTINUOUS_TYPES = new Set(['ac_mayfly', 'ac_mule', 'ac_leviathan', 'ac_reaper', 'ac_carcass', 'ac_dragonfly', 'ac_grasshopper', 'ac_locust', 'ac_viper', 'ac_shrike', 'ac_drake']);
+export const CONTINUOUS_TYPES = new Set(['ac_mayfly', 'ac_mule', 'ac_leviathan', 'ac_reaper', 'ac_carcass', 'ac_dragonfly', 'ac_grasshopper', 'ac_locust', 'ac_viper', 'ac_shrike', 'ac_drake', 'ac_merlin']);
 export function isContinuous(live) { return !!live && CONTINUOUS_TYPES.has(live.type?.id); }
 
 // Continuous altitude (ft) → the legacy band the consequence systems still read
@@ -671,7 +671,7 @@ export function runwayFor(fieldZone) {
 // within three of its own tile (runwayFor's field↔runway contract, inverted) and then every
 // `flags.runway` tile joined to those edge to edge, so a strip, its taxiways and its aprons
 // belong to the field as one piece. Coldwater Regional's field tile is on the strip at
-// 925,903 and it owns the north end at 925,898 and the east taxiway; Buzzard Field's is
+// 926,903 and it owns the north end at 926,898 and the east taxiway; Buzzard Field's is
 // beside its strip and it owns the strip. Where two fields claim one piece of paving, each
 // tile goes to the nearer field, which is the old three-tile answer wherever that had one.
 //
@@ -1230,13 +1230,13 @@ export function curtainRun(cx, cy, at = surfaceAt) {
 // It scans every connection, so it's kept per tile and dropped with the coord index on a zone reload.
 //
 // ⚠ THE BLOCKED CONNECTION IS THE WALL, SO IT'S ASKED FIRST. "No exit is out" alone failed on
-// 927,917: its west neighbour is a building whose door faces north, so neither side had an exit,
+// 928,917: its west neighbour is a building whose door faces north, so neither side had an exit,
 // `ci` came out empty and the camp stood across the wall. Nor is it the old off-map-air test: the
 // Scarletwastes put land east of x927, so both sides read as land.
-// ⚠ THE EXITS ARE A FALLBACK FOR A CAMP ONLY. 927,908 is water at the wall's north end with one exit,
+// ⚠ THE EXITS ARE A FALLBACK FOR A CAMP ONLY. 928,908 is water at the wall's north end with one exit,
 // east onto the sea, so "the side with an exit is in" would point it out of the city.
-// ⚠ A TILE ITS CONNECTIONS CAN'T SETTLE TAKES ITS NEIGHBOUR'S SIDE. 916,919 is blocked to the north as
-// well as the south, and the wall's two ends (891,901 and 927,908) stand in the sea with nothing
+// ⚠ A TILE ITS CONNECTIONS CAN'T SETTLE TAKES ITS NEIGHBOUR'S SIDE. 917,919 is blocked to the north as
+// well as the south, and the wall's two ends (891,901 and 928,908) stand in the sea with nothing
 // blocked at all. The wall doesn't change sides from one tile to the next, so an axis left open is
 // read off the Curtain tile beside it along the run. One step only: that answer is the neighbour's own.
 const _curtainIn = new Map();   // `${id}|${cur}` -> [[x, y], …] or undefined
@@ -1359,6 +1359,11 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
     ent = (z && buildingEntranceDir(z)) || cell.flags?.entrance || undefined;
     flr = cell.flags?.floors || undefined;
   }
+  // `po`: the tile a quarter of a multi-tile building belongs to, [x, y] of its facade (flags.part_of names the
+  // facade's zone; docs/proposals/multi-tile-buildings.md). ROOM takes every tile with its own facade's `po` off the
+  // view out of the building's windows, not only the facade's (room-view.js withoutOwnTower).
+  const pz = typeof cell.flags?.part_of === 'string' ? getZone(cell.flags.part_of) : null;
+  const po = pz && pz.map_id === 'map_world' && Number.isFinite(pz.grid_x) ? [pz.grid_x, pz.grid_y] : undefined;
   // Bespoke landmarks the windshield raises instead of bare ground, carried on the
   // `mark` channel: a `statue-*` map icon → the town-square statue+fountain; the
   // Echelon's exterior tile (flags.yacht) → a sleek black yacht with a lit helipad.
@@ -1833,8 +1838,12 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
   // running along that ground, is dirt. A region with no gradient
   // has no street kit, and a road past the gradient's `south` edge has left the city.
   const grad = road ? getRegion(cell.flags?.region_id)?.street_gradient : null;
+  // A tile's own `street_level` (0..3) beats the band, for a street kept up better or worse than its
+  // column, as Marrow Street is.
+  const ownLevel = Number.isInteger(cell.flags?.street_level) ? Math.max(0, Math.min(3, cell.flags.street_level)) : null;
   const sc = grad && !(y > grad.south)
     ? (grad.dirt_districts?.includes(cell.flags?.district) || cell.flags?.street_dirt ? 4
+      : ownLevel != null ? ownLevel
       : Math.max(0, Math.min(3, Math.floor((x - grad.west) / (grad.east - grad.west + 1) * 5))))
     : undefined;
   // `nfb`: this tile refuses the block's footbridge (`kitPlace`), to keep a frontage in view.
@@ -1866,7 +1875,7 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
   // `wv`: a void corridor cell out in the country (corridor.js wild_verge). The windshield colours its floor
   // exactly as the off-map floor beside it, so the corridor's band never shows as a stripe.
   const wv = cell.flags?.wild_verge ? 1 : undefined;
-  return { wv, prp, kind, biome, road: rwy ? 0 : road, danger: cell.danger, pad, bt, bn, trd, ent, flr, mark, bk, strip, rwy, twy, hp, rd, rdeg, rt, rw, rl, wr, rc, sc, nfb, wake, sub, heading, cur, cld, ci, ft, hi, cf, pf: cell.flags?.park_feature, pfo: parkFocus(cell, x, y), pw, em, og, sl, sgn, plz, lk, ml, bf, bq, aa, vl, vr, brd: brd && brd.length ? brd : undefined, gft: gft && gft.length ? gft : undefined, ha: holo?.ha, hr: holo?.hr };
+  return { wv, prp, kind, biome, road: rwy ? 0 : road, danger: cell.danger, pad, bt, bn, trd, ent, flr, po, mark, bk, strip, rwy, twy, hp, rd, rdeg, rt, rw, rl, wr, rc, sc, nfb, wake, sub, heading, cur, cld, ci, ft, hi, cf, pf: cell.flags?.park_feature, pfo: parkFocus(cell, x, y), pw, em, og, sl, sgn, plz, lk, ml, bf, bq, aa, vl, vr, brd: brd && brd.length ? brd : undefined, gft: gft && gft.length ? gft : undefined, ha: holo?.ha, hr: holo?.hr };
 }
 
 // Which buildings carry a hologram advert, from the region's plan:
@@ -2142,7 +2151,7 @@ export function gaugePayload(live) {
 
   return {
     craft: t.name, tail: a.name || t.name, class: t.class,
-    livery: normalizeLivery(a.custom_data, aircraftLiveryModel(t.class, t.hardpoints)),   // interior (cabin/upholstery) shows in the cockpit chrome
+    livery: { ...normalizeLivery(a.custom_data, aircraftLiveryModel(t.class, t.hardpoints)), underglow: underglowOf(a) },   // interior (cabin/upholstery) shows in the cockpit chrome
     band: a.altitude_band, bandLabel: BAND_LABEL[a.altitude_band] || a.altitude_band,
     bandIndex: BANDS.indexOf(a.altitude_band), ceiling: eff.ceiling,
     heading: degToCardinal(deg), headingDeg: deg,
@@ -2581,12 +2590,14 @@ export function pushContext(live) {
 // One airborne craft as another pilot's radar/windshield sees it: world position
 // (sub-tile float for smooth tracking), altitude/heading/speed for client-side
 // dead-reckoning between relays, hull, and a short tail readout. Built fresh each relay.
+// The Merlin's underglow, '#rrggbb' or null (the 'underglow' verb sets it; merlin-menu.js LIGHTS page).
+export const underglowOf = (a) => { const h = a?.custom_data?.underglow; return typeof h === 'string' && /^#[0-9a-f]{6}$/i.test(h) ? h.toLowerCase() : null; };
 export function airContact(live) {
   const a = live.row;
   const lv = normalizeLivery(a.custom_data, aircraftLiveryModel(live.type?.class, live.type?.hardpoints));   // paint the viewer renders the bogey in
   return {
     id: a.id,
-    livery: { base: lv.base, trim: lv.trim, pattern: lv.pattern, finish: lv.finish, variant: lv.variant },
+    livery: { base: lv.base, trim: lv.trim, pattern: lv.pattern, finish: lv.finish, variant: lv.variant, underglow: underglowOf(a) },
     x: live.fx ?? a.grid_x ?? 0,
     y: live.fy ?? a.grid_y ?? 0,
     alt: Math.max(0, Math.round(live.cont?.altitude ?? 0)),

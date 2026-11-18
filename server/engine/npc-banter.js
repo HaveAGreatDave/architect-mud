@@ -32,7 +32,7 @@ import { emit } from './events.js';
 
 // ── Tunables ──────────────────────────────────────────────────────────────────
 const START_CHANCE    = 0.33;          // per eligible zone, per initiation tick
-const TURN_GAP_MS      = [4500, 8000]; // random delay between turns
+const TURN_GAP_MS      = [2500, 4000]; // random delay between turns
 const ZONE_COOLDOWN_MS = [2, 4];       // minutes of quiet after a scene ends (min..max)
 const MAX_TURNS        = 8;            // cap however long a chosen thread runs
 const OWN_POOL_BIAS    = 0.7;          // chance to draw from per-NPC + personality pool over generic

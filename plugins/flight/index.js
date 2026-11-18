@@ -59,11 +59,12 @@ import { commands as acquisitionCommands, refuelAt, refuelParked, fieldStocks } 
 import { commands as combatCommands, tickCombat, relayContacts } from './combat.js';
 import { commands as contractCommands, checkContractDelivery, checkCargoDropDelivery, waitingDropAt, ensureFreightDrops, isFreightLicensed } from './contracts.js';
 import { commands as hangarCommands, pushHangarBay, setHangarBoarder } from './hangars.js';
+import { commands as scuttleCommands } from './scuttle.js';
 import { commands as charterCommands, charterDebug, charterParkedAt, embarkCharter, activeCharters, chaseCont, stepToward, CRUISE_TILES } from './charter.js';
 import { isPilotLicensed, beginCheckride, evaluateCheckride, checkrideEvent, getCheckrideState, hasActiveCheckride } from './checkride.js';
 import './onboard.js';   // the once-ever "this is an airfield, and the licence is free" briefing
 import { prefersTextTravel, boardingLine, textTravelTick } from './textmode.js';
-import { prefersTextMinigamesOrDefault } from '../../server/engine/presentation.js';
+import { prefersTextMinigamesOrDefault, loggedPanelsSync } from '../../server/engine/presentation.js';
 import {
   startTextPilot, stopTextPilot, wireTextPilot, statusLines as textPilotStatus,
   cmdTextThrottle, cmdTextClimb, cmdTextLevel, cmdTextTurn, cmdTextFlaps, cmdTextGear,
@@ -434,6 +435,27 @@ async function tryVesselAction(type, player, broadcast, params = {}) {
   return r;
 }
 
+// The Merlin's underglow from its LIGHTS page: `underglow #rrggbb` or `underglow off` (the panel adds
+// `quiet`). Kept on the
+// craft (custom_data.underglow) and sent with it to other pilots (airContact). Taps on the wheel come
+// fast, so the write is put off a moment and the last colour wins.
+async function cmdUnderglow(args, raw, player) {
+  const live = player.aircraftId ? liveAircraft.get(player.aircraftId) : null;
+  if (!live) return { type: 'emote', message: "You're not aboard anything." };
+  if (live.type?.class !== 'merlin') return { type: 'emote', message: 'This craft has no underglow.' };
+  const w = String(args[0] || '').toLowerCase();
+  const hex = /^#[0-9a-f]{6}$/.test(w) ? w : (w === 'off' || w === 'none') ? null : undefined;
+  if (hex === undefined) return { type: 'emote', message: 'Usage: underglow #rrggbb, or underglow off.' };
+  const cd = live.row.custom_data || (live.row.custom_data = {});
+  if (hex) cd.underglow = hex; else delete cd.underglow;
+  clearTimeout(live._glowSave);
+  live._glowSave = setTimeout(() => { persist(live).catch(() => {}); }, 1500);
+  if (live.row.airborne) relayContacts(live);
+  // The panel's own wheel shows the pick, so a tap says nothing in the log; typed, it answers.
+  if (String(args[1] || '').toLowerCase() === 'quiet') return { type: 'noop' };
+  return { type: 'emote', message: hex ? `Underglow set to ${hex}.` : 'Underglow off.' };
+}
+
 async function cmdDisembark(args, raw, player, broadcast) {
   const live = player.aircraftId ? liveAircraft.get(player.aircraftId) : null;
   if (!live) {
@@ -471,6 +493,13 @@ async function cmdDisembark(args, raw, player, broadcast) {
   // your own craft in) → drop straight onto the hangar floor, same as walking in.
   const inHangarBay = getZone(player.current_zone)?.flags?.hangar_interior;
   if (inHangarBay) await pushHangarBay(player);
+  // Out of a Merlin: you step out under the open gull wing onto the street on foot in GLASS (plugins/freelook
+  // answers `roomstage.onfoot`). Sent once the client has shown the doors swing and shut the cockpit
+  // (cockpit.js holdForDoors, 950 ms), or the cockpit's close lands on top of the street view.
+  if (live.type?.class === 'merlin' && !inHangarBay && getZone(player.current_zone)?.map_id === 'map_world' && !loggedPanelsSync(player)) {
+    const pid = player.id, zone = player.current_zone;
+    setTimeout(() => { const p = getLivePlayer(pid); if (p && p.current_zone === zone && !p.aircraftId) emit('roomstage.onfoot', { player: p, zone }); }, 1200);
+  }
   // Walkable cabin: detach relocated us onto the ramp — render that room so the client
   // leaves the cabin cleanly (there was no cockpit HUD whose close would trigger it).
   if (wasWalkable && !inHangarBay) {
@@ -1301,6 +1330,24 @@ async function cmdFlightEvent(args, raw, player, broadcast) {
     if (!live.row.airborne) return { type: 'noop' };
     live.row.damage = Math.min(1, (live.row.damage || 0) + 0.2);
     out(player.id, '<span class="text-amber">You clip a rooftop: the airframe shudders and something tears.</span>');
+    if (live.row.damage >= 1) { await crash(live, 'cfit'); return { type: 'noop' }; }
+    await persist(live);
+    pushHud(live);
+    return { type: 'noop' };
+  }
+
+  // The Merlin on the road glancing off a wall (client merlin-modes.js merlinGlance): `scrape <pct>`,
+  // 0 to 15, nothing under 30 kt. A road scrape is a car's, not a roof clip's fifth of the hull.
+  // Rate-limited as the wave is, so a client can't grind the hull down by repeating it.
+  if (ev === 'scrape' && live.type?.class === 'merlin') {
+    if (!live.row.airborne) return { type: 'noop' };
+    const now = Date.now();
+    if (now - (live._lastScrape || 0) < 700) return { type: 'noop' };
+    live._lastScrape = now;
+    const pct = Math.max(0, Math.min(15, Number(args[1]) || 0));
+    if (!pct) { out(player.id, '<span class="text-dim">You nudge the wall.</span>'); return { type: 'noop' }; }
+    live.row.damage = Math.min(1, (live.row.damage || 0) + pct / 100);
+    out(player.id, '<span class="text-amber">The Merlin glances off the wall in a spray of sparks.</span>');
     if (live.row.damage >= 1) { await crash(live, 'cfit'); return { type: 'noop' }; }
     await persist(live);
     pushHud(live);
@@ -2556,18 +2603,18 @@ export const commands = {
   // have no banded-craft equivalent, so they answer only for a text pilot.
   turn: cmdTurnVerb, descend: cmdDive, level: cmdLevelVerb,
   flaps: cmdFlapsVerb, gear: cmdGearVerb, status: cmdStatusVerb,
-  flightsync: cmdFlightSync, flocksync: cmdFlockSync, flightevent: cmdFlightEvent, flightresume: cmdFlightResume, airhome: cmdAirHome,
+  underglow: cmdUnderglow, flightsync: cmdFlightSync, flocksync: cmdFlockSync, flightevent: cmdFlightEvent, flightresume: cmdFlightResume, airhome: cmdAirHome,
   flightwaypoint: cmdFlightWaypoint, flightgps: cmdFlightGps,
   checkride: cmdCheckride,
   quack: cmdQuack,   // the Drake's loudspeaker
   champagne: cmdChampagne,   // the ice bucket (champagne.js)
-  ...hazardCommands, ...drakeStoreCommands, ...acquisitionCommands, ...combatCommands, ...contractCommands, ...hangarCommands, ...charterCommands,
+  ...hazardCommands, ...drakeStoreCommands, ...acquisitionCommands, ...combatCommands, ...contractCommands, ...hangarCommands, ...scuttleCommands, ...charterCommands,
 };
 
 export const hooks = {
   'zone.describeRoom': describeAirfield,
   // One of yours pulled out onto a hangar's floor by the tug, for the Room Stage (server/engine/vehicle-stand.js). Sync, RAM.
-  'room.vehicles': (zoneId, player) => standVehicles(zoneId, player, 'aircraft'),
+  'room.vehicles': (zoneId, player) => standVehicles(zoneId, player, 'aircraft') ?? standVehicles(zoneId, player, 'sdeck'),
   // Where our crewed machines are, for anything that needs to reach a vehicle at
   // a coordinate rather than a player in a zone. One consumer today — the EMP
   // pulse, which lands somewhere and takes the electronics of whatever was in

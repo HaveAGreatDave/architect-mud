@@ -27,6 +27,57 @@ import { giveItemById } from '../../server/engine/inventory.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { loggedPanelsSync } from '../../server/engine/presentation.js';
 import { heldAs, lighterOf } from '../stands/index.js';
+import { registerPlugGate } from '../appliances/index.js';
+import { emit } from '../../server/engine/events.js';
+
+// NUDGING A MACHINE OUT FROM THE WALL. A machine with `flags.nudge` stands against a wall with its plug behind it:
+// `nudge <machine>` slides it out so you can reach the plug (appliances' `unplug`/`plug`), and again pushes it home.
+// Where it stands is RAM only (a restart puts every machine back against its wall), and the Room Stage reads it off
+// `room.pieceState` (below), as `vend` on the piece: { out, plugged, menu }.
+const nudged = new Set();
+const nudgeable = (f) => !!f?.flags?.nudge;
+export const isNudgedOut = (f) => nudged.has(f?.id);
+registerPlugGate((m) => (nudgeable(m) && !nudged.has(m.id)
+  ? `The ${m.name}'s plug is behind it, against the wall. NUDGE ${String(m.name).toUpperCase()} to pull it out first.` : null));
+
+async function cmdNudge(args, raw, player, broadcast) {
+  const words = (args || []).map((w) => String(w).toLowerCase()).filter((w) => w !== 'the');
+  const last = words[words.length - 1];
+  let to = null;
+  if (['out', 'forward', 'back', 'in', 'home'].includes(last)) { to = last === 'out' || last === 'forward'; words.pop(); }
+  const want = words.join(' ').trim();
+  const list = getZoneFurniture(player.current_zone).filter(nudgeable);
+  if (!list.length) return { type: 'error', message: "There's nothing here you could shift." };
+  const hits = want ? list.filter((f) => String(f.name || '').toLowerCase().includes(want) || String(f.flags?.aliases || '').toLowerCase().includes(want)) : list;
+  if (!hits.length) return { type: 'error', message: `There's no "${want}" here to nudge.` };
+  if (hits.length > 1) return { type: 'error', message: `Which one? ${hits.map((f) => f.name).join(', ')}.` };
+  const m = hits[0], was = nudged.has(m.id), out = to ?? !was;
+  if (out === was) return { type: 'output', message: out ? `The ${m.name} is already out from the wall.` : `The ${m.name} is already back against the wall.` };
+  if (out) nudged.add(m.id); else nudged.delete(m.id);
+  emit('furniture.changed', { zoneId: player.current_zone, id: m.id });
+  broadcast?.(player.current_zone, { type: 'zone_event', message: out ? `${player.handle} hauls the ${m.name} out from the wall.` : `${player.handle} shoves the ${m.name} back against the wall.` }, player.id);
+  return { type: 'output', message: out
+    ? `You get your fingers round the ${m.name} and walk it out from the wall. The cable's behind it, plugged into the socket.`
+    : `You shove the ${m.name} back against the wall. The plug's out of reach again.` };
+}
+
+// What a nudgeable machine shows on the Stage (sync, RAM): out or home, plugged or not, and its menu with each
+// entry's own `label` (a short name for its button) and `tint` (its pouch's colour), as the content writes them.
+function pieceState(zoneId) {
+  let out;
+  for (const f of getZoneFurniture(zoneId)) {
+    if (!nudgeable(f)) continue;
+    const raw = Array.isArray(f.flags?.vend_menu) ? f.flags.vend_menu : [];
+    const menu = menuOf(f).map((e) => {
+      const it = getItem(e.item), src = raw.find((r) => r && String(r.item) === e.item) || {};
+      return { item: e.item, price: e.price, name: it?.name || e.item, label: String(src.label || it?.name || e.item).slice(0, 14), ...(/^#[0-9a-f]{6}$/i.test(src.tint || '') ? { tint: src.tint } : {}) };
+    });
+    // and what's lettered across its head and what colour it's painted (`look.label`, `look.sub`, `look.tint`)
+    const look = f.flags?.look || {}, words = (x) => (typeof x === 'string' ? x.slice(0, 40) : undefined);
+    (out ||= {})[f.id] = { vend: { out: nudged.has(f.id), plugged: isPluggedIn(f), menu, title: words(look.label), sub: words(look.sub), ...(/^#[0-9a-f]{6}$/i.test(look.tint || '') ? { tint: look.tint } : {}) } };
+  }
+  return out;
+}
 
 // playerId:furnitureId -> last-vend timestamp. In-memory: a soft anti-spam guard,
 // not persisted (a restart forgives it, which is fine for grey slurry).
@@ -186,4 +237,6 @@ export const specializedActions = [
   { verb: 'vend', requiredFlag: 'vends', handler: null },
 ];
 
-export const commands = { vend: cmdVend };
+export const commands = { vend: cmdVend, nudge: cmdNudge };
+export const hooks = { 'room.pieceState': pieceState };
+export const _test = { nudged, pieceState };

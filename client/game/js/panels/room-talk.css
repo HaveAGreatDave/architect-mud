@@ -1,0 +1,30 @@
+/* ROOM · TALKING TO SOMEBODY (room-talk.js): with the camera on their face, the dialogue panel becomes a lower third
+   over the room, in the Stage's own panel colours, so the face above it is the conversation and the box is captions.
+   Only a conversation, never a shop: the shelf keeps its full box. */
+body.room-talking #dialogue-panel:not(.shop-mode) {
+	padding-bottom: 14px;
+	background: linear-gradient(to bottom, rgba(0, 0, 0, 0.32), transparent 9%, transparent 52%, rgba(0, 0, 0, 0.6));
+}
+body.room-talking #dialogue-panel:not(.shop-mode) #dialogue-box {
+	width: min(880px, calc(100vw - 32px)); max-width: none; height: auto; max-height: 44vh; padding: 12px 18px 12px;
+	background: var(--rs-panel, rgba(10, 12, 18, 0.82)); border: 1px solid var(--border); border-radius: 8px;
+	backdrop-filter: blur(6px); box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+}
+body.room-talking #dialogue-panel:not(.shop-mode) #dialogue-header { margin-bottom: 4px; }
+body.room-talking #dialogue-panel:not(.shop-mode) #dialogue-npc-name { font-size: 1.05rem; letter-spacing: 0.04em; }
+/* the line is the caption: bigger, and no box of its own to scroll in unless it must */
+body.room-talking #dialogue-panel:not(.shop-mode) #dialogue-text {
+	flex: 0 1 auto; min-height: 0; max-height: 9em; overflow-y: auto; font-size: 1.0625rem; line-height: 1.45;
+	background: none; border: 0; padding: 2px 0 6px;
+}
+/* the answers side by side where there's room, so the panel stays low and the face stays clear */
+body.room-talking #dialogue-panel:not(.shop-mode) #dialogue-options {
+	display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 6px; max-height: 20vh; overflow-y: auto;
+}
+body.room-talking #dialogue-panel:not(.shop-mode) .dialogue-opt { margin: 0; }
+/* the Stage's own HUD steps out of the way of the face; the speech bubble over their head is the panel's line again */
+body.room-talking #room-stage :is(.rs-say, .rs-tags, .rs-bar) { visibility: hidden; }
+@media (max-width: 600px) {
+	body.room-talking #dialogue-panel:not(.shop-mode) #dialogue-box { max-height: 52vh; padding: 10px 12px; }
+	body.room-talking #dialogue-panel:not(.shop-mode) #dialogue-options { grid-template-columns: 1fr; }
+}

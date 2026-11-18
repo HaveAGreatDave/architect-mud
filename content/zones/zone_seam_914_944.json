@@ -1,0 +1,26 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "wasteland",
+  "color": "#b5744a",
+  "description": "Mesa shelves drop away in broken steps of ochre and iron-red. Dry washes cut between them, and the wind comes down the washes full of grit.",
+  "exits": {
+    "east": "zone_district_914_944",
+    "north": "zone_seam_914_943",
+    "south": "zone_seam_914_945",
+    "west": "zone_district_913_944"
+  },
+  "flags": {
+    "district": "wilds",
+    "radiation": 40,
+    "region_id": "region_coldwater",
+    "scavenging_table_id": "scav_irradiated_salvage",
+    "terrain": "redrock"
+  },
+  "grid_x": 914,
+  "grid_y": 944,
+  "grid_z": 0,
+  "id": "zone_seam_914_944",
+  "map_id": "map_world",
+  "name": "The Rust Flats",
+  "parent_zone": null
+}

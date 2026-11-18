@@ -240,6 +240,7 @@ Two rules came out of doing it, and both are easy to get wrong:
   (OFL or Apache, licence beside each), loaded by `loadNeonFaces`. The old system-font chains stay
   as the fallback. Add a face by dropping the `.woff2` and its licence there and adding a row to the
   loader, `SIGN_FONT`, `SIGN_TRACK` and the key list in `building-model-schema.js`.
+  [fonts.md](fonts.md) lists every face in that folder by setting, including the ones no hand uses yet.
 - **A trade has more than one hand.** `SIGN_ALT` lists a face's alternates (`showcard`, `marker`,
   `stencil2`, `techno2`), rolled per label in `altHand`, so a name keeps its hand everywhere.
 - **Seven fascia kinds** in `fasciaKind`: `tube`, `box` (lightbox), `applied`, `painted`, `gilt`
@@ -726,8 +727,8 @@ billboarded.
 
 ### Coldwater Regional's terminal
 
-Coldwater Regional is five building tiles beside its runway. The tower (924,901, `control_tower`)
-is the `atc` arm and the terminal's two halves (`arrivals` 924,902 and `departures` 924,903) are
+Coldwater Regional is five building tiles beside its runway. The tower (925,901, `control_tower`)
+is the `atc` arm and the terminal's two halves (`arrivals` 925,902 and `departures` 925,903) are
 arms of their own, all in [glass/models/downtown.js](../../client/game/js/panels/glass/models/downtown.js);
 the two hangars are `bay` marks drawn by `drawVehicleBay`. The older `hangar` arm, an all-in-one
 terminal, shed and tower, now only draws a `hangar` tile that isn't an `aircraft_hangar`.
@@ -940,7 +941,7 @@ person or a wrong tile.
   there stay at the verge and only change pose.
 - **Nobody stands past the Curtain.** The wall runs down the middle of its tile, and the spots above
   come from a square round the tile centre, so before this about half the people on the east-wall
-  camp (927,917 and 927,918) stood out in the wastes. The server sends `ci`, the inward side, on
+  camp (928,917 and 928,918) stood out in the wastes. The server sends `ci`, the inward side, on
   every Curtain tile (`curtainInward` in `plugins/flight/state.js`), and `curtainSide` mirrors any
   spot, ring or stroll target on the far side back inside, clear of the field. The gate tile has no
   `ci`: it's the gap, and people stand on both sides of it.

@@ -1,5 +1,5 @@
 {
-  "description": "A marble console by the washroom door with a tall vase of lilies on it. The lilies are silk, and someone dusts them every morning.",
+  "description": "A marble console past the washroom door with a tall vase of lilies on it. The lilies are silk, and someone dusts them every morning.",
   "flags": {
     "aliases": "console,table,lilies,vase",
     "look": {
@@ -13,7 +13,7 @@
       "form": "console"
     },
     "spot": {
-      "along": 3.4,
+      "along": 7.4,
       "wall": "right"
     }
   },

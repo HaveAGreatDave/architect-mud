@@ -29,7 +29,37 @@ const PX = 384, PH = Math.round(PX * SHEET_H / SHEET_W);
 const GLEAM = 0.32;                       // the glyphs' light on a joined run, for good
 const PROUD = 0.024, GLOW_PROUD = 0.03;   // off the plaster: clear of a fine room's cladding (2 cm)
 
+const LAID_UP = 0.012, LAID_IN = 0.06;   // laid on the floor (the arrange mode): how high off it, how far out from the wall
+const WALL_GRID = 0.25;                   // the wall's grid: a run's middle, or a hung piece's, goes on a step this long, metres
+const FLUSH = 0.2;                        // a run's end this near another run's end on the same wall goes right against it, metres
+
 const perM = (L) => (L.ft || 1) * FT_PER_M;
+/** The wall grid's step in metres (a hung piece's spot is in metres; a run's in the room's units: times perM). */
+export const WALL_GRID_M = WALL_GRID;
+/** `along` (room units) on the wall's grid. */
+export const snapAlong = (L, along) => { const g = WALL_GRID * perM(L); return Math.round(along / g) * g; };
+/** The wall's grid steps from `lo` to `hi` (room units), for drawing it. */
+export function gridAlong(L, lo, hi) { const g = WALL_GRID * perM(L), out = []; for (let x = Math.ceil(lo / g) * g; x <= hi + 1e-6; x += g) out.push(x); return out; }
+/** How far out from its wall a laid thing (the arrange mode) starts, room units. */
+export const laidIn = (L) => LAID_IN * perM(L);
+/**
+ * A run's middle on its wall, the way a hand puts it: right against a neighbouring run's end when it comes within
+ * FLUSH of it (so two sets line up edge to edge), else on the wall grid. `others` are the other runs, { wall, c, half }.
+ */
+export function snapRun(L, wall, along, half, others) {
+  const k = perM(L);
+  let best = null;
+  for (const o of others) {
+    if (o.wall !== wall) continue;
+    for (const c of [o.c + o.half + half, o.c - o.half - half]) if (Math.abs(c - along) < FLUSH * k && (best === null || Math.abs(c - along) < Math.abs(best - along))) best = c;
+  }
+  return best ?? snapAlong(L, along);
+}
+/** A point on a wall, `a` along it, `y` up and `d` out of it into the room, in the world. */
+export function wallPoint(L, wall, a, y, d = 0) {
+  const hu = L.w / 2;
+  return wall === 'front' ? L.world(a, d, y) : wall === 'back' ? L.world(a, L.d - d, y) : wall === 'left' ? L.world(-hu + d, a, y) : L.world(hu - d, a, y);
+}
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
 const ease = (x) => { const t = clamp01(x); return t * t * t * (t * (t * 6 - 15) + 10); };
 function rng(seed) {
@@ -96,12 +126,20 @@ function busyOn(L, wall, y0, y1) {
  * Where a run `width` long and `height` tall hangs (metres): { wall, c, y, s, across } in the room's units, `s` how far
  * it's shrunk to fit (1 at full size), or null for nowhere.
  */
-export function sheetRun(L, width, height, taken = []) {
+export function sheetRun(L, width, height, taken = [], spot = null) {
   if (!L?.spec || !(width > 0)) return null;
   const k = perM(L), sh0 = height * k, y = Math.min(MID_Y * k, (L.h || 2.6 * k) - sh0 / 2 - 0.15 * k);
   const need = width * k, edge = 0.2 * k, clear = 0.12 * k;
+  const walls = wallsOf(L), pinned = spot && walls.find((W) => W.wall === spot.wall);
+  // slid there by hand (the arrange mode): its middle where they put it, kept on the wall, over whatever's there
+  if (pinned && Number.isFinite(spot.along)) {
+    const s = Math.min(1, (pinned.hi - pinned.lo - 2 * edge) / need);
+    if (s < 0.6) return null;
+    const half = (need * s) / 2, c = Math.max(pinned.lo + edge + half, Math.min(pinned.hi - edge - half, spot.along));
+    return { wall: pinned.wall, c, y, s, across: pinned.across, span: [c - half, c + half], pinned: true };
+  }
   let best = null;
-  for (const W of wallsOf(L)) {
+  for (const W of pinned ? [pinned] : walls) {
     const busy = [...busyOn(L, W.wall, y - sh0 / 2, y + sh0 / 2), ...taken.filter((t) => t.wall === W.wall).map((t) => [t.a, t.b])].sort((a, b) => a[0] - b[0]);
     let at = W.lo + edge;
     const gaps = [];
@@ -117,13 +155,16 @@ export function sheetRun(L, width, height, taken = []) {
 
 // A point on the run's wall, `s` across it to the right as you face it from its middle and `y` up, `d` out of it,
 // in the world. And the wall's inward normal.
-function wallFrame(L, run) {
-  const hu = L.w / 2, D = L.d, W = run.wall;
-  const at = (a, y, d) => (W === 'front' ? L.world(a, d, y) : W === 'back' ? L.world(a, D - d, y) : W === 'left' ? L.world(-hu + d, a, y) : L.world(hu - d, a, y));
+// `top` (the arrange mode): the run laid face up on the floor at the foot of its wall, its top edge to the wall, so it
+// reads from inside the room with the walls down, and never shows its back over the cut walls.
+function wallFrame(L, run, top = null) {
+  const hu = L.w / 2, D = L.d, W = run.wall, k = perM(L);
+  const at0 = (a, y, d) => (W === 'front' ? L.world(a, d, y) : W === 'back' ? L.world(a, D - d, y) : W === 'left' ? L.world(-hu + d, a, y) : L.world(hu - d, a, y));
+  const at = top == null ? at0 : (a, y, d) => at0(a, LAID_UP * k + d * 0.2, LAID_IN * k + (top - y));
   const o = at(run.c, run.y, 0), q = at(run.c, run.y, 1), nn = [q[0] - o[0], 0, q[2] - o[2]], nl = Math.hypot(nn[0], nn[2]) || 1, n = [nn[0] / nl, 0, nn[2] / nl];
   // which way `a` runs for somebody facing the wall: right = (n.z, 0, -n.x)
   const p1 = at(run.c + 1, run.y, 0), sign = ((p1[0] - o[0]) * n[2] + (p1[2] - o[2]) * -n[0]) >= 0 ? 1 : -1;
-  return { n, pt: (s, y, d) => at(run.c + sign * s, y, d) };
+  return { n: top == null ? n : [0, 1, 0], pt: (s, y, d) => at(run.c + sign * s, y, d) };
 }
 
 // ── the print ─────────────────────────────────────────────────────────────────────────────────────
@@ -400,12 +441,12 @@ function slack(slot) {
  * `seams` is how strong the light along them is; `letters` (per slot, 0..1) how much of each slot's lettering shows,
  * as foil, and `flare` (per slot) the light off it as it comes up. A painted set's lettering is its glyph light.
  */
-function runDecals(L, run, g0, { j = 0, joined = false, seams = 0, letters = null, flare = null } = {}) {
+function runDecals(L, run, g0, { j = 0, joined = false, seams = 0, letters = null, flare = null, laid = false } = {}) {
   const art = artOf(g0);
   if (!art) return [];
-  const F = art.F, W = wallFrame(L, run), k = perM(L), out = [];
+  const F = art.F, k = perM(L), out = [];
   const u = (F.height * k * run.s) / F.h;          // room units a picture pixel
-  const sh = F.h * u, mid = F.w / 2;
+  const sh = F.h * u, mid = F.w / 2, W = wallFrame(L, run, laid ? run.y + sh / 2 : null);
   const quad = (cs, cy, w, h, rot, d) => {
     const c = Math.cos(rot), s = Math.sin(rot), at = (x, y) => W.pt(cs + x * c - y * s, cy + x * s + y * c, d);
     return [at(-w / 2, h / 2), at(w / 2, h / 2), at(w / 2, -h / 2), at(-w / 2, -h / 2)];
@@ -442,7 +483,9 @@ export function sheetRuns(L, sheets) {
   const taken = [], out = [], k = perM(L);
   for (const g of setsOf(sheets)) {
     const F = frameOf(g), width = (F.w / F.h) * F.height;
-    const run = sheetRun(L, width, F.height, taken);
+    // where the owner put the run (`spot`, plugins/roomstage `sheet_spot`): the first sheet that says, else ROOM picks
+    const spot = g.sheets.find((s) => s.spot?.wall)?.spot || null;
+    const run = sheetRun(L, width, F.height, taken, spot) || (spot ? sheetRun(L, width, F.height, taken) : null);
     if (!run) continue;
     const half = (width * k * run.s) / 2;
     taken.push({ wall: run.wall, a: run.c - half, b: run.c + half });
@@ -452,11 +495,11 @@ export function sheetRuns(L, sheets) {
 }
 
 /** The room's sheets as decals, at rest: a whole set in `joined` (a Set of set names) drawn as one, lettered. */
-export function sheetDecals(L, runs, joined = new Set()) {
+export function sheetDecals(L, runs, joined = new Set(), { laid = false } = {}) {
   const out = [];
   for (const { g, run } of runs) {
     const one = isWhole(g) && joined.has(g.set);
-    out.push(...runDecals(L, run, g, one ? { joined: true, j: 1, letters: Object.fromEntries(g.sheets.map((s) => [s.slot, 1])) } : {}));
+    out.push(...runDecals(L, run, g, one ? { joined: true, j: 1, laid, letters: Object.fromEntries(g.sheets.map((s) => [s.slot, 1])) } : { laid }));
   }
   return out;
 }

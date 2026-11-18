@@ -3,7 +3,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#3a3550",
   "color": "#e8e0ff",
-  "description": "Rose stucco between cream fins, a dark brick plinth, and gilt cut a finger deep into the parapet: EMBASSY HOTEL. Two corner turrets under lead domes, and the clock in one of them is stopped at ten past four. It's the only door on Ironside Street with a canopy over it, and the only building down here anybody still bothers to floodlight. The bar's windows are lit. The lobby's aren't.",
+  "description": "Rose stucco between cream fins, a dark brick plinth, and gilt cut a finger deep into the parapet: EMBASSY HOTEL. Two corner turrets under lead domes, and the clock in one of them is stopped at ten past four. It's the only door on Ironside Street with a canopy over it, and the only building down here anybody still bothers to floodlight. The windows either side of the door are lit, and through the left one you can see the bar.",
   "exits": {
     "east": "zone_residential_lobby",
     "west": "zone_district_919_904"
@@ -18,7 +18,7 @@
     "region_id": "region_coldwater",
     "world_exit_zone": "zone_district_919_904"
   },
-  "grid_x": 920,
+  "grid_x": 921,
   "grid_y": 904,
   "grid_z": 0,
   "id": "zone_district_920_904",

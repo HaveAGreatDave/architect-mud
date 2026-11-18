@@ -1,0 +1,35 @@
+{
+  "description": "A canvas cot with a coat for a pillow. The coat isn't yours and nobody has come back for it.",
+  "flags": {
+    "aliases": [
+      "cot",
+      "cots",
+      "bed",
+      "cot 501"
+    ],
+    "interactions": [
+      "sit",
+      "lie",
+      "sleep"
+    ],
+    "look": {
+      "arche": "sofa",
+      "form": "cot",
+      "wear": 0.95
+    },
+    "spot": {
+      "along": 1.2,
+      "wall": "right"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_hostel_cot_5_1",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "cot 501",
+  "object_type": "bed",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_hostel_dorm_5"
+}

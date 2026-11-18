@@ -1,0 +1,48 @@
+{
+  "description": "A box office window in a bronze frame, a brass grille over the glass and a dished slot under it, ADMISSIONS lettered over it. Money goes in the slot and a ticket comes back with tonight's date on it.",
+  "flags": {
+    "aliases": [
+      "window",
+      "ticket window",
+      "box office",
+      "tickets",
+      "slot",
+      "grille",
+      "admissions window"
+    ],
+    "interactions": [
+      "buyticket"
+    ],
+    "look": {
+      "arche": "surface",
+      "dims": [
+        2.4,
+        0.8,
+        2.6
+      ],
+      "form": "boxoffice",
+      "label": "Admissions",
+      "sub": "Bleachers · Upper deck"
+    },
+    "spot": {
+      "at": [
+        6.6,
+        3.3
+      ],
+      "turn": -90
+    },
+    "ticket_window": {
+      "stands": "zone_hughson_stands"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_hughson_window_north",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the admissions window",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_hughson_rotunda"
+}

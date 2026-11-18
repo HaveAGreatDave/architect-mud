@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Architect at Five Months</title>
+<style>
+:root{--bg:#1d2836;--panel:#26344a;--line:#3a4d68;--ink:#e6ecf4;--dim:#9fb0c6;--gold:#f2c230;--gold2:#ffd95e;--good:#7fd19a;--warn:#f29a4a}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){--bg:#e9eef5;--panel:#fff;--line:#c7d2e0;--ink:#1b2636;--dim:#56677e;--gold:#b88a00;--gold2:#8a6700;--good:#2f8a4f;--warn:#b5590f}}
+:root[data-theme="dark"]{--bg:#1d2836;--panel:#26344a;--line:#3a4d68;--ink:#e6ecf4;--dim:#9fb0c6;--gold:#f2c230}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif}
+.wrap{max-width:960px;margin:0 auto;padding:40px 16px 80px}
+header{border-bottom:3px solid var(--gold);padding-bottom:20px;margin-bottom:32px}
+.kick{color:var(--gold);letter-spacing:.2em;font-size:12px;text-transform:uppercase;font-weight:700}
+h1{font-size:clamp(30px,6vw,52px);margin:6px 0 8px;line-height:1.05}
+h2{font-size:22px;margin:44px 0 14px;color:var(--gold)}
+p{margin:0 0 14px}.dim{color:var(--dim)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
+.stat b{display:block;font-size:28px;color:var(--gold);font-variant-numeric:tabular-nums}
+.stat span{font-size:13px;color:var(--dim)}
+table{width:100%;border-collapse:collapse;background:var(--panel);border-radius:10px;overflow:hidden}
+td,th{padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:top;text-align:left}
+th{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+td.g{font-weight:800;font-size:22px;color:var(--gold);width:60px;text-align:center}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--gold);border-radius:8px;padding:14px 16px}
+.card h3{margin:0 0 6px;font-size:16px}.card p{font-size:14.5px;margin:0;color:var(--dim)}
+.stack{display:flex;flex-direction:column;gap:6px}
+.layer{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 14px;display:flex;gap:14px;align-items:baseline;flex-wrap:wrap}
+.layer b{color:var(--gold);min-width:90px}
+.bars{display:flex;align-items:flex-end;gap:10px;height:150px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+.bar{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;font-size:12px;color:var(--dim)}
+.bar i{display:block;width:100%;background:var(--gold);border-radius:4px 4px 0 0}
+.verdict{background:var(--panel);border:2px solid var(--gold);border-radius:12px;padding:22px}
+ul{padding-left:20px}li{margin-bottom:6px}
+</style></head><body><div class="wrap">
+<header><div class="kick">Report card · 19 June to 19 November 2026</div>
+<h1>Architect at five months</h1>
+<p class="dim">A post-singularity browser MUD in the HellMOO tradition, built on its own platform, THOMAS. Numbers taken from the repository on 18 November 2026.</p></header>
+
+<div class="stats">
+<div class="stat"><b>3,633</b><span>commits (about 24 a day)</span></div>
+<div class="stat"><b>~900k</b><span>lines of JS across server, plugins, client, tools</span></div>
+<div class="stat"><b>157</b><span>plugins</span></div>
+<div class="stat"><b>17,941</b><span>zones in content/</span></div>
+<div class="stat"><b>465</b><span>authored NPCs</span></div>
+<div class="stat"><b>957</b><span>items</span></div>
+<div class="stat"><b>224</b><span>GLASS building models</span></div>
+<div class="stat"><b>241</b><span>design and reference docs</span></div>
+</div>
+
+<h2>What Architect is</h2>
+<p>Architect is a text MUD first: real time, brutal and funny, set after a singularity in a flooded basin city called Coldwater, with four ideological orders pulling at it and the Wildblood in the Under who were there first. You can play the whole thing by typing.</p>
+<p>What's unusual is that every system the text describes is also something you can see, hear and touch if you want to. The room you're standing in can be walked through in 3D. The street outside is drawn by GLASS. The radio host is speaking with a synthesized voice. The fish on your line is worked out from the place and the clock, the same on server and client. The text stays the truth; the rest are views of it.</p>
+
+<h2>How it fits together</h2>
+<div class="stack">
+<div class="layer"><b>Architect</b><span>The game: Coldwater, the Basin, the orders, the prose. All content as one JSON file per entity, deployed by git.</span></div>
+<div class="layer"><b>ROOM</b><span>Walking room to room, and building to street, on foot in 3D.</span></div>
+<div class="layer"><b>GLASS</b><span>The city, aircraft and streets in 3D, with GLASS Lite baked for phones.</span></div>
+<div class="layer"><b>SIREN · ORACLE</b><span>Synthesized sound and speech: no recorded VO, a 28k-word lexicon, FM cues, a tracker.</span></div>
+<div class="layer"><b>THOMAS</b><span>The engine: commands, SIFT/FATE targeting, the event bus, plugin loader, CODEX pipeline, dev panel.</span></div>
+<div class="layer"><b>Postgres</b><span>World state on Neon, with read tiers that keep the hot path off the network.</span></div>
+</div>
+<p class="dim" style="margin-top:10px">The pattern that keeps repeating: one shared pure function (fish, birds, cats, the Coliseum plan, a person's look) read by server, text, map and 3D alike. That's why so many views can exist without drifting apart.</p>
+
+<h2>Report card</h2>
+<table>
+<tr><th>Grade</th><th>Area</th><th>Why</th></tr>
+<tr><td class="g">A</td><td><b>Ambition and breadth</b><br><span class="dim">Systems</span></td><td>Combat, survival, drugs and chem labs, mutations, three disciplines, economy, corps, flight, trucking, fishing, broadcast sport, chess and poker, pets, jail, bounties. Most of these are "as built", not design.</td></tr>
+<tr><td class="g">A</td><td><b>Engineering discipline</b></td><td>Regress suite, ~40 gates with CPU budgets, an imports check per pushed commit, docs lint that catches false status lines. Rare for a hobby project, and it shows: things that broke once got a gate.</td></tr>
+<tr><td class="g">A−</td><td><b>Tech originality</b></td><td>Own 3D renderer, own synth and speech engine, own map and model editors, no build step. Impressive; the cost is surface area to maintain.</td></tr>
+<tr><td class="g">B+</td><td><b>World and tone</b></td><td>Coldwater has real places, pun shops and plain civic buildings, a house voice and a prose gate. Lore is spread over ~10 surfaces and needs the planned consolidation.</td></tr>
+<tr><td class="g">B</td><td><b>Documentation</b></td><td>241 docs and "as built" markers are excellent. CLAUDE.md is now so long it costs every session, and some status lines lag the code.</td></tr>
+<tr><td class="g">C+</td><td><b>Focus and the core loop</b></td><td>Activity per month halved after July while scope kept growing. Many features are "phase 1 built, rest design". The first hour for a new player matters more now than the hundredth system.</td></tr>
+<tr><td class="g">C</td><td><b>Players</b></td><td>The real test hasn't happened yet. Nothing here is validated until strangers stay for a week.</td></tr>
+<tr><td class="g">C</td><td><b>Repo hygiene</b></td><td>A permanently dirty main shared by people and many sessions has cost real work (clobbered edits, swept-in staged changes). The memory file is full of the workarounds.</td></tr>
+</table>
+
+<h2>Commits by month</h2>
+<div class="bars">
+<div class="bar"><i style="height:100%"></i>Jun<br>1014</div>
+<div class="bar"><i style="height:99%"></i>Jul<br>1006</div>
+<div class="bar"><i style="height:44%"></i>Aug<br>442</div>
+<div class="bar"><i style="height:40%"></i>Sep<br>404</div>
+<div class="bar"><i style="height:51%"></i>Oct<br>520</div>
+<div class="bar"><i style="height:24%"></i>Nov*<br>247</div>
+</div>
+<p class="dim" style="margin-top:8px">* to the 18th. June is 12 days. Later commits are bigger, so fewer doesn't mean slower; 2,735 by David, 517 by Akerson, 310 by Claude directly.</p>
+
+<h2>Accomplishments worth naming</h2>
+<div class="cards">
+<div class="card"><h3>A city you can fly over and walk into</h3><p>GLASS draws Coldwater from 224 models; ROOM walks you through the door of Screw It and up the stairs. The Building Stage joins the two.</p></div>
+<div class="card"><h3>A voice from nothing</h3><p>ORACLE speaks broadcasts, the Architect and books with a formant synth and RP/GA accents. No audio files.</p></div>
+<div class="card"><h3>Two sports on the air</h3><p>The CPhL with an NHL '96-style FM soundset, and Deadball at the Hughson Coliseum, a 25-tile deco bowl whose roof slides with the weather.</p></div>
+<div class="card"><h3>Chem Stage</h3><p>Drug cooking as pure-sim chains in 3D, with concealed labs behind false walls. The picture decides nothing; the server does.</p></div>
+<div class="card"><h3>Scrappy</h3><p>A cat with 51 clips, GPU skinning, real recordings and a day worked out from his id and the clock. The bar every pet must meet.</p></div>
+<div class="card"><h3>Git as the content writer</h3><p>CODEX: a push to main backs up prod, applies schema, imports 40k+ content files, gated by regress.</p></div>
+<div class="card"><h3>Seats with real lettering</h3><p>The Drake cockpit set the bar; the Merlin VTOL, trucks and skiff followed.</p></div>
+<div class="card"><h3>Accessibility from the start</h3><p>Text, textgames and log rungs, voice input, Read Aloud. Phone layout with GLASS Lite.</p></div>
+</div>
+
+<h2>Will it become something worthwhile?</h2>
+<div class="verdict">
+<p><b>Yes, I think so, with one condition.</b> The hard part of a game like this is usually the stuff you've already done: a world with a voice, a platform that doesn't collapse under its own weight, and the discipline to keep it shippable. Five months in, Architect has more working systems than many MUDs reach in years, and the "one pure function, many views" pattern means each new view gets cheaper rather than harder.</p>
+<p>The condition is players. Right now the project is graded against its own standards, and those are high. The next stretch should be graded against a stranger's first evening: do they understand where they are, find something to do in ten minutes, and want to come back? That's a narrower target than anything on the roadmap, and it's the one that turns an impressive engine into a game people talk about.</p>
+<p>Suggested next five months, in order:</p>
+<ul>
+<li>Pick one path through Coldwater for a new player and polish it to the Scrappy standard.</li>
+<li>Finish phases rather than start them; close "rest is design" lines.</li>
+<li>Get ten outside players in, watch them, and fix what they trip on.</li>
+<li>Give main a clean-tree workflow so people and sessions stop costing each other work.</li>
+</ul>
+<p class="dim" style="margin:0">Happy five months. It's a good start.</p>
+</div>
+</div></body></html>

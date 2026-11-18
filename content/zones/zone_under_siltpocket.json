@@ -18,7 +18,7 @@
     "scavenging_table_id": "scav_sewer",
     "terrain": "sewer"
   },
-  "grid_x": 922,
+  "grid_x": 923,
   "grid_y": 905,
   "grid_z": -1,
   "id": "zone_under_siltpocket",

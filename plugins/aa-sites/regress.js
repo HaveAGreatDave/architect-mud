@@ -85,11 +85,11 @@ export default async function regress({ check }) {
 
   // ── What is moving near a tile, for any view ──
   // A boat on the water is in it, and the asker's own hull is not.
-  boatRigs.set('aa_regress_boat', { playerId: 'aa_regress_boat', x: 918, y: 900, heading: 0, speed: 10, typeId: 'hydro', hull: 1 });
+  boatRigs.set('aa_regress_boat', { playerId: 'aa_regress_boat', x: 919, y: 900, heading: 0, speed: 10, typeId: 'hydro', hull: 1 });
   try {
-    const seen = worldContactsNear(918, 901, 6);
+    const seen = worldContactsNear(919, 901, 6);
     check('contacts: a boat near the tile is in the list', seen.some((c) => c.id === 'boat_aa_regress_boat'), JSON.stringify(seen.map((c) => c.id)));
-    const own = worldContactsNear(918, 901, 6, 'boat_aa_regress_boat');
+    const own = worldContactsNear(919, 901, 6, 'boat_aa_regress_boat');
     check('contacts: …and not in its own', !own.some((c) => c.id === 'boat_aa_regress_boat'));
   } finally { boatRigs.delete('aa_regress_boat'); }
 }

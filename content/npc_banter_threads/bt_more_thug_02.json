@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_thug_02",
+  "lines": [
+    "\"You ever think about getting out?\"",
+    "\"Out of what?\"",
+    "\"This.\"",
+    "\"Out of this into what? There's just more of this.\""
+  ],
+  "personality": "thug",
+  "sort_order": 700
+}

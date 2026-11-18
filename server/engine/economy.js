@@ -4,6 +4,7 @@
 // so the "credits can't go negative" invariant is enforced in one place.
 import { query } from '../models/db.js';
 import { emit } from './events.js';
+import { sendToPlayer } from './messaging.js';
 
 // Adjust carried credits by delta (positive = gain, negative = spend).
 // Returns false if the player can't afford it.
@@ -27,8 +28,16 @@ export async function adjustCredits(player, delta, exec = query, reason = null) 
   const res = await exec(
     'UPDATE players SET credits = credits + $1 WHERE id = $2 AND (credits + $1 >= 0 OR $1 >= 0) RETURNING credits',
     [delta, player.id]);
-  if (res.rowCount === 0) return false;
+  if (res.rowCount === 0) {
+    // A refused spend always says so on the purse itself, whatever the caller
+    // prints: the client floats "can't afford" on the credits counter.
+    sendToPlayer(player.id, { type: 'credits_delta', declined: true, cost: -delta, credits: player.credits ?? null });
+    return false;
+  }
   player.credits = res.rows[0].credits;
+  // Every spend shows its cost coming off the counter. Gains don't float:
+  // payouts already announce themselves, and wages would chatter.
+  if (delta < 0) sendToPlayer(player.id, { type: 'credits_delta', delta, credits: player.credits });
   // `actor` carries the live player like every other event, so trigger-bound
   // scripts can use player-scope flags / `once` / `say` on a money movement.
   // `playerId` stays for the existing subscribers that only ever wanted the id.

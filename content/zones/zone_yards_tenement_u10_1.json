@@ -10,6 +10,8 @@
     "floor": "boards",
     "is_apartment": true,
     "rent_cost": 25,
+    "set_aside": true,
+    "set_aside_from": "map_int_yards_tenement 0,-1,10",
     "window": {
       "description": "A narrow window gone yellow at the edges, the frame swollen and the sill crowded with grit.",
       "light": 0.6,
@@ -17,12 +19,12 @@
       "visibility": 0.6
     }
   },
-  "grid_x": 0,
-  "grid_y": -1,
+  "grid_x": 32,
+  "grid_y": 1,
   "grid_z": 10,
   "id": "zone_yards_tenement_u10_1",
-  "map_id": "map_int_yards_tenement",
+  "map_id": "map_set_aside",
   "marker": "10",
   "name": "Unit 1001",
-  "parent_zone": "zone_district_921_902"
+  "parent_zone": null
 }

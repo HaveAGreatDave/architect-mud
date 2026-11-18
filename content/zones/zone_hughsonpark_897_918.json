@@ -1,0 +1,30 @@
+{
+  "ambient_events": [
+    "A groundskeeper picks ticket stubs out of a flowerbed one at a time.",
+    "Somebody eats a hot dog on a bench and watches the Coliseum wall.",
+    "A pigeon lands on the nearest lamp and looks at you."
+  ],
+  "ambient_theme": "urban",
+  "color": "#8fd08a",
+  "description": "An ornamental pond in the East Gardens with lilies on it and a few carp. Somebody has thrown a programme in.",
+  "exits": {
+    "east": "zone_district_898_918",
+    "north": "zone_hughsonpark_897_917",
+    "south": "zone_hughsonpark_897_919",
+    "west": "zone_ballpark_892_918"
+  },
+  "flags": {
+    "district": "halcyon_fields",
+    "park_feature": "pond",
+    "region_id": "region_coldwater",
+    "street_life": true,
+    "terrain": "park"
+  },
+  "grid_x": 897,
+  "grid_y": 918,
+  "grid_z": 0,
+  "id": "zone_hughsonpark_897_918",
+  "map_id": "map_world",
+  "name": "East Gardens",
+  "parent_zone": null
+}

@@ -1,0 +1,29 @@
+{
+  "description": "A walnut dining table by the kitchen, seating six, with a runner of grey linen down the middle.",
+  "flags": {
+    "interactions": [
+      "examine"
+    ],
+    "look": {
+      "arche": "table",
+      "dims": [
+        2,
+        0.95,
+        0.76
+      ],
+      "form": "dining"
+    },
+    "spot": {
+      "at": [
+        7.25,
+        4.4
+      ],
+      "turn": 90
+    }
+  },
+  "id": "furn_solenne_r_dining_table",
+  "name": "dining table",
+  "object_type": "furniture",
+  "price": 3600,
+  "zone_id": "zone_solenne_apt_r"
+}

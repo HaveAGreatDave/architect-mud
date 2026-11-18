@@ -1,28 +1,33 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "city",
+  "ambient_events": [
+    "The fountains drop for a second, then come back up.",
+    "A groundskeeper picks ticket stubs out of a hedge one at a time.",
+    "Somebody eats a hot dog on a bench and watches the Coliseum wall."
+  ],
+  "ambient_theme": "urban",
   "color": "#8fd08a",
-  "description": "Planting in raised chrome beds, laid out in a pattern you can only read from about the eighth floor. From the ground it is a lot of low shrubs with gravel between them and a hose reel chained to a post.",
+  "description": "North Plaza, granite flags along the Coliseum's north wall with a bronze lamp standard every few steps. The gardens are on the north side.",
   "exits": {
     "east": "zone_district_897_912",
     "north": "zone_ballpark_895_910",
-    "south": "zone_ballpark_894_914",
-    "west": "zone_district_895_912"
+    "west": "zone_ballpark_892_913"
   },
   "flags": {
     "district": "halcyon_fields",
-    "park_feature": "flowerbeds",
+    "park_feature": "forecourt",
+    "park_focus": {
+      "x": 894.5,
+      "y": 913.5
+    },
     "region_id": "region_coldwater",
-    "set_aside": true,
-    "set_aside_from": "896,912",
     "street_life": true,
     "terrain": "park"
   },
-  "grid_x": 2,
-  "grid_y": 2,
+  "grid_x": 893,
+  "grid_y": 913,
   "grid_z": 0,
   "id": "zone_district_896_912",
-  "map_id": "map_set_aside",
-  "name": "Vetch Green",
+  "map_id": "map_world",
+  "name": "North Plaza",
   "parent_zone": null
 }

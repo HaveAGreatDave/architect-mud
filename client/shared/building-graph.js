@@ -22,6 +22,7 @@
 // other room does, and 'none' otherwise.
 
 import { withDoorways, roomSpecOf, withAnnex, WALL_T, flightOf, flightBox, STAIR } from './room-layout.js';
+import { glassDoorOf } from './street-door.js';
 
 export const OPPOSITE = {
   north: 'south', south: 'north', east: 'west', west: 'east',
@@ -230,7 +231,7 @@ export function roomOpenings(b, plan, zoneId, parked = null) {
     const dir = mine ? d.dir : (b.doors.find((x) => x.from === zoneId && x.to === other)?.dir ?? null);
     // the ground floor's way into the car is a plain door in the plan; its landing gets the bronze doors too
     const landing = !lift && !!plan.lifts?.[other] && d.kind === 'door';
-    out.push({ wall: side.wall, a: side.a, b: side.b, kind: d.kind === 'door' && !dir ? 'shut' : d.kind, dir, to: other, ...deep, ...(d.slide || landing ? { slide: true } : {}), ...(d.swing ? { swing: true } : {}), ...(d.hand ? { hand: true } : {}), ...(landing ? { lift: true } : {}) });
+    out.push({ wall: side.wall, a: side.a, b: side.b, kind: d.kind === 'door' && !dir ? 'shut' : d.kind, dir, to: other, ...deep, ...(d.slide || landing ? { slide: true } : {}), ...(d.swing ? { swing: true } : {}), ...(d.hand ? { hand: true } : {}), ...(d.dark ? { dark: true } : {}), ...(d.glass ? { glass: d.glass } : {}), ...(landing ? { lift: true } : {}) });
   }
   return out;
 }
@@ -344,10 +345,11 @@ export function buildingLayout(b, { zones, specOf }) {
   };
   // a point in a placed room's own frame (u across, v back from the front wall) as [x, z] from its middle
   const fromMid = (face, d, [u, v]) => { const f = face * Math.PI / 180, fx = Math.sin(f), fz = Math.cos(f), rx = Math.cos(f), rz = -Math.sin(f); return [fx * (d / 2 - v) + rx * u, fz * (d / 2 - v) + rz * u]; };
-  // `flags.room.street_door`: { kind: 'sliding', w } is a pair of automatic glass doors in place of a plain one;
-  // { kind: 'swing', w } a pair of hinged glass doors in metal frames that swing in, as an old hotel's do; with
-  // `hand: true` they stay shut from inside until you open them (F at the doors), as a hotel's front doors do
-  const streetDoorOf = (id) => { const v = Z.get(id)?.flags?.room?.street_door; return v?.kind === 'sliding' || v?.kind === 'swing' ? { w: Math.max(1.2, Math.min(3, Number(v.w) || 1.8)), swing: v.kind === 'swing', hand: v.kind === 'swing' && v.hand === true } : null; };
+  // `flags.room.street_door`: a glazed door in place of a plain one, of a kind in DOOR_KINDS (street-door.js):
+  // 'sliding' an automatic pair, 'swing' a hinged pair that swings in as an old hotel's does, 'single' one hinged
+  // leaf, 'revolving' four wings in a drum. A hinged one with `hand: true` stays shut from inside until you open it
+  // (F at the doors), as a hotel's front doors do. A painted door or a grille is cut as an ordinary doorway.
+  const streetDoorOf = (id) => glassDoorOf(Z.get(id)?.flags?.room?.street_door);
   // `flags.room.door_w`: { <dir>: metres }, a doorway wider than a door (a stadium's way through to its stands, up to
   // 4 m). The wider of the two rooms' says, so both sides cut the same opening
   const doorWOf = (id, dir) => { const v = Number(Z.get(id)?.flags?.room?.door_w?.[dir]); return Number.isFinite(v) ? Math.max(DOOR_W, Math.min(4, v)) : DOOR_W; };
@@ -469,7 +471,7 @@ export function buildingLayout(b, { zones, specOf }) {
       opening(to, B, bSide, offAt(to, B.face, OPPOSITE[dir]), dw);
       sides[to] = { ...onWalls(B, [at[0] + nx * g, at[1], at[2] + nz * g], dw), ...(bDeep ? { deep: bDeep } : {}) };
     }
-    doors.push({ kind, from, dir, to, at, sides, ...(sd ? { slide: true } : {}), ...(sd?.swing ? { swing: true } : {}), ...(sd?.hand ? { hand: true } : {}) });
+    doors.push({ kind, from, dir, to, at, sides, ...(sd ? { slide: true } : {}), ...(sd?.swing ? { swing: true } : {}), ...(sd?.hand ? { hand: true } : {}), ...(sd?.dark ? { dark: true } : {}), ...(sd?.glass ? { glass: sd.glass } : {}), ...(sd && sd.kind !== 'sliding' && sd.kind !== 'swing' ? { door: sd.kind } : {}) });
   };
 
   const entry = b.entry, f0 = faceFor(entry, null);

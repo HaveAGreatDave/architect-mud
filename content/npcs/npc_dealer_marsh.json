@@ -233,44 +233,44 @@
   "vendor_schedule": {
     "fri": [
       {
-        "from": 18,
-        "to": 27
+        "from": 14,
+        "to": 28
       }
     ],
     "mon": [
       {
-        "from": 18,
-        "to": 27
+        "from": 14,
+        "to": 28
       }
     ],
     "sat": [
       {
-        "from": 18,
-        "to": 27
+        "from": 14,
+        "to": 28
       }
     ],
     "sun": [
       {
-        "from": 18,
-        "to": 27
+        "from": 14,
+        "to": 28
       }
     ],
     "thu": [
       {
-        "from": 18,
-        "to": 27
+        "from": 14,
+        "to": 28
       }
     ],
     "tue": [
       {
-        "from": 18,
-        "to": 27
+        "from": 14,
+        "to": 28
       }
     ],
     "wed": [
       {
-        "from": 18,
-        "to": 27
+        "from": 14,
+        "to": 28
       }
     ]
   },

@@ -5,7 +5,7 @@
   "commands": [],
   "hooks": ["forcefield.gate"],
   "events": {
-    "emits": ["burglary.reported"],
+    "emits": ["burglary.reported", "npc.panic"],
     "consumes": ["breakin.attempt", "player.spoke", "player.attacked", "npc.attacked", "npc.killed"]
   },
   "ticks": ["5s"],

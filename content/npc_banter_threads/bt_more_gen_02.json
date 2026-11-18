@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_more_gen_02",
+  "lines": [
+    "\"I asked the Architect for a sign.\"",
+    "\"And?\"",
+    "\"The street light outside my window went off.\"",
+    "\"That might just be the street light.\"",
+    "\"I said thank you anyway.\""
+  ],
+  "personality": null,
+  "sort_order": 601
+}

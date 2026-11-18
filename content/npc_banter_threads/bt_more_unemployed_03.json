@@ -1,0 +1,11 @@
+{
+  "enabled": true,
+  "id": "bt_more_unemployed_03",
+  "lines": [
+    "\"I've got a plan.\"",
+    "\"What plan?\"",
+    "\"I don't know yet. But I've got the feeling you get before one.\""
+  ],
+  "personality": "unemployed",
+  "sort_order": 655
+}

@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_lowlife_03",
+  "lines": [
+    "\"Watch's been round again.\"",
+    "\"Looking for who?\"",
+    "\"Didn't say. Looked at me a long time, though.\"",
+    "\"They always look at you a long time.\""
+  ],
+  "personality": "lowlife",
+  "sort_order": 668
+}

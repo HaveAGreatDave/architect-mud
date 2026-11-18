@@ -1,8 +1,9 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Hughson Way, two lanes and a kerb, with a stepped block on either side: 15 Hughson Way to the west and Hughson Court to the east, filling the gap that led into the old courtyard.",
+  "description": "Hughson Way, two lanes and a kerb, with 15 Hughson Way on the west side and the plane trees of the North Gardens on the east.",
   "exits": {
+    "east": "zone_ballpark_893_910",
     "north": "zone_ballpark_892_910",
     "south": "zone_ballpark_892_912"
   },

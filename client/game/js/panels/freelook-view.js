@@ -25,7 +25,7 @@
 // downloads and parses the whole 3-D stack before they can type `look`. The facade has the same
 // export names, so nothing below this line changed; what changed is that the bytes arrive when the
 // seat is opened. See scripts/client/bake-lazy-view.mjs.
-import { loadWindshield, isLoaded as windshieldLoaded, paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield, normalizeWx, navMarks, raptorsNow, yachtScopeMount, yachtDeckEye, modelTopZAt, curtainTopZAt, groundObstructionAt, bayFootSolid, bayDims, ROAD_RIG_MUL, viewFocal, viewLatFocal } from './windshield-lazy.js';
+import { loadWindshield, isLoaded as windshieldLoaded, paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield, normalizeWx, navMarks, raptorsNow, yachtScopeMount, yachtDeckEye, modelTopZAt, curtainTopZAt, groundObstructionAt, doorBayAt, parkTopAt, streetKitFootAt, streetKitDeckAt, streetKitLiftPress, streetKitLiftBoard, bayFootSolid, bayDims, ROAD_RIG_MUL, viewFocal, viewLatFocal } from './windshield-lazy.js';
 export { loadWindshield };
 import { createFreeCam, freeCamHint, freeCamTouchUI, bindFreeCamPointer, bindFreeCamIdle } from './freecam.js';
 import { makeContactTrack } from './world-feed.js';
@@ -44,8 +44,26 @@ import { measureDoorway } from './glass/doorway-measure.js';   // a street door'
 // The rooms the server sent for the buildings near you on foot, kept for the view (each building once, by its tile)
 function keepInteriors(s, list) {
   const by = new Map((s.interiors || []).map((r) => [r.key, r]));
-  for (const b of list) for (const r of interiorRoomsOf(b)) by.set(r.key, r);
+  let unplaced = false;
+  for (const b of list) {
+    const shift = doorShift(s, b.tile);
+    if (!shift) unplaced = true;
+    for (const r of interiorRoomsOf(b, { shift })) by.set(r.key, r);
+  }
   s.interiors = [...by.values()];
+  // a building whose doorway couldn't be measured yet is placed again when it can (doorLeaves)
+  s.interiorsLater = unplaced ? list : null;
+}
+// From where the plan stands a building's street door (the middle of its tile's street edge, room-view.js anchorOf)
+// to the doorway its model drew, in tiles: along the front to the doorway's middle, and in to the plane behind its
+// leaves. Null until the doorway can be measured (the renderer and the map window are in).
+const PLAN_EDGE = 0.47;
+function doorShift(s, tile) {
+  const d = tile && s.foot?.doors?.find((q) => q.gx === tile.x && q.gy === tile.y);
+  const g = d && s.map ? doorway(s, d) : null, E = d && EDGE_VEC[d.edge];
+  if (!g || !g.leaves || !E) return null;
+  const along = g.cx || 0, deep = (g.back ?? g.wall) - PLAN_EDGE;
+  return [along * E[1] + deep * E[0], -along * E[0] + deep * E[1]];
 }
 import { suppressWeatherFx } from './weather-fx.js';   // the 2-D overlay would paint its rain and rainbow over the 3-D scene   // the ground or seabed under the camera (plugins/submersible)
 
@@ -144,6 +162,13 @@ const MOUNTS = {
 // crisper wall for a city with no texture on it at all would be the opposite of this feature.
 const STAND_TUNE = { lodNear: 32, decoFar: 26, glowFar: 20, shadowFar: 26 };
 
+// ON FOOT IS NOT A VANTAGE. On foot is standing too (freeCam.standing), so it picked up STAND_TUNE and drew
+// the telescope's city: full models out to 32 tiles and every ring wider than a cab's, round an eye 1.6 m up
+// a street whose own fronts hide most of that. So walking gets rings between the window view's (room-view.js
+// TUNE) and a cab's: the near street at full detail, the far city as the governor leaves it. The city past
+// 14 tiles is the skyline backdrop (farMax): perf:move --room 0 --gl --lite, turning, 41.7 ms a frame to 35.
+const FOOT_TUNE = { lodNear: 12, decoFar: 12, glowFar: 11, shadowFar: 10, farMax: 14 };
+
 // What the hint calls each raptor raptorsNow can report.
 const RAPTOR_NAME = { peregrine: 'peregrine', hawk: 'red-tailed hawk' };
 
@@ -214,7 +239,8 @@ function reseat(s, ctx) {
   if (ctx.stand?.foot) s.stand = ctx.stand;
   if (s.foot) {
     s.foot.tile = { gx: ctx.stand?.step?.gx ?? gx, gy: ctx.stand?.step?.gy ?? gy };
-    s.foot.pending = null; s.foot.crouched = false; s.foot.eyeK = 1; s.foot.spin.clear();
+    s.foot.server = { ...s.foot.tile }; s.foot.sent = null;
+    s.foot.pending = null; s.foot.crouched = false; s.foot.eyeK = 1; s.foot.lift = 0; s.foot.spin.clear();
     s.foot.doors = ctx.doors || s.foot.doors || [];
     if (ctx.interiors) keepInteriors(s, ctx.interiors);
   }
@@ -225,7 +251,7 @@ function reseat(s, ctx) {
 // street view isn't thrown away, because the next thing most people do in a lobby is walk back out of it: it's put
 // to sleep where a warm one waits (warmHolder), and walking out wakes it. Its last frame is left over the pane
 // until the room has drawn one of its own (room-stage.js fades `.fl-cover`), so there's no frame of neither.
-const COVER_MS = 420, FADE_MS = 260;
+const COVER_MS = 420, FADE_MS = 260, DOOR_FADE_MS = 520;
 export function parkFreelook() {
   const s = st;
   if (!s || s.warm || !s.foot || !s.woke) { closeFreelook(); return; }
@@ -285,15 +311,27 @@ function coverPane(s, door = null) {
     // it's drawn (room-stage.js arrive, which runs the veil's bar to the end).
     const dark = document.createElement('div');
     dark.className = 'fl-cover'; dark.setAttribute('aria-hidden', 'true');
-    Object.assign(dark.style, { position: 'fixed', left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px', zIndex: '9001', pointerEvents: 'none', background: 'var(--bg, #000)', opacity: '0', transition: `opacity ${FADE_MS}ms ease-in`, display: 'flex', alignItems: 'center', justifyContent: 'center' });
-    dark.dataset.t = String(performance.now() + FADE_MS);
+    Object.assign(dark.style, { position: 'fixed', left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px', zIndex: '9001', pointerEvents: 'none', background: 'var(--bg, #000)', opacity: '0', transition: `opacity ${door ? DOOR_FADE_MS : FADE_MS}ms ease-in`, display: 'flex', alignItems: 'center', justifyContent: 'center' });
+    const fade = door ? DOOR_FADE_MS : FADE_MS;
+    dark.dataset.t = String(performance.now() + fade);
     document.body.appendChild(dark);
-    const p = door?.place, veil = preVeil('room-stage', r, { delay: FADE_MS, ttl: 21000, place: p?.name
+    // the loading ring at once, over the street's last frame, so the step in answers the moment it's taken; the veil
+    // (z 9002) comes up over it once the street has faded, and it goes with the covers
+    const ring = document.createElement('div');
+    ring.className = 'fl-cover'; ring.setAttribute('aria-hidden', 'true');
+    Object.assign(ring.style, { position: 'fixed', left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px', zIndex: '9001', pointerEvents: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: '1', transition: `opacity ${COVER_MS}ms ease-out` });
+    ring.dataset.t = dark.dataset.t;
+    ring.innerHTML = '<div class="fl-loading"></div>';
+    document.body.appendChild(ring);
+    const p = door?.place, veil = preVeil('room-stage', r, { delay: fade, ttl: 21000, place: p?.name
       ? { kicker: 'ENTERING', title: p.name, sub: [p.street, p.region].filter(Boolean).join(' · '), blurb: p.blurb || '', room: true } : { room: true } });
     // it goes with the cover: faded off by whatever takes the pane, or by uncoverPane
     if (veil) { veil.classList.add('fl-cover'); veil.dataset.t = dark.dataset.t; veil.style.transition = `opacity ${COVER_MS}ms ease-out`; }
     else dark.innerHTML = '<div class="fl-loading"></div>';
-    requestAnimationFrame(() => requestAnimationFrame(() => { dark.style.opacity = '1'; }));
+    // through a door, the last frame keeps going: it eases on in through the doorway while the dark comes up, so the
+    // step in doesn't stop dead on a still
+    if (door) { snap.style.transformOrigin = '50% 55%'; snap.style.transition += `, transform ${DOOR_FADE_MS + COVER_MS}ms cubic-bezier(0.3, 0, 0.4, 1)`; }
+    requestAnimationFrame(() => requestAnimationFrame(() => { dark.style.opacity = '1'; if (door) snap.style.transform = 'scale(1.08)'; }));
     // no answer in 4 s and nothing came to take the pane: the street again. Once the view's been parked for a room
     // (parkFreelook) or the Stage is up and building, the cover waits for the room (room-stage.js arrive).
     setTimeout(() => { if (st?.warm || document.getElementById('room-stage')) return; uncoverPane(); }, 4000);
@@ -445,7 +483,9 @@ export function openFreelook(ctx = {}) {
     // (`crouched`, `eyeK` and `spin` are the room's crouch and its Q and E, see footKey; `doors` is the way into
     // each building round you, see footBlock)
     foot: stand?.foot ? { tile: { gx: stand.step?.gx ?? ctx.gx, gy: stand.step?.gy ?? ctx.gy }, pending: null, onMove: ctx.onMove || (() => {}),
-      crouched: false, eyeK: 1, spin: new Set(), doors: ctx.doors || [] } : null,
+      crouched: false, eyeK: 1, lift: 0, spin: new Set(), doors: ctx.doors || [],
+      // the tile the server has you on (freelookStep), and the footstep on its way to it (footSync)
+      server: { gx: stand.step?.gx ?? ctx.gx, gy: stand.step?.gy ?? ctx.gy }, sent: null } : null,
     api: null,
   };
   freelookSetSky(ctx.sky);
@@ -523,6 +563,7 @@ export function openFreelook(ctx = {}) {
       if (follow) followStep();
       if (st.foot) footTurn(st, dt);
       freeCam.step(dt);
+      if (st.foot) footBelt(st, dt);
       const env = liveEnv();
       const hour = env ? env.hour : st.hour;
       const weather = env ? env.weather : st.weather;
@@ -533,7 +574,7 @@ export function openFreelook(ctx = {}) {
       // frame — and a camera pinned to a number taken when the view opened would hang in the air
       // while the ship rose and fell under it. One call, every frame, to the function that puts
       // her own geometry there.
-      if (st.stand) { const s = standSpot(st, now); if (s) freeCam.setEye(s.z * footEye(st, dt)); }
+      if (st.stand) { const s = standSpot(st, now); if (s) freeCam.setEye(s.z * footEye(st, dt) + footLift(st, dt)); }
       if (st.foot) watchFoot(st, now, flash);
       // A camera put on its feet with FPS has no mount, but on the Echelon the floor is her deck,
       // not the sea — at the default eye it stood inside her hull and the deck vanished. Asked every
@@ -564,7 +605,7 @@ export function openFreelook(ctx = {}) {
         hour, moon, weather, wxField: st.field, wxGround: st.ground, event: st.event,
         map: st.map, skyline: st.skyline, mapCenter: { x: st.gx, y: st.gy }, mapOffset: { x: 0, y: 0 },
         acX: st.gx, acY: st.gy, airport: 'default',
-        tune: (st.stand || freeCam.standing) ? STAND_TUNE : undefined,   // see STAND_TUNE — a seat that cannot move can afford to draw more
+        tune: st.foot ? FOOT_TUNE : (st.stand || freeCam.standing) ? STAND_TUNE : undefined,   // see STAND_TUNE — a seat that cannot move can afford to draw more
         // the Pack open: the camera stands back round you, and you're drawn (packViewNow, packSelf)
         freeCam: (st.packCam && packViewNow(st, now)) || freeCam.view(),
         self: st.packCam ? packSelf(st) : null,
@@ -579,6 +620,8 @@ export function openFreelook(ctx = {}) {
         interiorRooms: st.foot && st.interiors?.length ? st.interiors : null,
         // inside a building (ONE_WORLD), its rooms are drawn whole; outside, a street door's rooms only through it
         interiorInside: !!st.inside,
+        // and the storey you're on is cut out of its building's model, which otherwise stays (insideCut)
+        roomCut: st.inside ? insideCut(st) : null,
         // on foot the near plane comes in to a third of a metre, so people stay whole as you walk up to them
         nearMax: st.foot ? FOOT_NEAR : 0,
       });
@@ -877,10 +920,10 @@ function standSpot(s, now) {
 // ── ON FOOT: EVERY TILE EDGE IS A MOVE ───────────────────────────────────────
 //
 // Walking the street after the street door (plugins/freelook openOnFoot). The camera walks freely;
-// crossing into another tile sends the ordinary 'move <dir>', one at a time, and the server's
-// 'freelook_step' says where you are. No answer in 1.8 s means it wouldn't let you: you're put back
-// just inside the tile you're on. Walking into a building's tile is walking in: the engine passes you
-// through its facade, and the Room Stage or the room text takes the pane.
+// crossing into another tile sends `footstep <gx> <gy>` (footSync), and the server's 'freelook_step'
+// says where you are. A refusal puts you back just inside the tile you're on. Walking in at a building's
+// door is walking in: the engine passes you through its facade, and the Room Stage or the room text takes
+// the pane. Anywhere else on a building's tile is an alley (footTile).
 const FOOT_WAIT_MS = 8000, DOOR_ENTER_AT = 0.11;
 function watchFoot(s, now, flash) {
   s.flash = flash;   // freelookStep's refusal reason
@@ -908,10 +951,11 @@ function watchFoot(s, now, flash) {
     if (!E || T.gx !== d.gx + E[0] || T.gy !== d.gy + E[1]) continue;
     const g = doorway(s, d);
     if (!g) continue;
-    const off = (ax - d.gx) * E[0] + (ay - d.gy) * E[1] - g.plane, along = E[0] ? ay - d.gy : ax - d.gx;
+    // `along` from the doorway's own middle (footBlock's sum), which a model can put off the tile's
+    const off = (ax - d.gx) * E[0] + (ay - d.gy) * E[1] - g.plane, along = (ax - d.gx) * E[1] - (ay - d.gy) * E[0] - (g.cx || 0);
     const mark = g.bay ? BAY_ENTER_AT : DOOR_ENTER_AT;
     if (off > mark || off < -0.3 || Math.abs(along) > g.half) continue;
-    if ((g.leaves || !d.slide) && (d.open || 0) < 0.65) continue;   // shut: it holds you, as footBlock does
+    if ((g.leaves || !d.slide) && (d.open || 0) < passOpen(d)) continue;   // shut: it holds you, as footBlock does
     // a slow frame can carry the eye well past the mark in one step; the cover's frame is taken from the mark itself,
     // and nobody sees the eye go back, since the cover is over it from here on
     if (off < mark) s.freeCam.rebase(E[0] * (mark - off), E[1] * (mark - off));
@@ -921,23 +965,67 @@ function watchFoot(s, now, flash) {
     f.onMove(`footstep ${d.gx} ${d.gy}`);
     return;
   }
-  if (cx === T.gx && cy === T.gy) return;
-  // ⚠ THE VIEW IS THE AUTHORITY ON FOOT. It reports the tile it walked into (`footstep`, plugins/freelook) and walks
-  // on without waiting: the server follows. It used to send `move <dir>` and wait for the answer, and the pacing
-  // queue held a quick step silently for longer than the wait, so you were pulled back with "You can't go that way"
-  // and then moved anyway a moment later. Only a real refusal (a gate) puts you back now (freelookStep `refused`).
-  // (onMove sends any command line silently, so it carries this one too.)
-  const d = doorAt(s, cx, cy);
-  f.back = inside(T.gx, T.gy);
-  if (d) {
-    // a building: the room has to come, so this one waits for it, behind the cover (enterCover)
-    f.pending = { t: now, back: f.back };
-    noteDoor(d); enterCover(s, d);
-  } else {
-    f.tile = { gx: cx, gy: cy };
+  if (cx !== T.gx || cy !== T.gy) {
+    // ⚠ THE VIEW IS THE AUTHORITY ON FOOT. It reports the tile it walked into (`footstep`, plugins/freelook) and walks
+    // on without waiting: the server follows. It used to send `move <dir>` and wait for the answer, and the pacing
+    // queue held a quick step silently for longer than the wait, so you were pulled back with "You can't go that way"
+    // and then moved anyway a moment later. Only a real refusal (a gate) puts you back now (freelookStep `refused`).
+    // (onMove sends any command line silently, so it carries this one too.)
+    const d = doorAt(s, cx, cy);
+    if (d) {
+      // a building: the room has to come, so this one waits for it, behind the cover (enterCover)
+      f.back = inside(T.gx, T.gy);
+      f.pending = { t: now, back: f.back };
+      noteDoor(d); enterCover(s, d);
+      f.onMove(`footstep ${d.gx} ${d.gy}`);
+      return;
+    }
+    const want = footTile(s, ax, ay, cx, cy, T);
+    if (want) { f.back = inside(T.gx, T.gy); f.tile = want; }
   }
-  f.onMove(`footstep ${cx} ${cy}`);
+  footSync(f, now);
 }
+// ⚠ THE SERVER'S TILE FOLLOWS THE VIEW'S UNTIL THEY AGREE. One footstep per tile wasn't enough: a step the command rate
+// limit dropped, or one refused as "still working on your last command", got no answer, and the view went on believing
+// a tile the server never put you on, so the text map and the eye drifted apart until the next step was refused and
+// yanked you back. So the tile is sent again until the server's answer (freelookStep, every footstep is answered) says
+// it's the one you're on, at most once every FOOT_GAP_MS and again after FOOT_RESEND_MS with no answer. The resend is
+// short because a drift lasts that long: 2 s left the text a tile or two behind; 700 ms is about 1.4 lines a second,
+// well inside the command bucket's 5 a second.
+const FOOT_GAP_MS = 250, FOOT_RESEND_MS = 700;
+function footSync(f, now) {
+  const W = f.tile, S = f.server;
+  if (S && S.gx === W.gx && S.gy === W.gy) { f.sent = null; return; }
+  const q = f.sent;
+  if (q && now - q.t < (q.gx === W.gx && q.gy === W.gy ? FOOT_RESEND_MS : FOOT_GAP_MS)) return;
+  f.sent = { gx: W.gx, gy: W.gy, t: now };
+  f.onMove(`footstep ${W.gx} ${W.gy}`);
+}
+// ⚠ AN ALLEY IS INSIDE A BUILDING'S TILE. The gap between two buildings, or down the side of one, is the margin its model
+// leaves in its own tile, and nobody stands on a building: the step onto it used to walk you in through the wall, or be
+// refused at a shut shop or a locked door and pull you back onto the street. So a building's tile is the building's
+// grounds, and the tile the server has you on is the open one nearest the eye (never water, which would be a swim) until
+// you come out the other end, which may be a few tiles off (plugins/freelook FOOT_REACH). null: no tile near, stay
+// where you are.
+// ⚠ ONLY A STAGE'S DOOR GOES IN. A building with no ROOM interior is walked round and used as it stands (a petrol
+// station's pumps and forecourt are its exterior); walking at its front used to step you into its room, and the
+// server then shut the street view for the room text. The way in is a door in `f.doors` (watchFoot), nothing else.
+const openCell = (c) => !!c && c.kind !== 'air' && !c.lf && !c.bt && c.mark !== 'bay';
+function footTile(s, ax, ay, cx, cy, T) {
+  const c = cellOf(s, cx, cy);
+  if (openCell(c)) return { gx: cx, gy: cy };
+  let best = null, bd = Infinity;
+  for (let oy = -1; oy <= 1; oy++) for (let ox = -1; ox <= 1; ox++) {
+    const wx = cx + ox, wy = cy + oy, n = cellOf(s, wx, wy);
+    if ((!ox && !oy) || !openCell(n) || n.biome === 'water') continue;
+    const dd = Math.hypot(wx - ax, wy - ay);
+    if (dd < bd) { bd = dd; best = { gx: wx, gy: wy }; }
+  }
+  // the tile you're on stays until another is clearly nearer, so an eye halfway between two doesn't send a step a frame
+  if (best && Math.max(Math.abs(T.gx - cx), Math.abs(T.gy - cy)) <= 1 && Math.hypot(T.gx - ax, T.gy - ay) < bd + FOOT_KEEP) return null;
+  return best;
+}
+const FOOT_KEEP = 0.3;
 
 // ── ON FOOT: THE ROOM'S CONTROLS ─────────────────────────────────────────────
 //
@@ -958,13 +1046,19 @@ function footKey(s, e, k, down) {
     if (down && !e.repeat) { f.crouched = !f.crouched; cam.setPace(f.crouched ? { walk: FOOT_PACE.walk * 0.5, run: 1 } : FOOT_PACE); }
     return true;
   }
-  if (k === 'f' && !e.ctrlKey && !e.metaKey) { if (down && !e.repeat) footDoor(s); return true; }
+  if (k === 'f' && !e.ctrlKey && !e.metaKey) { if (down && !e.repeat && !footCallLift(s)) footDoor(s); return true; }
   // G opens the can on the building you're facing (plugins/graffiti `spraycan <dir>`; the server says what's there and
   // whether you've a can), and the dialog's SPRAY IT then runs the spray session over the street (spray-aim.js)
   if (k === 'g' && !e.ctrlKey && !e.metaKey && !e.altKey) { if (down && !e.repeat) footCan(s); return true; }
   if ((k === 'q' || k === 'e') && !e.ctrlKey && !e.metaKey) { if (down) f.spin.add(k); else f.spin.delete(k); return true; }
   if (FOOT_KEYS.has(k)) return cam.onKey(k, down);
   return false;
+}
+// F by a footbridge's call button presses it: the deck's fetches the cars up, the foot's sends them down.
+function footCallLift(s) {
+  const fv = s.freeCam.view();
+  if (!fv || s.inside || !s.map || !windshieldLoaded()) return false;
+  return streetKitLiftPress(s.map, s.gx, s.gy, s.gx + fv.x, s.gy + fv.y, s.foot.lift || 0, performance.now());
 }
 // The compass point you're facing, off the camera's yaw (0 north, growing clockwise: freecam.js), and the can opened
 // on that wall.
@@ -1071,6 +1165,26 @@ function footEye(s, dt) {
   if (Math.abs(f.eyeK - want) < 0.002) f.eyeK = want;
   return f.eyeK;
 }
+// How high your feet are off the street: up a footbridge's lift and across its deck (glass/street-kit.js kitDeck).
+// In a lift you go with the car the renderer draws, off the same clock; the step on and off it is eased.
+function footLift(s, dt) {
+  const f = s.foot, fv = s.freeCam.view();
+  if (!f || !fv || s.inside || !s.map || !windshieldLoaded()) return f ? (f.lift = 0) : 0;
+  const ax = s.gx + fv.x, ay = s.gy + fv.y;
+  const tNow = performance.now(), d = streetKitDeckAt(s.map, s.gx, s.gy, ax, ay, f.lift || 0, tNow, false);
+  // stepping into a car sends both cars of the bridge (glass/street-kit.js THE FOOTBRIDGE LIFTS)
+  const inCar = d?.lift != null ? d.key : null;
+  if (inCar != null && f.liftIn !== inCar) streetKitLiftBoard(inCar, (f.lift || 0) > 0.2, tNow);
+  f.liftIn = inCar;
+  // a park's hedges, copings, benches and walls are climbed onto, not walked through (windshield.js parkTopAt)
+  const wx = Math.round(ax), wy = Math.round(ay), park = parkTopAt(wx, wy, cellOf(s, wx, wy), ax, ay, FOOT_CLIMB);
+  const want = Math.max(d ? d.floor : 0, park);
+  // a climb up is a pull-up, slower than the step down off the top
+  const rate = !d && want > (f.lift || 0) ? 7 : 14;
+  f.lift = (f.lift || 0) + (want - (f.lift || 0)) * (1 - Math.exp(-dt * rate));
+  if (Math.abs(f.lift - want) < 0.0005) f.lift = want;
+  return f.lift;
+}
 // A drag looks and the wheel zooms, as in the room. The cursor stays a cursor, so the buttons in the corner are
 // one click away and nothing has to be pressed to free the mouse.
 function bindFootPointer(el, cam) {
@@ -1124,7 +1238,11 @@ const METRE = FPS_EYE / 1.6;   // a metre in tiles: FPS_EYE is 1.6 m
 // GLASS 2's near plane on foot (makeCam nearMax). The fixed 0.06 tiles is 1.07 m, which cut away anybody you walked up
 // to. 0.3 m is about NEAR_MIN (gl/camera.js), the plane a camera flat on the road already ships with.
 const FOOT_NEAR = 0.3 * METRE;
-const FOOT_BODY = 0.016, FOOT_STEP = 0.011, DOOR_NEAR = 2.6 * METRE, DOOR_HOLD_MS = 1400, DOOR_OPEN_S = 0.55, DOOR_SHUT_S = 0.9;
+const FOOT_CLIMB = 1.8 * METRE;   // the highest park furniture you climb onto; anything taller (a lamp, a crown) you pass under
+const FOOT_BODY = 0.016, FOOT_STEP = 0.011, DOOR_NEAR = 2.6 * METRE, DOOR_SLIDE_NEAR = 6 * METRE, DOOR_HOLD_MS = 1400, DOOR_OPEN_S = 0.55, DOOR_SHUT_S = 0.9;
+// a hinged glass pair (`swing`) swings in more slowly and lets you through only once it's all the way in, so the
+// step in (and the cover taken from it) never has a leaf across the doorway
+const DOOR_SWING_S = 0.85, passOpen = (d) => (d.swing ? 0.97 : 0.65);
 const EDGE_VEC = { north: [0, -1], south: [0, 1], east: [1, 0], west: [-1, 0] };
 const cellOf = (s, wx, wy) => { const R = (s.map.length - 1) / 2; return s.map[wy - s.gy + R]?.[wx - s.gx + R] || null; };
 const doorAt = (s, wx, wy) => s.foot.doors.find((d) => d.gx === wx && d.gy === wy) || null;
@@ -1137,7 +1255,19 @@ function solidAt(s, ax, ay, z) {
     if (c.mark === 'bay') { if (bayFootSolid(wx, wy, c, px, py, z, s.foot?.bays?.get(`${wx},${wy}`)?.open || 0)) return true; continue; }
     if (groundObstructionAt(wx, wy, c, px, py, z, FOOT_STEP) > 0) return true;
   }
+  // the street kit's guard rails, which are drawn and not mass (glass/street-kit.js kitFoot)
+  // and its bollards, up to your knees: you walk round them, unless you're up on the footbridge over them
+  const k = streetKitFootAt(s.map, s.gx, s.gy, ax, ay, FOOT_BODY);
+  if (k?.rail || (k?.bollard && (s.foot?.lift || 0) < 0.02)) return true;
   return false;
+}
+// The street's belt under your feet carries you the way its chevrons point, at its own speed.
+function footBelt(s, dt) {
+  const fv = s.freeCam.view();
+  if (!fv || s.inside || !s.map || !windshieldLoaded()) return;
+  if ((s.foot?.lift || 0) > 0.002) return;   // up on a footbridge, over the strip
+  const b = streetKitFootAt(s.map, s.gx, s.gy, s.gx + fv.x, s.gy + fv.y)?.belt;
+  if (b) s.freeCam.carry(b[0] * dt, b[1] * dt);
 }
 // The doorway of a building, in its model's own frame (y out of the front, x along it), from its mass.
 function doorway(s, d) {
@@ -1151,7 +1281,9 @@ function doorway(s, d) {
     const D = bayDims(c);
     return (d.g = { E, at, wall: D.HL, plane: D.HL, half: D.DOOR_W, top: D.DOOR_H, leaves: false, bay: true });
   }
-  return (d.g = measureDoorway(d.gx, d.gy, c, E, d.w, groundObstructionAt, METRE));
+  // the doorway the model drew, if it recorded one (windshield.js doorBayAt), else its mass
+  const cx = d.look?.cx || 0, bay = doorBayAt(d.gx, d.gy, c, cx);
+  return (d.g = measureDoorway(d.gx, d.gy, c, E, d.w, groundObstructionAt, METRE, cx, bay, d.look?.h || 0));
 }
 // ── ON FOOT, INSIDE: ONE WORLD (docs/proposals/one-world-interiors.md) ──────────
 //
@@ -1159,9 +1291,36 @@ function doorway(s, d) {
 // city (gl/interiors.js), so the server's `room_view` is taken here (freelookTakeRoom) instead of opening the Room
 // Stage. Its own model comes off the map, the rooms' walls and furniture hold you (room-layout.js roomFree, the
 // Stage's own rule), and walking through a doorway sends that doorway's move, as the Stage does.
-// ⚠ OFF BY DEFAULT: the Stage's verbs, people, lights and lift aren't here yet. `__oneWorld(true)` in the console.
-export const ONE_WORLD = { on: false };
-if (typeof window !== 'undefined') window.__oneWorld = (on = true) => (ONE_WORLD.on = !!on);
+// ⚠ ON FOR ENTRY ROOMS ONLY (`entry`): a room with a street door and nothing that needs the Stage (oneWorldRoom).
+// Everywhere else the Stage opens as before. `__oneWorld(true)` takes every drawn room, `__oneWorld(false)` none.
+export const ONE_WORLD = { on: false, entry: true };
+if (typeof window !== 'undefined') window.__oneWorld = (on = true) => { ONE_WORLD.on = !!on; ONE_WORLD.entry = !!on; return on; };
+// Whether one-world takes this room: every drawn room with `on`; with `entry`, a room you come into off the street
+// that has none of what only the Stage draws or works (a lift car or landing, the rink, a roof deck, a balcony).
+function oneWorldRoom(s, r) {
+  if (ONE_WORLD.on) return true;
+  if (!ONE_WORLD.entry || !r) return false;
+  const sp = r.L.spec || {}, ops = sp.openings || [];
+  if (sp.car || sp.lift || sp.rink || sp.open || sp.balcony) return false;
+  if (ops.some((o) => o.lift)) return false;
+  // a shop: its counter or shelves are worked on the Stage (docs/proposals/shop-interiors.md)
+  const shopFlag = (f) => f && (f.serves || f.checkout || f.vendor_stock);
+  if ((r.L.placed || []).some((p) => shopFlag(p.flags) || shopFlag(p.row?.flags) || p.look?.stock)) return false;
+  return ops.some((o) => o.dir && o.kind === 'front' && !(s.interiors || []).some((q) => q.zone === o.to));
+}
+// ⚠ THE BUILDING STAYS ON THE MAP, LESS THE STOREY YOU'RE ON (gl/context.js uCutA, the balcony's cut). Taking the
+// whole model off left you in a lobby with no building over it, and the eye placed off the room's own sums, not the
+// model's. Now the facade, the storeys over you and the doorway are the model's, and the rooms on this floor (drawn
+// whole, gl/interiors.js) stand in the band the cut takes out of it: the building's tile, floor slab to ceiling.
+// ⚠ ONE TILE ONLY: a building on several tiles (the Solenne's 2 by 2) keeps its other tiles whole for now.
+const CUT_SLAB_M = 0.15, CUT_TILE_REACH = 0.52;
+function insideCut(s) {
+  const I = s.inside, r = I?.room;
+  if (!r) return null;
+  const M = r.M, k = M[6] || METRE, floorM = M[14] / k + (r.L.floor || 0), h = Number(r.L.spec?.h) || 3;
+  const tx = r.gx - s.gx, ty = r.gy - s.gy;
+  return { x: tx, y: ty, rad: 0, half: 4, back: 4, z0: k * (floorM - CUT_SLAB_M), z1: k * (floorM + h + CUT_SLAB_M), tx, ty, reach: CUT_TILE_REACH };
+}
 // Where a point (tiles about the window's centre) is in a room's own frame: [u, v], by its matrix's inverse.
 function roomUV(s, r, x, y) {
   const M = r.M, tx = s.gx + x - r.gx - M[12], ty = s.gy + y - r.gy - M[13], det = M[0] * M[9] - M[8] * M[1];
@@ -1212,9 +1371,9 @@ function insideBlock(s, x0, y0, x1, y1) {
 export function freelookInside() { return !!st?.inside; }
 export function freelookTakeRoom(msg) {
   const s = st;
-  if (!ONE_WORLD.on || !s || !s.foot) return false;
+  if (!s || !s.foot) return false;
   const room = (s.interiors || []).find((r) => r.zone === msg.zone);
-  if (!room) return false;
+  if (!room || !oneWorldRoom(s, room)) { if (s.inside) s.inside = null; return false; }
   if (s.warm) {
     const mount = document.getElementById('area-content');
     if (!mount) return false;
@@ -1222,9 +1381,7 @@ export function freelookTakeRoom(msg) {
     s.holder?.remove(); s.holder = null; s.mount = mount;
     s.wake(); uncoverPane();
   }
-  // its own model off the map, ground only, as the window view does it (room-view.js withoutOwnTower)
-  const R = (s.map.length - 1) / 2, row = s.map[room.gy - s.gy + R], c = row?.[room.gx - s.gx + R];
-  if (c && c.bt) row[room.gx - s.gx + R] = { kind: 'land', biome: c.biome, flr: c.flr, self: 1 };
+  // the model stays; the storey you're on is cut out of it (insideCut)
   const from = s.inside;
   s.inside = { zone: msg.zone, room, gx: room.gx, gy: room.gy };
   s.foot.pending = null;
@@ -1245,15 +1402,20 @@ function footBlock(s, x0, y0, x1, y1) {
   const z = s.freeCam.view()?.z ?? FPS_EYE, a0x = s.gx + x0, a0y = s.gy + y0;
   // stood in something already (put down there, or the window changed): walking out of it is allowed
   if (solidAt(s, a0x, a0y, z)) return null;
+  // the footbridge: its lift towers take you when the car's at your feet, and up on the deck the rails hold you
+  const tNow = performance.now(), h = f.lift || 0;
+  const riding = streetKitDeckAt(s.map, s.gx, s.gy, a0x, a0y, h, tNow, true)?.lift != null;
   const ok = (x, y) => {
     const ax = s.gx + x, ay = s.gy + y, wx = Math.round(ax), wy = Math.round(ay);
     const d = (wx !== Math.round(a0x) || wy !== Math.round(a0y)) ? doorAt(s, wx, wy) : null;
     if (d) {
       const g = doorway(s, d), E = EDGE_VEC[d.edge];
       if (!g || Math.round(a0x) !== d.gx + E[0] || Math.round(a0y) !== d.gy + E[1]) return false;
-      const along = Math.abs(E[0] ? ay - d.gy : ax - d.gx);
-      if (along > g.half - FOOT_BODY || ((g.leaves || !d.slide) && (d.open || 0) < 0.65)) return false;
+      // across the doorway from its own middle, which isn't the tile's when the model put the door off-centre
+      const along = Math.abs((ax - d.gx) * E[1] - (ay - d.gy) * E[0] - (g.cx || 0));
+      if (along > g.half - FOOT_BODY || ((g.leaves || !d.slide) && (d.open || 0) < passOpen(d))) return false;
     }
+    if (streetKitDeckAt(s.map, s.gx, s.gy, ax, ay, h, tNow, riding, FOOT_BODY)?.solid) return false;
     return !solidAt(s, ax, ay, z);
   };
   if (ok(x1, y1)) return null;
@@ -1266,24 +1428,25 @@ function footBlock(s, x0, y0, x1, y1) {
 function doorLeaves(s, now, dt) {
   const f = s.foot, fv = s.freeCam.view();
   if (!fv || !f.doors.length || !s.map) return null;
+  if (s.interiorsLater && windshieldLoaded()) { const later = s.interiorsLater; s.interiorsLater = null; keepInteriors(s, later); if (s.interiorsLater === later) s.interiorsLater = null; }
   const ax = s.gx + fv.x, ay = s.gy + fv.y, out = [];
   for (const d of f.doors) {
-    if (Math.abs(d.gx - ax) > 6 || Math.abs(d.gy - ay) > 6) continue;
+    if (Math.abs(d.gx - ax) > 8 || Math.abs(d.gy - ay) > 8) continue;
     const g = doorway(s, d);
     if (!g || g.bay) continue;   // a depot's roller door is bayWalk's, and the shed draws it
     const [px, py] = g.at(0, g.wall);
-    const near = Math.hypot(px - ax, py - ay) < DOOR_NEAR + (0.5 - g.wall);
+    const near = Math.hypot(px - ax, py - ay) < (d.slide ? DOOR_SLIDE_NEAR : DOOR_NEAR) + (0.5 - g.wall);   // glass parts from further off, so you see it open
     // only automatic glass doors (`slide`, flags.room.street_door) part as you come up; a plain door waits for F (footDoor)
     if (near && d.slide) d.hold = now + DOOR_HOLD_MS;
     if (d.open === undefined) d.open = near && d.slide ? 1 : 0;   // come out of them, they're apart behind you
-    const want = (d.hold || 0) > now ? 1 : 0, k = d.open || 0, step = dt / (want > k ? DOOR_OPEN_S : DOOR_SHUT_S);
+    const want = (d.hold || 0) > now ? 1 : 0, k = d.open || 0, step = dt / (want > k ? (d.swing ? DOOR_SWING_S : DOOR_OPEN_S) : DOOR_SHUT_S);
     d.open = Math.abs(want - k) <= step ? want : k + Math.sign(want - k) * step;
     // the glass is drawn only for a building that has it; any other door is the arm's own (the Cherry Pit's bars)
     // and behind any door, the lobby as it was last seen from it (lobby-still.js), so the street looks into it
     // a plain door (not automatic glass) is drawn here too, as one barred leaf that swings in when F opens it, over
     // whatever the arm baked into its doorway (glass/street-doors.js barredLeaf)
     const glass = !!(g.leaves && d.slide), card = null, bars = !!(g.leaves && !d.slide);
-    if (glass || card || bars) out.push({ x: d.gx, y: d.gy, E: g.E, plane: g.plane, wall: g.wall, half: g.half, top: g.top, open: d.open * d.open * (3 - 2 * d.open), glass, card, look: d.look || null, ...(d.swing ? { swing: true } : {}), ...(bars ? { bars: true } : {}) });
+    if (glass || card || bars) out.push({ x: d.gx, y: d.gy, E: g.E, plane: g.plane, wall: g.wall, back: g.back, half: g.half, sill: g.sill || 0, top: g.top, fit: g.fit, open: d.open * d.open * (3 - 2 * d.open), glass, card, look: d.look || null, cx: g.cx || 0, kind: d.kind || null, ...(d.swing ? { swing: true } : {}), ...(bars ? { bars: true } : {}) });
   }
   return out.length ? out : null;
 }
@@ -1343,10 +1506,10 @@ function footDoor(s) {
     // (a depot's roller door goes up at its own pace, bayWalk's, and you go in under it once it's up)
     const bay = g.bay ? f.bays?.get(`${d.gx},${d.gy}`) : null;
     if (g.bay && !bay) return;
-    const wait = d.slide ? 0 : Math.round((bay ? BAY_UP_S : DOOR_OPEN_S) * 1000 * (1 - (d.open || 0)));
+    const wait = d.slide && !d.swing ? 0 : Math.round((bay ? BAY_UP_S : d.swing ? DOOR_SWING_S : DOOR_OPEN_S) * 1000 * (1 - (d.open || 0)));
     if (bay) bay.hold = now + wait + BAY_HOLD_MS;
     else d.hold = now + wait + DOOR_HOLD_MS;
-    if (d.slide) d.open = 1;
+    if (d.slide && !d.swing) d.open = 1;   // a hinged pair swings in at its own pace, never snaps
     f.pending = { t: now + wait, back: [ax, ay] };
     const go = () => {
       if (st !== s || f.pending?.back?.[0] !== ax) return;
@@ -1362,18 +1525,28 @@ function footDoor(s) {
 // Where the server put you after a step on foot.
 // The view leads on foot (watchFoot), so an ordinary answer only confirms a tile it's already left behind; a refused
 // step (a gate said no) is the one that moves the view: back inside the tile the server has you on.
+// ⚠ AND A MOVE THE VIEW DIDN'T MAKE (`moved`: a typed `north`, a click on the minimap, a GPS walk, a queued step) moves
+// the view too. It used to be taken as a confirmation and dropped, so the text map went one way and the eye stayed.
 export function freelookStep(msg) {
   const s = st, f = s?.foot;
   if (!f) return;
-  if (!msg.refused) { f.pending = null; return; }
+  if (Number.isInteger(msg.gx) && Number.isInteger(msg.gy)) f.server = { gx: msg.gx, gy: msg.gy };
+  if (!msg.refused && !msg.moved) {
+    f.pending = null;
+    if (f.sent && f.sent.gx === msg.gx && f.sent.gy === msg.gy) f.sent = null;
+    return;
+  }
   f.tile = { gx: msg.gx, gy: msg.gy };
-  f.pending = null;
+  f.pending = null; f.sent = null;
   uncoverPane();
   // why it wouldn't let you (a shut club, a locked door), on the view rather than only in the log behind it
-  if (msg.message) s.flash?.(String(msg.message).replace(/<[^>]*>/g, ''), 6000);
+  if (msg.refused && msg.message) s.flash?.(String(msg.message).replace(/<[^>]*>/g, ''), 6000);
+  if (s.inside) return;   // walking round inside in GLASS (ONE_WORLD): the room has you, not the street
   const fv = s.freeCam.view();
   if (!fv) return;
   const ax = s.gx + fv.x, ay = s.gy + fv.y;
+  // moved by the server and already there (stood on its doorstep as the street door let you out): nothing to do
+  if (msg.moved && Math.round(ax) === msg.gx && Math.round(ay) === msg.gy) return;
   const bx = msg.gx + Math.max(-0.42, Math.min(0.42, ax - msg.gx)), by = msg.gy + Math.max(-0.42, Math.min(0.42, ay - msg.gy));
   s.freeCam.rebase(bx - ax, by - ay);
 }

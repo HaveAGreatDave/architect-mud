@@ -1,0 +1,20 @@
+{
+  "blurb": "Pearl white with a red pinstripe. The owner has a second one in red.",
+  "default": false,
+  "exterior": {
+    "base": "#ecebe6",
+    "finish": "gloss",
+    "pattern": "factory",
+    "trim": "#c01e2c",
+    "variant": "bianco"
+  },
+  "id": "bianco",
+  "interior": {
+    "cabin": "#2a1214",
+    "uphol": "leather"
+  },
+  "kind": "aircraft",
+  "model": "merlin",
+  "name": "Bianco",
+  "unlock": null
+}

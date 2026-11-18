@@ -1,0 +1,116 @@
+{
+  "ambient_events": [
+    "The carousel shudders as another slot turns past behind the drum.",
+    "Wind pushes through the mesh and smells of the river.",
+    "Somebody's aircraft ticks as it cools."
+  ],
+  "ambient_theme": "indoors",
+  "bg_color": "#1a2228",
+  "color": "#cfe4ea",
+  "description": "A concrete landing round the carousel drum, painted black, with a cyan strip along the floor's edge. The drum fills the middle, a steel wall with three slot doors in it: slot 1 <b>west</b>, slot 2 <b>north</b> and slot 3 <b>east</b>. Wind comes through the mesh. The lift is <b>in</b>.",
+  "exits": {
+    "in": "zone_sdeck_lift",
+    "west": "zone_sdeck_s1",
+    "north": "zone_sdeck_s2",
+    "east": "zone_sdeck_s3"
+  },
+  "flags": {
+    "building_name": "Stacked Deck",
+    "is_interior": true,
+    "floor": "concrete",
+    "room": {
+      "w": 12,
+      "d": 9,
+      "h": 3.4,
+      "finish": "plain",
+      "ground": "concrete",
+      "studio": false,
+      "balcony": false,
+      "windowless": true,
+      "tone": {
+        "wall": "#16191d",
+        "ceiling": "#0d0f12",
+        "trim": "#22262b",
+        "accent": "#28c4e4"
+      },
+      "doors": {
+        "west": 4.5,
+        "north": 0,
+        "east": 4.5
+      },
+      "decor": {
+        "rug": false,
+        "downlights": false,
+        "strips": [
+          {
+            "along": "u",
+            "at": [
+              -3,
+              2
+            ],
+            "len": 3
+          },
+          {
+            "along": "u",
+            "at": [
+              3,
+              2
+            ],
+            "len": 3
+          },
+          {
+            "along": "u",
+            "at": [
+              0,
+              6
+            ],
+            "len": 4
+          }
+        ],
+        "paint": [
+          {
+            "kind": "line",
+            "from": [
+              -5.8,
+              0.3
+            ],
+            "to": [
+              5.8,
+              0.3
+            ],
+            "hex": "#28c4e4",
+            "t": 0.1
+          },
+          {
+            "kind": "hazard",
+            "rect": [
+              -1.5,
+              1.5,
+              7.6,
+              8.8
+            ],
+            "t": 0.2
+          }
+        ],
+        "signs": [
+          {
+            "wall": "back",
+            "along": 0,
+            "y": 2.6,
+            "h": 0.16,
+            "text": "LEVEL 2",
+            "hex": "#28c4e4",
+            "plateHex": "#0d0f12"
+          }
+        ]
+      }
+    }
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 1,
+  "id": "zone_sdeck_l2",
+  "map_id": "map_int_stackeddeck",
+  "name": "Stacked Deck, Level 2",
+  "parent_zone": "zone_seam_914_908"
+}

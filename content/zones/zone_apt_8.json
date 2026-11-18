@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#c9a884",
-  "description": "Unit 3D. Bottle-green walls, a marble island with a reeded front and glazed cupboards behind it, and brass sconces either side of a long mirror. A ring of old candle stubs has been sealed into the floorboards under varnish, and nobody's sure whether that's art. The walls are thick enough that the neighbours' business stays theirs.",
+  "description": "Unit 3D, on the street. Bottle-green walls and brass sconces either side of a long mirror. A ring of old candle stubs has been sealed into the floorboards under varnish, and nobody's sure whether that's art. The walls are thick enough that the neighbours' business stays theirs.",
   "exits": {
     "east": "zone_embassy_floor2",
     "in": "zone_apt_8_bath"
@@ -13,7 +13,7 @@
     "is_interior": true,
     "room": {
       "blinds": true,
-      "d": 10,
+      "d": 3.2,
       "decor": {
         "art": [
           {
@@ -25,7 +25,7 @@
             "y": 1.65
           },
           {
-            "at": -2.9,
+            "at": -2.95,
             "h": 0.9,
             "seed": 13,
             "w": 0.7,
@@ -64,9 +64,9 @@
         "rug": {
           "at": [
             -2.4,
-            3
+            1.9
           ],
-          "d": 2.2,
+          "d": 2,
           "w": 2.4
         },
         "sconces": {
@@ -78,22 +78,17 @@
             ],
             [
               "left",
-              4
+              1
             ]
           ],
           "y": 1.8
         }
       },
-      "h": 3,
-      "kitchen": {
-        "face": "fluted",
-        "front": "#3e5a44",
-        "grade": 2,
-        "island": true,
-        "pendants": "globe",
-        "top": "marble",
-        "uppers": "cabinets"
+      "ensuite": {
+        "d": 1.8
       },
+      "face": 270,
+      "h": 3.93,
       "sash": {
         "drapes": "#c9a46a",
         "head": true,
@@ -101,13 +96,14 @@
         "transom": 0.4,
         "w": 1.8
       },
+      "studio": false,
       "tone": {
         "accent": "#c9a24a",
         "ceiling": "#eee8dc",
         "trim": "#ece6d8",
         "wall": "#3e5a44"
       },
-      "w": 7.4
+      "w": 8
     },
     "window": {
       "description": "A tall sash window, reglazed, that opens and shuts and keeps the weather where it belongs.",

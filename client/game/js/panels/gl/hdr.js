@@ -108,11 +108,7 @@ uniform float uNightSat;
 uniform float uLinear;
 out vec4 outColor;
 ${LINEAR_GLSL}
-// Narkowicz's fit of the ACES filmic curve. Cheap, and it is the curve almost every real-time
-// renderer means when it says "tonemapped".
-vec3 aces(vec3 x) {
-  return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0);
-}
+${ACES_GLSL}
 // ⚠ THE CLAMP KEEPS THE HUE OF WHAT GOES PAST WHITE. Clamping each channel on its own turns any
 // colour pushed past 1.0 toward white: a pink tube at 1.9x has its red and blue both pinned at 1,
 // and every neon sign in the city came out pale pink-white with a coloured fringe. Past 1.0 the
@@ -166,6 +162,7 @@ void main() {
 
 import { declareProgram, takeWarm, compileShader } from './programs.js';
 import { LINEAR_GLSL } from './colour.js';
+import { ACES_GLSL } from './core/glsl/tone.js';
 import { createTAA } from './taa.js';
 
 

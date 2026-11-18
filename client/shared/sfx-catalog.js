@@ -325,6 +325,31 @@
       config: { duration: 0.32, vary: { pitch: 40 }, layers: [
         ...[[0, 0.3], [0.07, 0.22], [0.15, 0.14]].map(([d, g]) => ({ waveform: 'noise', noiseMix: 1, delay: d, filter: { type: 'bandpass', freq: 2100, q: 1.6 }, adsr: { a: 0.002, d: 0.04, s: 0, r: 0.02 }, gain: g })),
         { waveform: 'sawtooth', freq: 92, pitchBend: { to: 58, time: 0.2 }, filter: { type: 'lowpass', freq: 600, q: 1 }, adsr: { a: 0.004, d: 0.18, s: 0, r: 0.06 }, gain: 0.1 } ] } },
+    // The rest of the session's cues are tuned to G and moved by the session itself (spray-session.js
+    // `cue`): it transposes their tones up a G minor pentatonic as the piece goes on, and brightens
+    // the hiss, so a section climbs and the whole piece climbs with it, into spray-done's G.
+    //
+    // A stroke filling, a quarter at a time: a short puff off the nozzle.
+    { id: 'spray-trace', name: 'Spray: a stroke filling', group: 'spray', category: 'sfx', priority: 3,
+      config: { duration: 0.1, vary: { filter: 250, gain: 1 }, layers: hiss(5171, { len: 0.06, lvl: 0.5, flutter: 0.1 }) } },
+    // A stroke landed: a glassy ping over a puff.
+    { id: 'spray-step', name: 'Spray: a stroke lands', group: 'spray', category: 'sfx', priority: 5,
+      config: { duration: 0.3, layers: [
+        { waveform: 'triangle', freq: 392, adsr: xp(0.002, 0.16, 0.12), gain: 0.16 },
+        { waveform: 'sine', freq: 784, adsr: xp(0.001, 0.09, 0.08), gain: 0.07 },
+        { waveform: 'sine', freq: 1176, adsr: xp(0.001, 0.05), gain: 0.035 },
+        ...hiss(5181, { len: 0.05, lvl: 0.35 }) ] } },
+    // A section on the wall: a fifth struck under the fill's hiss.
+    { id: 'spray-section', name: 'Spray: a section lands', group: 'spray', category: 'sfx', priority: 6,
+      config: { duration: 0.6, send: 0.25, layers: [
+        { waveform: 'triangle', freq: 196, adsr: xp(0.003, 0.4, 0.2), gain: 0.15 },
+        { waveform: 'triangle', freq: 293.66, delay: 0.05, adsr: xp(0.003, 0.36, 0.2), gain: 0.12 },
+        { waveform: 'sine', freq: 587.33, delay: 0.05, adsr: xp(0.002, 0.2, 0.15), gain: 0.06 } ] } },
+    // Shaken enough: the pressure coming up as a rising whistle, and a psst to clear the nozzle.
+    { id: 'spray-ready', name: 'Spray: shaken enough', group: 'spray', category: 'sfx', priority: 6,
+      config: { duration: 0.42, layers: [
+        { waveform: 'sine', freq: 520, pitchBend: { to: 1560, time: 0.22 }, adsr: { a: 0.01, d: 0.24, s: 0, r: 0.1 }, gain: 0.08 },
+        ...hiss(5191, { len: 0.2, lvl: 0.8 }).map((l) => ({ ...l, delay: (l.delay || 0) + 0.16 })) ] } },
     // The tag signature: the sound of a tag going up, whichever way it went up (the session, the
     // dialog or a typed `tag`). Two stabs of one instrument a fourth apart, D3 then G3, and a run
     // that answers them: G4 Bb4 D5 F5 in 32nds, a rest, D5, then G5 bent up from F#5 and held over

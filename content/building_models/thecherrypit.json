@@ -58,7 +58,7 @@
       "z": 0.34
     },
     {
-      "bars": 5,
+      "bars": 0,
       "cx": 0.1,
       "cy": 0.385,
       "depth": 0.008,
@@ -68,6 +68,7 @@
       "half": 0.04,
       "hh": 0.085,
       "kind": "windowBay",
+      "leaves": 0,
       "pal": "ty_precast_dk",
       "z": 0.088
     },

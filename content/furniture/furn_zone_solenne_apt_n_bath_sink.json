@@ -1,0 +1,20 @@
+{
+  "description": "A floating walnut vanity with a marble top and a stone bowl standing on it. A brass spout comes out of the wall over the bowl, hot or cold, clean enough to drink. Above it, a mirror as wide as the vanity, lit from behind.",
+  "flags": {
+    "look": {
+      "arche": "sink",
+      "form": "vanity"
+    },
+    "water_source": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_zone_solenne_apt_n_bath_sink",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "sink",
+  "object_type": "sink",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_apt_n_bath"
+}

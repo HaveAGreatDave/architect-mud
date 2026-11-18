@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_more_chatty_01",
+  "lines": [
+    "\"Did you hear?\"",
+    "\"Hear what?\"",
+    "\"About the baker's son and the tram.\"",
+    "\"No.\"",
+    "\"Neither have I yet. I'm going to ask. I just know there's something.\""
+  ],
+  "personality": "chatty",
+  "sort_order": 674
+}

@@ -10,12 +10,18 @@
   "exits": {
     "out": "zone_solenne_lobby",
     "up": [
-      "zone_solenne_hall_12",
-      "zone_solenne_hall_18",
       "zone_solenne_residences",
       "zone_solenne_residences_34",
-      "zone_solenne_hall_40",
+      "zone_solenne_hall_12",
+      "zone_solenne_hall_18",
       "zone_solenne_hall_41",
+      "zone_solenne_hall_24",
+      "zone_solenne_hall_26",
+      "zone_solenne_hall_28",
+      "zone_solenne_hall_34",
+      "zone_solenne_hall_36",
+      "zone_solenne_hall_38",
+      "zone_solenne_hall_40r",
       "zone_solenne_ph_landing",
       "zone_solenne_hall_45"
     ]
@@ -24,6 +30,16 @@
     "building_name": "Solenne Residences",
     "elevator": true,
     "elevator_floors": [
+      {
+        "label": "The Residences",
+        "n": 8,
+        "zone": "zone_solenne_residences"
+      },
+      {
+        "label": "The Residences",
+        "n": 10,
+        "zone": "zone_solenne_residences_34"
+      },
       {
         "label": "Fitness Club",
         "n": 12,
@@ -35,24 +51,44 @@
         "zone": "zone_solenne_hall_18"
       },
       {
-        "label": "The Residences",
-        "n": 30,
-        "zone": "zone_solenne_residences"
-      },
-      {
-        "label": "The Upper Residences",
-        "n": 34,
-        "zone": "zone_solenne_residences_34"
-      },
-      {
-        "label": "Sky Deck & Pool",
-        "n": 40,
-        "zone": "zone_solenne_hall_40"
-      },
-      {
         "label": "The Aerie: members",
-        "n": 41,
+        "n": 19,
         "zone": "zone_solenne_hall_41"
+      },
+      {
+        "label": "The Residences",
+        "n": 24,
+        "zone": "zone_solenne_hall_24"
+      },
+      {
+        "label": "The Residences",
+        "n": 26,
+        "zone": "zone_solenne_hall_26"
+      },
+      {
+        "label": "The Residences",
+        "n": 28,
+        "zone": "zone_solenne_hall_28"
+      },
+      {
+        "label": "Residence 34-A",
+        "n": 34,
+        "zone": "zone_solenne_hall_34"
+      },
+      {
+        "label": "Residence 36-A",
+        "n": 36,
+        "zone": "zone_solenne_hall_36"
+      },
+      {
+        "label": "Residence 38-B",
+        "n": 38,
+        "zone": "zone_solenne_hall_38"
+      },
+      {
+        "label": "Residence 40-A",
+        "n": 40,
+        "zone": "zone_solenne_hall_40r"
       },
       {
         "label": "The Penthouse",
@@ -60,7 +96,7 @@
         "zone": "zone_solenne_ph_landing"
       },
       {
-        "label": "Sky Pad: residents",
+        "label": "Sky Deck & Pad",
         "n": 45,
         "zone": "zone_solenne_hall_45"
       }

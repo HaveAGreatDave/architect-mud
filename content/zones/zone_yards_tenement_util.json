@@ -5,7 +5,7 @@
   ],
   "ambient_theme": "indoors",
   "bg_color": "#5a5450",
-  "description": "The tenement’s guts: a low, sweating concrete sub-basement of riser conduits, a long-dead boiler, and a floor drain choked with grit. A single junction box feeds all ten floors and trips if you so much as breathe on it wrong.",
+  "description": "The tenement's guts: a low, sweating concrete sub-basement of riser conduits, a long-dead boiler, and a floor drain choked with grit. A single junction box feeds every floor and trips if you so much as breathe on it wrong.",
   "exits": {
     "up": "zone_yards_tenement_lobby"
   },

@@ -52,6 +52,13 @@ export const HOUSE = Object.freeze({
 /** Whether the comic look is on. Read every frame, so the setting lands on the next one. */
 export const comicOn = () => !!globalThis.__houseComic;
 
+/**
+ * Whether the comic look also paints the light (two tones, the violet shade, hatching). Settings ->
+ * Shadows -> Traditional (shadowStyle 'real') keeps the ink and gives every view its own smooth
+ * light and real shadows back.
+ */
+export const comicLightOn = () => comicOn() && !globalThis.__houseRealShadow;
+
 /** A view's ink, in its own units: `own` is { ft, px: [min, max] of a 900-wide picture, col }. */
 export function inkOf(own) {
   if (!comicOn()) return own;
@@ -69,7 +76,7 @@ export function parkFigureInkOf(own) {
  * { bands, shade }. Comic adds the edge line and the hatching, drops the rim, and weighs the line.
  */
 export function figureLightOf(own) {
-  if (!comicOn()) return { bands: own.bands, shade: own.shade, comic: 0, weigh: 1 };
+  if (!comicLightOn()) return { bands: own.bands, shade: own.shade, comic: 0, weigh: 1 };
   return { bands: HOUSE.bands, shade: HOUSE.shade, comic: 1, weigh: HOUSE.weigh };
 }
 
@@ -98,7 +105,7 @@ export function rinkInkOf(w) {
  * its own light, and the shade isn't read.
  */
 export function vehicleLightOf() {
-  return { comic: comicOn() ? 1 : 0, shade: HOUSE.shade };
+  return { comic: comicLightOn() ? 1 : 0, shade: HOUSE.shade };
 }
 
 /**
@@ -112,6 +119,8 @@ export function vehicleLightOf() {
 export const CABIN_WEAR = Object.freeze({
   // A gold-and-chrome duck that somebody details every week.
   drake: { grime: 0.05, chips: 0, hatch: 0.35, grain: 0.15, dirt: [0.36, 0.30, 0.22] },
+  // A supercar: kept clean, a little brake dust on the sills and the pedals.
+  merlin: { grime: 0.08, chips: 0.05, hatch: 0.4, grain: 0.12, dirt: [0.30, 0.28, 0.26] },
   // A fabric-and-tube Cub: dust from grass strips, paint worn off the stick and the sill.
   grasshopper: { grime: 0.45, chips: 0.55, hatch: 0.7, grain: 0.4, dirt: [0.52, 0.42, 0.28] },
   // A crop sprayer: chemical crust in yellow-green, everything scuffed.
@@ -175,7 +184,7 @@ export function vehicleInkOf(w) {
 }
 
 /** A view's band count, where the view passes it as a uniform. */
-export const bandsOf = (own) => (comicOn() ? HOUSE.bands : own);
+export const bandsOf = (own) => (comicLightOn() ? HOUSE.bands : own);
 
 /** The city's ink colour (gl/context.js INK_COL). */
 export const cityInkCol = (own) => (comicOn() ? HOUSE.ink : own);
@@ -183,11 +192,13 @@ export const cityInkCol = (own) => (comicOn() ? HOUSE.ink : own);
 /**
  * The city's tune keys for a Cel Shading setting: 'off', 'on' (the city's cel look as it shipped)
  * or 'comic'. A boolean is read as off or on, the way the setting was passed before 'comic'.
+ * `real` (Shadows -> Traditional) keeps the ink and drops the banded light, so the sun's shadows fall soft.
  */
-export function cityTuneFor(mode) {
+export function cityTuneFor(mode, real = false) {
   const m = mode === true ? 'on' : mode === 'on' || mode === 'comic' ? mode : 'off';
   const on = m === 'off' ? 0 : 1;
+  const toon = real ? 0 : on;
   return m === 'comic'
-    ? { glToon: on, glInk: on, glToonBands: HOUSE.bands, glInkPx: HOUSE.cityPx, glInkFar: HOUSE.cityFar }
-    : { glToon: on, glInk: on, glToonBands: 3, glInkPx: 1.5, glInkFar: 24 };
+    ? { glToon: toon, glInk: on, glToonBands: HOUSE.bands, glInkPx: HOUSE.cityPx, glInkFar: HOUSE.cityFar }
+    : { glToon: toon, glInk: on, glToonBands: 3, glInkPx: 1.5, glInkFar: 24 };
 }

@@ -21,8 +21,9 @@
 // Pure: no DOM, no GL. The gate (scripts/shapes/figure-rig.mjs) runs every clip through it.
 
 import { FIGURE_BONES, FIGURE_BONE, FIGURE_BONE_COUNT, SCULPT_BUILDS } from '../figure.js';
-import { BONE, FRAME_FLOATS } from './rig.js';
+import { BONE, BONES, FRAME_FLOATS, boneFrames } from './rig.js';
 import { FT_M } from '../../../../shared/world-scale.js';
+import { HANDS, BAT_HANDS } from './hands.js';
 
 const FT = 1 / FT_M;   // feet in a metre
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
@@ -93,11 +94,39 @@ export const FIG_ROW_FLOATS = FIGURE_BONE_COUNT * 12;
 // Deadball's length for it over the figure's, which brings the joints together and leaves an athlete's forearms
 // and thighs a little thicker than the figure's own. The gate holds every row to it.
 
-// A hand round a bat: the hole its fingers close round (HAND_HOLD.bat, fitted against a bat's handle) in the left
-// hand's bind space, palmward of the wrist and below it, its axis along the knuckle line (+z, the thumb's way).
-// The handle's axis goes through it, and the hand is turned about the handle so the line from the hole to the
-// wrist points at Deadball's wrist, which it meets within a few millimetres.
-export const GRIP_HOLE = Object.freeze({ in: 0.036, down: 0.0445, z: 0.0 });
+// A hand round a bat: the hole its fingers close round (HAND_HOLD.bat) in the left hand's bind space, palmward of
+// the wrist and below it, and the handle's line through it along the knuckle line (+z, the thumb's way) turned
+// `tilt` about x, so it lies across the palm on a slant as a real grip's does. The fingers close round it and press
+// onto it (GRIP_HOLD: the skin curled into the wood is laid on it, as flesh flattens). Fitted 2026-11-15 with each
+// finger's joints for what a camera sees: of the handle along the grip, round it, two 3 mm cells a row show through
+// the hand, at the seam and where the hand ends, where five of the 24 did with the fingers bent free and nine with
+// the grip before (whose hole was fitted only so no finger went into the handle: from behind the batter you saw
+// the bat across his hands). The hand is turned about the handle so the line from the handle to the wrist points
+// at Deadball's wrist; the figure's wrist, 4.9 cm out, is a centimetre short of it, and the forearm is drawn to it
+// (gripWrist).
+export const GRIP_HOLE = Object.freeze({ in: 0.024, down: 0.043, z: 0.0, tilt: -0.3 });
+// The hole and the handle's line in the left hand's bind space, and the wrist off the line (its foot on the line
+// and how far out it is), for side S.
+function gripBind(S) {
+  const side = S === 'L' ? 1 : -1, wr = FIG_JOINT['hand' + S];
+  const hole = [wr[0] - side * GRIP_HOLE.in, wr[1] - GRIP_HOLE.down, GRIP_HOLE.z], yf = [0, Math.sin(GRIP_HOLE.tilt), Math.cos(GRIP_HOLE.tilt)];
+  const v = sub(wr, hole), along = dot(v, yf), foot = hole.map((x, i) => x + yf[i] * along), off = sub(wr, foot);
+  return { hole, yf, foot, zf: norm(off), out: len(off) };
+}
+const GRIP_BIND = { L: gripBind('L'), R: gripBind('R') };
+// The bat's handle where the hands go, its radius in feet a unit of scale (ballplayer-mesh.js BAT_DOMED: 0.037 to
+// 0.04 ft between the knob's neck and the top hand), and the handle as a hand on it holds it (gl/figure-hands.js
+// holdPush): in the left hand's bind space, the line through GRIP_HOLE at that radius, so the skin of a finger
+// curled into it is laid on the wood.
+export const BAT_HANDLE_R = 0.038;
+export const GRIP_HOLD = Object.freeze({ at: Object.freeze(GRIP_BIND.L.hole), dir: Object.freeze(GRIP_BIND.L.yf), r: BAT_HANDLE_R * FT_M });
+// Where the figure's wrist is for a hand on the bat (park feet): out from the handle toward Deadball's wrist, by the
+// figure's own reach from the handle. figureRows stretches the forearm to it; the gate holds the hand to it.
+export function gripWrist(sol, S) {
+  const { J, s } = sol, d = J.batDir, toW = sub(J['wr' + S], J['hand' + S]), cA = J['hand' + S].map((v, i) => v + d[i] * dot(toW, d));
+  const bk = norm(sub(J['wr' + S], cA)), r = GRIP_BIND[S].out * FT * (s || 1);
+  return cA.map((v, i) => v + bk[i] * r);
+}
 // A gloved hand is tucked into the glove: drawn this much of its size about its palm, so no finger comes out
 // through the leather (the glove is ballplayer-mesh.js's, on Deadball's hand)
 export const GLOVE_TUCK = 0.7;
@@ -106,7 +135,36 @@ const PALM_DOWN = 0.06;
 // The figure's rows for a solved pose. `sol` is rig.js solvePose's { J, W, s }, `frames` its boneFrames. `fit` is
 // the man's figureFit; `glove` the side his glove is on, if he wears one. Every grown bone (figure.js
 // FIGURE_XBONES) rides the pelvis: no ballplayer has one yet.
-export function figureRows(sol, frames, fit = null, out = new Float32Array(FIG_ROW_FLOATS), glove = null) {
+// A hand round a bat can hold it either way round: its thumb toward the barrel or toward the knob (both hands
+// overhand, as on a broom, the thumbs point at each other). The rig says only where the handle and the wrist are, so
+// each hand takes whichever way round leaves its wrist the smaller turn on its forearm: held wrong, the top hand stood
+// 160° to 180° round from its forearm in the stance and its wrist's skin was blended the long way round into a
+// spike. `grip` ({ L, R }, true for thumb-to-knob) is kept per man between frames by the caller and updated here; a
+// hand turns over only when the other way is better by GRIP_TURN_HOLD, so it doesn't flicker on the line.
+export const GRIP_TURN_HOLD = 40 * Math.PI / 180;
+let ALT_ROWS = null;
+export function figureRows(sol, frames, fit = null, out = new Float32Array(FIG_ROW_FLOATS), glove = null, grip = null) {
+  const g = { L: !!grip?.L, R: !!grip?.R };
+  ALT_ROWS ??= new Float32Array(FIG_ROW_FLOATS);
+  rowsOnce(sol, frames, out, glove, g);
+  if (sol.J.gripL || sol.J.gripR) {
+    // each hand both ways round, its wrist's real turn each way (a hand's row depends on nothing of the other's)
+    const now = forearmTwist(out), alt = { L: !g.L, R: !g.R }, other = forearmTwist(rowsOnce(sol, frames, ALT_ROWS, glove, alt));
+    let again = false;
+    for (const S of ['L', 'R']) {
+      if (!sol.J['grip' + S]) continue;
+      if (Math.abs(other[S]) + GRIP_TURN_HOLD < Math.abs(now[S])) { g[S] = !g[S]; again = true; }
+    }
+    if (again) rowsOnce(sol, frames, out, glove, g);
+    if (grip) Object.assign(grip, g);
+  }
+  return out;
+}
+
+// The rows with each gripping hand held the way round `grip` says ({ L, R }, true for thumb-to-knob), never turned:
+// for the tools that key a clip's elbows to its grip (scripts/shapes/elbow-fit.mjs).
+export const figureRowsHeld = (sol, frames, out, grip, glove = null) => rowsOnce(sol, frames, out, glove, grip);
+function rowsOnce(sol, frames, out, glove, grip) {
   const { J, W, s } = sol, k = FT * s;
   const one = (x) => [x, x, x];
   // the torso: each bone's own frame, the figure's joint on Deadball's
@@ -134,17 +192,27 @@ export function figureRows(sol, frames, fit = null, out = new Float32Array(FIG_R
     if (J['grip' + S]) {
       // round the bat: the grip's hole on the handle's axis, where it passes the wrist
       const d = J.batDir, toW = sub(J['wr' + S], J['hand' + S]), cA = J['hand' + S].map((v, i) => v + d[i] * dot(toW, d));
-      const bk = norm(sub(J['wr' + S], cA)), Fd = [cross(d, bk), d, bk];
-      const hole = [wr[0] - side * GRIP_HOLE.in, wr[1] - GRIP_HOLE.down, GRIP_HOLE.z];
-      const zf = norm([side * GRIP_HOLE.in, GRIP_HOLE.down, 0]), yf = [0, 0, 1];
-      put(out, FIGURE_BONE[hd], Fd, cA, [cross(yf, zf), yf, zf], hole, one(k));
+      // turned over (grip[S]), the thumb points to the knob: half a turn about the line to the wrist
+      const bk = norm(sub(J['wr' + S], cA)), dd = grip?.[S] ? d.map((v) => -v) : d, Fd = [cross(dd, bk), dd, bk];
+      // the handle's line in the hand on the bat's, the wrist's foot on it at cA
+      const G = GRIP_BIND[S];
+      put(out, FIGURE_BONE[hd], Fd, cA, [cross(G.yf, G.zf), G.yf, G.zf], G.foot, one(k));
+      // and the forearm from Deadball's elbow to the figure's wrist, which is out past Deadball's: turned the least
+      // that points it there and stretched whole to reach (a turn and one scale, as the skinning wants)
+      const w2 = cA.map((v, i) => v + bk[i] * G.out * k), el = J['el' + S], y0 = norm(sub(J['wr' + S], el)), y1 = norm(sub(w2, el));
+      const ax = cross(y0, y1), sn = len(ax), cs = dot(y0, y1), A = axesOf(frames, BONE['forearm' + S]);
+      const turn = (v) => (sn < 1e-9 ? v : (() => { const u = ax.map((x) => x / sn), c = dot(u, v), x = cross(u, v); return v.map((q, i) => q * cs + x[i] * sn + u[i] * c * (1 - cs)); })());
+      put(out, FIGURE_BONE['farm' + S], A.map(turn), el, FIG_FRAME.farm, FIG_JOINT['farm' + S], one(len(sub(w2, el)) / (FIG_JOINT['farm' + S][1] - FIG_JOINT[hd][1])));
     } else if (glove === S) {
       // in the glove: tucked in about its palm, at the glove's hand
       put(out, FIGURE_BONE[hd], axesOf(frames, BONE[hd]), J[hd], FIG_FRAME[hd], [wr[0], wr[1] - PALM_DOWN, wr[2]], one(k * GLOVE_TUCK));
     } else put(out, FIGURE_BONE[hd], axesOf(frames, BONE[hd]), J['wr' + S], FIG_FRAME[hd], wr, one(k));
   }
-  // every bone past the skeleton rides the pelvis
-  for (let b = FIGURE_BONES.length; b < FIGURE_BONE_COUNT; b++) out.set(out.subarray(FIGURE_BONE.pelvis * 12, FIGURE_BONE.pelvis * 12 + 12), b * 12);
+  // every bone past the skeleton rides the pelvis, but the collarbones, which the shoulders are weighted to, ride the chest
+  for (let b = FIGURE_BONES.length; b < FIGURE_BONE_COUNT; b++) {
+    const src = b === FIGURE_BONE.clavL || b === FIGURE_BONE.clavR ? FIGURE_BONE.chest : FIGURE_BONE.pelvis;
+    out.set(out.subarray(src * 12, src * 12 + 12), b * 12);
+  }
   return out;
 }
 
@@ -177,18 +245,64 @@ export function atRow(rows, b, p) {
 }
 
 // ── who he is, as the figure ──────────────────────────────────────────────────────────────────────────
-// How the hands are held, as gl/figure-hands.js shapes: round a bat the fingers closed on the handle and the
-// thumb across them; in a glove a light curl, so nothing comes out through the leather; free, loose.
-export const HAND_HOLD = Object.freeze({
-  // a power grip (`gk`, gl/figure-hands.js GRIP_FLEX): fitted so the handle runs through GRIP_HOLE clear of every
-  // finger. The figure's thumb bends only at its root, too far from the handle to wrap it, so it's laid up the bat's
-  // line (about 30° off it, clear of the handle) rather than across it, where it stood out sideways like a spike
-  bat: Object.freeze({ f: Object.freeze([0.95, 0.98, 1.01, 1.04]), th: 1.0, op: -1.0, sp: 0, gk: 1 }),
-  glove: Object.freeze({ f: Object.freeze([0.25, 0.25, 0.25, 0.25]), th: 0.2, op: 0.15, sp: 0 }),
-  free: Object.freeze({ f: Object.freeze([0.22, 0.27, 0.32, 0.36]), th: 0.25, op: 0.1, sp: 0.05 }),
+// How the hands are held when nothing keys them, from the hand-shape library (diamond/hands.js): round a bat the
+// power grip, in a glove a light curl, on the ball a four-seamer, free, loose.
+export const HAND_HOLD = Object.freeze({ bat: HANDS.bat, glove: HANDS.glove, ball: HANDS.ball, free: HANDS.free });
+// The pitcher's grip for the pitch he's about to throw, by diamond/flight.js's pitch types: the close-up of his
+// hand in his set is a live tell, so it's the pitch the server chose. Anything else in a hand (a fielder's throw,
+// the warm-ups) is a four-seamer. The fingers on the ball are curled till their tips meet it at BALL_HOLD (fitted
+// on the built hand's skin, 2026-11-15; figure-rig.mjs holds every finger out of it): so the grips differ in how the
+// fingers spread and which ones are on the ball, not in how hard they're curled. The curve's index is lifted off it.
+const G =(f, th, op, sp) => Object.freeze({ f: Object.freeze(f), th, op, sp });
+export const PITCH_GRIPS = Object.freeze({
+  'four-seam fastball': HAND_HOLD.ball,
+  // two-seam: the same two fingers, closer together and along the seams
+  sinker: G([0.43, 0.46, 0.85, 0.95], 0.55, 0.9, -0.3),
+  // off-centre, the fingers a touch closer: the cutter a little, the slider more and the thumb further under
+  cutter: G([0.43, 0.46, 0.88, 0.95], 0.5, 0.85, -0.25),
+  slider: G([0.43, 0.46, 0.9, 0.95], 0.45, 0.95, -0.35),
+  // the circle change: the index curled right round to meet the thumb, the other three spread over the ball
+  changeup: G([1.05, 0.46, 0.56, 0.68], 0.85, 1.0, 0.15),
+  // the curve: the middle finger on the seam doing the work, the index lifted off it
+  curveball: G([0.35, 0.46, 0.9, 0.95], 0.6, 0.9, -0.05),
+  // the splitter: the two fingers forked wide either side of the ball
+  splitter: G([0.41, 0.45, 0.9, 0.95], 0.55, 0.9, 0.55),
+  // the knuckleball: the fingertips dug into the hide, the knuckles up: a pose joint by joint (the index and middle
+  // fingers folded at their middle joints more than their knuckles, fitted till their tips meet the ball), not a curl
+  knuckleball: Object.freeze({ j: Object.freeze([0.8, 1.2, 0.72, 0.024, 0.9, 0.9, 0.54, 0.008, 0.975, 0.938, 0.6, -0.008, 1.144, 1.1, 0.704, -0.024, 0.066, 0.81, 0.121, 0.148]) }),
 });
-export function handHolds(J, glove) {
-  const of = (S) => (J['grip' + S] ? HAND_HOLD.bat : glove === S ? HAND_HOLD.glove : HAND_HOLD.free);
+export const gripOf = (type) => PITCH_GRIPS[String(type || '').toLowerCase()] || HAND_HOLD.ball;
+// Where a ball sits in a hand that holds it, in the left hand's bind space (metres; the right's mirrors x): out on
+// the fingers, about 7 cm off the palm and toward the thumb, where the four-seamer's index and middle fingertips
+// and the thumb's pad all touch it and nothing goes in. Fitted on the built hand's skin, 2026-11-15. The director
+// had it as Deadball's old hand did, 4.6 cm out of the palm on the hand's line, which on the figure put its middle
+// 2 cm off the palm and the ring and little fingers 2 to 3 cm into it.
+export const BALL_HOLD = Object.freeze([0.108, 0.792, 0.052]);
+const HOLD_FRAMES = new Float32Array(BONES.length * FRAME_FLOATS);
+// That point in the park (feet) for a solved pose (rig.js solvePose's { J, s }), on hand S, as figureRows hangs a
+// free hand: for diamond/director.js pitcherBall, which puts the pitcher's ball in his fingers.
+export function ballInHand(sol, S) {
+  boneFrames(sol, HOLD_FRAMES);
+  const hd = 'hand' + S, A = axesOf(HOLD_FRAMES, BONE[hd]), Ff = FIG_FRAME[hd], h = FIG_JOINT[hd], k = FT * (sol.s || 1);
+  const p = S === 'L' ? BALL_HOLD : [-BALL_HOLD[0], BALL_HOLD[1], BALL_HOLD[2]], d = [p[0] - h[0], p[1] - h[1], p[2] - h[2]];
+  const c = Ff.map((f) => (f[0] * d[0] + f[1] * d[1] + f[2] * d[2]) * k), wr = sol.J['wr' + S];
+  return [0, 1, 2].map((i) => wr[i] + A[0][i] * c[0] + A[1][i] * c[1] + A[2][i] * c[2]);
+}
+// `ball` is where the ball is (the park's feet), or null: a free hand it's in holds it, in `grip` (a PITCH_GRIPS
+// shape) or the four-seam grip. `keyed` is what the clip keys for each hand (hands.js handsAt, on the pose as
+// `hands`): a shape by name and how much of it, '' for the hand as it would be. A hand round the bat takes only a
+// bat grip from it, a gloved hand and a hand on the ball none; a free hand takes any. Each hand comes back as
+// [[shape, weight], ...] (gl/figure-hands.js handPose mixes them).
+export const BALL_IN_HAND = 0.45;
+export function handHolds(J, glove, ball = null, grip = null, keyed = null) {
+  const near = (S) => ball && J['hand' + S] && Math.hypot(ball[0] - J['hand' + S][0], ball[1] - J['hand' + S][1], ball[2] - J['hand' + S][2]) < BALL_IN_HAND;
+  const of = (S) => {
+    const base = J['grip' + S] ? HAND_HOLD.bat : glove === S ? HAND_HOLD.glove : near(S) ? grip || HAND_HOLD.ball : HAND_HOLD.free;
+    const list = keyed?.[S];
+    if (!list || glove === S || (!J['grip' + S] && near(S))) return [[base, 1]];
+    const ok = (n) => n && HANDS[n] && (!J['grip' + S] || BAT_HANDS.includes(n));
+    return list.map(([n, w]) => [ok(n) ? HANDS[n] : base, w]);
+  };
   return { L: of('L'), R: of('R') };
 }
 

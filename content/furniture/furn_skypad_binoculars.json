@@ -1,0 +1,33 @@
+{
+  "description": "A pair of steel viewing binoculars on a post at the rail, the old seaside kind, painted the building's bronze. No coin slot: the residents paid for them once. They swing on the post and tilt for the street.",
+  "flags": {
+    "aliases": "binoculars,viewer,scope",
+    "interactions": [
+      "examine"
+    ],
+    "look": {
+      "arche": "small",
+      "form": "telescope"
+    },
+    "telescope": {
+      "label": "viewing binoculars"
+    },
+    "spot": {
+      "at": [
+        -3.2,
+        0.7
+      ],
+      "turn": 0
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "light_type": null,
+  "lumen_output": null,
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "id": "furn_skypad_binoculars",
+  "name": "viewing binoculars",
+  "zone_id": "zone_solenne_helipad"
+}

@@ -200,16 +200,17 @@ export const VEIL_CSS = `
     .ws-veil-kicker { font-size:9px; letter-spacing:3px; color:var(--vm); }
     .ws-veil-kicker::before, .ws-veil-kicker::after { content:'\\2014\\2002'; color:color-mix(in srgb, var(--vm) 45%, transparent); }
     .ws-veil-kicker::after { content:'\\2002\\2014'; }
-    .ws-veil-title { font-family:Georgia, 'Times New Roman', serif; font-weight:700; font-size:clamp(15px, 5.4cqw, 26px); line-height:1.15;
-      letter-spacing:.04em; color:#f6ead2; text-shadow:0 0 14px color-mix(in srgb, var(--vy) 30%, transparent); }
+    .ws-veil-title { font-weight:700; font-size:clamp(14px, 4.8cqw, 24px); line-height:1.15;
+      letter-spacing:.06em; color:#f6ead2; text-shadow:0 0 14px color-mix(in srgb, var(--vy) 30%, transparent); }
     .ws-veil-sub { font-size:10px; letter-spacing:2px; text-transform:uppercase; color:color-mix(in srgb, var(--vc) 70%, #fff); }
-    .ws-veil-blurb { margin:6px 0 0; max-width:38em; font-family:Georgia, 'Times New Roman', serif; font-style:italic; font-size:12px; line-height:1.45;
+    .ws-veil-blurb { margin:6px 0 0; max-width:38em; font-size:11px; line-height:1.5;
       color:rgba(234,236,240,.72); display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
     .ws-veil-blurb::before { content:'\\201C'; color:var(--vy); } .ws-veil-blurb::after { content:'\\201D'; color:var(--vy); }
     @keyframes ws-veil-in { from { opacity:0; transform:translateY(4px); } }
     /* Before the room's own code is in (preVeil): fixed over the pane it will cover, and faded in after the black. */
     .ws-veil-pre { position:fixed; z-index:9002; pointer-events:none; overflow:hidden; background:#000; }
     .ws-veil-pre > .ws-veil { animation:ws-veil-in .3s ease-out backwards; }
+    .ws-veil-pre.ws-veil-pre-out { opacity:0; transition:opacity .38s ease .22s; }
 
     .ws-veil-foot { display:flex; justify-content:space-between; align-items:baseline; gap:12px; }
     .ws-veil-msg { font-size:10px; letter-spacing:2px; color:rgba(234,252,255,.78); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -250,10 +251,19 @@ function setProgress(node, p) {
 
 function lift(node) {
   setProgress(node, 1);
-  node.classList.add('ws-veil-out');
-  // a pre-veil goes with its fixed holder
-  const gone = node.parentElement?.classList.contains('ws-veil-pre') ? node.parentElement : node;
-  setTimeout(() => gone.remove(), FADE_MS);
+  // ⚠ A PRE-VEIL FADES WITH ITS HOLDER. The holder is black (the veil comes up out of it), so fading the veil alone
+  // went to black and the black then vanished in one frame. The holder fades instead, straight onto what's under it.
+  const wrap = node.parentElement?.classList.contains('ws-veil-pre') ? node.parentElement : null;
+  if (wrap) { clearTimeout(wrap._ttl); clearTimeout(wrap._creep); wrap.classList.add('ws-veil-pre-out'); }
+  else node.classList.add('ws-veil-out');
+  // ⚠ GONE WHEN THE FADE HAS RUN, NOT ON A CLOCK. The room goes on building after the veil lifts, and a frame of half a
+  // second there started the fade late: a FADE_MS timer then fired as it began, and the veil vanished at full strength.
+  // The timer is only the fallback, for a page that draws no frames (a hidden tab) and so never ends a transition.
+  const gone = wrap || node;
+  let left = false;
+  const off = () => { if (!left) { left = true; gone.remove(); } };
+  gone.addEventListener('transitionend', (e) => { if (e.target === gone && e.propertyName === 'opacity') off(); });
+  setTimeout(off, FADE_MS + 2400);
 }
 
 // Called at the top of paintWindshield. True means skip this paint.
@@ -307,6 +317,8 @@ function ensureCss() {
 }
 // the fixed holder a pre-veil stands in, or null for a veil inside its host
 const preOf = (node) => (node?.parentElement?.classList.contains('ws-veil-pre') ? node.parentElement : null);
+// A loading screen takes the whole window: fitted to a pane, the 3-D game showed round its edges.
+const winRect = () => ({ left: 0, top: 0, width: window.innerWidth, height: window.innerHeight });
 const fit = (wrap, r) => Object.assign(wrap.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' });
 export function coverWithVeil(host, id, { ready = () => true, place = null } = {}) {
   if (typeof document === 'undefined' || !host) return;
@@ -316,14 +328,25 @@ export function coverWithVeil(host, id, { ready = () => true, place = null } = {
   // a veil put up before this view's code was in (preVeil) is taken over where it stands, not drawn again, so its
   // floor and its bar run on unbroken; it follows the host's box from here
   const pre = preOf(el(id));
-  if (pre) { clearTimeout(pre._ttl); pre._adopted = true; if (place) placeVeil(id, place); }
-  else host.insertAdjacentHTML('beforeend', veilHTML(id, place));
+  if (pre) { clearTimeout(pre._ttl); clearTimeout(pre._creep); pre._adopted = true; if (place) placeVeil(id, place); }
+  else {
+    // in a fixed holder over the whole window, as a pre-veil is, not inside the host's box
+    const wrap = document.createElement('div');
+    wrap.className = 'ws-veil-pre'; wrap.setAttribute('aria-hidden', 'true');
+    wrap._adopted = true; wrap._cover = winRect; fit(wrap, winRect());
+    wrap.innerHTML = veilHTML(id, place);
+    document.body.appendChild(wrap);
+  }
+  const holder = preOf(el(id));
   const t0 = performance.now();
   let last = t0;
   const step = (now) => {
     const node = el(id), s = _state.get(id);
     if (!node || s?.done) return;
-    if (pre && pre.isConnected) { const r = host.getBoundingClientRect(); if (r.width && r.height) fit(pre, r); }
+    // the view closed under its veil: the holder is on the body now, so it goes with it rather than staying up
+    if (!host.isConnected) { (holder || node).remove(); _state.delete(id); return; }
+    // over what the pre-veil was put up to cover (`cover`, both panes for a typed 'room'), else over the host
+    if (holder && holder.isConnected) { const r = winRect(); if (r.width && r.height) fit(holder, r); }
     const ms = now - last;
     last = now;
     if (!veilHold(id)) {
@@ -344,9 +367,11 @@ export function veilReset(id) { _state.delete(id); }
 // A view that loads lazily (the Room Stage: the server's answer, then its module) showed nothing for the second or
 // more that took. This puts the veil up at once, fixed over `rect` (the pane it will cover), its bar creeping on its
 // own, and coverWithVeil takes it over when the view comes in. If nobody does within `ttl` ms (the server said no),
-// it goes. `delay` holds it back, for a cover that fades to black first. Returns the holder, or null.
+// it goes. `delay` holds it back, for a cover that fades to black first. `cover`, a function returning a rect, keeps
+// it fitted to that for its whole life, the view's own time under it too; without one it follows the view's host once
+// the view takes it over. Returns the holder, or null.
 const PRE_CREEP_MS = 120, PRE_TOP = 0.55;
-export function preVeil(id, rect, { place = null, ttl = 9000, delay = 0, z = 9002 } = {}) {
+export function preVeil(id, rect, { place = null, ttl = 9000, delay = 0, z = 9002, cover = null } = {}) {
   if (typeof document === 'undefined' || !rect || !(rect.width > 0) || !(rect.height > 0)) return null;
   const had = el(id);
   if (had && !preOf(had)) return null;   // the view's own veil is up already
@@ -355,7 +380,9 @@ export function preVeil(id, rect, { place = null, ttl = 9000, delay = 0, z = 900
   const wrap = document.createElement('div');
   wrap.className = 'ws-veil-pre'; wrap.setAttribute('aria-hidden', 'true');
   wrap.style.zIndex = String(z);
-  fit(wrap, rect);
+  // the whole window, whatever pane it was asked to cover (`rect` and `cover` only say there is one)
+  void cover; wrap._cover = winRect;
+  fit(wrap, winRect());
   wrap.innerHTML = veilHTML(id, place);
   const node = wrap.firstElementChild;
   if (delay) node.style.animationDelay = delay + 'ms';
@@ -363,6 +390,7 @@ export function preVeil(id, rect, { place = null, ttl = 9000, delay = 0, z = 900
   setProgress(node, 0.04);
   const creep = () => {
     if (!wrap.isConnected || wrap._adopted) return;
+    const r = wrap._cover?.(); if (r?.width && r.height) fit(wrap, r);
     setProgress(node, (node._p || 0) + (PRE_TOP - (node._p || 0)) * 0.06);
     wrap._creep = setTimeout(creep, PRE_CREEP_MS);
   };

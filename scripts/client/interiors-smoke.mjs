@@ -97,7 +97,33 @@ check('the street view keeps them and hands them to the frame', /keepInteriors\(
 check('a room the street view drew is walked into in GLASS', /if \(freelookTakeRoom\(msg\)\) (?:return;|\{[^}]*\breturn; \})/.test(disp) && /freelookTakeRoom = ifLoaded/.test(lazy));
 check('indoors, the server\'s close doesn\'t park the view', /msg\?\.indoors && freelookInside\(\)/.test(disp));
 check('inside, the room\'s own floor holds you', /if \(s\.inside\) return insideBlock/.test(fv) && /roomFree\(r\.L/.test(fv));
-check('one world is off until it\'s turned on', /export const ONE_WORLD = \{ on: false \}/.test(fv));
+check('one world is off until it\'s turned on', /export const ONE_WORLD = \{ on: false\b/.test(fv));
+
+// ── the windows in the shell (step 2): a room's panes stand on its own walls, facing out ────────────────────────
+{
+  const { roomPanes } = await imp('client/game/js/panels/glass/interiors-near.js');
+  for (const bearing of [0, 90, 225]) {
+    const spec = { w: 6, d: 8, h: 3, face: 30, windows: [{ wall: 'front', a: -2, b: 1, y0: 0.9, y1: 2.2 }, { wall: 'left', a: 2, b: 5, y0: 1, y1: 2 }, { wall: 'back', a: 0, b: 2 }] };
+    const L = roomLayout(spec), M = roomToGlass(L, [0.1, -0.2], bearing, 0);
+    const P = roomPanes(spec, L, M);
+    check(`bearing ${bearing}: every pane is a quad`, P.length === 3 && P.every((q) => q.quad.length === 4));
+    const front = P[0], fl = apply(M, L.world(-2, 0, 2.2));
+    check(`bearing ${bearing}: a front pane's corner is on the front wall`, near(front.quad[0][0], fl[0]) && near(front.quad[0][1], fl[1]) && near(front.quad[0][2], fl[2]));
+    // the step into the room points at the room's middle
+    const mid = apply(M, L.world(0, L.d / 2, 1.5));
+    for (const q of P) check(`bearing ${bearing}: a pane's way in is into the room`, (mid[0] - q.c[0]) * q.n[0] + (mid[1] - q.c[1]) * q.n[1] > 0 && near(Math.hypot(q.n[0], q.n[1]), 1));
+  }
+  check('a windowless room has no panes', roomPanes({ w: 4, d: 4, h: 3, windowless: true, windows: [{ wall: 'front', a: 0, b: 1 }] }, roomLayout({ w: 4, d: 4, h: 3 }), roomToGlass(roomLayout({ w: 4, d: 4, h: 3 }), [0, 0], 0, 0)).length === 0);
+  const ri = read('client/game/js/panels/room-interiors.js'), gi = read('client/game/js/panels/gl/interiors.js'), nr = read('client/game/js/panels/glass/interiors-near.js');
+  check('a room carries its panes', /panes: roomPanes\(r\.spec, L, M\)/.test(ri) && /panes: room\.panes/.test(nr));
+  check('the frame turns panes facing the eye into portals', /function panePortals/.test(ws) && /panePortals\(list, rel\)/.test(ws));
+  check('a pane portal draws only its own room', /!p\.room \|\| e\.r\.key === p\.room/.test(gi));
+  check('a street door\'s backing asks only after door portals', /filter\(\(p\) => !p\.room\)/.test(ws));
+  check('each portal is filled from its own scissored patch', /gl\.scissor\(box\[0\]/.test(gi) && /function screenBox/.test(gi) && gi.includes('p.quads || [p.quad]'));
+  check('the portal target is let go of its unit before the next one draws into it', /the target off its unit/.test(gi));
+  // a wall's panes are one portal: the room is drawn once for them all
+  check('the panes of one wall share a portal', /had\.quads\.push\(q\.quad\)/.test(ws));
+}
 
 console.log(bad ? `interiors:smoke — ${bad} of ${n} failed` : `interiors:smoke — ${n} checks passed`);
 process.exit(bad ? 1 : 0);

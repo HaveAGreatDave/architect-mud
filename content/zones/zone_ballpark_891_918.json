@@ -1,10 +1,11 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "The west end of Kerbstone Row, where it meets Hughson Way. The Coliseum's east wall is straight across the road, and the terraces of 21 Hughson Way start on the south side.",
+  "description": "The west end of Kerbstone Row, where it meets Hughson Way. The East Gardens are across the kerb, with the Coliseum's east wall behind them.",
   "exits": {
     "east": "zone_district_898_916",
     "north": "zone_ballpark_897_915",
+    "south": "zone_hughsonpark_897_917",
     "west": "zone_ballpark_892_916"
   },
   "flags": {

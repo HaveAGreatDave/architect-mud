@@ -4,7 +4,7 @@
 
 ## Commands
 - `takedown` / `take` — peel one off.
-- `putup` — hang one.
+- `putup` — hang one. `putup kiyo on the left wall` (left, right, window or door) puts it on that wall, and the rest of the run in the room moves there with it.
 
 ## Provenance
 
@@ -26,6 +26,8 @@ With all seven hung, ROOM plays the join once: the camera goes to the wall, the 
 The lettering is baked from two versions of the same picture: the plain one, and `scripts/posters/hellmoo-lettered.webp` with the gold HELLMOO on it. `node scripts/posters/bake.mjs` keeps where they differ (it needs Chrome). Run it again after replacing either.
 
 `sheets.js` holds the mural order, the word, where the panels' divider strips are in the print (`ART.cols`), and what ROOM paints a sheet from if the print can't load (ground, ink, accent, slogan, pose). It's a leaf with no server imports, so the Room Lab's `__labSheets()` hangs the run with no server. `putup` and a peel emit `room.sheetsChanged` so whoever has the room open sees it at once.
+
+Where the run hangs is `flags.sheet_spot` (`{ wall, along? }`) on its rows: `putup … <wall>` sets it for the whole run, and the room's arrange mode drags the run along the wall tops and hangs carried rolls from its Posters menu (roomstage `arrange sheets` and `sheet+<inv>@<spot>`, answered here by `room.sheetStock` and `room.sheetHang`). No spot and ROOM picks the clearest wall.
 
 ## The two-layer easter egg
 Kiyo and Cyd were printed as **one image**, so hanging that pair together reveals a hidden GRU at the seam on examine. Hanging **all seven** sheets in one room spells HELLMOO across the seams.

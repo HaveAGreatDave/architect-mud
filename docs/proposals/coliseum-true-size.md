@@ -92,7 +92,7 @@ up four things the plan didn't cover:
   the gate the wall turns north up x 913 to its old line at y 919 (moved from x 912 the next day by
   [coliseum-jog.mjs](../../scripts/content/coliseum-jog.mjs), so the lock has meadow beside it and
   the jog an inland side). On 2026-11-04 the jog went:
-  [curtain-square.mjs](../../scripts/content/curtain-square.mjs) ran y 923 on to x 927, taking in 39 tiles of
+  [curtain-square.mjs](../../scripts/content/curtain-square.mjs) ran y 923 on to x 928, taking in 39 tiles of
   waste as meadow.
 - **x 886 is the river road.** The wall on x 885 and the park on x 887 leave one column, and the
   road down the west face and GATE D take it. Houses go on the Sorrel Way plots and on the new

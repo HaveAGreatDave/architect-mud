@@ -13,7 +13,7 @@ import { readFileSync } from 'node:fs';
 import { loadWindshield, stubCanvas } from '../shapes/dom-stub.mjs';
 
 export const PLACES = {
-  halcyon: [899, 916], marrow: [916, 909], nightlife: [909, 903], residential: [903, 913], oldcoldwater: [925, 917],
+  halcyon: [899, 916], marrow: [917, 909], nightlife: [909, 903], residential: [903, 913], oldcoldwater: [926, 917],
 };
 export const SEATS = {
   cab: { cls: 'truck', height: 0, eyeH: 0.12, speed: 0.15, R: 14 },

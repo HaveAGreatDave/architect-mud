@@ -61,11 +61,12 @@ export function openCookMenu(msg) {
   overlay.innerHTML = `<div class="cm-panel">
     <div class="cm-head"><span>⚗ <b>CHIMERA-9</b> · SYNTHESIZER: pick a batch</span><span class="cm-close" title="close">✕</span></div>
     <div class="cm-list">${rows}</div>
-    <div class="cm-foot">${msg.hasLab ? 'chem lab detected: full potency.' : 'no chem lab here, a cook kit works at a penalty.'}<br>tier = intensity · harder drugs are pricier and dangerous to botch.</div>
+    <div class="cm-foot">${msg.hasLab ? 'chem lab detected: full potency.' : 'no chem lab here, a cook kit works at a penalty.'}<br>tier = intensity · harder drugs are pricier and dangerous to botch.${msg.dev && msg.hasLab ? '<br><span class="cm-debug" style="cursor:pointer;color:#e0b64f;border:1px dashed #e0b64f;padding:2px 6px;border-radius:3px;display:inline-block;margin-top:5px">DEBUG: stock every reagent</span>' : ''}</div>
   </div>`;
   document.body.appendChild(overlay); _menu = overlay;
   overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) closeCookMenu(); });
   overlay.querySelector('.cm-close').addEventListener('click', closeCookMenu);
+  overlay.querySelector('.cm-debug')?.addEventListener('click', () => { AX.click(); sendCmd('synthstock'); });
   overlay.querySelectorAll('.cm-row').forEach(row => row.addEventListener('click', () => {
     const it = items[+row.dataset.i]; if (!it || !it.ready) return; AX.click(); sendCmd('cook ' + it.recipe); closeCookMenu();
   }));

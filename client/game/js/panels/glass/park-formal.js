@@ -16,7 +16,8 @@
 // ⚠ NO RENDERER IMPORTS. The caller hands over its kit: `K` the facet builders from parkGeom, `P` the
 // ground painters from drawParkTile. Tile-local, the tile spanning ±0.5, z up, a tile about 17.6 m.
 
-export const FORMAL_FEATURES = ['fountain', 'parterre', 'pergola', 'forecourt'];
+// ⚠ Append only: windshield.js numbers them from 5, and its caches key 8 and up on the focus.
+export const FORMAL_FEATURES = ['fountain', 'parterre', 'pergola', 'forecourt', 'statue'];
 
 const LIME = [214, 204, 180], LIME_DK = [172, 162, 142], LIME_LT = [228, 220, 200];
 const GRANITE = [98, 96, 104], BRONZE = [150, 100, 58], GILT = [230, 186, 84];
@@ -109,7 +110,7 @@ function forecourtPaving(fo) {
 
 // ── THE SOLIDS ───────────────────────────────────────────────────────────────
 export function formalParkGeom(feature, K, fo) {
-  const { face, box, lathe, ringWall, tree, shrub, bench, spike, lod, night } = K;
+  const { face, box, lathe, ringWall, tree, shrub, bench, spike, lod, night, jets, teams } = K;
   const lit = night > 0.3;
   const WATER = night ? [26, 50, 70] : [92, 148, 168];
   const JET = lit ? [150, 196, 240] : [214, 232, 240];
@@ -141,6 +142,13 @@ export function formalParkGeom(feature, K, fo) {
     spike(x0, y0, w, z0, xa, ya, za, JET, o);
     spike(xa, ya, w * 0.8, za, x1, y1, z1, JET, o);
   };
+  // ⚠ THE WATER IS ITS OWN CALL. With `jets` (a clock in ms) only the moving water is built, every
+  // frame and never cached; without it everything but the water is, once.
+  if (jets != null) {
+    if (feature === 'fountain') fountainWater(jet, spike, jets / 1000, lod, lit ? { emis: 1 } : {}, JET);
+    else if (feature === 'forecourt') bannerCloth(face, focusOf(fo), jets / 1000, lod, teams);
+    return;
+  }
   switch (feature) {
     case 'fountain': {   // A stepped octagonal basin, two tiers, a gilt sun on top; yews and benches round it
       ringWall(0, 0, 0.372, 0.345, 0, 0.018, 8, LIME_DK);
@@ -151,13 +159,6 @@ export function formalParkGeom(feature, K, fo) {
       lathe(0, 0, [[0.024, 0.2], [0.066, 0.212], [0.076, 0.222]], 8, LIME, { capRgb: WATER });
       lathe(0, 0, [[0.016, 0.222], [0.011, 0.25], [0.017, 0.256], [0.006, 0.272]], lod ? 5 : 8, GILT);
       sunburst(0, 0, 0.3, 0.06);
-      // The water: a sheet off each tier, and a ring of jets from the basin's rim arching in.
-      for (let i = 0; i < 8; i++) {
-        const a = (i + 0.5) / 8 * Math.PI * 2, c = Math.cos(a), s = Math.sin(a);
-        if (!lod) jet(c * 0.076, s * 0.076, 0.222, c * 0.1, s * 0.1, 0.205, c * 0.118, s * 0.118, 0.145, 0.004);
-        jet(c * 0.3, s * 0.3, 0.046, c * 0.24, s * 0.24, 0.19, c * 0.16, s * 0.16, 0.032);
-        if (!lod) jet(c * 0.134, s * 0.134, 0.142, c * 0.155, s * 0.155, 0.11, c * 0.17, s * 0.17, 0.032, 0.004);
-      }
       for (const sx of [-1, 1]) for (const sy of [-1, 1]) cone(sx * 0.42, sy * 0.42);
       bench(0.445, 0, Math.PI);
       bench(-0.445, 0, 0);
@@ -254,15 +255,7 @@ export function formalParkGeom(feature, K, fo) {
         // The banner hangs off an arm toward the walk, flat to anyone walking up it, both faces.
         const out = FLAGS[i][0] > 0 ? -1 : 1, x1 = x + out * 0.075;
         box(x + out * 0.04, y, 0.04, 0.003, 0.398, 0.404, 0, BRONZE);
-        const COLS = [[152, 34, 44], [28, 84, 104]], col = COLS[i % 4 < 2 ? 0 : 1];
-        const P = [[x + out * 0.008, y, 0.396], [x1, y, 0.396], [x1, y, 0.24], [(x + x1) / 2, y, 0.215], [x + out * 0.008, y, 0.24]];
-        face(P, col, [x, y + 0.01, 0.3]);
-        face(P.slice().reverse(), col, [x, y - 0.01, 0.3]);
-        if (!lod) {
-          const G = [[x + out * 0.012, y, 0.37], [x1 - out * 0.004, y, 0.37], [x1 - out * 0.004, y, 0.358], [x + out * 0.012, y, 0.358]];
-          face(G, GILT, [x, y + 0.012, 0.36]);
-          face(G.slice().reverse(), GILT, [x, y - 0.012, 0.36]);
-        }
+        // The cloth moves, so it's built with the fountain's water (bannerCloth), not here.
       }
       for (const p of BOLLARDS) {
         const [x, y] = toTile(f, p);
@@ -270,6 +263,117 @@ export function formalParkGeom(feature, K, fo) {
       }
       break;
     }
+    case 'statue': {   // A bronze on a granite plinth, facing the focus: hat in one hand, the other raised
+      const f = focusOf(fo), ang = Math.atan2(f[1], f[0]);
+      const fx = Math.cos(ang), fy = Math.sin(ang), ax = -fy, ay = fx;
+      const at = (fw, sd) => [fx * fw + ax * sd, fy * fw + ay * sd];
+      // The circle round it: a granite kerb, and yews in planters on the diagonals.
+      ringWall(0, 0, 0.3, 0.285, 0, 0.012, lod ? 12 : 24, GRANITE);
+      for (const sx of [-1, 1]) for (const sy of [-1, 1]) cone(sx * 0.4, sy * 0.4, 0.85);
+      // The plinth: two steps, a die and a cornice.
+      box(0, 0, 0.075, 0.075, 0, 0.014, ang, GRANITE);
+      box(0, 0, 0.062, 0.062, 0.014, 0.028, ang, GRANITE);
+      box(0, 0, 0.046, 0.046, 0.028, 0.15, ang, [84, 82, 90]);
+      box(0, 0, 0.052, 0.052, 0.15, 0.162, ang, GRANITE);
+      const Z = 0.162;
+      // The legs, and the shoes rubbed gold at the toes.
+      for (const sd of [-0.009, 0.009]) {
+        const [lx, ly] = at(0, sd);
+        box(lx, ly, 0.0065, 0.0065, Z, Z + 0.052, ang, BRONZE);
+        const [tx, ty] = at(0.008, sd);
+        box(tx, ty, 0.007, 0.005, Z, Z + 0.006, ang, GILT);
+      }
+      // The frock coat, the shoulders and the head.
+      lathe(0, 0, [[0.021, Z + 0.042], [0.02, Z + 0.07], [0.017, Z + 0.1]], lod ? 6 : 10, BRONZE);
+      lathe(0, 0, [[0.017, Z + 0.1], [0.021, Z + 0.105], [0.008, Z + 0.112]], lod ? 6 : 10, BRONZE);
+      lathe(0, 0, [[0.006, Z + 0.112], [0.0095, Z + 0.118], [0.0095, Z + 0.128], [0, Z + 0.134]], lod ? 6 : 10, BRONZE);
+      // The right arm raised toward the stands, the left down with the hat in its hand.
+      const [s1x, s1y] = at(0, 0.018), [h1x, h1y] = at(0.014, 0.032);
+      spike(s1x, s1y, 0.0055, Z + 0.1, h1x, h1y, Z + 0.152, BRONZE);
+      const [s2x, s2y] = at(0, -0.018), [h2x, h2y] = at(0.006, -0.026);
+      spike(s2x, s2y, 0.0055, Z + 0.1, h2x, h2y, Z + 0.058, BRONZE);
+      lathe(h2x, h2y, [[0.013, Z + 0.05], [0.013, Z + 0.053], [0.0075, Z + 0.053], [0.0075, Z + 0.066], [0, Z + 0.066]], lod ? 6 : 10, BRONZE);
+      // Two benches facing him.
+      const [b1x, b1y] = at(0.38, 0.16), [b2x, b2y] = at(0.38, -0.16);
+      bench(b1x, b1y, ang + Math.PI);
+      bench(b2x, b2y, ang + Math.PI);
+      break;
+    }
+  }
+}
+
+// ── THE BANNERS IN THE WIND, AT TIME `t` SECONDS ─────────────────────────────
+// Each banner hangs from its arm and ripples across the walk: a wave runs out from the pole, growing
+// toward the free edge, with gusts that swell and fade. Every banner has its own phase, so they don't
+// move in step. A pure function of the clock, as the fountain is.
+function bannerCloth(face, f, t, lod, teams) {
+  const COLS = [[152, 34, 44], [28, 84, 104]];
+  const N = lod ? 2 : 6;
+  for (let i = 0; i < FLAGS.length; i++) {
+    const [x, y] = toTile(f, FLAGS[i]);
+    if (!onTile([x, y], 0.48)) continue;
+    const out = FLAGS[i][0] > 0 ? -1 : 1, xa = x + out * 0.008, x1 = x + out * 0.075;
+    // On a game night the home club's banners down the left of the walk and the visitors' down
+    // the right, each with its trim for the band; otherwise the plaza's own red and teal.
+    const club = teams ? teams[FLAGS[i][0] < 0 ? 0 : 1] : null;
+    const col = club ? club[0] : COLS[i % 4 < 2 ? 0 : 1], band = club ? club[1] || GILT : GILT;
+    const ph = i * 1.7 + FLAGS[i][1] * 3.1;
+    const gust = 0.65 + 0.35 * Math.sin(t * 0.37 + ph * 0.5) * Math.sin(t * 0.23 + ph);
+    // The cloth's sideways throw at fraction u out from the pole and height z: none at the pole,
+    // the most at the free edge, the bottom swinging a little wider than the top.
+    const dy = (u, z) => gust * 0.018 * u * (Math.sin(u * 4.2 - t * 3.4 + ph) + 0.35 * Math.sin(u * 9 - t * 6.1 + ph * 2))
+      + gust * 0.01 * u * (0.4 - z) * 6 * Math.sin(t * 1.1 + ph);
+    const lift = (u) => gust * 0.006 * u * Math.sin(u * 3 - t * 2.6 + ph);
+    const at = (u, z) => [xa + (x1 - xa) * u, y + dy(u, z), z + lift(u)];
+    // The bottom edge: square at the pole and the free edge, coming to a point in the middle.
+    const bot = (u) => 0.24 - 0.025 * (1 - Math.abs(u - 0.5) * 2);
+    for (let k = 0; k < N; k++) {
+      const u0 = k / N, u1 = (k + 1) / N, um = (u0 + u1) / 2;
+      const P = [at(u0, 0.396), at(u1, 0.396), at(u1, bot(u1)), at(u0, bot(u0))];
+      const c = at(um, 0.3);
+      face(P, col, [c[0], c[1] + 0.01, c[2]]);
+      face(P.slice().reverse(), col, [c[0], c[1] - 0.01, c[2]]);
+      if (!lod) {
+        const g0 = Math.max(u0, 0.06), g1 = Math.min(u1, 0.94);
+        if (g1 <= g0) continue;
+        const G = [at(g0, 0.37), at(g1, 0.37), at(g1, 0.358), at(g0, 0.358)];
+        const cg = at((g0 + g1) / 2, 0.364);
+        face(G, band, [cg[0], cg[1] + 0.012, cg[2]]);
+        face(G.slice().reverse(), band, [cg[0], cg[1] - 0.012, cg[2]]);
+      }
+    }
+  }
+}
+
+// ── THE FOUNTAIN'S WATER, AT TIME `t` SECONDS ─────────────────────────────────
+// The rim jets arch in to the basin in a chase round the ring, each rising and falling on its own
+// beat, with blobs of water running down the arc; the tiers' sheets swell and thin. A pure function
+// of the clock, so every viewer sees the same water.
+function fountainWater(jet, spike, t, lod, o, JET) {
+  const TAU = Math.PI * 2;
+  for (let i = 0; i < 8; i++) {
+    const a = (i + 0.5) / 8 * TAU, c = Math.cos(a), s = Math.sin(a);
+    // The chase: a slow swell round the ring, and the whole ring breathing a little faster.
+    const lift = 0.62 + 0.26 * Math.sin(t * 1.3 - i * TAU / 8) + 0.12 * Math.sin(t * 3.1);
+    const r0 = 0.3, r1 = 0.3 - 0.14 * (0.7 + 0.3 * lift), z0 = 0.046, z1 = 0.032, H = 0.17 * lift;
+    const at = (u) => { const r = r0 + (r1 - r0) * u; return [c * r, s * r, z0 + (z1 - z0) * u + 4 * H * u * (1 - u)]; };
+    const N = lod ? 2 : 5;
+    for (let k = 0; k < N; k++) {
+      const [x0, y0, za] = at(k / N), [x1, y1, zb] = at((k + 1) / N);
+      spike(x0, y0, 0.0055 * (1 - k / N * 0.5), za, x1, y1, zb, JET, o);
+    }
+    if (lod) continue;
+    // Water running down the arc: three blobs, the jet's speed, a little spray off the landing.
+    for (let j = 0; j < 3; j++) {
+      const u = (t * 0.9 + j / 3 + i * 0.13) % 1, [x, y, z] = at(u), [xn, yn, zn] = at(Math.min(1, u + 0.06));
+      spike(x, y, 0.007, z, xn, yn, zn, JET, o);
+    }
+    const sp = (t * 2.2 + i * 0.37) % 1, [lx, ly] = at(1);
+    spike(lx, ly, 0.006, z1, lx + c * 0.02 * sp, ly + s * 0.02 * sp, z1 + 0.035 * Math.sin(sp * Math.PI), JET, o);
+    // The tiers' sheets, swelling and thinning.
+    const w = 1 + 0.25 * Math.sin(t * 2.4 + i);
+    jet(c * 0.076, s * 0.076, 0.222, c * 0.1 * w, s * 0.1 * w, 0.205, c * 0.118 * w, s * 0.118 * w, 0.145, 0.004);
+    jet(c * 0.134, s * 0.134, 0.142, c * 0.155 * w, s * 0.155 * w, 0.11, c * 0.17 * w, s * 0.17 * w, 0.032, 0.004);
   }
 }
 
@@ -344,6 +448,15 @@ export function formalParkPaint(feature, P, fo) {
       const pave = forecourtPaving(fo);
       for (const k of ['ray', 'ring', 'sun', 'gilt']) for (const s of pave) if (s.k === k) poly(s.p, S[k], A);
       if (night) for (const [x, y] of pave.lights) glow(x, y, 0.004, '255,222,160', 16, A * 0.26);
+      break;
+    }
+    case 'statue': {
+      poly([[-0.5, -0.5], [0.5, -0.5], [0.5, 0.5], [-0.5, 0.5]], dk([186, 180, 166]), A);   // the flags
+      disc(0.285, dk([96, 132, 64]), A, 0, 0, 32, 0.004);                                       // the lawn round him
+      disc(0.22, dk([196, 50, 62]), A * 0.9, 0, 0, 32, 0.005);                                 // red bedding
+      disc(0.15, dk([234, 186, 64]), A * 0.9, 0, 0, 24, 0.006);                                // gold bedding
+      disc(0.09, dk(LIME), A, 0, 0, 16, 0.007);
+      if (night) glow(0, 0, 0.18, '255,222,160', 14, A * 0.3);
       break;
     }
   }

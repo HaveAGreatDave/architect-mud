@@ -1,0 +1,20 @@
+{
+  "description": null,
+  "flags": {
+    "interactions": [
+      "lean"
+    ],
+    "look": {
+      "arche": "surface",
+      "form": "corner"
+    }
+  },
+  "id": "item_furn_kitchen_corner_unit",
+  "name": "kitchen corner unit",
+  "tags": {
+    "description": "A square base cupboard for where two runs of worktop meet, with a door on each face that shows. The bit of a kitchen nobody notices until it is missing."
+  },
+  "type": "furniture",
+  "value": 450,
+  "weight": 38000
+}

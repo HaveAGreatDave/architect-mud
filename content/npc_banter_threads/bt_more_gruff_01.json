@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_gruff_01",
+  "lines": [
+    "\"Morning.\"",
+    "\"Is it.\"",
+    "\"It is.\"",
+    "\"Hm.\""
+  ],
+  "personality": "gruff",
+  "sort_order": 669
+}

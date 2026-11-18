@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_scientist_01",
+  "lines": [
+    "\"How's the work?\"",
+    "\"We broke the centrifuge.\"",
+    "\"How?\"",
+    "\"We asked it to do its job.\""
+  ],
+  "personality": "scientist",
+  "sort_order": 683
+}

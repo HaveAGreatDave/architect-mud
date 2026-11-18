@@ -8,7 +8,7 @@
 // So this is `runPhases` pointed at the baked world instead of at a generated terrace:
 //
 //   __glWhere({ x: 892, y: 906, seat: 'cab' })      // the Glasshouse
-//   __glWhere({ x: 916, y: 909 })                   // Marrow Street, for comparison
+//   __glWhere({ x: 917, y: 909 })                   // Marrow Street, for comparison
 //   __glWheres()                                    // every district, worst first
 //
 // ⚠ IT IS A MEASUREMENT AND `__street` IS A PICTURE, which is why this is not in street.js. The
@@ -48,8 +48,8 @@ export const SEATS = {
 
 // Everywhere worth standing, as the district landmarks in content/districts/*.json.
 export const PLACES = {
-  glasshouse: [892, 906], halcyon: [899, 916], marrow: [916, 909], docks: [905, 895],
-  nightlife: [909, 903], industrial: [921, 899], civic: [911, 912], residential: [903, 913],
+  glasshouse: [892, 906], halcyon: [899, 916], marrow: [917, 909], docks: [905, 895],
+  nightlife: [909, 903], industrial: [922, 899], civic: [911, 912], residential: [903, 913],
 };
 
 // ── ⚠ ONE CANVAS FOR THE WHOLE SESSION, AND THAT IS NOT TIDINESS ───────────────────────────────
@@ -65,7 +65,7 @@ export const PLACES = {
 // the exact mirror image of the JIT warm-up drift the sweep above is written around, and reads
 // just as convincingly like a real finding about whatever was being toggled at the time.
 let _rig = null;
-function rig(W, H) {
+export function rig(W, H) {
   if (!_rig) {
     const el = document.createElement('canvas');
     el.id = '__where';
@@ -93,7 +93,7 @@ function rig(W, H) {
 // it already has returns the same context. Null without EXT_disjoint_timer_query_webgl2.
 // ⚠ RESULTS ARRIVE A FEW FRAMES LATE, so they're gathered after the loop, and a disjoint reading
 // (the GPU clock jumped) throws the whole set away rather than keep a number that isn't one.
-function gpuClock() {
+export function gpuClock() {
   const c = (glLastFrame() || {}).canvas;
   const gl = c && c.getContext('webgl2');
   const ext = gl && gl.getExtension('EXT_disjoint_timer_query_webgl2');
@@ -120,7 +120,7 @@ function gpuClock() {
   };
 }
 
-function pinned(fn) {
+export function pinned(fn) {
   const res = RENDER_TUNE.resFloor, ds = RENDER_TUNE.perfDS;
   RENDER_TUNE.resFloor = 1; RENDER_TUNE.perfDS = 0;
   try { return fn(); } finally { RENDER_TUNE.resFloor = res; RENDER_TUNE.perfDS = ds; }

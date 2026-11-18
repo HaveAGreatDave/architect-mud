@@ -6,7 +6,8 @@
   "exits": {
     "east": "zone_district_915_925",
     "north": "zone_district_914_924",
-    "south": "zone_district_914_926"
+    "south": "zone_district_914_926",
+    "west": "zone_seam_914_925"
   },
   "flags": {
     "district": "wilds",
@@ -14,7 +15,7 @@
     "region_id": "region_coldwater",
     "terrain": "redrock"
   },
-  "grid_x": 914,
+  "grid_x": 915,
   "grid_y": 925,
   "grid_z": 0,
   "id": "zone_district_914_925",

@@ -140,7 +140,7 @@ export function catBodyMesh(bake, o = {}) {
   return { data, verts: nv, index, fur };
 }
 
-export const BIT_PARTS = ['eyes', 'lids', 'whiskers', 'tufts'];
+export const BIT_PARTS = ['eyes', 'lids', 'whiskers', 'tufts', 'mouth'];
 /** One part of the eyes, lids, whiskers and ear tufts for `mo` (catBits) as the GPU's buffer: { data, verts }. */
 export function catBitsMesh(bake, mo, part) {
   const b = catBits(bake, mo, part), n = b.M.length, d = new Float32Array(n * CAT_STRIDE);
@@ -223,6 +223,9 @@ export function catDrawer(R, o = {}) {
       const meshes = [body(bake),
         part(bake, 'eyes', pupil + ':' + gz.join(','), { pupil, gaze: gz }), part(bake, 'lids', lids, { lids }),
         part(bake, 'whiskers', wh, { whiskers: wh }), part(bake, 'tufts', 0, {})];
+      // the mouth in tenths, a meow passing through a few; shut, nothing
+      const gape = q(mo.mouth, 10);
+      if (gape > 0.03) meshes.push(part(bake, 'mouth', gape, { mouth: gape }));
       return { meshes, rows: catBoneRows(bake, Xn, place), breath: (mo.breath || 0) * 0.0035 * bake.look.scale };
     },
     forget(bake) {

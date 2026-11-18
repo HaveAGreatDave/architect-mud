@@ -31,7 +31,7 @@ import { hasKey, jsonText } from '../../server/engine/furniture-match.js';
 // the refusal below shares with it. See ./shopdoor.js for why they live there.
 import {
   shopClosedFor, shutOnPresenceOnly, reopensPhrase, shopPlaceName, livesHere,
-  shopDoorDefeated, tradingHoursLine, describeDoorHook, reconcileShopDoors,
+  shopDoorDefeated, tradingHoursLine, tradingHours, shopEntranceLock, describeDoorHook, reconcileShopDoors,
 } from './shopdoor.js';
 
 // Resolve which vendor a bare buy/sell targets: the one the player is actively
@@ -251,7 +251,7 @@ on('vendor.purchase', async ({ player, npcId, itemId }) => {
 // second copy of that answer is the thing this repo keeps having to un-write.
 const SHOP_IDX_TTL = 60_000;
 
-registerMoveGate(({ player, to }) => {
+registerMoveGate(({ player, to, direction }) => {
   const shut = shopClosedFor(to);
   if (!shut) return;
   if (livesHere(player, to)) return;   // you live here; the hours aren't about you
@@ -272,10 +272,12 @@ registerMoveGate(({ player, to }) => {
   // wants to know when to come back, and "about six hours" is only half of that.
   const hours = tradingHoursLine(shut);
   const card = hours ? ` A card behind the glass gives the hours: ${hours}.` : '';
+  // what the client shows over the door that turned you away: the hours card, and the lock if there's one to look at
+  const door = { place: place || 'The shop', hours: tradingHours(shut.vendor_schedule), lock: !!shopEntranceLock(to), dir: direction || null };
   if (shutOnPresenceOnly(shut)) {
-    return { block: true, message: `The door won't give. ${place || 'The shop'} keeps these hours, but ${shut.name} isn't behind the counter yet.${card}` };
+    return { block: true, message: `The door won't give. ${place || 'The shop'} keeps these hours, but ${shut.name} isn't behind the counter yet.${card}`, door };
   }
-  return { block: true, message: `The door won't give. Shutters down, lights off. ${shut.name} opens ${place ? `${place} ` : ''}again ${reopensPhrase(shut)}.${card}` };
+  return { block: true, message: `The door won't give. Shutters down, lights off. ${shut.name} opens ${place ? `${place} ` : ''}again ${reopensPhrase(shut)}.${card}`, door };
 }, 'commerce:shop-hours');
 
 // The same fact, told BEFORE the step. The gate above owns the refusal and every

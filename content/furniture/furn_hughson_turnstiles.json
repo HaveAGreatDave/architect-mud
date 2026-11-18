@@ -7,10 +7,26 @@
       "counter",
       "counters",
       "arms"
-    ]
+    ],
+    "look": {
+      "arche": "prop",
+      "dims": [
+        0.34,
+        0.95,
+        1.02
+      ],
+      "form": "turnstile"
+    },
+    "spot": {
+      "at": [
+        -2.6,
+        11.2
+      ],
+      "turn": 180
+    }
   },
   "id": "furn_hughson_turnstiles",
   "name": "the turnstiles",
-  "object_type": "decoration",
+  "object_type": "furniture",
   "zone_id": "zone_hughson_rotunda"
 }

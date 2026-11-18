@@ -6,7 +6,7 @@
   "exits": {
     "east": "zone_district_915_923",
     "north": "zone_district_914_922",
-    "west": "zone_district_913_923"
+    "west": "zone_seam_914_923"
   },
   "flags": {
     "curtain": true,
@@ -14,7 +14,7 @@
     "region_id": "region_coldwater",
     "terrain": "grass"
   },
-  "grid_x": 914,
+  "grid_x": 915,
   "grid_y": 923,
   "grid_z": 0,
   "id": "zone_district_914_923",

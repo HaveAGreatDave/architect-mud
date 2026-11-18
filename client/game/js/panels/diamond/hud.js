@@ -88,7 +88,8 @@ export const fmtEra = (er, outs) => (!outs ? '-.--' : ((er * 27) / outs).toFixed
 // The batter's line and the pitcher's, from a payload's `bl` [AB, H, HR, RBI, SB] and `pl`
 // [W, L, outs, ER, K] (plugins/broadcast/sports/baseball-gameday.js).
 export const batLine = (bl) => `${fmtAvg(bl[1], bl[0])}   ${bl[2]} HR   ${bl[3]} RBI`;
-export const armLine = (pl) => `${pl[0]}–${pl[1]}   ${fmtEra(pl[3], pl[2])} ERA   ${pl[4]} K`;
+// a reliever with saves (sim v5's sixth figure) shows them where a starter shows his strikeouts
+export const armLine = (pl) => `${pl[0]}–${pl[1]}   ${fmtEra(pl[3], pl[2])} ERA   ${pl[5] > 0 ? `${pl[5]} SV` : `${pl[4]} K`}`;
 
 // A pitch's name the way a broadcast prints it: FOUR-SEAM FASTBALL is 4-SEAM FASTBALL.
 export const pitchName = (type) => String(type || '').toUpperCase().replace(/\bFOUR-SEAM\b/, '4-SEAM').replace(/\bTWO-SEAM\b/, '2-SEAM');
@@ -105,7 +106,7 @@ const colourOfPitch = (p) => PITCH_COLOURS[p?.result] || PITCH_COLOURS.ball;
 const many = (n, one) => `${n | 0} ${one}${(n | 0) === 1 ? '' : 's'}`;
 const sentence = (w) => String(w || '').toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
 export const batSaid = (bl) => `${fmtAvg(bl[1], bl[0])}, ${many(bl[2], 'home run')}, ${bl[3] | 0} RBI`;
-export const armSaid = (pl) => `${pl[0] | 0} and ${pl[1] | 0}, ${pl[2] ? fmtEra(pl[3], pl[2]) : 'no'} ERA, ${many(pl[4], 'strikeout')}`;
+export const armSaid = (pl) => `${pl[0] | 0} and ${pl[1] | 0}, ${pl[2] ? fmtEra(pl[3], pl[2]) : 'no'} ERA, ${many(pl[4], 'strikeout')}${pl[5] > 0 ? `, ${many(pl[5], 'save')}` : ''}`;
 export function matchupSaid(mu) {
   const who = (name, num) => [name, num != null ? `number ${num}` : ''].filter(Boolean).join(', ');
   const bat = mu.batter ? `Now batting, ${who(mu.batter, mu.bNum)}${Array.isArray(mu.bl) ? `: ${batSaid(mu.bl)}` : ''}` : '';

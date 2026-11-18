@@ -436,16 +436,19 @@ export function solvePose(P) {
   if (P.bat) {
     const bd = dirW(P.bat.dir), bottom = P.bat.bottom || 'L', top = bottom === 'L' ? 'R' : 'L', holding = P.bat.one ? [bottom] : ['L', 'R'];
     const chestC = add(J.chest, m3v(W.chest, [0, 0.2 * s, 0.25 * s]));
+    // `bat.slide`: how far up the handle his hands sit (anim.js BAT_GRIPS). The hands stay where the clip put
+    // them and the knob moves, so a choked-up bat's knob comes in toward him and a pinky-over one's out.
+    const sl = P.bat.slide || 0;
     const grip = (knob) => {
       const g = {};
-      for (const [S, at] of [[bottom, 0.17], [top, 0.45]]) {
+      for (const [S, at] of [[bottom, 0.17 + sl], [top, 0.45 + sl]]) {
         const hc = add(knob, mul(bd, at * s));
         let v = sub(chestC, hc); v = norm(sub(v, mul(bd, dot(v, bd))));
         g[S] = { hc, wr: add(add(hc, mul(v, 0.19 * s)), mul(bd, -0.06 * s)) };
       }
       return g;
     };
-    const knob0 = toW(P.bat.knob), g0 = grip(knob0);
+    const knob0 = add(toW(P.bat.knob), mul(bd, -sl * s)), g0 = grip(knob0);
     const knob = clearOf(hull.filter((h) => !h.leg), (off) => {
       const k = add(knob0, off), g = grip(k);
       return [...BAT_BALLS.map(([at, r]) => [add(k, mul(bd, at * s)), r]), ...holding.map((S) => [g[S].wr, 0.1])];
@@ -491,7 +494,7 @@ export function mirrorPose(P) {
     if (out[k + 'L'] === undefined) delete out[k + 'L'];
     if (out[k + 'R'] === undefined) delete out[k + 'R'];
   }
-  if (P.bat) out.bat = { knob: fx(P.bat.knob), dir: fx(P.bat.dir), bottom: (P.bat.bottom || 'L') === 'L' ? 'R' : 'L' };
+  if (P.bat) out.bat = { knob: fx(P.bat.knob), dir: fx(P.bat.dir), bottom: (P.bat.bottom || 'L') === 'L' ? 'R' : 'L', ...(P.bat.slide ? { slide: P.bat.slide } : {}) };
   return out;
 }
 

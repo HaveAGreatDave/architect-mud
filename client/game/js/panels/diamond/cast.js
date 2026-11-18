@@ -25,6 +25,7 @@
 import { BAGS, DEG, DUGOUT, FOUL_GROUND, offLine } from './geo.js';
 import { fieldSpots, POSITIONS } from './play.js';
 import { gen1Of } from '../../../../shared/deadball-gen1.js';
+import { deliveryOf } from './anim.js';
 
 const RUBBER = [0, 0.833, 60.5];
 // Facing home from a spot, in degrees about the vertical (0 faces +z).
@@ -108,6 +109,19 @@ export const crewLane = (a) => RUBBER[2] + (a.r + CREW_TURN) * Math.cos(a.th * D
 // Where the base umpire on each side (-1 first, +1 third) stands for the break, clear of the crew.
 const UMP_BREAK = (side) => [side * 84, 0, 54];
 
+// The trip to the mound a payload opens on (sim v5's `mound`), as the two bench places it takes:
+// [the man coming out, or null for a visit; the manager or the pitching coach]. Null with no trip,
+// and for a change between innings, which is the changeover's.
+export function tripCast(p) {
+  const m = p && p.phase !== 'half' && p.phase !== 'crown' ? p.mound : null;
+  if (!m || m.between || (m.kind !== 'visit' && m.kind !== 'change')) return null;
+  const staff = m.kind === 'change' ? m.manager : m.coach;
+  return [
+    m.kind === 'change' && m.out ? { id: m.out, role: 'pitcher', lefty: m.outThrows === 'L' } : null,
+    { id: staff || `${p.fieldingTeam || 'Home'}:${m.kind === 'change' ? 'manager' : 'coach'}`, role: 'coach' },
+  ];
+}
+
 // The cast for a payload. Returns [{ id, pose, at, yaw, mirror, look }], where `look` is what
 // buildPlayer needs besides the face: { id, side, role, slot, number, glove, helmet, flapSide, mask, battingGloves }.
 export function castOf(p) {
@@ -127,7 +141,9 @@ export function castOf(p) {
   };
   // the battery
   const lefty = p.throws === 'L';
-  person(0, p.pitcher || `${fieldTeam}:P`, fieldSide, 'pitcher', 'pSet', RUBBER, lefty ? -90 : 90, { glove: lefty ? 'R' : 'L' }, { mirror: lefty });
+  // where along the rubber he stands is his own (anim.js deliveryOf), mirrored for a lefty
+  const pid = p.pitcher || `${fieldTeam}:P`, onRubber = [RUBBER[0] + (lefty ? -1 : 1) * deliveryOf(pid).rubber, RUBBER[1], RUBBER[2]];
+  person(0, pid, fieldSide, 'pitcher', 'pSet', onRubber, lefty ? -90 : 90, { glove: lefty ? 'R' : 'L' }, { mirror: lefty });
   // a fielder is his place on his club, or the First Generation man the payload names there (`gen1`)
   const fielder = (pos) => (p.gen1 && typeof p.gen1[pos] === 'string' ? p.gen1[pos] : `${fieldTeam}:${pos}`);
   person(1, fielder('C'), fieldSide, 'catcher', 'catcher', [0, 0, -2.75], 0, { glove: 'L' });
@@ -163,10 +179,20 @@ export function castOf(p) {
   person(6, `${batTeam}:coach3`, batSide, 'coach', 'coach', [77, 0, 45], faceHome([77, 0, 45]) + 10, {});
   // the bench: three men from each side at the back of their dugout's recess, arms folded, in
   // between the spots the men coming off take (bases.js dugoutSpot), so nobody walks into them;
-  // the visitors' dugout is on the third-base side
+  // the visitors' dugout is on the third-base side. A trip to the mound before this at-bat (sim v5's
+  // `mound`, diamond/mound.js) takes two of the fielding side's places: the first for the man coming
+  // out of the game, the second for the manager or the pitching coach who goes out. Both stand in
+  // the dugout, where the trip leaves them.
+  const trip = tripCast(p);
   for (const [side, team, k0] of [[batSide, batTeam, 7], [fieldSide, fieldTeam, 9]]) {
     const s = side === 'away' ? 1 : -1;
-    BENCH.forEach((_, i) => { const at = benchSpot(s, i); person(k0 + i, `${team}:bench${i}`, side, 'bench', 'coach', at, faceAt(at, [0, 0, 60]), {}); });
+    BENCH.forEach((_, i) => {
+      const at = benchSpot(s, i), yaw = faceAt(at, [0, 0, 60]);
+      const t = side === fieldSide && trip ? trip[i] : null;
+      if (t?.role === 'pitcher') person(k0 + i, t.id, side, 'pitcher', 'coach', at, yaw, { glove: t.lefty ? 'R' : 'L', trip: 'out' }, { mirror: t.lefty });
+      else if (t) person(k0 + i, t.id, side, 'coach', 'coach', at, yaw, { trip: 'staff' });
+      else person(k0 + i, `${team}:bench${i}`, side, 'bench', 'coach', at, yaw, {});
+    });
   }
   // the umpires: behind the plate in his mask, and at the bases (off the skirt for the drag)
   const crew = crewDue(p), u1 = crew ? UMP_BREAK(-1) : [-74, 0, 76], u3 = crew ? UMP_BREAK(1) : [74, 0, 78];

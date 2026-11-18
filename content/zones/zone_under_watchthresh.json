@@ -19,7 +19,7 @@
     "is_interior": true,
     "terrain": "sewer"
   },
-  "grid_x": 925,
+  "grid_x": 926,
   "grid_y": 913,
   "grid_z": -1,
   "id": "zone_under_watchthresh",

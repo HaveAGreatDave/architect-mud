@@ -25,10 +25,10 @@ export default async function regress({ run, check, getPlayer }) {
     const L = getItem(id)?.tags?.lighter;
     check(`stands: ${id} is a lighter with a case and trim`, !!L && /^#[0-9a-f]{6}$/i.test(L.case) && /^#[0-9a-f]{6}$/i.test(L.trim), JSON.stringify(L));
   }
-  // the 30-B cigarette box hands out every smoke it holds for nothing, into your hands
+  // the 8-B cigarette box hands out every smoke it holds for nothing, into your hands
   const smokes30b = getZoneFurniture('zone_solenne_apt_b').find((f) => f.id === 'furn_solenne_apt_b_smokes');
   const menu = smokes30b?.flags?.vend_menu || [];
-  check('stands: the 30-B cigarette box is a free vend menu of smokes', menu.length >= 3 && menu.every((m) => m.price === 0 && heldAs(getItem(m.item) || {}) === 'smoke'), JSON.stringify(menu));
+  check('stands: the 8-B cigarette box is a free vend menu of smokes', menu.length >= 3 && menu.every((m) => m.price === 0 && heldAs(getItem(m.item) || {}) === 'smoke'), JSON.stringify(menu));
   for (const [id, sport] of [['zone_slush_stands', 'hockey'], ['zone_hughson_stands', 'baseball']]) {
     const s = standsOf(getZone(id));
     check(`stands: ${id} sells ${sport} seats`, s?.sport === sport && s.sections.length >= 3, JSON.stringify(s?.sections?.length));
@@ -224,6 +224,20 @@ async function stadiumKit({ run, check, getPlayer }) {
   st = champ.championPieces('zone_slush_cup');
   check('stands: the champions board shows the last champion', st?.furn_slush_champions?.champ?.name === 'Coldwater Highlanders');
   if (had) champ.last.set('hockey', had); else champ.last.delete('hockey');
+  // the Cup in its case carries every winner to be engraved on it, oldest first
+  const roll = champ.rolls.get('hockey');
+  champ.rolls.set('hockey', [{ name: 'Coldwater Highlanders', season: 3, year: 2076 }, { name: 'Basin Brawlers', season: 4, year: 2076 }]);
+  st = champ.championPieces('zone_slush_cup');
+  check('stands: the Cup carries its winners to engrave, oldest first', st?.furn_slush_cup_case?.rolls?.map((r) => r.season).join() === '3,4', JSON.stringify(st?.furn_slush_cup_case));
+  if (roll) champ.rolls.set('hockey', roll); else champ.rolls.delete('hockey');
+
+  // the Coliseum's concourse hangs a banner for each of Deadball's eight clubs, drawn from the club's identity
+  const banners = getZoneFurniture('zone_hughson_concourse').filter((f) => f.flags?.club_banner);
+  check('stands: the concourse hangs eight club banners, one a club', banners.length === 8 && new Set(banners.map((f) => f.flags.club_banner.club)).size === 8, banners.map((f) => f.flags.club_banner.club).join(', '));
+  if (champ.clubOf('baseball', 'Coldwater Crows')) {
+    st = champ.championPieces('zone_hughson_concourse') || {};
+    check('stands: every banner carries its club\'s colours', banners.every((f) => st[f.id]?.club?.colours?.length >= 2), JSON.stringify(Object.keys(st)));
+  }
 
   // the ice crew through a staged break: off the stool, out on the ice, back
   const ken = world.npcs.get('npc_slush_raven');

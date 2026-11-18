@@ -7,7 +7,7 @@
     "east": "zone_district_915_946",
     "north": "zone_district_914_945",
     "south": "zone_district_914_947",
-    "west": "zone_district_913_946"
+    "west": "zone_seam_914_946"
   },
   "flags": {
     "district": "wilds",
@@ -16,7 +16,7 @@
     "scavenging_table_id": "scav_irradiated_salvage",
     "terrain": "redrock"
   },
-  "grid_x": 914,
+  "grid_x": 915,
   "grid_y": 946,
   "grid_z": 0,
   "id": "zone_district_914_946",

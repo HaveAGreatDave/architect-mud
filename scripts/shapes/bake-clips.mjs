@@ -40,6 +40,7 @@ export function bakeClips(files = readClipFiles()) {
       events: (doc.events || []).map((e) => ({ ...e })).sort((a, b) => a.t - b.t),
       plants: (doc.plants || []).map((p) => ({ ...p })).sort((a, b) => a.from - b.from),
       ...(doc.root ? { root: doc.root.map((k) => ({ t: k.t, at: k.at.slice(), ...(k.yaw ? { yaw: k.yaw } : {}) })) } : {}),
+      ...(doc.hands?.length ? { hands: doc.hands.map((h) => ({ ...h })).sort((a, b) => a.t - b.t) } : {}),
       keys: doc.keys.map((k) => ({ t: k.t, ...(k.tension ? { tension: k.tension } : {}), pose: completePose(k.pose) })),
     };
   }
@@ -73,6 +74,7 @@ export function renderModule({ clips }) {
     out.push(`    events: ${lit(c.events)},`);
     out.push(`    plants: ${lit(c.plants)},`);
     if (c.root) out.push(`    root: ${lit(c.root)},`);
+    if (c.hands) out.push(`    hands: ${lit(c.hands)},`);
     out.push('    keys: [');
     for (const k of c.keys) out.push(`      { t: ${lit(k.t)}, ${k.tension ? `tension: ${lit(k.tension)}, ` : ''}pose: ${lit(k.pose)} },`);
     out.push('    ],');

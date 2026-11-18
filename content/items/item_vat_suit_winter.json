@@ -1,0 +1,30 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_vat_suit_winter",
+  "name": "quilted vat suit",
+  "tags": {
+    "armor_soak": {
+      "edged": 1,
+      "kinetic": 1
+    },
+    "bulkiness": 3,
+    "covers": [
+      "legs"
+    ],
+    "description": "A quilted one-piece in burnt vat orange with a tall collar that zips to the chin. Both knees are double-patched, the elbows and shoulders reinforced, and the quilting has gone flat where the last body leaned. A batch tape on the right breast. Real cold gear still costs money.",
+    "gets_wet": true,
+    "hydrophobic": true,
+    "insulation": 5.5,
+    "layer": "outerwear",
+    "slot": "torso",
+    "wear_look": {
+      "col": "#b84a18",
+      "cut": "vatsuit_winter",
+      "fabric": "quilt"
+    }
+  },
+  "type": "clothing",
+  "value": 70,
+  "weight": 1800
+}

@@ -515,13 +515,41 @@ function driveCurveOf(d) {
   // to exactly the shift this is guarding — a first cut pinned it, and a mutation
   // that inserted a draw mid-table sailed straight through. `growl` is the last
   // field, so any insertion ANYWHERE above it moves this number.
+  // (f0 was re-pinned on 2026-11-16 when the pitch became a spectrum by sex: the same
+  // draws, mapped differently; jitter, drive and growl didn't move, which is the proof.)
   const pin = A._voiceFor('pin-18');
   check('the voice draw order has not shifted',
-    near(pin.f0, 137.5135407538619, 1e-9) && near(pin.jitter, 0.01332835440337658, 1e-12)
+    near(pin.f0, 188.69962291789918, 1e-9) && near(pin.jitter, 0.01332835440337658, 1e-12)
     && near(pin.drive, 0.24641117456369102, 1e-12) && near(pin.growl, 0.06218185827601701, 1e-12),
     `${JSON.stringify({ f0: pin.f0, jitter: pin.jitter, drive: pin.drive, growl: pin.growl })}
       — a field was inserted into voiceFromName above the bottom, which silently recasts every narrator`);
   check('a voice is deterministic', JSON.stringify(A._voiceFor('kesh')) === JSON.stringify(A._voiceFor('kesh')));
+
+  // THE SPECTRUM. A speaker's sex places their voice: women about 200Hz on raised
+  // formants, men about 110, each spread wide enough that a few cross the middle (a deep
+  // woman, a high man), and one who crosses keeps their own tract. Unknown, the name's
+  // coin picks a side, so about half are each. Sex never moves a draw: only the mapping.
+  {
+    const M = 148, N = 600;
+    const med = (a) => { const s = [...a].sort((x, y) => x - y); return s[s.length >> 1]; };
+    const roll = (sex) => Array.from({ length: N }, (_, i) => A._voiceFor(`spectrum-${i}`, sex));
+    const f = roll('female'), m = roll('male'), o = roll('other'), u = roll(undefined);
+    const fMed = med(f.map(v => v.f0)), mMed = med(m.map(v => v.f0)), oMed = med(o.map(v => v.f0));
+    check('women sit near 200Hz and men near 110', fMed > 185 && fMed < 215 && mMed > 100 && mMed < 120, `${fMed.toFixed(0)} / ${mMed.toFixed(0)} Hz`);
+    check('anyone else sits between them', oMed > mMed * 1.2 && oMed < fMed * 0.85, `${oMed.toFixed(0)} Hz`);
+    const fLow = f.filter(v => v.f0 < M), mHigh = m.filter(v => v.f0 > M);
+    check('a few women are deeper than the middle and a few men higher', fLow.length / N > 0.004 && fLow.length / N < 0.06
+      && mHigh.length / N > 0.004 && mHigh.length / N < 0.06, `${fLow.length} women, ${mHigh.length} men of ${N}`);
+    // (on average: the tract has its own long tail, so the odd one may not)
+    const avg = (a) => a.reduce((s, v) => s + v.fshift, 0) / (a.length || 1);
+    check('those who cross keep their own tract', avg(fLow) > 1.05 && avg(mHigh) < 1.03 && avg(fLow) - avg(mHigh) > 0.06,
+      `crossing women ${avg(fLow).toFixed(3)}, crossing men ${avg(mHigh).toFixed(3)}`);
+    check('women run breathier than men on average', f.reduce((s, v) => s + v.oq, 0) > m.reduce((s, v) => s + v.oq, 0));
+    const uHigh = u.filter(v => v.f0 > M).length / N;
+    check('with no sex the name picks a side, about half each', uHigh > 0.4 && uHigh < 0.6, `${(uHigh * 100).toFixed(0)}% high`);
+    const same = ['jitter', 'drive', 'growl', 'speed', 'breath'].every(k => f.every((v, i) => v[k] === m[i][k]));
+    check('sex changes the voice, not the draws', same);
+  }
 
   // ⚠ NO CHARACTER ON THE ACCESSIBILITY CHANNEL. Drive and growl are texture, and
   // both trade intelligibility for interest — a fine trade for a narrator and the
@@ -703,6 +731,50 @@ function driveCurveOf(d) {
     const own = (r) => r.v.slice(0, -2);
     check('a drawn-out vowel in grief sags', own(sag).length && own(no).length && Math.min(...own(sag)) < Math.min(...own(no)),
       `${Math.min(...own(sag)).toFixed(0)} vs ${Math.min(...own(no)).toFixed(0)} Hz`);
+  }
+
+  // ── performance: a booth voice varies from line to line (`vary`) ─────────
+  // Without `vary` a line comes out the same every time, which is what every other voice
+  // relies on. With it the speaker keeps a state: the same line said eight times sits at
+  // different heights with differently shaped accents, a new topic is flagged, and the
+  // estimate the broadcast paces by still matches what's scheduled.
+  {
+    const run = (text, more) => {
+      nodes = [];
+      const trace = [];
+      const r = A.speak(text, { seed: 'contour', trace, fresh: true, ...more });
+      const g = nodes.filter(n => n.kind === 'osc').find(o => o.frequency.log.length > 3);
+      const v = (g?.frequency.log || []).map(e => e.value);
+      const end = trace.find(x => x.p === 'END');
+      return { v, dur: r ? r.duration : 0, perf: r?.perf, drift: end ? Math.abs(end.at - end.est) : 0 };
+    };
+    const median = (v) => { const s = [...v].sort((a, b) => a - b); return s[s.length >> 1] || 0; };
+    const line = 'The puck comes back to the point, and he winds up for the shot.';
+    const plain = run(line, {});
+    check('vary 0 is the voice exactly as it was', JSON.stringify(run(line, { vary: 0 }).v) === JSON.stringify(plain.v));
+    const uiPlain = run(line, { channel: 'ui' }), uiVary = run(line, { channel: 'ui', vary: 1 });
+    check('the reading voice never varies', JSON.stringify(uiVary.v) === JSON.stringify(uiPlain.v) && !uiVary.perf);
+    const said = Array.from({ length: 8 }, () => run(line, { seed: 'perf-a', vary: 1 }));
+    const st = said.map(r => 12 * Math.log2(median(r.v) / median(plain.v)));
+    const mean = st.reduce((a, b) => a + b, 0) / st.length;
+    const sd = Math.sqrt(st.reduce((a, b) => a + (b - mean) ** 2, 0) / st.length);
+    check('one line said eight times moves its register', sd > 0.4 && sd < 3, `sd ${sd.toFixed(2)} semitones`);
+    check('...and no two renders are the same', new Set(said.map(r => JSON.stringify(r.v))).size === said.length);
+    check('a varied line keeps close to the plain pace', said.every(r => r.dur < plain.dur * 1.12 && r.dur > plain.dur * 0.8),
+      said.map(r => (r.dur / plain.dur).toFixed(2)).join(' '));
+    // (a sold line's breath in sits before its first word, outside the estimate, on both)
+    const sold = run(line, { seed: 'perf-a', vary: 1, excite: 0.7 }), soldPlain = run(line, { excite: 0.7 });
+    check('the paced estimate matches the scheduled line when varied and sold', Math.abs(sold.drift - soldPlain.drift) < 0.005,
+      `${(sold.drift * 1000).toFixed(1)}ms apart against ${(soldPlain.drift * 1000).toFixed(1)}ms unvaried`);
+    // topics: a fresh speaker starts one; the next line continues it; another speaker's
+    // turn or a jump in excite starts a new one
+    const t1 = run('First line.', { seed: 'perf-b', vary: 1 }).perf, t2 = run('Second line.', { seed: 'perf-b', vary: 1 }).perf;
+    run('An aside from the colour man.', { seed: 'perf-c', vary: 1 });
+    const t3 = run('Back to it.', { seed: 'perf-b', vary: 1 }).perf, t4 = run('Still going.', { seed: 'perf-b', vary: 1 }).perf;
+    const t5 = run('He SCORES!', { seed: 'perf-b', vary: 1, excite: 1 }).perf;
+    check('a new speaker starts a topic and the next line continues it', t1?.topic && !t2?.topic && t2?.n === 1);
+    check("another speaker's turn starts a new topic", t3?.topic && !t4?.topic);
+    check('a jump in excite starts a new topic', !!t5?.topic);
   }
 
   // ── aspiration goes THROUGH the tract ─────────────────────────────────────

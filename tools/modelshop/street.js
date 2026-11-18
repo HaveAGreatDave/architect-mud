@@ -9,8 +9,8 @@
 //
 // So this paints the WORLD, at a grid coordinate, from a cab or a cockpit:
 //
-//   __street({ x: 916, y: 909, heading: 180 })      // Marrow Street, looking at the south side
-//   __street({ x: 916, y: 909, heading: 180, hour: 2 })
+//   __street({ x: 917, y: 909, heading: 180 })      // Marrow Street, looking at the south side
+//   __street({ x: 917, y: 909, heading: 180, hour: 2 })
 //   __street({ at: 'In Hock We Trust' })            // stand in the road outside a named building
 //   __streetHide()
 //
@@ -135,7 +135,7 @@ export async function street(opts = {}) {
   // ⚠ `cells` PATCHES THE SNAPSHOT AND DOES NOT WRITE TO IT — see the ⚠ at the top of this file.
   // The baked world is as fresh as the last snapshot, so a building renamed or re-typed in
   // content/ since then still answers to its old name here. This is how you look at the change
-  // anyway: `{ cells: { '916,910': { bn: 'Cash & Carrion' } } }` merges onto the cell for this
+  // anyway: `{ cells: { '917,910': { bn: 'Cash & Carrion' } } }` merges onto the cell for this
   // render only. It is a viewer, so nothing it does can reach the file.
   const patch = opts.cells || null;
   const map = Array.from({ length: N }, (_, j) => Array.from({ length: N }, (_, i) => {
@@ -414,7 +414,24 @@ export async function interiors(opts = {}) {
     const at = { x: gx + Math.round(Math.sin(rad)), y: gy - Math.round(Math.cos(rad)), heading: (side + 180) % 360, eyeH: 0.1, ...opts, seat: 'free', view };
     const doors = await streetDoorOf(data, gx, gy, side, opts);
     if (!doors) return street(at);
-    return street({ ...at, view: { ...view, streetDoors: doors, interiorInside: false } });
+    // the rooms behind the door, as the street view on foot places them (freelook-view.js doorShift)
+    const d = doors[0], deep = d.back - 0.47;
+    const shifted = interiorRoomsOf(data, { shift: [d.cx * d.E[1] + deep * d.E[0], -d.cx * d.E[0] + deep * d.E[1]] });
+    return street({ ...at, view: { ...view, interiorRooms: shifted, streetDoors: doors, interiorInside: false } });
+  }
+  // `keep`: inside as the street view on foot has it now (freelook-view.js insideCut): the rooms moved behind the
+  // model's doorway, the model kept, and the storey you're on cut out of it
+  if (opts.keep) {
+    const doors = await streetDoorOf(data, gx, gy, side, opts), d = doors?.[0], deep = d ? d.back - 0.47 : 0;
+    const kr = d ? interiorRoomsOf(data, { shift: [d.cx * d.E[1] + deep * d.E[0], -d.cx * d.E[0] + deep * d.E[1]] }) : rooms;
+    const q = kr.find((x) => x.zone === zone) || kr[0], M = q.M;
+    const [u, v] = opts.at || [0, Math.min(q.L.d - 0.5, 1.2)], P = q.L.world(u, v, 1.6);
+    const ex = M[0] * P[0] + M[4] * P[1] + M[8] * P[2] + M[12], ey = M[1] * P[0] + M[5] * P[1] + M[9] * P[2] + M[13];
+    const ez = M[2] * P[0] + M[6] * P[1] + M[10] * P[2] + M[14];
+    const k = M[6], floorM = M[14] / k + (q.L.floor || 0), h = Number(q.L.spec?.h) || 3;
+    const roomCut = { x: 0, y: 0, rad: 0, half: 4, back: 4, z0: k * (floorM - 0.15), z1: k * (floorM + h + 0.15), tx: 0, ty: 0, reach: 0.52 };
+    const heading = opts.heading ?? (data.rooms.find((x) => x.zone === q.zone)?.frame?.face ?? 0);
+    return street({ ...opts, at: null, x: gx, y: gy, seat: 'free', off: { x: ex, y: ey }, eyeH: ez, heading, view: { ...view, interiorRooms: kr, interiorInside: true, roomCut, ...(doors ? { streetDoors: doors } : {}) } });
   }
   // the eye in that room, carried to the tile by the room's own matrix
   const [u, v] = opts.at || [0, Math.min(r.L.d - 0.5, 1.2)], P = r.L.world(u, v, 1.6), M = r.M;
@@ -430,8 +447,9 @@ export async function interiors(opts = {}) {
 // The building's street door as freelook-view.js hands it to the renderer: read off the model's mass
 // (glass/doorway-measure.js), dressed as the entry room's flags.room.street_door says.
 async function streetDoorOf(data, gx, gy, side, opts) {
-  const { groundObstructionAt } = await import('/client/game/js/panels/windshield.js');
+  const { groundObstructionAt, doorBayAt } = await import('/client/game/js/panels/windshield.js');
   const { measureDoorway } = await import('/client/game/js/panels/glass/doorway-measure.js');
+  const { streetDoorKind, streetDoorLook } = await import('/client/shared/street-door.js');
   const E = { 0: [0, -1], 90: [1, 0], 180: [0, 1], 270: [-1, 0] }[side];
   const entry = data.rooms.find((r) => (r.spec.openings || []).some((o) => o.kind === 'front'));
   const o = entry && entry.spec.openings.find((q) => q.kind === 'front');
@@ -439,15 +457,16 @@ async function streetDoorOf(data, gx, gy, side, opts) {
   if (!E || !o || !cell) return null;
   // the mass is read off the captured model, which the first paint makes
   if (!_canvas) await street({ x: gx, y: gy, seat: 'free', show: false });
-  const g = measureDoorway(gx, gy, cell, E, Math.abs(o.b - o.a) || 2, groundObstructionAt, 0.09 / 1.6);
+  // `door` dresses it here, as flags.room.street_door would (client/shared/street-door.js): { kind, glass, trim, ... }
+  const sd = { ...(data.street_door || entry.spec.street_door || {}), ...(opts.door || {}) }, kind = streetDoorKind(sd), look = streetDoorLook(sd);
+  // the doorway the model drew, as the street view on foot reads it (freelook-view.js doorway)
+  const bay = opts.mass ? null : doorBayAt(gx, gy, cell, look?.cx || 0);
+  const g = measureDoorway(gx, gy, cell, E, Math.abs(o.b - o.a) || 2, groundObstructionAt, 0.09 / 1.6, look?.cx || 0, bay, look?.h || 0);
   if (!g.leaves) return null;
-  // `door` dresses it here, as flags.room.street_door would: { kind, fanlight, runner, glass, trim, leaf, bars }
-  const sd = { kind: 'swing', ...(entry.spec.street_door || {}), ...(opts.door || {}) }, glass = sd.kind === 'swing' || sd.kind === 'sliding';
-  const look = { glass: sd.glass || null, trim: sd.trim || null, monogram: sd.monogram || null, ...(sd.fanlight ? { fanlight: true } : {}), ...(sd.runner ? { runner: sd.runner } : {}),
-    ...(sd.leaf ? { leaf: sd.leaf } : {}), ...(sd.bars ? { bars: true } : {}) };
-  console.log('__interiors door', JSON.stringify({ wall: g.wall, plane: g.plane, half: g.half, top: g.top }));
-  return [{ x: gx, y: gy, E, plane: g.plane, wall: g.wall, half: g.half, top: g.top, open: opts.open ?? 0, glass,
-    ...(sd.kind === 'swing' ? { swing: true } : {}), ...(glass ? {} : { bars: true }), look }];
+  const glass = kind !== 'plain' && kind !== 'grille';
+  console.log('__interiors door', JSON.stringify({ kind, fit: g.fit, cx: g.cx, wall: g.wall, plane: g.plane, back: g.back, half: g.half, sill: g.sill, top: g.top }));
+  return [{ x: gx, y: gy, E, plane: g.plane, wall: g.wall, back: g.back, half: g.half, sill: g.sill, top: g.top, cx: g.cx, fit: g.fit, open: opts.open ?? 0, glass, kind,
+    ...(kind === 'swing' ? { swing: true } : {}), ...(glass ? {} : { bars: true }), look }];
 }
 
 if (typeof window !== 'undefined') {

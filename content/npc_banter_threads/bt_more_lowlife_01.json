@@ -1,0 +1,11 @@
+{
+  "enabled": true,
+  "id": "bt_more_lowlife_01",
+  "lines": [
+    "\"You hear about the job on the docks?\"",
+    "\"What job?\"",
+    "\"Good. Keep it like that.\""
+  ],
+  "personality": "lowlife",
+  "sort_order": 666
+}

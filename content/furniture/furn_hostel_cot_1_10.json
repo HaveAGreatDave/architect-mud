@@ -1,0 +1,38 @@
+{
+  "description": "A canvas cot, the canvas patched with duct tape. It creaks when you look at it.",
+  "flags": {
+    "aliases": [
+      "cot",
+      "cots",
+      "bed",
+      "cot 110"
+    ],
+    "interactions": [
+      "sit",
+      "lie",
+      "sleep"
+    ],
+    "look": {
+      "arche": "sofa",
+      "form": "cot",
+      "wear": 0.95
+    },
+    "spot": {
+      "at": [
+        -2,
+        4
+      ],
+      "turn": 90
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_hostel_cot_1_10",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "cot 110",
+  "object_type": "bed",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_hostel_dorm"
+}

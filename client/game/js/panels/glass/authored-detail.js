@@ -8,7 +8,7 @@
 import {
   DETAIL_LIFT, FACE_EPS, MESH_SINK, NEON_ART, RENDER_TUNE, SHAPE_SINK, SIGN_BOARD_OUT, STROKE_SINK,
   TAG_WALL_MARGIN, TUNE, WALL_COL, bakeSignText, bakeTagText, bracketCol, clamp, dRand, detailQuad,
-  dripStain, emitLightRunner, emitSurfaceText, faceY, glowPool, hexRgb, mix, nearOrMesh, powerNight,
+  dripStain, emitLightRunner, emitSurfaceText, faceY, glowPool, hexRgb, markDoorway, mix, nearOrMesh, powerNight,
   rgb, signLabel, tagHandFor, tagWordFor, texCanvas, wallSpanAt,
 } from '../windshield.js';
 import { DETAIL_SCHEMA } from '../../../../shared/building-model-schema.js';
@@ -990,6 +990,9 @@ export const AUTHORED_DETAIL = {
     // windowBay (face claims, signband, the mesh) keeps working on a door without being told.
     if (d.door) {
       const ys = yo + sgn * dep;
+      // the doorway, for a building whose street door moves (windshield.js doorBayAt): the opening, from the wall to
+      // the reveal's face, threshold to head. Only a door on the front.
+      if (d.face !== 'x' && c.ly > 0) markDoorway(c.F, c.lx, c.ly, half, z - hh, z + hh, yo);
       Q([[c.lx - ho, y, z - hh], [c.lx + ho, y, z - hh], [c.lx + ho, ys, z - hh], [c.lx - ho, ys, z - hh]], shadeOf(P, 0.82), c.alpha, { lift: DETAIL_LIFT * 1.6 });
     } else {
       Q([[c.lx - half, y, z - hh], [c.lx + half, y, z - hh], [c.lx + half, yo, z - hh], [c.lx - half, yo, z - hh]], sill, c.alpha, { lift: DETAIL_LIFT * 1.6 });
@@ -1053,7 +1056,8 @@ export const AUTHORED_DETAIL = {
     }
     // The leaves. Drawn in both renderers, unlike the mullions: one door a building is nothing to
     // pay, and a doorway with no leaves in it reads as a lit window that reaches the pavement.
-    if (d.door) {
+    // `leaves: 0` leaves them out for a door that's drawn moving instead (glass/street-doors.js barredLeaf).
+    if (d.door && d.leaves !== 0) {
       const n = d.door >= 2 ? 2 : 1, L = { lift: DETAIL_LIFT * 1.45 };
       const zb = z - hh, zt = d.transom ? z + hh - 2 * hh * clamp(d.transom, 0.05, 0.95) : z + hh;
       const t = Math.max(half * 0.03, 0.003), bt = Math.max((zt - zb) * 0.012, 0.003);

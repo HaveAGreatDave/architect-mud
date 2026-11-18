@@ -129,7 +129,8 @@ const keepHue = (c) => {
 // shader carries the same coefficients this file tests rather than that it computes the same thing.
 // A retune that edited one copy and not the other is the realistic failure, and this catches it.
 {
-  const src = readFileSync('client/game/js/panels/gl/hdr.js', 'utf8');
+  // hdr.js takes the curve from gl/core/glsl/tone.js since the core pass, so the coefficients are read there.
+  const src = readFileSync('client/game/js/panels/gl/hdr.js', 'utf8') + readFileSync('client/game/js/panels/gl/core/glsl/tone.js', 'utf8');
   for (const c of ['2.51', '0.03', '2.43', '0.59', '0.14']) {
     if (!src.includes(c)) problems.push(`hdr.js no longer contains the ACES coefficient ${c} — the curve here and the curve that runs have drifted`);
   }

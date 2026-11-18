@@ -22,7 +22,7 @@ let bad = 0, n = 0;
 const check = (name, ok, detail = '') => { n++; if (!ok) { bad++; console.log(`  ✗ ${name}${detail ? ` ↳ ${detail}` : ''}`); } };
 
 // ── traffic ─────────────────────────────────────────────────────────────────────────────────────
-const FIELDS = [['pad_a', 897, 898, true], ['strip', 925, 903, false], ['pad_b', 890, 904, true], ['roof', 914, 908, true], ['far', 1030, 960, false], ['south', 910, 1042, false]].map(([id, gx, gy, pad]) => ({ id, gx, gy, pad }));
+const FIELDS = [['pad_a', 897, 898, true], ['strip', 926, 903, false], ['pad_b', 890, 904, true], ['roof', 915, 908, true], ['far', 1030, 960, false], ['south', 910, 1042, false]].map(([id, gx, gy, pad]) => ({ id, gx, gy, pad }));
 const T0 = 1793970000, X = 914, Y = 908;
 check('a flight is the same flight when asked twice', JSON.stringify(airTraffic(FIELDS, X, Y, T0)) === JSON.stringify(airTraffic(FIELDS, X, Y, T0)));
 
@@ -90,7 +90,7 @@ check('the flat\'s own tower is off the map GLASS paints', !eye.map[1][1].bt && 
 check('the buildings beside it stay', eye.map[1][0] === beside && eye.map[0][1] === beside);
 check('the eye\'s height is read before the tower comes off', eye.z > 5 && sent[1][1] === tower, String(eye.z));
 check('a room\'s frame holds the deck over the eye', ws.includes('DECK_FLOOR = (still || v.deckOverhead) && v.freeCam') && ws.includes('Math.max(0.05, DECK_FLOOR,'));
-check('the room takes the city camera\'s lens', /roomMatrices\(cam, w \/ h, light\.lens\)/.test(room));
+check('the room takes the city camera\'s lens', /roomMatrices\(cam, w \/ h, light\.lens(?:, [\w.]+)?\)/.test(room));
 
 console.log(bad ? `room:window — ${bad} of ${n} failed` : `room:window — ${n} checks passed`);
 process.exit(bad ? 1 : 0);

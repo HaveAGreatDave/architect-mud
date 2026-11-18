@@ -40,6 +40,7 @@ import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { startTextHelm, isConning, stopTextHelm } from './texthelm.js';
 import { TYPES } from '../../client/game/js/panels/flight-model.js';
 import { boardCheck, noteTaken } from '../../server/engine/vehicle-access.js';
+import { standAt } from '../../server/engine/vehicle-stand.js';
 import { unindexBoat } from './access.js';
 import { anchorFromRow, anchorSql, anchorParam, isLandTile } from './anchor.js';
 import { seaContext } from '../fishing/sea.js';
@@ -345,6 +346,13 @@ export async function boatTake(player, arg) {
     await query(`UPDATE boats SET berth_zone = $1, custom_data = jsonb_set(COALESCE(custom_data, '{}'::jsonb), '{home_berth}', to_jsonb($1::text), true) WHERE id = $2`, [shed.id, boat.id]);
     boat.berth_zone = shed.id;
     sendToPlayer(player.id, { type: 'emote', message: `The travel crane walks ${boat.name || 'her'} off the cradle and into the covered dock. ₵${fee.toLocaleString()}.` });
+  }
+  // Called up into this covered slip (`callup`, server/engine/vehicle-stand.js): the yard hand has walked her in,
+  // so she's here now and you step aboard where you stand. Only where she lies moves; her home berth doesn't.
+  const here = getZone(player.current_zone);
+  if (boat.berth_zone !== here?.id && berthKind(here) === 'covered' && String(standAt(here.id)?.id) === String(boat.id)) {
+    await query('UPDATE boats SET berth_zone = $1 WHERE id = $2', [here.id, boat.id]);
+    boat.berth_zone = here.id;
   }
   if (player.current_zone !== boat.berth_zone) {
     await dispatchAction({ type: 'TELEPORT', actor: player, params: { zone_id: boat.berth_zone } }).catch(() => {});

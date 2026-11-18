@@ -6,7 +6,18 @@ import { state } from '../state.js';
 import { sfx, clampInt, clampNum, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews, crtOverlays, deckStrip, setDeckLevel } from './minigame-common.js';
 import { updateBoatContacts, stopBoatContacts, KT_TO_MPH } from './boat-audio.js';
 import { KT_MS, NM_M, FT_M, tripM, fmtDistance, heightToZ } from '../../../shared/world-scale.js';   // contact ias is m/s on the wire; field distances in nm
-import { flightHeight } from '../../../shared/flight-height.js';
+import { flightHeight, altitudeTiles } from '../../../shared/flight-height.js';
+
+// The Merlin's eye near the road. The aircraft eye (altitudeTiles) is 0.24 tiles on the ground and
+// its sqrt curve adds 0.2 more by 3 ft, about 8 m: over the street lights at ride height. Under
+// 30 ft over the ground the eye eases from the seat's own 1.5 m to that curve.
+const MERLIN_SEAT_EYE = 0.083, MERLIN_EYE_BLEND_FT = 30;
+function merlinEye(s) {
+  const agl = Math.max(0, s.altitude - (s.groundFt || 0));
+  if (agl >= MERLIN_EYE_BLEND_FT) return {};
+  const u = agl / MERLIN_EYE_BLEND_FT, k = u * u * (3 - 2 * u);
+  return { height: 0, eyeH: MERLIN_SEAT_EYE + (altitudeTiles(s.altitude) - MERLIN_SEAT_EYE) * k };
+}
 import { landformTile } from '../../../shared/wildlands.js';
 import { SEA_TILE_M } from '../../../shared/sea-swell.js';
 import { tweenOrbit, BAY_PITCH } from './camera-tween.js';
@@ -25,6 +36,7 @@ const HUD_CSS = await loadCss(new URL('./cockpit-hud.css', import.meta.url));
 const SUB_MIN_WATER_M = 3;
 import { subCrossing, interiorHotspots, glWorldInstalled, glDecision, glLastError, lastViewState, lastFloorState, lastOwnShipMask, yachtPadZ, ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, panelControlRects, RENDER_TUNE, navMarks, buildingRoofFtAt, curtainRoofFtAt, lotRoofFtAt, modelTopZAt, altForRoofZ, altRestingOnZ, seaAmpsNow, hullSeaGains, ROOF_CATCH_R, ROOF_CATCH_CEIL_Z, MODEL_MAX_EXTENT, BUILDING_FOOT, VISIBLE_NEAR_F, VISIBLE_FAR_F, surfaceBreakup, perfBegin, perfEnd, perfTick, landformFloorFt } from './windshield.js';
 import { padCatchStep } from './pad-catch.js';
+import { paintMiniYoke } from './mini-yoke.js';
 // ── GLASS 2 ────────────────────────────────────────────────────────────────
 // Installed here, not in windshield.js, because the cold open and the smoke suite load that file without a GPU.
 import { installGL, glCapabilities, glLastFrame } from './gl/install.js';
@@ -54,6 +66,12 @@ import { MOUSE_STICK, STICK_TUNE, STICK_HINT_ON, STICK_HINT_OFF, createMouseStic
 import { createBankHold, bankKey, stepBankHold, releaseBankHold, bankLimit } from './bank-hold.js';
 import { compactHidePanel } from '../../../shared/compact-view.js';
 import { DRAKE_WHEEL } from '../../../shared/interior-drake.js';
+import { HUD_TINTS, HUD_TINT_ORDER, HUD_WHEEL, hudTint, isHudHex } from '../../../shared/interior-cockpit-kit.js';
+import { newMenu, menuTurn, menuPick, menuTick, menuOpen, MENU_HOLD_MS } from '../../../shared/merlin-menu.js';
+import { newMerlinState, merlinHover, merlinLock, merlinBoostOn, stepMerlin, merlinRoad, merlinGlance, MR } from './merlin-modes.js';
+// The HUD's colour, the pilot's choice per aircraft type, kept in this browser (a convenience, not state).
+const HUD_TINT_KEY = (craft) => 'fsim.hudTint.' + (craft || 'any');
+function savedHudTint(craft) { try { const v = localStorage.getItem(HUD_TINT_KEY(craft)); return HUD_TINTS[v] || isHudHex(v) ? v : 'green'; } catch { return 'green'; } }
 
 // Touch devices have no rudder keys, so their fin auto-coordinates with roll.
 const _touchPrimary = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
@@ -90,6 +108,7 @@ const CLASS_THEME = {
   grasshopper:{ acc: '#9ad46a', chrome: 'minimal',   radar: 'sm' },   // olive-drab liaison scout
   locust:     { acc: '#ffd24a', chrome: 'analog',    radar: 'sm' },   // crop-duster / ag-plane
   heli:       { acc: '#4fe0a0', chrome: 'rotor',      radar: 'md' },
+  merlin:     { acc: '#a896ff', chrome: 'rotor',      radar: 'md' },   // Corvane's violet line
   prop:       { acc: '#4fb8e0', chrome: 'analog',     radar: 'md' },
   heavy:      { acc: '#ffb23e', chrome: 'industrial', radar: 'lg' },
   gunship:    { acc: '#ff6b5b', chrome: 'military',    radar: 'lg' },
@@ -742,7 +761,7 @@ const TOUR_STEPS = [
     : 'The <b>yoke</b> is your control column, steer it with the <span class="k">mouse</span>. Drag <b>left/right</b> to bank the wings into a turn. It\'s <b>inverted</b> like the real thing: drag <b>DOWN</b> to pull back and <b>climb</b>, push <b>up</b> to descend.<br><br>Or press <span class="k">K</span> and fly her <b>on the mouse</b>: move it and the column moves with it, and <b>stays where you leave it</b>. <span class="k">ESC</span> or <span class="k">K</span> hands the mouse back.<br><br>In the air, <span class="k">←</span> <span class="k">→</span> bank her and she <b>holds the bank</b> when you let go: tap for 5°, hold to roll on. Roll back to level to hand her back. On the ground they steer.' },
   { id: 'fsim-thr', title: 'THROTTLE', body: (m) => m
     ? 'The <b>throttle</b> sets engine power: <b>drag the lever</b> up for more, down for less. Run it <b>full</b> for takeoff, and ease it back to bleed off speed for landing.'
-    : 'The <b>throttle</b> sets engine power. Tap <span class="k">A</span> to add power, <span class="k">Z</span> to cut it: or drag the lever. Run it <b>full</b> for takeoff, and ease it back to bleed off speed for landing.' },
+    : 'The <b>throttle</b> sets engine power. Hold <span class="k">R</span> to add power, <span class="k">F</span> to cut it: or drag the lever. Run it <b>full</b> for takeoff, and ease it back to bleed off speed for landing.' },
   { id: 'fsim-flap', title: 'FLAPS', body: (m) => m
     ? '<b>Flaps</b> add lift so you can fly slower and steeper. <b>Drag the flap knob</b> down a notch or two for takeoff and landing; leave them <b>UP</b> for cruise.'
     : '<b>Flaps</b> add lift so you can fly slower and steeper. Drag the flap knob, or tap <span class="k">Y</span> to extend / <span class="k">H</span> to retract: a notch or two for takeoff and landing; <b>UP</b> for cruise.' },
@@ -818,7 +837,7 @@ const FLAP_STYLES = {
   quadrant: { cap: 'FLAPS',      detents: [{ v: 0, l: '0' }, { v: 0.25, l: '1' }, { v: 0.5, l: '2' }, { v: 0.75, l: '3' }, { v: 1, l: 'FULL' }] },
   switch:   { cap: '',           detents: [{ v: 0, l: 'UP' }, { v: 0.5, l: '½' }, { v: 1, l: 'FULL' }] },
 };
-const FLAP_BY_CRAFT = { mayfly: 'johnson', mule: 'johnson', leviathan: 'quadrant', reaper: 'switch', carcass: 'switch', dragonfly: null, viper: null, drake: null, grasshopper: 'johnson', locust: 'johnson',
+const FLAP_BY_CRAFT = { mayfly: 'johnson', mule: 'johnson', leviathan: 'quadrant', reaper: 'switch', carcass: 'switch', dragonfly: null, viper: null, drake: null, merlin: null, grasshopper: 'johnson', locust: 'johnson',
   // The Shrike's flap lever also drives her dive brakes, so it gets the quadrant.
   shrike: 'quadrant' };
 function flapStyleFor(craftType) {
@@ -1107,7 +1126,11 @@ const FSIM_TUNE = [
   ['cloudVolRes', 'Cloud volume resolution', 0.125, 1, 0.125],
   ['cloudVolSteps', 'Cloud volume ray steps', 16, 128, 8],
   ['cloudVolTemporal', 'Cloud volume history blend', 0, 0.95, 0.05],
+  ['cloudVolPhase', 'Cloud forward scatter (silver lining)', 0, 0.9, 0.05],
+  ['cloudVolMs', 'Cloud scattering octaves', 1, 3, 1],
   ['cloudVolGlow', 'Cloud volume city underglow', 0, 2, 0.1],
+  ['glCloudShadow', 'Cloud shadows on the city', 0, 1, 0.1],
+  ['glSunShafts', 'Sun shafts through cloud gaps', 0, 1, 0.1],
   ['occlude', 'Occlusion cull', 0, 1, 1],
   ['shapeShadow', 'Shape shadows', 0, 1, 1],
   // Hero model's per-pixel shadow and lamp spill (model-raster.js), as strengths.
@@ -1178,6 +1201,7 @@ const FSIM_SKIN = {
   dragonfly: { id: 'dragonfly', acc: '#8fe36b', rgb: [143, 227, 107] },
   viper: { id: 'viper', acc: '#5fe6c0', rgb: [95, 230, 192] },
   drake: { id: 'drake', acc: '#e89a3a', rgb: [232, 154, 58] },
+  merlin: { id: 'merlin', acc: '#a896ff', rgb: [168, 150, 255] },
   grasshopper: { id: 'grasshopper', acc: '#9ad46a', rgb: [154, 212, 106] },
   locust: { id: 'locust', acc: '#ffd24a', rgb: [255, 210, 74] },
   // Magenta matches her tile crosshair.
@@ -1417,9 +1441,62 @@ const STICK_LOCUST = `<svg class="fsim-yoke-svg" id="fsim-yoke-svg" viewBox="0 0
   <circle id="fsim-yk-red" cx="52.5" cy="29.5" r="1.9" fill="url(#ykred)" opacity="0.2"/>
 </svg>`;
 
+// MERLIN: the cut yoke from the seat (interior-merlin.js WHEEL, RIM, BTN, DRIVE), drawn front on at
+// 182 units a metre round the hub at (50,36): alcantara horns from -32 to 62 degrees, open over the
+// top, a carbon flat bottom and spokes, yellow tabs on the tips, red stitching, the hub screen, the
+// four circuit keys, HOVER/LOCK under the screen, PIT and BOOST under the thumbs, and the paddles.
+const MR_HORNS = 'M35.9,9.5 A30,30 0 0 0 24.6,51.9 M75.4,51.9 A30,30 0 0 0 64.1,9.5';
+const YOKE_MERLIN = `<svg class="fsim-yoke-svg" id="fsim-yoke-svg" viewBox="0 0 100 74" preserveAspectRatio="xMidYMid meet">
+  <defs>${YK_LED_DEFS}
+    <pattern id="mrcarb" width="3" height="3" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="3" height="3" fill="#15171b"/><rect width="1.5" height="1.5" fill="#262a30"/><rect x="1.5" y="1.5" width="1.5" height="1.5" fill="#262a30"/></pattern>
+    <filter id="mralc" x="-10%" y="-10%" width="120%" height="120%"><feTurbulence type="fractalNoise" baseFrequency="1.6" numOctaves="2" seed="7" result="n"/><feColorMatrix in="n" type="matrix" values="0 0 0 0 0.5  0 0 0 0 0.5  0 0 0 0 0.52  0 0 0 0.35 0" result="g"/><feComposite in="g" in2="SourceGraphic" operator="in" result="t"/><feMerge><feMergeNode in="SourceGraphic"/><feMergeNode in="t"/></feMerge></filter>
+    <linearGradient id="mrhub" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2c3036"/><stop offset="1" stop-color="#0b0c0f"/></linearGradient>
+    <linearGradient id="mrscr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0c1a14"/><stop offset="1" stop-color="#03080a"/></linearGradient>
+    <radialGradient id="mrkey" cx="0.4" cy="0.35" r="0.7"><stop offset="0" stop-color="#4a4f57"/><stop offset="1" stop-color="#121418"/></radialGradient>
+  </defs>
+  <!-- the column out of the dash, behind the hub -->
+  <rect x="44" y="40" width="12" height="34" rx="4" fill="url(#mrcarb)" stroke="#000" stroke-width="0.6"/>
+  <rect x="44" y="40" width="12" height="34" rx="4" fill="url(#mrhub)" opacity="0.55"/>
+  <circle cx="50" cy="40" r="6.5" fill="#2a2e34" stroke="#9aa3ad" stroke-width="0.5"/>
+  <!-- paddles behind the rim -->
+  <path d="M73,30 l9,-4 l2,8 l-9,2 Z" fill="#9aa3ad" stroke="#000" stroke-width="0.5"/><text x="80" y="32" font-size="4" fill="#111" text-anchor="middle" font-family="monospace">+</text>
+  <path d="M27,30 l-9,-4 l-2,8 l9,2 Z" fill="#9aa3ad" stroke="#000" stroke-width="0.5"/><text x="20" y="32" font-size="4" fill="#111" text-anchor="middle" font-family="monospace">-</text>
+  <!-- spokes: two plates out to the grips and one down to the flat bottom -->
+  <rect x="21.6" y="31.6" width="16.4" height="8.8" rx="2" fill="url(#mrcarb)" stroke="#000" stroke-width="0.5"/>
+  <rect x="62" y="31.6" width="16.4" height="8.8" rx="2" fill="url(#mrcarb)" stroke="#000" stroke-width="0.5"/>
+  <rect x="39.8" y="42" width="20.4" height="7.4" rx="2" fill="url(#mrcarb)" stroke="#000" stroke-width="0.5"/>
+  <!-- the flat bottom, carbon tube -->
+  <line x1="24.6" y1="51.9" x2="75.4" y2="51.9" stroke="#000" stroke-width="7" stroke-linecap="round"/>
+  <line x1="24.6" y1="51.9" x2="75.4" y2="51.9" stroke="url(#mrcarb)" stroke-width="5.8" stroke-linecap="round"/>
+  <line x1="26" y1="50.4" x2="74" y2="50.4" stroke="rgba(255,255,255,0.18)" stroke-width="0.8" stroke-linecap="round"/>
+  <!-- the horns: alcantara grips, shaded round, with the red stitch line -->
+  <path d="${MR_HORNS}" fill="none" stroke="#000" stroke-width="8.8" stroke-linecap="round"/>
+  <path d="${MR_HORNS}" fill="none" stroke="#24262b" stroke-width="7.6" stroke-linecap="round" filter="url(#mralc)"/>
+  <path d="M34.6,11.2 A28.6,28.6 0 0 0 23.6,49.4 M76.4,49.4 A28.6,28.6 0 0 0 65.4,11.2" fill="none" stroke="rgba(255,255,255,0.13)" stroke-width="1.6" stroke-linecap="round"/>
+  <path d="M37.2,12.6 A27,27 0 0 0 27,49.5 M73,49.5 A27,27 0 0 0 62.8,12.6" fill="none" stroke="#000" stroke-opacity="0.45" stroke-width="1.6" stroke-linecap="round"/>
+  <path d="${MR_HORNS}" fill="none" stroke="#c0262c" stroke-width="0.35" stroke-dasharray="1 0.8"/>
+  <!-- thumb rests where the spokes meet the grips -->
+  <line x1="23.3" y1="32.7" x2="25.4" y2="31" stroke="#2c2e33" stroke-width="3.4" stroke-linecap="round"/>
+  <line x1="76.7" y1="32.7" x2="74.6" y2="31" stroke="#2c2e33" stroke-width="3.4" stroke-linecap="round"/>
+  <!-- yellow tabs on the horn tips, level when it's straight -->
+  <path d="M35.9,9.5 A30,30 0 0 0 31.5,12.4 M68.5,12.4 A30,30 0 0 0 64.1,9.5" fill="none" stroke="#f2c230" stroke-width="7.8" stroke-linecap="butt"/>
+  <!-- hub screen with the name and the status LEDs -->
+  <rect x="39.5" y="28.4" width="21" height="15" rx="2.2" fill="url(#mrhub)" stroke="#000" stroke-width="0.6"/>
+  <rect id="fsim-yoke-plate" x="40.9" y="29.8" width="18.2" height="12.2" rx="1.4" fill="url(#mrscr)" stroke="#2b5a46" stroke-width="0.4"/>
+  <text id="fsim-yoke-name" class="fsim-yoke-name" x="50" y="35.6" text-anchor="middle" textLength="14" lengthAdjust="spacingAndGlyphs">MERLIN</text>
+  <circle id="fsim-yk-green" cx="46.5" cy="39.2" r="1.5" fill="url(#ykgreen)" opacity="0.2"/>
+  <circle id="fsim-yk-red" cx="53.5" cy="39.2" r="1.5" fill="url(#ykred)" opacity="0.2"/>
+  <!-- the four circuit keys either side of the screen -->
+  <g stroke="#000" stroke-width="0.4" fill="url(#mrkey)"><circle cx="35.6" cy="32.2" r="2.5"/><circle cx="64.4" cy="32.2" r="2.5"/><circle cx="35.6" cy="39.8" r="2.5"/><circle cx="64.4" cy="39.8" r="2.5"/></g>
+  <g font-size="1.6" fill="#c8d0d8" text-anchor="middle" font-family="monospace"><text x="35.6" y="32.8">STRT</text><text x="64.4" y="32.8">LITE</text><text x="35.6" y="40.4">PNL</text><text x="64.4" y="40.4">CAB</text></g>
+  <!-- the drive keys: HOVER and LOCK under the screen, PIT and BOOST under the thumbs -->
+  <g stroke-width="0.8" fill="url(#mrkey)"><circle cx="44.5" cy="45.6" r="2.9" stroke="#f2c230"/><circle cx="55.5" cy="45.6" r="2.9" stroke="#3ad07a"/><circle cx="28.2" cy="36" r="2.9" stroke="#3aa8e0"/><circle cx="71.8" cy="36" r="2.9" stroke="#e0403a"/></g>
+  <g font-size="1.5" fill="#e6ecf2" text-anchor="middle" font-family="monospace"><text x="44.5" y="46.2">HOVR</text><text x="55.5" y="46.2">LOCK</text><text x="28.2" y="36.6">PIT</text><text x="71.8" y="36.6">BST</text></g>
+</svg>`;
+
 // Control art per craft type; anything unlisted gets the default wheel.
 function yokeSvgFor(t) {
-  return { mayfly: YOKE_MAYFLY, grasshopper: STICK_GRASSHOPPER, locust: STICK_LOCUST, leviathan: YOKE_LEVIATHAN, reaper: STICK_REAPER, shrike: STICK_REAPER, dragonfly: CYCLIC_DRAGONFLY, viper: CYCLIC_VIPER }[t] || YOKE_SVG;
+  return { merlin: YOKE_MERLIN, mayfly: YOKE_MAYFLY, grasshopper: STICK_GRASSHOPPER, locust: STICK_LOCUST, leviathan: YOKE_LEVIATHAN, reaper: STICK_REAPER, shrike: STICK_REAPER, dragonfly: CYCLIC_DRAGONFLY, viper: CYCLIC_VIPER }[t] || YOKE_SVG;
 }
 
 // One pip per seat on the placard.
@@ -1507,6 +1584,8 @@ export function openFlightSim(opts = {}) {
     pedalKey: 0,
     // ← → : a held bank in the air (bank-hold.js), the nosewheel or the boat's helm on the ground.
     bankHold: createBankHold(), steerKey: 0, bankPull: 0, turnRate: 0,
+    // WASD on the stick, held (x: A/D, y: W/S, W a push), and the zoom (Z held, the wheel's step).
+    stickKey: { x: 0, y: 0 }, zoom: 1, zoomKey: false, zoomWheel: 1,
     pos: { x: opts.gx || 0, y: opts.gy || 0 },
     home: { x: opts.gx || 0, y: opts.gy || 0 },   // the HOME marker's target
     mapCenter: { x: Math.round(opts.gx || 0), y: Math.round(opts.gy || 0) },
@@ -1545,11 +1624,14 @@ export function openFlightSim(opts = {}) {
     shots: [],                                       // missiles in the air (visual only)
     gunCap: 1174, gunRounds: 1174,                   // cosmetic ammo count
     nightLight: false, landingLight: false,          // PANEL and LIGHTS; both need engine power
+    hudTint: savedHudTint(opts.craftType),           // the HUD key's colour (interior-cockpit-kit HUD_TINTS)
+    mrMenu: opts.craftType === 'merlin' ? newMenu() : null,   // the HUD knob's setup menu (merlin-menu.js)
+    mr: opts.craftType === 'merlin' ? newMerlinState() : null,   // the Merlin's HOVER, LOCK, BOOST and PIT (merlin-modes.js)
     raf: 0, last: 0, syncAcc: 0, hornBeat: 0, audioAcc: 0,
     temp: 40, battery: 100,          // cosmetic
     engines: Math.max(1, opts.engines || 1), seats: Math.max(1, opts.seats || 1), occupants: opts.occupants || [],
     // Powerplant class picks the engine gauges' labels and scales.
-    engStyle: { mule: 'turboprop', reaper: 'turbofan', leviathan: 'turbofan', shrike: 'turboprop', dragonfly: 'heli', viper: 'heli', drake: 'heli' }[opts.craftType] || 'piston',
+    engStyle: { mule: 'turboprop', reaper: 'turbofan', leviathan: 'turbofan', shrike: 'turboprop', dragonfly: 'heli', viper: 'heli', drake: 'heli', merlin: 'heli' }[opts.craftType] || 'piston',
     temps: [], rpms: [], engWander: 0,
 
     disp: { ias: 0, alt: 0, vs: 0, hdg: s.heading, rpm: 0, pitch: 0, bank: 0 },
@@ -1602,7 +1684,7 @@ export function openFlightSim(opts = {}) {
       <div class="dkx-trim" id="dkx-trim" title="trim: drag up for nose down, down for nose up"><span class="dkx-trim-val" id="dkx-trim-val">0</span><div class="dkx-trim-drum" id="dkx-trim-drum"><div class="dkx-trim-ridges" id="dkx-trim-ridges"></div></div><div class="dkx-trim-mark" id="dkx-trim-mark"></div><span class="dkx-thr-lbl">TRIM</span></div></div>
     </div>`;
   const html = `<div id="fsim-root" class="fsim${skin ? ' fsim-theme-' + skin.id : ''}${TYPES[opts.craftType]?.convert ? ' fsim-dkx' : ''}">
-    <div class="fsim-view">${adminBtn}${windshieldHTML('fsim-ws', 'FWD VIEW · ' + esc((opts.deviceName || P.name).toUpperCase()))}<div class="fsim-lamp" id="fsim-lamp">⚠ STALL</div><div class="fsim-heat" id="fsim-heat"><span class="fsim-heat-txt" id="fsim-heat-txt"></span><button class="fsim-coolbtn" id="fsim-coolbtn" tabindex="-1" title="coolant flush, drops engine temp sharply (limited per flight)">❄ COOLANT <b id="fsim-cool-n"></b></button></div><div class="fsim-dive" id="fsim-dive" style="opacity:0"></div><div class="fsim-killfeed" id="fsim-killfeed"></div><div class="fsim-toast" id="fsim-toast"></div><div class="fsim-ckride" id="fsim-ckride"></div><div class="fsim-tour" id="fsim-tour"></div><div class="fsim-viewtag" id="fsim-viewtag"></div><div class="fsim-fuel" id="fsim-fuel"><span class="fsim-fuel-ic">⛽</span><span class="fsim-fuel-pct" id="fsim-fuel-pct">--%</span><button class="fsim-refuel" id="fsim-refuel" title="refuel at this field" tabindex="-1">REFUEL</button></div><div class="fsim-reticle" id="fsim-reticle"><svg viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="none" stroke="#ff6a3a" stroke-width="1"/><line x1="17" y1="1" x2="17" y2="7" stroke="#ff6a3a"/><line x1="17" y1="27" x2="17" y2="33" stroke="#ff6a3a"/><line x1="1" y1="17" x2="7" y2="17" stroke="#ff6a3a"/><line x1="27" y1="17" x2="33" y2="17" stroke="#ff6a3a"/><circle cx="17" cy="17" r="1.5" fill="#ff6a3a"/></svg></div><div class="fsim-weap" id="fsim-weap"><button class="fsim-weap-arm" id="fsim-arm" tabindex="-1">◈ SAFE</button><button class="fsim-weap-arm" id="fsim-wpn" tabindex="-1" title="weapon select, 1 guns / 2 missiles">GUN</button><button class="fsim-weap-fire" id="fsim-fire" tabindex="-1">FIRE</button><span class="fsim-weap-pips" id="fsim-weap-pips"></span><button class="fsim-weap-arm" id="fsim-flarebtn" tabindex="-1" title="countermeasures (X)">FLARE</button><button class="fsim-weap-arm" id="fsim-bombbtn" tabindex="-1" title="select the bomb rack (3), opens the dive sight" style="display:none">◎ BOMBS</button><button class="fsim-weap-arm" id="fsim-divebtn" tabindex="-1" title="dive computer (B), pushes over to the attack angle, then flies the pull-out at the release" style="display:none">⤵ DIVE</button></div><div class="fsim-spray-mist" id="fsim-spray"></div><div class="fsim-sprayrig" id="fsim-sprayrig" aria-hidden="true"><svg viewBox="0 0 200 96" preserveAspectRatio="xMidYMid meet"><line class="sr-boom" x1="14" y1="42" x2="186" y2="42"/><g class="sr-noz"><line x1="30" y1="42" x2="30" y2="47"/><line x1="54" y1="42" x2="54" y2="47"/><line x1="78" y1="42" x2="78" y2="47"/><line x1="122" y1="42" x2="122" y2="47"/><line x1="146" y1="42" x2="146" y2="47"/><line x1="170" y1="42" x2="170" y2="47"/></g><rect class="sr-hopper" x="80" y="16" width="40" height="26" rx="3"/><line class="sr-hatch" x1="86" y1="24" x2="114" y2="24"/><rect class="sr-door sr-door-l" x="80" y="42" width="20" height="6" rx="1.5"/><rect class="sr-door sr-door-r" x="100" y="42" width="20" height="6" rx="1.5"/><g class="sr-spray"><line class="sr-drop" x1="30" y1="48" x2="30" y2="58" style="animation-delay:.30s"/><line class="sr-drop" x1="54" y1="48" x2="54" y2="58" style="animation-delay:.42s"/><line class="sr-drop" x1="90" y1="50" x2="90" y2="60" style="animation-delay:.26s"/><line class="sr-drop" x1="100" y1="50" x2="100" y2="60" style="animation-delay:.36s"/><line class="sr-drop" x1="110" y1="50" x2="110" y2="60" style="animation-delay:.30s"/><line class="sr-drop" x1="122" y1="48" x2="122" y2="58" style="animation-delay:.46s"/><line class="sr-drop" x1="146" y1="48" x2="146" y2="58" style="animation-delay:.34s"/><line class="sr-drop" x1="170" y1="48" x2="170" y2="58" style="animation-delay:.40s"/></g></svg><span class="sr-tag">◊ BOOMS OPEN</span></div><button class="fsim-spraybtn" id="fsim-spraybtn" tabindex="-1" title="crop-duster, open the spray booms on a LOW pass" style="display:none">◊ SPRAY</button><button class="fsim-hopbtn" id="fsim-hopbtn" tabindex="-1" title="load the chemical hopper, pour a container in on the ground" style="display:none">⬗ HOPPER</button><div class="fsim-hop" id="fsim-hop"></div><button class="fsim-abortbtn" id="fsim-abortbtn" title="abort the flight, a recovery crew tows the aircraft back to a field and bills you">⤫ ABORT</button><button class="fsim-disembarkbtn" id="fsim-disembarkbtn" title="climb out of the aircraft (on the ground only)">⏏ DISEMBARK</button><button class="fsim-fsbtn" id="fsim-fsbtn" title="fullscreen">⛶</button><button class="fsim-bigbtn" id="fsim-bigbtn" title="${esc(BIGSCREEN_TITLE)}">${BIGSCREEN_GLYPH}</button><button class="fsim-viewbtn" id="fsim-viewbtn" title="external / cockpit view (V)">◎ EXT</button><button class="fsim-orbitreset" id="fsim-orbitreset" title="reset orbit camera to behind the craft">⟲</button><button class="fsim-glassbtn on" id="fsim-glassbtn" title="show / hide the 2-D instrument panel">▤</button><button class="fsim-hidebtn" id="fsim-hidebtn" title="hide the text panel, more outside view">⊟</button><button class="fsim-tunebtn" id="fsim-tunebtn" title="render tuning">⚙</button><div class="fsim-tune" id="fsim-tune" style="display:none"></div><div class="fsim-extg" id="fsim-extg"><div class="fsim-extg-row"><span class="fsim-extg-lbl">IAS</span><b id="fsim-extg-ias">0</b><span class="fsim-extg-u">kt</span></div><div class="fsim-extg-row"><span class="fsim-extg-lbl">ALT</span><b id="fsim-extg-alt">0</b><span class="fsim-extg-u">ft</span></div></div><div class="fsim-sub" id="fsim-sub" style="display:none"><div class="fsim-subgauge" aria-hidden="true"><div class="fsim-subscale" id="fsim-subscale"><div class="fsim-subrating" id="fsim-subrating"></div><div class="fsim-subfloor" id="fsim-subfloor"></div><div class="fsim-subnow" id="fsim-subnow"><span id="fsim-subnowtxt"></span></div></div><div class="fsim-subtanks" title="ballast"><div class="fsim-subtank"><div class="fsim-subfill" id="fsim-subfill-l"></div></div><div class="fsim-subtank"><div class="fsim-subfill" id="fsim-subfill-r"></div></div></div></div><div class="fsim-subcol"><button class="fsim-subbtn" id="fsim-subdive" tabindex="-1" title="flood the ballast and dive, or blow it and surface. Under water the stick flies the depth (PgDn / PgUp step it)">⬇ DIVE</button><span class="fsim-subbal" id="fsim-subbal"></span><span class="fsim-subread" id="fsim-subread"></span></div></div>${PEDALS_HTML}${TYPES[opts.craftType]?.convert ? DKX_HTML : ''}</div>
+    <div class="fsim-view">${adminBtn}${windshieldHTML('fsim-ws', 'FWD VIEW · ' + esc((opts.deviceName || P.name).toUpperCase()))}<div class="fsim-lamp" id="fsim-lamp">⚠ STALL</div><div class="fsim-heat" id="fsim-heat"><span class="fsim-heat-txt" id="fsim-heat-txt"></span><button class="fsim-coolbtn" id="fsim-coolbtn" tabindex="-1" title="coolant flush, drops engine temp sharply (limited per flight)">❄ COOLANT <b id="fsim-cool-n"></b></button></div><div class="fsim-dive" id="fsim-dive" style="opacity:0"></div><div class="fsim-killfeed" id="fsim-killfeed"></div><div class="fsim-toast" id="fsim-toast"></div><div class="fsim-ckride" id="fsim-ckride"></div><div class="fsim-tour" id="fsim-tour"></div><div class="fsim-viewtag" id="fsim-viewtag"></div><div class="fsim-fuel" id="fsim-fuel"><span class="fsim-fuel-ic">⛽</span><span class="fsim-fuel-pct" id="fsim-fuel-pct">--%</span><button class="fsim-refuel" id="fsim-refuel" title="refuel at this field" tabindex="-1">REFUEL</button></div><div class="fsim-reticle" id="fsim-reticle"><svg viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="none" stroke="#ff6a3a" stroke-width="1"/><line x1="17" y1="1" x2="17" y2="7" stroke="#ff6a3a"/><line x1="17" y1="27" x2="17" y2="33" stroke="#ff6a3a"/><line x1="1" y1="17" x2="7" y2="17" stroke="#ff6a3a"/><line x1="27" y1="17" x2="33" y2="17" stroke="#ff6a3a"/><circle cx="17" cy="17" r="1.5" fill="#ff6a3a"/></svg></div><div class="fsim-weap" id="fsim-weap"><button class="fsim-weap-arm" id="fsim-arm" tabindex="-1">◈ SAFE</button><button class="fsim-weap-arm" id="fsim-wpn" tabindex="-1" title="weapon select, 1 guns / 2 missiles">GUN</button><button class="fsim-weap-fire" id="fsim-fire" tabindex="-1">FIRE</button><span class="fsim-weap-pips" id="fsim-weap-pips"></span><button class="fsim-weap-arm" id="fsim-flarebtn" tabindex="-1" title="countermeasures (X)">FLARE</button><button class="fsim-weap-arm" id="fsim-bombbtn" tabindex="-1" title="select the bomb rack (3), opens the dive sight" style="display:none">◎ BOMBS</button><button class="fsim-weap-arm" id="fsim-divebtn" tabindex="-1" title="dive computer (B), pushes over to the attack angle, then flies the pull-out at the release" style="display:none">⤵ DIVE</button></div><div class="fsim-spray-mist" id="fsim-spray"></div><div class="fsim-sprayrig" id="fsim-sprayrig" aria-hidden="true"><svg viewBox="0 0 200 96" preserveAspectRatio="xMidYMid meet"><line class="sr-boom" x1="14" y1="42" x2="186" y2="42"/><g class="sr-noz"><line x1="30" y1="42" x2="30" y2="47"/><line x1="54" y1="42" x2="54" y2="47"/><line x1="78" y1="42" x2="78" y2="47"/><line x1="122" y1="42" x2="122" y2="47"/><line x1="146" y1="42" x2="146" y2="47"/><line x1="170" y1="42" x2="170" y2="47"/></g><rect class="sr-hopper" x="80" y="16" width="40" height="26" rx="3"/><line class="sr-hatch" x1="86" y1="24" x2="114" y2="24"/><rect class="sr-door sr-door-l" x="80" y="42" width="20" height="6" rx="1.5"/><rect class="sr-door sr-door-r" x="100" y="42" width="20" height="6" rx="1.5"/><g class="sr-spray"><line class="sr-drop" x1="30" y1="48" x2="30" y2="58" style="animation-delay:.30s"/><line class="sr-drop" x1="54" y1="48" x2="54" y2="58" style="animation-delay:.42s"/><line class="sr-drop" x1="90" y1="50" x2="90" y2="60" style="animation-delay:.26s"/><line class="sr-drop" x1="100" y1="50" x2="100" y2="60" style="animation-delay:.36s"/><line class="sr-drop" x1="110" y1="50" x2="110" y2="60" style="animation-delay:.30s"/><line class="sr-drop" x1="122" y1="48" x2="122" y2="58" style="animation-delay:.46s"/><line class="sr-drop" x1="146" y1="48" x2="146" y2="58" style="animation-delay:.34s"/><line class="sr-drop" x1="170" y1="48" x2="170" y2="58" style="animation-delay:.40s"/></g></svg><span class="sr-tag">◊ BOOMS OPEN</span></div><button class="fsim-spraybtn" id="fsim-spraybtn" tabindex="-1" title="crop-duster, open the spray booms on a LOW pass" style="display:none">◊ SPRAY</button><button class="fsim-hopbtn" id="fsim-hopbtn" tabindex="-1" title="load the chemical hopper, pour a container in on the ground" style="display:none">⬗ HOPPER</button><div class="fsim-hop" id="fsim-hop"></div><button class="fsim-abortbtn" id="fsim-abortbtn" title="abort the flight, a recovery crew tows the aircraft back to a field and bills you">⤫ ABORT</button><button class="fsim-disembarkbtn" id="fsim-disembarkbtn" title="climb out of the aircraft (on the ground only)">⏏ DISEMBARK</button><button class="fsim-doorbtn" id="fsim-doorbtn" tabindex="-1" title="open or shut the doors (on the ground only)">⇿ DOORS</button><button class="fsim-getout" id="fsim-getout" tabindex="-1" title="climb out through the open door">⏏ GET OUT</button><button class="fsim-fsbtn" id="fsim-fsbtn" title="fullscreen">⛶</button><button class="fsim-bigbtn" id="fsim-bigbtn" title="${esc(BIGSCREEN_TITLE)}">${BIGSCREEN_GLYPH}</button><button class="fsim-viewbtn" id="fsim-viewbtn" title="external / cockpit view (V)">◎ EXT</button><button class="fsim-orbitreset" id="fsim-orbitreset" title="reset orbit camera to behind the craft">⟲</button><button class="fsim-glassbtn on" id="fsim-glassbtn" title="show / hide the 2-D instrument panel">▤</button><button class="fsim-hidebtn" id="fsim-hidebtn" title="hide the text panel, more outside view">⊟</button><button class="fsim-tunebtn" id="fsim-tunebtn" title="render tuning">⚙</button><div class="fsim-tune" id="fsim-tune" style="display:none"></div><div class="fsim-extg" id="fsim-extg"><div class="fsim-extg-row"><span class="fsim-extg-lbl">IAS</span><b id="fsim-extg-ias">0</b><span class="fsim-extg-u">kt</span></div><div class="fsim-extg-row"><span class="fsim-extg-lbl">ALT</span><b id="fsim-extg-alt">0</b><span class="fsim-extg-u">ft</span></div></div><div class="fsim-sub" id="fsim-sub" style="display:none"><div class="fsim-subgauge" aria-hidden="true"><div class="fsim-subscale" id="fsim-subscale"><div class="fsim-subrating" id="fsim-subrating"></div><div class="fsim-subfloor" id="fsim-subfloor"></div><div class="fsim-subnow" id="fsim-subnow"><span id="fsim-subnowtxt"></span></div></div><div class="fsim-subtanks" title="ballast"><div class="fsim-subtank"><div class="fsim-subfill" id="fsim-subfill-l"></div></div><div class="fsim-subtank"><div class="fsim-subfill" id="fsim-subfill-r"></div></div></div></div><div class="fsim-subcol"><button class="fsim-subbtn" id="fsim-subdive" tabindex="-1" title="flood the ballast and dive, or blow it and surface. Under water the stick flies the depth (PgDn / PgUp step it)">⬇ DIVE</button><span class="fsim-subbal" id="fsim-subbal"></span><span class="fsim-subread" id="fsim-subread"></span></div></div>${PEDALS_HTML}${TYPES[opts.craftType]?.convert ? DKX_HTML : ''}</div>
     <div class="fsim-glass">
       <div class="fsim-pfd"><canvas id="fsim-pfd"></canvas></div>
       <div class="fsim-gauges"><canvas id="fsim-gauges"></canvas></div>
@@ -1647,7 +1729,7 @@ export function openFlightSim(opts = {}) {
         <div class="fsim-plac-seats" id="fsim-seats"></div>
         <div class="fsim-plac-barcode"><span class="bars"></span><span class="sn" id="fsim-plac-sn">S/N —</span></div>
       </div>
-      <div class="fsim-yoke" id="fsim-yoke">${yokeSvgFor(opts.craftType)}</div>
+      <div class="fsim-yoke" id="fsim-yoke">${yokeSvgFor(opts.craftType)}<canvas class="fsim-yoke-3d" id="fsim-yoke-3d" aria-hidden="true"></canvas></div>
       <div class="fsim-xpdr">
         <div class="fsim-xpdr-title">XPDR · COM/NAV</div>
         <div class="fsim-radio-lcd">
@@ -1746,24 +1828,29 @@ export function openFlightSim(opts = {}) {
       ox = e.clientX; oy = e.clientY;
     });
     // ── In the seat the middle button leans the head ──────────────────────────
-    // A lean translates the eye (makeCam reads lookLean). ⚠ Absolute cursor position, never a delta.
+    // A lean translates the eye (makeCam reads lookLean). The drag is relative: it carries on from
+    // wherever the look was left and holds there on release. A double middle press recentres.
+    let lx = 0, ly = 0, lastMid = 0;
     add(viewEl, 'pointerdown', (e) => {
       if (e.button !== 1 || F.external) return;
-      // The look holds on release; the next middle press recentres and does nothing else.
-      if (F.freeLook) {
-        F.freeLook = false; F.look = { x: 0, y: 0 }; F.looking = false;
-        e.preventDefault(); return;
-      }
-      F.freeLook = true;
-      F.looking = true; leanFrom(e);
-      try { viewEl.setPointerCapture(e.pointerId); } catch {}
       e.preventDefault();
+      const now = performance.now();
+      if (now - lastMid < 350) {
+        lastMid = 0;
+        F.freeLook = false; F.look = { x: 0, y: 0 }; F.looking = false;
+        return;
+      }
+      lastMid = now;
+      F.freeLook = true; F.look = F.look || { x: 0, y: 0 };
+      F.looking = true; lx = e.clientX; ly = e.clientY;
+      try { viewEl.setPointerCapture(e.pointerId); } catch {}
     });
     function leanFrom(e) {
       const b = viewEl.getBoundingClientRect(); if (!b.width) return;
       F.look = F.look || { x: 0, y: 0 };
-      F.look.x = clampNum(((e.clientX - b.left) / b.width - 0.5) * 2, -1, 1);
-      F.look.y = clampNum(((e.clientY - b.top) / b.height - 0.5) * 2, -1, 1);
+      F.look.x = clampNum(F.look.x + (e.clientX - lx) / b.width * 2, -1, 1);
+      F.look.y = clampNum(F.look.y + (e.clientY - ly) / b.height * 2, -1, 1);
+      lx = e.clientX; ly = e.clientY;
     }
     add(window, 'pointermove', (e) => { if (F.looking) leanFrom(e); });
     add(window, 'pointerup', (e) => { if (e.button === 1) { F.orbitDrag = false; F.looking = false; } });
@@ -1771,7 +1858,8 @@ export function openFlightSim(opts = {}) {
     add(viewEl, 'auxclick', (e) => { if (e.button === 1) e.preventDefault(); });   // no autoscroll
     // External-view wheel zoom on chaseBack.
     add(viewEl, 'wheel', (e) => {
-      if (!F.external) return;
+      // From the seat the wheel zooms the view, 1x to 4x.
+      if (!F.external) { e.preventDefault(); F.zoomWheel = clampNum((F.zoomWheel || 1) * (e.deltaY > 0 ? 1 / 1.15 : 1.15), 1, 4); return; }
       e.preventDefault();
       // in as far as the renderer's standoff
       const lv = lastViewState(), lo = lv && lv.external && lv.chaseZoomFloor > 0 ? lv.chaseZoomFloor : 0.45;
@@ -2180,7 +2268,11 @@ export function openFlightSim(opts = {}) {
   // rolling the target, or the hold walks her to the limit while nobody is touching anything.
   F.releaseBankKeys = () => { const h = F.bankHold; if (h.key) bankKey(h, h.key, false, F.s, F.P); F.steerKey = 0; };
   add(window, 'blur', () => F.releaseBankKeys());
-  const KEYS = new Set(['a', 'z', 'q', 'w', 'e', 's', 'y', 'h', 'f', 'g', 'j', 'v', 'x', 'c', '1', '2', '3', ' ', '[', ']', '\\', ',', '.', 'k', 'l', 'r', 't', 'i', 'n', 'b', 'p']);
+  // ⚠ THE FLIGHT KEYS (2026-11-17), the same in every aircraft: W/S push and pull the stick, A/D roll
+  // it, R/F the throttle, Q/E (and X/C, comma/period) the pedals, Z held zooms, the arrows hold a look.
+  // F was flares and is now throttle down: flares are N. The Drake's ramp is Shift+R, her night vision
+  // Shift+N. Boats and trucks keep their own keys (boat-view.js, cab-view.js).
+  const KEYS = new Set(['a', 'z', 'q', 'w', 'e', 's', 'd', 'y', 'h', 'f', 'g', 'j', 'v', 'x', 'c', '1', '2', '3', ' ', '[', ']', '\\', ',', '.', 'k', 'l', 'r', 't', 'i', 'n', 'b', 'p', 'u']);
   const onKeyDown = (e) => {
     const tag = (e.target && e.target.tagName) || '';
     if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target && e.target.isContentEditable)) return;
@@ -2195,7 +2287,7 @@ export function openFlightSim(opts = {}) {
       e.preventDefault();
       const on = freeCam.toggle({ yaw: (F.hdg || 0) + (F.extOrbit || 0), z: 0.55 });
       // ⚠ Disarm the mouse stick too, or the frame loop keeps writing its last deflection.
-      if (on) { F.throttleKey = 0; F.pedalKey = 0; F.firing = false; F.releaseBankKeys(); mouseStick.setArmed(false); }
+      if (on) { F.throttleKey = 0; F.pedalKey = 0; F.stickKey.x = 0; F.stickKey.y = 0; F.zoomKey = false; F.firing = false; F.releaseBankKeys(); mouseStick.setArmed(false); }
       setFreeCamChrome(on);
       fsimToast(on ? '◎ FREE CAMERA: mouse looks, MMB orbit, LMB/RMB up-down, WASD move, U frees the mouse, O to stow' : '◎ CHASE CAMERA');
       return;
@@ -2211,53 +2303,49 @@ export function openFlightSim(opts = {}) {
     // Mouse stick: after the free-camera check, since the camera owns the mouse while it's out.
     if (mouseStick.onKey(k, true, e.repeat)) { e.preventDefault(); return; }
     if ((k === 'pagedown' || k === 'pageup') && F.dk) { e.preventDefault(); subDepthKey(k === 'pagedown' ? 1 : -1); return; }
-    // ← → : in the air, a bank she holds when you let go (bank-hold.js); on the wheels or the
-    // water, held steering. ⚠ Edges only for the hold: a repeat would re-take her after a hand-off.
-    if (k === 'arrowleft' || k === 'arrowright') {
+    // ← → ↓ : hold to look left, right and behind; ↑ is ahead. (They were the bank hold until
+    // 2026-11-17; A/D roll the stick now. bank-hold.js stays for a control that wants it.)
+    if (k === 'arrowleft' || k === 'arrowright' || k === 'arrowdown' || k === 'arrowup') {
       e.preventDefault();
-      const dir = k === 'arrowleft' ? -1 : 1;
-      F.steerKey = dir;
-      if (!e.repeat && F.reportedAirborne && !F.s.onGround) bankPress(dir);
-      return;
-    }
-    // S / D: the bank hold in steps. Each tap moves the target one BANK_HOLD.step (5°) and nothing
-    // more, however long it's held: a press and an instant release, so the roll-on never starts.
-    // Shift+S is still look-behind (below).
-    if ((k === 'd' || (k === 's' && !e.shiftKey)) && F.reportedAirborne && !F.s.onGround) {
-      e.preventDefault();
-      if (e.repeat) return;
-      const dir = k === 's' ? -1 : 1;
-      bankPress(dir);
-      bankKey(F.bankHold, dir, false, F.s, F.P);
-      fsimToast(`◈ BANK ${Math.abs(F.bankHold.target)}° ${F.bankHold.target < 0 ? 'L' : F.bankHold.target > 0 ? 'R' : ''}`.trim());
+      setView(k === 'arrowleft' ? -90 : k === 'arrowright' ? 90 : k === 'arrowdown' ? 180 : 0);
       return;
     }
     if (!KEYS.has(k)) return;
     e.preventDefault();
     switch (k) {
       // Shift moves the left engines' levers alone, Alt the right's: the split for a keyboard.
-      case 'a': F.throttleKey = 1; F.throttleSide = e.shiftKey ? -1 : e.altKey ? 1 : 0; break;
-      case 'z': F.throttleKey = -1; F.throttleSide = e.shiftKey ? -1 : e.altKey ? 1 : 0; break;
-      case 'q': setView(-90); break;
-      case 'e': setView(90); break;
-      case ',': case 'x': F.pedalKey = -1; break;   // rudder, held
-      case '.': case 'c': F.pedalKey = 1; break;
-      case 's': setView(180); break;
-      case 'w': setView(0); break;
+      // The stick: W pushes (nose down: a helicopter tips forward and goes), S pulls, A/D roll. Held;
+      // the frame loop eases each axis out and the spring brings it home.
+      case 'w': F.stickKey.y = -1; break;
+      case 's': F.stickKey.y = 1; break;
+      case 'a': F.stickKey.x = -1; break;
+      case 'd': F.stickKey.x = 1; break;
+      // The throttle (a helicopter's collective: up and down). Shift moves the left engines' levers
+      // alone, Alt the right's: the split for a keyboard. Shift+R is the Drake's ramp.
+      case 'r': if (e.shiftKey && F.dk) { if (!e.repeat) drakeRamp(); break; } F.throttleKey = 1; F.throttleSide = e.shiftKey ? -1 : e.altKey ? 1 : 0; break;
+      case 'f': F.throttleKey = -1; F.throttleSide = e.shiftKey ? -1 : e.altKey ? 1 : 0; break;
+      // The pedals, held: Q/E, X/C or comma/period.
+      case 'q': case ',': case 'x': F.pedalKey = -1; break;
+      case 'e': case '.': case 'c': F.pedalKey = 1; break;
+      // Zoom, held.
+      case 'z': F.zoomKey = true; break;
       case 'y': if (!e.repeat) stepFlap(1); break;
       case 'h': if (!e.repeat) stepFlap(-1); break;
       case 'g': if (!e.repeat) toggleGear(); break;
       // ⚠ I is the ignition on every aircraft: the 2-D rows (and ⏻) open folded.
       case 'i': if (!e.repeat) F.ckMaster?.(); break;
       // The Drake's own keys.
-      case 'k': if (!e.repeat && F.dk) drakeConvert(); break;
-      case 'l': if (!e.repeat && F.dk) drakeMode(2); break;   // BOAT
-      case 'r': if (!e.repeat && F.dk) drakeRamp(); break;
+      case 'k': if (!e.repeat) { if (F.dk) drakeConvert(); else if (F.mr) merlinHover(F, fsimToast); } break;   // the Merlin's HOVER
+      case 'l': if (!e.repeat) { if (F.dk) drakeMode(2); else if (F.mr) merlinLock(F, fsimToast, (x, y) => mapCellAt(F, x, y)); } break;   // BOAT, or the Merlin's LOCK
+      case 'u': if (!e.repeat && F.mr) { F.mr.pit = !F.mr.pit; fsimToast(F.mr.pit ? 'PIT: limiter on, ' + MR.PIT_KT + ' kt' : 'PIT: limiter off'); } break;
       case 't': if (!e.repeat && F.dk) drakeQuackDown(); break;
-      case 'n': if (!e.repeat && F.dk) { F.dk.nv = !F.dk.nv; fsimToast(F.dk.nv ? '◉ NIGHT VISION: centre screen' : '◉ NIGHT VISION OFF'); } break;
+      // N: flares (F until 2026-11-17); Shift+N the Drake's night vision.
+      case 'n': if (e.repeat) break;
+        if (e.shiftKey && F.dk) { F.dk.nv = !F.dk.nv; fsimToast(F.dk.nv ? '◉ NIGHT VISION: centre screen' : '◉ NIGHT VISION OFF'); }
+        else if (F.reportedAirborne) sendCmdSilent('flares');   // server confirms via air_threat
+        break;
       case 'v': if (!e.repeat) setExternal(!F.external); break;
       case 'j': if (!e.repeat) jettison(); break;
-      case 'f': if (!e.repeat && F.reportedAirborne) sendCmdSilent('flares'); break;   // server confirms via air_threat
       case '1': if (!e.repeat) setWeapon('guns'); break;
       case '2': if (!e.repeat) setWeapon('msl'); break;
       // ⚠ Gated: with 'bomb' selected the trigger skips the guns, so no rack would mean unarmed.
@@ -2268,17 +2356,19 @@ export function openFlightSim(opts = {}) {
       case ']': if (!e.repeat) cycleApTarget(1); break;
       case '\\': if (!e.repeat) clearApTarget(); break;
       case 'p': if (!e.repeat) gpsOpen(); break;
-      case ' ': F.firing = true; break;   // held
+      case ' ': if (F.mr) F.mr.key = true; else F.firing = true; break;   // held: the trigger, or the Merlin's BOOST
     }
   };
   const onKeyUp = (e) => {
     const k = (e.altKey && (e.code === 'KeyA' || e.code === 'KeyZ')) ? e.code.slice(3).toLowerCase() : (e.key || '').toLowerCase();   // Alt+A on a Mac types å, so read it by code
     if (freeCam.onKey(k, false)) return;
-    if (k === 'arrowleft' || k === 'arrowright') { bankRelease(k === 'arrowleft' ? -1 : 1); return; }
-    if (k === 'a' || k === 'z') F.throttleKey = 0;
-    else if (k === ',' || k === '.' || k === 'x' || k === 'c') F.pedalKey = 0;   // release pedal → centres
-    else if (k === 'q' || k === 'e' || k === 's') setView(0);      // release hold-to-look → forward
-    else if (k === ' ') F.firing = false;                         // release trigger
+    if (k === 'arrowleft' || k === 'arrowright' || k === 'arrowdown') { setView(0); return; }   // release a look → forward
+    if (k === 'w' || k === 's') { if (F.stickKey.y === (k === 'w' ? -1 : 1)) F.stickKey.y = 0; }
+    else if (k === 'a' || k === 'd') { if (F.stickKey.x === (k === 'a' ? -1 : 1)) F.stickKey.x = 0; }
+    else if (k === 'r' || k === 'f') { F.throttleKey = 0; if (merlinRoad(F) && k === 'r') F.input.throttle = 0; }   // the Merlin's pedal springs back
+    else if (k === 'z') F.zoomKey = false;
+    else if (k === ',' || k === '.' || k === 'x' || k === 'c' || k === 'q' || k === 'e') F.pedalKey = 0;   // release pedal → centres
+    else if (k === ' ') { F.firing = false; if (F.mr) F.mr.key = false; }   // release trigger / BOOST
     else if (k === 't') drakeQuackUp();                           // let go of the quack
   };
   add(window, 'keydown', onKeyDown);
@@ -2560,6 +2650,14 @@ export function openFlightSim(opts = {}) {
     sendCmdSilent('disembark');
     fsimToast('⏏ CLIMBING OUT…');
   });
+  // The Merlin's doors by hand: open them on the ground and sit with them open; GET OUT shows on
+  // the open door. The frame loop shuts them if she leaves the ground.
+  add(q('#fsim-doorbtn'), 'click', () => {
+    if (F.cls !== 'merlin' || !(F.s && F.s.onGround)) return;
+    F.doorWant = !F.doorWant;
+    fsimToast(F.doorWant ? '⇿ DOORS OPEN' : '⇿ DOORS SHUT');
+  });
+  add(q('#fsim-getout'), 'click', () => { sendCmdSilent('disembark'); fsimToast('⏏ CLIMBING OUT…'); });
 
 
   // bigscreen.js owns the state; Esc and the browser can leave it without this button.
@@ -2592,6 +2690,37 @@ export function openFlightSim(opts = {}) {
       fn();
     };
     F.ckMaster = ckMaster;   // the I key
+    // The HUD colour's step: the knob on every seat that has one, a long press on the Merlin's.
+    function stepHudTint() {
+      const i = HUD_TINT_ORDER.indexOf(F.hudTint);
+      F.hudTint = HUD_TINT_ORDER[(i + 1) % HUD_TINT_ORDER.length];
+      try { localStorage.setItem(HUD_TINT_KEY(F.craftType), F.hudTint); } catch { /* private window: this flight only */ }
+      fsimToast('HUD ' + hudTint(F.hudTint).name);
+    }
+    // A colour off the Merlin's touch-screen wheel ('#rrggbb', or 'green' from its middle).
+    function setHudTint(id) {
+      F.hudTint = id;
+      try { localStorage.setItem(HUD_TINT_KEY(F.craftType), id); } catch { /* private window: this flight only */ }
+      if (F.mrMenu) F.mrMenu.t = performance.now();
+    }
+    // The underglow: kept on the craft by the server (the 'underglow' verb) and sent with it to other
+    // pilots; F.livery carries it here so the chase view shows it at once.
+    const glowNow = () => (/^#[0-9a-fA-F]{6}$/.test(F.livery?.underglow || '') ? F.livery.underglow : null);
+    function setUnderglow(hex) {
+      F.livery = { ...(F.livery || {}), underglow: hex || null };
+      if (F.mrMenu) F.mrMenu.t = performance.now();
+      sendCmdSilent('underglow ' + (hex || 'off') + ' quiet');
+    }
+    // A tap on the wheel: the HUD's colour on the HUD page, the underglow's on LIGHTS (the middle is off).
+    const wheelPick = (hex) => (F.mrMenu?.page === 'lights' ? setUnderglow(hex === 'green' ? null : hex) : setHudTint(hex));
+    const mrMenuCtx = () => ({ hudName: hudTint(F.hudTint).name, glowName: glowNow() ? hudTint(glowNow()).name : 'OFF' });
+    // A pick on the Merlin's setup menu: the knob's short press (the cursor's row) or a row clicked.
+    function mrMenuPick(index) {
+      if (!F.mrMenu) return;
+      const act = menuPick(F.mrMenu, performance.now(), mrMenuCtx(), index ?? F.mrMenu.sel);
+      if (act === 'hud.colour') stepHudTint();
+      else if (act === 'glow.off') setUnderglow(null);
+    }
     const DK_ACT = {
       'ck:master': ckMaster,
       'ck:land': needsPower(() => F.toggleLand?.()), 'ck:taxi': needsPower(() => F.toggleLand?.()),
@@ -2605,6 +2734,25 @@ export function openFlightSim(opts = {}) {
       'ck:gps': () => gpsOpen(),
       // The Shrike 2076's DIVE key: the automatic dive, as B is.
       'ck:dive': () => F.toggleDiveAuto?.(),
+      // The Merlin's shift paddles: a step of collective each, as the arrow keys give.
+      'ck:hover': () => merlinHover(F, fsimToast),
+      'ck:lock': () => merlinLock(F, fsimToast, (x, y) => mapCellAt(F, x, y)),
+      // A click is a burst: Space held is the long boost.
+      'ck:boost': () => { if (!F.mr) return; if (F.mr.over > 0) { fsimToast('BOOST: still cooling'); return; } F.mr.tap = MR.TAP_S; },
+      // The Merlin's door pulls and the OUT hologram (interior-merlin.js) press the DOORS and GET OUT buttons.
+      'ck:door': () => q('#fsim-doorbtn')?.click(),
+      'ck:out': () => { if ((F.doorAnim || 0) > 0.85) q('#fsim-getout')?.click(); },
+      'ck:pit': () => { if (!F.mr) return; F.mr.pit = !F.mr.pit; fsimToast(F.mr.pit ? 'PIT: limiter on, ' + MR.PIT_KT + ' kt' : 'PIT: limiter off'); },
+      // On the Merlin the knob is the setup menu's (merlin-menu.js): the press is timed and decided on
+      // release (dragEnd), short opening or picking, long stepping the colour as before.
+      'ck:hud': () => { if (F.mrMenu) F.mrKnobDown = performance.now(); else stepHudTint(); },
+      ...Object.fromEntries([0, 1, 2, 3, 4].map((i) => ['ck:mnu:' + i, () => mrMenuPick(i)])),
+      // The Merlin's touch screen: a tap on the FANS or CHG page opens the menu; the wheel's hues.
+      'ck:touch': () => { if (F.mrMenu) menuOpen(F.mrMenu, performance.now()); },
+      ...Object.fromEntries(HUD_WHEEL.map((hex, i) => ['ck:hue:' + i, () => wheelPick(hex)])),
+      'ck:hue:green': () => wheelPick('green'),
+      'ck:padUp': () => nudgeLevers(F, 0.1),
+      'ck:padDn': () => nudgeLevers(F, -0.1),
       power: ckMaster,
       lights: () => F.toggleLand?.(),
       cabin: () => F.toggleDome(),
@@ -2647,6 +2795,11 @@ export function openFlightSim(opts = {}) {
       else if (dkDrag.kind === 'trim') F.setTrim?.(dkDrag.tr0 + (dy / dkDrag.span) * (F.TRIM_MAX || 0.6) * 2);
     };
     const dragEnd = () => {
+      if (F.mrKnobDown) {
+        const held = performance.now() - F.mrKnobDown;
+        F.mrKnobDown = 0;
+        if (held >= MENU_HOLD_MS) stepHudTint(); else mrMenuPick();
+      }
       if (F.dkRudHold) { if (F.pedalKey === F.dkRudHold) F.pedalKey = 0; F.dkRudHold = 0; }
       if (F.dkQuackHold) { F.dkQuackHold = false; drakeQuackUp(); }
       if (!dkDrag) return;
@@ -2702,6 +2855,20 @@ export function openFlightSim(opts = {}) {
       'ck:arm': () => ['MASTER ARM', F.armed ? 'ARMED · click to make safe' : 'SAFE · click to arm'],
       'ck:spray': () => ['SPRAY', F.sprayT && performance.now() - F.sprayT < 1900 ? 'valve open · the drones are out' : 'click to spray a pass (airborne and low)'],
       'ck:gps': () => ['GPS', F.gpsDest && F.apTargetId === 'gps' ? `to ${F.gpsDest.name} · click to change` : 'click to pick a destination (P)'],
+      'ck:hover': () => ['HOVER', !F.mr ? '' : F.mr.mode === 'road' ? 'on the road · click or K to lift into flight' : F.mr.mode === 'air' ? 'click or K to come down to the road (low and slow)' : 'changing over · click to turn back'],
+      'ck:lock': () => ['LOCK', F.mr?.lockReady ? 'over a pad · click or L to clamp down' : 'lights over a pad, slow · click or L'],
+      'ck:boost': () => ['BOOST', F.mr?.over > 0 ? 'overheated · cooling' : `heat ${Math.round((F.mr?.heat || 0) * 100)}% · click for a burst, hold Space`],
+      'ck:door': () => ['DOORS', !(F.s && F.s.onGround) ? 'land first' : F.doorWant ? 'open · click to shut' : 'click to open'],
+      'ck:out': () => ['OUT', 'click to climb out'],
+      'ck:pit': () => ['PIT', F.mr?.pit ? `limiter on, ${MR.PIT_KT} kt · click or U` : 'speed limiter for the road · click or U'],
+      'ck:hud': () => F.mrMenu
+        ? ['SETUP', 'click: menu · turn: scroll · hold: HUD colour']
+        : ['HUD COLOUR', `${hudTint(F.hudTint).name} · click for the next`],
+      'ck:touch': () => ['TOUCH SCREEN', 'tap for the setup menu'],
+      ...Object.fromEntries(HUD_WHEEL.map((hex, i) => ['ck:hue:' + i, () => [F.mrMenu?.page === 'lights' ? 'UNDERGLOW' : 'HUD COLOUR', 'tap to use this colour']])),
+      'ck:hue:green': () => (F.mrMenu?.page === 'lights' ? ['UNDERGLOW', 'tap to switch it off'] : ['HUD COLOUR', 'tap for the standard green']),
+      'ck:padUp': () => ['PADDLE +', `collective up a step · ${Math.round((F.input.throttle || 0) * 100)}%`],
+      'ck:padDn': () => ['PADDLE -', `collective down a step · ${Math.round((F.input.throttle || 0) * 100)}%`],
       'ck:dive': () => ['DIVE COMPUTER', F.diveAuto ? (F.diveAuto === 'pull' ? 'flying the pull-out · click to take her back' : 'pushing over to the dive · click to take her back') : 'off · click to roll in (B)'],
       power: () => ['POWER', `engine master · ${onOff(!!F.engineOn)}`],
       lights: () => ['LIGHTS', `landing lights · ${onOff(!!F.landingLight)}`],
@@ -2763,6 +2930,13 @@ export function openFlightSim(opts = {}) {
     // Mouse wheel turns the 3-D trim wheel and convergence knob.
     add(view, 'wheel', (e) => {
       const h = hotAt(e);
+      // Turning the Merlin's HUD knob moves the setup menu's cursor (and opens it).
+      if (h && h.id === 'ck:hud' && F.mrMenu) {
+        e.preventDefault(); e.stopImmediatePropagation();
+        menuTurn(F.mrMenu, e.deltaY > 0 ? 1 : -1, performance.now(), mrMenuCtx());
+        F.dkPress = { id: h.id, t: performance.now() };
+        return;
+      }
       if (!h || (h.kind !== 'trim' && h.id !== 'conv')) return;
       e.preventDefault(); e.stopImmediatePropagation();
       const dir = e.deltaY > 0 ? 1 : -1;
@@ -3101,11 +3275,43 @@ function powerAgeOf(F) {
 // The Locust 2076's spray drones fly out on `spray` while she sprays and dock again after, about a
 // second each way (mesh_locust_2076.json). The Shrike 2076's dive brakes, bay and trapeze ride the dive
 // computer on `diveBrake`, eased over about a second (mesh_divebomber_2076.json).
+// The Merlin's gull-wing doors: they lift open when you climb out (holdForDoors) and shut again if
+// the climb-out is refused. Eased at both ends, about 0.8 s from shut to open.
+function merlinDoor(F, dt) {
+  F.doorLin = clampNum((F.doorLin || 0) + (F.doorWant ? dt : -dt) * 1.25, 0, 1);
+  const t = F.doorLin;
+  return (F.doorAnim = t * t * (3 - 2 * t));
+}
+// The server's cockpit_close, held while a landed Merlin's doors open, so you see them swing before
+// the seat hands the pane back. Returns true when it took the close; `done` then runs when they're open.
+export function holdForDoors(done) {
+  const F = _fsim;
+  if (!F || F.cls !== 'merlin' || F.doorWant || !(F.s && F.s.onGround)) return false;
+  F.doorWant = true;
+  setTimeout(done, 950);
+  return true;
+}
+
 function classAnim(F, dt) {
   if (F.cls === 'locust') return { spray: (F.droneOut = clampNum((F.droneOut || 0) + ((F.sprayT && performance.now() - F.sprayT < 1900) ? dt : -dt) * 1.1, 0, 1)) };
   // The Viper 2076's drones stay in their tubes until they have a job in the sim. To fly them again,
   // ease this off F.armed, and do the same to dronesOut in interior-viper-2076.js.
   if (F.cls === 'heli' && F.hardpoints > 0) return { drones: 0 };
+  // The Merlin's yaw thrusters: the pedal fires the pair on the far side of the turn (yawL turns the
+  // nose left: the right front jet and the left rear one). Eased so a jet blooms and dies.
+  if (F.cls === 'merlin') {
+    const ped = clampNum(F.input.pedal || 0, -1, 1), k = Math.min(1, dt * 9);
+    F.yawJetL = (F.yawJetL || 0) + ((ped < -0.05 && F.engineOn ? -ped : 0) - (F.yawJetL || 0)) * k;
+    F.yawJetR = (F.yawJetR || 0) + ((ped > 0.05 && F.engineOn ? ped : 0) - (F.yawJetR || 0)) * k;
+    // The pusher: it spins with forward drive. A little at idle, more with the stick pushed forward
+    // (W) or the road throttle open, more with speed, most on BOOST; spooling up quicker than down.
+    const fwd = merlinRoad(F) ? clampNum(F.input.throttle || 0, 0, 1) : clampNum(-(F.input.elevator || 0), 0, 1);
+    const spd = clampNum(Math.abs(F.s?.airspeed || 0) / 150, 0, 1);
+    const want = F.engineOn ? clampNum(0.12 + 0.45 * fwd + 0.3 * spd + (F.mr?.boostOn ? 0.6 : 0), 0, 1) : 0;
+    F.pushRun = (F.pushRun || 0) + (want - (F.pushRun || 0)) * Math.min(1, dt * (want > (F.pushRun || 0) ? 3 : 1.2));
+    F.pushAng = ((F.pushAng || 0) + dt * F.pushRun * 70) % (Math.PI * 2);
+    return { yawL: F.yawJetL, yawR: F.yawJetR, push: F.pushRun, pushAng: F.pushAng, door: merlinDoor(F, dt) };
+  }
   if (F.cls === 'divebomber') return { diveBrake: (F.diveBrakeEase = clampNum((F.diveBrakeEase || 0) + ((F.diveAuto ? 1 : 0) - (F.diveBrakeEase || 0)) * Math.min(1, dt * 2.5), 0, 1)) };
   return undefined;
 }
@@ -3440,9 +3646,22 @@ function fsimFrameBody(now) {
   mouseStick.step(dt);
   // Yoke springs to centre when released. ⚠ An armed stick counts as a hand on it, or the spring fights the mouse.
   const stickOn = mouseStick.armed && !F.yokeDrag;
-  if (!F.yokeDrag && !stickOn) { input.elevator = lerpN(input.elevator, 0, Math.min(1, dt * 6)); input.aileron = lerpN(input.aileron, 0, Math.min(1, dt * 6)); }
+  const KS = F.stickKey;
+  if (!F.yokeDrag && !stickOn) {
+    if (!KS.y) input.elevator = lerpN(input.elevator, 0, Math.min(1, dt * 6));
+    if (!KS.x) input.aileron = lerpN(input.aileron, 0, Math.min(1, dt * 6));
+  }
   // ⚠ The yoke pad wins over the armed stick.
   if (stickOn) { input.aileron = mouseStick.x; input.elevator = mouseStick.y; }
+  // WASD: a held key eases its axis out to the stop (about a third of a second), so a tap is a nudge
+  // and a hold a smooth, full pull; the spring above brings it home. A held key beats the mouse.
+  if (!F.yokeDrag) {
+    const ease = Math.min(1, dt * 3.2);
+    if (KS.x) input.aileron = clampNum(input.aileron + (KS.x - input.aileron) * ease, -1, 1);
+    if (KS.y && !merlinRoad(F)) input.elevator = clampNum(input.elevator + (KS.y - input.elevator) * ease, -1, 1);
+  }
+  // The zoom: Z held for a close look, the wheel's own step otherwise; eased, and only from the seat.
+  F.zoom = lerpN(F.zoom || 1, F.external ? 1 : (F.zoomKey ? 2.8 : (F.zoomWheel || 1)), Math.min(1, dt * 8));
   freeCam.step(dt);
   // ── The bank hold (bank-hold.js): after the spring and the mouse stick, before the model ──
   // ⚠ A HAND ON THE YOKE TAKES HER BACK, and so does the mouse moving sideways. The hold writes the
@@ -3452,7 +3671,7 @@ function fsimFrameBody(now) {
   F.bankPull = 0;
   if (bh.on) {
     let why = null;
-    if (!F.reportedAirborne || s.onGround) why = 'ground';
+    if (!F.reportedAirborne || s.onGround || merlinRoad(F)) why = 'ground';
     else if (F.yokeDrag || (stickOn && Math.abs(mouseStick.x - bh.aileron) > 0.04)) why = 'hand';
     if (why) releaseBankHold(bh, why);
     else {
@@ -3471,7 +3690,10 @@ function fsimFrameBody(now) {
   }
   F.bankStickY = mouseStick.y;
   // On the wheels or the water the arrows steer (the nosewheel, the boat's helm), held like the pedals.
-  if (F.steerKey && s.onGround && !F.yokeDrag) input.aileron = clampNum(input.aileron + F.steerKey * dt * 4, -1, 1);
+  // The Merlin on its cushion: A/D steer (the aileron, above), W eases the throttle up, S brakes.
+  if (merlinRoad(F) && KS.y < 0) nudgeLevers(F, dt * 0.6);
+  // On the road the yoke's push and pull are locked (it only turns), and the brake is its own input.
+  if (merlinRoad(F)) input.elevator = 0;
   // Dive computer: after the spring, before the model. ⚠ A deflected stick cancels it; merely armed doesn't.
   // ⚠ Nor does the armed stick's x while the bank hold is writing it.
   const handOn = F.yokeDrag || (mouseStick.armed && (mouseStick.y !== 0 || (!bh.on && mouseStick.x !== 0)));
@@ -3492,7 +3714,10 @@ function fsimFrameBody(now) {
       F.extOrbit = 0; F.extPitch = REST_PITCH; F.extZoom = 1; F.orbitResetting = false;
     }
   }
-  if (F.throttleKey) nudgeLevers(F, F.throttleKey * dt * 0.5, F.throttleSide || 0);
+  // The Merlin on its cushion: R and F are pedals. R held is full throttle, F held is the throttle
+  // shut and the brake on (the brake is set at the step), and letting go of R lifts off the pedal.
+  if (F.throttleKey && merlinRoad(F)) input.throttle = F.throttleKey > 0 ? 1 : 0;
+  else if (F.throttleKey) nudgeLevers(F, F.throttleKey * dt * 0.5, F.throttleSide || 0);
   input.pedal = F.pedalKey ? clampNum(input.pedal + F.pedalKey * dt * 2.2, -1, 1) : lerpN(input.pedal, 0, Math.min(1, dt * 12));
   // Gear up on the ground: no thrust until it's down. ⚠ Not a Drake on the water.
   const bellyDown = s.onGround && F.gearRetract && F.gearUp && !(F.dk && F.dk.onWater);
@@ -3532,7 +3757,7 @@ function fsimFrameBody(now) {
     const h = FIXED;
     // gear: fixed gear reports 0 (its drag is in dragP). collRaw and power let a heli autorotate.
     // The bank hold's back-pressure rides on top of the pilot's elevator (bank-hold.js `pull`).
-    step(s, { lift: F.lift || 0, elevator: F.bankPull ? clampNum(input.elevator + F.bankPull, -1, 1) : input.elevator, aileron: input.aileron, throttle: thr, throttles: thrs, collRaw: input.throttle, power: (F.engineOn && !F.deadStick && !bellyDown), noThrust: !visorLocked, flaps: input.flaps, pedal: input.pedal, trim: input.trim, gear: F.gearRetract ? (F.gearAnim ?? 1) : 0, dmgSurf: F.surfaces || null }, P, h);
+    step(s, { lift: F.lift || 0, elevator: F.bankPull ? clampNum(input.elevator + F.bankPull, -1, 1) : input.elevator, aileron: input.aileron, throttle: thr, throttles: thrs, collRaw: input.throttle, power: (F.engineOn && !F.deadStick && !bellyDown), noThrust: !visorLocked, boost: F.mr ? merlinBoostOn(F) : false, pit: !!F.mr?.pit, brake: merlinRoad(F) && (KS.y > 0 || F.throttleKey < 0) ? 1 : 0, flaps: input.flaps, pedal: input.pedal, trim: input.trim, gear: F.gearRetract ? (F.gearAnim ?? 1) : 0, dmgSurf: F.surfaces || null }, P, h);
     // BOAT / SUB: the tail rotor pushes, the throttle sets speed, pedals and stick steer.
     if (F.dk?.boat && (F.dk.onWater || F.waterBelow) && F.engineOn && !F.deadStick) {
       const under = F.dk.submerged > 0, vmax = under ? SUB_MAX_KT : BOAT_MAX_KT;
@@ -3561,7 +3786,7 @@ function fsimFrameBody(now) {
     if (F.overGLamp > 0) F.overGLamp = Math.max(0, F.overGLamp - h);
 
     // Turbulence disturbs the attitude, never the physics. Deterministic sines, no RNG.
-    if (atmos.turb > 0.01 && !s.onGround) {
+    if (atmos.turb > 0.01 && !s.onGround && !merlinRoad(F)) {
       const t = now * 0.001, g = atmos.turb;
       const nRoll = Math.sin(t * 3.1) + 0.6 * Math.sin(t * 7.7 + 2) + 0.8 * Math.sin(t * 1.3);
       const nPitch = Math.sin(t * 2.3 + 1.5) + 0.6 * Math.sin(t * 5.1 + 0.7);
@@ -3576,7 +3801,7 @@ function fsimFrameBody(now) {
       const d = Math.abs(s.airspeed) * pace * h, hr = s.heading * Math.PI / 180;   // odometer is magnitude
       // Wind drifts the ground track only when airborne.
       let vx = Math.sin(hr) * s.airspeed, vy = -Math.cos(hr) * s.airspeed;
-      if (!s.onGround && atmos.windKt > 0.2) { const wr = atmos.windDir * Math.PI / 180; vx += Math.sin(wr) * atmos.windKt; vy += -Math.cos(wr) * atmos.windKt; }
+      if (!s.onGround && !merlinRoad(F) && atmos.windKt > 0.2) { const wr = atmos.windDir * Math.PI / 180; vx += Math.sin(wr) * atmos.windKt; vy += -Math.cos(wr) * atmos.windKt; }
       F.pos.x += vx * pace * h; F.pos.y += vy * pace * h;
       F.travel += d;
       if (F.engineOn) F.rollDist += d;
@@ -3591,6 +3816,12 @@ function fsimFrameBody(now) {
     const tgt = F.gearUp ? 0 : 1, g0 = F.gearAnim ?? 1;
     F.gearAnim = g0 + clampNum(tgt - g0, -dt / 3, dt / 3);
   } else if (F.gearRetract) { const tgt = F.gearUp ? 0 : 1; F.gearAnim = lerpN(F.gearAnim ?? 1, tgt, Math.min(1, dt / 1.6)); }
+  if (F.mr) stepMerlin(F, s, dt, {
+    toast: fsimToast,
+    over: () => { try { creak('stress'); } catch {} },
+    settle: () => { try { groundFx('touchdown'); } catch {} },
+    clamp: () => { try { groundFx('touchdown'); gearFx('down'); } catch {} F.shake = Math.max(F.shake || 0, 3); },
+  }, (x, y) => mapCellAt(F, x, y));
   if (F.dk) {
     const D = F.dk;
     D.conv += clampNum((D.wing ? 1 : 0) - D.conv, -dt / 7, dt / 7);      // 7 s end to end
@@ -3643,7 +3874,14 @@ function fsimFrameBody(now) {
   perfBegin('sim:cfit');
   if (!s.onGround && !(F.cfitCd > 0)) {
     const hit = buildingCollisionAt(F, s);
-    if (hit && hit.severe) {
+    if (hit && merlinRoad(F)) {
+      // The Merlin on the road: buildings are solid, but it's a car glancing off a wall, not a crash.
+      const pct = merlinGlance(F, s);
+      F.cfitCd = 0.5;
+      if (pct) { F.hull = Math.max(0, (F.hull || 100) - pct); F.hitFlashT = performance.now(); }
+      groundFx(pct ? 'touchdownHard' : 'touchdown'); F.shake = Math.max(F.shake || 0, pct ? 9 : 4);
+      sendCmdSilent('flightevent scrape ' + pct);
+    } else if (hit && hit.severe) {
       F.cfitCd = 9999; F.reportedAirborne = false; F.rolling = false;
       groundFx('touchdownHard'); csfx('flight-crash', 'hololock-lose');
       F.shake = 20;
@@ -3923,6 +4161,17 @@ function fsimFrameBody(now) {
 
   const yk = document.getElementById('fsim-yoke-svg');
   if (yk) yk.style.transform = `translateX(${input.aileron * 7}px) translateY(${input.elevator * 18}px) rotateX(${-input.elevator * 34}deg) rotateZ(${input.aileron * 30}deg) scale(${1 + Math.max(0, input.elevator) * 0.2})`;
+  // Outside, the stick is a small picture of this craft's own cockpit control (mini-yoke.js), drawn
+  // once when the view first opens and moved by the same transform.
+  const yk3 = F.external ? document.getElementById('fsim-yoke-3d') : null;
+  if (yk3) {
+    if (!F.mini3d) {
+      F.mini3d = 1;
+      const ok = paintMiniYoke(yk3, F.cls, F.cls === 'heli' && F.hardpoints > 0, F.livery?.variant && F.livery.variant !== 'stock' ? F.livery.variant : null, ACCENT);
+      document.getElementById('fsim-yoke')?.classList.toggle('has3d', ok);
+    }
+    yk3.style.transform = yk ? yk.style.transform : '';
+  }
   const pd = input.pedal || 0;
   if (F.pedalLFace) F.pedalLFace.style.setProperty('--d', Math.max(0, -pd).toFixed(3));
   if (F.pedalRFace) F.pedalRFace.style.setProperty('--d', Math.max(0, pd).toFixed(3));
@@ -3956,6 +4205,11 @@ function fsimFrameBody(now) {
   }
 
   document.getElementById('fsim-disembarkbtn')?.classList.toggle('on', !!s.onGround);
+  if (F.cls === 'merlin') {
+    if (!s.onGround && F.doorWant) F.doorWant = false;   // never airborne with the doors out
+    document.getElementById('fsim-doorbtn')?.classList.toggle('on', !!s.onGround);
+    document.getElementById('fsim-getout')?.classList.toggle('on', !!s.onGround && (F.doorAnim || 0) > 0.85);
+  }
 
   // Glideslope guide near the departure runway, fixed-wing only.
   const rwDist = Math.hypot(F.rwOrigin.x - F.pos.x, F.rwOrigin.y - F.pos.y);
@@ -4181,6 +4435,8 @@ function fsimFrameBody(now) {
     bombsight = { dx: bx - F.pos.x, dy: by - F.pos.y, q, ready: q > 0 && F.bombs > 0 && F.armed };
   }
   paintWindshield('fsim-ws', {
+    // The seat's zoom (Z, the wheel): a focal multiplier, so the cabin and the world zoom together.
+    ...(F.zoom > 1.001 && !F.external ? { fovMul: F.zoom } : {}),
     gates: gateView,
     bursts: burstView,
     drops: dropView,
@@ -4199,6 +4455,10 @@ function fsimFrameBody(now) {
     drakeFloat: F.dk?.floatVis || 0,
     // ⚠ Raw s.altitude, never the rounded readout: the sqrt is steepest off the deck and rounding steps the eye.
     height: flightHeight(s.altitude), speed: clampNum(r.airspeed / (P.vne || 120), 0, 1),
+    // The Merlin low down sees from its own seat: half a metre of cushion and a metre of seat is
+    // about 1.5 m (0.083 tiles; a 1.75 m pedestrian is 0.097), under the street lights, not the
+    // aircraft's 4 m ground eye. It eases back to the aircraft eye by 30 ft over the ground.
+    ...(F.mr ? merlinEye(s) : {}),
     ias: Math.round(r.airspeed), alt: Math.round(r.altitude), vsi: Math.round(s.vs), vne: P.vne, vs0: P.vs0,
     // The HUD's flight symbols (drawHud): the roll scale and the bank hold's bug, the turn trend on
     // the heading tape, load factor and slip. `hudBank` is the smoothed bank WITHOUT the sea's roll:
@@ -4230,7 +4490,14 @@ function fsimFrameBody(now) {
     powerAge: powerAgeOf(F),
     // Off the start timer, not rpm (which reads 0 at idle).
     starting: !!(F.engineOn && F.engStartT && performance.now() - F.engStartT < ENGINE_START_MS),
-    landingLight: !!F.landingLight, panelLight: !!F.nightLight,
+    landingLight: !!F.landingLight, panelLight: !!F.nightLight, hudTint: F.hudTint, underglow: F.livery?.underglow || null,
+    mrMenu: F.mrMenu ? (menuTick(F.mrMenu, performance.now()), F.mrMenu) : null,
+    // The registered owner and the registration, for the Merlin's status page.
+    owner: F.owner, reg: F.reg,
+    // The Merlin's drive keys light off this (interior-merlin.js).
+    // The Merlin's gull-wing doors, 0 shut to 1 open (merlinDoor): the cockpit swings its door cards on it.
+    door: F.doorAnim || 0,
+    mr: F.mr ? { mode: F.mr.mode, heat: F.mr.heat, over: F.mr.over, pit: F.mr.pit, boost: !!F.mr.boostOn, lockReady: !!F.mr.lockReady, locking: !!F.mr.lock, near: !!F.mr.near } : null,
     // Head look: decays back when released, off in the chase view and side views.
     ...(() => {
       F.look = F.look || { x: 0, y: 0 };
@@ -4294,6 +4561,8 @@ function fsimFrameBody(now) {
     gearAnim: F.gearRetract ? clampNum(F.gearAnim ?? 1, 0, 1) : 1,
     // A 2076 body's moving parts that ride the sim (classAnim): the Locust's drones, the Shrike's brakes.
     anim: F.dk ? drakeAnim(F.dk) : classAnim(F, dt),
+    // The Merlin's boost flame and heat blur (windshield.js drawMerlinBoost), 0 to about 1.6.
+    boost: F.mr ? F.mr.flame || 0 : 0,
     drakeCab: F.dk ? { ...drakeAnim(F.dk), ramp: F.dk.ramp, nv: F.dk.nv, gunsArmed: F.armed, gear: F.gearRetract ? clampNum(F.gearAnim ?? 1, 0, 1) : 1,
       quack: !!F.dk.quackHeld || performance.now() - F.dk.quackT < 400, champagne: DK_CHAMPAGNE, quackP: F.dk.quackHeld ? Math.min(1, (performance.now() - F.dk.quackT) / QUACK_SQUEEZE_MS) : 0, ammo: F.gunRounds, convert: F.dk.conv, wingTarget: !!F.dk.wing,
       hover: F.dkHover || null, press: F.dkPress && performance.now() - F.dkPress.t < 220 ? F.dkPress.id : null,
@@ -4342,7 +4611,7 @@ function fsimFrameBody(now) {
       const vlos = -(s.airspeed || 0) * Math.cos(((F.extOrbit || 0)) * Math.PI / 180);   // >0 closing
       doppler = clampNum(1 / (1 - vlos / DOPPLER_C), 0.92, 1.1);
     }
-    updateEngineAudio({ continuous: true, airborne: F.reportedAirborne, engineOn: F.engineOn, class: F.cls, throttle: Math.round(thr * 100), spd: Math.round(s.airspeed), engines: [{ pct: Math.round(s.rpm * 100) }], bandIndex: s.altitude > 500 ? 1 : 0, sky: F.sky, atmos: F.atmos, acX: F.pos.x, acY: F.pos.y,
+    updateEngineAudio({ continuous: true, boost: !!F.mr?.boostOn, airborne: F.reportedAirborne, engineOn: F.engineOn, class: F.cls, throttle: Math.round(thr * 100), spd: Math.round(s.airspeed), engines: [{ pct: Math.round(s.rpm * 100) }], bandIndex: s.altitude > 500 ? 1 : 0, sky: F.sky, atmos: F.atmos, acX: F.pos.x, acY: F.pos.y,
       rpm: s.rpm, airspeed: s.airspeed, vs: s.vs, altitude: s.altitude, onGround: s.onGround, groundSpeed: s.onGround ? s.airspeed : 0,
       stallMargin: s.stallMargin, stalled: s.stalled, flaps: input.flaps,
       perspective: F.external ? 'exterior' : 'interior', doppler, underwater: F.dk?.uw || 0 });

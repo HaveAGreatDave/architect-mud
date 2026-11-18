@@ -1602,6 +1602,58 @@ registerAction({
   handler: ({ actor }) => ({ type: 'wanted', stars: wantedRuntime.get(actor?.id)?.stars || 0 }),
 });
 
+// ── A citizen's call: somebody panicked and phoned it in ──────────────────────
+// (plugins/ambient-life panic.js: a stranger who won't leave a flat, somebody seen working a keypad; and the
+// burglary plugin's resident once the call lands.) One star, or `stars`, and a patrol sent to the address much
+// quicker than a camera's lazy 1★ response: it musters at `muster` (the hall outside, so it walks in rather than
+// appearing in the kitchen) CALL_PATROL_MS after the call and comes for you. Every CALL_STAY_MS you're still
+// standing in the room the call was made from adds CALL_STAY_STARS, and the caller watching you keeps the heat
+// from bleeding off. Leave the room and the call is over: a call made against a clean suspect then sends no hunt
+// of its own (`standDown`), so the star just bleeds off unseen; anything new you do raises a pursuit as normal.
+const CALL_PATROL_MS = 25_000, CALL_STAY_MS = 30_000, CALL_STAY_STARS = 0.5, CALL_TTL_MS = 5 * 60_000;
+async function policeCall(player, zoneId, { stars = 1, reason = 'a call from a frightened resident', caller = null, muster = null } = {}) {
+  if (!player?.id || !player.handle || !zoneId) return false;
+  const z = getZone(zoneId);
+  // nobody's phone reaches the law outside city limits, or off the Architect's grid
+  if (z?.flags?.lawless || z?.flags?.unsurveilled) return false;
+  if (['admin', 'dev'].includes(player.role)) return false;
+  const s = wantedState(player.id), now = Date.now();
+  if (s.call && s.call.zoneId === zoneId && now - s.call.at < CALL_TTL_MS) return false;   // already on the line about you
+  const fresh = s.stars <= 0;
+  if (stars > 0) await raiseWanted(player, stars, reason, zoneId);
+  if (!(s.stars > 0)) { if (!s.stars) wantedRuntime.delete(player.id); return false; }
+  s.call = { zoneId, at: now, nextAt: now + CALL_STAY_MS, patrolAt: now + CALL_PATROL_MS, fresh, caller };
+  s.crimeZone = muster && getZone(muster) ? muster : zoneId;
+  s.standDown = 0;
+  dispatchPolice(zoneId, reason, player.handle);
+  sendToPlayer(player.id, { type: 'system', message: `<span class="text-red">${caller ? `${caller} has` : 'Somebody has'} called the police on you. A patrol's on its way. Get out before it gets here.</span>` });
+  return true;
+}
+// Each wanted tick: still in the room they called from, or gone.
+async function callTick(suspect, s) {
+  const call = s.call;
+  if (!call) return;
+  const now = Date.now();
+  if (suspect.current_zone === call.zoneId) {
+    s.lastSeenTs = now;   // the caller's still on the line, watching you
+    if (now >= call.nextAt) {
+      call.nextAt += CALL_STAY_MS;
+      await raiseWanted(suspect, CALL_STAY_STARS, 'still there after the police were called', call.zoneId);
+    }
+    return;
+  }
+  s.call = null;
+  if (!call.fresh) return;
+  // gone before anybody came for them: the patrol finds the room empty, takes a statement and leaves
+  s.standDown = s.stars;
+  despawnHunters(s);
+  if (now < call.patrolAt + 60_000) sendToPlayer(suspect.id, { type: 'system', message: '<span class="text-dim">You\'re out of there before the patrol turns up. Keep your head down and it\'ll blow over.</span>' });
+}
+registerAction({
+  type: 'POLICE_CALL',
+  handler: async ({ actor, params }) => ({ type: 'called', ok: await policeCall(actor, params?.zoneId || actor?.current_zone, params || {}) }),
+});
+
 // ── Invisible heat (0–100) — the slow burn of being *noticed* ─────────────────
 // A second, quieter layer beside the acute stars. Every witnessed crime nudges
 // heat up; it bleeds off slowly while you lay low. Below the HUD threshold it's
@@ -2221,9 +2273,24 @@ on('hololock.breached', ({ player, zoneId }) => {
 });
 // The burglary alarm plugin fires this once a resident NPC has actually raised
 // the alarm (survived their cop-call, or fled the unit) — a guaranteed witness.
-on('burglary.reported', ({ player, zoneId }) => {
-  if (player?.id) raiseCrime(player, 'burglary', zoneId || player.current_zone, player.handle, true);
+on('burglary.reported', async ({ player, zoneId }) => {
+  if (!player?.id) return;
+  await raiseCrime(player, 'burglary', zoneId || player.current_zone, player.handle, true);
+  // the resident's call is a call like any other: a patrol to the address, and more heat for staying
+  await policeCall(player, zoneId || player.current_zone, { stars: 0, reason: 'a burglary in progress' }).catch((e) => console.error('[surveillance] burglary call:', e.message));
 });
+// Somebody's working a keypad (engine doors.js hackDoor). A camera on the spot turns to it, and from then until
+// the lock gives or they walk off, every sweep rolls a rising chance it makes them (the ATM jack's ramp); a cop
+// standing there makes them at once. People standing there react on their own (plugins/ambient-life panic.js).
+const HACK_WATCH_MS = 3 * 60_000;
+on('lock.hackAttempt', async ({ player, zoneId }) => {
+  if (!player?.id || !zoneId || getZone(zoneId)?.flags?.unsurveilled) return;
+  beginActiveCrime(player.id, 'hacking', zoneId, HACK_WATCH_MS);
+  if (await cameraLiveInZone(zoneId).catch(() => false)) {
+    sendToZone(zoneId, { type: 'ambient', message: 'A security camera whirs round on its bracket and holds on the door.' });
+  }
+});
+on('lock.hackEnded', ({ player }) => { if (player?.id) endActiveCrime(player.id, 'hacking'); });
 // A vendor catching you cracking their safe is a guaranteed witness — charge
 // hacking even when no camera/cop/bystander is present (forced witness).
 on('vendor.safeHackWitnessed', ({ player, zoneId }) => {
@@ -2735,6 +2802,8 @@ async function wantedTick() {
     // any unit deploys. This is what gives every police NPC (detention officers
     // included) real arrest powers rather than decoration.
     await policeSpot(suspect, s);
+    // somebody phoned it in: half a star a while for staying, and the call's over once they've gone
+    await callTick(suspect, s);
 
     // A safehouse (the Long Watch bunker) actively launders heat: unseen time
     // bleeds a star three times as fast as just lying low on the street.
@@ -2750,7 +2819,12 @@ async function wantedTick() {
     }
     // Units are still en route until the star-scaled response delay elapses —
     // but once anything's deployed, keep pursuing without re-gating.
-    if (s.hunters.size === 0 && Date.now() - (s.pursuitStartTs || s.lastCrimeTs) < responseDelayMs(s.stars)) continue;
+    // A call they walked away from before the patrol came sends no hunt of its own (callTick); new heat on top does.
+    if (s.standDown && s.stars <= s.standDown) continue;
+    s.standDown = 0;
+    // a citizen's call gets its patrol out quicker than a camera's 1★ does
+    const callDue = !!s.call && Date.now() >= s.call.patrolAt;
+    if (s.hunters.size === 0 && !callDue && Date.now() - (s.pursuitStartTs || s.lastCrimeTs) < responseDelayMs(s.stars)) continue;
     await searchAndPursue(pid, s);
   }
 }

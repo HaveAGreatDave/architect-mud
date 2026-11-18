@@ -6,6 +6,7 @@ import { renderSmartBar } from './panels/smartbar.js';
 import { burnBehind } from './flame.js';
 import { paintHighlights } from './highlights.js';
 import { tickCredits } from './panels/purchase-moment.js';
+import { updateVitalsHud } from './panels/vitals-hud.js';
 
 // ── The line observer ───────────────────────────────────────────────────────
 //
@@ -660,6 +661,7 @@ export function updateVitals(p) {
   setBar('thi', p.thirst, 100);
   setBar('sta', p.stamina, p.stamina_max || 100);
   setBar('rad', p.radiation, 100, true);
+  updateVitalsHud(p);
   refreshWetnessHUD();   // wetness and fatigue ride the environment HUD, not the vitals bars
   // Mobile hunger/thirst mirror whatever the sidebar is hiding. The compact bars carry no
   // `data-lr-key`, so list-reorder cannot manage them; hiding them here keeps one decision

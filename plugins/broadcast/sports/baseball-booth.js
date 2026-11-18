@@ -100,8 +100,9 @@ export function makeBooth({ pools, rand, announcer = '', analyst = '', game, lea
   let grp = 0;
 
   // A pool has something to say while it has a line not yet aired tonight; once it's spent it
-  // stays quiet rather than repeat itself (the 'up' pools excepted: a man still has to come up).
-  const REUSABLE = /^up(\.|$)/;
+  // stays quiet rather than repeat itself (the 'up' pools excepted: a man still has to come up; and
+  // the 'mound' pools: the park shows every trip to the mound, so every one is said).
+  const REUSABLE = /^(up|mound)(\.|$)/;
   const has = (key) => Array.isArray(pools?.[key]) && pools[key].length > 0 && (REUSABLE.test(key) || pools[key].some((l) => !used.has(l)));
   const draw = (key, rnd = rand) => {
     const L = pools[key];
@@ -195,6 +196,7 @@ export function makeBooth({ pools, rand, announcer = '', analyst = '', game, lea
       pitch: PITCH_WORD[ps.out] || 'fastball', pitch2: PITCH_WORD[ps.second] || 'fastball',
       velo: ps.top, delivery: ps.delivery,
       pw: pl[0], pl: pl[1], era: eraOf({ outs: pl[2], er: pl[3] }).toFixed(2), pk: pl[4],
+      pc: gd?.pc ?? '', sv: pl[5] || 0, svs: count(pl[5] || 0, 'save'),
       nk: pn.k, nkWord: words(pn.k), runs: pn.runs, runsWord: words(pn.runs),
       record: recordOf(b.battingName), fieldRecord: recordOf(b.fieldingName),
       hrLeader: hrL?.name || '', hrLead: hrL?.hr ?? '', avgLeader: avgL?.name || '', avgLead: avgL ? avgText(Math.round(avgL.avg * 1000), 1000) : '',
@@ -245,8 +247,12 @@ export function makeBooth({ pools, rand, announcer = '', analyst = '', game, lea
     const ps = pitcherStyleOf(b.pitcher);
     const pn = armNight(b.pitcher);
     if (pn.k >= 5) out.push(['tonight', 'tonight.pitcher.k', 3]);
-    if (pn.runs === 0 && b.inning >= 5) out.push(['zeros', 'tonight.pitcher.zeros', 3]);
+    // (a man who's only just come in hasn't put up any zeros yet; a starter has by the 5th)
+    if (pn.runs === 0 && b.inning >= 5 && pn.bf >= 6) out.push(['zeros', 'tonight.pitcher.zeros', 3]);
     if (pn.runs >= 5) out.push(['rocky', 'tonight.pitcher.rocky', 3]);
+    // sim v5: his count getting up there, and a closer's saves
+    if ((gd?.pc || 0) >= 85) out.push(['count', 'tonight.pitcher.count', 3]);
+    if ((pl[5] || 0) >= 3) out.push(['story', 'story.pitcher.saves', 2]);
     out.push(['scout.pitch', `scout.pitch.${ps.style}`, 2]);
     if (rankIn(leaders?.k, b.pitcher) >= 0 && k > 0) out.push(['story', 'story.leader.k', 2]);
     if (outs >= 45 && era < 2.9) out.push(['story', 'story.pitcher.ace', 2]);
@@ -458,6 +464,39 @@ export function makeBooth({ pools, rand, announcer = '', analyst = '', game, lea
     return out;
   }
 
+  // THE MOUND (sim v5). What the booth says over a trip to the mound, said before anything else
+  // about the man coming up, because the park is showing it: the pitching coach out to settle the
+  // man (`mound.visit.<why>`), the manager out to take the ball (`mound.change.<why>`) and the man
+  // coming in, by his role (`mound.in.<role>`); a change between innings (`mound.inning.<role>`);
+  // and somebody starting to throw in the pen (`mound.warm`), once a man.
+  const MOUND_WHY = { tired: 'tired', shelled: 'shelled', again: 'again', late: 'late', done: 'done', save: 'save', setup: 'save' };
+  function mound(b, gd) {
+    const m = b.mound, out = [];
+    const pl = gd?.pl || [];
+    const surname = (n) => String(n || '').split(' ').pop();
+    // the fielding side's dugout, for a line with no trip on it (the pen stirring)
+    const dug = game?.dugouts?.[b.fieldingName] || {};
+    const manager = m?.manager || dug.manager || '', coach = m?.coach || dug.coach || '';
+    const tok = {
+      ...(b.type === 'half_start' ? tokens({ ...b, batter: '' }, gd) : tokens(b, gd)),
+      manager, skipper: surname(manager), coach, coachName: surname(coach),
+      out: m?.out || '', in: m?.in || '', outPc: m?.outPc ?? '', pc: m?.pc ?? b.pc ?? '',
+      svs: count(pl[5] || 0, 'save'), warm: b.warm || '',
+    };
+    if (m?.kind === 'visit') out.push(...render(first(`mound.visit.${m.why}`, 'mound.visit') || 'mound.visit', tok, 4));
+    else if (m?.kind === 'change') {
+      if (m.between) out.push(...render(first(`mound.inning.${m.role}`, 'mound.inning') || 'mound.inning', tok, 4));
+      else {
+        out.push(...render(first(`mound.change.${MOUND_WHY[m.why] || m.why}`, 'mound.change') || 'mound.change', tok, 4));
+        const role = m.role === 'closer' && pl[5] ? 'closer.saves' : m.role;
+        const k = first(`mound.in.${role}`, `mound.in.${m.role}`, 'mound.in');
+        if (k) out.push(...render(k, tok, 3));
+      }
+    }
+    if (b.warm && !told.has(`warm:${b.warm}`) && has('mound.warm')) { told.add(`warm:${b.warm}`); out.push(...render('mound.warm', tok, 2)); }
+    return out;
+  }
+
   // Count the play into tonight's lines, after it's been called.
   function track(b, gd) {
     if (b.type !== 'atbat' || !b.batter) return;
@@ -486,5 +525,5 @@ export function makeBooth({ pools, rand, announcer = '', analyst = '', game, lea
     if (runs > 0) { const a = { ...armNight(b.pitcher) }; a.runs += runs; night.arms.set(b.pitcher, a); }
   }
 
-  return { before, after, changeover, track, trackRun, risp };
+  return { before, after, changeover, track, trackRun, risp, mound };
 }

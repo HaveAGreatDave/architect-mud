@@ -22,7 +22,8 @@
 // leaves the pavement band, two on one stretch of kerb face each other and take turns to talk,
 // somebody on their own does more than one thing, a stroll moves the feet as far as the figure, and
 // on a road three tiles wide everybody stands on its outer pavement rather than in a lane.
-import { actorBake, actorOutfit, actorStrideM, ACTOR_OUTFITS, ACTOR_MATERIALS, ACTOR_MATERIAL } from '../../client/game/js/panels/actor3d.js';
+import { actorBake, actorOutfit, actorStrideM, actorSkinAt, ACTOR_OUTFITS, ACTOR_MATERIALS, ACTOR_MATERIAL, ACTOR_WALKS, ACTOR_SMOKES, ACTOR_BONE } from '../../client/game/js/panels/actor3d.js';
+import { smokeCigarette } from '../../client/game/js/panels/gl/actor-smoke.js';
 import { faceHair } from '../../client/game/js/panels/actor-faces.js';
 import { LIFE } from '../../client/game/js/panels/glass/street-life.js';
 import { loadWindshield, stubCanvas } from './dom-stub.mjs';
@@ -53,7 +54,18 @@ if (W * rows < nv) problems.push(`${W}×${rows} texels a frame can't hold ${nv} 
 if (nv >= 65536) problems.push(`${nv} vertices won't index with UNSIGNED_SHORT`);
 if (bk.pos.length !== W * H * 4 || bk.nrm.length !== W * H * 4) problems.push('a pose texture is not W×H×4 halves');
 // walk, idle and wave for the pass itself; the rest are what glass/street-life.js stands people in.
-for (const name of ['walk', 'idle', 'wave', 'talk', 'listen', 'wait', 'phone', 'smoke']) if (!clips[name]) problems.push(`the bake has no ${name} clip`);
+for (const name of ['walk', 'idle', 'wave', 'talk', 'listen', 'wait', 'phone', 'smoke', 'leanSmoke', 'leanWall', 'walkSmoke']) if (!clips[name]) problems.push(`the bake has no ${name} clip`);
+// A smoker's clips bring the cigarette's filter (gl/actor-smoke.js, fixed on the right hand) to the lips once a cycle,
+// or the ember never brightens and the drag reads as a wave at the face.
+{
+  const C = smokeCigarette(), xf = (M, q) => [0, 1, 2].map((r) => M[r] * q[0] + M[4 + r] * q[1] + M[8 + r] * q[2] + M[12 + r]);
+  for (const name of ACTOR_SMOKES) {
+    let best = Infinity;
+    for (let i = 0; i < 64; i++) { const S = actorSkinAt(name, i / 64), f = xf(S[ACTOR_BONE.handR], C.filter), m = xf(S[ACTOR_BONE.head], C.mouth); best = Math.min(best, Math.hypot(f[0] - m[0], f[1] - m[1], f[2] - m[2])); }
+    report(`${name}: the filter comes within ${(best * 100).toFixed(1)} cm of the lips`);
+    if (!(best < 0.035)) problems.push(`${name}: the cigarette's filter never comes nearer the lips than ${(best * 100).toFixed(1)} cm`);
+  }
+}
 if (!(top > 1.65 && top < 1.9)) problems.push(`the figure stands ${top.toFixed(3)} m tall; the sizing in windshield.js assumes about 1.75`);
 
 const at = (F, v) => [preview[(F * nv + v) * 3], preview[(F * nv + v) * 3 + 1], preview[(F * nv + v) * 3 + 2]];
@@ -304,11 +316,11 @@ else {
   const north = -Math.PI / 2;
   const turn = Math.abs(Math.atan2(Math.sin(w2.hd - north), Math.cos(w2.hd - north)));
   report(`walker: clip ${w2.clip}, heading off north by ${(turn * 180 / Math.PI).toFixed(1)}°`);
-  if (w2.clip !== 'walk') problems.push(`a figure walking north is playing '${w2.clip}'`);
+  if (!ACTOR_WALKS.has(w2.clip)) problems.push(`a figure walking north is playing '${w2.clip}'`);
   if (turn > 0.05) problems.push(`a figure walking north faces ${(turn * 180 / Math.PI).toFixed(0)}° off it`);
   const d = Math.hypot(w2.x - w1.x, w2.y - w1.y);
   let dph = w2.ph - w1.ph; if (dph < 0) dph += 1;
-  const covered = dph * actorStrideM() * w2.s;
+  const covered = dph * actorStrideM(w2.clip) * w2.s;
   report(`walker: moved ${d.toFixed(4)} tiles, gait advanced ${covered.toFixed(4)} tiles of stride`);
   if (!(d > 0)) problems.push('the walker did not move between frames');
   else if (Math.abs(covered - d) > d * 0.1) problems.push(`the gait covered ${covered.toFixed(4)} tiles while the figure moved ${d.toFixed(4)}; the feet will slide`);

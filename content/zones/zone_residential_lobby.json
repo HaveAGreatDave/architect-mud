@@ -5,7 +5,7 @@
   ],
   "ambient_theme": "indoors",
   "bg_color": "#c9a884",
-  "description": "Pink marble underfoot, dulled to the colour of old soap. Lowry's bar runs along the north wall under COCKTAILS in pink neon, peanut shells round its stools. A card table sits under a green lamp by the jukebox. Behind the reception desk, a key on every hook. Everything is dusted. Nothing is fixed.",
+  "description": "Pink marble underfoot, dulled to the colour of old soap. The reception desk faces the street door under five clocks stopped at the same minute, a key on every hook behind it, and EMBASSY glowing over the lot. The stairs climb inside a wall down the middle of the room. Past it, Lowry's bar runs along the east wall under COCKTAILS in pink neon, and a card table sits under a green lamp with a television high on the wall where every seat can see it. A leather sofa and two wing chairs sit on a worn rug by the door. The lamps are low. Everything is dusted. Nothing is fixed.",
   "exits": {
     "down": "zone_residential_lobby_z-1_1782105292491",
     "east": "zone_embassy_lobby_bathroom",
@@ -25,12 +25,13 @@
       "decor": {
         "art": [
           {
-            "at": 4,
+            "at": -3.6,
             "h": 1.1,
+            "lamp": true,
             "seed": 27,
             "w": 1.6,
-            "wall": "front",
-            "y": 2.9
+            "wall": "back",
+            "y": 2.6
           }
         ],
         "ceiling": {
@@ -43,19 +44,70 @@
         },
         "chalk": [
           {
-            "at": 2.2,
+            "at": 6.15,
             "h": 1,
             "title": "Tonight",
-            "w": 0.8,
-            "wall": "left",
+            "w": 0.7,
+            "wall": "front",
             "y": 1.75
           }
         ],
-        "darts": [
+        "clocks": [
           {
-            "at": -5.1,
+            "at": -3.6,
+            "gap": 0.46,
+            "list": [
+              {
+                "name": "Coldwater",
+                "t": "9:10"
+              },
+              {
+                "name": "New York",
+                "t": "12:10"
+              },
+              {
+                "name": "London",
+                "t": "5:10"
+              },
+              {
+                "name": "Paris",
+                "t": "6:10"
+              },
+              {
+                "name": "Tokyo",
+                "t": "2:10"
+              }
+            ],
+            "r": 0.13,
+            "wall": "front",
+            "y": 2.72
+          }
+        ],
+        "directory": [
+          {
+            "at": -0.55,
+            "lines": [
+              {
+                "arrow": "up",
+                "text": "Rooms 2A-4D"
+              },
+              {
+                "arrow": "right",
+                "text": "Reception"
+              },
+              {
+                "arrow": "left",
+                "text": "Lounge bar"
+              },
+              {
+                "arrow": "left",
+                "text": "Washroom"
+              }
+            ],
+            "title": "Embassy Hotel",
+            "w": 0.62,
             "wall": "back",
-            "y": 1.73
+            "y": 1.55
           }
         ],
         "doors": [
@@ -84,9 +136,9 @@
           "inset": 0.7,
           "line": "#c9a14a",
           "medallion": [
-            0,
-            5,
-            1.6
+            -2.2,
+            4.4,
+            1.4
           ],
           "w": 0.28
         },
@@ -99,11 +151,11 @@
         "lights": [
           {
             "at": [
-              0,
-              5
+              -2.2,
+              4.4
             ],
             "drop": 1.9,
-            "k": 1.6,
+            "k": 0.7,
             "r": 1.1,
             "tiers": 3
           }
@@ -111,20 +163,20 @@
         "litter": [
           {
             "at": [
-              -3.9,
+              4.1,
               2.75
             ],
-            "n": 80,
+            "n": 60,
             "r": [
-              2.7,
-              0.45
+              0.45,
+              1.5
             ],
             "seed": 3
           },
           {
             "at": [
-              3.4,
-              6.2
+              3.7,
+              5.7
             ],
             "n": 20,
             "r": [
@@ -134,15 +186,31 @@
             "seed": 5
           }
         ],
+        "marks": [
+          {
+            "at": -3.6,
+            "core": "#fff0cc",
+            "font": "Limelight",
+            "h": 1.55,
+            "kind": "marquee",
+            "sub": "HOTEL  &  BAR",
+            "sub_font": "Poiret One",
+            "text": "EMBASSY",
+            "tint": "#ffa94d",
+            "w": 4.6,
+            "wall": "front",
+            "y": 3.95
+          }
+        ],
         "neon": [
           {
-            "at": -3.9,
-            "h": 0.34,
+            "at": 2.75,
+            "h": 0.3,
             "hex": "#ff4f8a",
-            "lamp": 0.35,
+            "lamp": 0.22,
             "text": "COCKTAILS",
-            "wall": "front",
-            "y": 3.6
+            "wall": "right",
+            "y": 3.3
           }
         ],
         "payphone": [
@@ -155,10 +223,10 @@
         "pendants": [
           {
             "at": [
-              3.4,
-              6.2
+              3.7,
+              5.7
             ],
-            "k": 1.1,
+            "k": 0.8,
             "kind": "card",
             "len": 1.4,
             "tint": [
@@ -170,51 +238,71 @@
           },
           {
             "at": [
-              -5.7,
-              1.6
+              5.05,
+              1.65
             ],
-            "kind": "school",
-            "y": 2.35
-          },
-          {
-            "at": [
-              -3.9,
-              1.6
-            ],
-            "k": 0.9,
+            "k": 0.45,
             "kind": "school",
             "tint": [
-              1.12,
-              0.96,
-              0.78
+              1.15,
+              0.92,
+              0.7
             ],
-            "y": 2.35
+            "y": 2.25
           },
           {
             "at": [
-              -2.1,
-              1.6
+              5.05,
+              2.75
             ],
+            "k": 0.45,
             "kind": "school",
-            "y": 2.35
+            "tint": [
+              1.15,
+              0.92,
+              0.7
+            ],
+            "y": 2.25
+          },
+          {
+            "at": [
+              5.05,
+              3.85
+            ],
+            "k": 0.45,
+            "kind": "school",
+            "tint": [
+              1.15,
+              0.92,
+              0.7
+            ],
+            "y": 2.25
           }
         ],
         "plants": [
           [
-            -6.3,
-            9.2,
+            -6.5,
+            9.4,
             1.15
           ],
           [
-            6.3,
-            0.8,
+            -0.45,
+            0.6,
             1.05
           ]
         ],
-        "rug": false,
+        "rug": {
+          "at": [
+            -3.6,
+            6.85
+          ],
+          "d": 2.7,
+          "style": "persian",
+          "w": 3.8
+        },
         "salon": [
           {
-            "at": 2.9,
+            "at": 7.4,
             "h": 1.15,
             "seed": 4,
             "w": 1.7,
@@ -223,26 +311,28 @@
           }
         ],
         "sconces": {
+          "hex": "#b8913e",
+          "kind": "twin",
           "points": [
             [
               "front",
-              2.2
+              -6.2
             ],
             [
               "front",
-              5.6
+              -0.95
+            ],
+            [
+              "front",
+              5.1
             ],
             [
               "back",
-              -4.6
+              -5.4
             ],
             [
               "back",
-              1.4
-            ],
-            [
-              "right",
-              1.4
+              -1.8
             ],
             [
               "right",
@@ -254,11 +344,62 @@
             ],
             [
               "left",
-              8.2
+              9.4
             ]
           ],
           "y": 2.3
         },
+        "standards": [
+          {
+            "at": [
+              -5.05,
+              7.75
+            ],
+            "k": 0.35
+          },
+          {
+            "at": [
+              -2.15,
+              7.75
+            ],
+            "k": 0.35
+          },
+          {
+            "at": [
+              -6.55,
+              0.55
+            ],
+            "k": 0.4
+          },
+          {
+            "at": [
+              -6,
+              9.5
+            ],
+            "k": 0.4
+          },
+          {
+            "at": [
+              6.5,
+              9
+            ],
+            "k": 0.4
+          },
+          {
+            "at": [
+              1.95,
+              9.5
+            ],
+            "k": 0.35
+          },
+          {
+            "at": [
+              6.55,
+              6.4
+            ],
+            "k": 0.35
+          }
+        ],
         "trophy": [
           {
             "at": 5,
@@ -273,17 +414,19 @@
           "y1": 1.25
         }
       },
+      "dim": 0.45,
       "face": 0,
       "finish": "fine",
       "ground": "marble",
-      "h": 4.6,
-      "sign": {
-        "at": -1.5,
-        "size": 0.42,
-        "sub": "RECEPTION",
-        "text": "EMBASSY",
-        "wall": "back",
-        "y": 3.7
+      "h": 5.37,
+      "stair": {
+        "at": [
+          0.84,
+          8.6
+        ],
+        "climb": "front",
+        "going": 0.22,
+        "w": 1.1
       },
       "street_door": {
         "dark": true,
@@ -303,7 +446,15 @@
         "trim": "#2a1a14",
         "wall": "#d39aa2"
       },
-      "w": 14
+      "w": 14,
+      "walls": [
+        [
+          1.39,
+          1.55,
+          0,
+          7.2
+        ]
+      ]
     },
     "window": {
       "description": "A window.",

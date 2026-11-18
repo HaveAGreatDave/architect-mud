@@ -91,6 +91,10 @@ plots of 9 and 11 Hughson Way now. Their gates moved, and their rooms with them.
   `facadeId`, a `streetId` and a `roomName` prefix). The other 21 tiles are sealed the way the Slush
   Fund's are: a name, a type, `entrance: south`, `floors`, empty exits and no `is_building`, so the
   map shows four codes for the park. coliseum-park.mjs walls them with blocked connections.
+- **Three of the doors open on foot.** The rotunda and the GATE C and GATE D halls carry a
+  `flags.room` spec, so the street view's door takes you in and the Room Stage draws them. The
+  bleachers have none yet, so the bleacher gate is still a shut door on foot. GATE C and GATE D
+  stand on a concrete landing level with their sill, with a step down to the pavement.
 - **Every tile carries `venue_lights` and `venue_roof`**, which are what light its field and move its
   roof (§6), and a `power_zones` row copied from the tile it replaced.
 
@@ -146,10 +150,10 @@ one is under 30 characters, so `docs:prose` doesn't count the dash in it.
 
 | Room | From | What's in it |
 |---|---|---|
-| Rotunda | the main gate (`map_int_hughson`) | the statue, the plaque, the turnstiles; the gates look onto Hughson Way and Grandstand Walk |
-| Ticket Office | east of the rotunda | the seating plan, section nine crossed out in red |
-| Concourse | north of the rotunda | the way through to the stands, the club level and the plant room |
-| Concessions | west of the concourse | the concession stand and its cash drawer, Ray Dombrowski |
+| Rotunda | the main gate (`map_int_hughson`) | the statue, the plaque, four turnstiles inside the gates, and two box office windows (Admissions, Reserved Seats) either side of the ticket office door that sell every section (`flags.ticket_window`); the gates look onto Hughson Way and Grandstand Walk |
+| Ticket Office | east of the rotunda | the clerk's desk and chair, the ticket rack, the seating plan with section nine crossed out in red |
+| Concourse | north of the rotunda | the eight clubs' banners along the north wall either side of the ramp to the stands, the tobacco booth (`vend`: three cigarettes, a cigarillo, a cigar), two sets on channel 7, lean rails; the way through to the stands, the club level and the plant room |
+| Concessions | west of the concourse | the grill Ray serves over (`shop`): a flat-top of burgers, franks on rollers, the pumps, a beer tower; the menu board, the beer fridge, the stock shelves, an eating rail. Widowmaker, ballpark frank, grandstand burger, beer, coffee |
 | The Stands | north of the concourse | the seats, Sir Charles's seat, the organ, the video board on channel 7 |
 | Section Nine | west of the stands | the crater from Chip Vega's chatter, roped off |
 | Club Level | up from the concourse | the bar, the windows over the field; `stands` here buys a Platinum Box ticket, ₵150, twice the Diamond Club |
@@ -169,6 +173,8 @@ room of its own off the concourse.
 foot-long with a waiver printed on its boat), beer and coffee. He opens Monday, Wednesday and
 Friday from 16:00 to 22:00, the game's nights. His greeting is split (`first`, `known`, `familiar`)
 and he'll talk about Sir Charles, section nine and when they play.
+
+**On the Room Stage.** The rotunda, the ticket office, the concourse and the concessions have `flags.room`, so the main gate is one floor plan from the street to the concourse. The concourse is 6 m tall, as the rotunda is, so the club level stacked on it clears the rotunda's roof. A banner is `flags.club_banner: { sport, club }`; plugins/stands `room.pieceState` sends the club's colours and crest from the broadcast's club identities, and the Stage paints them on the cloth. Each piece is a stadium form in gl/room-stadium.js (`banner`, `grill`, `smokebooth`, `boxoffice`, `turnstile`), and none of them names the Coliseum.
 
 Every room has a `power_zones` row and a fixture. Imported fixtures arrive switched off, and
 `content/seed-runtime.mjs` switches them on.

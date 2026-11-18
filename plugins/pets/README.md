@@ -31,6 +31,16 @@ A beat change emits `pet.beat`, and plugins/roomstage sends the room's beasts ag
 
 **His tray**: furniture with `flags.pet_tray` naming the pet, drawn as the `littertray` form. The `pet_trays` table holds when it was last scooped; every go since (`trayTimes`: three or four pees and one or two of the other a day, in real time) is worked out from that, so nothing is written while he goes. Past four goes he sniffs it over first; past seven he won't get in and goes on the floor in front of it, and the room smells (`zone.smells`). `scoop` clears it, free. In ROOM he hops in over the rim, digs, turns round, squats, sniffs and covers (`pee` and `poo` in `gl/cat-clips.js`), and after the other he sometimes tears round the flat.
 
+## Street cats
+
+`strays.js`. A stray is a row in `stray_cats` and an NPC in RAM only, built from the row at boot (no npcs row, so a content deploy never touches it). With the table empty, boot rolls a batch of twelve onto Coldwater's walkable outdoor tiles, weighted to the east and most of all to the slum, where people feed them (the slum's tiles count six times, the yards twice, the docks, residential and industrial half again). Each is a moggy most of the time, sometimes a breed, with a rolled coat, build and nature, and a name no other stray on the street has.
+
+**Their day on the street**: a 5 s tick, only on tiles somebody's on, gives each stray a line about every two minutes, picked from its id and the clock (`streetLine`): lounging on a bin or in the sun, washing, stalking pigeons and now and then catching one, drinking from a puddle or a drainpipe, sheltering or drinking fresh rain when it's raining, eyes in the dark at night. In the slum and the other poor quarters people feed them: a named NPC on the tile puts out a saucer or tips a tin, or with nobody there a window opens and scraps land on the pavement. Nobody feeds them in Halcyon Fields.
+
+**`adopt <cat>`** takes the stray you're standing by home to your flat (the first in `apartments` you own), up to three. The claim is one UPDATE guarded on `adopted_by IS NULL`, so two people can't take the same cat. Adopted, it joins PETS with the flat as its home and is a pet from then on. It has no bowls or tray until you put some down.
+
+**The Strays dev tab** (`panel.js`, GET `/strays`) lists every stray, where it is and who took it in; **Roll a new batch** (POST `/strays/generate`) puts another lot on the streets, and **remove** (DELETE `/strays/<id>`) takes one out of the world.
+
 ## In ROOM
 
 The Room Stage asks `roomstage.npcBeast` of every NPC with `flags.animal`. This plugin answers for a pet with `{ id, name, cat, pet, nature, beat?, bowls?, tray? }`, and the stage puts it in `beasts` instead of `people`. The client (`gl/room-beasts.js` `catsFrame`) carves the four poses in a worker, skins the clips on the GPU (`gl/cat-gpu.js`, `gl/cat-clips.js`), walks the cat round the furniture between spots and voices it with CC0 recordings (`panels/room-cat-sound.js`).
@@ -49,5 +59,6 @@ The Room Stage asks `roomstage.npcBeast` of every NPC with `flags.animal`. This 
 
 ## Files
 
+- `strays.js`: street cats, `adopt` and the `/strays` routes. `panel.js`: the Strays dev tab.
 - `index.js`: loads `pets`, the bowls and the trays at boot, keeps the beats, answers `roomstage.npcBeast`, `npc.petAttempt` (by spot), `npc.describeAnimal`, `room.pieceState`, `furniture.acts`, `furniture.describe` and `zone.smells`, greets on `zone.entered`, says his day, and owns `refill` and `scoop`.
 - `regress.js`: every pet has its NPC, resolves both ways, is drawn as a cat in its home and never as a person; its day is all clips it has; somebody coming in is greeted at their door; the petting ladder runs to the swat; every breed builds; hunger rises with an empty dish and the greeting demands food; the tray fills, goes beside itself when full, smells, and `scoop` empties it; two cats meet the same for everybody, friends get on and rivals don't, and every line is filled in.

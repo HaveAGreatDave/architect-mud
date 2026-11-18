@@ -1,5 +1,5 @@
 {
-  "description": "A steel counter with a hot plate, a beer tap and a stack of paper boats. The menu board over it is hand-painted: Widowmaker, beer, coffee. Under the Widowmaker, smaller: waiver included.",
+  "description": "A steel counter faced in brown enamel, burgers on a flat-top at one end and franks on rollers at the other, under a sneeze guard. The pumps are mustard, ketchup and relish. Under the Widowmaker on the board: waiver included.",
   "flags": {
     "aliases": [
       "stand",
@@ -10,8 +10,31 @@
       "menu board",
       "board",
       "tap",
-      "hot plate"
-    ]
+      "hot plate",
+      "grill",
+      "flat-top",
+      "rollers",
+      "pumps",
+      "burgers",
+      "franks"
+    ],
+    "look": {
+      "arche": "surface",
+      "dims": [
+        3.6,
+        0.9,
+        1.05
+      ],
+      "form": "grill"
+    },
+    "serves": "npc_hughson_ray",
+    "spot": {
+      "at": [
+        0,
+        3.9
+      ],
+      "turn": 0
+    }
   },
   "id": "furn_hughson_counter",
   "name": "the concession stand",

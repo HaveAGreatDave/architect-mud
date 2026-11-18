@@ -1077,10 +1077,10 @@ function enterRod(now) {
   hostReel();
   if (st.external) { boatFrame('rod', 750); R.camAt = now + 800; }
 }
-// The skiff's pilot in the chase view: rod mode's angler sat facing the bow. Only the open skiff
-// shows one; a pilothouse hides whoever's at the wheel.
+// An open boat's pilot in the chase view: rod mode's angler sat facing the bow. Any hull with
+// `open: 1` on her row shows one; a pilothouse hides whoever's at the wheel.
 function pilotView(now) {
-  if (!st.external || st.typeId !== 'skiff') return {};
+  if (!st.external || !BOAT_ROWS[st.typeId]?.open) return {};
   if (!ANG) { loadAngler(); return {}; }
   if (!st.pilotAnim) st.pilotAnim = ANG.newAnim(now);
   return { rod: { typeId: st.typeId, bearing: 0, anim: st.pilotAnim, look: st.angLook, pilot: true } };
@@ -1442,7 +1442,7 @@ function buildHelp() {
     + '<dl>'
     + '<dt>K</dt><dd>ignition: hold to crank her, press again to shut down. She will not start with the lever open.</dd>'
     + '<dt>N</dt><dd>ride comfort: full, soft or steady helm camera motion. The boat still rides the full sea.</dd>'
-    + '<dt>A / Z</dt><dd>throttle up / down, as in the flight sim. It is a lever and stays where you leave it. You can also drag it.</dd>'
+    + '<dt>A / Z</dt><dd>throttle up / down. It is a lever and stays where you leave it. You can also drag it.</dd>'
     + '<dt>X / C</dt><dd>steer (or the arrows). She has no rudder at rest: you point her by moving her.</dd>'
     + '<dt>R (beached)</dt><dd>shut the lever and shove her back off the sand.</dd>'
     + '<dt>L</dt><dd>gauge lights. They need power, so they only come up with the engine running.</dd>'

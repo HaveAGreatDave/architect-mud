@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#c9a884",
-  "description": "Unit 2C. Teal walls, white trim, and a terrazzo worktop in an L, with open cubbies on the lounge side full of other people's books. Two bookcases take the left wall and a reading chair sits beside them under a paper lantern. A rust sofa faces a chrome flatscreen across the other side of the room. Everything is where the last tenant left it, which is also how the hotel keeps it.",
+  "description": "Unit 2C, at the back, wide and shallow. Teal walls and white trim, two bookcases full of other people's books, and a reading chair under a paper lantern. A rust sofa faces a chrome flatscreen. Everything is where the last guest left it, which is also how the hotel keeps it.",
   "exits": {
     "in": "zone_apt_3_bath",
     "west": "zone_embassy_floor_2nd"
@@ -12,7 +12,7 @@
     "is_apartment": true,
     "room": {
       "blinds": true,
-      "d": 10,
+      "d": 3.2,
       "decor": {
         "art": [
           {
@@ -56,7 +56,7 @@
             2.3,
             1.4
           ],
-          "d": 2.2,
+          "d": 2,
           "w": 1.9
         },
         "sconces": {
@@ -68,20 +68,17 @@
             ],
             [
               "left",
-              4.3
+              2.5
             ]
           ],
           "y": 1.8
         }
       },
-      "h": 3,
-      "kitchen": {
-        "face": "shelves",
-        "front": "#2f4a5a",
-        "grade": 2,
-        "top": "terrazzo",
-        "uppers": "cabinets"
+      "ensuite": {
+        "d": 1.8
       },
+      "face": 90,
+      "h": 4.13,
       "sash": {
         "drapes": "#b88a4a",
         "head": true,
@@ -89,6 +86,7 @@
         "transom": 0.4,
         "w": 1.8
       },
+      "studio": false,
       "tone": {
         "accent": "#c9a24a",
         "ceiling": "#eee8dc",

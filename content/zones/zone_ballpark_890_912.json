@@ -4,6 +4,7 @@
   "description": "Burnet Walk, a narrow paved cut between the towers. The light gets down here for about an hour either side of noon.",
   "exits": {
     "east": "zone_ballpark_891_912",
+    "south": "zone_hughsonpark_890_913",
     "west": "zone_ballpark_889_912"
   },
   "flags": {

@@ -13,6 +13,9 @@
 //   - Somebody on their own picks from a short list: stand looking up or down the street, stroll to
 //     another spot on the pavement, look in a shop window, lean on the wall with their arms folded
 //     or a cigarette, check a phone, or wait at the kerb watching the traffic.
+//   - A smoker smokes in sittings: for a few minutes at a time they have one going (litNow), and while
+//     they do they smoke whatever else they're doing, leaning on the wall, waiting at the kerb, in a
+//     ring, and walking (the walkSmoke clip). gl/actor-smoke.js draws the cigarette and its smoke.
 //   - Somebody who has just stopped walking stands still for a few seconds first, so nobody snaps
 //     into a ring the moment they arrive. Somebody first seen standing (they came into view, or the
 //     map window recentred onto them) is already doing whatever they're doing.
@@ -41,21 +44,24 @@ export const LIFE = {
   curtainGap: 0.04,   // and from the Curtain's field, past its own half-width (CURTAIN_HALF_W in geo)
   pairR: 0.032,       // two people stand a little over a metre apart
   ringR: 0.045,       // three or four in a ring 1.6 m across, so a speaker's hand stays out of the next person
-  ringMax: 4,         // more than this on one stretch splits into rings
+  ringMax: 3,         // more than this on one stretch splits into rings: little pockets, never a crowd
   ringGap: 0.24,      // along the kerb between neighbouring rings
   turn: 4.2,          // seconds a speaker holds the floor
   settle: [1.5, 5],   // seconds somebody stands still after a walk before doing anything else
   social: 0.82,       // the share who join a ring when there's somebody to join
-  smokers: 0.3,       // the share who smoke
+  smokers: 0.55,      // the share who smoke
+  lit: 0.6,           // the share of a smoker's time they have one going
+  sitting: 240,       // seconds in a sitting: lit or not, decided afresh each one
 };
 
 // What somebody on their own may do, by the kind of ground they're on, with a weight each. `wall`
 // needs a building on the far side of the pavement. The same kind never comes up twice running.
+// 'smoke' is only for somebody with one going (litNow), whose 'lean' is a smoke on the wall as well.
 const PLANS = {
-  walk: [['stand', 2], ['stroll', 3], ['phone', 2], ['kerb', 1], ['window', 2, 'wall'], ['lean', 2, 'wall']],
-  corner: [['stand', 2], ['phone', 2], ['wait', 2], ['smoke', 1], ['kerb', 2]],
-  open: [['stand', 2], ['stroll', 3], ['phone', 2], ['wait', 1], ['smoke', 1]],
-  fixed: [['stand', 3], ['phone', 2], ['wait', 1], ['smoke', 1]],
+  walk: [['stand', 2], ['stroll', 3], ['phone', 2], ['kerb', 1], ['window', 2, 'wall'], ['lean', 3, 'wall'], ['smoke', 3]],
+  corner: [['stand', 2], ['phone', 2], ['wait', 2], ['smoke', 3], ['kerb', 2]],
+  open: [['stand', 2], ['stroll', 3], ['phone', 2], ['wait', 1], ['smoke', 3]],
+  fixed: [['stand', 3], ['phone', 2], ['wait', 1], ['smoke', 3]],
 };
 
 // A 0..1 from two integers. Groups and plans are keyed by numbers, not tokens.
@@ -65,6 +71,14 @@ function mixN(a, b) {
   h ^= h >>> 12; h = Math.imul(h, 0x297a2d39);
   h ^= h >>> 15;
   return (h >>> 0) / 4294967296;
+}
+
+// Whether somebody has a cigarette going now: a smoker, in a sitting they've lit. Off the wall clock in
+// whole sittings, each staggered by their seed, so it's the same on every client and never flickers.
+function litNow(geo, L, t, now) {
+  if (!(geo.hash(t, 61) < LIFE.smokers)) return false;
+  const k = (now / 1000 + mixN(L.seed, 3) * LIFE.sitting) / LIFE.sitting;
+  return mixN(L.seed, 1000 + Math.floor(k)) < LIFE.lit;
 }
 
 // The pavement a figure stands on, in its tile's own frame (x east, y south, tile centre at 0, 0):
@@ -101,8 +115,19 @@ function kerbOf(geo, win, cell, rx, ry, side, t) {
       c = s * pw - u;
       k = s < 0 ? -(blk.index + 1) : blk.width - blk.index;
     }
-    const nb = at(rx + k * P[0], ry + k * P[1]), wall = !!(nb && nb.bt);
-    const cx = c * P[0], cy = c * P[1];
+    const nb = at(rx + k * P[0], ry + k * P[1]), cx = c * P[0], cy = c * P[1];
+    // A building tile isn't a wall: a car park, a plot or a building set back from the line has nothing to lean
+    // on. So the model itself (geo.wallAt) has to stand a head high just behind the leaning spot, all along the
+    // stretch they lean on, or the lean is off this pavement and nobody tips back into thin air.
+    let wall = !!(nb && nb.bt);
+    if (wall && geo.wallAt) {
+      const ox = (rx - win.R) + win.wcx, oy = (ry - win.R) + win.wcy, q = geo.WALK_HW + 0.03;
+      const nx = ox + k * P[0], ny = oy + k * P[1];
+      for (const a of [-0.9, 0, 0.9]) {
+        const px = ox + cx + s * P[0] * q + A[0] * a * LIFE.along, py = oy + cy + s * P[1] * q + A[1] * a * LIFE.along;
+        if (!geo.wallAt(nx, ny, nb, px, py)) { wall = false; break; }
+      }
+    }
     return {
       kind: 'walk', cx, cy, ax: A[0], ay: A[1], wx: s * P[0], wy: s * P[1], wall,
       door: wall && Math.abs(k) === 1 ? [s * P[0], s * P[1]] : null,
@@ -221,9 +246,8 @@ function ringSpot(geo, L, k, t, now) {
   let face;
   if (sp === g.j || sp >= g.m) face = Math.atan2(my - sy, mx - sx);
   else { const [qx, qy] = spot(sp); face = Math.atan2((qy + my) / 2 - sy, (qx + mx) / 2 - sx); }
-  // How they listen is theirs: hands together, arms folded, or a cigarette going.
-  const smoker = geo.hash(t, 61) < LIFE.smokers;
-  const listen = smoker && geo.hash(t, 63) < 0.5 ? 'smoke' : geo.hash(t, 62) < 0.4 ? 'wait' : 'listen';
+  // How they listen is theirs: hands together, arms folded, or the cigarette they have going.
+  const listen = litNow(geo, L, t, now) && geo.hash(t, 63) < 0.85 ? 'smoke' : geo.hash(t, 62) < 0.4 ? 'wait' : 'listen';
   return { tx: sx, ty: sy, face, clip: sp === g.j ? 'talk' : listen };
 }
 
@@ -231,14 +255,16 @@ function ringSpot(geo, L, k, t, now) {
 // plans they've had, so it's the same on every client that has seen the same pushes.
 function nextPlan(geo, L, k, t, now) {
   const n = L.n++, R = (i) => mixN(L.seed, n * 16 + i);
-  const list = PLANS[k.kind].filter(([kind, , need]) => kind !== L.last && (!need || k[need]));
+  const lit = litNow(geo, L, t, now);
+  const list = PLANS[k.kind].filter(([kind, , need]) => kind !== L.last && (!need || k[need]) && (kind !== 'smoke' || lit));
+  // with one going, the wall's twice as inviting
+  const weight = (kind, wt) => (lit && kind === 'lean' ? wt * 2 : wt);
   let w = 0;
-  for (const [, wt] of list) w += wt;
+  for (const [kd, wt] of list) w += weight(kd, wt);
   let x = R(0) * w, kind = list[0][0];
-  for (const [kd, wt] of list) if ((x -= wt) < 0) { kind = kd; break; }
+  for (const [kd, wt] of list) if ((x -= weight(kd, wt)) < 0) { kind = kd; break; }
   L.last = kind;
   const dur = (lo, hi) => 1000 * (lo + (hi - lo) * R(5));
-  const smoker = geo.hash(t, 61) < LIFE.smokers;
   const plan = { kind, tx: L.sx, ty: L.sy, face: null, clip: 'idle', speed: LIFE.shuffle, until: now + dur(5, 12), t0: now, ph0: L.ph0 };
   if (k.kind === 'walk') {
     // In the street's own terms: `a` along it, `q` across it, positive toward the buildings.
@@ -259,10 +285,13 @@ function nextPlan(geo, L, k, t, now) {
       plan.speed = LIFE.stroll;
       plan.until = now + 1000 * Math.hypot(plan.tx - L.sx, plan.ty - L.sy) / LIFE.stroll + dur(4, 10);
     } else if (kind === 'window') { put(a0 + (R(2) - 0.5) * 0.16, outer - 0.008); plan.face = toWall; plan.until = now + dur(8, 18); }
-    else if (kind === 'lean') {
-      put(a0 + (R(2) - 0.5) * 0.2, outer);
-      plan.face = toRoad; plan.clip = smoker ? 'smoke' : 'wait'; plan.until = now + dur(14, 30);
-    } else if (kind === 'kerb') { put(a0 + (R(2) - 0.5) * 0.12, 0.005 - inner); plan.face = toRoad; plan.until = now + dur(5, 10); }
+    else if (kind === 'lean' || (kind === 'smoke' && k.wall && R(6) < 0.6)) {
+      // back on the wall (actor3d.js LEAN stands the clip that far in front of it), facing the road, at a place along
+      // it that's their own, so two people on one stretch don't lean on the same bit of wall
+      put((mixN(L.seed, 77) * 2 - 1) * LIFE.along * 0.9 + (R(2) - 0.5) * 0.06, outer);
+      plan.face = toRoad; plan.clip = lit ? 'leanSmoke' : 'leanWall'; plan.until = now + dur(lit ? 20 : 14, lit ? 45 : 30);
+    } else if (kind === 'smoke') { put(a0 + (R(2) - 0.5) * 0.1, q0); plan.face = R(3) < 0.5 ? toRoad : along(R(4) < 0.5 ? -1 : 1); }
+    else if (kind === 'kerb') { put(a0 + (R(2) - 0.5) * 0.12, 0.005 - inner); plan.face = toRoad; plan.until = now + dur(5, 10); }
     else put(a0, q0);   // phone, below: wherever they are, pulled back inside the band
   } else if (k.kind === 'corner') {
     const toJunction = Math.atan2(-k.cy, -k.cx);
@@ -278,9 +307,12 @@ function nextPlan(geo, L, k, t, now) {
   if (k.inn) [plan.tx, plan.ty] = curtainSide(geo, k.inn, plan.tx, plan.ty);
   if (kind === 'phone') { plan.clip = 'phone'; plan.until = now + dur(8, 20); }
   else if (kind === 'wait') { plan.clip = 'wait'; plan.until = now + dur(10, 20); }
-  else if (kind === 'smoke') { plan.clip = 'smoke'; plan.until = now + dur(12, 24); }
-  // A cigarette starts with the hand down, not halfway to the mouth.
-  if (plan.clip === 'smoke') plan.ph0 = 0;
+  else if (kind === 'smoke' && plan.clip !== 'leanSmoke') { plan.clip = 'smoke'; plan.until = now + dur(12, 24); }
+  // Standing about, or waiting, with one going, most of them smoke it.
+  if (lit && (plan.clip === 'idle' || plan.clip === 'wait') && R(9) < 0.65) plan.clip = 'smoke';
+  // A cigarette starts with the hand down, not halfway to the mouth: somewhere in the half of the clip after the
+  // drag, so people who start together don't all draw on theirs at once.
+  if (plan.clip === 'smoke' || plan.clip === 'leanSmoke') plan.ph0 = (0.56 + 0.5 * R(8)) % 1;
   return plan;
 }
 
@@ -313,7 +345,7 @@ export function streetLifeStep(geo, win, h, t, cell, rx, ry, walking, legT, now)
     L.sx = L.sy = NaN; L.plan = null; L.grp = null;
     L.ox = k.base[0] + L.r0x * r; L.oy = k.base[1] + L.r0y * r;
     L.mv = true; L.dx = h.bx - h.ax - L.r0x; L.dy = h.by - h.ay - L.r0y;
-    L.face = null; L.clip = 'walk';
+    L.face = null; L.clip = litNow(geo, L, t, now) ? 'walkSmoke' : 'walk';
     return L;
   }
   const fx = Math.round(h.bx) - h.bx, fy = Math.round(h.by) - h.by;
@@ -344,6 +376,77 @@ export function streetLifeStep(geo, win, h, t, cell, rx, ry, walking, legT, now)
     L.sx = tx; L.sy = ty; L.mv = false;
   }
   L.ox = L.sx + fx; L.oy = L.sy + fy;
-  L.face = face; L.clip = L.mv ? 'walk' : clip;
+  L.face = face; L.clip = L.mv ? (litNow(geo, L, t, now) ? 'walkSmoke' : 'walk') : clip;
   return L;
+}
+
+// ── Room to stand ────────────────────────────────────────────────────────────────────────────────
+// Once a frame, before the draw loop. Everybody's spot comes off their own tile and token, so two
+// strangers could land on one spot and a busy tile drew a clump. This keeps people apart: a stranger
+// stays `stranger` off, while ring mates and one walking companion each (somebody stepping the same
+// way beside you) may come to `mate`. The push builds up over a few frames, lets go slowly once
+// there's room, and on a pavement only runs along the street, so nobody is pushed into the lane or
+// the wall. It reads where each figure was drawn last frame (`h.dpx, h.dpy`) and leaves `h.sep`.
+export const SPACE = {
+  stranger: 0.06,   // about a metre between people who aren't together
+  mate: 0.03,       // side by side, or in a ring
+  gain: 0.5,        // how much of an overlap is taken up a frame (each of the two takes half)
+  relax: 0.6,       // a second, how fast a push lets go once there's room
+  max: 0.3,         // the furthest anybody is pushed off their own spot (a busy tile spills along the pavement)
+};
+const _grid = new Map();
+const _list = [];
+let _spaceT = 0;
+export function streetLifeSpace(actors, now) {
+  const dt = _spaceT ? clamp((now - _spaceT) / 1000, 0, 0.25) : 0;
+  _spaceT = now;
+  _grid.clear(); _list.length = 0;
+  const C = SPACE.stranger;
+  for (const [, h] of actors) {
+    if (!h.sep) h.sep = [0, 0];
+    h._cx = 0; h._cy = 0; h._mate = null;
+    if (h.gone || !Number.isFinite(h.dpx)) continue;
+    const key = (Math.floor(h.dpx / C) & 0xffff) * 65536 + (Math.floor(h.dpy / C) & 0xffff);
+    let b = _grid.get(key);
+    if (!b) _grid.set(key, b = []);
+    b.push(h); h._i = _list.length; _list.push(h);
+  }
+  for (const h of _list) {
+    const gx = Math.floor(h.dpx / C), gy = Math.floor(h.dpy / C);
+    for (let ix = -1; ix <= 1; ix++) for (let iy = -1; iy <= 1; iy++) {
+      const b = _grid.get(((gx + ix) & 0xffff) * 65536 + ((gy + iy) & 0xffff));
+      if (b) for (const o of b) if (o._i > h._i) spacePair(h, o);
+    }
+  }
+  const keep = Math.exp(-dt / SPACE.relax);
+  for (const [, h] of actors) {
+    const s = h.sep, L = h.life, k = L && L.k;
+    // pressed on: hold the push and add to it; room to spare: let it go
+    const kk = h._cx || h._cy ? 1 : keep;
+    let x = s[0] * kk + h._cx * SPACE.gain, y = s[1] * kk + h._cy * SPACE.gain;
+    // on a pavement, only along it
+    if (k && k.kind === 'walk') { const a = x * k.ax + y * k.ay; x = a * k.ax; y = a * k.ay; }
+    const m = Math.hypot(x, y);
+    if (m > SPACE.max) { x *= SPACE.max / m; y *= SPACE.max / m; }
+    s[0] = x; s[1] = y;
+  }
+}
+function spacePair(h, o) {
+  let dx = h.dpx - o.dpx, dy = h.dpy - o.dpy, d = Math.hypot(dx, dy);
+  if (d >= SPACE.stranger) return;
+  const a = h.life, b = o.life;
+  let min = SPACE.stranger;
+  if (a && b && a.grp && b.grp && a.grp.key === b.grp.key && a.grp.c === b.grp.c) min = SPACE.mate;
+  else if (a && b && a.mv && b.mv && !h._mate && !o._mate) {
+    // walking the same way, beside each other rather than one behind the other: a companion
+    const la = Math.hypot(a.dx, a.dy), lb = Math.hypot(b.dx, b.dy);
+    if (la > 0 && lb > 0 && (a.dx * b.dx + a.dy * b.dy) / (la * lb) > 0.8 && Math.abs((dx * a.dx + dy * a.dy) / la) < SPACE.mate) {
+      h._mate = o; o._mate = h; min = SPACE.mate;
+    }
+  } else if (h._mate === o) min = SPACE.mate;
+  if (d >= min) return;
+  if (d < 1e-5) { const th = (h._i * 2.39996) % TAU; dx = Math.cos(th); dy = Math.sin(th); d = 1; }
+  else { dx /= d; dy /= d; }
+  const p = (min - Math.min(d, min)) * 0.5;
+  h._cx += dx * p; h._cy += dy * p; o._cx -= dx * p; o._cy -= dy * p;
 }

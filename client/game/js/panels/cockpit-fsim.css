@@ -1180,3 +1180,69 @@ body.bigscreen .fsim-view{ border-radius:0; box-shadow:none; }
 .fsim-card.bad .fsim-card-grade{ color:var(--hud-am); }
 .fsim-card.crash{ border-color:var(--hud-rd); }
 .fsim-card.crash .fsim-card-grade{ color:var(--hud-rd); }
+
+/* ── Outside view: the touch controls as a thin holographic HUD ──
+   Same elements, same hit areas, same handlers; only the paint changes. Smoked glass, a
+   hairline of the craft's accent (--cy), and light only where a control is set. Last in
+   the file so it beats the phone block and the per-theme grips. */
+body.fsim-external .fsim-throttle,
+body.fsim-external #fsim-root.fsim-painted .fsim-throttle{
+  background:linear-gradient(180deg,rgba(6,12,18,.42),rgba(6,12,18,.18)); border:1px solid rgba(120,150,175,.22);
+  border-radius:4px; -webkit-backdrop-filter:blur(4px); backdrop-filter:blur(4px);
+  clip-path:polygon(0 8px,8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%); }
+body.fsim-external .fsim-thr-slot{ width:2px; margin-left:-1px; background:linear-gradient(180deg,var(--cy),transparent); border:0; opacity:.45; box-shadow:0 0 6px var(--cy); }
+body.fsim-external .fsim-thr-notch{ left:auto; right:7px; width:5px; background:var(--cy); opacity:.35; }
+body.fsim-external .fsim-thr-lever{ left:9px; right:9px; height:12px; margin-top:4px; }
+body.fsim-external .fsim-thr-grip,
+body.fsim-external .fsim-thr-grip[class]{ border-radius:2px; background:rgba(6,12,18,.55); border:1px solid var(--cy);
+  box-shadow:0 0 8px var(--cy), inset 0 0 6px rgba(95,208,255,.25); }
+body.fsim-external .fsim-thr-grip::after{ left:30%; right:30%; top:50%; height:1px; margin-top:-.5px; background:var(--cy); }
+body.fsim-external .fsim-thr-val{ font:8px monospace; letter-spacing:1px; opacity:.8; }
+
+body.fsim-external .fsim-engbtn{ width:40px; height:40px; border:1px solid rgba(120,150,175,.35); background:rgba(6,12,18,.4);
+  -webkit-backdrop-filter:blur(4px); backdrop-filter:blur(4px); box-shadow:none; font-size:0; color:var(--cy); position:relative; }
+body.fsim-external .fsim-engbtn::before{ content:''; width:18px; height:18px; background:currentColor; opacity:.55;
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round'%3E%3Cpath d='M12 3v8'/%3E%3Cpath d='M6.3 6.8a8 8 0 1 0 11.4 0'/%3E%3C/svg%3E") center/contain no-repeat;
+          mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round'%3E%3Cpath d='M12 3v8'/%3E%3Cpath d='M6.3 6.8a8 8 0 1 0 11.4 0'/%3E%3C/svg%3E") center/contain no-repeat; }
+body.fsim-external .fsim-engbtn::after{ content:''; position:absolute; inset:3px; border-radius:50%; border:1px dashed rgba(120,150,175,.3); }
+body.fsim-external .fsim-engbtn.on{ transform:none; border-color:var(--cy); box-shadow:0 0 10px var(--cy), inset 0 0 8px rgba(95,208,255,.25); }
+body.fsim-external .fsim-engbtn.on::before{ opacity:1; filter:drop-shadow(0 0 4px var(--cy)); }
+body.fsim-external .fsim-engbtn.on::after{ border-style:solid; border-color:var(--cy); opacity:.5; animation:fsimEngSpin 6s linear infinite; border-top-color:transparent; }
+@keyframes fsimEngSpin{ to{ transform:rotate(360deg); } }
+
+body.fsim-external .fsim-trim-end{ font-size:5.5px; opacity:.6; }
+body.fsim-external .fsim-trim-wheel{ width:18px; border-radius:3px; background:rgba(6,12,18,.4); border:1px solid rgba(120,150,175,.25);
+  box-shadow:none; -webkit-backdrop-filter:blur(4px); backdrop-filter:blur(4px); }
+body.fsim-external .fsim-trim-drum{ margin-left:-6px; width:12px; filter:none; opacity:.5;
+  background-image:linear-gradient(transparent 0 9px,var(--cy) 9px 10px,transparent 10px); background-size:100% 10px; }
+body.fsim-external .fsim-trim-detent::before{ height:1px; top:0; opacity:.5; }
+body.fsim-external .fsim-trim-detent span{ display:none; }
+body.fsim-external .fsim-trim-handle{ height:3px; margin-top:-1.5px; border-radius:1px; background:var(--cy); box-shadow:0 0 6px var(--cy); }
+body.fsim-external .fsim-trim-val{ font-size:8px; opacity:.75; }
+
+body.fsim-external .fsim-flap-johnson,
+body.fsim-external .fsim-flap-quadrant{ background:rgba(6,12,18,.35); border-color:rgba(120,150,175,.22); border-radius:4px; box-shadow:none; }
+body.fsim-external .fsim-flapsw-track{ flex-basis:18px; background:rgba(6,12,18,.4); border-color:rgba(120,150,175,.25); border-radius:3px; box-shadow:none; }
+body.fsim-external .fsim-flapsw-knob,
+body.fsim-external .fsim-flap-johnson .fsim-flapsw-knob,
+body.fsim-external .fsim-flap-quadrant .fsim-flapsw-knob{ left:2px; right:2px; height:10px; border-radius:2px; background:rgba(6,12,18,.6); border:1px solid var(--cy); box-shadow:0 0 6px var(--cy); }
+
+body.fsim-external .fsim-extg-row{ background:linear-gradient(90deg,transparent,rgba(6,12,18,.55) 30%); border:0; border-right:2px solid var(--cy);
+  border-radius:0; box-shadow:none; -webkit-backdrop-filter:blur(3px); backdrop-filter:blur(3px); }
+
+/* The outside view's stick drawn from the craft's own cockpit control (mini-yoke.js). The SVG
+   stays mounted for its climb and stall LEDs; only its drawing is hidden once the 3-D one paints. */
+.fsim-yoke-3d{ display:none; position:absolute; left:4%; top:-6%; width:92%; height:112%; pointer-events:none; transform-origin:50% 70%; will-change:transform; opacity:.92; }
+body.fsim-external .fsim-yoke.has3d .fsim-yoke-3d{ display:block; }
+body.fsim-external .fsim-yoke.has3d .fsim-yoke-svg *{ visibility:hidden; }
+body.fsim-external .fsim-yoke.has3d #fsim-yk-green,
+body.fsim-external .fsim-yoke.has3d #fsim-yk-red{ visibility:visible; }
+/* The Merlin's doors: DOORS under DISEMBARK, and GET OUT on the open door (the left of the view). */
+.fsim-doorbtn{ display:none; position:absolute; top:70px; left:8px; z-index:6; height:22px; padding:0 8px; border-radius:5px; font-size:10px; letter-spacing:1px; line-height:20px; cursor:pointer;
+  background:rgba(8,24,32,.72); border:1px solid #1c5a6a; color:#7fd8f0; }
+.fsim-doorbtn.on{ display:block; }
+.fsim-doorbtn:hover{ border-color:#7fd8f0; }
+.fsim-getout{ display:none; position:absolute; top:50%; left:6%; transform:translateY(-50%); z-index:6; padding:10px 16px; border-radius:6px; font:bold 14px monospace; letter-spacing:2px; cursor:pointer;
+  background:rgba(8,32,20,.55); border:1px solid #57e6a0; color:#57e6a0; box-shadow:0 0 12px rgba(70,224,120,.35); }
+.fsim-getout.on{ display:block; }
+.fsim-getout:hover{ background:rgba(20,70,40,.75); }

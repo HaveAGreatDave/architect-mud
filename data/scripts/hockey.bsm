@@ -8,7 +8,8 @@
 # v5: open-ice cross-checks, and slashes the referee sees some of.
 # v7: more passing in the rushes, and nine goals in ten assisted.
 # v8: the penalty box is timed right, so a power play runs while the man is in it.
-@sim 8
+# v9: a delayed penalty. The arm goes up and play goes on until the offending side touches the puck.
+@sim 10
 @announcer "Tug Brennan"
 # the colour man beside him: his lines are the colour.* pools at the bottom
 @analyst "Rennie Gault"
@@ -693,6 +694,12 @@ Into the empty cage. {shooter}. That's the gamble, and it didn't pay.
 {shooter} finds the empty net. The goalie is on the bench watching it happen from sixty feet.
 ::endlines
 
+::lines goal.delayed
+{shooter} scores with the extra man on. {team} cash the delayed call before it was ever a power play.
+Six on five, and {shooter} buries it. The arm was up and {team} made it count.
+{shooter} scores with the goalie on the bench. That delayed penalty paid out early.
+::endlines
+
 ::lines hattrick
 That's THREE for {player}. A hat trick in the CPhL, and nobody in this building owns a hat.
 {player} completes the hat trick. Whatever they throw on the ice tonight, don't touch it.
@@ -718,6 +725,37 @@ That's {penaltyMin} for {infraction}. {player} has a sit down and a think.
 {penaltyMin} minutes for {infraction}. That's a major, and {player} is done thinking about it.
 A five for {infraction} on {player}. Even these officials couldn't let that go.
 {player} gets {penaltyMin} for {infraction}. He knew what he was doing and he did it anyway.
+::endlines
+
+::lines penalty.delayed
+Arm's up on {player}, {infraction}. {benefit} keep the puck and the goalie heads for the bench.
+Delayed penalty coming to {team}. {benefit} have an extra man out there until somebody in a {team} sweater touches it.
+The referee's arm is up. {player} for {infraction}, and {benefit} pull the goalie for six on five.
+::endlines
+
+::lines penalty.touch.goalie
+The {team} goalie covers it, and that's the whistle.
+{team} get a glove on it in the crease. Whistle.
+::endlines
+
+::lines penalty.touch.block
+{team} get a body in front of it. That's their touch, and the play's dead.
+Blocked by {team}, and the referee blows it down.
+::endlines
+
+::lines penalty.touch.clear
+{team} finally get a stick on it. Whistle.
+A {team} stick touches it and the referee blows it dead.
+::endlines
+
+::lines penalty.touch
+{team} touch the puck. Whistle.
+::endlines
+
+::lines penalty.waived
+And the goal wipes out the penalty. {player} stays on the ice.
+That's why you play it out. The goal cancels the call on {player}.
+No penalty now. The goal took care of it, and {player} goes back to the bench instead of the box.
 ::endlines
 
 ::lines powerplay.start

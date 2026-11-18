@@ -1,0 +1,24 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "forest",
+  "color": "#b5744a",
+  "description": "Grass to the knee over ground that was outside the wall not long ago. Old tyre ruts run through it and stop.",
+  "exits": {
+    "east": "zone_district_914_922",
+    "north": "zone_seam_914_921",
+    "south": "zone_seam_914_923",
+    "west": "zone_district_913_926"
+  },
+  "flags": {
+    "district": "halcyon_fields",
+    "region_id": "region_coldwater",
+    "terrain": "grass"
+  },
+  "grid_x": 914,
+  "grid_y": 922,
+  "grid_z": 0,
+  "id": "zone_seam_914_922",
+  "map_id": "map_world",
+  "name": "Grasslands",
+  "parent_zone": null
+}

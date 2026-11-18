@@ -214,9 +214,11 @@ export const PARKSIDE_ARMS = {
     //                 then a bun with flat ends, and he asked for it to curve like a hot dog truck.
     const k = kit(ctx, cam, F, W3, E, seed, night, alpha), { B, FQ, dn, dusk } = k;
     const BUN = [214, 150, 78], CRUST = [176, 104, 46], FRANK = [170, 58, 40];
-    const YF = 0.20, ZB = 0.03, ZW = 0.16, LR = 0.08, LC = 0.12;   // front wall, base, wall top, lobe radius and centre
+    // David, 2026-11-16: too much bun. The lobes are low and spread so the frank rides well over
+    // both crests and shows its whole side to the street.
+    const YF = 0.20, ZB = 0.03, ZW = 0.16, LR = 0.05, LC = 0.15;   // front wall, base, wall top, lobe radius and centre
     const LB = 0.30, LE = 0.44, ZN = 0.09, NS = 5;                  // where each nose starts and ends, the height it closes on, its steps
-    const ZF = 0.215, RF = 0.06, XF = 0.41, NC = 4;                 // the frank's axis height and radius, where its round ends start, their steps
+    const ZF = 0.235, RF = 0.075, XF = 0.40, NC = 4;                // the frank's axis height and radius, where its round ends start, their steps
     // The smile: the whole hot dog bends up toward both ends on a parabola, 0.14 at the frank's tips.
     const up = (x) => 0.14 * (x / (XF + RF)) ** 2;
     B(0, 0, 0.46, 0.25, 0, ZB, 'ty_sw_milk_dk', true, 2);   // the plinth, a dark base course
@@ -293,6 +295,24 @@ export const PARKSIDE_ARMS = {
     drawEntrance(ctx, cam, F, W3, E, seed + 20, night, alpha, {
       x: 0.24, y: Y, w: 0.032, top: 0.115, leaves: 1, frameW: 0.008, depth: 0.008,
       frame: [180, 186, 184], lobby: { day: [66, 70, 72], night: [255, 226, 180] }, frontVis });
+    // The menu between the hatch and the door: a black board in a steel frame, prices in chalk.
+    FQ(Y + 0.002, 0.098, 0.212, 0.036, 0.116, [150 * dusk, 152 * dusk, 156 * dusk]);
+    FQ(Y + 0.003, 0.102, 0.208, 0.040, 0.112, mixRgb([26, 30, 28], [44, 40, 34], dn));
+    const MENU = [['MENU', 0.098, 0.110, 0.03], ['FRANK  4', 0.082, 0.094, 0.048], ['CHILI DOG  6', 0.065, 0.077, 0.048], ['FOOTLONG  9', 0.048, 0.060, 0.048]];
+    for (const [t, z0, z1, hw] of MENU) letters(ctx, cam, F, k, Y + 0.004, 0.155 - hw, 0.155 + hw, z0, z1, t, t === 'MENU' ? '#f2c94a' : '#ece6d6', 'slab', night, alpha);
+    // OPEN in the hatch window's corner, red neon after dark.
+    letters(ctx, cam, F, k, Y + 0.0045, -0.245, -0.19, 0.093, 0.105, 'OPEN', dn > 0.3 ? '#ff5a50' : '#a8302a', 'slab', night, alpha, dn > 0.3 ? '#ff5a50' : '#120c06');
+    // Price strips on the plinth face either side of the hatch.
+    for (const [x0, x1, t] of [[-0.44, -0.30, '2 FOR 7'], [0.28, 0.44, 'SODA 2']]) {
+      FQ(Y + 0.051, x0, x1, 0.004, 0.026, [232 * dusk, 196 * dusk, 52 * dusk]);
+      letters(ctx, cam, F, k, Y + 0.052, x0 + 0.01, x1 - 0.01, 0.007, 0.023, t, '#7a1a14', 'slab', night, alpha, '#5a3a10');
+    }
+    // A sandwich board on the pavement by the door.
+    B(0.15, 0.35, 0.05, 0.005, 0.0, 0.09, STEEL, true, 6);
+    FQ(0.356, -0.043 + 0.15, 0.043 + 0.15, 0.012, 0.084, CREAM.map((c) => c * dusk));
+    letters(ctx, cam, F, k, 0.357, 0.115, 0.185, 0.064, 0.080, 'TODAY', '#b22a22', 'slab', night, alpha);
+    letters(ctx, cam, F, k, 0.357, 0.11, 0.19, 0.040, 0.058, 'CHILI 5', '#2a1a10', 'slab', night, alpha);
+    letters(ctx, cam, F, k, 0.357, 0.115, 0.185, 0.018, 0.034, 'ALL DAY', '#2a1a10', 'slab', night, alpha);
     // the chimney up through the back of the bun, and the griddle smoke
     const [cx, cy] = F(0.24, -LC);
     drawFacetDrum(ctx, cam, cx, cy, ZW, 0.30, 0.02, 0.016, 8, alpha, () => rgb([150 * dusk, 152 * dusk, 156 * dusk]), rgb([120 * dusk, 122 * dusk, 126 * dusk]), STEEL);

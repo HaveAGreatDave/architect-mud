@@ -1,0 +1,25 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "wasteland",
+  "color": "#b5744a",
+  "description": "The plain goes on a long way, rust-red and hard as brick. Old tracks show in the crust where the light is low.",
+  "exits": {
+    "east": "zone_district_914_936",
+    "north": "zone_seam_914_935",
+    "south": "zone_seam_914_937",
+    "west": "zone_district_913_936"
+  },
+  "flags": {
+    "district": "wilds",
+    "radiation": 35,
+    "region_id": "region_coldwater",
+    "terrain": "redrock"
+  },
+  "grid_x": 914,
+  "grid_y": 936,
+  "grid_z": 0,
+  "id": "zone_seam_914_936",
+  "map_id": "map_world",
+  "name": "Slateback Rise",
+  "parent_zone": null
+}

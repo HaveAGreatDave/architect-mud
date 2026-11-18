@@ -4,7 +4,7 @@
   "color": "#7fd3ff",
   "description": "The water at the shoreline is cold and the bottom drops away fast into dark. Beyond this the channel is too deep to wade without a boat.",
   "exits": {
-    "east": "zone_district_914_903",
+    "east": "zone_seam_914_903",
     "north": "zone_district_913_902",
     "south": "zone_district_913_904",
     "west": "zone_district_912_903"

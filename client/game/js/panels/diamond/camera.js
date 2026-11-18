@@ -19,6 +19,7 @@
  */
 
 import { DEG } from './geo.js';
+import { multiply, invert, perspective as corePerspective, lookAt as coreLookAt } from '../gl/core/mat4.js';
 
 // The shots. `near` defaults by lens: a long lens starts its depth range far out. `dof` is how
 // strongly the lens blurs what's off its focus, which is what it looks at (0, everything sharp);
@@ -30,6 +31,11 @@ export const SHOTS = Object.freeze({
   // the long lens from centre field, offset to left-centre: replays, and every pitch when the
   // batting view is off. The crowd behind the plate goes soft, as a broadcast long lens has it.
   cf: Object.freeze({ eye: [42, 62, 445], at: [0.3, 3.9, 2.5], fov: 3.7, dof: 12000, shadow: [[0, 0, 30], 75] }),
+  // the grip: the centre-field camera's long lens closed right down on the pitcher's hands in his set.
+  // Either hand's pitcher stands with his throwing side to centre field and the glove's mouth that way,
+  // so it sees his fingers on the ball in the glove. The director places it on his hands (`grip` specs:
+  // `track`, and `frame` feet top to bottom); this is where it stands with nobody on the mound
+  grip: Object.freeze({ eye: [42, 62, 445], at: [0, 5, 60.5], fov: 0.4, dof: 12000, shadow: [[0, 0, 60.5], 8] }),
   // high home: balls in play, following the ball (`shotAt`)
   high: Object.freeze({ eye: [0, 74, -104], at: [0, 4, 185], fov: 42, shadow: [[0, 0, 140], 300] }),
   // the first-base camera on a play at first: from the well on the home side, inside the coach's
@@ -160,6 +166,8 @@ export function fovFor(fov, aspect, fit) {
 // inside BALL_MARGIN of the frame, and widens, up to BALL_FOV, if that turn would lose what it was
 // framing. Both move with the ball, so nothing jumps. A ball behind the camera is left to the next cut.
 export const BALL_MARGIN = 0.75, BALL_FOV = 60;
+// how far the grip shot's aim goes after the ball as it opens out (aimOf, `grip`)
+export const GRIP_LEAN = 0.7;
 export function shotAt(s, t) {
   const sh = aimOf(s, t);
   if (!sh || sh === s || typeof s.ball !== 'function') return sh;
@@ -203,6 +211,26 @@ function aimOf(s, t) {
     // top to bottom there, so he's the same size in it wherever he runs
     const eye = s.eye || base.eye, at = q ? [q[0], 3.2, q[2]] : base.at, far = Math.hypot(at[0] - eye[0], at[1] - eye[1], at[2] - eye[2]);
     return { eye, at, fov: (2 * Math.atan((s.frame || 18) / 2 / far)) / DEG, dof: base.dof, shadow: [[at[0], 0, at[2]], 30] };
+  }
+  if (s.shot === 'grip') {
+    // `frame` feet top to bottom at his hands; the depth range starts just short of the mound, which a
+    // 0.3° lens 385 ft out needs to keep the glove's leather off his fingers. Through `open` ([from, to])
+    // it widens to the centre-field camera's own framing, held on where his hands were as it starts,
+    // so his arm comes back through the picture with the ball in his fingers facing it, and at `to` it's
+    // the `cf` shot, which the director cuts to there
+    const eye = s.eye || base.eye, o = s.open, k = o ? smoother((t - o[0]) / (o[1] - o[0])) : 0;
+    const hands = (o ? s.track(Math.min(t, o[0])) : q) || base.at, far = Math.hypot(hands[0] - eye[0], hands[1] - eye[1], hands[2] - eye[2]);
+    const tight = (2 * Math.atan((s.frame || 2.2) / 2 / far)) / DEG;
+    if (!(k > 0)) return { eye, at: hands, fov: tight, near: Math.max(1, far - 40), dof: base.dof, shadow: [[hands[0], 0, hands[2]], 8] };
+    // the aim goes over to centre field's as the lens opens, not as the time goes: half way through the
+    // time the lens is a third open, and an aim half way to the plate had his hands out of the frame
+    // and it leans after the ball as his arm takes it back, most of the way, so the tell's in the
+    // middle of the picture and not at its foot
+    const W = SHOTS.cf, fov = tight * Math.pow(W.fov / tight, k), w = (fov - tight) / (W.fov - tight);
+    const b = typeof s.ball === 'function' ? s.ball(t) : null, from = Array.isArray(b) && b.every(Number.isFinite) ? hands.map((v, i) => v + (b[i] - v) * GRIP_LEAN) : hands;
+    const at = [0, 1, 2].map((i) => from[i] + (W.at[i] - from[i]) * w), [wc, wr] = W.shadow;
+    const sc = [hands[0] + (wc[0] - hands[0]) * k, 0, hands[2] + (wc[2] - hands[2]) * k];
+    return { eye, at, fov, near: Math.max(1, far - 40) + (40 - Math.max(1, far - 40)) * k, dof: base.dof, shadow: [sc, 8 + (wr - 8) * k] };
   }
   if (s.shot === 'crew') {
     const eye = s.eye || base.eye, at = q || base.at, far = Math.hypot(at[0] - eye[0], at[1] - eye[1], at[2] - eye[2]);
@@ -257,41 +285,14 @@ export function axes(shot) {
   return { r, u, f };
 }
 
-// The matrices are plain arrays of doubles, column-major. WebGL rounds them to floats on
-// upload; kept as doubles here, the gate can hold them to the pinhole exactly.
-export function perspective(fov, aspect, near, far) {
-  const t = 1 / Math.tan(fov * DEG / 2), nf = 1 / (near - far);
-  return [t / aspect, 0, 0, 0, 0, t, 0, 0, 0, 0, (far + near) * nf, -1, 0, 0, 2 * far * near * nf, 0];
-}
-export function lookAt(e, c) {
-  const { r: x, u: y, f } = axes({ eye: e, at: c }), z = [-f[0], -f[1], -f[2]];
-  return [x[0], y[0], z[0], 0, x[1], y[1], z[1], 0, x[2], y[2], z[2], 0, -dot(x, e), -dot(y, e), -dot(z, e), 1];
-}
-export function mul4(a, b) {
-  const o = new Array(16);
-  for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) {
-    let s = 0;
-    for (let k = 0; k < 4; k++) s += a[k * 4 + j] * b[i * 4 + k];
-    o[i * 4 + j] = s;
-  }
-  return o;
-}
-export function inv4(a) {
-  const o = new Array(16);
-  const b00 = a[0] * a[5] - a[1] * a[4], b01 = a[0] * a[6] - a[2] * a[4], b02 = a[0] * a[7] - a[3] * a[4], b03 = a[1] * a[6] - a[2] * a[5];
-  const b04 = a[1] * a[7] - a[3] * a[5], b05 = a[2] * a[7] - a[3] * a[6], b06 = a[8] * a[13] - a[9] * a[12], b07 = a[8] * a[14] - a[10] * a[12];
-  const b08 = a[8] * a[15] - a[11] * a[12], b09 = a[9] * a[14] - a[10] * a[13], b10 = a[9] * a[15] - a[11] * a[13], b11 = a[10] * a[15] - a[11] * a[14];
-  const det = 1 / (b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06);
-  o[0] = (a[5] * b11 - a[6] * b10 + a[7] * b09) * det; o[1] = (a[2] * b10 - a[1] * b11 - a[3] * b09) * det;
-  o[2] = (a[13] * b05 - a[14] * b04 + a[15] * b03) * det; o[3] = (a[10] * b04 - a[9] * b05 - a[11] * b03) * det;
-  o[4] = (a[6] * b08 - a[4] * b11 - a[7] * b07) * det; o[5] = (a[0] * b11 - a[2] * b08 + a[3] * b07) * det;
-  o[6] = (a[14] * b02 - a[12] * b05 - a[15] * b01) * det; o[7] = (a[8] * b05 - a[10] * b02 + a[11] * b01) * det;
-  o[8] = (a[4] * b10 - a[5] * b08 + a[7] * b06) * det; o[9] = (a[1] * b08 - a[0] * b10 - a[3] * b06) * det;
-  o[10] = (a[12] * b04 - a[13] * b02 + a[15] * b00) * det; o[11] = (a[9] * b02 - a[8] * b04 - a[11] * b00) * det;
-  o[12] = (a[5] * b07 - a[4] * b09 - a[6] * b06) * det; o[13] = (a[0] * b09 - a[1] * b07 + a[2] * b06) * det;
-  o[14] = (a[13] * b01 - a[12] * b03 - a[14] * b00) * det; o[15] = (a[8] * b03 - a[9] * b01 + a[10] * b00) * det;
-  return o;
-}
+// The matrices are plain arrays of doubles, column-major, from gl/core/mat4.js (bit for bit the
+// sums this file used to carry; scripts/shapes/core-mat4.mjs holds that). WebGL rounds them to
+// floats on upload; kept as doubles here, the gate can hold them to the pinhole exactly.
+export const perspective = (fov, aspect, near, far) => corePerspective(fov * DEG, aspect, near, far);
+export const lookAt = (e, c) => coreLookAt(e, c);
+export const mul4 = (a, b) => multiply(a, b);
+// A singular matrix gives NaNs, as the old copy's 1/0 did, never null.
+export const inv4 = (a) => invert(a) || new Array(16).fill(NaN);
 
 // The GL matrices for a shot on a screen of this aspect.
 export function shotMatrices(s, aspect) {

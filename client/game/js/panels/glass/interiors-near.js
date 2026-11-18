@@ -57,6 +57,42 @@ export function interiorsFrame(picks, ox, oy) {
     // `tile` ties a room to its building's street door (gl/interiors.js drawPortals); `still` is the picture its
     // walls are painted with seen through that door (lobby-still.js), once there is one
     return { key: room.key + (lod ? '#box' : '#mesh'), M, lod, lamp: room.lamp || null, parts: () => room.parts(lod),
-      tile: room.gx + ',' + room.gy, still: room.still ? room.still() : null };
+      tile: room.gx + ',' + room.gy, still: room.still ? room.still() : null,
+      // its panes about the window's centre, for windshield.js panePortals
+      panes: room.panes && room.panes.length ? room.panes.map((q) => ({ quad: q.quad.map((p) => [p[0] + room.gx - ox, p[1] + room.gy - oy, p[2]]),
+        c: [q.c[0] + room.gx - ox, q.c[1] + room.gy - oy, q.c[2]], n: q.n })) : null };
   });
+}
+
+// ── THE WINDOWS IN THE SHELL (step 2) ──────────────────────────────────────────────────────────────────────────────
+// A room's own panes (its spec's `windows`, or the old single `window` on the front wall) as quads about its building's
+// tile centre, in tiles, each with the way into the room. From the street the model is solid, so gl/interiors.js
+// drawPortals fills each pane from the room drawn behind it, as it does a street door. Rooms fit their model
+// (docs/reference/building-styles.md), so a room's panes are where the model's windows are.
+// Returns [{ quad: [4 points, top left first], c: [x, y, z], n: [x, y] }], `n` the unit step into the room.
+export function roomPanes(spec, L, M) {
+  if (!spec || spec.windowless) return [];
+  const list = Array.isArray(spec.windows) && spec.windows.length ? spec.windows
+    : Array.isArray(spec.window) ? [{ wall: 'front', a: spec.window[0], b: spec.window[1], y0: spec.window[2], y1: spec.window[3] }] : [];
+  const hu = L.w / 2, D = L.d, out = [];
+  const at = (u, v, y) => {
+    const p = L.world(u, v, y);
+    return [M[0] * p[0] + M[4] * p[1] + M[8] * p[2] + M[12], M[1] * p[0] + M[5] * p[1] + M[9] * p[2] + M[13], M[2] * p[0] + M[6] * p[1] + M[10] * p[2] + M[14]];
+  };
+  for (const q of list) {
+    const a = Math.min(+q.a, +q.b), b = Math.max(+q.a, +q.b);
+    if (!(b - a > 0.05)) continue;
+    const y0 = Number.isFinite(+q.y0) ? +q.y0 : 0.9, y1 = Number.isFinite(+q.y1) ? Math.min(+q.y1, L.h) : Math.min(2.1, L.h);
+    if (!(y1 - y0 > 0.05)) continue;
+    // each wall as (u, v) along it from `a` to `b`, and the step into the room
+    const wall = q.wall || 'front';
+    const uv = wall === 'back' ? (s) => [s, D] : wall === 'left' ? (s) => [-hu, s] : wall === 'right' ? (s) => [hu, s] : (s) => [s, 0];
+    const inn = wall === 'back' ? [0, -1] : wall === 'left' ? [1, 0] : wall === 'right' ? [-1, 0] : [0, 1];
+    const [ua, va] = uv(a), [ub, vb] = uv(b);
+    const quad = [at(ua, va, y1), at(ub, vb, y1), at(ub, vb, y0), at(ua, va, y0)];
+    const c = at((ua + ub) / 2, (va + vb) / 2, (y0 + y1) / 2), i = at((ua + ub) / 2 + inn[0], (va + vb) / 2 + inn[1], (y0 + y1) / 2);
+    const nx = i[0] - c[0], ny = i[1] - c[1], l = Math.hypot(nx, ny) || 1;
+    out.push({ quad, c, n: [nx / l, ny / l] });
+  }
+  return out;
 }

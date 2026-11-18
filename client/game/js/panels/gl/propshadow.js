@@ -94,7 +94,8 @@ export function bindPropShadow(gl, loc, unit, P) {
 // The box, in the map window's frame: the ground in front of the eye. `eye` is eyePos of the
 // shifted camera; `fwd` the ground direction it looks along.
 export function propBox(eye, fwd, T = PROP_SHADOW_TUNE) {
-  const h = Math.min(T.far, T.near + Math.max(0, eye[2] || 0) * T.perEye);
+  // In whole tiles, so the box keeps its size (and its texels their size) while the eye bobs.
+  const h = Math.ceil(Math.min(T.far, T.near + Math.max(0, eye[2] || 0) * T.perEye));
   const cx = eye[0] + fwd[0] * h * T.ahead, cy = eye[1] + fwd[1] * h * T.ahead;
   return { x0: cx - h, x1: cx + h, y0: cy - h, y1: cy + h, z0: -0.02, z1: T.top };
 }
@@ -437,7 +438,10 @@ export function createPropShadowLayer(gl, size = PROP_SHADOW_SIZE) {
   // Leaves the default framebuffer bound; the caller sets its own viewport after, as after sunPass.
   function render(sun, eye, fwd, casters) {
     const box = propBox(eye, fwd);
-    const vp = lightMatrix(sun, box);
+    // ⚠ SNAPPED TO THE MAP'S TEXELS (lightMatrix's `texels`). This box follows the eye every frame,
+    // and unsnapped it slid a fraction of a texel each time: every shadow in it, a street-kit bridge's
+    // roof on its own floor most of all, flashed as you moved.
+    const vp = lightMatrix(sun, box, dim);
     // The light's travel direction is the matrix's third row, normalised (see lightMatrix).
     const tl = Math.hypot(vp[2], vp[6], vp[10]) || 1;
     const travel = [vp[2] / tl, vp[6] / tl, vp[10] / tl];

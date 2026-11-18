@@ -1,0 +1,77 @@
+<!doctype html><meta charset="utf-8"><title>cloud lab</title>
+<style>body{background:#222;color:#ccc;font:12px sans-serif;margin:8px}canvas{display:block}td{padding:2px;vertical-align:top}</style>
+<table id="t"></table><pre id="log"></pre>
+<script type="module">
+import { createCloudVolume } from '/client/game/js/panels/gl/cloudvol.js';
+const log = (s) => (document.getElementById('log').textContent += s + '\n');
+window.onerror = (m) => log('ERR ' + m);
+const W = 300, H = 185;
+function persp(fov, a, n, f) { const t = 1 / Math.tan(fov / 2); return [t / a,0,0,0, 0,t,0,0, 0,0,(f+n)/(n-f),-1, 0,0,2*f*n/(n-f),0]; }
+function look(eye, at, up) {
+  const sub=(a,b)=>a.map((v,i)=>v-b[i]), nrm=(a)=>{const l=Math.hypot(...a);return a.map(v=>v/l);}, cr=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]], dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+  const z = nrm(sub(eye, at)), x = nrm(cr(up, z)), y = cr(z, x);
+  return [x[0],y[0],z[0],0, x[1],y[1],z[1],0, x[2],y[2],z[2],0, -dot(x,eye),-dot(y,eye),-dot(z,eye),1];
+}
+const mul = (a, b) => { const o = new Array(16); for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) { let v = 0; for (let k = 0; k < 4; k++) v += a[k*4+r]*b[c*4+k]; o[c*4+r] = v; } return o; };
+// Looking north (+y... use -y as "ahead") with a little pitch up at a deck 8..13 units high.
+const vp = mul(persp(1.1, W / H, 0.1, 200), look([0, 0, 1.5], [0, -20, 7], [0, 0, 1]));
+const cells = [
+  { x: -6, y: -14, r: 5, i: 0.9, storm: false }, { x: 5, y: -18, r: 6, i: 0.85, storm: false },
+  { x: 0, y: -28, r: 7, i: 0.8, storm: false }, { x: 14, y: -26, r: 6, i: 0.9, storm: true },
+  { x: -14, y: -30, r: 6, i: 0.75, storm: false },
+];
+const sunAt = (az, el) => { const h = Math.sqrt(1 - el * el); return [Math.sin(az) * h, -Math.cos(az) * h, el]; };
+const day = { base: [0.62, 0.64, 0.70], lit: [0.97, 0.93, 0.86] };
+const dusk = { base: [0.22, 0.21, 0.27], lit: [0.42, 0.38, 0.40] };
+// [row label, [[panel label, sky clear colour, vol fields, draw opts], ...]]
+const rows = [
+  ['phase 0, 1 octave (view-blind)', [['ahead (into sun)', 0.25], ['side', Math.PI / 2], ['behind', Math.PI]].map(([n, az]) =>
+    [n, [0.42, 0.58, 0.80], { sun: sunAt(az, 0.18) }, { ...day, phase: 0, ms: 1 }])],
+  ['phase 0.6, 3 octaves (defaults)', [['ahead (into sun)', 0.25], ['side', Math.PI / 2], ['behind', Math.PI]].map(([n, az]) =>
+    [n, [0.42, 0.58, 0.80], { sun: sunAt(az, 0.18) }, { ...day }])],
+  ['sunset, looking toward the sun', [
+    ['before: sun held at the horizon', [0.36, 0.30, 0.40], { sun: sunAt(0.25, 0.05), sunStr: 0.55 }, { ...dusk }],
+    ['after: sun 3° under the deck', [0.36, 0.30, 0.40], { sun: sunAt(0.25, -0.06), sunStr: 0.95 }, { ...dusk, sunCol: [1.0, 0.55, 0.36] }],
+    ['after: sun 7° under, last light', [0.30, 0.25, 0.34], { sun: sunAt(0.25, -0.13), sunStr: 0.95 }, { ...dusk, sunCol: [1.0, 0.38, 0.25] }]]],
+  ['sun shafts, low sun ahead, hazy', [
+    ['shafts off', [0.74, 0.76, 0.80], { sun: sunAt(0.15, 0.2) }, { ...day }],
+    ['shafts on', [0.74, 0.76, 0.80], { sun: sunAt(0.15, 0.2), shaft: 1, air: 0.03 }, { ...day }],
+    ['shafts on, sun to the side', [0.74, 0.76, 0.80], { sun: sunAt(Math.PI / 2, 0.2), shaft: 1, air: 0.03 }, { ...day }]]],
+];
+// The genera (gl/cloudvol.js cb/heap/rain channels and vol.upper), each over its own field of cells.
+const field = (g, i = 0.85, rk = 1) => [[-8, -14, 6], [6, -18, 7], [0, -30, 8], [15, -27, 7], [-16, -30, 7], [-4, -44, 9], [14, -42, 8]]
+  .map(([x, y, r], k) => ({ x, y, r: r * rk, i: i - 0.05 * (k % 3), storm: !!g.cb, ...g }));
+const up = (c, cs, a, as) => [c, cs, a, as];
+const sky = [0.42, 0.58, 0.80], grey = [0.55, 0.57, 0.60];
+const side = sunAt(Math.PI / 2, 0.35);
+rows.push(
+  ['genera: the low deck', [
+    ['cumulus (heap 1)', sky, { cells: field({ heap: 1, rain: 0, cb: 0 }, 0.7), upper: up(0.3, 0, 0, 0), sun: side }, { ...day }],
+    ['stratocumulus (heap 0.5)', sky, { cells: field({ heap: 0.5, rain: 0, cb: 0 }), cum: 0.5, upper: up(0.2, 0, 0.4, 0.2), sun: side }, { ...day }],
+    ['stratus (heap 0)', grey, { cells: field({ heap: 0, rain: 0, cb: 0 }, 0.95, 1.8), cum: 0.1, upper: up(0, 0, 0, 0), sun: side }, { ...day }]]],
+  ['genera: the weather', [
+    ['nimbostratus (rain)', grey, { cells: field({ heap: 0.1, rain: 1, cb: 0 }, 0.95, 1.8), cum: 0.2, upper: up(0, 0.2, 0.2, 1), sun: side }, { ...day, stormBase: [0.3, 0.32, 0.36], stormLit: [0.55, 0.56, 0.6] }],
+    ['cumulonimbus', sky, { cells: [{ x: 0, y: -30, r: 9, i: 1, storm: true, cb: 1, heap: 1, rain: 1 }], top: 20, far: 56, wind: [0.02, 0], upper: up(0.05, 0, 0.2, 0), sun: side }, { ...day, stormBase: [0.22, 0.24, 0.3], stormLit: [0.9, 0.9, 0.92] }],
+    ['cumulonimbus, a strike inside', [0.12, 0.13, 0.18], { cells: [{ x: 0, y: -30, r: 9, i: 1, storm: true, cb: 1, heap: 1, rain: 1 }], top: 20, far: 56, wind: [0.02, 0], upper: up(0, 0, 0, 0), sun: side, sunStr: 0.15, flashes: [[2, -28, 1.4]] }, { ...dusk, stormBase: [0.1, 0.1, 0.14], stormLit: [0.3, 0.3, 0.35] }]]],
+  ['genera: the upper decks', [
+    ['cirrus', sky, { cells: [{ x: 0, y: -30, r: 3, i: 0.05 }], upper: up(0.6, 0, 0, 0), sun: side }, { ...day }],
+    ['altocumulus', sky, { cells: [{ x: 0, y: -30, r: 3, i: 0.05 }], upper: up(0.1, 0, 0.7, 0), sun: side }, { ...day }],
+    ['cirrostratus, the 22° halo', [0.6, 0.66, 0.78], { cells: [{ x: 0, y: -30, r: 3, i: 0.05 }], upper: up(0.1, 0.9, 0, 0.1), sun: sunAt(0.0, 0.62) }, { ...day }]]],
+);
+const tbl = document.getElementById('t');
+for (const [ln, panels] of rows) {
+  const tr = tbl.insertRow(); tr.insertCell().textContent = ln;
+  for (const [cn, clear, vf, lo] of panels) {
+    const td = tr.insertCell(); const cv = document.createElement('canvas'); cv.width = W; cv.height = H; td.append(cn, cv);
+    const gl = cv.getContext('webgl2', { preserveDrawingBuffer: true });
+    try {
+      const v = createCloudVolume(gl);
+      gl.clearColor(clear[0], clear[1], clear[2], 1); gl.clearDepth(1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      const vol = { cells, base: 8, top: 14.5, cum: 0.8, ox: 0, oy: 0, far: 48, sunStr: 1, wind: [0, 0], ...vf };
+      v.draw(null, W, H, H, vol, { vp, over: true, fb: null, linOut: 0, now: 0, res: 0.5, steps: 64, temporal: 0, ...lo });
+      const e = gl.getError(); if (e) log(ln + ' ' + cn + ' glError ' + e);
+    } catch (e) { log(ln + ' ' + cn + ' threw ' + e.message); }
+  }
+}
+log('done');
+</script>

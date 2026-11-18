@@ -1,0 +1,43 @@
+{
+  "description": "A television on a bracket high on the brick, angled down at the people walking past. It shows the field from the press box.",
+  "flags": {
+    "aliases": [
+      "tv",
+      "television",
+      "set",
+      "screen"
+    ],
+    "broadcast_device_type": "tv",
+    "broadcast_receiver": true,
+    "channel_default": 7,
+    "interactions": [
+      "watch"
+    ],
+    "look": {
+      "arche": "screen",
+      "form": "flat"
+    },
+    "spot": {
+      "at": [
+        6,
+        9.93
+      ],
+      "turn": 0,
+      "y": 3
+    },
+    "tuned_channel": 7,
+    "tv": true,
+    "tv_dial_freq": 7,
+    "tv_public": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_hughson_tv_east",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the set by the rotunda",
+  "object_type": "tv",
+  "power_draw_kw": 0.1,
+  "price": 0,
+  "zone_id": "zone_hughson_concourse"
+}

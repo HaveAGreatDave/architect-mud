@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Font Specimens</title>
+<!-- Every face in client/shared/fonts, grouped by the setting it suits. docs/reference/fonts.md is
+     the catalogue; this page only shows them. Serve the repo root and open
+     /tools/sandbox/font-specimen.html (the fonts are fetched from ../../client/shared/fonts/). -->
+<style>
+:root {
+  --bg: #121216; --panel: #1b1b21; --line: #2c2c35; --text: #e9e7e2; --muted: #8d8b93;
+  --accent: #ff9d2e; --new: #43d18b; --chip: #2a2a33;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.4 system-ui, sans-serif; }
+header { position: sticky; top: 0; z-index: 2; background: rgba(18,18,22,.94); backdrop-filter: blur(6px);
+  border-bottom: 1px solid var(--line); padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; }
+header h1 { margin: 0; font-size: 16px; letter-spacing: .02em; }
+header label { display: flex; gap: 6px; align-items: center; color: var(--muted); }
+header input[type=text] { width: 220px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font: inherit; }
+header select { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 5px 6px; font: inherit; }
+nav { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 16px 0; }
+nav a { color: var(--muted); text-decoration: none; background: var(--chip); padding: 3px 9px; border-radius: 99px; font-size: 12px; }
+nav a:hover { color: var(--text); }
+main { padding: 4px 16px 40px; max-width: 1400px; margin: 0 auto; }
+section h2 { margin: 26px 0 4px; font-size: 18px; color: var(--accent); }
+section p.note { margin: 0 0 10px; color: var(--muted); max-width: 80ch; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); gap: 10px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.sample { min-height: 110px; padding: 18px 16px; display: flex; align-items: center; overflow: hidden;
+  white-space: nowrap; line-height: 1.15; }
+.meta { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; padding: 8px 12px; border-top: 1px solid var(--line); font-size: 12px; }
+.meta b { font-weight: 600; }
+.meta code { color: var(--muted); }
+.chip { background: var(--chip); padding: 1px 7px; border-radius: 99px; color: var(--muted); }
+.chip.new { color: var(--new); }
+.star { color: var(--accent); }
+.use { width: 100%; color: var(--muted); }
+.fail { color: #f66; }
+
+/* Grounds */
+.g-plain .sample { background: #0d0d10; color: var(--text); }
+.g-paper .sample { background: #efe9dc; color: #1c1a17; }
+.g-wall .sample {
+  background-color: #3b2f2a;
+  background-image: repeating-linear-gradient(0deg, rgba(0,0,0,.35) 0 2px, transparent 2px 26px),
+    repeating-linear-gradient(90deg, rgba(0,0,0,.25) 0 2px, transparent 2px 60px);
+  color: var(--ink); text-shadow: 2px 2px 0 rgba(0,0,0,.55);
+}
+.g-night .sample { background: #07070b; color: var(--ink); text-shadow: 0 0 4px var(--ink), 0 0 18px var(--ink); }
+.g-plate .sample {
+  background: linear-gradient(180deg, #8e9499, #6c7378); color: var(--plate-ink, #1d2023);
+}
+@media (max-width: 600px) { header input[type=text] { width: 100%; } }
+</style>
+</head>
+<body class="g-wall">
+<header>
+  <h1>Font Specimens</h1>
+  <label>Text <input id="text" type="text" placeholder="each group's own sample"></label>
+  <label>Size <input id="size" type="range" min="18" max="110" value="40"></label>
+  <label>Ground <select id="ground">
+    <option value="wall">Wall</option><option value="night">Night (lit)</option>
+    <option value="plain">Plain dark</option><option value="paper">Paper</option><option value="plate">Steel plate</option>
+  </select></label>
+  <label><input id="newOnly" type="checkbox"> New only</label>
+</header>
+<nav id="nav"></nav>
+<main id="main"></main>
+<script>
+const FONT_DIR = '../../client/shared/fonts/';
+
+// One row per face: [family, file, licence, use, opts]. opts: star, old (was here before
+// 2026-11-15), sample (overrides the group's), weight.
+const GROUPS = [
+  { id: 'graffiti', title: 'Graffiti', ink: '#ff4f9a', sample: 'KRUSH 77 dead end crew',
+    note: 'Self-hosted replacements for the tag hands, which fall back to Windows system fonts today.',
+    faces: [
+      ['Sedgwick Ave Display', 'sedgwick-ave-display.woff2', 'OFL', 'The tag: a New York handstyle.', { star: 1 }],
+      ['Sedgwick Ave', 'sedgwick-ave.woff2', 'OFL', 'Same hand, lighter: the scrawls round a piece.'],
+      ['Rubik Spray Paint', 'rubik-spray-paint.woff2', 'OFL', 'Heavy letter with overspray: a throw-up fill.'],
+      ['Rubik Wet Paint', 'rubik-wet-paint.woff2', 'OFL', 'Drips off every letter.'],
+      ['Rubik Bubbles', 'rubik-bubbles.woff2', 'OFL', 'Bubble letters.'],
+      ['Knewave', 'knewave.woff2', 'OFL', 'Fat slanted brush.'],
+      ['Rock Salt', 'rock-salt.woff2', 'Apache', 'Scratchy marker capitals.'],
+      ['Lacquer', 'lacquer.woff2', 'OFL', 'Wobbly painted capitals.'],
+      ['Drybrush', 'drybrush.ttf', 'CC0', 'Dry brush or roller, streaks showing.'],
+      ['Rainbow 2000', 'rainbow-2000.woff2', 'CC0', 'Hand-written marker capitals.'],
+      ['Permanent Marker', 'permanent-marker.woff2', 'Apache', 'Marker.', { old: 1 }],
+      ['UnifrakturMaguntia', 'unifraktur-maguntia.woff2', 'OFL', 'The gothic placa. Never on a sign.', { old: 1 }],
+    ] },
+  { id: 'blood', title: 'Blood: the Wildblood', ink: '#b3121c', sample: 'TURN BACK the Under was ours',
+    note: 'Their own ground carries no lettering. These are for marks made elsewhere: a warning on the approach, a word in the Under, their tablet screens. Nosifer and Creepster read as costume past a word or two.',
+    faces: [
+      ['Splash', 'splash.woff2', 'OFL', 'Fast rough brush, as if with a rag or a finger.', { star: 1 }],
+      ['Finger Paint', 'finger-paint.woff2', 'OFL', 'Daubed with a fingertip.'],
+      ['Scabber', 'scabber.woff2', 'CC0', 'Ragged edges with crusted blobs.'],
+      ['Nosifer', 'nosifer.woff2', 'OFL', 'Heavy capitals dripping from the top bar.'],
+      ['Creepster', 'creepster.woff2', 'OFL', 'Condensed drip capitals.'],
+      ['Eater', 'eater.woff2', 'OFL', 'Torn, gnawed capitals.'],
+      ['Rubik Beastly', 'rubik-beastly.woff2', 'OFL', 'Furred: hide rather than blood.'],
+    ] },
+  { id: 'deco', title: 'Art deco', ink: '#e2bf6e', sample: 'THE MERIDIAN Palais 1931',
+    note: 'The Meridian, the Palais, the Coliseum bowl, anything built in the 1930s.',
+    faces: [
+      ['Poiret One', 'poiret-one.woff2', 'OFL', 'Light geometric capitals cut over an entrance.', { star: 1 }],
+      ['Monoton', 'monoton.woff2', 'OFL', 'Five lines per stroke: a cinema marquee.'],
+      ['Federo', 'federo.woff2', 'OFL', 'High-waisted deco sans.'],
+      ['Fascinate Inline', 'fascinate-inline.woff2', 'OFL', 'Fat showcard deco with an inline.'],
+      ['Plaster', 'plaster.woff2', 'OFL', 'Wide flat-topped deco.'],
+      ['Big Shoulders Inline Display', 'big-shoulders-inline-display.woff2', 'OFL', 'Chicago condensed with an inline. Variable.', { weight: 700 }],
+      ['Vast Shadow', 'vast-shadow.woff2', 'OFL', 'Slab with its own drop shadow.'],
+      ['Righteous', 'righteous.woff2', 'OFL', 'Streamline moderne.'],
+      ['Novem', 'novem.woff2', 'CC0', 'Thin geometric capitals, diamond joints.'],
+      ['Limelight', 'limelight.woff2', 'OFL', 'deco', { old: 1 }],
+      ['Italiana', 'italiana.ttf', 'OFL', 'couture', { old: 1 }],
+      ['Playfair Display SC', 'playfair-display-sc.woff2', 'OFL', 'estate', { old: 1, weight: 700 }],
+      ['Bungee Inline', 'bungee-inline.woff2', 'OFL', 'Inline block.', { old: 1 }],
+    ] },
+  { id: 'cyber', title: 'Cyberpunk', ink: '#33e6ff', sample: 'NEURAL BAR 24H open',
+    note: 'Neon bars, chrome clinics, data brokers, screens and street hardware.',
+    faces: [
+      ['Tektur', 'tektur.woff2', 'OFL', 'Clipped corners: the default techno sign.', { star: 1 }],
+      ['Oxanium', 'oxanium.woff2', 'OFL', 'Squared and tidy.'],
+      ['Chakra Petch', 'chakra-petch.woff2', 'OFL', 'Angled terminals, hand-cut.'],
+      ['Rubik Glitch', 'rubik-glitch.woff2', 'OFL', 'Sliced and offset.'],
+      ['Tilt Neon', 'tilt-neon.woff2', 'OFL', 'A neon tube alphabet.'],
+      ['Doto', 'doto.woff2', 'OFL', 'Round-dot matrix. Variable.', { weight: 700 }],
+      ['Sixtyfour', 'sixtyfour.woff2', 'OFL', 'Pixel capitals with scan lines.'],
+      ['VT323', 'vt323.woff2', 'OFL', 'Green-screen terminal.'],
+      ['Share Tech Mono', 'share-tech-mono.woff2', 'OFL', 'Technical mono readouts.'],
+      ['Digit Tech 7', 'digit-tech-7.woff2', 'CC0', 'Seven-segment: a clock, a meter.', { sample: '12:47 088.5' }],
+      ['Digit Tech 14', 'digit-tech-14.woff2', 'CC0', 'Fourteen-segment: spells words.', { sample: 'OUT OF ORDER 04' }],
+      ['MatrixType Display', 'matrixtype-display.woff2', 'CC0', 'Square-dot matrix: a destination board.'],
+      ['Home Video', 'home-video.woff2', 'CC0', 'VCR on-screen lettering.', { sample: 'PLAY 00:14:07 SP' }],
+      ['Audiowide', 'audiowide.woff2', 'OFL', 'techno', { old: 1 }],
+      ['Orbitron', 'orbitron.woff2', 'OFL', 'Geometric sci-fi.', { old: 1 }],
+      ['Bungee', 'bungee.woff2', 'OFL', 'block', { old: 1 }],
+    ] },
+  { id: 'clinical', title: 'Clinical: the Ascendants', ink: '#e6f2f7', sample: 'ASCENSION CLINIC WARD 4',
+    note: 'The Glasshouse and Halcyon Fields: wide, thin, exact, capitals tracked out.',
+    faces: [
+      ['Michroma', 'michroma.woff2', 'OFL', 'Wide square grotesque.', { star: 1 }],
+      ['Syncopate', 'syncopate.woff2', 'Apache', 'Wide geometric capitals.'],
+      ['Gruppo', 'gruppo.woff2', 'OFL', 'Hairline and wide.'],
+      ['Lexend Zetta', 'lexend-zetta.woff2', 'OFL', 'Plain sans set very wide. Variable.'],
+      ['Jura', 'jura.woff2', 'OFL', 'Light technical sans.'],
+      ['Geist', 'geist.woff2', 'OFL', 'Neutral sans for plaques. Variable.'],
+      ['Geist Mono', 'geist-mono.woff2', 'OFL', 'Ward codes and dosage labels. Variable.', { sample: 'RX-0417 10 mg' }],
+      ['AVA', 'ava.woff2', 'CC0', 'Thin, odd sci-fi capitals. One word at a time.'],
+    ] },
+  { id: 'stencil', title: 'Stencil and the works: the Null', ink: '#f2d43a', sample: 'HATCH 14 KEEP SHUT',
+    note: 'Painted by hand on plate, square and legible. Try the steel plate ground.',
+    faces: [
+      ['Stardos Stencil', 'stardos-stencil.woff2', 'OFL', 'Stencilled serif.', { star: 1 }],
+      ['Allerta Stencil', 'allerta-stencil.woff2', 'OFL', 'Stencilled sans.'],
+      ['Big Shoulders Stencil Display', 'big-shoulders-stencil-display.woff2', 'OFL', 'Tall condensed stencil. Variable.', { weight: 800 }],
+      ['Operation Napalm', 'operation-napalm.woff2', 'CC0', 'Military stencil capitals.'],
+      ['Special Elite', 'special-elite.woff2', 'Apache', 'Worn typewriter.', { sample: 'Serviced 4 Mar. Spring OK.' }],
+      ['Courier Prime', 'courier-prime.woff2', 'OFL', 'Clean typewriter.', { sample: 'Part 117-B torque 40 Nm' }],
+      ['Black Ops One', 'black-ops-one.woff2', 'OFL', 'stencil', { old: 1 }],
+      ['Saira Stencil One', 'saira-stencil-one.woff2', 'OFL', 'stencil alternate', { old: 1 }],
+    ] },
+  { id: 'signage', title: 'General signage', ink: '#fff1d6', sample: 'BATTER DAYS Fish & Chips',
+    note: 'Shops, streets, civic buildings and posters across Coldwater and the Reach.',
+    faces: [
+      ['Overpass', 'overpass.woff2', 'OFL', 'Highway Gothic: street names, road signs. Variable.', { star: 1, sample: 'Ironside St  Exit 4', weight: 600 }],
+      ['B612', 'b612.woff2', 'OFL', 'Cockpit face: airfields, the HUD.', { sample: 'RWY 09  GATE B12' }],
+      ['Staatliches', 'staatliches.woff2', 'OFL', 'Condensed poster capitals.'],
+      ['Anton', 'anton.woff2', 'OFL', 'Heavy condensed.'],
+      ['League Gothic', 'league-gothic.woff2', 'OFL', 'Tall narrow gothic.'],
+      ['Bowlby One SC', 'bowlby-one-sc.woff2', 'OFL', 'Fat small capitals.'],
+      ['Ultra', 'ultra.woff2', 'Apache', 'Fat slab.'],
+      ['Abril Fatface', 'abril-fatface.woff2', 'OFL', 'Heavy didone.'],
+      ['Shrikhand', 'shrikhand.woff2', 'OFL', 'Fat italic with curls.'],
+      ['Barrio', 'barrio.woff2', 'OFL', 'Hand-painted shop lettering.'],
+      ['Holtwood One SC', 'holtwood-one-sc.woff2', 'OFL', 'Wide wood type.'],
+      ['Ewert', 'ewert.woff2', 'OFL', 'Ornamented wood type: a saloon.'],
+      ['Alfa Slab One', 'alfa-slab-one.woff2', 'OFL', 'slab', { old: 1 }],
+      ['Big Shoulders Display', 'big-shoulders-display.woff2', 'OFL', 'condensed', { old: 1, weight: 800 }],
+      ['Rye', 'rye.woff2', 'OFL', 'western', { old: 1 }],
+      ['Yellowtail', 'yellowtail.woff2', 'Apache', 'script', { old: 1 }],
+      ['Sacramento', 'sacramento.woff2', 'OFL', 'Thin script.', { old: 1 }],
+      ['Varela Round', 'varela-round.woff2', 'OFL', 'tube', { old: 1 }],
+    ] },
+  { id: 'exodus', title: 'The Exodus', ink: '#b07ad6', sample: 'TERMINUS',
+    note: 'No signage and no sigil. Only for the personal glyph and their tablet screens.',
+    faces: [
+      ['Hexcore', 'hexcore.woff2', 'CC0', 'Angular strokes, close to an invented script.'],
+      ['Major Mono Display', 'major-mono-display.woff2', 'OFL', 'Mixed letterforms, slightly wrong.'],
+    ] },
+];
+
+const $ = (id) => document.getElementById(id);
+const fam = (name) => 'spec ' + name;
+const main = $('main'), nav = $('nav');
+const samples = [];
+
+for (const g of GROUPS) {
+  const a = document.createElement('a'); a.href = '#' + g.id; a.textContent = g.title; nav.append(a);
+  const sec = document.createElement('section'); sec.id = g.id; sec.style.setProperty('--ink', g.ink);
+  sec.innerHTML = '<h2></h2><p class="note"></p><div class="grid"></div>';
+  sec.querySelector('h2').textContent = g.title;
+  sec.querySelector('.note').textContent = g.note;
+  const grid = sec.querySelector('.grid');
+  for (const [name, file, lic, use, o = {}] of g.faces) {
+    const card = document.createElement('div'); card.className = 'card'; if (o.old) card.dataset.old = '1';
+    const s = document.createElement('div'); s.className = 'sample';
+    s.style.fontFamily = `"${fam(name)}", var(--fallback, monospace)`;
+    if (o.weight) s.style.fontWeight = o.weight;
+    s.dataset.own = o.sample || g.sample; s.textContent = s.dataset.own;
+    const m = document.createElement('div'); m.className = 'meta';
+    m.innerHTML = `${o.star ? '<span class="star">★</span>' : ''}<b></b><span class="chip">${lic}</span>`
+      + `<span class="chip ${o.old ? '' : 'new'}">${o.old ? 'already here' : 'new'}</span><code></code><span class="use"></span>`;
+    m.querySelector('b').textContent = name; m.querySelector('code').textContent = file; m.querySelector('.use').textContent = use;
+    card.append(s, m); grid.append(card); samples.push(s);
+    new FontFace(fam(name), `url(${FONT_DIR}${file})`, o.weight ? { weight: '100 900' } : {}).load()
+      .then((f) => document.fonts.add(f))
+      .catch(() => { m.querySelector('b').classList.add('fail'); m.querySelector('b').textContent = name + ' (failed to load)'; });
+  }
+  main.append(sec);
+}
+
+const apply = () => {
+  const t = $('text').value.trim();
+  for (const s of samples) { s.textContent = t || s.dataset.own; s.style.fontSize = $('size').value + 'px'; }
+  document.body.className = 'g-' + $('ground').value;
+  document.querySelectorAll('.card[data-old]').forEach((c) => { c.style.display = $('newOnly').checked ? 'none' : ''; });
+};
+['text', 'size', 'ground', 'newOnly'].forEach((id) => $(id).addEventListener('input', apply));
+// ?ground=night&size=40&text=...&new=1 sets the controls, so a view can be linked.
+const qs = new URLSearchParams(location.search);
+if (qs.get('ground')) $('ground').value = qs.get('ground');
+if (qs.get('size')) $('size').value = qs.get('size');
+if (qs.get('text')) $('text').value = qs.get('text');
+if (qs.get('new')) $('newOnly').checked = true;
+apply();
+if (location.hash) document.querySelector(location.hash)?.scrollIntoView();
+</script>
+</body>
+</html>

@@ -1,0 +1,31 @@
+{
+  "description": "Pigeonholes up the wall, one for every section and a roll of tickets in each, colour by colour. The hole for section nine has a brick in it.",
+  "flags": {
+    "aliases": [
+      "rack",
+      "ticket rack",
+      "pigeonholes",
+      "rolls"
+    ],
+    "look": {
+      "arche": "prop",
+      "dims": [
+        2.4,
+        0.4,
+        2.3
+      ],
+      "form": "pigeonholes"
+    },
+    "spot": {
+      "at": [
+        0,
+        7.75
+      ],
+      "turn": 0
+    }
+  },
+  "id": "furn_hughson_tix_rack",
+  "name": "the ticket rack",
+  "object_type": "furniture",
+  "zone_id": "zone_hughson_tickets"
+}

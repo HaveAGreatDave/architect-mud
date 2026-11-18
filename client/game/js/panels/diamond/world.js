@@ -20,6 +20,7 @@ import { groundHeight, DEG } from './geo.js';
 import { CLIPS } from './clips.js';
 import { solvePose } from './rig.js';
 import { batRelease, launch, batAt } from './loose-bat.js';
+import { handsAt } from './hands.js';
 
 export const DT = 1 / 120;
 const smooth = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
@@ -91,7 +92,7 @@ export function createWorld() {
         if (b.clip !== mine.clip || b.start !== mine.start) return;
         const at = (t) => { const P = W.pose(slot, t, { look: false }); if (!P?.bat) return null; const J = solvePose(P).J; return J.batKnob ? { knob: J.batKnob, dir: J.batDir } : null; };
         const dt = 1 / 60, q0 = at(tr - 1e-3 - dt), q1 = at(tr - 1e-3);
-        if (q0 && q1) { W.bats.push({ t0: tr, T: launch(q0, q1, dt, o.toss) }); if (W.bats.length > 3) W.bats.shift(); }
+        if (q0 && q1) { W.bats.push({ t0: tr, T: launch(q0, q1, dt, o.toss), id: b.id }); if (W.bats.length > 3) W.bats.shift(); }
       });
     }
     return clip;
@@ -157,6 +158,13 @@ export function createWorld() {
       const w = weight(l, t), q = w > 0 ? targetOf(l, t) : null;
       if (q) P = lookAt(P, toLocal(F, q), w, b.scale);
     }
+    // hand shapes the director keys over the clip's (`hands`: { from, to, keys: [{ t, L?, R? }] } in world time, as a
+    // clip keys them, diamond/hands.js), for the hands its keys name, from `from` to `to`: the catcher's signs
+    const hl = b.layers.hands;
+    if (hl && t >= hl.from && t <= hl.to) {
+      const H = handsAt({ hands: hl.keys }, t, b.mirror), named = (S) => hl.keys.some((k) => S in k), side = (S) => (b.mirror ? (S === 'L' ? 'R' : 'L') : S);
+      P = { ...P, hands: { L: named(side('L')) ? H.L : P.hands?.L || [['', 1]], R: named(side('R')) ? H.R : P.hands?.R || [['', 1]] } };
+    }
     return { ...P, at: F.at, yaw: F.yaw, scale: b.scale };
   };
   // A clip's pose for a body at clip time `tau`, as he'd do it from where he stands, without
@@ -182,9 +190,10 @@ export function createWorld() {
   // throwing it (it's in a hand or out of the picture).
   W.setBall = (path) => { W.ball = path; };
   W.ballAt = (t = W.t) => (W.ball ? W.ball(t) : null);
-  // The bats let go of and lying about (diamond/loose-bat.js), each { knob, dir } at t; cleared when
+  // The bats let go of and lying about (diamond/loose-bat.js), each { knob, dir, id } at t, `id` the
+  // man who let it go, so it's drawn as his own bat (ballplayer-mesh.js batOf); cleared when
   // the next at-bat comes in.
-  W.batsAt = (t = W.t) => W.bats.filter((x) => t >= x.t0).map((x) => batAt(x.T, t - x.t0));
+  W.batsAt = (t = W.t) => W.bats.filter((x) => t >= x.t0).map((x) => ({ ...batAt(x.T, t - x.t0), id: x.id }));
   W.clearBats = () => { W.bats.length = 0; };
 
   W.step = (dt = DT) => {

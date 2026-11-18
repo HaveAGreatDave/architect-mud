@@ -21,13 +21,17 @@ import { unlockedLiveries, unlockKeysFor, liveriesFor, aircraftLiveryModel } fro
 import { getFlagsIn } from '../../server/engine/flags.js';
 import { fieldStocks } from './acquisition.js';
 import { indexAircraft, unindexAircraft } from './access.js';
+import { getZoneFurniture, addPlayerToZone, removePlayerFromZone, getMinimapData, getAllLivePlayers } from '../../server/engine/world.js';
+import { giveItemById } from '../../server/engine/inventory.js';
+import { sendToZone } from '../../server/engine/messaging.js';
+import { describeZone } from '../../server/engine/commands/describe.js';
 import { pilotStatusForField, charterParkedAt } from './charter.js';
 import { isPilotLicensed } from './checkride.js';
 import { prefersTextMinigamesOrDefault } from '../../server/engine/presentation.js';
-import { emit } from '../../server/engine/events.js';
+import { emit, on } from '../../server/engine/events.js';
 import { getZonePrecip } from '../../server/engine/environment.js';
 import { takeFreshVehicle } from '../../server/engine/fresh-vehicle.js';
-import { bayKindOf, noteStandHand } from '../../server/engine/vehicle-stand.js';
+import { bayKindOf, noteStandHand, registerStandKind, raiseStand, standTaken, standAt, standKindDef } from '../../server/engine/vehicle-stand.js';
 import { escapeHtml } from '../../server/engine/html.js';
 // `tune` also belongs to broadcast (tune a channel); flight wins it and hands
 // back when you're not tuning an aircraft. `repair` shadows the engine gear-repair
@@ -1373,7 +1377,268 @@ async function cmdFlushAirborne(args, raw, player) {
   };
 }
 
+// ── The sky garage: a terminal on a rooftop pad (`flags.sky_garage` on the furniture) that lifts a
+// resident's aircraft off the pad into a slot under the roof. Free: the field is already residents
+// only (`residents_only`), so the slot comes with the flat. `flags.sky_garage` is the slot count.
+// It is a hangar row of the player's own at the field, rent 0 and never due, so `hangar pull`, the
+// hangar bay and boarding all treat a parked craft exactly as they treat a rented bay's.
+// Only what fits the lift goes: the small VTOL classes.
+const GARAGE_FITS = new Set(['ultralight', 'heli']);
+function garageHere(player) {
+  for (const fu of getZoneFurniture(player.current_zone)) {
+    const n = fu.flags && fu.flags.sky_garage;
+    if (n) return { slots: Math.max(1, Number(n) || 4), name: fu.name || 'the garage terminal', flags: fu.flags };
+  }
+  return null;
+}
+async function cmdGarage(args, raw, player) {
+  const term = garageHere(player);
+  if (!term) return undefined;
+  // A public garage (`flags.public`) is the Stacked Deck: a carousel under the pad, a ticket for
+  // every craft, and terminals on every level and in the lobby, which name their field outright
+  // because fieldFor only knows the ramp and the pad.
+  if (term.flags.public) return publicGarage(args, player, term);
+  const field = fieldOf(player);
+  if (!field) return { type: 'emote', message: 'The terminal blinks NO PAD and goes back to sleep.' };
+  const sub = (args[0] || '').toLowerCase();
+  const want = args.slice(1).join(' ').toLowerCase();
+  const { rows: bays } = await query('SELECT id, owner_id FROM hangars WHERE field_zone=$1', [field.id]);
+  const mine = bays.find((b) => b.owner_id === player.id);
+  const { rows: inside } = bays.length
+    ? await query('SELECT a.id, a.name, a.hangar_id FROM aircraft a WHERE a.hangar_id = ANY($1)', [bays.map((b) => b.id)])
+    : { rows: [] };
+  const ours = mine ? inside.filter((a) => a.hangar_id === mine.id) : [];
+  const link = (c, t) => `<span class="action-link" data-action="cmd" data-cmd="${c}">${t}</span>`;
+  if (sub === 'store') {
+    // The lift won't take her with you in her: climb out on the pad first.
+    if (player.aircraftId) return { type: 'emote', message: 'The terminal is on a post by the pad, out of reach from the seat. <b>disembark</b> first.' };
+    const { rows } = await query('SELECT a.id, a.name, t.class FROM aircraft a JOIN aircraft_types t ON t.id=a.type_id WHERE a.parked_zone_id=$1 AND a.owner_id=$2 AND a.is_wreck=0 AND a.hangar_id IS NULL', [field.id, player.id]);
+    const pick = want ? rows.find((r) => r.id.includes(want) || (r.name || '').toLowerCase().includes(want)) : rows[0];
+    if (!pick) return { type: 'emote', message: 'Nothing of yours is on the pad to put away.' };
+    if (!GARAGE_FITS.has(pick.class)) return { type: 'emote', message: `The screen measures "${clean(pick.name)}" and says no: too big for the lift.` };
+    if (inside.length >= term.slots) return { type: 'emote', message: `All ${term.slots} slots under the pad are taken.` };
+    let bay = mine && mine.id;
+    if (!bay) {
+      bay = randomUUID();
+      await query('INSERT INTO hangars (id,field_zone,name,owner_id,rent_paid_until,rent_per_period) VALUES ($1,$2,$3,$4,$5,0)', [bay, field.id, 'Sky garage', player.id, 4102444800]);
+    }
+    const { rows: put } = await query('UPDATE aircraft SET hangar_id=$1 WHERE id=$2 AND hangar_id IS NULL RETURNING id', [bay, pick.id]);
+    if (!put[0]) return { type: 'emote', message: 'The lift won\'t take her right now.' };
+    unindexAircraft(pick.id);
+    return { type: 'emote', message: `You tap STORE. Klaxon, then the whole pad sinks into the roof with "${clean(pick.name)}" on it. A minute later it rises again, empty.` };
+  }
+  if (sub === 'pull') {
+    const pick = want ? ours.find((r) => r.id.includes(want) || (r.name || '').toLowerCase().includes(want)) : ours[0];
+    if (!pick) return { type: 'emote', message: 'You have nothing in the garage.' };
+    const { rows: busy } = await query('SELECT 1 FROM aircraft WHERE parked_zone_id=$1 AND hangar_id IS NULL AND is_wreck=0 LIMIT 1', [field.id]);
+    if (busy[0]) return { type: 'emote', message: 'The pad has to be clear before the lift will bring anything up.' };
+    const { rows: rolled } = await query('UPDATE aircraft SET hangar_id=NULL, parked_zone_id=$1 WHERE id=$2 RETURNING id, name, owner_id, rental, parked_zone_id, hangar_id, is_wreck, airborne, custom_data', [field.id, pick.id]);
+    if (rolled[0]) indexAircraft(rolled[0]);
+    return { type: 'emote', message: `The pad drops away and comes back up with "${clean(pick.name)}" on it, ready to fly.` };
+  }
+  const list = ours.length ? ours.map((a) => `· "${clean(a.name)}" ${link('garage pull ' + a.id.slice(0, 8), 'bring up')}`).join('\n') : '· (nothing of yours)';
+  return { type: 'output', message: `<span class="text-cyan">SKY GARAGE</span>: ${inside.length}/${term.slots} slots in use. Free to residents; small VTOLs only.\n${list}\n${link('garage store', 'store what\'s on the pad')}` };
+}
+
+// ── The Stacked Deck: free public VTOL parking with a carousel ──────────────────────────────────
+// `park` on the roof pad takes the craft down with you aboard; the carousel turns it into a slot
+// (three to a level), you climb out on that level and take a ticket. Any terminal in the building
+// takes the ticket back and brings the craft up to the pad. The garage row is the same rent-0
+// hangar row the sky garage uses, so boarding, `hangar pull` and the bay treat it alike; the slot
+// rides on the craft's custom_data.garage_slot.
+const SLOTS_PER_LEVEL = 3;
+// how long the carousel ride plays (panels/carousel-ride.js plays the same clock), and how long the cradle
+// takes to draw the craft into its slot once you're stood in the bay (the `sdeck` stand's move)
+let RIDE_MS = 11000;
+// regress shortens the ride so a check needn't wait it out
+export const _setRideMs = (ms) => { RIDE_MS = ms; };
+const CRADLE_MS = 4500;
+const cdOf = (r) => (typeof r.custom_data === 'string' ? (() => { try { return JSON.parse(r.custom_data); } catch { return {}; } })() : (r.custom_data || {}));
+const slotLevel = (f, slot) => (Array.isArray(f.levels) ? f.levels : [])[Math.floor((slot - 1) / SLOTS_PER_LEVEL)];
+const slotZoneOf = (f, slot) => (f.slot_prefix ? `${f.slot_prefix}${slot}` : null);
+const riding = new Map();   // player id -> until, while a ride is playing
+
+function moveTo(player, zoneId, others) {
+  const from = player.current_zone, dest = getZone(zoneId);
+  if (!dest || from === zoneId) return null;
+  removePlayerFromZone(player.id, from);
+  addPlayerToZone(player.id, zoneId);
+  player.current_zone = zoneId;
+  player.combatTargetId = null;
+  query('UPDATE players SET current_zone=$1 WHERE id=$2', [zoneId, player.id]).catch(() => {});
+  if (others) sendToZone(from, { type: 'zone_event', message: others, refresh: true }, player.id);
+  emit('zone.entered', { actor: player, zone: zoneId, from });
+  return dest;
+}
+
+// What the ride and the cradle draw: the card's own look descriptor (the `aircraft` stand's).
+function lookOf(row) {
+  return { cls: row.class, armed: row.class === 'heli' && (row.hardpoints || 0) > 0,
+    livery: normalizeLivery(cdOf(row), aircraftLiveryModel(row.class, row.hardpoints)) };
+}
+
+// Play the ride on this player's screen, and when it's over put them in `zoneId` (if they're still where they
+// started and still online). `after` runs once they're there. The move is sent as a move, so the Room Stage
+// opens on the new room the way it does for a step.
+function rideThen(player, msg, zoneId, narration, others, after) {
+  const startZone = player.current_zone;
+  riding.set(player.id, Date.now() + RIDE_MS);
+  sendToPlayer(player.id, { type: 'carousel_ride', ms: RIDE_MS, slotsPerLevel: SLOTS_PER_LEVEL, ...msg });
+  // everyone's street view: the pad on the roof goes down and comes back up on the same clock
+  // (client/game/js/panels/world-feed.js padLiftAt, the `liftPad` adornment)
+  if (Number.isFinite(msg.padX)) {
+    const push = { type: 'pad_lift', x: msg.padX, y: msg.padY, dir: msg.dir, ms: RIDE_MS };
+    for (const id of getAllLivePlayers().map((pl) => pl.id)) sendToPlayer(id, push);
+  }
+  setTimeout(async () => {
+    riding.delete(player.id);
+    const live = getLivePlayer(player.id);
+    if (!live || live.current_zone !== startZone) return;
+    const dest = moveTo(live, zoneId, others);
+    if (!dest) return;
+    try { after?.(live, dest); } catch { /* the cradle is a picture */ }
+    sendToPlayer(live.id, { type: 'move', message: await describeZone(dest, live), zone: dest.id, narration, minimap: getMinimapData(dest.id, 8, live) });
+  }, RIDE_MS).unref?.();
+}
+
+// The cradle in a slot bay is a vehicle stand (server/engine/vehicle-stand.js): your craft stands in it while it's
+// parked there, and climbing in is `garage pull`, which rides it back up to the roof.
+registerStandKind('sdeck', {
+  isBay: (zone) => !!zone?.flags?.sdeck_slot,
+  from: 'back', label: 'CRADLE', moveMs: CRADLE_MS,
+  board: (id) => `garage pull ${id}`,
+  busy: (player) => (player.aircraftId ? "You're aboard already." : null),
+  list: async (player, zone) => {
+    const slot = zone?.flags?.sdeck_slot;
+    if (!slot) return [];
+    const { rows } = await query(
+      `SELECT a.id, a.name, a.custom_data, t.name tname, t.class, t.hardpoints FROM aircraft a JOIN aircraft_types t ON t.id = a.type_id
+       WHERE a.owner_id = $1 AND a.hangar_id IS NOT NULL AND a.is_wreck = 0 AND (a.custom_data->>'garage_slot')::int = $2`, [player.id, slot]);
+    return rows.map((r) => ({ id: r.id, name: r.name || r.tname, look: lookOf(r) }));
+  },
+  words: {
+    noun: 'aircraft',
+    up: (name) => `The cradle runs out of the drum with the ${name} on it and locks into the slot.`,
+    down: (name) => `The cradle draws the ${name} back into the drum.`,
+    none: 'Nothing of yours is parked in this slot.',
+  },
+});
+
+// Walk into the slot your craft is parked in and it's standing in its cradle (stands are RAM, so after a restart
+// or half an hour the floor is empty until you come back). One query, only on entering a slot bay.
+on('zone.entered', async ({ actor, zone }) => {
+  const z = getZone(zone);
+  if (!actor || !z?.flags?.sdeck_slot || standAt(zone)) return;
+  const def = standKindDef('sdeck');
+  const list = await def.list(actor, z).catch(() => []);
+  if (list[0] && !standAt(zone)) {
+    raiseStand(zone, actor.id, { kind: 'sdeck', id: list[0].id, name: list[0].name, look: list[0].look });
+    // already there: no cradle run to watch
+    const S = standAt(zone); if (S) S.since -= CRADLE_MS;
+  }
+});
+
+async function publicGarage(args, player, term) {
+  const f = term.flags;
+  const field = getZone(f.field_zone);
+  if (!field) return { type: 'emote', message: 'The terminal blinks NO PAD and goes back to sleep.' };
+  if ((riding.get(player.id) || 0) > Date.now()) return { type: 'emote', message: 'The carousel is still moving.' };
+  const levels = Array.isArray(f.levels) ? f.levels : [];
+  const cap = Math.min(term.slots, levels.length * SLOTS_PER_LEVEL || term.slots);
+  const sub = (args[0] || '').toLowerCase();
+  const want = args.slice(1).join(' ').toLowerCase();
+  const here = getZone(player.current_zone);
+  const onPad = !!here?.flags?.hangar_interior;
+  const link = (c, t) => `<span class="action-link" data-action="cmd" data-cmd="${c}">${t}</span>`;
+  const { rows: bays } = await query('SELECT id, owner_id FROM hangars WHERE field_zone=$1', [field.id]);
+  const { rows: inside } = bays.length
+    ? await query('SELECT a.id, a.name, a.owner_id, a.hangar_id, a.custom_data, t.class, t.hardpoints FROM aircraft a JOIN aircraft_types t ON t.id=a.type_id WHERE a.hangar_id = ANY($1)', [bays.map((b) => b.id)])
+    : { rows: [] };
+  const ours = inside.filter((a) => a.owner_id === player.id);
+  const { rows: tickets } = await query('SELECT id, custom_data FROM player_inventory WHERE player_id=$1 AND item_id=$2', [player.id, f.ticket]);
+  const occupiedBut = (mine) => inside.map((a) => cdOf(a).garage_slot).filter((n) => n && n !== mine);
+
+  if (sub === 'store' || sub === 'park') {
+    if (!onPad) return { type: 'emote', message: 'You park from the roof pad. Take the lift to <b>R</b>.' };
+    if (player.aircraftId) return { type: 'emote', message: 'Climb out first; the terminal is on a post at the edge of the pad.' };
+    const { rows } = await query('SELECT a.id, a.name, a.custom_data, t.class, t.hardpoints FROM aircraft a JOIN aircraft_types t ON t.id=a.type_id WHERE a.parked_zone_id=$1 AND a.owner_id=$2 AND a.is_wreck=0 AND a.hangar_id IS NULL AND a.airborne=0', [field.id, player.id]);
+    const pick = want ? rows.find((r) => r.id.includes(want) || (r.name || '').toLowerCase().includes(want)) : rows[0];
+    if (!pick) return { type: 'emote', message: 'Nothing of yours is on the pad to park.' };
+    if (!GARAGE_FITS.has(pick.class)) return { type: 'emote', message: `The pad weighs "${clean(pick.name)}" and the screen says TOO LARGE. Only small VTOLs go in the carousel.` };
+    const taken = new Set(inside.map((a) => cdOf(a).garage_slot).filter((n) => n));
+    let slot = 0;
+    for (let n = 1; n <= cap; n++) if (!taken.has(n)) { slot = n; break; }
+    if (!slot) return { type: 'emote', message: 'The screen says FULL. Every slot in the carousel is taken.' };
+    let bay = bays.find((b) => b.owner_id === player.id)?.id;
+    if (!bay) {
+      bay = randomUUID();
+      await query('INSERT INTO hangars (id,field_zone,name,owner_id,rent_paid_until,rent_per_period) VALUES ($1,$2,$3,$4,$5,0)', [bay, field.id, 'Stacked Deck', player.id, 4102444800]);
+    }
+    const cd = { ...cdOf(pick), garage_slot: slot };
+    const { rows: put } = await query('UPDATE aircraft SET hangar_id=$1, custom_data=$2 WHERE id=$3 AND hangar_id IS NULL RETURNING id', [bay, JSON.stringify(cd), pick.id]);
+    if (!put[0]) return { type: 'emote', message: 'The pad won\'t take her right now.' };
+    unindexAircraft(pick.id);
+    const level = slotLevel(f, slot);
+    await giveItemById(player.id, f.ticket, 1, { stack: false, customData: { aircraft_id: pick.id, aircraft: pick.name, slot, level } });
+    const name = clean(pick.name);
+    const look = lookOf(pick);
+    const bayZone = slotZoneOf(f, slot);
+    const arrive = `The carousel stops at level ${level}. You climb out onto the walkway as the cradle draws "${name}" into <b>slot ${slot}</b> and locks round the skids.\n`
+      + `<span class="item-grant">The terminal by the slot prints a ticket: <b>Stacked Deck parking ticket</b>, slot ${slot}, level ${level}. Parking is free.</span> The lift is back the way you came.`;
+    if (!bayZone || !getZone(bayZone)) return { type: 'emote', message: arrive };
+    rideThen(player,
+      { padX: field.grid_x, padY: field.grid_y, dir: 'down', look, slot, level, roofLevel: f.roof_level || (Math.max(...levels) + 1), levels, occupied: occupiedBut(slot), name },
+      bayZone, arrive, `The pad sinks into the roof with ${player.handle} and "${name}" on it.`,
+      (live) => raiseStand(bayZone, live.id, { kind: 'sdeck', id: pick.id, name, look }));
+    return { type: 'emote', message: `You tap PARK and climb back into "${name}". A horn sounds, the light ring goes amber, and the pad starts to sink into the roof.` };
+  }
+
+  if (sub === 'pull' || sub === 'retrieve' || sub === 'collect') {
+    const withTicket = tickets.map((t) => ({ t, cd: cdOf(t) }));
+    const match = (a) => !want || a.id.includes(want) || (a.name || '').toLowerCase().includes(want);
+    // A ticket brings up whatever it was punched for. Without one the owner still gets their
+    // aircraft back (parking is free, so a lost ticket costs nothing yet).
+    const tk = withTicket.find((x) => inside.some((a) => a.id === x.cd.aircraft_id && match(a)));
+    const pick = tk ? inside.find((a) => a.id === tk.cd.aircraft_id) : ours.find(match);
+    if (!pick) return { type: 'emote', message: tickets.length ? 'The terminal reads your ticket and finds nothing in that slot any more.' : 'You have nothing parked here.' };
+    if (player.aircraftId) return { type: 'emote', message: "You're aboard already." };
+    const { rows: busy } = await query('SELECT 1 FROM aircraft WHERE parked_zone_id=$1 AND hangar_id IS NULL AND is_wreck=0 LIMIT 1', [field.id]);
+    if (busy[0]) return { type: 'emote', message: 'The screen says PAD OCCUPIED. Somebody\'s aircraft is still up there.' };
+    const cd = cdOf(pick); const slot = cd.garage_slot; delete cd.garage_slot;
+    const { rows: rolled } = await query('UPDATE aircraft SET hangar_id=NULL, parked_zone_id=$1, custom_data=$2 WHERE id=$3 AND hangar_id IS NOT NULL RETURNING id, name, owner_id, rental, parked_zone_id, hangar_id, is_wreck, airborne, custom_data', [field.id, JSON.stringify(cd), pick.id]);
+    if (!rolled[0]) return { type: 'emote', message: 'The carousel jams, frees itself and stops. Try again.' };
+    indexAircraft(rolled[0]);
+    standTaken(pick.id, 'sdeck');
+    if (tk) await query('DELETE FROM player_inventory WHERE id=$1', [tk.t.id]);
+    const name = clean(pick.name);
+    const fed = tk ? 'You feed the ticket into the slot and it doesn\'t come back.' : 'You have no ticket, so you type in the registration. The screen thinks about it and lets you off, since parking is free.';
+    const bayZone = slot ? slotZoneOf(f, slot) : null;
+    const pad = field.flags?.hangar_interior_zone;
+    if (bayZone && bayZone === player.current_zone && pad && getZone(pad)) {
+      // stood at the slot: climb in and ride up in her, as you rode down
+      rideThen(player,
+        { padX: field.grid_x, padY: field.grid_y, dir: 'up', look: lookOf(pick), slot, level: slotLevel(f, slot), roofLevel: f.roof_level || (Math.max(...levels) + 1), levels, occupied: occupiedBut(slot), name },
+        pad, `The pad rises out of the roof into daylight and the light ring goes green. You climb out of "${name}" onto the pad, ready to fly.`,
+        `The cradle draws "${name}" back into the drum with ${player.handle} aboard.`);
+      return { type: 'emote', message: `${fed} You climb into "${name}". The cradle lets go and the carousel starts to turn.` };
+    }
+    return { type: 'emote', message: `${fed} Somewhere above you the carousel groans and turns. The screen says "${name}" is ON THE PAD. ${onPad ? 'The pad rises out of the roof with her on it.' : 'Take the lift to <b>R</b>.'}` };
+  }
+
+  const tk = tickets.map((t) => cdOf(t)).filter((c) => c.aircraft_id);
+  const list = ours.length
+    ? ours.map((a) => `· "${clean(a.name)}" in slot ${cdOf(a).garage_slot || '?'} ${link('garage pull ' + a.id.slice(0, 8), 'bring up')}`).join('\n')
+    : '· (nothing of yours)';
+  return {
+    type: 'output',
+    message: `<span class="text-cyan">STACKED DECK</span>: ${inside.length}/${cap} slots in use. Parking is free. Small VTOLs only.\n${list}`
+      + (tk.length ? `\nYou hold ${tk.length === 1 ? 'a ticket' : tk.length + ' tickets'}.` : '')
+      + (onPad ? `\n${link('garage park', 'park what\'s on the pad')}` : ''),
+  };
+}
+
 export const commands = {
+  garage: cmdGarage,
   hangar: cmdHangar,
   showroom: cmdShowroom,
   fleet: cmdFleet,

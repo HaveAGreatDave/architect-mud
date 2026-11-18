@@ -384,7 +384,7 @@ Written by the build, committed, `runtime`-equivalent in spirit but a file becau
 purpose is to be greppable. Maps `map_id:x,y,z → zone_id` and back.
 
 This exists to pay back the one honest loss in §4: `zone_district_920_911` is self-locating and
-`zone_ochre_draw_k3f9` is not. The index makes `grep 920,911` work again, and unlike the old
+`zone_ochre_draw_k3f9` is not. The index makes `grep 921,911` work again, and unlike the old
 scheme it works for **interiors**, which have coordinates but never had coordinate ids.
 
 ---

@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_unemployed_01",
+  "lines": [
+    "\"Anything on the board today?\"",
+    "\"Rat catching.\"",
+    "\"Did you take it?\"",
+    "\"The rat looked at me. I left.\""
+  ],
+  "personality": "unemployed",
+  "sort_order": 653
+}

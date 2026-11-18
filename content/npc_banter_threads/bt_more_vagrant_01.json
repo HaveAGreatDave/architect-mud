@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_vagrant_01",
+  "lines": [
+    "\"Got somewhere to sleep tonight?\"",
+    "\"The arches.\"",
+    "\"Dry?\"",
+    "\"Dry enough. There's a dog. He's warm.\""
+  ],
+  "personality": "vagrant",
+  "sort_order": 703
+}

@@ -231,7 +231,8 @@ export async function buildBench(player) {
       : `Chemistry ${chem}. Splicing opens at ${SPLICE_MIN_SKILL}.`,
   };
 
-  return { storage, area, components, tools, status, assistant };
+  const dev = ['admin', 'dev', 'builder', 'designer'].includes(player.role);
+  return { storage, area, components, tools, status, assistant, dev };
 }
 
 export function workspaceProvider(player) {

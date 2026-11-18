@@ -10,13 +10,15 @@
     "entrance": "west",
     "floors": 14,
     "is_building": true,
-    "region_id": "region_coldwater"
+    "region_id": "region_coldwater",
+    "set_aside": true,
+    "set_aside_from": "897,919"
   },
-  "grid_x": 897,
-  "grid_y": 919,
+  "grid_x": 15,
+  "grid_y": 29,
   "grid_z": 0,
   "id": "zone_ballpark_891_919",
-  "map_id": "map_world",
+  "map_id": "map_set_aside",
   "marker": "U7",
   "name": "25 Hughson Way",
   "parent_zone": null

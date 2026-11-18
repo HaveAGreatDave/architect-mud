@@ -10,7 +10,7 @@ place a player has to find by what it's for gets a plain name (see
 
 ## 1. Why Hulls Angels went
 
-Hulls Angels (916,905) was a boat shed a quarter of a mile from any water, run by Keel, who had
+Hulls Angels (917,905) was a boat shed a quarter of a mile from any water, run by Keel, who had
 spent twelve years on a hull that never left the building. Boats are bought and kept at a marina,
 so the shed sold nothing a boat owner needed. Keel moved to the water and the shed became a gym.
 
@@ -19,24 +19,24 @@ him, and the gym's front still has the outline of the mast doors.
 
 ## 2. The site
 
-The first choice was the inlet south of the airport, at 927–932, 905–908. ⚠ **That water is
-outside the Curtain**: the wall runs down column 927 from 927,908, and everything east of it is
+The first choice was the inlet south of the airport, at 928–933, 905–908. ⚠ **That water is
+outside the Curtain**: the wall runs down column 928 from 928,908, and everything east of it is
 radiation 26 and up with no gate. Check `flags.curtain` before siting anything on the east shore.
 
 The yard went to the north end of Ironside Street instead, the east end of the city's own
-waterfront, between the Guardian Battery (918,901) and the Load of Old Rope wharf (922,901).
+waterfront, between the Guardian Battery (919,901) and the Load of Old Rope wharf (923,901).
 
 | tile | was | is |
 |---|---|---|
-| 919,901 | grass | **Ironside Hard**: the end of Ironside Street, a slipway into the Basin |
-| 920,901 | grass | **Ironside Hard**: the same concrete, with cradles (`boat_hardstanding: 3`) |
-| 921,901 | grass | **the Eastern Marina**: Keel's shed (`boatshed`, entrance west) |
-| 919,900 | water | **The Inner Stage** (`landing_stage`, `marina_berths: 3`) |
-| 919,899 | water | **The Outer Stage** (`landing_stage`, `marina_berths: 2`, `boat_fuel`) |
-| 921,900 | water | unchanged, but it is the shed's wet slot (the shed room's `north` exit) |
+| 920,901 | grass | **Ironside Hard**: the end of Ironside Street, a slipway into the Basin |
+| 921,901 | grass | **Ironside Hard**: the same concrete, with cradles (`boat_hardstanding: 3`) |
+| 922,901 | grass | **the Eastern Marina**: Keel's shed (`boatshed`, entrance west) |
+| 920,900 | water | **The Inner Stage** (`landing_stage`, `marina_berths: 3`) |
+| 920,899 | water | **The Outer Stage** (`landing_stage`, `marina_berths: 2`, `boat_fuel`) |
+| 922,900 | water | unchanged, but it is the shed's wet slot (the shed room's `north` exit) |
 
 ⚠ **Both hard tiles are `terrain: road`.** `authorBuilding` refuses an entrance whose neighbour
-isn't a road, and 920,901 is the only side of the shed plot that isn't water or another building.
+isn't a road, and 921,901 is the only side of the shed plot that isn't water or another building.
 
 ## 3. Rules the yard is built on
 
@@ -53,7 +53,7 @@ a `repairman` in it. Keel is all three, so all three are `zone_hulls_shop`. When
 yard doesn't.
 
 **The wet slot is a room exit.** `coveredSlot` finds a covered dock's water by its exits, so the
-shed room links `north` to 921,900 and the water links back `south`.
+shed room links `north` to 922,900 and the water links back `south`.
 
 **Capacities are what's lettable.** The hard's prose has five cradles with two hulls on them; it
 lets three. Same rule as Fairweather (its proposal, §3).
@@ -63,7 +63,7 @@ so `berth` can't move a hull across the Basin. Regress asserts both directions.
 
 **The interior ids are still `hulls`.** `authorBuilding` derives every interior id from the slug,
 so keeping `hulls` moved Keel's rooms, utility room, junction box, generator and power rows onto
-921,901 instead of deleting and re-making them. Run the scripts in this order:
+922,901 instead of deleting and re-making them. Run the scripts in this order:
 
 ```bash
 node scripts/content/moor-or-less/batch0.mjs

@@ -39,7 +39,7 @@ put up before anybody drew a grid, on lanes that wander because they were cart t
 
 Then the Architect dropped the Curtain, and it came down through the middle of it.
 
-The south wall runs along y919 and the east wall runs up x927, and they meet at the corner of
+The south wall runs along y919 and the east wall runs up x928, and they meet at the corner of
 what used to be Ropewalk. The other half of the street is still out there. You can see it from
 the dead end: roofs, a chimney, a gable with the render off it, forty feet away and on the wrong
 side of a sheet of hard light that has never once flickered. Nobody who lives here talks about
@@ -60,30 +60,30 @@ old enough that nobody remembers it is one.
 
 ## The ground
 
-29 tiles, x919–926 / y916–918, plus the Kessler tail at x924–926 / y914–915.
+29 tiles, x920–927 / y916–918, plus the Kessler tail at x925–927 / y914–915.
 
 | Row | Tiles | What it is |
 |---|---|---|
-| y916 | 919–926 | **Ropewalk**, the spine. Unpaved. Enters from The Gate Road at 918,916 and off Glacier and Kessler from the north. Dead-ends at the Curtain at 926,916. |
-| y917 | 919–926 | The north frontage: five enterable buildings, two ruins, and **Peg Lane** at 921,917 cutting south. |
-| y918 | 920–926 | **The Pitch**, the tent ground, reached only through Peg Lane. 926,918 is the Curtain corner. |
-| y914–915 | 924–926 | **Rag Row**, where Kessler Street gives out into unmade ground and the camp spills north along the inside of the east wall. |
+| y916 | 920–927 | **Ropewalk**, the spine. Unpaved. Enters from The Gate Road at 919,916 and off Glacier and Kessler from the north. Dead-ends at the Curtain at 926,916. |
+| y917 | 920–927 | The north frontage: five enterable buildings, two ruins, and **Peg Lane** at 922,917 cutting south. |
+| y918 | 921–927 | **The Pitch**, the tent ground, reached only through Peg Lane. 927,918 is the Curtain corner. |
+| y914–915 | 925–927 | **Rag Row**, where Kessler Street gives out into unmade ground and the camp spills north along the inside of the east wall. |
 
 **One way into the Pitch, on purpose.** Peg Lane is the only link between the frontage and the
 tent ground, because a slum with four approaches is a park. It also makes the Pitch a place
 where being followed matters.
 
-⚠ **925,917 IS THE STORM DRAIN AND COULD NOT BE BUILT ON.** `zone_under_925_917` exits `up` into
+⚠ **926,917 IS THE STORM DRAIN AND COULD NOT BE BUILT ON.** `zone_under_925_917` exits `up` into
 that tile and the tile exits `down` into it, and it is the only seam into the Under anywhere in
 the block. The first draft put a ruin there, which would have sealed the drain silently: nothing
 in the content pipeline checks that a building is not being dropped on a z-layer seam, and the
 only reason it was caught is that the ruin script printed nine sealed neighbour exits where two
 ruins can only account for eight. It is **The Sink** now, a dead-end yard with a grating in it,
-and the second ruin moved to 925,914 in Rag Row. It has no south exit, so Peg Lane is still the
+and the second ruin moved to 926,914 in Rag Row. It has no south exit, so Peg Lane is still the
 only way into the Pitch.
 
 ⚠ **Mains Squeeze faces WEST, not north.** `place-building.mjs` prefers a neighbour whose terrain
-is literally `road`, and 918,917 is The Gate Road while Ropewalk is `dirt_road`. That is the
+is literally `road`, and 919,917 is The Gate Road while Ropewalk is `dirt_road`. That is the
 better frontage anyway and it was left alone: the water seller now faces the traffic walking up
 from the South Gate, which is who buys water.
 
@@ -91,13 +91,13 @@ from the South Gate, which is who buys water.
 
 | Tile | Name | `building_type` | Door | Keeper |
 |---|---|---|---|---|
-| 919,917 | **Mains Squeeze** | `water_seller` | **west** | Bartram Quell |
-| 920,917 | *A Collapsed Terrace* | `ruin` | — | — |
-| 922,917 | **Bed Rock** | `flophouse` | north | Wilmot Scarrow |
-| 923,917 | **No Such Thing** | `soup_kitchen` | north | Hestia Dunmore |
-| 924,917 | **A Stitch In Time** | `bonesetter` | north | Merrit Lachance |
-| 925,917 | **The Sink** — *not a building* | — | — | — |
-| 926,917 | **Still Standing** | `shebeen` | north | Thomasina Tillery |
+| 920,917 | **Mains Squeeze** | `water_seller` | **west** | Bartram Quell |
+| 921,917 | *A Collapsed Terrace* | `ruin` | — | — |
+| 923,917 | **Bed Rock** | `flophouse` | north | Wilmot Scarrow |
+| 924,917 | **No Such Thing** | `soup_kitchen` | north | Hestia Dunmore |
+| 925,917 | **A Stitch In Time** | `bonesetter` | north | Merrit Lachance |
+| 926,917 | **The Sink** — *not a building* | — | — | — |
+| 927,917 | **Still Standing** | `shebeen` | north | Thomasina Tillery |
 
 **Mains Squeeze** sells water, because the Curtain cut the mains along with everything else and
 the standpipe has been dry since. A riveted tank on a timber trestle over a one-room hut, with a
@@ -166,7 +166,7 @@ wrong place.
 `{road, dirt_road}` — deliberately, so a graded haul road like The Glacis meets a paved street at
 a proper junction. Ropewalk is a cart track nobody surveyed. Measured against the real palette
 before the fix: Ropewalk drew `road_new` on **five consecutive tiles** and a full `road_nesw`
-crossroads at 921,916, with The Gate Road growing an arm east to meet it.
+crossroads at 922,916, with The Gate Road growing an arm east to meet it.
 
 The lanes are `dirt` now and the camp ground is `ash`, both `auto_tile: false`, so no slum tile
 draws a connector and the paved neighbours stopped reaching into it (The Gate Road went `road_nes`
@@ -217,7 +217,7 @@ tile so a row of camp tiles is a sawtooth rather than a fence rail.
 
 **The props, 2026-09-29.** The clutter was three flat dark cards. It's now crates (some stacked), spare drums with lids, and bundles, plus two to four beds a tile: a stained mattress on the mud or on a pallet, or cardboard and a blanket, each with a rolled coat for a pillow. Every drum is textured: a faded paint band on most, rust that varies stave to stave, two hoops and a damp foot. All of it is near tier only (`campBox`, `drawCampDrum`, `drawCampBed`).
 
-**The camp on the east wall.** 927,917 and 927,918 are Curtain tiles with the camp on them (the wall's inside angle was at 927,919 until 2026-11-04, when it moved out to 927,923; The Corner and The Pitch kept their names and say so), and the tents are folded onto the inland side. That fold used to find "inland" by looking for off-map air, and once the Scarletwastes put land east of x927 it found none, so the tents stood through the wall. The server now sends `ci`, the inward side read from the wall's blocked connections (`curtainInward`), on every Curtain tile. The people who live on the camp (Bexley Ortolan, Ruel Gattis, Jubal Ferrant) read it too, so the street-actor pass keeps them on the inland side; before that, about half of them were drawn out in the wastes.
+**The camp on the east wall.** 928,917 and 928,918 are Curtain tiles with the camp on them (the wall's inside angle was at 928,919 until 2026-11-04, when it moved out to 928,923; The Corner and The Pitch kept their names and say so), and the tents are folded onto the inland side. That fold used to find "inland" by looking for off-map air, and once the Scarletwastes put land east of x928 it found none, so the tents stood through the wall. The server now sends `ci`, the inward side read from the wall's blocked connections (`curtainInward`), on every Curtain tile. The people who live on the camp (Bexley Ortolan, Ruel Gattis, Jubal Ferrant) read it too, so the street-actor pass keeps them on the inland side; before that, about half of them were drawn out in the wastes.
 
 ### The paint
 
@@ -332,10 +332,10 @@ at seven**: past that the shelters are a few pixels each and overlap into one da
 ones cost a draw and subtract from the read. The cap is on the DRAWN count and never on the roll, so
 a tile holds the same pitches at both tiers and simply stops early. Clutter is rolled the same way.
 
-**Three more camp tiles, two of which the prose had already put tents on.** 924,915 (Rag Row) opens
-*"A row of pitches down one side"* and 927,917 (The East Wall) says *"Tents are pitched hard against
+**Three more camp tiles, two of which the prose had already put tents on.** 925,915 (Rag Row) opens
+*"A row of pitches down one side"* and 928,917 (The East Wall) says *"Tents are pitched hard against
 it the whole length of the corner"* — and neither carried `flags.camp`, so both described a camp the
-cockpit could not see. 927,918 (The Corner) joins them. ⚠ **927,916 deliberately does not**: the Cut
+cockpit could not see. 928,918 (The Corner) joins them. ⚠ **928,916 deliberately does not**: the Cut
 is the one tile whose whole job is the view through the Curtain, and this doc's own rule is that the
 far side stays a view.
 
@@ -459,12 +459,12 @@ moving onto it are building shacks out of what came off them. Built by
 
 | Row | Tiles | What it is |
 |---|---|---|
-| y919 | 919–926 | **The Overspill**, camp on the old line of the wall. A strip of dead grass marks where it stood. |
-| y920 | 919–926 | **Tenter Lane**, the old town's south lane, `dirt`, `street_life`, an artery. Dead-ends at the east wall. |
-| y921 | 919–926 | The south frontage: five shacks, two ruins, **the Swap** (the market yard, 921) and **the Snicket** (the lane through to Wallside, 925). |
-| y922 | 919–926 | **Wallside**, camp under the south wall, with **the Drum** (the fire, 922). 919 is the Tin Hut. |
-| y923 | 919–926 | **Under the Wall**: Curtain tiles, camp on their inland side, except 919 at the meadow end. |
-| x927 | y919–923 | **The East Wall** continues south with camp; 927,923 is **The Far Corner**, the new inside angle. |
+| y919 | 920–927 | **The Overspill**, camp on the old line of the wall. A strip of dead grass marks where it stood. |
+| y920 | 920–927 | **Tenter Lane**, the old town's south lane, `dirt`, `street_life`, an artery. Dead-ends at the east wall. |
+| y921 | 920–927 | The south frontage: five shacks, two ruins, **the Swap** (the market yard, 921) and **the Snicket** (the lane through to Wallside, 925). |
+| y922 | 920–927 | **Wallside**, camp under the south wall, with **the Drum** (the fire, 922). 919 is the Tin Hut. |
+| y923 | 920–927 | **Under the Wall**: Curtain tiles, camp on their inland side, except 919 at the meadow end. |
+| x928 | y919–923 | **The East Wall** continues south with camp; 928,923 is **The Far Corner**, the new inside angle. |
 
 The Pitch's south edge now opens onto the Overspill, so Peg Lane is no longer the only way into
 the camp. That was true from the day the wall moved; this pass only gave the ground a name.
@@ -473,13 +473,13 @@ the camp. That was true from the day the wall moved; this pass only gave the gro
 
 | Tile | Name | `building_type` | Variant |
 |---|---|---|---|
-| 919,921 | **The Bus** | `shack` | `bus`: a single-decker on bricks, a tarp over the roof, a stovepipe out of a window |
-| 920,921 | **The Gable End** | `ruin` | the terrace |
-| 922,921 | **The Stack** | `shack` | `stack`: three shacks high (`flags.floors: 3`), the top one overhanging the lane, a ladder, a rope to the school |
-| 923,921 | **The Old School** | `ruin` | the terrace with a bell frame (`bell`) |
-| 924,921 | **The Pallet House** | `shack` | `pallet`: pallet slats, a tarp roof under tyres, a car door for a window |
-| 926,921 | **The Box** | `shack` | `box`: a container with a door cut in it and a tarp porch |
-| 919,922 | **The Tin Hut** | `shack` | `tin`: corrugated tin, a pent roof under tyres and a slab, a stovepipe with a can on it |
+| 920,921 | **The Bus** | `shack` | `bus`: a single-decker on bricks, a tarp over the roof, a stovepipe out of a window |
+| 921,921 | **The Gable End** | `ruin` | the terrace |
+| 923,921 | **The Stack** | `shack` | `stack`: three shacks high (`flags.floors: 3`), the top one overhanging the lane, a ladder, a rope to the school |
+| 924,921 | **The Old School** | `ruin` | the terrace with a bell frame (`bell`) |
+| 925,921 | **The Pallet House** | `shack` | `pallet`: pallet slats, a tarp roof under tyres, a car door for a window |
+| 927,921 | **The Box** | `shack` | `box`: a container with a door cut in it and a tarp porch |
+| 920,922 | **The Tin Hut** | `shack` | `tin`: corrugated tin, a pent roof under tyres and a slab, a stovepipe with a can on it |
 
 ⚠ **A shack is a ruin for every purpose but its shape.** `is_building`, no `facade`, no
 `entrance`, no interior, no keeper and no map icon (`buildingIconSvg` is gated on `facade`). It's
@@ -495,7 +495,7 @@ is 2, which makes a hut about one storey.
 
 ⚠ **Before building on the plot it was checked for the drain's trap**: nothing under it exits `up`,
 no NPC, spawn or quest named any of its tiles, and with the shacks in, Wallside is still reached by
-the Swap, the Snicket, the meadow at x918 and the wall row, so none of them is a cut vertex.
+the Swap, the Snicket, the meadow at x919 and the wall row, so none of them is a cut vertex.
 `mint-connections.mjs --write` sealed the 24 edges round them.
 
 ### The people

@@ -1,0 +1,35 @@
+{
+  "description": "A canvas cot, one leg propped on a brick. The number on the frame has been crossed out and written again.",
+  "flags": {
+    "aliases": [
+      "cot",
+      "cots",
+      "bed",
+      "cot 406"
+    ],
+    "interactions": [
+      "sit",
+      "lie",
+      "sleep"
+    ],
+    "look": {
+      "arche": "sofa",
+      "form": "cot",
+      "wear": 0.95
+    },
+    "spot": {
+      "along": -1.8,
+      "wall": "back"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_hostel_cot_4_6",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "cot 406",
+  "object_type": "bed",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_hostel_dorm_4"
+}

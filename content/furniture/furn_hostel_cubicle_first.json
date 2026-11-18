@@ -1,0 +1,31 @@
+{
+  "description": "A cubicle with a door that has been kicked in so often it now opens both ways. The lock is a bent nail.",
+  "flags": {
+    "aliases": [
+      "cubicle",
+      "stall",
+      "toilet",
+      "loo",
+      "first cubicle"
+    ],
+    "look": {
+      "arche": "stall",
+      "form": "cubicle",
+      "wear": 0.95
+    },
+    "spot": {
+      "along": 1.1,
+      "wall": "right"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_hostel_cubicle_first",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "first cubicle",
+  "object_type": "toilet",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_trackmarks_back"
+}

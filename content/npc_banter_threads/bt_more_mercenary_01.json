@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_mercenary_01",
+  "lines": [
+    "\"Work coming in?\"",
+    "\"Some. Escort job out to the Reach.\"",
+    "\"Pays?\"",
+    "\"Pays well. Which means it's going to go badly.\""
+  ],
+  "personality": "mercenary",
+  "sort_order": 663
+}

@@ -70,7 +70,8 @@ function openInBrowser(url) {
 }
 
 const send = (res, code, body, type = 'application/json') => {
-  res.writeHead(code, { 'content-type': type, 'cache-control': 'no-store' });
+  // js-profiling lets a page sample itself (`new Profiler(...)`), which is how a bench finds its JS hot spots
+  res.writeHead(code, { 'content-type': type, 'cache-control': 'no-store', 'document-policy': 'js-profiling' });
   res.end(body);
 };
 const json = (res, code, obj) => send(res, code, JSON.stringify(obj));
@@ -271,13 +272,14 @@ function buildingRooms(zoneId) {
   for (let hop = 0; hop < 4 && t && t.map_id !== 'map_world'; hop++) t = t.parent_zone ? plans.zones.get(t.parent_zone) : null;
   if (!t) return { rooms: null };
   const side = LAB_BEARING[String(t.flags?.entrance || '').toLowerCase()] ?? bld.plan.rooms[bld.b.entry]?.face ?? 0;
-  const rooms = [];
+  const rooms = [], along = Number(plans.zones.get(bld.b.entry)?.flags?.room?.street_door?.along) || 0;
   for (const id of ids) {
     const R = bld.plan.rooms[id], entry = placeFrom(bld.plan, id, bld.b.entry), spec = buildingView(bld, id, labSpecOf(id), { specOf: labSpecOf }).spec;
     if (!entry || !spec || bld.plan.lifts?.[id]) continue;
-    rooms.push({ zone: id, name: plans.zones.get(id)?.name || id, spec, rows: rows[id] || [], frame: { entry: entry.at, front: bld.plan.rooms[bld.b.entry].face, side, floor: R.floor, face: R.face, door: streetDoorAt(bld.plan, bld.b.entry) } });
+    rooms.push({ zone: id, name: plans.zones.get(id)?.name || id, spec, rows: rows[id] || [], frame: { entry: entry.at, front: bld.plan.rooms[bld.b.entry].face, side, floor: R.floor, face: R.face, door: streetDoorAt(bld.plan, bld.b.entry), ...(along ? { along } : {}) } });
   }
-  return { tile: { x: t.grid_x, y: t.grid_y }, rooms };
+  // the entry room's street door, as plugins/roomstage reads it for the street (client/shared/street-door.js)
+  return { tile: { x: t.grid_x, y: t.grid_y }, rooms, street_door: plans.zones.get(bld.b.entry)?.flags?.room?.street_door || null };
 }
 // Every zone and map in content/, read once (17,000 files, a few seconds) the first time a room on a
 // building is asked for. Restart the Modelshop to see an edited building.

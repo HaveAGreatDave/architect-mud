@@ -3,6 +3,7 @@
   "ambient_theme": "city",
   "description": "The south end of Yarrow Lane, opening onto Sorrel Way. The towers stop here, and past the Recital Hall the meadow runs to the Curtain.",
   "exits": {
+    "east": "zone_hughsonpark_890_920",
     "north": "zone_ballpark_889_919",
     "south": "zone_district_889_921"
   },

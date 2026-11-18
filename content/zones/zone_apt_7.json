@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#c9a884",
-  "description": "Unit 3C. The yellow has been repainted and holds this time, warm against white trim and a pale butcher-block kitchen with crockery on open shelves. The clawfoot tub still stands in the main room, now on purpose, by the window with plants round it. The view is still a brick wall an arm's length away, but someone has painted a window on the wall.",
+  "description": "Unit 3C, at the back. The yellow has been repainted and holds this time, warm against white trim. The clawfoot tub stands in the room itself, on purpose, by the window with plants round it. The window looks down on Dray Lane.",
   "exits": {
     "in": "zone_apt_7_bath",
     "west": "zone_embassy_floor2"
@@ -14,11 +14,11 @@
     "rent_cost": 50,
     "room": {
       "blinds": true,
-      "d": 10,
+      "d": 3.2,
       "decor": {
         "art": [
           {
-            "at": 5,
+            "at": 2.3,
             "h": 0.9,
             "seed": 71,
             "w": 1.2,
@@ -62,7 +62,7 @@
           ],
           [
             -3.55,
-            3.3,
+            2.8,
             0.8
           ],
           [
@@ -76,25 +76,21 @@
           "points": [
             [
               "left",
-              4.2
+              1
             ],
             [
-              "left",
-              5.8
+              "right",
+              2.5
             ]
           ],
           "y": 1.8
         }
       },
-      "h": 3,
-      "kitchen": {
-        "face": "shelves",
-        "front": "#e8dcb0",
-        "grade": 2,
-        "pendants": "globe",
-        "top": "butcher",
-        "uppers": "shelves"
+      "ensuite": {
+        "d": 1.8
       },
+      "face": 90,
+      "h": 3.93,
       "sash": {
         "drapes": "#2e4a5e",
         "head": true,
@@ -102,6 +98,7 @@
         "transom": 0.4,
         "w": 1.8
       },
+      "studio": false,
       "tone": {
         "accent": "#b8924a",
         "ceiling": "#f2eee4",

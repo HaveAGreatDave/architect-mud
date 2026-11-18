@@ -23,7 +23,7 @@ import { on } from '../../server/engine/events.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { query } from '../../server/models/db.js';
 import { hurtInWreck, wreckSeverity, wreckLines } from './breakup.js';
-import { cmdBoat, cmdBoats, cmdBerth, cmdRefit, boatEmbark, boatDisembark, aboard, berthKind, recoverAboard, deskQuote } from './yard.js';
+import { cmdBoat, cmdBoats, cmdBerth, cmdRefit, boatEmbark, boatDisembark, aboard, berthKind, berthsNear, recoverAboard, deskQuote } from './yard.js';
 import { BOAT_TYPES } from '../../client/game/js/panels/flight-model.js';
 import { MPH_MS } from '../../client/shared/world-scale.js';
 // The seat. `yard.js` owns where a hull lives between runs; this owns the twenty seconds after you
@@ -58,8 +58,12 @@ registerStandKind('boat', {
   from: 'front', label: 'SLIP', moveMs: 10000,
   board: (id) => `boat take ${id}`,
   busy: (player) => (aboard.has(player.id) ? "You're aboard already. Step off her first." : null),
+  // Every hull of yours lying afloat at this yard, not only one already in the slip: a boat bought here goes to the
+  // first free berth, which is usually a pontoon, and the yard hand walks her round. One on a cradle is left out,
+  // since she can't be walked in on her lines; `boat take` cranes her in for its fee.
   list: async (player, zone) => {
-    const { rows } = await query('SELECT id, name, type_id, custom_data FROM boats WHERE owner_id = $1 AND berth_zone = $2 ORDER BY created_at', [player.id, zone.id]);
+    const yard = [...new Set([zone.id, ...berthsNear(zone.id).filter((z) => berthKind(z) !== 'hard').map((z) => z.id)])];
+    const { rows } = await query('SELECT id, name, type_id, custom_data FROM boats WHERE owner_id = $1 AND berth_zone = ANY($2) ORDER BY created_at', [player.id, yard]);
     return rows.map((b) => ({ id: b.id, name: b.name || BOAT_TYPES.find((t) => t.id === b.type_id)?.name || b.type_id,
       look: { cls: b.type_id || 'hydro', livery: boatLiveryOf(b.custom_data) } }));
   },

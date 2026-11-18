@@ -5,7 +5,7 @@
     "down": "zone_kestrel_f11"
   },
   "flags": {
-    "building_name": "Kestrel Court",
+    "building_name": "The Flute",
     "building_type": "apartment",
     "floor": "concrete",
     "is_building": true,
@@ -18,6 +18,6 @@
   "grid_z": 4,
   "id": "zone_kestrel_roof",
   "map_id": "map_int_kestrel",
-  "name": "Kestrel Court, Roof",
+  "name": "The Flute, Roof",
   "parent_zone": "zone_district_913_908"
 }

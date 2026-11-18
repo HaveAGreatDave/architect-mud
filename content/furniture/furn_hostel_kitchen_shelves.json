@@ -1,0 +1,38 @@
+{
+  "description": "Steel shelves with names on masking tape along every edge. Most of the names have nothing above them any more. What's left is tins with no labels and half a jar of something brown.",
+  "flags": {
+    "aliases": [
+      "shelves",
+      "shelf",
+      "tins",
+      "jar",
+      "names",
+      "tape"
+    ],
+    "container": 20000,
+    "look": {
+      "arche": "store",
+      "dims": [
+        1.2,
+        0.4,
+        1.9
+      ],
+      "form": "shelves",
+      "wear": 0.95
+    },
+    "spot": {
+      "along": -0.8,
+      "wall": "front"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_hostel_kitchen_shelves",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the food shelves",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_hostel_kitchen"
+}

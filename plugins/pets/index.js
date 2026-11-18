@@ -55,6 +55,7 @@ import { schedule } from '../../server/engine/scheduler.js';
 import { catLife, catPerchOf, catPerches, catSettle, perchWord, catAtChores, catNeeds, catMarkOf, bowlLevel, missedSince, catMeets, trayState, TRAY_FUSSY, DAY_MS } from '../../client/shared/cat-life.js';
 import { roomLayout } from '../../client/shared/room-layout.js';
 import { specOf, roomPieces, mainOf } from '../roomstage/index.js';
+import { bindPets, loadStrays, cmdAdopt, routeHandler as straysRoutes, _strays } from './strays.js';
 
 // pet id → { id, npcId, species, look, personality }, and NPC id → the same
 const PETS = new Map(), BY_NPC = new Map();
@@ -702,6 +703,8 @@ async function narrate() {
 await loadPets().catch((e) => console.error(`[pets] failed to load: ${e.message}`));
 await loadBowls().catch((e) => console.error(`[pets] bowls failed to load: ${e.message}`));
 await loadTrays().catch((e) => console.error(`[pets] trays failed to load: ${e.message}`));
+bindPets(PETS, BY_NPC);
+await loadStrays().catch((e) => console.error(`[pets] strays failed to load: ${e.message}`));
 
 on('zone.entered', (e) => { try { onEntered(e); } catch (err) { console.error(`[pets] greet: ${err.message}`); } });
 // keep the layout fresh when the furniture moves
@@ -717,10 +720,11 @@ export const hooks = {
   'furniture.describe': (f) => describeBowls(f) ?? describeTray(f),
   'zone.smells': traySmells,
 };
-export const commands = { refill: cmdRefill, scoop: cmdScoop };
+export const commands = { refill: cmdRefill, scoop: cmdScoop, adopt: cmdAdopt };
+export const routeHandler = straysRoutes;
 // `refill` and `scoop` stay this plugin's verbs; the rows put them on a feeding station's and a tray's examine
 export const specializedActions = [{ verb: 'refill', requiredFlag: 'pet_bowls', handler: null }, { verb: 'scoop', requiredFlag: 'pet_tray', handler: null }];
 
-export const _test = { PETS, BY_NPC, BEATS, STROKES, STROKE_SAID, BOWLS, TRAYS, petSpot, strokeBy, SAID, loadPets, loadBowls, loadTrays, petOfNpc, npcBeast, onEntered, onPetAttempt, beatOf, setBeat, cmdRefill, cmdScoop, levelsOf, stationOf, pieceState, describeBowls, describeTray, describeAnimal, hungerOf, traySmells, stateOf, trayLine, lineFor, nowOf, layoutOf, narrate, meetLine, MEET_LINE, MEET_SAID, ACT_LINE };
+export const _test = { strays: _strays, PETS, BY_NPC, BEATS, STROKES, STROKE_SAID, BOWLS, TRAYS, petSpot, strokeBy, SAID, loadPets, loadBowls, loadTrays, petOfNpc, npcBeast, onEntered, onPetAttempt, beatOf, setBeat, cmdRefill, cmdScoop, levelsOf, stationOf, pieceState, describeBowls, describeTray, describeAnimal, hungerOf, traySmells, stateOf, trayLine, lineFor, nowOf, layoutOf, narrate, meetLine, MEET_LINE, MEET_SAID, ACT_LINE };
 
 console.log(`[pets] Plugin loaded (${PETS.size} pet${PETS.size === 1 ? '' : 's'}, ${TRAYS.size} tray${TRAYS.size === 1 ? '' : 's'}).`);

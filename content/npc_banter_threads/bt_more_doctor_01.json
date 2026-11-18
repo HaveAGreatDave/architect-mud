@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "id": "bt_more_doctor_01",
+  "lines": [
+    "\"Long shift?\"",
+    "\"Sixteen hours.\"",
+    "\"Anyone you couldn't help?\"",
+    "\"Two. And one who didn't want helping.\"",
+    "\"Those are the worst.\"",
+    "\"Those are the ones who come back.\""
+  ],
+  "personality": "doctor",
+  "sort_order": 660
+}

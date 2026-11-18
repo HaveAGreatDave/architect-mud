@@ -4,7 +4,7 @@
   "color": "#7fd3ff",
   "description": "The bottom slopes away from the shore into lightless water. It's cold, and the channel beyond is too deep to wade.",
   "exits": {
-    "east": "zone_district_914_902",
+    "east": "zone_seam_914_902",
     "north": "zone_district_913_901",
     "south": "zone_district_913_903",
     "west": "zone_district_912_902"

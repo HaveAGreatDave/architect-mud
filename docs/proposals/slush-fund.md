@@ -48,21 +48,21 @@ Kerbstone Row reaches every tile round it).
 
 | tile | was | is |
 |---|---|---|
-| 915,916 | grass | **Golden Goose Gardens**: the front of the hall and the door (`ice_rink`, entrance north onto Glacier Street, marker `IC`) |
-| 915,917 | scrub | the back of the hall (`ice_rink_hall`) |
-| 914,916 / 916,916 | grass | the front stands (`ice_rink_stand_w`, `ice_rink_stand_e`) |
-| 914,917 / 916,917 | scrub | the back stands (`ice_rink_plant_w`, `ice_rink_plant_e`) |
-| 914,915 | grass | **The Forecourt** (`concrete`), where the queue forms at the box office |
-| 914–916,918 | scrub | **The Yard** (`gravel`), behind it |
-| 915–917,915 | pasture prose | **Glacier Street**, rewritten for the arena |
-| 917,917 | the weighbridge pour | not the arena's: **The Slip** took the old weigh-house ([marrow-midrises.md](marrow-midrises.md)) |
+| 916,916 | grass | **Golden Goose Gardens**: the front of the hall and the door (`ice_rink`, entrance north onto Glacier Street, marker `IC`) |
+| 916,917 | scrub | the back of the hall (`ice_rink_hall`) |
+| 915,916 / 917,916 | grass | the front stands (`ice_rink_stand_w`, `ice_rink_stand_e`) |
+| 915,917 / 917,917 | scrub | the back stands (`ice_rink_plant_w`, `ice_rink_plant_e`) |
+| 915,915 | grass | **The Forecourt** (`concrete`), where the queue forms at the box office |
+| 915–918,918 | scrub | **The Yard** (`gravel`), behind it |
+| 916–919,915 | pasture prose | **Glacier Street**, rewritten for the arena |
+| 918,917 | the weighbridge pour | not the arena's: **The Slip** took the old weigh-house ([marrow-midrises.md](marrow-midrises.md)) |
 
 All of it is `district: ashway`, outside Old Coldwater, so `SLUM_DECLINE` doesn't apply and the
 front can carry its name. ⚠ **913,915 is untouched**: it is Foundry Way's only way out.
 
 ## 3. Six tiles, one door
 
-Only 915,916 is a facade. The other five are sealed the way The Dam's tiles are: a name, a
+Only 916,916 is a facade. The other five are sealed the way The Dam's tiles are: a name, a
 `building_type`, `entrance: north` and `floors`, empty exits, and **no `is_building`**, so they
 take no map code and the map shows one building as `IC`. Every neighbour's exit into them is
 stripped, and `mint-connections --write` landed the twelve walls as blocked connections.
@@ -86,7 +86,7 @@ public skate, and shut on Mondays.
 `roomName: 'The Gardens'` rather than the full name.
 
 ⚠ **The script owns what's on its lists.** A re-run rewrites the six tiles, the rooms and the
-ground it names, so a tile somebody else builds on comes off the list: 917,917 did when The Slip
+ground it names, so a tile somebody else builds on comes off the list: 918,917 did when The Slip
 went up.
 
 ## 4. GLASS
@@ -205,6 +205,20 @@ stool. Each moment is a line in the room (plugins/stands crew.js). ⚠ **His loo
 
 **The Cup Room.** The Cup in a glass case on a plinth, and on the back wall the champions board: the last CPhL winner's
 crest, colours and season, lit, the room taking the club's colour. Nobody has won yet, and it's a dark frame.
+
+The Cup itself is drawn after the Stanley Cup (client/shared/cup-design.js): a barrel of five bands on a gold foot, three
+narrowing tiers, a cove to a gold collar and knop, and a shallow bowl with a rolled gold lip, in polished chrome (ROOM's
+material 49, which mirrors the room from a probe stood inside the Cup) with every edge in gold. The goose off the
+front gable (client/shared/goose-emblem.js, which the roof draws from too) stands in gold on a stepped plinth in the
+bowl. Every CPhL winner is engraved on the barrel in Playfair Display SC, about 3 mm to the capital: the year, the club
+and the season, a panel each, five bands of two rows of ten, so a barrel holds a hundred seasons, oldest at the top.
+Season 101 starts a second barrel added under the first, and the case lowers its plinth to take the taller Cup; a third
+is the most it grows (plugins/stands champions.js `cup_rolls`, gl/room-cup.js). The three tiers above the barrel are
+cut with guilloché, and "The Coldwater Cup" and "The Golden Goose Cup" are inlaid in gold round the bowl
+(`look.inscription`). The engraving is one painted atlas on textured bands, not geometry, so a full Cup costs what an
+empty one does. Examine the case
+and the camera goes round the Cup (panels/room-closeup.js): drag to turn it and move up and down it, scroll to read
+it, Escape to step back. Cup night on the ice lifts the same design (gl/arena-mesh.js buildCup), without the engraving.
 
 ## 6. What isn't built
 

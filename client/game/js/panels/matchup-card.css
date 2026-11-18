@@ -1,0 +1,34 @@
+/* The loading card (matchup-card.js): league mark over two crests, flat and opaque. */
+.matchup-card {
+  position: absolute; inset: 0; z-index: 7;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+  padding: 16px; box-sizing: border-box; overflow: hidden;
+  background: radial-gradient(ellipse at 50% 40%, #13202e 0%, #070b11 70%);
+  color: #eaf2f8; font-family: var(--font-mono, monospace); text-align: center;
+}
+.matchup-card.mc-sport-baseball { background: radial-gradient(ellipse at 50% 40%, #1d2a1a 0%, #0a0c07 70%); }
+.mc-brand { display: flex; justify-content: center; }
+.mc-brand .cphl-mark, .mc-brand .db-mark { animation: gd-idle-pulse 2.4s ease-in-out infinite; }
+.mc-match { display: flex; align-items: center; justify-content: center; gap: clamp(12px, 5vw, 48px); max-width: 100%; }
+.mc-side { display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 0; flex: 0 1 180px; }
+.mc-crest { width: clamp(56px, 14vw, 112px); height: clamp(56px, 14vw, 112px); display: flex; align-items: center; justify-content: center; }
+.mc-crest .club-crest { width: 100%; height: 100%; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.6)); }
+.mc-roundel {
+  width: 100%; height: 100%; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  border: 3px solid rgba(234,242,248,0.5); font-size: clamp(1rem, 4vw, 1.75rem); font-weight: 900; letter-spacing: 1px;
+}
+.mc-name { font-size: clamp(0.625rem, 1.8vw, 0.875rem); font-weight: bold; letter-spacing: 2px; line-height: 1.3; overflow-wrap: anywhere; }
+.mc-vs { font-size: clamp(0.75rem, 2vw, 1rem); font-weight: 900; letter-spacing: 3px; color: rgba(234,242,248,0.45); }
+.mc-venue { font-size: 0.6875rem; letter-spacing: 3px; color: rgba(234,242,248,0.6); text-transform: uppercase; }
+.mc-line { font-size: 0.6875rem; letter-spacing: 3px; color: rgba(234,242,248,0.45); }
+
+/* Deadball's mark (deadball-brand.js) */
+.db-lockup { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.db-mark { display: block; overflow: visible; }
+.db-mark-ball { fill: #efe6d0; stroke: #2a2418; stroke-width: 2.5; }
+.db-mark-stitch { fill: none; stroke: #c8322a; stroke-width: 2.6; stroke-dasharray: 3 3.2; }
+.db-mark-seam { fill: none; stroke: #c8322a; stroke-width: 1.4; }
+.db-mark-x { stroke: #1b1710; stroke-width: 4.5; stroke-linecap: round; }
+.db-lockup-word { font-weight: 900; font-size: 1.375rem; letter-spacing: 6px; color: #efe6d0; }
+.db-lockup-word i { font-style: normal; color: #e0493c; }
+.db-lockup-sub { font-size: 0.625rem; letter-spacing: 3px; color: rgba(239,230,208,0.55); }

@@ -16,7 +16,7 @@
       "form": "flat"
     },
     "spot": {
-      "along": 5,
+      "along": 5.8,
       "wall": "left",
       "y": 2.05
     },

@@ -6,11 +6,10 @@
 // ⚠ IT IS ADDITIVE: the ground hulls stay, and this covers only walls and roofs, which had no
 // shadow to contradict. Both read the same sun: 'lightMatrix' in camera.js derives the direction
 // from 'dir' and 'len', not an elevation, so wall and ground shadows point the same way.
-// ⚠ IT IS NOT FINISHED, AND RENDER_TUNE.glShadow DEFAULTS TO 0. Geometry, depth pass, night gate and
-// untouched ground measure correctly, but the term in context.js ignores its strength, so it lands
-// as a mask. What's been ruled out is on RENDER_TUNE.glShadow in windshield.js; test with
-// npm run gl:shadow (headless, against drawBuildingShadow's sun) and __glShadow() in the Modelshop.
-// Nothing below is dead code; it all runs once the knob leaves 0.
+// It's on: RENDER_TUNE.glShadow is 0.55 (windshield.js has the measurements), off on phones. Test
+// with npm run gl:shadow (headless, against drawBuildingShadow's sun) and __glShadow() in the
+// Modelshop. A second layer from this file is the near cascade (RENDER_TUNE.glShadowNear): the same
+// pass over only the tiles round the eye, drawn through `draw` so it sends only what's in its box.
 // ⚠ EVERY EXIT RETURNS null: a failed framebuffer, texture or program would sample undefined, a
 // shadow everywhere. The caller then runs strength 0, a comparison multiplying by exactly 1.0.
 
@@ -100,7 +99,8 @@ export function createShadowLayer(gl, posLoc, size = SHADOW_SIZE) {
   // Draw the mass, from the sun, into depth. `vao` and `count` are the mass program's own — this
   // layer owns no geometry at all, which is what makes it impossible for the shadow to be cast by
   // a different city from the one being drawn.
-  function render(vao, count, lightVP) {
+  // `draw`, if given, issues the draws itself with the VAO bound (the near cascade's culled runs).
+  function render(vao, count, lightVP, draw = null) {
     if (!count) return 0;
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
     gl.viewport(0, 0, dim, dim);
@@ -122,12 +122,12 @@ export function createShadowLayer(gl, posLoc, size = SHADOW_SIZE) {
     gl.useProgram(prog);
     gl.uniformMatrix4fv(uLightVP, false, lightVP);
     gl.bindVertexArray(vao);
-    gl.drawArrays(gl.TRIANGLES, 0, count);
+    const drawn = draw ? draw() : (gl.drawArrays(gl.TRIANGLES, 0, count), count);
     gl.bindVertexArray(null);
     gl.disable(gl.POLYGON_OFFSET_FILL);
     gl.polygonOffset(0, 0);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    return count;
+    return drawn;
   }
 
   return { render, tex, size: dim, texel: 1 / dim };

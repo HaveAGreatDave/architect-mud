@@ -3,6 +3,7 @@
   "ambient_theme": "city",
   "description": "Yarrow Lane, on what was the Hughson Car Park. An attendant's folding chair is still chained to a lamp post. Crowd barriers are stacked beside it, ready for game night.",
   "exits": {
+    "east": "zone_hughsonpark_890_916",
     "north": "zone_ballpark_889_915",
     "south": "zone_ballpark_889_917"
   },

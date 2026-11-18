@@ -2210,8 +2210,10 @@ check('look returns a result', r && r.type !== 'error', JSON.stringify(r)?.slice
     // …and the rung above is untouched: a visual player still gets the panel.
     getPlayer().current_zone = npc.zone_id;
     getPlayer().displayRung = 'visual';
-    check('the visual rung still opens the dialogue panel',
-      (await run(`talk ${npc.name}`))?.type === 'dialogue', 'visual talk did not return a dialogue frame');
+    const frame = await run(`talk ${npc.name}`);
+    check('the visual rung still opens the dialogue panel', frame?.type === 'dialogue', 'visual talk did not return a dialogue frame');
+    // the voice is placed by the speaker's sex (npc-bubbles.js), so the frame says it
+    check("the dialogue frame carries the NPC's sex for the voice", frame?.npcSex === (npc.sex || null), `${frame?.npcSex} vs ${npc.sex}`);
     await run('endtalk');
   }
   getPlayer().current_zone = savedZone;
@@ -2332,6 +2334,12 @@ check('look returns a result', r && r.type !== 'error', JSON.stringify(r)?.slice
   // worth pinning: the sections REPLACE the single `Furniture:` label (a
   // remainder labelled "Furniture" under a heading that already said Furniture
   // is the thing this fixes), and no piece is lost between the two shapes.
+  // 38-B became a lived-in flat (eight dining chairs, a card table, a bar wall) and its Furnishings now
+  // outnumber everything else, so it rightly stays flat. 38-P is the furnished flat it used to be.
+  getPlayer().current_zone = 'zone_solenne_apt_p';
+  const busyBody = (await run('look'))?.message || '';
+  {
+  const body = busyBody;
   check('a busy room sections its furniture by type', /class="room-furn-secs"/.test(body), body.slice(0, 900));
   check('…and the sections replace the single Furniture: label',
     !/>Furniture:</.test(body), body.slice(0, 900));
@@ -2350,6 +2358,7 @@ check('look returns a result', r && r.type !== 'error', JSON.stringify(r)?.slice
       links.length >= 8 && new Set(links).size === links.length, `${links.length} links: ${links.join(' | ')}`);
     check('…and the pieces themselves are still there',
       links.some((t) => /Chromavision/.test(t)) && links.some((t) => /Ember 300/.test(t)), links.join(' | '));
+  }
   }
   // …and a room with a handful of things stays flat, which is the common answer.
   getPlayer().current_zone = 'zone_apt_12';
@@ -3877,7 +3886,7 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
     const util = getZone('zone_util_zone_bld_922_917_lobby');
     const anchor = util && powerAnchorOf(util);
     check('a utility room at 0,0 anchors to its building\'s facade, not the origin',
-      !!anchor && anchor.x === 922 && anchor.y === 917, JSON.stringify(anchor));
+      !!anchor && anchor.x === 923 && anchor.y === 917, JSON.stringify(anchor));
     check('…and carries the facade\'s region, which is what picks the plant',
       anchor?.region === 'region_coldwater', String(anchor?.region));
 
@@ -3893,7 +3902,7 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
     // A world tile is its own anchor, and an unplaceable zone says so instead of guessing.
     const street = getZone('zone_district_922_917');
     check('a world tile is its own anchor',
-      powerAnchorOf(street)?.x === 922 && powerAnchorOf(street)?.id === 'zone_district_922_917');
+      powerAnchorOf(street)?.x === 923 && powerAnchorOf(street)?.id === 'zone_district_922_917');
     check('an interior naming no facade anchors to nothing at all',
       powerAnchorOf({ id: 'x', map_id: 'map_int_nowhere', grid_x: 0, grid_y: 0, flags: {} }) === null);
     check('…and so does a zone that is not there', powerAnchorOf(null) === null);
@@ -5818,7 +5827,7 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   // cell this filter lets through on `is_interior`, `is_apartment` or `building_type` reaches the
   // check above's refusal instead of this one — a true answer to a different question, reported
   // here as a missing guard. Found by the marina's fuel float, which is a `building_type: pier`
-  // deck with a fuel pump standing on it; the forecourt at 923,907 is the same shape and escaped
+  // deck with a fuel pump standing on it; the forecourt at 924,907 is the same shape and escaped
   // only by not being in the first twelve. Two copies of "is this a building" is the bug, and the
   // fix is to stop keeping the second one.
   const furnished = new Set([...tree.furniture.values()].map(fu => fu.zone_id));
@@ -6447,9 +6456,10 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
     const { zoneAtTile } = await import('../server/engine/world.js');
     const ESTATE = [[893, 910, 'north', 'zone_district_894_911', '6 Halcyon Boulevard', 'zone_vested_hall'], [894, 910, 'north', 'zone_district_895_911', '8 Halcyon Boulevard', 'zone_going_saleroom'],
       [895, 910, 'north', 'zone_district_896_911', 'The Halcyon Institute', 'zone_course_theatre'], [896, 910, 'north', 'zone_district_897_911', 'Halcyon Land Office', 'zone_plot_office'],
-      [893, 912, 'west', 'zone_district_894_912', '2 Hughson Way', 'zone_hf_terms_hall'], [893, 913, 'west', 'zone_district_894_913', 'Halcyon Sales Suite', 'zone_hf_impression_suite'],
-      [896, 911, 'east', 'zone_district_898_911', '9 Hughson Way', 'zone_hf_salad_pack'],
-      [896, 913, 'east', 'zone_district_898_913', '11 Hughson Way', 'zone_wind_day']];
+    ];
+    // 2, 9 and 11 Hughson Way and the Sales Suite went to the holding map for the North Gardens
+    // (scripts/content/hughson-north-gardens.mjs), with their rooms and their three keepers.
+    const GARDENED = ['zone_district_894_912', 'zone_district_894_913', 'zone_district_898_911', 'zone_district_898_913'];
     const D = { north: [0, -1], south: [0, 1], east: [1, 0], west: [-1, 0] }, OPP = { north: 'south', south: 'north', east: 'west', west: 'east' };
     const bad = [];
     for (const [x, y, ent, id, name, room] of ESTATE) {
@@ -6460,27 +6470,32 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
       if (street?.exits?.[OPP[ent]] !== id || f.exits?.[ent] !== street?.id) bad.push(`${id}: street link`);
       if (f.exits?.[OPP[ent]] !== room || world.zones.get(room)?.parent_zone !== id) bad.push(`${id}: into ${f.exits?.[OPP[ent]]}`);
     }
-    check('Hughson estate: eight doors off their streets, each into its own room', !bad.length, bad.join(' | '));
+    for (const id of GARDENED) { const z = world.zones.get(id); if (z?.map_id !== 'map_set_aside' || !z.flags?.set_aside) bad.push(`${id}: ${z?.map_id}`); }
+    check('Hughson estate: four doors off the boulevard, each into its own room, and the four the North Gardens displaced on the holding map', !bad.length, bad.join(' | '));
     // 3, 5 and 7 Sorrel Way went back to the holding map for Hughson Gardens (docs/proposals/hughson-gardens.md).
     const gardened = ['zone_district_895_913', 'zone_district_896_913', 'zone_district_897_913'].filter((id) => world.zones.get(id)?.map_id !== 'map_set_aside' || !world.zones.get(id)?.flags?.set_aside);
     check('Hughson Gardens: 3, 5 and 7 Sorrel Way are on the holding map', !gardened.length, gardened.join());
-    const keepers = [['npc_vested_fewtrell', 'zone_district_894_911'], ['npc_going_crake', 'zone_district_895_911'], ['npc_course_quainton', 'zone_district_896_911'], ['npc_plot_follet', 'zone_district_897_911'],
-      ['npc_hf_marchetti', 'zone_district_894_913'], ['npc_hf_salad_okonjo', 'zone_district_898_911'], ['npc_wind_marchbank', 'zone_district_898_913']];
+    const keepers = [['npc_vested_fewtrell', 'zone_district_894_911'], ['npc_going_crake', 'zone_district_895_911'], ['npc_course_quainton', 'zone_district_896_911'], ['npc_plot_follet', 'zone_district_897_911']];
     const away = keepers.filter(([id, door]) => {
       const n = world.npcs.get(id);
       return !n || n.flags?.set_aside || world.zones.get(n.work_zone_id)?.parent_zone !== door || world.zones.get(n.home_zone)?.parent_zone !== door;
     });
-    check('Hughson estate: the seven keepers are back at work, none set aside', !away.length, away.map(([id]) => id).join());
+    check('Hughson estate: the four boulevard keepers are at work, none set aside', !away.length, away.map(([id]) => id).join());
+    const benched = ['npc_hf_marchetti', 'npc_hf_salad_okonjo', 'npc_wind_marchbank'].filter((id) => !world.npcs.get(id)?.flags?.set_aside);
+    check('Hughson estate: the three keepers of the gardened buildings are set aside with them', !benched.length, benched.join());
     const lot = [...world.zones.values()].filter((z) => z.map_id === 'map_world' && (z.grid_z ?? 0) === 0 && z.grid_x >= 887 && z.grid_x <= 896 && z.grid_y >= 910 && z.grid_y <= 914);
-    check('Hughson estate: the lot north of the park is ten doors, 22 sealed buildings, 15 tiles of road and three slices of the park, no bare grass', lot.length === 50 && lot.filter((z) => z.flags?.facade).length === 10
-      && lot.filter((z) => z.flags?.is_building && !z.flags?.facade).length === 22 && lot.filter((z) => z.flags?.terrain === 'road').length === 15, lot.length);
+    // The North Gardens and the park wrap took four doors, ten sealed buildings and three road tiles.
+    check('Hughson estate: the lot north of the park is six doors, 12 sealed buildings and 12 tiles of road round the gardens', lot.length === 50 && lot.filter((z) => z.flags?.facade).length === 6
+      && lot.filter((z) => z.flags?.is_building && !z.flags?.facade).length === 12 && lot.filter((z) => z.flags?.terrain === 'road').length === 12,
+      `${lot.length} tiles, ${lot.filter((z) => z.flags?.facade).length} doors, ${lot.filter((z) => z.flags?.is_building && !z.flags?.facade).length} sealed, ${lot.filter((z) => z.flags?.terrain === 'road').length} road`);
     // The towers on the old green and car park (scripts/content/hughson-towers.mjs). `is_building` doesn't stop
     // the grid, so a sealed tile with a wall missing is a street you walk into the side of a tower from.
     const onLot = (z) => z.map_id === 'map_world' && (z.grid_z ?? 0) === 0 && z.grid_y >= 910 && z.grid_y <= 920 && ((z.grid_x >= 887 && z.grid_x <= 891 && z.grid_y !== 915) || (z.grid_x >= 893 && z.grid_x <= 896 && z.grid_y <= 914) || (z.grid_x === 897 && z.grid_y >= 917));
     const towers = [...world.zones.values()].filter((z) => onLot(z) && z.flags?.is_building && !z.flags?.facade);
     const towerIds = new Set(towers.map((z) => z.id));
     // 19 Hughson Way (891,920) went to the holding map for Hughson Gardens, leaving 37.
-    check('Hughson towers: 37 sealed buildings, each with a floor count, a map code and no way in', towers.length === 37 && towers.every((z) => z.flags?.floors > 0 && z.marker && !Object.keys(z.exits || {}).length), towers.length);
+    // Eight Hughson Court towers (north-gardens) and nine more (hughson-park-wrap.mjs) went to the holding map, leaving 20.
+    check('Hughson towers: 20 sealed buildings, each with a floor count, a map code and no way in', towers.length === 20 && towers.every((z) => z.flags?.floors > 0 && z.marker && !Object.keys(z.exits || {}).length), towers.length);
     const inward = [...world.zones.values()].filter((z) => Object.values(z.exits || {}).flat().some((t) => towerIds.has(t))).map((z) => z.id);
     check('Hughson towers: no exit anywhere leads into one', !inward.length, inward.join());
     check('Hughson towers: nothing stands taller than 1 Halcyon Boulevard', towers.every((z) => z.flags.floors < 56), Math.max(...towers.map((z) => z.flags.floors)));
@@ -6491,10 +6506,12 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
     const seen = new Set(['zone_ballpark_889_915']), todo = ['zone_ballpark_889_915'];
     while (todo.length) for (const t of Object.values(world.zones.get(todo.pop())?.exits || {}).flat()) if (round(world.zones.get(t) || {}) && !seen.has(t)) { seen.add(t); todo.push(t); }
     // 891,919 is Grandstand Plaza now, park not road, leaving 20.
-    check('Hughson towers: all 20 lane tiles are one piece on foot from Hughson Way', lanes.length === 20 && lanes.every((z) => seen.has(z.id)), lanes.filter((z) => !seen.has(z.id)).map((z) => z.id).join());
+    // The park wrap turned Hughson Way and Teasel Walk beside the Coliseum to park, leaving 16.
+    check('Hughson towers: all 16 lane tiles are one piece on foot from Hughson Way', lanes.length === 16 && lanes.every((z) => seen.has(z.id)), lanes.filter((z) => !seen.has(z.id)).map((z) => z.id).join());
     // 896_913 came back as a Hughson Gardens fountain (hughson-gardens.md); 893_910 still waits.
+    // 893_910 waited on the holding map until the North Gardens brought it back as a grove.
     const plots = ['zone_ballpark_893_910'].map((id) => world.zones.get(id));
-    check('Hughson estate: the green tiles the buildings displaced are on the holding map', plots.every((z) => z?.map_id === 'map_set_aside' && z.flags?.set_aside), plots.map((z) => `${z?.id}:${z?.map_id}`).join());
+    check('Hughson estate: the last waiting green is back on the map in the North Gardens', plots.every((z) => z?.map_id === 'map_world' && !z.flags?.set_aside), plots.map((z) => `${z?.id}:${z?.map_id}`).join());
   }
 
   const held = [...world.zones.values()].filter((z) => z.map_id === 'map_set_aside');
@@ -6555,7 +6572,7 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
 // because both buildings' entry rooms are counters (a vendor's room shuts outside his hours) and
 // the stage door is ticketed on a taping night, so their doors are read from the exits instead.
 {
-  const COURT = 'zone_medialot_913_911', PARK = 'zone_medialot_914_911';
+  const COURT = 'zone_medialot_913_911', PARK = 'zone_medialot_914_911', PARK_W = 'zone_seam_914_911';
   const STAGE = 'zone_district_912_911', WRITERS = 'zone_district_913_910';
   const ex = (id) => world.zones.get(id)?.exits || {};
   const p = getPlayer();
@@ -6567,9 +6584,10 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
     await step('north');
     check('Media Lot: north from Foundry Way through the gate lands in the court', p.current_zone === COURT, p.current_zone);
     await step('east');
-    check('Media Lot: east of the court is the car park', p.current_zone === PARK, p.current_zone);
+    // since the x 914 column went in, the car park is two tiles wide and the court opens onto its west one (zone_seam_914_911)
+    check('Media Lot: east of the court is the car park', p.current_zone === PARK_W, p.current_zone);
     await step('south');
-    check('Media Lot: the car park is walled on Foundry Way', p.current_zone === PARK, p.current_zone);
+    check('Media Lot: the car park is walled on Foundry Way', p.current_zone === PARK_W, p.current_zone);
     await step('west');
     await step('south');
     check('Media Lot: back out through the gate onto Foundry Way', p.current_zone === 'zone_district_913_912', p.current_zone);
@@ -6620,11 +6638,17 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   check('Media Lot: Dot keeps the gate and sells nothing, so the court never shuts', dot?.work_zone_id === COURT && !(dot?.vendor_inventory || []).length, dot?.work_zone_id);
   const { surfaceAt, deriveSurfaceCell } = await import('../plugins/flight/state.js');
   const cellOf = (x, y) => { const c = surfaceAt(x, y); return c ? deriveSurfaceCell(c, x, y, surfaceAt, false) : null; };
-  const mc = cellOf(913, 911), mp = cellOf(914, 911);
+  // the car park is three tiles since the column at x 914 went in (scripts/content/coldwater-column.mjs): its first
+  // tile at 915,911 with the wall east and south, and the two new ones at 914,910 and 914,911, walled from Marrow
+  // Street and from Foundry Way
+  const mc = cellOf(913, 911), mp = cellOf(915, 911), mn = cellOf(914, 910), ms = cellOf(914, 911);
+  check('Media Lot: the column\'s two car park tiles are walled from the streets and open to the lot',
+    mn?.mark === 'lot' && mn.ml?.p === 'p' && mn.ml?.w === 'n' && ms?.mark === 'lot' && ms.ml?.p === 'p' && ms.ml?.w === 's',
+    JSON.stringify({ north: mn?.ml, south: ms?.ml }));
   check('Media Lot: GLASS draws the gate on the court\'s Foundry Way side and walls the car park on two sides',
     mc?.mark === 'lot' && mc.ml?.p === 'c' && mc.ml?.g === 's' && !mc.ml?.w && mp?.mark === 'lot' && mp.ml?.p === 'p' && mp.ml?.w === 'es' && !mp.ml?.g,
     JSON.stringify({ court: mc?.ml, park: mp?.ml }));
-  const bl = cellOf(912, 910), st = cellOf(912, 911), wr = cellOf(913, 910), se = cellOf(914, 910);
+  const bl = cellOf(912, 910), st = cellOf(912, 911), wr = cellOf(913, 910), se = cellOf(915, 910);
   check('Media Lot: the backlot is walled on both streets, and the buildings carry the wall on their street faces without losing their mass',
     bl?.mark === 'lot' && bl.ml?.p === 'b' && bl.ml?.w === 'nw' && st?.ml?.w === 'ws' && wr?.ml?.w === 'n' && se?.ml?.w === 'ne'
       && [st, wr, se].every((c) => c?.ml?.p === 'x' && c.mark !== 'lot' && c.bt),
@@ -7332,61 +7356,56 @@ removeLivePlayer(P.id);
   check('brief: an empty room adds no "Also here" line', !/Also here/.test(briefRoom(BARE)), briefRoom(BARE));
 }
 
-// ── The vat issues seasonal outerwear ────────────────────────────────────────
+// ── The vat issues a seasonal suit ───────────────────────────────────────────
 // Every body that comes back is dressed by one function, so the failure mode here
 // is quiet: a typo'd item id makes the INSERT…SELECT match no row, the .catch()
 // swallows it, and the player walks out of the vat with a bare torso in January.
 // Nothing else in the game would report that. Hence the id-resolution check.
 {
-  const { SEASONAL_TORSO, STARTER_CONDITION, equipStarterOutfit } = await import('../server/engine/gameLoop.js');
+  const { SEASONAL_SUIT, STARTER_CONDITION, equipStarterOutfit, suitSeasonFor } = await import('../server/engine/gameLoop.js');
   const { seasonForDate } = await import('../server/engine/environment.js');
   const { conditionBand } = await import('../server/engine/durability.js');
 
-  check('season: the four seasons map to four distinct garments',
-    new Set(Object.values(SEASONAL_TORSO)).size === 4, Object.values(SEASONAL_TORSO).join(', '));
+  check('season: the four seasons map to four distinct suits',
+    new Set(Object.values(SEASONAL_SUIT)).size === 4, Object.values(SEASONAL_SUIT).join(', '));
 
   const { rows: garments } = await query(
-    `SELECT id, tags->>'slot' AS slot, tags->>'layer' AS layer, (tags->>'insulation')::numeric AS ins
-       FROM items WHERE id = ANY($1)`, [Object.values(SEASONAL_TORSO)]);
+    `SELECT id, tags->>'slot' AS slot, tags->>'layer' AS layer, (tags->>'insulation')::numeric AS ins, tags->'covers' AS covers, tags->'wear_look' AS look
+       FROM items WHERE id = ANY($1)`, [Object.values(SEASONAL_SUIT)]);
   const byId = new Map(garments.map(r => [r.id, r]));
-  const missing = Object.values(SEASONAL_TORSO).filter(id => !byId.has(id));
-  check('season: every issued garment resolves to a real items row', missing.length === 0, missing.join(', '));
-  check('season: …and every one is torso/outerwear, the cell the basic shirt used to hold',
-    garments.every(r => r.slot === 'torso' && r.layer === 'outerwear'),
-    garments.map(r => `${r.id} ${r.slot}/${r.layer}`).join(' | '));
+  const missing = Object.values(SEASONAL_SUIT).filter(id => !byId.has(id));
+  check('season: every issued suit resolves to a real items row', missing.length === 0, missing.join(', '));
+  check('season: …and every one is a torso/outerwear one-piece that covers the legs',
+    garments.every(r => r.slot === 'torso' && r.layer === 'outerwear' && Array.isArray(r.covers) && r.covers.includes('legs')),
+    garments.map(r => `${r.id} ${r.slot}/${r.layer} ${JSON.stringify(r.covers)}`).join(' | '));
+  check('season: …and names its own vat-suit cut for the close-up figure',
+    garments.every(r => /^vatsuit_(winter|autumn|spring|summer)$/.test(r.look?.cut || '')), garments.map(r => r.look?.cut).join(', '));
 
-  // Kit totals. The garment REPLACES item_basic_shirt rather than layering over it,
-  // so the total is the seasonal torso piece plus pants and shoes.
-  const { rows: base } = await query(
-    `SELECT id, (tags->>'insulation')::numeric AS ins FROM items WHERE id = ANY($1)`,
-    [['item_basic_pants', 'item_basic_shoes']]);
-  const baseIns = base.reduce((n, r) => n + Number(r.ins || 0), 0);
-  check('season: pants + shoes are the 2.0°C the kit is built on', baseIns === 2, String(baseIns));
-
+  // Kit totals: the suit (the old torso piece plus the pants it replaces) and shoes.
+  const { rows: [shoes] } = await query(`SELECT (tags->>'insulation')::numeric AS ins FROM items WHERE id='item_basic_shoes'`);
+  const shoeIns = Number(shoes?.ins || 0);
+  check('season: shoes are the 0.5°C the kit is built on', shoeIns === 0.5, String(shoeIns));
   const EXPECTED = { winter: 6, autumn: 5.5, spring: 4.5, summer: 3 };
-  const totals = Object.fromEntries(Object.entries(SEASONAL_TORSO)
-    .map(([s, id]) => [s, Number(byId.get(id)?.ins || 0) + baseIns]));
+  const totals = Object.fromEntries(Object.entries(SEASONAL_SUIT).map(([s, id]) => [s, Number(byId.get(id)?.ins || 0) + shoeIns]));
   const offBy = Object.keys(EXPECTED).filter(s => totals[s] !== EXPECTED[s]);
   check('season: each kit totals its designed insulation', offBy.length === 0,
     offBy.map(s => `${s} ${totals[s]} != ${EXPECTED[s]}`).join(', '));
-
-  // The migration invariant: summer reproduces exactly what the old fixed kit gave
-  // in EVERY season. If this moves, warm-weather behaviour has silently changed.
-  check('season: summer is exactly the 3.0°C the old fixed kit always issued', totals.summer === 3);
   check('season: winter is the warmest and summer the thinnest',
     totals.winter > totals.autumn && totals.autumn > totals.spring && totals.spring > totals.summer);
 
   // Still well under the parka/snowsuit tier, or bought cold-weather gear is pointless.
   const { rows: [parka] } = await query(`SELECT (tags->>'insulation')::numeric AS ins FROM items WHERE id='item_thermal_parka'`);
-  check('season: even the winter coat leaves real cold gear worth buying',
-    Number(byId.get(SEASONAL_TORSO.winter).ins) < Number(parka.ins), `${byId.get(SEASONAL_TORSO.winter).ins} vs parka ${parka.ins}`);
+  check('season: even the winter suit leaves real cold gear worth buying',
+    Number(byId.get(SEASONAL_SUIT.winter).ins) < Number(parka.ins), `${byId.get(SEASONAL_SUIT.winter).ins} vs parka ${parka.ins}`);
 
-  // A missing clock must never produce a naked body. seasonForDate returns null and
-  // the lookup falls through to the mild default.
+  // The suit follows the weather: colder outside, warmer suit; no reading, the calendar; no date either, autumn.
+  check('season: the outdoor temperature picks the suit',
+    suitSeasonFor(-12) === 'winter' && suitSeasonFor(2) === 'winter' && suitSeasonFor(5) === 'autumn' && suitSeasonFor(11) === 'spring' && suitSeasonFor(16) === 'summer',
+    [-12, 2, 5, 11, 16].map((t) => suitSeasonFor(t)).join(', '));
+  check('season: with no temperature the calendar picks it', suitSeasonFor(null, '2076-01-15') === 'winter' && suitSeasonFor(null, '2076-07-15') === 'summer');
+  check('season: with neither, the middle of the ladder rather than nothing', suitSeasonFor(null, null) === 'autumn');
   check('season: no game date yields no season rather than a throw', seasonForDate(null) === null);
   check('season: …and an unparseable date does the same', seasonForDate('not-a-date') === null);
-  check('season: a null season selects no garment, so the fallback is what dresses the body',
-    SEASONAL_TORSO[seasonForDate(null)] === undefined);
   check('season: months map to the seasons the kits are keyed on',
     seasonForDate('2076-01-15') === 'winter' && seasonForDate('2076-07-15') === 'summer'
     && seasonForDate('2076-04-15') === 'spring' && seasonForDate('2076-10-15') === 'autumn');
@@ -7396,8 +7415,7 @@ removeLivePlayer(P.id);
   check('season: the issued condition sits in the Battered band, not Pristine',
     conditionBand(STARTER_CONDITION).id === 'battered', conditionBand(STARTER_CONDITION).id);
 
-  // End to end against a real body: whatever season the world clock is in, the vat
-  // dresses the torso and the rows land worn.
+  // End to end against a real body: whatever the weather, the vat puts a suit on and the rows land worn.
   const dressed = { id: randomUUID(), handle: 'RegressVatDress', biological_sex: 'male' };
   await query(`INSERT INTO players (id, handle, biological_sex) VALUES ($1,$2,$3)
                ON CONFLICT (id) DO NOTHING`, [dressed.id, dressed.handle, 'male']).catch(() => {});
@@ -7407,9 +7425,10 @@ removeLivePlayer(P.id);
        FROM player_inventory pi JOIN items i ON i.id = pi.item_id
       WHERE pi.player_id=$1 AND pi.is_equipped=1`, [dressed.id]);
   const torsoRow = worn.find(r => r.slot === 'torso' && r.layer === 2);
-  check('season: the vat actually put a garment on the torso',
-    !!torsoRow && Object.values(SEASONAL_TORSO).includes(torsoRow.item_id),
+  check('season: the vat actually put a suit on',
+    !!torsoRow && Object.values(SEASONAL_SUIT).includes(torsoRow.item_id),
     worn.map(r => `${r.item_id}@${r.slot}/${r.layer}`).join(' | '));
+  check("season: …and no trousers under it at the suit's layer", !worn.some(r => r.slot === 'legs' && r.layer === 2), worn.map(r => r.item_id).join(', '));
   check('season: …and issued the whole kit worn, not pristine',
     worn.length > 0 && worn.every(r => Number(r.condition) === STARTER_CONDITION),
     worn.map(r => `${r.item_id} ${r.condition}`).join(' | '));

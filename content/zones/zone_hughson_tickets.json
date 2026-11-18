@@ -11,6 +11,70 @@
     "is_building": true,
     "is_interior": true,
     "open_all_hours": true,
+    "room": {
+      "balcony": false,
+      "d": 8,
+      "decor": {
+        "downlights": false,
+        "rug": false,
+        "strips": [
+          {
+            "along": "v",
+            "at": [
+              0,
+              2.5
+            ],
+            "len": 1.5
+          },
+          {
+            "along": "v",
+            "at": [
+              0,
+              5.5
+            ],
+            "len": 1.5
+          }
+        ]
+      },
+      "door_w": {
+        "west": 1.2
+      },
+      "face": 0,
+      "ground": "linoleum",
+      "h": 3.2,
+      "rug": false,
+      "stadium": {
+        "accent": "#c49a52",
+        "brick": "#8a5a3c",
+        "font": "Limelight",
+        "frame": "#3a2c1e",
+        "ink": "#3a2c1e",
+        "plate": "#f3ead6",
+        "portal": "brick",
+        "signs": [
+          {
+            "at": 4,
+            "h": 0.5,
+            "kind": "enamel",
+            "sub": "Do not sell",
+            "text": "Section Nine",
+            "w": 2.2,
+            "wall": "right",
+            "y": 2.3
+          }
+        ],
+        "sub": "Italiana"
+      },
+      "studio": false,
+      "tone": {
+        "accent": "#c49a52",
+        "ceiling": "#d8d2c2",
+        "trim": "#3a2c1e",
+        "wall": "#cfc6b0"
+      },
+      "w": 5,
+      "windowless": true
+    },
     "world_exit_zone": "zone_ballpark_896_920"
   },
   "grid_x": 0,

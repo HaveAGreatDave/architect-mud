@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_vendor_01",
+  "lines": [
+    "\"Takings any good?\"",
+    "\"Good till lunch. Then nothing.\"",
+    "\"Everyone's broke after lunch.\"",
+    "\"Everyone's broke before lunch. They just don't know yet.\""
+  ],
+  "personality": "vendor",
+  "sort_order": 630
+}

@@ -1,0 +1,31 @@
+{
+  "description": "A turret hung off the trunk on a telescoping boom, eight jointed arms folded round it. A hose feeds vat suits down through its middle and fires them out of a nozzle underneath. When a body comes out of a release vat, the arms come down and catch.",
+  "flags": {
+    "look": {
+      "arche": "prop",
+      "dims": [
+        2.4,
+        2.4,
+        3.6
+      ],
+      "form": "gantry"
+    },
+    "spot": {
+      "at": [
+        0,
+        8
+      ],
+      "turn": 180
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_clone_gantry",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "dressing gantry",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": null,
+  "zone_id": "zone_start"
+}

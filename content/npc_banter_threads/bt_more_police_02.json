@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_police_02",
+  "lines": [
+    "\"Do people still run when they see you?\"",
+    "\"The guilty ones walk faster.\"",
+    "\"And the innocent ones?\"",
+    "\"They run. Every time.\""
+  ],
+  "personality": "police",
+  "sort_order": 642
+}

@@ -17,7 +17,7 @@
 // ⚠ FOUR SAMPLERS, NOT AN ARRAY. GLSL ES 3.00 indexes an array of samplers only with a constant,
 // and a light loop's index isn't one, so the lookup is an if-chain over four named samplers.
 
-import { perspective, lookAt, mul4 } from '../diamond/camera.js';
+import { perspective, lookAt, multiply } from './core/mat4.js';
 import { declareProgram, takeWarm } from './programs.js';
 
 const SPOT_SHADOW_SIZE = 2048;
@@ -36,9 +36,9 @@ export const spotReach = (lamp, focus, radius) => Math.min(radius, 0.8 * Math.hy
 // hold it to the points it must contain.
 export function spotMatrix(lamp, focus, radius, near = null) {
   const d = Math.hypot(focus[0] - lamp[0], focus[1] - lamp[1], focus[2] - lamp[2]), r = spotReach(lamp, focus, radius);
-  const fov = 2 * Math.asin(Math.min(0.999, r * 1.05 / d)) * 180 / Math.PI;
+  const fov = 2 * Math.asin(Math.min(0.999, r * 1.05 / d));
   const n = near > 0 ? Math.max(1, Math.min(d - r * 1.5, d * near)) : Math.max(1, d - r * 1.5);
-  return mul4(perspective(fov, 1, n, d + r * 1.5), lookAt(lamp, focus));
+  return multiply(perspective(fov, 1, n, d + r * 1.5), lookAt(lamp, focus));
 }
 
 // The lookup the lit shader includes: `spotShadow(i, p)` is 1 lit and 0 in shadow for map i at the

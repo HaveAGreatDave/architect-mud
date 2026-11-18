@@ -1198,7 +1198,7 @@ on('door.sfx', ({ door, zoneId, actorId, cue }) => {
   sendToZone(zoneId, msg, actorId || null);
 });
 
-// A knock on a locked door (plugins/gametable, somebody on their way in): heard on both sides, a bit louder inside,
+// A knock on a shut door (plugins/gametable, somebody on their way in): heard on both sides, a bit louder inside,
 // since the whole job of it is that whoever's in there notices. The leaf's own door_type colours it.
 on('door.knock', ({ door, outside, inside }) => {
   const params = { action: 'knock', surface: door?.door_type || 'basic', intensity: 0.7, seed: (Math.random() * 0xffffffff) >>> 0 };

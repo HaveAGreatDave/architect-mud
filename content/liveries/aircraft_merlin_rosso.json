@@ -1,0 +1,20 @@
+{
+  "blurb": "Red over carbon, oxblood leather inside. The one in the brochure.",
+  "default": true,
+  "exterior": {
+    "base": "#b2162a",
+    "finish": "gloss",
+    "pattern": "factory",
+    "trim": "#ece8e0",
+    "variant": "rosso"
+  },
+  "id": "rosso",
+  "interior": {
+    "cabin": "#2a1214",
+    "uphol": "leather"
+  },
+  "kind": "aircraft",
+  "model": "merlin",
+  "name": "Rosso",
+  "unlock": null
+}

@@ -1,0 +1,34 @@
+{
+  "description": "A brass rail along the front wall with a ledge on it, worn bright where elbows go. Napkins in a steel box at one end.",
+  "flags": {
+    "aliases": [
+      "rail",
+      "ledge",
+      "eating rail",
+      "napkins"
+    ],
+    "interactions": [
+      "lean"
+    ],
+    "look": {
+      "arche": "surface",
+      "dims": [
+        3,
+        0.3,
+        1.05
+      ],
+      "form": "rail"
+    },
+    "spot": {
+      "at": [
+        -1.2,
+        0.18
+      ],
+      "turn": 180
+    }
+  },
+  "id": "furn_hughson_stand_rail",
+  "name": "the eating rail",
+  "object_type": "furniture",
+  "zone_id": "zone_hughson_stand"
+}

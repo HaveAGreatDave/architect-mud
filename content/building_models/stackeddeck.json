@@ -1,0 +1,388 @@
+{
+  "adorn": [
+    {
+      "kind": "liftPad",
+      "z": 0.602,
+      "r": 0.24,
+      "glow": "120,230,255",
+      "paint": "240,244,248",
+      "half": 0.2,
+      "depth": 0.4
+    },
+    {
+      "kind": "blinkLight",
+      "z": 0.71,
+      "rgb": "255,70,60",
+      "cx": 0.29,
+      "cy": -0.29
+    },
+    {
+      "kind": "glowPool",
+      "cx": 0,
+      "cy": 0.36,
+      "z": 0.05,
+      "rgb": "120,220,255",
+      "s": 14,
+      "day": 0
+    },
+    {
+      "kind": "glowPool",
+      "cx": -0.26,
+      "cy": 0.26,
+      "z": 0.61,
+      "rgb": "255,200,140",
+      "s": 10,
+      "day": 0
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Stacked Deck"
+    }
+  ],
+  "detail": [
+    {
+      "kind": "windowBay",
+      "cx": -0.12,
+      "cy": 0.35,
+      "z": 0.04,
+      "half": 0.07,
+      "hh": 0.038,
+      "depth": 0.012,
+      "door": 2,
+      "glass": "#10202a",
+      "glow": "#a8ecff",
+      "pal": "ty_sdeck_black",
+      "transom": 0.76
+    },
+    {
+      "kind": "windowBay",
+      "cx": 0.15,
+      "cy": 0.35,
+      "z": 0.045,
+      "half": 0.1,
+      "hh": 0.03,
+      "depth": 0.01,
+      "bars": 3,
+      "glass": "#10202a",
+      "glow": "#a8ecff",
+      "pal": "ty_sdeck_black"
+    },
+    {
+      "kind": "signBoard",
+      "label": "$name",
+      "cx": 0,
+      "cy": 0.35,
+      "z": 0.15,
+      "half": 0.26,
+      "hh": 0.03,
+      "color": "#0c1418",
+      "ink": "#7fe6ff",
+      "nightInk": "#bff4ff",
+      "font": "deco"
+    },
+    {
+      "kind": "pilaster",
+      "cx": 0,
+      "cy": 0.36,
+      "n": 5,
+      "step": 0.16,
+      "w": 0.018,
+      "out": 0.022,
+      "pal": "ty_sdeck_black",
+      "z0": 0.1,
+      "z1": 0.58
+    },
+    {
+      "kind": "neonRun",
+      "cx": -0.04,
+      "cy": 0.36,
+      "half": 0.3,
+      "z": 0.21,
+      "color": "#5cd6ff"
+    },
+    {
+      "kind": "neonRun",
+      "cx": -0.04,
+      "cy": 0.36,
+      "half": 0.3,
+      "z": 0.33,
+      "color": "#5cd6ff"
+    },
+    {
+      "kind": "neonRun",
+      "cx": -0.04,
+      "cy": 0.36,
+      "half": 0.3,
+      "z": 0.45,
+      "color": "#5cd6ff"
+    },
+    {
+      "kind": "neonRun",
+      "cx": -0.04,
+      "cy": 0.36,
+      "half": 0.3,
+      "z": 0.57,
+      "color": "#5cd6ff"
+    },
+    {
+      "kind": "pilaster",
+      "cx": 0,
+      "cy": -0.36,
+      "n": 5,
+      "step": 0.16,
+      "w": 0.018,
+      "out": 0.022,
+      "pal": "ty_sdeck_black",
+      "z0": 0.1,
+      "z1": 0.58
+    },
+    {
+      "kind": "neonRun",
+      "cx": 0,
+      "cy": -0.36,
+      "half": 0.35,
+      "z": 0.21,
+      "color": "#5cd6ff"
+    },
+    {
+      "kind": "neonRun",
+      "cx": 0,
+      "cy": -0.36,
+      "half": 0.35,
+      "z": 0.33,
+      "color": "#5cd6ff"
+    },
+    {
+      "kind": "neonRun",
+      "cx": 0,
+      "cy": -0.36,
+      "half": 0.35,
+      "z": 0.45,
+      "color": "#5cd6ff"
+    },
+    {
+      "kind": "neonRun",
+      "cx": 0,
+      "cy": -0.36,
+      "half": 0.35,
+      "z": 0.57,
+      "color": "#5cd6ff"
+    },
+    {
+      "kind": "bladePanel",
+      "label": "P",
+      "cx": 0.3,
+      "cy": 0.36,
+      "z0": 0.24,
+      "z1": 0.5,
+      "half": 0.045,
+      "out": 0.05,
+      "pal": "ty_sdeck_black",
+      "color": "#0c1418",
+      "ink": "#7fe6ff",
+      "font": "deco"
+    }
+  ],
+  "id": "stackeddeck",
+  "note": "STACKED DECK: VTOL parking on Marrow Street, between Adequate! and The Flute. Open precast decks round a rotary carousel; you land on the pad on the roof, the carousel takes the craft down into a slot, and the lift on the north-east corner takes you to the street. Every box is square and centred or square off-centre, for the reason in Kestrel's note (now The Flute).",
+  "pal": "ty_sdeck_black",
+  "segs": [
+    {
+      "kind": "box",
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.35,
+      "pal": "ty_sdeck_black",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.1
+    },
+    {
+      "kind": "box",
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.3,
+      "pal": "ty_sdeck_core",
+      "roof": true,
+      "z0": 0.1,
+      "z1": 0.58
+    },
+    {
+      "kind": "box",
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.35,
+      "pal": "ty_sdeck_mesh",
+      "roof": false,
+      "z0": 0.1,
+      "z1": 0.2
+    },
+    {
+      "kind": "box",
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.35,
+      "pal": "ty_sdeck_mesh",
+      "roof": false,
+      "z0": 0.22,
+      "z1": 0.32
+    },
+    {
+      "kind": "box",
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.35,
+      "pal": "ty_sdeck_mesh",
+      "roof": false,
+      "z0": 0.34,
+      "z1": 0.44
+    },
+    {
+      "kind": "box",
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.35,
+      "pal": "ty_sdeck_mesh",
+      "roof": false,
+      "z0": 0.46,
+      "z1": 0.49
+    },
+    {
+      "kind": "box",
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.36,
+      "pal": "ty_sdeck_black",
+      "roof": true,
+      "z0": 0.2,
+      "z1": 0.216
+    },
+    {
+      "kind": "box",
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.362,
+      "pal": "ty_sdeck_cyan",
+      "roof": true,
+      "z0": 0.216,
+      "z1": 0.22
+    },
+    {
+      "kind": "box",
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.36,
+      "pal": "ty_sdeck_black",
+      "roof": true,
+      "z0": 0.32,
+      "z1": 0.336
+    },
+    {
+      "kind": "box",
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.362,
+      "pal": "ty_sdeck_cyan",
+      "roof": true,
+      "z0": 0.336,
+      "z1": 0.34
+    },
+    {
+      "kind": "box",
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.36,
+      "pal": "ty_sdeck_black",
+      "roof": true,
+      "z0": 0.44,
+      "z1": 0.456
+    },
+    {
+      "kind": "box",
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.362,
+      "pal": "ty_sdeck_cyan",
+      "roof": true,
+      "z0": 0.456,
+      "z1": 0.46
+    },
+    {
+      "kind": "box",
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.36,
+      "pal": "ty_sdeck_black",
+      "roof": true,
+      "z0": 0.56,
+      "z1": 0.576
+    },
+    {
+      "kind": "box",
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.362,
+      "pal": "ty_sdeck_cyan",
+      "roof": true,
+      "z0": 0.576,
+      "z1": 0.58
+    },
+    {
+      "kind": "box",
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.36,
+      "pal": "ty_sdeck_black",
+      "roof": true,
+      "z0": 0.58,
+      "z1": 0.6
+    },
+    {
+      "kind": "box",
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.355,
+      "pal": "ty_sdeck_mesh",
+      "roof": false,
+      "z0": 0.6,
+      "z1": 0.635
+    },
+    {
+      "kind": "box",
+      "cx": -0.26,
+      "cy": 0.26,
+      "hw": 0.08,
+      "pal": "ty_quay_deck",
+      "roof": true,
+      "z0": 0.6,
+      "z1": 0.606
+    },
+    {
+      "kind": "box",
+      "cx": 0.29,
+      "cy": -0.29,
+      "hw": 0.06,
+      "pal": "ty_hft_glass",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.7
+    },
+    {
+      "kind": "box",
+      "cx": 0.29,
+      "cy": -0.29,
+      "hw": 0.065,
+      "pal": "ty_sdeck_black",
+      "roof": true,
+      "z0": 0.68,
+      "z1": 0.7
+    }
+  ],
+  "trade": "stackeddeck"
+}

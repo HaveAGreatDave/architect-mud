@@ -1,0 +1,7 @@
+{
+  "capacity_kw": 2000,
+  "generator_id": "gen_zone_powerplantnew_1782069598190",
+  "id": "zone_sdeck_s9",
+  "name": "Stacked Deck, Slot 9",
+  "source_type": "city_grid"
+}

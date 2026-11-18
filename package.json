@@ -91,6 +91,7 @@
     "holoads:bake": "node scripts/content/build-holo-ads.mjs",
     "vehicles:bake": "node scripts/shapes/bake-vehicles.mjs",
     "liveries:bake": "node scripts/shapes/bake-liveries.mjs",
+    "depot-shed:bake": "node scripts/shapes/bake-depot-shed.mjs",
     "mesh": "node scripts/shapes/mesh.mjs",
     "gl:meshes": "node scripts/shapes/meshes.mjs",
     "fauna:bake": "node scripts/shapes/bake-fauna.mjs",

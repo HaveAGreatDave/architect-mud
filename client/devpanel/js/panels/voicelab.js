@@ -41,6 +41,7 @@ const VL_KNOBS = [
   ['finalTaper', 'final taper', 0.1,  1,    0.05],
   ['lineGapMs',  'line gap ms', 0,    900,  10  ],
   ['excitement', 'excitement',  0,    2,    0.05],
+  ['vary',       'line variety', 0,   2,    0.05],
   ['compRatio',  'compressor',  1,    8,    0.5 ],
 ];
 
@@ -352,6 +353,8 @@ function vlSpeakOpts(extra) {
     seed: _vlEl('vl-seed').value || 'broadcast',
     voice: Object.keys(_vlOverride).length ? _vlOverride : null,
     excite: +(_vlEl('vl-excite')?.value || 0),
+    // said as the booth says it, so pressing Speak again hears the next line's variety
+    vary: 1,
     tap: vlTap(),
     ...extra,
   };
@@ -381,9 +384,10 @@ async function vlAB() {
   vlUnmute(engine);
   const ok = await engine.loadVoiceWorklet?.();
   const text = _vlEl('vl-text').value;
-  const a = engine.speak(text, vlSpeakOpts({ backend: 'graph' }));
+  // (no variety: an A/B compares the back ends on the same delivery)
+  const a = engine.speak(text, vlSpeakOpts({ backend: 'graph', vary: 0 }));
   if (!a?.duration) { _vlEl('vl-dur').textContent = 'not spoken (audio blocked or muted)'; return; }
-  const b = engine.speak(text, vlSpeakOpts({ backend: ok ? 'worklet' : 'graph', queue: true }));
+  const b = engine.speak(text, vlSpeakOpts({ backend: ok ? 'worklet' : 'graph', queue: true, vary: 0 }));
   vlMeasure('graph', a.delay, a.duration);
   if (b?.duration) vlMeasure(b.backend, b.delay, b.duration);
   _vlEl('vl-dur').textContent = 'graph ' + a.duration.toFixed(2) + ' s, then ' + (b?.backend || '?') + ' ' + (b?.duration || 0).toFixed(2) + ' s';

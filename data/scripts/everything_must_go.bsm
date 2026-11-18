@@ -1,0 +1,202 @@
+@broadcast "Everything Must Go"
+@channel ksab_tv
+@category shopping
+@length 180
+@type scripted
+
+::actors
+@actor npc_emg_vance
+@billing npc_emg_vance Vance Pellow
+@actor npc_emg_jolene
+@billing npc_emg_jolene Jolene Marsh
+@actor npc_emg_pim
+@billing npc_emg_pim Pim
+::endactors
+
+::asset emg_logo
+ ___________   _______  ______   _____  _______  _   _ ___ _   _  ____
+| ____\ \   / / ____|  _ \ \ / /_   _|| |__| |_ _| \ | |/ ___|
+|  _|  \ \ / /|  _| | |_) \ V /  | |  |  __  || ||  \| | |  _
+| |___  \ V / | |___|  _ < | |   | |  | |  | || || |\  | |_| |
+|_____|  \_/  |_____|_| \_\|_|   |_|  |_|  |_|___|_| \_|\____|
+
+                    M U S T   G O
+
+            live from the REPO-TV floor, Coldwater
+::endasset
+
+::scene TITLE
+
+EVENT FADE_IN
+
+TITLE emg_logo
+
+3s
+
+::scene OPEN
+
+CAM 1 WIDE
+
+NPC npc_emg_vance
+NPC npc_emg_jolene
+NPC npc_emg_pim
+
+ACTION npc_emg_vance spreads his arms.
+
+Vance Pellow:
+Good morning, Coldwater. Everything you see today was in somebody's flat last week.
+
+Vance Pellow:
+They couldn't pay. You can.
+
+EVENT LAUGHTER
+
+LOWER_THIRD
+EVERYTHING MUST GO
+Lines are open. Bailiffs are standing by.
+LOWER_THIRD_END
+
+::scene LOT ONE
+
+CAM 3 MEDIUM on Jolene
+
+ACTION npc_emg_jolene holds up the toaster.
+
+Jolene Marsh:
+Lot one. A two-slice toaster. Barely burnt.
+
+Vance Pellow:
+Look at that chrome, Jolene.
+
+Jolene Marsh:
+There's a crumb tray, Vance. It comes out.
+
+Vance Pellow:
+They don't make them like that any more. They don't make them at all, actually. The factory's a car park.
+
+EVENT LAUGHTER
+
+CAM 2 MEDIUM on Pim
+
+ACTION npc_emg_pim picks up the phone.
+
+Pim:
+Vance, I've got a caller on line three.
+
+Vance Pellow:
+Put her through, Pim.
+
+Pim:
+She says that's her toaster.
+
+EVENT LAUGHTER
+
+CAM 1 WIDE
+
+ACTION npc_emg_vance leans in.
+
+Vance Pellow:
+Was. Was her toaster.
+
+Pim:
+She wants to buy it back.
+
+ACTION npc_emg_vance slaps the counter.
+
+Vance Pellow:
+Then the price just went up. Sentimental value.
+
+Jolene Marsh:
+Forty credits.
+
+Pim:
+She's crying.
+
+Vance Pellow:
+Forty-five.
+
+EVENT LAUGHTER
+
+::scene LOT TWO
+
+CAM 3 MEDIUM on Jolene
+
+ACTION npc_emg_jolene holds up a framed photograph.
+
+Jolene Marsh:
+Lot two. A family photograph, frame included.
+
+Vance Pellow:
+Lovely frame. Real wood. You can take the family out.
+
+Jolene Marsh:
+Vance, that's my sister.
+
+ACTION npc_emg_vance looks at the photograph.
+
+Vance Pellow:
+So it is. Small world.
+
+EVENT LAUGHTER
+
+Jolene Marsh:
+She said she was moving.
+
+Vance Pellow:
+She did move. Twelve credits, Coldwater.
+
+ACTION npc_emg_pim picks up the phone.
+
+Pim:
+Line one wants the toaster and the sister.
+
+Vance Pellow:
+The sister isn't for sale. Yet.
+
+EVENT LAUGHTER
+
+::scene LAST LOT
+
+CAM 2 MEDIUM on Pim
+
+ACTION npc_emg_pim picks up the phone.
+
+Pim:
+Vance, there's a man on line six. He's from the bank.
+
+Vance Pellow:
+Tell him we're live.
+
+Pim:
+He says he knows. He says he's in reception.
+
+ACTION npc_emg_jolene points at the counter.
+
+Jolene Marsh:
+He wants the counter, Vance.
+
+ACTION npc_emg_pim looks at the phones.
+
+Pim:
+And the phones.
+
+CAM 1 WIDE
+
+ACTION npc_emg_vance looks into the camera.
+
+Vance Pellow:
+You heard him, Coldwater. Everything must go.
+
+EVENT APPLAUSE
+
+CREDITS 10
+EVERYTHING MUST GO
+
+All goods sold as seen.
+No refunds. No returns. No questions.
+REPO-TV, Coldwater
+END_CREDITS
+
+EVENT FADE_OUT
+
+END

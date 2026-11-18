@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_guard_04",
+  "lines": [
+    "\"You think the Architect needs us?\"",
+    "\"For what?\"",
+    "\"Guarding. It can see everything already.\"",
+    "\"It can see. It can't tell someone to move along.\""
+  ],
+  "personality": "guard",
+  "sort_order": 639
+}

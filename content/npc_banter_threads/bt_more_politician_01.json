@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_politician_01",
+  "lines": [
+    "\"How's the campaign?\"",
+    "\"I shook four hundred hands today.\"",
+    "\"And?\"",
+    "\"Three hundred of them were sticky.\""
+  ],
+  "personality": "politician",
+  "sort_order": 707
+}

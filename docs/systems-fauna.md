@@ -962,7 +962,7 @@ grand roost takes a lawn or its last choice, never a wire. `perchedNow` is still
 the room text and the picture agree about which cycles are spent up on something, and the room's
 ground lines already say grass and turf. The flight bends onto the lawn the way it bends onto a ledge
 (`perchAim`), so the party flies there rather than walking. Measured on the snapshot at 11:00: the
-flock at 917,907 now takes a wire on 23 landings in 40 and a lawn on the rest; 909,907 takes the park
+flock at 918,907 now takes a wire on 23 landings in 40 and a lawn on the rest; 909,907 takes the park
 three tiles south every time, because no wire survives the rarity roll near it.
 
 ⚠ **The ledge pick counts the flock's own cycle.** `perchFor` hashed `now / period` with no phase, and

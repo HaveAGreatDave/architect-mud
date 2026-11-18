@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_more_vendor_02",
+  "lines": [
+    "\"Someone tried to haggle on bread today.\"",
+    "\"On bread?\"",
+    "\"They said it was \"yesterday's\".\"",
+    "\"Was it?\"",
+    "\"It was Tuesday's. That's different.\""
+  ],
+  "personality": "vendor",
+  "sort_order": 631
+}

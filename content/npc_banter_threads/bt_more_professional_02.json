@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_professional_02",
+  "lines": [
+    "\"Did you get the promotion?\"",
+    "\"They gave it to the boss's nephew.\"",
+    "\"Is he good?\"",
+    "\"He's eleven. He's very confident.\""
+  ],
+  "personality": "professional",
+  "sort_order": 678
+}

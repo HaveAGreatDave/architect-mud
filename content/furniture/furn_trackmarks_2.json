@@ -1,6 +1,21 @@
 {
   "description": "A bank of steel lockers from the old yard office. Half the doors are gone. The rest are locked with whatever their owners had.",
-  "flags": {},
+  "flags": {
+    "look": {
+      "arche": "store",
+      "dims": [
+        1.8,
+        0.5,
+        1.85
+      ],
+      "form": "locker",
+      "wear": 0.95
+    },
+    "spot": {
+      "along": 1.9,
+      "wall": "back"
+    }
+  },
   "hp": null,
   "hp_max": null,
   "id": "furn_trackmarks_2",

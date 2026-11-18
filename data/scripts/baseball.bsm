@@ -3,9 +3,10 @@
 @category sport
 @type sports
 @sport baseball
-# v4 runs on two out (plugins/broadcast/sports/baseball.js TWO_OUT_SEND); the server starts it
-# from the next game day, and every game before that replays as it aired.
-@sim 4
+# v4 runs on two out (plugins/broadcast/sports/baseball.js TWO_OUT_SEND); v5 adds pitch counts,
+# the bullpens below and the managers' calls (PEN). The server starts it from the next game day,
+# and every game before that replays as it aired.
+@sim 5
 # The First Generation: two augmented or mutant players drafted into each club a season
 # (client/shared/deadball-gen1.js). Take the line out, or say off, and the clubs are as they were.
 @firstgen on
@@ -441,6 +442,21 @@ Achebe
 Holt
 Teague
 ::endplayers
+
+# --- The dugouts (sim v5): each club's manager, its pitching coach and its pen ---------
+# One club a line: Club | manager | pitching coach | the pen, in its roles' order: the
+# closer, the setup man, three middle men and the long man. The pen is the club's for good;
+# it isn't dealt or traded like the thirteen. Every name here is new to the league.
+::bullpens
+Basin Blue Birds | Walt Henning | Ray Adebola | Castellano, Engstrom, Tamura, Quarles, Asante, Pacheco
+Boomtown Bombers | Gus Merrill | Lou Santangelo | "Mad Dog" Sturgill, Merriwether, Novak, Hargrove, Saldana, Vukovich
+Coldwater Crows | Abe Donnelly | Hector Villalobos | Wainwright, Sheffield, Onyango, Kurtz, Dalby, Meeks
+Docks District Dolphins | Sal Pirrone | Frank Odum | Archuleta, Kimbrough, Gilchrist, Sikora, Takeda, Purcell
+Marquee Mastodons | Del Kostner | Benny Calderwood | "Fireman" Yost, Lacey, Eriksen, Lassiter, Wozniak, Kittredge
+Rustpile Red Sox | Hank Voigt | Earl Mutombo | Stanek, Dorsey, Paquette, Ruffin, Mancuso, Ogle
+Westside White Sox | Joe Tamayo | Vern Tibbets | Bolton, Kaczmarek, Pennington, Amador, Tsai, Hurley
+Yards Yellowjackets | Mickey Doran | Cy Balogun | "Gas" Gorman, Ridley, Lozano, Rinaldi, Hollander, Pocock
+::endbullpens
 
 # --- Sign-on ------------------------------------------------------------------
 ::lines intro
@@ -1008,7 +1024,118 @@ Zeros on the board from {pitcher}. He's in a rhythm.
 
 ::lines tonight.pitcher.rocky
 {pitcher} has given up {runsWord} runs. He's leaving it up, and the {team} aren't missing.
-Hard night for {pitcher}. {runsWord} runs against him. || They'll leave him in? || He pitches nine. Everybody pitches nine here. || That's a long nine.
+Hard night for {pitcher}. {runsWord} runs against him. || They'll leave him in? || Not much longer, I'd say. || Somebody's going to have to.
+::endlines
+
+::lines tonight.pitcher.count
+{pitcher} is at {pc} pitches. He won't be out there much longer.
+That's {pc} pitches for {pitcher}. Somebody in the pen will be stirring soon. || If they're awake.
+{pc} pitches so far for {pitcher}. || He's starting to labour. Look how long he takes between them.
+::endlines
+
+::lines story.pitcher.saves
+{pitcher} has {svs} this season. When he comes in, the game's usually over.
+{svs} for {pitcher}. || He's the reason nobody leaves early.
+::endlines
+
+# --- The mound (sim v5). Said over the trip the park shows before the next pitch. The
+# visit is the pitching coach's ({coach}), the change the manager's ({manager}, {skipper}
+# his surname). {out} is the man coming out, {outPc} his pitches, {in} the man coming in.
+::lines mound.visit
+{coach} is out of the dugout. He wants a word with {pitcher}.
+Here comes {coach}, the pitching coach. Time for a talk.
+{coach} takes a slow walk out to the mound. That buys {pitcher} a minute.
+The pitching coach is coming out. {pitcher} could use the breather.
+::endlines
+
+::lines mound.visit.trouble
+{coach} is on his way out. {pitcher} has let this inning get away from him. || He's trying to throw it through the backstop. Somebody has to tell him.
+That'll bring out {coach}. {pitcher} can't find the plate right now.
+{coach} is coming out to settle him down. || What do you say to a man in that spot? || Slow down. That's about all there is.
+Mound visit. {coach} goes out, the catcher goes out, and {pitcher} stands there and nods.
+::endlines
+
+::lines mound.visit.tension
+Big spot, and {coach} goes out to talk it over with {pitcher}.
+{coach} walks out before this one. He wants {pitcher} to know how to pitch this man. || Or he just wants him to breathe.
+The pitching coach comes out. Nobody's in trouble yet, and he'd like to keep it that way.
+::endlines
+
+::lines mound.change
+And here comes {manager}. That's the end of the night for {out}.
+{skipper} is out of the dugout, and he isn't coming out to chat. {out} is done.
+{manager} makes the walk. He wants {in}.
+That's it for {out}. {skipper} is going to the bullpen.
+::endlines
+
+::lines mound.change.tired
+{out} is up to {outPc} pitches, and {skipper} has seen enough. Here he comes.
+{outPc} pitches for {out}. {manager} is coming to get the ball. || He gave them what he had. You can't ask for more than that.
+That's {outPc} pitches, and {out} is running on empty. {skipper} makes the walk.
+::endlines
+
+::lines mound.change.shelled
+{manager} has seen enough. {out} is done, and it wasn't his night.
+Here comes {skipper}, and {out} won't be sorry to see him. || Rough one. He'll want it forgotten by the time he's in the shower.
+That's all for {out}. They got to him tonight.
+::endlines
+
+::lines mound.change.again
+{manager} is coming out, and that's the second trip to {out} this inning. That means he's out of the game.
+Second visit of the inning, so {out} has to go. || And {skipper} wasn't going to leave him in anyway.
+::endlines
+
+::lines mound.change.late
+The tying run's up, and {skipper} isn't taking any chances. {out} is done.
+{manager} doesn't want {out} facing this man with the game on the line. He's going to his pen.
+::endlines
+
+::lines mound.in
+Coming in from the bullpen, {in}.
+{in} jogs in from the pen. He's {wl} on the year with a {era} earned run average.
+Now pitching for the {fielding}, {in}.
+::endlines
+
+::lines mound.in.closer
+And it's {in}, the closer. {skipper} wants this one over.
+{in} comes in to close it. The crowd knows what that means.
+::endlines
+
+::lines mound.in.closer.saves
+{in} is coming in. He's got {svs} this season.
+Here's the closer, {in}, with {svs} on the year. || He doesn't say much. He doesn't have to.
+::endlines
+
+::lines mound.in.setup
+Here's {in}, the setup man. His job is to get it to the closer.
+{in} is the man for the late innings. He'll try to get this one to the ninth.
+::endlines
+
+::lines mound.in.long
+{in} comes in. He's the long man, and it looks like he's got some work to do.
+{skipper} goes to {in}, his long man. He can give them three or four if he has to.
+::endlines
+
+::lines mound.inning
+New pitcher for the {fielding} this inning: {in}.
+{in} is on the mound for the {fielding} now. He's {wl}, {era}.
+The {fielding} make a change. {in} takes over.
+::endlines
+
+::lines mound.inning.closer
+{in} is coming in to close it for the {fielding}.
+Here's {in}. The {fielding} want three outs, and he's the man they pay to get them.
+::endlines
+
+::lines mound.inning.setup
+{in} is on to pitch the {inningOrd} for the {fielding}.
+The {fielding} bring in {in}, their setup man.
+::endlines
+
+::lines mound.warm
+Somebody's throwing in the {fielding} bullpen. That's {warm}.
+There's movement in the pen. {warm} is loosening up. || Never a good sign for the man on the mound.
+{warm} is up in the bullpen. {skipper} wants him ready.
 ::endlines
 
 # --- The last time these two met tonight.

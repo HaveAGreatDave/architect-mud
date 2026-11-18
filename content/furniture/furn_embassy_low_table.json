@@ -1,0 +1,32 @@
+{
+  "description": "A low walnut table with a marble top. On it, a brass ashtray, two hardbacks nobody has opened and a glass dish of matches. Yesterday's paper is on the shelf underneath, and so is last week's.",
+  "flags": {
+    "aliases": "table,coffee table,low table,ashtray,paper,newspaper",
+    "look": {
+      "arche": "table",
+      "dims": [
+        1.1,
+        0.6,
+        0.45
+      ],
+      "form": "cocktail"
+    },
+    "spot": {
+      "at": [
+        -3.6,
+        6.6
+      ],
+      "turn": 0
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_embassy_low_table",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "low table",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_residential_lobby"
+}

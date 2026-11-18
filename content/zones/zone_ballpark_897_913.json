@@ -1,11 +1,11 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Hughson Way, outside a modest door under a glass canopy: 11 Hughson Way, the convalescent rooms. The back of the Coliseum Box Office is across the road.",
+  "description": "Hughson Way at the east end of North Plaza. The back of the Coliseum Box Office is across the road.",
   "exits": {
     "north": "zone_ballpark_897_912",
     "south": "zone_ballpark_897_914",
-    "west": "zone_district_898_913"
+    "west": "zone_northgardens_2"
   },
   "flags": {
     "district": "halcyon_fields",

@@ -27,7 +27,7 @@ export default async function regress({ run, check, getPlayer }) {
   check('the panel lays out as a hung cabinet', archetypeOf({ look: { arche: 'cabinet', form: 'cupboard' } }) === 'cabinet' && formOf('cabinet', { look: { form: 'cupboard' } }) === 'cupboard');
 
   const panel = getFurnitureById(PANEL);
-  check('30-B has its control panel', !!panel && isPanel(panel), PANEL);
+  check('8-B has its control panel', !!panel && isPanel(panel), PANEL);
   if (!panel) return;
   check('the panel runs the en-suite too', panelFor(BATH)?.id === PANEL, panelFor(BATH)?.id);
   const acts = furnitureActs(panel).map((a) => a.verb);
@@ -87,13 +87,21 @@ export default async function regress({ run, check, getPlayer }) {
 
     r = await run('doorcam');
     check('`doorcam` answers with the door camera', r?.type === 'envctl' && r.cam && /DOOR/.test(r.message), r?.message);
-    check('the door camera is the hall outside', r.cam.status === 'gone' || /Residences|hall/i.test(r.cam.label || ''), r.cam.label);
+    check('the door camera is the hall outside', r.cam.status === 'gone' || /Residences|hall|Floor/i.test(r.cam.label || ''), r.cam.label);
 
     // ── the shutters and blinds over the glass wall ──
     check('scene words find their scene', findScene('deep space') === 'space' && findScene('sea') === 'underwater' && findScene('northern lights') === 'aurora' && findScene('lava') === null);
     check('every scene has a painter the Room Stage knows', SCENE_IDS.every((id) => SHUTTER_KINDS.includes(SCENES[id].kind)), SCENE_IDS.filter((id) => !SHUTTER_KINDS.includes(SCENES[id].kind)).join(','));
     check('a row with no scenes listed offers them all', scenesOf({}).length === SCENE_IDS.length && scenesOf({ scenes: ['storm', 'nope'] }).join() === 'storm');
-    check('30-B has a glass wall, so the card offers Shutters', _test.hasGlass(panel) && furnitureActs(panel).some((a) => a.verb === 'shutters'));
+    check('8-B has a glass wall, so the card offers Shutters', _test.hasGlass(panel) && furnitureActs(panel).some((a) => a.verb === 'shutters'));
+    // a sash window's drapes: drawn from the panel where the room has them, never over a glass wall
+    check('a glass wall offers no curtains', !_test.offeredOf(panel).includes('drapes') && !scenesOf({}).includes('drapes'));
+    const emb = getFurnitureById('furn_apt1_envctl');
+    if (emb) {
+      check('an Embassy flat offers its blinds and its curtains', _test.offeredOf(emb).join() === 'blinds,drapes', _test.offeredOf(emb).join());
+      check('its card has a Curtains line', furnitureActs(emb).some((a) => a.verb === 'curtains') && furnitureActs(emb).some((a) => a.verb === 'blinds'));
+      check('the word curtains finds the drapes', findScene('curtains', _test.offeredOf(emb)) === 'drapes' && findScene('curtains') === null);
+    }
     // `shutters` is storefront's verb as well (a shop's roller shutter), and only one handler is kept: this
     // plugin's, which hands it back away from a panel. With storefront's winning, every press came back
     // "There's no shop unit here."
@@ -154,14 +162,15 @@ export default async function regress({ run, check, getPlayer }) {
   const SASH = 'zone_apt_8', SPANEL = 'furn_apt8_envctl', sp = getFurnitureById(SPANEL);
   check('Unit 3D has its control panel', !!sp && isPanel(sp), SPANEL);
   if (!sp) return;
-  check('a sash window with blinds counts, and offers the blinds alone', _test.sashBlinds(sp) && _test.hasGlass(sp) && _test.offeredOf(sp).join() === 'blinds', _test.offeredOf(sp).join());
+  // Unit 3D has curtains as well since its sash got `drapes` (zone_apt_8.json), so it offers both
+  check('a sash window with blinds counts, and offers its blinds and curtains', _test.sashBlinds(sp) && _test.hasGlass(sp) && _test.offeredOf(sp).join() === 'blinds,drapes', _test.offeredOf(sp).join());
   check('its card says Blinds, not Shutters', furnitureActs(sp).some((a) => a.verb === 'blinds') && !furnitureActs(sp).some((a) => a.verb === 'shutters'));
-  check('a panel listing scenes still offers a sash window only the blinds', _test.offeredOf({ ...sp, flags: { ...sp.flags, envctl: { ...sp.flags.envctl, scenes: ['space', 'storm'] } } }).join() === 'blinds');
+  check('a panel listing scenes still offers a sash window only its blinds and curtains', _test.offeredOf({ ...sp, flags: { ...sp.flags, envctl: { ...sp.flags.envctl, scenes: ['space', 'storm'] } } }).join() === 'blinds,drapes');
   const sSaved = JSON.parse(JSON.stringify(sp.flags));
   try {
     p.current_zone = SASH;
     let r = await run('panel');
-    check('the panel offers only the blinds on its screen', r?.shutters?.scenes?.map((x) => x.id).join() === 'blinds', JSON.stringify(r?.shutters?.scenes));
+    check('the panel offers only the blinds and curtains on its screen', r?.shutters?.scenes?.map((x) => x.id).join() === 'blinds,drapes', JSON.stringify(r?.shutters?.scenes));
     r = await run('blinds up');
     check('`blinds up` leaves the window clear', r?.type === 'envctl' && r.shutters?.down === false, r?.message);
     if (r?.power !== 'unpowered') {

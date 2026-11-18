@@ -82,16 +82,43 @@ function roofCup(ctx, cam, F, W3, cx, cy, z0, seed, night, alpha, now, E) {
   }
 }
 
-// ── A PARKED CAR AND THE LOT SIGN ─────────────────────────────────────────────────────────────
+// ── VTOL PADS AND THE LOT SIGN ──────────────────────────────────────────────────────────────
 // Shared by the car park and the café's own lot, in tile units. `box` is the arm's box closure.
-// A car is long in x and noses in toward +x: four wheels, the body, the glasshouse set back toward
-// the tail, and its roof. `s0` offsets the seeds so two lots don't shade their cars alike.
-function parkedCar(box, cx, cy, paintPal, i, s0 = 0) {
+// A VTOL pad painted on the tarmac: a yellow ring, a white H inside it, nose toward +x.
+// Paint only, so it never reaches the shape capture.
+function vtolPad(ctx, cam, F, cx, cy, r, z, alpha, dn) {
+  const RING = dn > 0.5 ? 'rgba(196,168,60,0.70)' : 'rgba(232,196,64,0.88)';
+  const MARK = dn > 0.5 ? 'rgba(200,204,206,0.62)' : 'rgba(236,238,236,0.85)';
+  const n = 20, ri = r * 0.88;
+  for (let k = 0; k < n; k++) {
+    const a0 = k / n * Math.PI * 2, a1 = (k + 1) / n * Math.PI * 2;
+    groundPaint(ctx, cam, [F(cx + Math.cos(a0) * r, cy + Math.sin(a0) * r), F(cx + Math.cos(a1) * r, cy + Math.sin(a1) * r),
+      F(cx + Math.cos(a1) * ri, cy + Math.sin(a1) * ri), F(cx + Math.cos(a0) * ri, cy + Math.sin(a0) * ri)], z, RING, alpha);
+  }
+  const rect = (x0, y0, x1, y1) => groundPaint(ctx, cam, [F(x0, y0), F(x1, y0), F(x1, y1), F(x0, y1)], z + 0.0003, MARK, alpha);
+  const hh = r * 0.42, hw = r * 0.30, st = r * 0.08;
+  rect(cx - hh, cy - hw - st, cx + hh, cy - hw + st);
+  rect(cx - hh, cy + hw - st, cx + hh, cy + hw + st);
+  rect(cx - st, cy - hw, cx + st, cy + hw);
+}
+// A mini VTOL sitting on a pad: two skids, a pod with a glass canopy toward +x, a short tail boom,
+// and four ducted fans on arms at the corners. Fixed in place and colour, the parked car's reason.
+function parkedVtol(ctx, cam, F, box, cx, cy, paintPal, alpha, dn, s0 = 0) {
   const SLAB = 0.006;
-  for (const wx of [-0.075, 0.075]) for (const wy of [-0.044, 0.044]) box(cx + wx, cy + wy, 0.018, SLAB, SLAB + 0.020, 'ty_door', s0 + 20 + i * 4, true, 0.007);
-  box(cx, cy, 0.118, SLAB + 0.010, SLAB + 0.040, paintPal, s0 + 30 + i, true, 0.046);           // the body
-  box(cx - 0.012, cy, 0.064, SLAB + 0.040, SLAB + 0.066, 'ty_yacht_glass', s0 + 40 + i, false, 0.039);   // the glasshouse
-  box(cx - 0.012, cy, 0.060, SLAB + 0.066, SLAB + 0.069, paintPal, s0 + 50 + i, true, 0.037);    // the roof
+  for (const sy of [-0.038, 0.038]) {
+    box(cx, cy + sy, 0.070, SLAB, SLAB + 0.006, 'ty_pier_steel', s0 + 1, true, 0.005);                 // the skid
+    for (const sx of [-0.040, 0.040]) box(cx + sx, cy + sy * 0.8, 0.004, SLAB + 0.006, SLAB + 0.022, 'ty_pier_steel', s0 + 2, false, 0.004);
+  }
+  box(cx, cy, 0.060, SLAB + 0.022, SLAB + 0.058, paintPal, s0 + 3, true, 0.034);                       // the pod
+  box(cx + 0.030, cy, 0.030, SLAB + 0.040, SLAB + 0.070, 'ty_yacht_glass', s0 + 4, true, 0.030);       // the canopy
+  box(cx - 0.090, cy, 0.034, SLAB + 0.040, SLAB + 0.052, paintPal, s0 + 5, true, 0.008);              // the tail boom
+  box(cx - 0.118, cy, 0.008, SLAB + 0.046, SLAB + 0.082, paintPal, s0 + 6, true, 0.004);              // the fin
+  const skin = drumSkin([58, 62, 66], 1 - 0.5 * dn);
+  for (const ax of [-0.062, 0.062]) for (const ay of [-0.072, 0.072]) {
+    box(cx + ax / 2, cy + ay / 2, Math.abs(ax) / 2, SLAB + 0.050, SLAB + 0.056, 'ty_pier_steel', s0 + 7, true, 0.005);   // the arm
+    const [px, py] = F(cx + ax, cy + ay);
+    drawFacetDrum(ctx, cam, px, py, SLAB + 0.046, SLAB + 0.064, 0.034, 0.034, 12, alpha, skin, 'rgb(30,32,34)', 'ty_door');   // the duct
+  }
 }
 // The sign at a lot's way in: a white P on blue and CUSTOMERS ONLY under it, on a post. `side` +1
 // faces +y, −1 faces −y, and `show` is the arm's own test that its face is toward the camera.
@@ -124,7 +151,7 @@ export const GREENSIDE_ARMS = {
   // ⚠ THE BOX IS SET BACK FROM THE STREET, and so is everything on its front: the front wall is at
   //    `WF`, not `fh`, which leaves the pavement in front of it for the tables. Anything mounted on
   //    the front is measured from `WF`.
-  // ⚠ THE CAR PARK IS IN TILE UNITS, the `car_park` arm's reason: a car is a car whatever the tile
+  // ⚠ THE CAR PARK IS IN TILE UNITS, the `car_park` arm's reason: a VTOL is a VTOL whatever the tile
   //    rolled. Its edges that meet the building are the building's (`XM`, `YM`, in `fh`), so every
   //    measure in it is still affine.
   groundscafe(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {
@@ -295,23 +322,18 @@ export const GREENSIDE_ARMS = {
       box(fh * 0.25, WB - fh * 0.09, fh * 0.06, 0, h * 0.24, 'ty_helpings', 65, true, fh * 0.06);
     }
 
-    // 10) THE CAR PARK, in the corner of the L: tarmac out to the Basin, three bays nosed in to the
-    //     roastery wall with a stop at the head of each, two cars, the aisle in from Meltwater Row with
-    //     an arrow on it, bollards along the water, a lamp column and the P sign at the way in.
+    // 10) THE CAR PARK, in the corner of the L: tarmac out to the Basin, two empty VTOL pads,
+    //     the way in from Meltwater Row, bollards along the water, a lamp column and the P sign at the way in.
     {
       const SLAB = 0.006, KERB = 0.016, z = SLAB + 0.0012;
       const LX0 = -0.465, LX1 = XM - fh * 0.03, LY0 = -0.465, LY1 = YM - fh * 0.03;
       const LINE = dn > 0.5 ? 'rgba(200,204,206,0.62)' : 'rgba(236,238,236,0.80)';
       box((LX0 + LX1) / 2, (LY0 + LY1) / 2, (LX1 - LX0) / 2, 0, SLAB, 'ty_yard_tarmac', 70, true, (LY1 - LY0) / 2);
       box(LX0 - 0.006, (LY0 + LY1) / 2, 0.010, 0, KERB, 'ty_quay_deck', 71, true, (LY1 - LY0) / 2);   // the quay edge
-      const BAY = 0.13, STOP = LX1 - 0.035, BY0 = LY1 - 0.02;
-      for (let i = 0; i <= 3; i++) paint(STOP - 0.27, BY0 - i * BAY - 0.004, STOP + 0.02, BY0 - i * BAY + 0.004, z, LINE);
-      for (let i = 0; i < 3; i++) box(STOP, BY0 - (i + 0.5) * BAY, 0.010, SLAB, SLAB + 0.008, 'ty_quay_deck', 72 + i, true, 0.045);
-      for (const [i, paintPal] of [[0, 'ty_crane_cab'], [2, 'ty_fuel_red']]) parkedCar(box, STOP - 0.125, BY0 - (i + 0.5) * BAY, paintPal, i, 100);
-      // The aisle and the way in at the −y end, with an arrow pointing in.
-      const AX = (LX0 + STOP - 0.27) / 2;
-      paint(AX - 0.025, LY0 + 0.05, AX + 0.025, LY0 + 0.19, z, 'rgba(236,238,236,0.55)');
-      groundPaint(ctx, cam, [F(AX - 0.06, LY0 + 0.19), F(AX + 0.06, LY0 + 0.19), F(AX, LY0 + 0.27)], z, 'rgba(236,238,236,0.55)', alpha);
+      // Two VTOL pads side by side, both empty.
+      const PW = LX1 - LX0, PR = Math.min(0.11, PW * 0.22, (LY1 - LY0) * 0.42), PY = (LY0 + LY1) / 2;
+      for (const t of [0.30, 0.74]) vtolPad(ctx, cam, F, LX0 + PW * t, PY, PR, z, alpha, dn);
+      const AX = (LX0 + LX1) / 2, STOP = LX1 - 0.035;
       box((STOP - 0.25 + LX1) / 2, LY0 - 0.006, (LX1 - STOP + 0.25) / 2, 0, KERB, 'ty_quay_deck', 76, true, 0.010);   // the kerb either side of the way in
       for (const by of [LY1 - 0.06, (LY0 + LY1) / 2, LY0 + 0.08]) {
         const [px, py] = F(LX0 + 0.02, by);
@@ -327,16 +349,16 @@ export const GREENSIDE_ARMS = {
   },
 
   // ══ THE CAR PARK ════════════════════════════════════════════════════════════════════════════
-  // A small lot on one tile: tarmac a shade darker than the road, five bays in white down the far
-  // side with a concrete stop at the head of each, a footpath down the near side, kerbs, a lamp
-  // column by the way in, a sign, and bollards across the back so it isn't a short cut. Three cars
-  // in the bays. The way in is the entrance side (+y).
+  // A small lot on one tile: tarmac a shade darker than the road, three VTOL pads,
+  // a footpath down the near side, kerbs, a lamp
+  // column by the way in, a sign, and bollards across the back so it isn't a short cut. One mini
+  // VTOL on a pad; the other two stand empty. The way in is the entrance side (+y).
   //
-  // ⚠ IN TILE UNITS, NOT fh AND h. A lot fills its tile and a car is a car whatever the tile rolled,
+  // ⚠ IN TILE UNITS, NOT fh AND h. A lot fills its tile and a VTOL is a VTOL whatever the tile rolled,
   //    so every measure here is a constant (about 18 m to the tile, street-life.js), and only the lamp
   //    column takes `h`.
-  // ⚠ THE CARS ARE IN FIXED BAYS AND FIXED COLOURS. A car is mass and mass is captured once per type,
-  //    so a seeded choice of bays would make the model seed-variant for the sake of a parking pattern.
+  // ⚠ THE VTOL IS ON A FIXED PAD IN A FIXED COLOUR. A VTOL is mass and mass is captured once per type,
+  //    so a seeded choice of pads would make the model seed-variant for the sake of who is parked.
   car_park(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {
     const dn = night ? clamp(night, 0, 1) : 0, near = nearOrMesh();
     const YAW = faceYaw(E);
@@ -347,20 +369,14 @@ export const GREENSIDE_ARMS = {
     box(0, 0, 0.47, 0, SLAB, pal || 'ty_yard_tarmac', 0, true, 0.47);
     for (const s of [-1, 1]) box(s * 0.475, -0.02, 0.012, 0, KERB, 'ty_quay_deck', 1 + s, true, 0.46);
     box(0, -0.475, 0.46, 0, KERB, 'ty_quay_deck', 4, true, 0.012);
-    // 2) The paint: bay lines down the +x side, a pale footpath strip down the −x side, and an
-    //    arrow on the aisle pointing in.
+    // 2) The paint: a pale footpath strip down the −x side, and three VTOL pads down the rest.
     const z = SLAB + 0.0012, LINE = dn > 0.5 ? 'rgba(200,204,206,0.62)' : 'rgba(236,238,236,0.80)';
-    const BAY = 0.14, Y0 = -0.36, X0 = 0.17, X1 = 0.455;
-    for (let i = 0; i <= 5; i++) paint(X0, Y0 + i * BAY - 0.004, X1, Y0 + i * BAY + 0.004, z, LINE);
-    paint(X0 - 0.004, Y0, X0 + 0.004, Y0 + 5 * BAY, z, 'rgba(236,238,236,0.35)');
     paint(-0.455, -0.45, -0.33, 0.47, z, dn > 0.5 ? 'rgba(110,112,112,0.7)' : 'rgba(156,158,154,0.75)');   // the footpath
     paint(-0.335, -0.45, -0.325, 0.47, z + 0.0003, LINE);
-    paint(-0.035, 0.08, 0.035, 0.26, z, 'rgba(236,238,236,0.55)');        // the arrow's shaft…
-    groundPaint(ctx, cam, [F(-0.08, 0.08), F(0.08, 0.08), F(0, -0.02)], z, 'rgba(236,238,236,0.55)', alpha);   // …and head
-    // 3) The wheel stops, one at the head of each bay.
-    for (let i = 0; i < 5; i++) box(0.425, Y0 + (i + 0.5) * BAY, 0.010, SLAB, SLAB + 0.008, 'ty_quay_deck', 10 + i, true, 0.045);
-    // 4) Three cars, nose in to the stops.
-    for (const [i, paintPal] of [[0, 'ty_fuel_red'], [1, 'ty_crane_cab'], [3, 'ty_fuel_white']]) parkedCar(box, 0.30, Y0 + (i + 0.5) * BAY, paintPal, i);
+    const PADS = [[0.20, -0.25], [0.20, 0.17], [-0.14, -0.05]], PR = 0.14;
+    for (const [px, py] of PADS) vtolPad(ctx, cam, F, px, py, PR, z, alpha, dn);
+    // 3) One mini VTOL on the first pad; the other two stand empty.
+    parkedVtol(ctx, cam, F, box, PADS[0][0], PADS[0][1], 'ty_fuel_red', alpha, dn, 10);
     // 5) The lamp column by the way in, and its pool on the tarmac after dark.
     { const [lx, ly] = F(-0.40, 0.40), top = h * 1.30;
       drawFacetDrum(ctx, cam, lx, ly, 0, top, 0.009, 0.007, 8, alpha, drumSkin([96, 104, 112], 1 - 0.5 * dn), null, 'ty_pier_steel');
@@ -369,7 +385,7 @@ export const GREENSIDE_ARMS = {
       if (night) glowPool(ctx, cam, ...F(-0.15, 0.25), SLAB + 0.003, '255,214,160', 26, alpha * 0.32 * dn); }
     // 6) The sign by the way in.
     lotSign(ctx, cam, F, W3, box, 0.40, 0.43, 1, h, alpha, dn, night, frontVis, 70);
-    // 7) Bollards across the back, so people can walk through to the far street and cars can't.
+    // 7) Bollards across the back, so people can walk through to the far street and nothing drives through.
     for (const bx of [-0.28, -0.12, 0.04, 0.20, 0.36]) {
       const [px, py] = F(bx, -0.44);
       drawFacetDrum(ctx, cam, px, py, 0, h * 0.20, 0.011, 0.011, 8, alpha, drumSkin([58, 62, 66], 1 - 0.5 * dn), 'rgb(220,200,90)', 'ty_pier_steel');

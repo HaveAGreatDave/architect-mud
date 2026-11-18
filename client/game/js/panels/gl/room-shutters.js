@@ -87,7 +87,8 @@ export function createShutters() {
 export function shutterFrame(L, windows) {
   const hu = L.w / 2 + 0.3, xs = [], zs = [];
   for (const [u, v] of [[-hu, -0.3], [hu, -0.3], [-hu, L.d + 0.3], [hu, L.d + 0.3]]) { const p = L.world(u, v, 0); xs.push(p[0]); zs.push(p[2]); }
-  const ys = (windows || []).filter((w) => Number.isFinite(w.y0));
+  // (a street door's fanlight, `fan`, has no shutters: it would stretch them up over the door)
+  const ys = (windows || []).filter((w) => Number.isFinite(w.y0) && !w.fan);
   return { box: [Math.min(...xs), Math.max(...xs), Math.min(...zs), Math.max(...zs)], y: ys.length ? [Math.min(...ys.map((w) => w.y0)), Math.max(...ys.map((w) => w.y1))] : [0, L.h] };
 }
 

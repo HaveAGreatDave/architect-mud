@@ -1,0 +1,31 @@
+{
+  "description": "A cubicle with no seat on the pan and no paper on the roll. Somebody has written a phone number on the wall and somebody else has crossed it out.",
+  "flags": {
+    "aliases": [
+      "cubicle",
+      "stall",
+      "toilet",
+      "loo",
+      "second cubicle"
+    ],
+    "look": {
+      "arche": "stall",
+      "form": "cubicle",
+      "wear": 0.95
+    },
+    "spot": {
+      "along": 2.1,
+      "wall": "right"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_hostel_cubicle_second",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "second cubicle",
+  "object_type": "toilet",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_trackmarks_back"
+}

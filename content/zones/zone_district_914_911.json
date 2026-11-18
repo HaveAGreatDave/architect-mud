@@ -17,7 +17,7 @@
     "is_building": true,
     "region_id": "region_coldwater",
     "set_aside": true,
-    "set_aside_from": "914,911",
+    "set_aside_from": "915,911",
     "sign_trade": "PUB",
     "world_exit_zone": "zone_district_914_911"
   },

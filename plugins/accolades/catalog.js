@@ -108,7 +108,7 @@ export const ENTRIES = [
     title: 'Gravity: Undefeated',
     line: 'First flight. First crater. Consistent, at least.',
     on: 'flight.crashed',
-    test: (p) => p?.pilotId || p?.ownerId || null,
+    test: (p) => (p?.reason === 'scuttled' ? null : p?.pilotId || p?.ownerId || null),   // wrecked on the ground isn't your crater
   },
   {
     key: 'surrounded_by_taps',

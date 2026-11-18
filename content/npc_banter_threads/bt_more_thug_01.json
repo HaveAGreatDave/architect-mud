@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_more_thug_01",
+  "lines": [
+    "\"Boss wants a word.\"",
+    "\"About what?\"",
+    "\"Didn't say.\"",
+    "\"That's never good.\"",
+    "\"It's never good. That's why I'm telling you now.\""
+  ],
+  "personality": "thug",
+  "sort_order": 699
+}

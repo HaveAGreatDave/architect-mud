@@ -14,7 +14,7 @@ const { viewProjMatrix, eyePos } = await import(pathToFileURL(new URL('../../cli
 const scene = await openScene({ record: false });
 let hook = null;
 scene.ws.installGLWorld((cells, cam, o) => { hook = { cam, o }; return { canvas: { width: 640, height: 360 }, faces: 0 }; });
-let sized = 0, all = 0, worst = 0, bad = 0, wires = 0, wiresAll = 0, wworst = 0, decals = 0, decalsAll = 0, dworst = 0;
+let worldW = 0, worldWorst = 0, sized = 0, all = 0, worst = 0, bad = 0, wires = 0, wiresAll = 0, wworst = 0, decals = 0, decalsAll = 0, dworst = 0;
 const shown = [];
 try {
   for (const place of Object.keys(PLACES)) for (const seat of ['cab', 'cockpit']) for (const hour of [13, 22]) for (const heading of [20, 140, 260]) {
@@ -26,6 +26,20 @@ try {
     for (const st of o.strokes || []) {
       wiresAll++;
       if (!(st.pl > 0)) continue;
+      // A world-width stroke (a kept mast's steel) is made once and kept, so its `a`/`b` are its raw
+      // ends, not this camera's pull. What's checked is its width: the shader's, at the pulled end's
+      // depth, against the CPU's sum at the raw end's. They differ only by the pull, a few per cent.
+      if (st.wr > 0) {
+        worldW++;
+        for (const raw of [st.ra, st.rb]) {
+          const g = pullEnd(raw, st.pl), fg = M[3] * g[0] + M[7] * g[1] + M[11] * g[2] + M[15], fr = M[3] * raw[0] + M[7] * raw[1] + M[11] * raw[2] + M[15];
+          const gpu = st.w + st.wr * cam.FL / Math.max(0.25, fg), cpu = st.w + st.wr * cam.FL / Math.max(0.25, fr);
+          const e = Math.abs(gpu - cpu) / cpu;
+          if (e > worldWorst) worldWorst = e;
+          if (!(e < 0.15)) { bad++; if (shown.length < 5) shown.push(`${place} ${seat} world-width stroke ${gpu} px against ${cpu}`); }
+        }
+        continue;
+      }
       wires++;
       for (const [raw, cpu] of [[st.ra, st.a], [st.rb, st.b]]) {
         const g = pullEnd(raw, st.pl), e = Math.hypot(g[0] - cpu[0], g[1] - cpu[1], g[2] - cpu[2]);
@@ -35,7 +49,7 @@ try {
     }
     for (const d of o.decals || []) {
       decalsAll++;
-      if (!(d.pl > 0) || !d.rp) continue;
+      if (!(d.pl > 0) || !d.rp || d.kept) continue;   // a kept record's `p` is its raw corners
       decals++;
       let cx = 0, cy = 0, cz = 0;
       for (const c of d.rc) { cx += c[0] / d.rn; cy += c[1] / d.rn; cz += c[2] / d.rn; }
@@ -60,7 +74,8 @@ try {
     }
   }
 } finally { scene.close(); }
+console.error(`world-width strokes: ${worldW}, worst ${(worldWorst * 100).toFixed(2)}%`);
 for (const l of shown) console.error('  ✗ ' + l);
 if (!sized) { console.error('sizes: no light carried a size spec, so nothing was checked'); process.exit(1); }
 if (bad) { console.error(`sizes: ${bad} of ${sized} sized lights are off (worst ${worst.toExponential(2)} px)`); process.exit(1); }
-console.log(`✓ sizes: ${sized} of ${all} lights sized on the GPU, every one within ${worst.toExponential(1)} px of the CPU radius; ${wires} of ${wiresAll} wires pulled on the GPU, every end within ${wworst.toExponential(1)} tiles; ${decals} of ${decalsAll} decals pulled on the GPU, every corner within ${dworst.toExponential(1)} tiles.`);
+console.log(`✓ sizes: ${sized} of ${all} lights sized on the GPU, every one within ${worst.toExponential(1)} px of the CPU radius; ${wires} of ${wiresAll} wires pulled on the GPU, every end within ${wworst.toExponential(1)} tiles; ${decals} of ${decalsAll} decals pulled on the GPU, every corner within ${dworst.toExponential(1)} tiles; ${worldW} world-width strokes, within ${(worldWorst * 100).toFixed(1)}% of the CPU width.`);

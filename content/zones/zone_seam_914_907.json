@@ -1,0 +1,32 @@
+{
+  "ambient_events": [
+    "A resident walks a small expensive dog past you without looking down.",
+    "Somebody on a high balcony shakes out a rug over the gardens."
+  ],
+  "ambient_theme": "urban",
+  "color": "#8fd08a",
+  "description": "A lawn behind the Solenne, kept short by a machine that does it at night. Benches face the tower, and the tower's glass faces the river.",
+  "exits": {
+    "east": "zone_district_914_907",
+    "north": "zone_seam_914_906",
+    "west": "zone_district_913_907"
+  },
+  "flags": {
+    "district": "marrow",
+    "park_feature": "forecourt",
+    "park_focus": {
+      "x": 915,
+      "y": 908
+    },
+    "region_id": "region_coldwater",
+    "street_life": true,
+    "terrain": "park"
+  },
+  "grid_x": 914,
+  "grid_y": 907,
+  "grid_z": 0,
+  "id": "zone_seam_914_907",
+  "map_id": "map_world",
+  "name": "Solenne Gardens",
+  "parent_zone": null
+}

@@ -95,6 +95,24 @@
       "port": 5182
     },
     {
+      "name": "modelshop-5263",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "tools/modelshop/serve.mjs",
+        "5263"
+      ],
+      "port": 5263
+    },
+    {
+      "name": "modelshop-5212",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "tools/modelshop/serve.mjs",
+        "5212"
+      ],
+      "port": 5212
+    },
+    {
       "name": "modelshop-5201",
       "runtimeExecutable": "node",
       "runtimeArgs": [
@@ -222,9 +240,9 @@
       "runtimeExecutable": "node",
       "runtimeArgs": [
         "tools/modelshop/serve.mjs",
-        "5263"
+        "5211"
       ],
-      "port": 5263
+      "port": 5211
     },
     {
       "name": "cups-harness",
@@ -261,6 +279,71 @@
         "5268"
       ],
       "port": 5268
+    },
+    {
+      "name": "modelshop-5219",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "tools/modelshop/serve.mjs",
+        "5219"
+      ],
+      "port": 5219
+    },
+    {
+      "name": "park-sandbox-5594",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "C:/Users/david/AppData/Local/Temp/claude/b8916755505598bd/f1f0b1ff-aaea-48b4-be8d-c0757cafd3d5/scratchpad/parkserve/serve.mjs",
+        "5594"
+      ],
+      "port": 5594
+    },
+    {
+      "name": "spray-harness",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "C:/Users/david/AppData/Local/Temp/claude/2f8c20e62dad8c27/49af80d4-66e0-4c8e-abb8-642132c619b9/scratchpad/sprayh/serve.mjs",
+        "5262"
+      ],
+      "port": 5262
+    },
+    {
+      "name": "modelshop-vat",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "tools/modelshop/serve.mjs",
+        "5213"
+      ],
+      "port": 5213
+    },
+    {
+      "name": "repo-static",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "serve",
+        "-p",
+        "5188",
+        "."
+      ],
+      "port": 5188
+    },
+    {
+      "name": "modelshop-hostel",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "tools/modelshop/serve.mjs",
+        "5213"
+      ],
+      "port": 5213
+    },
+    {
+      "name": "yokes",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "C:/Users/david/AppData/Local/Temp/claude/f3ec433960f9f15e/5c758e4d-9d27-41a4-bee8-b116213d7c27/scratchpad/serve.mjs",
+        "5244"
+      ],
+      "port": 5244
     }
   ]
 }

@@ -649,6 +649,8 @@ export const BUILDING_TYPE_ICON = Object.freeze({
   dept_store: 'bldg_deptstore', hardware: 'bldg_hardware', junkyard: 'bldg_junkyard',
   kitchenware: 'bldg_kitchenware', laundromat: 'bldg_laundromat', chip_shop: 'bldg_chipshop', coffee_shop: 'bldg_coffee',
   noodle_bar: 'bldg_noodlebar', outfitter: 'bldg_outfitter',
+  // The Stacked Deck: decks stacked under a pad (docs/systems-flight.md, the Stacked Deck).
+  vtol_park: 'bldg_vtol_park',
   // The Coldwater Palais (docs/proposals/coldwater-palais.md): a ticket on the box office, a coupe
   // on the bar. The stage tile has no door, so the facade gate keeps its proscenium off the map
   // today; it is registered so the type is never the one without an icon.

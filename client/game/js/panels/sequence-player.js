@@ -21,7 +21,7 @@ import { figurePeople, actClip, clipDur, clipOnce } from './gl/room-people.js';
 import { NPC_ACTS, speakerOf } from '../../../shared/npc-acts.js';
 import { createGfxLayer, paintSlate, paintBoard } from './sequence-gfx.js';
 import { paintBank } from './gl/screen-bank.js';
-import { timeline, timelineLength, beatAt, gfxAt, shotCamera, roleMark, fill, tableRows, autoShot, lineSeconds, CUTS, sourceKind, camerasFacing, directionOf, parseCamLabel } from '../../../shared/sequence.js';
+import { timeline, timelineLength, beatAt, gfxAt, shotCamera, roleMark, fill, tableRows, autoShot, lineSeconds, CUTS, sourceKind, camerasFacing, directionOf, parseCamLabel, cameraOf } from '../../../shared/sequence.js';
 import { mouthTrack, textTrack, mouthAt } from '../../../shared/lip-sync.js';
 
 const PIP_MS = 80;       // a second camera, twelve times a second
@@ -58,10 +58,11 @@ export function createSequencePlayer(host, { mode = 'clock', phone = false, feed
   // ── live: the beats are made as the lines air ──
   const LIVE_KEEP = 40;
   const WALK_MS = 1.45;   // a host's brisk pace across his own stage, metres a second (startWalk, stepWalk)
-  function liveStart({ set, people = [], data = {} }) {
+  // `supers`: name supers over a speaker's first line, which only a news show puts up (tv-stage.js)
+  function liveStart({ set, people = [], data = {}, supers = false }) {
     load({ seq: { id: 'live', roles: {}, beats: [] }, set, cast: {}, data, seed: 'live' });
     // `billed` is the name a line airs under ("THE CONTROL VOICE says"), and it's the same person as `name`
-    S.live = { looks: new Map(people.map((p) => [p.name, p])), billed: new Map(people.filter((p) => p.billed).map((p) => [String(p.billed).toLowerCase(), p.name])), said: new Map(), prev: null, prevRole: '', n: 0, k: 0, home: new Map() };
+    S.live = { looks: new Map(people.map((p) => [p.name, p])), billed: new Map(people.filter((p) => p.billed).map((p) => [String(p.billed).toLowerCase(), p.name])), said: new Map(), prev: null, prevRole: '', n: 0, k: 0, home: new Map(), supers };
     for (const p of people) seat(p.name);
     // a mark kept `for` somebody is filled before they speak, so the desk is never empty at the open
     for (const m of Object.values(S.set.marks || {})) for (const name of [].concat(m.for || [])) seat(name);
@@ -161,7 +162,7 @@ export function createSequencePlayer(host, { mode = 'clock', phone = false, feed
     const shot = dir ? { ...dir, on: dir.on.length || dir.frame === 'full' ? dir.on : role ? [role] : [] }
       : hold ? { ...L.prev, move: 'none', cut: 'cut' } : autoShot(S.set, S.seq, role, { prev: L.prev, prevRole: L.prevRole, said, n: L.n++ });
     const first = role && !said;
-    const beat = { id: `l${++L.k}`, shot, ...(role ? { say: { role, lines: [text] } } : {}), gfx: first ? [{ kind: 'lower', text: S.cast[role]?.billed || '{speaker.name}', sub: S.cast[role]?.title || S.data.show || '', at: 0.4, for: 4.5 }] : [] };
+    const beat = { id: `l${++L.k}`, shot, ...(role ? { say: { role, lines: [text] } } : {}), gfx: first && L.supers ? [{ kind: 'lower', text: S.cast[role]?.billed || '{speaker.name}', sub: S.cast[role]?.title || S.data.show || '', at: 0.4, for: 4.5 }] : [] };
     pushLive(beat, { role, text, dur: lineSeconds(text), name });
     if (role) { L.said.set(role, said + 1); lips.set(role, { track: textTrack(text), t0: performance.now() }); }
     L.prevRole = role || L.prevRole;
@@ -221,7 +222,7 @@ export function createSequencePlayer(host, { mode = 'clock', phone = false, feed
         // one due to start after the cut (0.4 s into the announcer's line) never shows; `for: 0` would mean the beat's length
         if (g.kind === 'lower' && (g.for ? from + g.for : it.t0 + it.dur) > at) g.for = Math.max(1e-3, at - from);
       }
-      S.tl[S.tl.length - 1].beat.gfx = [{ kind: 'lower', text: '{speaker.name}', sub: S.cast[role]?.title || S.data.show || '', at: 0.8, for: 3.6 }];
+      if (L.supers) S.tl[S.tl.length - 1].beat.gfx = [{ kind: 'lower', text: '{speaker.name}', sub: S.cast[role]?.title || S.data.show || '', at: 0.8, for: 3.6 }];
       L.said.set(role, (L.said.get(role) || 0) + 1);
       return;
     }
@@ -278,6 +279,18 @@ export function createSequencePlayer(host, { mode = 'clock', phone = false, feed
     pushLive({ id: `l${++L.k}`, shot, ...(act ? { act: { [role]: act } } : {}), gfx: [] }, { role, dur: clip ? Math.min(6, Math.max(2.5, clipOnce(clip) || clipDur(clip))) : 3, name });
     L.prevRole = role;
     return true;
+  }
+  // A narrator line that is only the camera ("The camera slowly pulls back from the apartment."): never read
+  // or shown (tv.js), it's the picture doing it. The move plays as its own beat, and the line after it holds
+  // the framing the move ended on. A fade out dips to black and the next line comes back up out of it.
+  function liveCamera(line) {
+    if (!S?.live || !line) return;
+    const L = S.live, c = cameraOf(line), named = roleNamed(c.on), who = named || L.prevRole || '';
+    const base = c.move === 'pan' || c.move === 'crane' || (c.frame === 'wide' && !named) ? shotOn('', 'wide', c.move) : shotOn(who, c.frame, c.move);
+    const shot = { ...base, cut: c.cut };
+    pushLive({ id: `l${++L.k}`, shot, gfx: [] }, { dur: c.out ? 2.2 : 3 });
+    if (c.move === 'drop') L.floor = { ...shot, move: 'floor', cut: 'cut' };
+    L.dir = c.out ? { ...shotOn(who, 'medium', 'drift'), cut: 'dip' } : { ...shot, move: 'none', cut: 'cut' };
   }
   // A CAM line from the script, "CAM — 3 — SWING to Nguyen in the corner": the next shot is that one.
   // A set with fewer cameras than the script counts takes them round again.
@@ -516,7 +529,7 @@ export function createSequencePlayer(host, { mode = 'clock', phone = false, feed
     get length() { return S ? timelineLength(S.tl) : 0; },
     get playing() { return playing; },
     get beat() { return beatNow; },
-    load, setData, start, liveStart, liveLine, liveAct, liveDirection, liveBlock, liveKnows, liveData, liveCard,
+    load, setData, start, liveStart, liveLine, liveAct, liveCamera, liveDirection, liveBlock, liveKnows, liveData, liveCard,
     play() { if (S && t >= timelineLength(S.tl) - 0.01) { t = 0; beatNow = -1; } playing = true; if (beatNow >= 0) voiceLine(S.tl[beatNow]); start(); },
     pause() { playing = false; },
     seek(s) { t = Math.max(0, s); },

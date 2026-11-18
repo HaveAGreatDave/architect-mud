@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_labourer_03",
+  "lines": [
+    "\"The Architect could build all this in a night.\"",
+    "\"Then why doesn't it?\"",
+    "\"Maybe it wants us busy.\"",
+    "\"Then it's working.\""
+  ],
+  "personality": "labourer",
+  "sort_order": 646
+}

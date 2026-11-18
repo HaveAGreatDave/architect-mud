@@ -1,0 +1,106 @@
+{
+  "ambient_events": [
+    "The fridge shudders, hums, and shudders again.",
+    "A tap drips into the washing-up. Nobody has turned it off properly in years.",
+    "Somebody opens the fridge, looks for a long time at a carton with someone else's name on it, and drinks from it.",
+    "The hotplate ticks as it cools."
+  ],
+  "ambient_theme": "indoors",
+  "bg_color": "#241f19",
+  "color": "#c9a86a",
+  "description": "A narrow kitchen made out of the locking room's old battery store. A worktop on breeze blocks, a hotplate and a sink full of washing-up run down the west wall. A long table takes up the rest, with a bin beside it that nobody empties. The desk is east.",
+  "exits": {
+    "east": "zone_trackmarks_shop"
+  },
+  "flags": {
+    "building_name": "Hostel Takeover",
+    "building_type": "hostel",
+    "floor": "tile",
+    "is_building": true,
+    "is_interior": true,
+    "region_id": "region_coldwater",
+    "room": {
+      "balcony": false,
+      "d": 5,
+      "decor": {
+        "damp": [
+          {
+            "at": [
+              1,
+              4.4
+            ],
+            "r": 0.4
+          }
+        ],
+        "mags": [
+          {
+            "at": [
+              -1.1,
+              0.7
+            ],
+            "n": 4,
+            "seed": 2
+          }
+        ],
+        "rubbish": [
+          {
+            "at": [
+              -0.9,
+              3.9
+            ],
+            "n": 14,
+            "r": [
+              0.6,
+              0.5
+            ],
+            "seed": 3
+          },
+          {
+            "at": [
+              0.4,
+              2.8
+            ],
+            "n": 6,
+            "r": [
+              0.5,
+              0.4
+            ],
+            "seed": 4
+          }
+        ],
+        "rug": false,
+        "strips": [
+          {
+            "along": "v",
+            "at": [
+              0,
+              2.5
+            ],
+            "len": 1.2
+          }
+        ]
+      },
+      "face": 180,
+      "ground": "tile",
+      "h": 3,
+      "studio": false,
+      "tone": {
+        "accent": "#6a5a3a",
+        "ceiling": "#b8ac8a",
+        "trim": "#3a3026",
+        "wall": "#b0a47e"
+      },
+      "w": 3.4,
+      "windowless": true
+    },
+    "sanctuary": true,
+    "world_exit_zone": "zone_district_917_903"
+  },
+  "grid_x": -1,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hostel_kitchen",
+  "map_id": "map_int_trackmarks",
+  "name": "Hostel Takeover, the kitchen",
+  "parent_zone": "zone_district_917_903"
+}

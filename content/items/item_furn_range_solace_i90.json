@@ -1,0 +1,20 @@
+{
+  "description": null,
+  "flags": {
+    "induction": true,
+    "interactions": [
+      "lean"
+    ],
+    "power_draw_kw": 0.4,
+    "stove_tier": "high"
+  },
+  "id": "item_furn_range_solace_i90",
+  "name": "Solace i90 Range",
+  "tags": {
+    "description": "A glass induction top over a fan oven, in brushed steel, with a clock on a panel raised off the back. Stands on its own, or slots into a run of units and looks like it was always there.",
+    "stove_tier": "high"
+  },
+  "type": "furniture",
+  "value": 4200,
+  "weight": 52000
+}

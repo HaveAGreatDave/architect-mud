@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#c9a884",
-  "description": "Unit 4D, the last door on the top floor and as far from the bar as the building gets. Navy walls, gold trim, a black-fronted kitchen with a marble top, and an upright piano against the long wall. The ceiling fixtures are gone, so a lamp on the floor lights the room. It's quiet enough up here to hear the piano's strings settle at night.",
+  "description": "Unit 4D, top floor on the street, as far from the bar as the building gets. Navy walls, gold trim, and an upright piano against the long wall by the window. The ceiling fixtures are gone, so a lamp on the floor lights the room. It's quiet enough up here to hear the piano's strings settle at night.",
   "exits": {
     "east": "zone_embassy_floor3",
     "in": "zone_apt_12_bath"
@@ -12,11 +12,11 @@
     "is_apartment": true,
     "room": {
       "blinds": true,
-      "d": 10,
+      "d": 3.2,
       "decor": {
         "art": [
           {
-            "at": 3,
+            "at": 2.15,
             "h": 1,
             "seed": 11,
             "w": 1.5,
@@ -62,10 +62,10 @@
         ],
         "rug": {
           "at": [
-            -2.3,
-            2.4
+            -2.2,
+            1.9
           ],
-          "d": 2.4,
+          "d": 2,
           "style": "persian",
           "w": 3
         },
@@ -74,24 +74,21 @@
           "points": [
             [
               "left",
-              1.6
+              0.7
             ],
             [
-              "left",
-              4.4
+              "right",
+              2.5
             ]
           ],
           "y": 1.8
         }
       },
-      "h": 3.1,
-      "kitchen": {
-        "face": "fluted",
-        "front": "#1f2a3a",
-        "grade": 2,
-        "top": "marble",
-        "uppers": "cabinets"
+      "ensuite": {
+        "d": 1.8
       },
+      "face": 270,
+      "h": 3.96,
       "sash": {
         "drapes": "#a8323a",
         "head": true,
@@ -99,6 +96,7 @@
         "transom": 0.4,
         "w": 1.8
       },
+      "studio": false,
       "tone": {
         "accent": "#c9a14a",
         "ceiling": "#ece4d0",

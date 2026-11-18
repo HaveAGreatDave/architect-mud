@@ -37,12 +37,14 @@ import { zoneIsDark } from './blackout.js';
 import { belongsHere } from './eviction.js';
 import { tipsyOf } from './tipsy.js';
 import { setNpcMood, npcMoodOf } from '../../server/engine/npc-mood.js';
+import { JOB_TOPICS, LIFE_TOPICS, MORE_THREE, MORE_INTERRUPTS } from './home-talk-topics.js';
 
-const TURN_GAP_MS = [5000, 9000];
+const TURN_GAP_MS = [2500, 4500];
 const INTERRUPT_CHANCE = 0.09;    // per line
 const CALLBACK_CHANCE = 0.4;      // of opening on the pair's grudge or joke, when they have one
 const MEMORY_MS = 6 * 3600_000;   // a grudge older than this is let go
 const MAX_LINES = 12;
+const JOB_CHANCE = 0.35;          // of talking about the second one's work, when there's a topic for it
 
 const rand = (arr) => arr[Math.floor(Math.random() * arr.length)];
 const first = (npc) => String(npc?.name || 'someone').split(' ')[0];
@@ -269,6 +271,8 @@ const TOPICS = [
       hot: [`+"I'm telling it. Let me tell it. #grudge"`, `+"Fine. I won't tell you anything. Ever. #grudge"`] },
   ]},
   // A pair with a grudge opens on it.
+  ...JOB_TOPICS,
+  ...LIFE_TOPICS,
   { id: 'grudge', callback: 'grudge', steps: [
     [`"Are we still not talking about {grudge}?"`, `"I've been thinking about {grudge}."`],
     [`+"I'm not talking about it."`, `"Go on."`, `-"I'd rather we did. It's too quiet in here."`],
@@ -304,6 +308,7 @@ const THREE = [
     [`@a "There's one with a sad explosion."`],
     [`@b "Put that on, then."`, `@c "Fine."`],
   ]},
+  ...MORE_THREE,
 ];
 
 // ── Interruptions ────────────────────────────────────────────────────────────
@@ -320,6 +325,7 @@ const INTERRUPTS = [
   { line: `A pigeon lands on the windowsill and looks in at them.`, react: [`"Shoo."`, `"Don't look at it, it'll come in."`], derail: 'cat' },
   { line: `The smoke alarm chirps once.`, react: [`"It's the battery."`, `"I'm not getting up for that."`] },
   { line: `A siren goes past outside and fades away.`, react: [`"Someone's having a worse night than us."`, `waits for it to pass.`] },
+  ...MORE_INTERRUPTS,
 ];
 
 // ── Context ──────────────────────────────────────────────────────────────────
@@ -344,6 +350,7 @@ async function contextFor(zoneId, folk) {
     phase: env.timePhase, weather: WEATHER[env.weatherType] || null,
     dish: dish(), drink: drink(), neighbour: neighbourOf(zoneId, new Set(folk.map((n) => n.id))),
     stranger: getZonePlayers(zoneId).some((p) => !belongsHere(p, folk[0], zoneId)),
+    job: folk[1]?.flags?.personality || null,
     tipsy: Math.max(...folk.slice(0, 2).map((n) => tipsyOf(n))),
   };
   try {
@@ -388,7 +395,9 @@ function pickTopic(cast, ctx, mem) {
     const cb = TOPICS.filter((t) => t.callback && mem[t.callback]);
     if (cb.length) return rand(cb);
   }
-  const ok = TOPICS.filter((t) => !t.callback && (!t.need || t.need(ctx)) && t.label !== mem.grudge);
+  const ok = TOPICS.filter((t) => !t.callback && (!t.need || t.need(ctx)) && (!t.job || t.job.includes(ctx.job)) && t.label !== mem.grudge);
+  // the second one talks about their own work some of the time
+  if (Math.random() < JOB_CHANCE) { const j = ok.filter((t) => t.job); if (j.length) return rand(j); }
   // a drunk pair gets a drunk topic more often the drunker they are
   if (ctx.tipsy >= 1 && Math.random() < 0.3 + 0.2 * ctx.tipsy) { const d = ok.filter((t) => t.id.startsWith('drunk')); if (d.length) return rand(d); }
   // the witness topic is the funniest thing in the file; when it applies, it usually wins

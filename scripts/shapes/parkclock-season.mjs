@@ -50,7 +50,7 @@ const keyOf = (p) => [p.phase || 'ab', p.inning, p.half, p.batter || '', p.kind 
 
 export function airGame(script, { slot, away, home }, { slotMs = 3600000, version = 3, game: given = null } = {}) {
   const seed = sportsHash(slot >>> 0, 0x00);
-  const matchup = { away, home, teams: teamNames(script.teams), ...(script.clubs ? { clubs: script.clubs } : {}) };
+  const matchup = { away, home, teams: teamNames(script.teams), ...(script.clubs ? { clubs: script.clubs } : {}), ...(script.bullpens ? { bullpens: script.bullpens } : {}) };
   const game = given || BASEBALL.simGame(matchup, script.players, sportsRng(seed), { version, seed, day: Math.floor(slot / SLOTS_PER_DAY) });
   const pools = script.pools || {}, announcer = script.announcer || 'your announcer';
   const nrng = sportsRng(seed ^ 0x9e3779b9), xrng = sportsRng(sportsHash(seed, 0x11fe));

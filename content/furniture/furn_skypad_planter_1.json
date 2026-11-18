@@ -1,0 +1,30 @@
+{
+  "description": "A square bronze planter of clipped box, bolted down against the rotor wash.",
+  "flags": {
+    "aliases": "planter,plants,plant",
+    "interactions": [
+      "examine"
+    ],
+    "look": {
+      "arche": "prop",
+      "form": "bonsai"
+    },
+    "spot": {
+      "at": [
+        -7.3,
+        0.9
+      ],
+      "turn": 90
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "light_type": null,
+  "lumen_output": null,
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "id": "furn_skypad_planter_1",
+  "name": "bronze planter",
+  "zone_id": "zone_solenne_helipad"
+}

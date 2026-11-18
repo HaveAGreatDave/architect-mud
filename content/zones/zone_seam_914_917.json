@@ -1,0 +1,22 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "forest",
+  "description": "Scrub and thin trees against the Gardens' west wall, where ICE is painted in letters a storey high. A path worn through the scrub leads round to the yard at the back.",
+  "exits": {
+    "north": "zone_seam_914_916",
+    "south": "zone_seam_914_918",
+    "west": "zone_district_913_917"
+  },
+  "flags": {
+    "district": "wasteland",
+    "region_id": "region_coldwater",
+    "terrain": "forest"
+  },
+  "grid_x": 914,
+  "grid_y": 917,
+  "grid_z": 0,
+  "id": "zone_seam_914_917",
+  "map_id": "map_world",
+  "name": "Grasslands",
+  "parent_zone": null
+}

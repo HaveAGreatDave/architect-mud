@@ -4,7 +4,10 @@
 // It is the three things that are silent when they are wrong: the clearance gate, where the camera
 // decides to open, and whether closing leaves a row behind in the viewer set — a leak there is a
 // tick pushing sky at somebody who shut the view an hour ago, and nothing anywhere would say so.
-import { getAllZones, getZone, getZoneFurniture } from '../../server/engine/world.js';
+import { getAllZones, getZone, getZoneFurniture, zoneAtTile, propsOf, world } from '../../server/engine/world.js';
+import { getBroadcast, setBroadcast } from '../../server/engine/messaging.js';
+import { emit } from '../../server/engine/events.js';
+import { hasTag } from '../../server/engine/tags.js';
 import { commands, placedTile, tileUnder, _test } from './index.js';
 
 export default async function regress({ run, check, getPlayer }) {
@@ -22,7 +25,7 @@ export default async function regress({ run, check, getPlayer }) {
   check('freelook: 0,0 is not a placed tile',
     placedTile({ map_id: 'map_world', grid_x: 0, grid_y: 0 }) === null);
   check('freelook: a real map_world tile is',
-    placedTile({ map_id: 'map_world', grid_x: 918, grid_y: 903 })?.gx === 918);
+    placedTile({ map_id: 'map_world', grid_x: 919, grid_y: 903 })?.gx === 919);
   check('freelook: another map is not', placedTile({ map_id: 'map_aircraft_leviathan', grid_x: 4, grid_y: 4 }) === null);
   check('freelook: nothing is not', placedTile(null) === null);
 
@@ -48,9 +51,9 @@ export default async function regress({ run, check, getPlayer }) {
 
   // ── Open, re-centre, close ──
   _test.viewers.delete(staff.id);
-  const opened = freelook(['918', '903'], 'freelook 918 903', staff);
+  const opened = freelook(['919', '903'], 'freelook 919 903', staff);
   check('freelook: staff gets a typed response', opened?.type === 'system', JSON.stringify(opened));
-  check('freelook: …and is registered as a viewer', _test.viewers.get(staff.id)?.gx === 918);
+  check('freelook: …and is registered as a viewer', _test.viewers.get(staff.id)?.gx === 919);
   const moved = freelook(['920', '905'], 'freelook 920 905', staff);
   check('freelook: re-centring moves the window', _test.viewers.get(staff.id)?.gy === 905, JSON.stringify(moved));
   check('freelook: …and says it re-centred rather than opening again', /re-centred/i.test(moved?.message || ''), moved?.message);
@@ -138,10 +141,58 @@ export default async function regress({ run, check, getPlayer }) {
   // The free camera was the one GLASS view with nothing moving in it: no aircraft, no boats, no
   // trucks. It now gets the cockpit's far view and the world's contacts; an absent key is what would
   // say so, and nothing on the screen would.
-  const pay = _test.viewPayload(918, 903);
+  const pay = _test.viewPayload(919, 903);
   check('freelook: the open carries a contact list', Array.isArray(pay.contacts), JSON.stringify(Object.keys(pay)));
   check('freelook: …and the region list the colour grade reads', Array.isArray(pay.regions) && pay.regions.length > 0);
   check('freelook: …and the highway past the window, null or not, but present', 'roads' in pay);
+
+  // ── On foot: the server follows the view ──
+  // An alley: a street tile, a building's tile east of it, and open ground past that. The view doesn't report the
+  // building's tile (nobody stands on a facade), so the step out the far side is two tiles from where the server has you.
+  {
+    const p = getPlayer(), sent = [], was = getBroadcast(), saved = p.current_zone;
+    const at = (x, y) => zoneAtTile('map_world', x, y);
+    const isBld = (z) => !!(z?.flags?.is_building || z?.flags?.building_type || (z && hasTag(z, 'facade')));
+    const open = (z) => !!z && !isBld(z) && z.flags?.terrain !== 'water' && z.flags?.district !== 'water' && propsOf(z.id).passable !== false && !z.flags?.checkpoint_cfg;
+    const A = getAllZones().find((z) => z.map_id === 'map_world' && z.grid_x > 0 && open(z)
+      && isBld(at(z.grid_x + 1, z.grid_y)) && open(at(z.grid_x + 2, z.grid_y)));
+    check('footstep: the world has an alley to walk through', !!A);
+    if (A) {
+      const B = at(A.grid_x + 2, A.grid_y), far = at(A.grid_x + 4, A.grid_y);
+      const bld2 = [[2, -1], [2, 1], [0, 2], [0, -2], [-2, 0]].map(([dx, dy]) => at(A.grid_x + dx, A.grid_y + dy)).find(isBld);
+      const put = (id) => { world.zones.get(p.current_zone)?.players.delete(p.id); p.current_zone = id; world.zones.get(id)?.players.add(p.id); };
+      const steps = () => sent.filter((m) => m.type === 'freelook_step');
+      setBroadcast((z, msg, ex, to) => { if (to === p.id) sent.push(msg); return was?.(z, msg, ex, to); });
+      _test.viewers.set(p.id, { gx: A.grid_x, gy: A.grid_y, foot: true });
+      try {
+        put(A.id);
+        await commands.footstep([String(A.grid_x), String(A.grid_y)], '', p);
+        check('footstep: one onto the tile you\'re on is answered, so the view stops asking', steps().length === 1 && !steps()[0].refused && steps()[0].gx === A.grid_x && p.current_zone === A.id, JSON.stringify(steps()));
+        if (far) {
+          sent.length = 0;
+          await commands.footstep([String(far.grid_x), String(far.grid_y)], '', p);
+          check('footstep: four tiles off is refused', steps()[0]?.refused && p.current_zone === A.id, JSON.stringify(steps()));
+        }
+        if (bld2) {
+          sent.length = 0;
+          await commands.footstep([String(bld2.grid_x), String(bld2.grid_y)], '', p);
+          check('footstep: a building two tiles off is refused, never walked into', steps()[0]?.refused && p.current_zone === A.id, JSON.stringify(steps()));
+        }
+        sent.length = 0;
+        await commands.footstep([String(B.grid_x), String(B.grid_y)], '', p);
+        check('footstep: out the far side of an alley lands on the street there', p.current_zone === B.id && steps().some((m) => !m.refused && !m.moved && m.gx === B.grid_x), `${A.id} → ${p.current_zone} ${JSON.stringify(steps())}`);
+        sent.length = 0;
+        emit('zone.entered', { actor: p, zone: p.current_zone, from: A.id, opts: {} });
+        check('footstep: a move the view didn\'t make (typed, the minimap, GPS) is sent as moved, so the view follows', steps()[0]?.moved === true, JSON.stringify(steps()));
+        // a reconnect dropped the viewer row while the street view stayed open: the next step is taken up, not ignored
+        _test.viewers.delete(p.id); put(A.id); sent.length = 0;
+        await commands.footstep([String(A.grid_x), String(A.grid_y)], '', p);
+        check('footstep: a view the server forgot is taken up again and answered', _test.viewers.get(p.id)?.foot === true && steps().length === 1, JSON.stringify(steps()));
+      } finally {
+        setBroadcast(was); _test.viewers.delete(p.id); put(saved);
+      }
+    }
+  }
 
   // ── The Under ──
   // GLASS draws nothing below the street, so `freelook under` ships the tile graph instead. An

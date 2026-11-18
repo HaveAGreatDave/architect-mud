@@ -199,7 +199,16 @@ lettered on the frieze (the trade, never the building's name); on a `poker` tabl
 the cup holders and a cigar. Two forms: `stools`, a run of bar stools with a seat every 0.8 m, and `jukebox`. The
 room's own: `decor.neon` (lettering in lit tube), `pendants` (a card-room lamp or schoolhouse globes, which can
 light the room), `fans`, `salon` (a hang of old photographs), `trophy`, `chalk`, `darts`, `payphone`, `hatstand`
-and `litter` (peanut shells and butts on the floor). A bartender with `flags.post` on the bar and `post_gap: 0.3`
+and `litter` (peanut shells and butts on the floor).
+
+For an old hotel (gl/room-hotel.js, all data): `decor.letters` is a name in raised metal letters on standoffs, lit from
+behind so each stands in a rim of light over a soft wash of the wall's own colour; `clocks` a row of wall clocks for other
+cities on a walnut board, each stopped where its `t` says; `directory` a lacquered board of gilt lines with arrows;
+`standards` brass standard lamps in pleated silk that light the room; `art[].lamp` a picture light; and `sconces.kind:
+'twin'` two scrolled arms with candles in silk shades. Five forms: `pigeonholes` (a key wall, keys and letters in it),
+`chesterfield`, `wingback`, `cocktail` (a low marble-topped table) and `trolley` (a brass luggage cart with its cases),
+and `dress: 'hotel'` on a `reception` desk gives it raised mahogany panels, the register, a bell and a banker's lamp.
+The Embassy's lobby is the first. A bartender with `flags.post` on the bar and `post_gap: 0.3`
 stands behind it and still idles at the bar's work: pouring, shaking, pulling a pint, holding a bottle to the
 light, sending a glass down the bar (actor3d.js, the props in gl/figure-reach.js). The Embassy's lounge is
 dressed this way by `scripts/content/embassy-rooms.mjs`.
@@ -294,7 +303,9 @@ stays text, and the Stage leaves it out.
   the tops of its walls fight that floor.
 
 Jolene's is the first: the bar's flight runs up its west wall from beside the street door to the Room Over the Kitchen,
-which stands over the bar's west wall and the kitchen. The gate's rules check a made-up flight's plan, both openings, and
+which stands over the bar's west wall and the kitchen. The Embassy has three, lobby to fourth floor, all along the
+building's back wall: each landing takes the flight from below at one end and sends the next up from the other, so its
+middle, where the flats open, stays clear (`scripts/content/embassy-rooms.mjs`). The gate's rules check a made-up flight's plan, both openings, and
 a flight off its room and a well off its floor; the roomstage regress walks a made-up building's stair with the real `up`.
 
 Still to come: a flight with a half landing or a turn (a straight flight is all there is, so a tall room's is long), the

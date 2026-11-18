@@ -1,0 +1,25 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "wasteland",
+  "color": "#b5744a",
+  "description": "Cracked hardpan stretches off in every direction, the color of old rust. The wind has scoured it bare of anything loose.",
+  "exits": {
+    "east": "zone_district_914_939",
+    "north": "zone_seam_914_938",
+    "south": "zone_seam_914_940",
+    "west": "zone_district_913_939"
+  },
+  "flags": {
+    "district": "wilds",
+    "radiation": 37,
+    "region_id": "region_coldwater",
+    "terrain": "redrock"
+  },
+  "grid_x": 914,
+  "grid_y": 939,
+  "grid_z": 0,
+  "id": "zone_seam_914_939",
+  "map_id": "map_world",
+  "name": "The Ironpan",
+  "parent_zone": null
+}

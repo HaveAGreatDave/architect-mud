@@ -6,7 +6,7 @@
     "north": "zone_kestrel_7a_bath"
   },
   "flags": {
-    "building_name": "Kestrel Court",
+    "building_name": "The Flute",
     "building_type": "apartment",
     "floor": "boards",
     "is_apartment": true,
@@ -27,6 +27,6 @@
   "id": "zone_kestrel_7a",
   "map_id": "map_int_kestrel",
   "marker": "7A",
-  "name": "Kestrel Court, Unit 7A",
+  "name": "The Flute, Unit 7A",
   "parent_zone": "zone_district_913_908"
 }

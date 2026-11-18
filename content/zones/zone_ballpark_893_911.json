@@ -10,13 +10,15 @@
     "entrance": "west",
     "floors": 7,
     "is_building": true,
-    "region_id": "region_coldwater"
+    "region_id": "region_coldwater",
+    "set_aside": true,
+    "set_aside_from": "893,911"
   },
-  "grid_x": 893,
-  "grid_y": 911,
+  "grid_x": 1,
+  "grid_y": 25,
   "grid_z": 0,
   "id": "zone_ballpark_893_911",
-  "map_id": "map_world",
+  "map_id": "map_set_aside",
   "marker": "J1",
   "name": "1 Hughson Court",
   "parent_zone": null

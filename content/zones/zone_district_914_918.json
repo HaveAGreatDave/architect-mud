@@ -5,14 +5,14 @@
   "exits": {
     "east": "zone_district_915_918",
     "south": "zone_district_914_919",
-    "west": "zone_district_913_918"
+    "west": "zone_seam_914_918"
   },
   "flags": {
     "district": "ashway",
     "region_id": "region_coldwater",
     "terrain": "gravel"
   },
-  "grid_x": 914,
+  "grid_x": 915,
   "grid_y": 918,
   "grid_z": 0,
   "id": "zone_district_914_918",

@@ -626,7 +626,7 @@ function renderAt(canvas, v, heading, elevDeg, night) {
   const el0 = elevDeg * Math.PI / 180;
   const dist = Math.max(0.05, F.radius * Math.cos(el0)), eye = F.zMid + F.radius * Math.sin(el0);
   renderVehiclePreview(canvas, { cls: v.cls, variant: v.variant || '', armed: !!v.armed, livery: meshLivery(), night, heading, dist, eyeH: eye,
-    camPitch: Math.atan2(eye - F.zMid, dist), sizeMul: F.sm, anim: S.anim, gearAnim: S.gear });
+    camPitch: Math.atan2(eye - F.zMid, dist), sizeMul: F.sm, anim: S.anim, gearAnim: S.gear, ...(S.anim?.boost ? { boost: S.anim.boost, now: performance.now() } : {}) });
 }
 async function postShot(canvas, name) {
   const blob = await new Promise((res) => canvas.toBlob(res, 'image/png'));

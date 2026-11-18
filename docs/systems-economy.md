@@ -11,6 +11,7 @@ Primary files: [economy.js](../server/engine/economy.js), [vendor.js](../server/
 [economy.js](../server/engine/economy.js) is the single mutation point so the "credits can't go
 negative" invariant lives in one place.
 
+- **Purchase feedback (as built):** `adjustCredits` also sends the player `credits_delta`: on every spend `{ delta, credits }`, and on a refused spend `{ declined, cost, credits }`. The client (`client/game/js/credits-float.js`) floats `−85₵` or `Can't afford 85₵` off the credits counter, over any open panel, so no shop has to print its own cost line. Gains do not float.
 - **`adjustCredits(player, delta, exec?, reason?)`** — returns `false` (no-op) if it would push carried
   credits below 0. On success it emits **`credits.changed`** `{ playerId, delta, reason, after }`; the
   `reason` is a short `'system:verb'` source label (every caller passes one) consumed by the

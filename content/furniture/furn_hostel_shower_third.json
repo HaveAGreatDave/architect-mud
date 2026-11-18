@@ -1,0 +1,29 @@
+{
+  "description": "The third shower runs colder than the other two. Its drain gurgles before it does anything, so everyone uses it last.",
+  "flags": {
+    "aliases": [
+      "shower",
+      "showers",
+      "third shower"
+    ],
+    "look": {
+      "arche": "shower",
+      "form": "stall",
+      "wear": 0.95
+    },
+    "spot": {
+      "along": -0.1,
+      "wall": "back"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_hostel_shower_third",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "third shower",
+  "object_type": "shower",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_trackmarks_back"
+}

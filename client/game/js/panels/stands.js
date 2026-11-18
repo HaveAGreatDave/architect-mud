@@ -392,7 +392,7 @@ function sayBooth(plain, duration, dl, on = standsBoothOn) {
   const speech = said ? said[2] : plain;
   if (!speech) return;
   const { speaker, crowd, ...how } = dl || {};
-  window.AudioEngine?.speak(speech, { seed: said ? said[1] : (speaker || 'broadcast'), queue: true, ...(duration > 0.5 ? { budget: duration } : {}), ...how });
+  window.AudioEngine?.speak(speech, { seed: said ? said[1] : (speaker || 'broadcast'), queue: true, vary: 1, ...(duration > 0.5 ? { budget: duration } : {}), ...how });
 }
 
 // What the pointer's label calls each thing a click helps you to, and the line once you've clicked it.
@@ -519,7 +519,7 @@ async function hockeyOnScreen(ui, channelId) {
     // (a payload names the colours of the side with the puck and the other; kept per club)
     if (p.attackingTeam && p.attackingColours) cols[p.attackingTeam] = p.attackingColours;
     if (p.defendingTeam && p.defendingColours) cols[p.defendingTeam] = p.defendingColours;
-    if (p.type === 'penalty') pen = { desc: p.desc || `${p.player || p.shooter || ''} ${p.infraction || ''}`.trim(), team: p.teamName || '' };
+    if (p.type === 'penalty' && !p.waived) pen = { desc: p.desc || `${p.player || p.shooter || ''} ${p.infraction || ''}`.trim(), team: p.teamName || '' };
     else if (!p.strength || p.strength === 'even') pen = null;
   };
   const colourOf = (team) => {

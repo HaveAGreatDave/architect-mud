@@ -1,0 +1,29 @@
+{
+  "ambient_events": [
+    "The lift arrives empty, opens, waits, and shuts again.",
+    "The pay station prints a receipt for nobody."
+  ],
+  "ambient_theme": "indoors",
+  "bg_color": "#1a2228",
+  "color": "#cfe4ea",
+  "description": "A concrete room the width of the building, painted the blue of the sign as far as the paint went. A pay station by the lift says PARKING FREE, with a phone number for lost tickets taped under it. The lift is <b>in</b> and the street is <b>south</b>.",
+  "exits": {
+    "in": "zone_sdeck_lift",
+    "south": "zone_seam_914_908"
+  },
+  "flags": {
+    "building_name": "Stacked Deck",
+    "is_interior": true,
+    "floor": "concrete",
+    "building_type": "vtol_park",
+    "is_building": true,
+    "world_exit_zone": "zone_seam_914_908"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_sdeck_lobby",
+  "map_id": "map_int_stackeddeck",
+  "name": "Stacked Deck, Lobby",
+  "parent_zone": "zone_seam_914_908"
+}

@@ -36,6 +36,11 @@ uniform vec2 uBack;
 uniform vec4 uInkEye;
 // ndc z is A + B / depth, so a clip z at depth w put ft further off moves by -B ft / (w + ft)
 float backOf(float w) { return uBack.y > 0.0 ? uBack.x * uBack.y / (w + uBack.y) : uInk.w * w; }
+// ⚠ NEVER PUSHED ACROSS THE NEAR PLANE. A point in front of it (z < -w) stays there. In a mirror's pass
+// (gl/room.js mirrorMatrices) the near plane is the glass itself, set at a slant, and the push brought
+// what's just behind the glass into the reflection: the mirror's own line, with a corner behind the
+// reflected eye, came out as a black wedge across most of the glass.
+float pushed(vec4 c, float w) { return c.z + c.w < 0.0 ? c.z : c.z + backOf(w); }
 void main() {
   // a layer of an animal's fur (gl/beast-kit.js furShells, material 50..65) gets no line, nor even an unpushed copy:
   // it's mostly holes, and the copy would show black through them
@@ -45,7 +50,7 @@ void main() {
   // a vertex with no normal, or behind the eye, stays where it is unpushed: thrown off screen
   // alone, it dragged its triangle across the picture with it
   bool facing = uInkEye.w > 0.5 && dot(aNor, uInkEye.xyz - aPos) > 0.0;
-  if (nl < 0.01 || c.w <= 0.0 || aTex < -0.5 || facing) { c.z += backOf(max(c.w, 0.0)); gl_Position = c; return; }
+  if (nl < 0.01 || c.w <= 0.0 || aTex < -0.5 || facing) { c.z = pushed(c, max(c.w, 0.0)); gl_Position = c; return; }
   vec3 n = aNor * inversesqrt(nl);
   vec4 cn = uVP * vec4(aPos + n * uInk.x, 1.0);
   vec2 d = (cn.xy / max(cn.w, 1e-3) - c.xy / c.w) * uRes * 0.5;
@@ -55,7 +60,7 @@ void main() {
   // with unit normals keeps the line it had
   float wk = mix(max(uWeigh, 1.0), 1.0, smoothstep(-0.5, 0.7, dot(n, uKey))) * min(1.0, sqrt(nl));
   c.xy += dir * clamp(L, uInk.y, uInk.z) * wk / (uRes * 0.5) * c.w;
-  c.z += backOf(c.w);
+  c.z = pushed(c, c.w);
   c.xy += uShake * c.w;
   gl_Position = c;
 }`;

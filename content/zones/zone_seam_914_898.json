@@ -1,0 +1,24 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "coast",
+  "color": "#7fd3ff",
+  "description": "The bottom slopes away from the shore into lightless water. It's cold, and the channel beyond is too deep to wade.",
+  "exits": {
+    "east": "zone_district_914_898",
+    "north": "zone_seam_914_897",
+    "south": "zone_seam_914_899",
+    "west": "zone_district_913_898"
+  },
+  "flags": {
+    "district": "water",
+    "region_id": "region_coldwater",
+    "terrain": "water"
+  },
+  "grid_x": 914,
+  "grid_y": 898,
+  "grid_z": 0,
+  "id": "zone_seam_914_898",
+  "map_id": "map_world",
+  "name": "Coldwater Basin",
+  "parent_zone": null
+}

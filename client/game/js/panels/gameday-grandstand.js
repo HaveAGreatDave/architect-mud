@@ -50,6 +50,8 @@
 import { createGamedayView, GAMEDAY_CARDS, pitchText, cardText, sideColours } from './gameday.js';
 import { venueOf, onVenue } from './venue.js';
 import { onClubs } from './club-crest.js';
+import { paintMatchupCard } from './matchup-card.js';
+import { deadballLockup } from './deadball-brand.js';
 import { addFullscreenButton, leaveFullscreen } from './view-fullscreen.js';
 import { addCommentaryButton } from './commentary-button.js';
 import { prefersReducedMotion, playByPlayOn } from '../../../shared/settings.js';
@@ -239,7 +241,7 @@ export function createGrandstandView(host, opts = {}) {
     if (pendingCaption) flat.setCaption(pendingCaption.text, { held: true, speak: pendingCaption.speak });
     else if (caption) flat.setCaption(caption);
     pendingCaption = null;
-    if (last) flat.apply(last); else flat.showIdle();
+    if (last) { flat.apply(last); opts.onLive?.(); } else flat.showIdle();
   }
 
   // ── the page ──────────────────────────────────────────────────────────────
@@ -270,7 +272,8 @@ export function createGrandstandView(host, opts = {}) {
   function shellUp() {
     if (canvas) return;
     host.innerHTML = shell();
-    addFullscreenButton(host.querySelector('.gds-park'), host);
+    // on a TV, the whole set goes full screen, its buttons and all (tv.js passes it)
+    addFullscreenButton(host.querySelector('.gds-park'), host, opts.fullscreen);
     addCamButton(host.querySelector('.gds-park'));
     // spoken commentary on or off, when the host has a switch for it (commentary-button.js)
     syncVoice = addCommentaryButton(host.querySelector('.gds-park'), opts.commentary, doc);
@@ -305,11 +308,18 @@ export function createGrandstandView(host, opts = {}) {
   }
   function idleVeil() {
     // in a box's suite nobody needs telling: the room is the thing to look at till the game starts
-    if (opts.room || host.querySelector('.gds-idle')) return;
+    // nor on a TV, where its holding picture (tv-hold.js) is up until the game is live
+    if (opts.room || opts.holding || host.querySelector('.gds-idle')) return;
     const veil = doc.createElement('div');
     veil.className = 'gds-idle';
-    veil.innerHTML = `<div class="gds-idle-title">DEADBALL</div><div class="gds-idle-sub">Waiting for the first pitch…</div>`;
+    paintVeil(veil);
     host.querySelector('.gds-park')?.appendChild(veil);
+  }
+  // The loading card: Deadball's mark over tonight's two crests (matchup-card.js), painted again
+  // when the clubs arrive.
+  function paintVeil(veil = host?.querySelector('.gds-idle')) {
+    if (!veil) return;
+    paintMatchupCard(veil, { brand: deadballLockup('', '64px'), sport: 'baseball', away: S.awayTeam, home: S.homeTeam, line: 'Waiting for the first pitch…' });
   }
   function mount() {
     if (mounted || flat) return !flat;
@@ -353,7 +363,7 @@ export function createGrandstandView(host, opts = {}) {
     // the city round the park: the venue this browser holds, then any newer one the server sends
     setCity();
     unVenue = onVenue((sport) => { if (sport === 'baseball') { setCity(); draw(); } });
-    unClubs = onClubs((sport) => { if (sport === 'baseball') redress(); });
+    unClubs = onClubs((sport) => { if (sport === 'baseball') { redress(); paintVeil(); } });
     return true;
   }
   function setCity() {
@@ -429,7 +439,7 @@ export function createGrandstandView(host, opts = {}) {
       R.idle?.(tR, posed);
       // the ball, and where it was half a 60 Hz frame of the screen's time before, for its smear
       const shutter = BALL_SHUTTER * speed * (replay ? mods.REPLAY.rate : 1);
-      R.setBall(RW.ballAt(tR), shutter > 0 ? RW.ballAt(tR - shutter) : null);
+      R.setBall(RW.ballAt(tR), shutter > 0 ? RW.ballAt(tR - shutter) : null, RW.ball?.grip);
       R.setBats?.(RW.batsAt(tR));
       R.setSpectacle?.(replay ? replay.D.fx : D.fx, tR);
       // the Cup, on its table or in a champion's hands (diamond/ceremony.js cupAt)
@@ -556,7 +566,7 @@ export function createGrandstandView(host, opts = {}) {
     const t = B.W.t, posed = new Set();
     for (const b of B.W.bodies.values()) { const Q = B.W.pose(b.slot, t); if (Q) { R.setPose(b.slot, Q); posed.add(b.slot); } }
     R.idle?.(t, posed);
-    R.setBall(B.W.ballAt(t), null);
+    R.setBall(B.W.ballAt(t), null, B.W.ball?.grip);
     R.setBats?.(B.W.batsAt(t));
     R.setSpectacle?.(B.D.fx, t);
     R.setTime?.(t);
@@ -1042,6 +1052,7 @@ export function createGrandstandView(host, opts = {}) {
     const kind = fx.kind === 'homerun' && fx.grand ? 'grandslam' : fx.kind;
     const word = fx.kind === 'half' ? `${fx.half === 'bottom' ? 'BOTTOM' : 'TOP'} ${String(fx.inningOrd || '').toUpperCase()}` : m.title;
     host.querySelector('.gds-idle')?.remove();   // the game's begun, even before its first play
+    opts.onLive?.();
     hold('splash', { kind, word, sub: m.sub }, (fx.duration || 3.5) * 1000);
     say(cardText(fx, m));
   }
@@ -1335,12 +1346,14 @@ export function createGrandstandView(host, opts = {}) {
 
   function apply(p) {
     if (!host || !p) return;
-    if (flat) { flat.apply(p); return; }
+    if (flat) { flat.apply(p); opts.onLive?.(); return; }
     last = p;
     const go = () => {
       if (last !== p || flat) return;
       if (!mount()) return;
       host.querySelector('.gds-idle')?.remove();
+      // the game is live: a TV's holding picture goes (tv.js)
+      opts.onLive?.();
       R?.setEmpty?.(false);
       stage(p);
     };
@@ -1457,6 +1470,8 @@ export function createGrandstandView(host, opts = {}) {
   };
 
   return {
+    // it calls `opts.onLive` when its game is live, so a TV's holding picture can wait for it (tv.js)
+    tellsLive: true,
     apply: inLine(apply), clear, rest, wake, setCaption: inLine(setCaption), showIdle, showCard: inLine(showCard), setSkyField, setRoof,
     syncCommentary: () => { syncVoice(); flat?.syncCommentary?.(); },
     // for the sandbox and the gates

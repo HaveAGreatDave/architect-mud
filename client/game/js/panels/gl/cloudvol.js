@@ -16,11 +16,13 @@
 
 import { viewProjMatrix, mat4f } from './camera.js';
 import { compileShader } from './programs.js';
+import { invert as invert4 } from './core/mat4.js';
 import { linearOut, applyLinOut } from './colour.js';
 
 const NOISE_N = 64;
 const COVER_N = 64;          // coverage texels a side
 const COVER_RANGE = 56;   // tiles either side of the camera the coverage map spans
+const FRONT_ASPECT = 1.7;  // a cell is this much longer across its motion and this much shorter along it (2.9:1 overall)
 const GLOW_R = 4;                 // tiles a lit tile's glow spreads across the base
 const GLOW_GAIN = 0.12;           // how many summed sources it takes to saturate (1 - e^-gain·sum)
 // ⚠ The base it lands on is near black at night, so whatever this adds IS the colour: at 0.55 of
@@ -45,32 +47,240 @@ void camRay(vec2 ndc, out vec3 ro, out vec3 rd) {
   ro = a.xyz; rd = normalize(b.xyz - a.xyz);
 }`;
 
+// The cloud's matter, shared by the march and the shadow bake, so a shadow is the cloud it's under.
+const DENSITY_GLSL = `
+uniform sampler3D uNoise;
+uniform sampler2D uCover;       // R coverage, G cumulonimbus, B heap (0 stratus .. 1 cumulus), A nimbus (rain-bearing)
+uniform vec2 uCoverOff;         // that texel centre's offset from the camera (see bakeCover)
+uniform float uCoverRange;
+uniform vec2 uOrigin;           // world position of the camera-relative origin, so noise stays put
+uniform float uBase;
+uniform float uTop;
+uniform float uTime;
+uniform vec2 uWind;
+uniform float uSheet;           // how much of a continuous stratus sheet the day's cloud floor is (floorSheet)
+// A change of sheet crosses the sky as a front (stepSkySheet in windshield.js): xy the downwind
+// axis, z the edge's distance along it from the camera. Downwind of the edge the sky is still
+// uSheetOld; upwind of it, uSheet. With no front, z is far upwind and uSheet is everywhere.
+uniform float uSheetOld;
+uniform vec3 uSheetFront;
+// The upper decks' genera, from the day's weather (CLOUD_UPPER in windshield.js), laid everywhere and
+// not only inside a cell: cirrus (fibrous ice), cirrostratus (an ice veil), altocumulus (small
+// regular heaps) and altostratus (a grey mid-level sheet).
+uniform float uCirrus;
+uniform float uCirSheet;
+uniform float uAlto;
+uniform float uAltoSheet;
+
+vec4 cover(vec3 p) {
+  vec2 uv = (p.xy - uCoverOff) / (2.0 * uCoverRange) + 0.5;
+  if (any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0)))) return vec4(0.0, 0.0, 0.5, 0.0);
+  return texture(uCover, uv);
+}
+
+// ── THE FLOW ─────────────────────────────────────────────────────────────────────────────────
+// Without this every sample slid with uWind * uTime and the sky moved as one painted sheet. A slow
+// low-frequency field displaces each deck's matter by its own amount, and the field itself evolves
+// (time runs through the noise's third axis), so parts of a cloud stretch, curl and roll against
+// their neighbours. Each z rate is a whole number of noise periods per 3600 s, so the uTime wrap is
+// seamless. 'hf' feeds the field, so decks at different heights churn independently.
+float evo(float r) { return uTime * (r / 3600.0); }
+vec2 flow(vec2 xy, float hf, float amp) {
+  vec3 q = vec3(xy * 0.011, hf * 0.7 + evo(1.0));
+  float a = texture(uNoise, q).r, b = texture(uNoise, q + vec3(0.37, 0.61, 0.29)).r;
+  // Mostly a quarter-turn of the pair, so it swirls rather than only pushing apart.
+  vec2 v = vec2(a, b) - 0.5;
+  return vec2(v.y, -v.x) * amp + v * amp * 0.35;
+}
+
+// A finer eddy for the detail octaves. ⚠ Never run time through a detail octave's z: the noise
+// is a coarse 64^3 grid, so whole patches crossfade between slices and the sky flickers in blocks.
+// Carry the detail by motion instead; only this slow field evolves.
+vec2 eddy(vec2 xy, float hf, float amp) {
+  vec3 q = vec3(xy * 0.05, hf * 1.3 + evo(2.0) + 0.5);
+  vec2 v = vec2(texture(uNoise, q).r, texture(uNoise, q + vec3(0.53, 0.19, 0.71)).r) - 0.5;
+  return vec2(v.y, -v.x) * amp;
+}
+
+// 'ice' comes back as the share of this sample that is ice crystal rather than droplet: the high
+// deck, the cirrostratus veil and a cumulonimbus's anvil. The march lights ice with its own phase.
+float density(vec3 p, vec4 cs, out float ice) {
+  ice = 0.0;
+  float cov = cs.x;
+  if (cov < 0.01 && max(uSheet, uSheetOld) < 0.01 && uCirrus < 0.01 && uCirSheet < 0.01 && uAlto < 0.01 && uAltoSheet < 0.01) return 0.0;
+  float hf = (p.z - uBase) / (uTop - uBase);
+  if (hf < 0.0 || hf > 1.0) return 0.0;
+  float heap = cs.z, cb = cs.y, rain = cs.w;
+  vec2 drift = uWind * uTime;
+  vec2 veer = vec2(-uWind.y, uWind.x) * uTime;
+  // The overcast's footprint: a sheet across the bottom of the slab wherever the day's floor is high.
+  // The front's edge is ragged: a coarse octave pushes it a few tiles either way, so the overcast
+  // tears off in a broken line rather than a ruled one.
+  float sAlong = dot(p.xy, uSheetFront.xy);
+  float rag = uSheetFront.z < -1e3 ? 0.0 : (texture(uNoise, vec3((p.xy + uOrigin + drift) * 0.03, 0.31)).r - 0.5) * 16.0;
+  float sheetHere = mix(uSheet, uSheetOld, smoothstep(uSheetFront.z - 6.0, uSheetFront.z + 6.0, sAlong + rag));
+  float shF = sheetHere * smoothstep(0.0, 0.08, hf) * (1.0 - smoothstep(0.24, 0.46, hf));
+
+  // ── CUMULONIMBUS ─────────────────────────────────────────────────────────────────────────────
+  // One tower through all three decks: the middle of a storm cell climbs nearly to the top, glaciates,
+  // and spreads downwind as a flat anvil; under the anvil's overhang hang mammatus pouches. It ignores
+  // the deck gaps, which is what makes it read as a different animal from the layered sky around it.
+  float dCb = 0.0, iCb = 0.0;
+  if (cb * cov > 0.02) {
+    vec2 sh = drift * (1.0 + 2.2 * hf) + veer * (0.9 * hf * hf);
+    vec3 w = vec3(p.xy + uOrigin + sh + vec2(91.0, 377.0), p.z);
+    w.xy += flow(w.xy, hf, 10.0);
+    float n = texture(uNoise, w * vec3(0.032, 0.032, 0.05)).r;
+    // The towers boil: the detail rides a finer eddy of its own, so it moves rather than fades.
+    float d = texture(uNoise, vec3(w.xy + eddy(w.xy, hf, 4.0), w.z) * vec3(0.16, 0.16, 0.2)).r;
+    float core = smoothstep(0.4, 0.95, cov * cb);
+    float topH = mix(0.5, 0.86, core);
+    float tower = smoothstep(0.0, 0.04, hf) * (1.0 - smoothstep(topH - 0.12, topH, hf));
+    float c = mix(0.62, 0.97, core);
+    float body = clamp((n - (1.0 - c)) / c, 0.0, 1.0);
+    body = clamp(body - (1.0 - d) * 0.22 * (1.0 - body), 0.0, 1.0);
+    // A tower narrows a little as it climbs, so the cauliflower sits on a broad dark base.
+    tower *= smoothstep(hf * 0.5, hf * 0.5 + 0.2, body + 0.1);
+    // The anvil is blown downwind of its tower: it reads the storm's coverage six tiles upwind as
+    // well as here, so the shelf overhangs the clear air on the lee side.
+    float shelf = 0.0;
+    if (hf > 0.66) {
+      vec2 wdir = normalize(uWind + vec2(1e-3, 0.0));
+      vec4 ca = cover(vec3(p.xy - wdir * 6.0, p.z));
+      shelf = smoothstep(0.76, 0.82, hf) * (1.0 - smoothstep(0.9, 0.97, hf)) * smoothstep(0.03, 0.3, max(cov * cb, ca.x * ca.y));
+    }
+    float an = clamp((0.55 * n + 0.45 * d) - 0.3, 0.0, 1.0) * 2.2 * shelf;
+    // Mammatus: rounded pouches off the anvil's underside, from a coarse lumpy octave.
+    float m = texture(uNoise, w * vec3(0.11, 0.11, 0.0)).r;
+    float pouch = smoothstep(0.55, 0.8, m) * smoothstep(0.66, 0.74, hf) * (1.0 - smoothstep(0.76, 0.79, hf))
+      * smoothstep(0.1, 0.4, cov * cb) * (1.0 - core);
+    dCb = max(max(body * tower * 3.4, an * 1.5), pouch * 1.8) * cb;
+    iCb = an * 1.5 * cb + body * tower * 3.4 * cb * smoothstep(0.6, 0.85, hf);
+  }
+
+  // ── THE LAYERED DECKS ────────────────────────────────────────────────────────────────────────
+  // Three decks in one slab, each with its own seed, scale and wind: a deep low deck (0..0.58),
+  // a middle deck (0.62..0.84) and a thin high one (0.87..1). The gaps between them are clear air,
+  // so a deck's seed can jump there without a seam. The wind grows and veers with height, so towers
+  // lean downwind and the decks slide over each other at different rates.
+  float L = hf < 0.6 ? 0.0 : (hf < 0.855 ? 1.0 : 2.0);
+  float lo = L == 0.0 ? 0.0 : (L == 1.0 ? 0.62 : 0.87);
+  float hi = L == 0.0 ? 0.58 : (L == 1.0 ? 0.84 : 1.0);
+  float dL = 0.0;
+  if (hf >= lo && hf <= hi) {
+    float lf = (hf - lo) / (hi - lo);
+    vec2 shear = drift * (1.0 + 2.2 * hf) + veer * (0.9 * hf * hf) + vec2(517.0, 263.0) * L;
+    vec3 w = vec3(p.xy + uOrigin + shear, p.z);
+    // Each deck churns with its own strength: the convective low deck most, the cirrus least.
+    w.xy += flow(w.xy + vec2(31.0, 7.0) * L, hf, L == 0.0 ? 12.0 : (L == 1.0 ? 7.0 : 4.0));
+    if (L == 0.0) {
+      // The low deck's genus is the cell's own: stratus (heap 0) is a flat low lid, stratocumulus
+      // (about 0.5) is rolls and cells with gaps between, cumulus (1) is towers with flat bases.
+      // A nimbus cell (rain) is a deep, featureless, ragged-based nimbostratus.
+      float n = texture(uNoise, w * vec3(0.045, 0.045, 0.07)).r;
+      // Cumulus churns harder than stratus.
+      float d = texture(uNoise, vec3(w.xy + eddy(w.xy, hf, mix(1.5, 4.0, heap)), w.z) * vec3(0.19, 0.19, 0.24)).r;
+      float topF = mix(0.3, 1.0, max(heap, rain * 0.85));
+      float shape = smoothstep(0.0, mix(0.07, 0.02, rain), lf) * smoothstep(topF, topF * mix(0.8, 0.3, heap), lf);
+      float c = cov * (mix(1.15, 0.84, heap) + 0.35 * rain);
+      float body = clamp((n - (1.0 - c)) / max(c, 0.05), 0.0, 1.0);
+      // Stratocumulus: the detail octave cuts the deck into cells, strongest at heap 0.5.
+      float scW = 1.0 - abs(heap - 0.5) * 2.0;
+      body *= mix(1.0, smoothstep(0.32, 0.6, d), scW * 0.75 * (1.0 - rain));
+      float bite = mix(0.22, 0.4, lf) * mix(0.15, 1.0, heap) + rain * 0.35 * (1.0 - smoothstep(0.0, 0.25, lf));
+      body = clamp(body - (1.0 - d) * bite * (1.0 - body), 0.0, 1.0);
+      // Towers: in a cumulus a dense core climbs higher than a thin edge.
+      shape *= mix(1.0, smoothstep(lf * 0.85, lf * 0.85 + 0.25, body + 0.15), heap);
+      dL = body * shape * (2.6 + rain * 1.2);
+    } else if (L == 1.0) {
+      // Altocumulus: small regular heaps on a finer grid. Altostratus: a grey sheet, thinner in
+      // patches. Cells raise both, so the mid deck thickens ahead of the weather.
+      float c1 = max(cov * 0.55, uAlto + uAltoSheet * 0.6);
+      float n = texture(uNoise, w * vec3(0.06, 0.06, 0.08) * 1.35).r;
+      float d = texture(uNoise, vec3(w.xy + eddy(w.xy, hf, 1.5), w.z) * vec3(0.3, 0.3, 0.3)).r;
+      float shape = smoothstep(0.0, 0.18, lf) * smoothstep(1.0, 0.55, lf);
+      float heaps = clamp((d * 0.6 + n * 0.4 - (1.0 - c1)) / max(c1, 0.05), 0.0, 1.0);
+      heaps = smoothstep(0.15, 0.6, heaps);
+      float veil = clamp(n * 0.8 + 0.35 - (1.0 - uAltoSheet) * 0.9, 0.0, 1.0) * smoothstep(0.0, 0.3, lf) * smoothstep(0.7, 0.4, lf);
+      dL = max(heaps * shape * 1.8, veil * 1.3);
+    } else {
+      // Cirrus: fibres combed out along the high wind (the noise is stretched along it and squeezed
+      // across), hooked where the wind veers. Cirrostratus: a thin even ice veil. Both are ice.
+      float c2 = max(cov * 0.42, uCirrus);
+      vec2 wd = normalize(uWind + vec2(1e-3, 0.0));
+      vec2 q = vec2(dot(w.xy, wd), dot(w.xy, vec2(-wd.y, wd.x)));
+      q.y += 6.0 * sin(q.x * 0.05);                       // the hooks (uncinus)
+      vec3 wf = vec3(q.x * 0.018, q.y * 0.24, p.z * 0.1);
+      float n = texture(uNoise, w * vec3(0.03, 0.03, 0.05)).r;
+      float f = texture(uNoise, wf).r;
+      float shape = smoothstep(0.0, 0.25, lf) * smoothstep(1.0, 0.5, lf);
+      float fib = clamp((f * 0.65 + n * 0.35 - (1.0 - c2)) / max(c2, 0.05), 0.0, 1.0);
+      float veil = uCirSheet * (0.55 + 0.45 * n) * smoothstep(0.0, 0.4, lf) * smoothstep(1.0, 0.6, lf);
+      dL = max(fib * fib * shape * 1.1, veil * 0.45);
+      ice = 1.0;
+    }
+  }
+  // The low octave thins the sheet in patches, so it is a ceiling with lighter spots, not a lid.
+  float dS = shF <= 0.0 ? 0.0 : shF * 3.4 * (0.5 + 0.5 * texture(uNoise, vec3(p.xy + uOrigin + drift, p.z) * vec3(0.045, 0.045, 0.07)).r);
+  float dn = max(max(dL, dS), dCb);
+  if (dn <= 0.0) return 0.0;
+  ice = clamp((ice * dL + iCb) / dn, 0.0, 1.0);
+  return dn;
+}
+float density(vec3 p, vec4 cs) { float i; return density(p, cs, i); }
+`;
+
+// ── THE SHADOW BAKE (gl/cloudshadow.js reads it) ─────────────────────────────────────────────
+// One texel per patch of cloud base: march from the base up the sun to the top in eight steps and
+// keep how much of the sun the deck stops. The same grid and centre as the coverage map. The sheet
+// is left out (uSheet 0 here): the overcast's dimming is sunFx.cloud's, not a shadow's.
+const SHADOW_FS = `#version 300 es
+precision highp float;
+precision highp sampler3D;
+out vec4 outSh;
+${DENSITY_GLSL}
+uniform vec3 uSun;
+uniform vec2 uShRes;
+void main() {
+  vec2 uv = gl_FragCoord.xy / uShRes;
+  vec2 xy = (uv - 0.5) * 2.0 * uCoverRange + uCoverOff;
+  // A sun near the horizon would march the whole map sideways; below about 7 degrees it's held
+  // there, and the light is going by then anyway (cloudShadowFor fades it with the sun's alpha).
+  vec3 sd = uSun.z > 0.12 ? uSun : normalize(vec3(uSun.xy, 0.12));
+  float ds = (uTop - uBase) / sd.z / 8.0, od = 0.0;
+  for (int i = 0; i < 8; i++) {
+    vec3 p = vec3(xy, uBase) + sd * ((float(i) + 0.5) * ds);
+    od += density(p, cover(p)) * ds;
+  }
+  outSh = vec4(1.0 - exp(-od * 1.3), 0.0, 0.0, 1.0);
+}`;
+const SHADOW_N = 128;   // shadow texels a side, over the coverage map's span (0.9 tiles a texel)
+
 const MARCH_FS = `#version 300 es
 precision highp float;
 precision highp sampler3D;
 layout(location = 0) out vec4 outCol;
 layout(location = 1) out vec4 outDist;
 ${RAY_GLSL}
+${DENSITY_GLSL}
 uniform vec2 uRes;
-uniform sampler3D uNoise;
-uniform sampler2D uCover;       // R coverage, G storm share; camera-centred
-uniform float uCoverRange;
-uniform vec2 uOrigin;           // world position of the camera-relative origin, so noise stays put
-uniform float uBase;
-uniform float uTop;
 uniform float uFar;
-uniform float uTime;
 uniform float uFrame;
-uniform float uCum;
 uniform int uSteps;
 uniform vec3 uSun;
 uniform float uSunStr;
 uniform vec3 uBaseCol;
 uniform vec3 uLitCol;
+// The sun's own colour on the deck, apart from the sky-lit tint: the same by day, and red going on
+// for the half hour after sunset while the sun is under the deck and lights it from below.
+uniform vec3 uSunCol;
+// Sun shafts on the sky (RENDER_TUNE.glSunShafts): this frame's shadow bake, how much haze the
+// air holds (per tile), and the strength. uShOn 0 skips the walk.
+uniform sampler2D uShMap;
+uniform float uAir;
+uniform float uShOn;
 uniform vec3 uStormBase;
 uniform vec3 uStormLit;
-uniform vec2 uWind;
-uniform float uSheet;           // how much of a continuous stratus sheet the day's cloud floor is (floorSheet)
 // City underglow: lit ground under the deck, on the coverage map's grid, lifting the base from below.
 uniform sampler2D uGlow;
 uniform float uGlowStr;
@@ -84,37 +294,51 @@ uniform mat4 uPrevVP;
 uniform vec2 uShift;
 uniform float uHistW;
 
-vec2 cover(vec3 p) {
-  vec2 uv = p.xy / (2.0 * uCoverRange) + 0.5;
-  if (any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0)))) return vec2(0.0);
-  return texture(uCover, uv).rg;
-}
+uniform float uPhaseG;          // forward lobe eccentricity (RENDER_TUNE.cloudVolPhase); 0 is the old view-blind light
+uniform int uMs;                // scattering octaves, 1..3 (1 on the cheap path)
+// Lightning inside the deck: up to four strikes, xy camera-relative tiles, z brightness. A strike
+// lights the cloud it comes out of from within, brightest low in the cell where the channel is.
+uniform vec3 uFlash[4];
+uniform vec3 uFlashCol;
 
-float density(vec3 p, float cov) {
-  if (cov < 0.01 && uSheet < 0.01) return 0.0;
-  float hf = (p.z - uBase) / (uTop - uBase);
-  if (hf < 0.0 || hf > 1.0) return 0.0;
-  // Flat stratus base, rounded cumulus tops: a cumulus deck (uCum 1) tapers from half way up.
-  float shape = smoothstep(0.0, 0.08, hf) * smoothstep(1.0, mix(0.85, 0.35, uCum), hf);
-  vec3 w = vec3(p.xy + uOrigin + uWind * uTime, p.z);
-  float n = texture(uNoise, w * vec3(0.045, 0.045, 0.07)).r;
-  float d = texture(uNoise, w * vec3(0.19, 0.19, 0.24)).r;
-  // Coverage decides how much of the low-frequency noise survives (a remap, not a subtraction, so a
-  // full cell is still broken into puffs); the detail octave then erodes the edges it leaves.
-  float c = cov * mix(0.62, 0.8, uCum);
-  float base = clamp((n - (1.0 - c)) / max(c, 0.05), 0.0, 1.0);
-  base = clamp(base - (1.0 - d) * 0.45 * (1.0 - base), 0.0, 1.0);
-  // The overcast: a sheet across the bottom of the slab wherever the day's floor is high, cells or
-  // no cells. The low octave thins it in patches, so it is a ceiling with lighter spots, not a lid.
-  float sh = uSheet * smoothstep(0.0, 0.08, hf) * (1.0 - smoothstep(0.24, 0.46, hf)) * (0.5 + 0.5 * n);
-  return max(base * shape * 2.2, sh * 3.4);
+// Light-march step lengths, tiles, nearest first.
+const float LSTEP[6] = float[6](0.3, 0.6, 1.0, 1.6, 2.4, 3.5);
+
+float hg(float mu, float g) {
+  float g2 = g * g;
+  return (1.0 - g2) / pow(max(1.0 + g2 - 2.0 * g * mu, 1e-4), 1.5);
+}
+// Forward lobe g, back lobe -0.3g, mixed 70/30. The 1/4pi cancels in the normalisation.
+float phase2(float mu, float g) { return mix(hg(mu, g), hg(mu, -0.3 * g / 0.6), 0.3); }
+
+// The shadow bake at a point in the air: up the sun to the base, then the map, which shares the
+// coverage map's grid. The slope matches the bake's (it holds a low sun at 0.12).
+float airSh(vec3 p) {
+  vec2 q = p.xy + uSun.xy / max(uSun.z, 0.12) * (uBase - p.z);
+  vec2 uv = (q - uCoverOff) / (2.0 * uCoverRange) + 0.5;
+  if (any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0)))) return 0.0;
+  return texture(uShMap, uv).r;
 }
 
 void main() {
   vec2 ndc = gl_FragCoord.xy / uRes * 2.0 - 1.0;
   vec3 ro, rd; camRay(ndc, ro, rd);
+  // ── SUN SHAFTS ON THE SKY ────────────────────────────────────────────────────────────────
+  // A ray going up from under the deck crosses the air to the cloud base, and the part of that air
+  // in a cloud's shadow scatters less sun toward the eye: a dark veil laid over the sky in lanes,
+  // which with the lit lanes between is the beams. Black with an alpha, in front of the cloud, so
+  // the walls and the road (gl/cloudshadow.js airShadow) and the sky darken the same air alike.
+  float dark = 0.0;
+  if (uShOn > 0.0 && rd.z > 0.02 && ro.z < uBase) {
+    float L = min((uBase - ro.z) / rd.z, uFar), ds = L / 16.0, s = 0.0;
+    float j0 = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))) + uFrame * 0.618034);
+    for (int i = 0; i < 16; i++) s += airSh(ro + rd * ((float(i) + j0) * ds)) * ds;
+    float muS = dot(rd, uSun);
+    // Faded in over the first few degrees above level, or the beams end on a line at the horizon.
+    dark = min(0.6, (1.0 - exp(-uAir * s)) * mix(0.35, 1.0, smoothstep(0.2, 1.0, muS)) * uShOn) * smoothstep(0.02, 0.12, rd.z);
+  }
   // An empty ray writes empty history too: the history target is whatever this pass wrote last.
-  outCol = vec4(0.0); outDist = vec4(1.0, 1.0, 0.0, 0.0);
+  outCol = vec4(0.0, 0.0, 0.0, dark); outDist = vec4(1.0, 1.0, 0.0, 0.0);
   if (abs(rd.z) < 1e-5 && (ro.z < uBase || ro.z > uTop)) return;
   float t0, t1;
   if (abs(rd.z) < 1e-5) { t0 = 0.0; t1 = uFar; }
@@ -129,26 +353,100 @@ void main() {
   float jit = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))) + uFrame * 0.618034);
   float T = 1.0, wsum = 0.0, tsum = 0.0;
   vec3 acc = vec3(0.0);
+  // The phase, once a ray: the sun's angle to the view doesn't change along it. Two Henyey-
+  // Greenstein lobes (Hillaire 2016), forward and a weaker back, divided by their side-on value so
+  // a cloud seen across the sun is as bright as it always was; one value per scattering octave,
+  // each with half the last one's eccentricity.
+  float mu = dot(rd, uSun);
+  float fwd = smoothstep(0.5, 0.95, mu);
+  float phaseOct[3], phaseIce[3];
+  float g = uPhaseG;
+  // Ice crystals (cirrus, the anvil) throw far more of the light straight on than droplets do, and
+  // have almost no back lobe: a thin cirrus is nearly invisible side-on and blazes round the sun.
+  float gi = max(uPhaseG, 0.3) * 1.35;
+  for (int o = 0; o < 3; o++) {
+    phaseOct[o] = phase2(mu, g) / phase2(0.0, g);
+    phaseIce[o] = hg(mu, min(gi, 0.88)) / hg(0.0, min(gi, 0.88));
+    g *= 0.5; gi *= 0.5;
+  }
+  // The 22-degree halo: hexagonal plates and columns refract the sun through 22 degrees, so a
+  // cirrostratus veil carries a ring round the sun, red on its inner edge. Once a ray, like the phase.
+  float ang = acos(clamp(mu, -1.0, 1.0));
+  float halo = exp(-pow((ang - 0.384) / 0.03, 2.0));
+  vec3 haloCol = vec3(1.0, 0.82, 0.62) * exp(-pow((ang - 0.375) / 0.01, 2.0)) + vec3(0.75, 0.85, 1.0) * halo;
   for (int i = 0; i < 128; i++) {
     if (i >= uSteps) break;
     float t = t0 + (float(i) + jit) * dt;
     vec3 p = ro + rd * t;
-    vec2 cs = cover(p);
+    vec4 cs = cover(p);
+    float ice;
     // ⚠ THE FAR END IS A FADE, NOT A WALL. The march stops at uFar, and a cloud at uFar minus a hair
     // was full density, so weather arrived as a hard line about 9° above the horizon and grew down
     // out of it as you flew in. It thins over the last 30% of the reach instead, which is the band
     // the dome sprites fade in over ('edge' in paintWindshieldFrame), so the two hand over rather than swap. The
     // light march below is left alone: a far cloud is fainter, not lit differently.
-    float dn = density(p, cs.x) * (1.0 - smoothstep(uFar * 0.7, uFar, t));
+    float dn = density(p, cs, ice) * (1.0 - smoothstep(uFar * 0.7, uFar, t));
     if (dn > 0.002) {
-      // Four short steps toward the sun for self-shadowing, reusing this sample's coverage.
-      float ld = 0.0;
-      for (int j = 1; j <= 4; j++) ld += density(p + uSun * (0.45 * float(j)), cs.x);
-      float sunT = exp(-ld * 0.45 * 1.3);
-      float powder = 1.0 - exp(-dn * 2.0);
+      // ── LIGHT MARCH ─────────────────────────────────────────────────────────────────────────
+      // Six steps toward the sun, each longer than the last (9.4 tiles in all), so the top of a
+      // tall cumulus shadows its own base. Four 0.45-tile steps reached 1.8 tiles and every base
+      // was lit as if the cloud above it were a sheet. The near steps reuse this sample's coverage;
+      // the far ones read their own, or a cloud's shadow would end at its own cell's edge. Once
+      // the ray is mostly spent the last three are skipped: what they'd change is under 15%.
+      float ld = 0.0, lt = 0.0;
+      int nl = T > 0.15 ? 6 : 3;
+      for (int j = 0; j < 6; j++) {
+        if (j >= nl) break;
+        float len = LSTEP[j];
+        vec3 q = p + uSun * (lt + len * 0.5);
+        ld += density(q, j < 3 ? cs : cover(q)) * len;
+        lt += len;
+      }
+      ld *= 1.3;
+      // ── SCATTERING ──────────────────────────────────────────────────────────────────────────
+      // Wrenninge's octaves: each extra bounce is fainter, sees less extinction and is less
+      // peaked, which keeps a thick body bright inside instead of going black at the core.
+      float sun = 0.0, norm = 0.0, ka = 1.0, kb = 1.0;
+      for (int o = 0; o < 3; o++) {
+        if (o >= uMs) break;
+        sun += ka * exp(-ld * kb) * mix(phaseOct[o], phaseIce[o], ice);
+        norm += ka; ka *= 0.5; kb *= 0.5;
+      }
+      sun /= norm;
+      // Powder (Schneider): a thin edge seen from the side or away from the sun has had nothing
+      // scatter toward the eye yet, so it is dimmer than the body. Looking into the sun it is the
+      // opposite (the silver lining), so the term fades out there.
+      // Ice has no powder darkening worth the name: the crystals are sparse and the veil is thin.
+      float powder = mix(mix(1.0 - exp(-dn * 2.0), 1.0, fwd), 1.0, ice);
       float hf = clamp((p.z - uBase) / (uTop - uBase), 0.0, 1.0);
-      vec3 bc = mix(uBaseCol, uStormBase, cs.y), lc = mix(uLitCol, uStormLit, cs.y);
-      vec3 col = mix(bc, lc, clamp(sunT * powder * uSunStr + hf * 0.35, 0.0, 1.0));
+      // The storm tint follows how much of this sample is the cumulonimbus or the nimbus, low down:
+      // its upper tower and anvil stand in sunlight and are white, the base under them is slate.
+      float grim = max(cs.y, cs.w * 0.7) * (1.0 - ice) * (1.0 - smoothstep(0.35, 0.8, hf) * 0.7);
+      vec3 bc = mix(uBaseCol, uStormBase, grim), lc = mix(uLitCol, uStormLit, grim);
+      // A nimbostratus is so deep that its base sees little of the sky above it.
+      bc *= 1.0 - 0.3 * cs.w * (1.0 - hf) * (1.0 - ice);
+      // Ice is whiter in the shade too: thin, so the sky shows through it.
+      bc = mix(bc, lc, ice * 0.5);
+      // Sky light from above, apart from the sun: the base is the shade tint, the top half way to
+      // the lit tint. The sun then takes the colour toward its own tint (so a sunset reddens only
+      // the side it reaches), and past full strength (the forward lobe) adds over it, clamped:
+      // the target is 8-bit, so a silver lining is the rim going white against a darker body.
+      vec3 amb = mix(bc, mix(bc, lc, 0.45), hf);
+      vec3 sc = mix(uSunCol, uStormLit, grim);
+      float f = sun * powder * uSunStr;
+      vec3 col = min(mix(amb, sc, min(f, 1.0)) + sc * max(f - 1.0, 0.0) * 0.5, vec3(1.0));
+      // The halo, on the ice veil only, where the sun reaches it.
+      col += haloCol * (ice * uCirSheet * 0.12 * exp(-ld * 0.5) * uSunStr);
+      // Lightning: each strike lights the cell around its channel from inside, softest at the top,
+      // and the light dies through the cloud between the strike and this point (the optical depth
+      // here is roughly the density times the distance).
+      for (int k = 0; k < 4; k++) {
+        vec3 fl = uFlash[k];
+        if (fl.z <= 0.0) continue;
+        float r = length(p.xy - fl.xy);
+        float reach = exp(-r * r / 20.0) * exp(-r * dn * 0.35);
+        col += uFlashCol * (fl.z * reach * mix(1.0, 0.45, hf) * (1.0 - ice * 0.5));
+      }
       if (uGlowStr > 0.0) {
         // Light from below reaches the base and dies going up through the cloud above it.
         float g = texture(uGlow, (p.xy - uGlowOff) / (2.0 * uCoverRange) + 0.5).r;
@@ -163,7 +461,8 @@ void main() {
     }
   }
   float alpha = 1.0 - T;
-  vec4 cur = vec4(acc, alpha);   // premultiplied
+  // The shaded air is in front of the cloud: black at 'dark' over it, premultiplied.
+  vec4 cur = vec4(acc * (1.0 - dark), 1.0 - T * (1.0 - dark));
   float tHit = wsum > 1e-4 ? tsum / wsum : uFar;
   // ── REPROJECTION ─────────────────────────────────────────────────────────────────────────────
   // The jitter moves every frame, so blending with where this cloud point was last frame averages the
@@ -198,6 +497,9 @@ uniform sampler2D uCol;
 uniform sampler2D uDist;
 uniform float uFar;
 uniform float uFade;     // the crossfade with the card deck (st.volMix in windshield.js); 1 is all volume
+uniform float uSlice;    // this pass's place through the cloud, -1 (near) to 1 (far)
+uniform float uSlices;   // how many passes share the cloud's alpha
+uniform float uSpread;   // tiles either side of the hit the slices reach
 void main() {
   vec2 uv = gl_FragCoord.xy / uRes;
   vec4 c = texture(uCol, uv) * uFade;
@@ -205,10 +507,19 @@ void main() {
   ivec2 q = clamp(ivec2(uv * uLowRes), ivec2(0), ivec2(uLowRes) - 1);
   vec4 dp = texelFetch(uDist, q, 0);
   float t = (dp.r * 255.0 * 256.0 + dp.g * 255.0) / 65535.0 * uFar;
+  // ⚠ ONE DEPTH WAS A WALL. A tower either stood wholly in front of the cloud or wholly behind it,
+  // so a face went from clear to white along one line. The cloud is laid down in slices spread
+  // through it instead, each a share of the alpha, so a wall reaching deeper in is covered more.
+  // The slice depth is dithered per pixel so the steps between slices read as a gradient.
+  float n = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+  float spread = min(uSpread, t * 0.5);
+  t = max(0.0, t + (uSlice + (n - 0.5) * 2.0 / max(uSlices, 1.0)) * spread);
   vec3 ro, rd; camRay(uv * 2.0 - 1.0, ro, rd);
   vec4 clip = uVP * vec4(ro + rd * t, 1.0);
   gl_FragDepth = clamp(clip.z / clip.w * 0.5 + 0.5, 0.0, 1.0);
-  outColor = c;
+  // Premultiplied: N passes of alpha s over each other make 1-(1-a)^N, so s = 1-(1-a)^(1/N).
+  float s = 1.0 - pow(1.0 - min(c.a, 0.999), 1.0 / uSlices);
+  outColor = c * (s / c.a);
 }`, 'outColor');
 
 
@@ -252,19 +563,86 @@ export function createCloudVolume(gl) {
   const march = link(gl, MARCH_FS, 'march');
   const comp = link(gl, COMP_FS, 'composite');
   const U = (p, n) => gl.getUniformLocation(p, n);
+  const upperU = (p) => ({ cirrus: U(p, 'uCirrus'), cirSheet: U(p, 'uCirSheet'), alto: U(p, 'uAlto'), altoSheet: U(p, 'uAltoSheet') });
+  // The upper decks' genera (vol.upper, from CLOUD_UPPER in windshield.js): [cirrus, cirrostratus,
+  // altocumulus, altostratus], each 0..1. A caller that sends none (the ballpark) gets a little cirrus.
+  const setUpper = (u, vol) => {
+    const g = vol.upper || [0.15, 0, 0.1, 0];
+    gl.uniform1f(u.cirrus, g[0]); gl.uniform1f(u.cirSheet, g[1]); gl.uniform1f(u.alto, g[2]); gl.uniform1f(u.altoSheet, g[3]);
+  };
   const um = {
-    invVP: U(march, 'uInvVP'), res: U(march, 'uRes'), noise: U(march, 'uNoise'), cover: U(march, 'uCover'),
+    invVP: U(march, 'uInvVP'), res: U(march, 'uRes'), noise: U(march, 'uNoise'), cover: U(march, 'uCover'), coverOff: U(march, 'uCoverOff'),
     coverRange: U(march, 'uCoverRange'), origin: U(march, 'uOrigin'), base: U(march, 'uBase'), top: U(march, 'uTop'),
     far: U(march, 'uFar'), time: U(march, 'uTime'), frame: U(march, 'uFrame'), cum: U(march, 'uCum'), steps: U(march, 'uSteps'),
     sun: U(march, 'uSun'), sunStr: U(march, 'uSunStr'), baseCol: U(march, 'uBaseCol'), litCol: U(march, 'uLitCol'),
-    stormBase: U(march, 'uStormBase'), stormLit: U(march, 'uStormLit'), wind: U(march, 'uWind'), sheet: U(march, 'uSheet'),
+    stormBase: U(march, 'uStormBase'), stormLit: U(march, 'uStormLit'), wind: U(march, 'uWind'), sheet: U(march, 'uSheet'), sheetOld: U(march, 'uSheetOld'), sheetFront: U(march, 'uSheetFront'),
     glow: U(march, 'uGlow'), glowStr: U(march, 'uGlowStr'), glowCol: U(march, 'uGlowCol'), glowOff: U(march, 'uGlowOff'),
+    phaseG: U(march, 'uPhaseG'), ms: U(march, 'uMs'), sunCol: U(march, 'uSunCol'),
+    flash: U(march, 'uFlash'), flashCol: U(march, 'uFlashCol'), ...upperU(march),
+    shMap: U(march, 'uShMap'), air: U(march, 'uAir'), shOn: U(march, 'uShOn'),
     hist: U(march, 'uHist'), prevVP: U(march, 'uPrevVP'), shift: U(march, 'uShift'), histW: U(march, 'uHistW'),
   };
   const uc = {
     invVP: U(comp, 'uInvVP'), vp: U(comp, 'uVP'), res: U(comp, 'uRes'), lowRes: U(comp, 'uLowRes'),
     col: U(comp, 'uCol'), dist: U(comp, 'uDist'), far: U(comp, 'uFar'), fade: U(comp, 'uFade'),
+    slice: U(comp, 'uSlice'), slices: U(comp, 'uSlices'), spread: U(comp, 'uSpread'),
   };
+  // The shadow bake: its program, an R8 target the walls and the road read (gl/cloudshadow.js),
+  // and what the last bake was, in world tiles. Built on first use, so a caller that never asks for
+  // shadows (the ballpark) never compiles it.
+  let shProg = null, shU = null, shTex = null, shFbo = null, shFrame = null;
+  function shadowSetup() {
+    shProg = link(gl, SHADOW_FS, 'shadow');
+    shU = {
+      noise: U(shProg, 'uNoise'), cover: U(shProg, 'uCover'), coverOff: U(shProg, 'uCoverOff'), coverRange: U(shProg, 'uCoverRange'),
+      origin: U(shProg, 'uOrigin'), base: U(shProg, 'uBase'), top: U(shProg, 'uTop'), time: U(shProg, 'uTime'), cum: U(shProg, 'uCum'),
+      wind: U(shProg, 'uWind'), sheet: U(shProg, 'uSheet'), sun: U(shProg, 'uSun'), res: U(shProg, 'uShRes'),
+      ...upperU(shProg),
+    };
+    shTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, shTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, SHADOW_N, SHADOW_N, 0, gl.RED, gl.UNSIGNED_BYTE, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    shFbo = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, shFbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, shTex, 0);
+  }
+  // Runs before the march, so the sky's shafts read this frame's map; the walls and the road read it
+  // next frame. The values are the march's own, so the shadow is the cloud that is drawn.
+  function bakeShadow(vol, coverOff, s, t, now) {
+    if (!shProg) shadowSetup();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, shFbo);
+    gl.viewport(0, 0, SHADOW_N, SHADOW_N);
+    gl.useProgram(shProg);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_3D, noiseTex);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, coverTex);
+    gl.uniform1i(shU.noise, 0); gl.uniform1i(shU.cover, 1);
+    gl.uniform2f(shU.coverOff, coverOff[0], coverOff[1]);
+    gl.uniform1f(shU.coverRange, COVER_RANGE);
+    gl.uniform2f(shU.origin, (vol.ox || 0) % 2000, (vol.oy || 0) % 2000);
+    gl.uniform1f(shU.base, vol.base); gl.uniform1f(shU.top, vol.top);
+    gl.uniform1f(shU.time, t);
+    gl.uniform1f(shU.cum, vol.cum == null ? 0.5 : vol.cum);
+    const wd = vol.wind || [0.05, 0.02];
+    gl.uniform2f(shU.wind, wd[0], wd[1]);
+    gl.uniform1f(shU.sheet, 0);
+    setUpper(shU, vol);
+    gl.uniform3f(shU.sun, s[0], s[1], s[2]);
+    gl.uniform2f(shU.res, SHADOW_N, SHADOW_N);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    // The reader's frame: the map's centre in WORLD tiles (the volume's frame is the eye's, which
+    // moves), its half-span, the cloud base, and the sun as ground offset per unit of height.
+    const sz = Math.max(0.12, s[2]);
+    shFrame = {
+      tex: shTex, at: now, half: COVER_RANGE, base: vol.base,
+      cx: (vol.ox || 0) + coverOff[0], cy: (vol.oy || 0) + coverOff[1],
+      slope: [s[0] / sz, s[1] / sz],
+    };
+  }
 
   const noiseTex = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_3D, noiseTex);
@@ -275,9 +653,9 @@ export function createCloudVolume(gl) {
   gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 
   const coverTex = gl.createTexture();
-  const coverData = new Uint8Array(COVER_N * COVER_N * 2);
+  const coverData = new Uint8Array(COVER_N * COVER_N * 4);
   gl.bindTexture(gl.TEXTURE_2D, coverTex);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG8, COVER_N, COVER_N, 0, gl.RG, gl.UNSIGNED_BYTE, coverData);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, COVER_N, COVER_N, 0, gl.RGBA, gl.UNSIGNED_BYTE, coverData);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
@@ -345,30 +723,47 @@ export function createCloudVolume(gl) {
 
   // Coverage from the weather cells: the same falloff the card swarm scatters puffs inside, max-
   // combined so two overlapping cells are one cloud rather than a doubly dense one.
-  function bakeCover(cells) {
+  // ⚠ THE GRID IS SNAPPED TO THE WORLD, NOT THE CAMERA. Centred on the eye, every texel (1.75 tiles)
+  // slid under the clouds as you moved and their edges resampled, so a cloud's outline swam with
+  // the camera. The bake is centred on the world texel nearest the eye; 'uCoverOff' carries the gap.
+  function bakeCover(cells, offX, offY, cum = 0.5, wind = null) {
     coverData.fill(0);
+    // Clear air carries the day's heap, so a cloud's filtered edge keeps its own genus.
+    const h0 = Math.round(255 * Math.max(0, Math.min(1, cum)));
+    for (let k = 2; k < coverData.length; k += 4) coverData[k] = h0;
     const step = (2 * COVER_RANGE) / COVER_N;
-    for (const c of cells) {
+    for (const c0 of cells) {
+      const c = { x: c0.x - offX, y: c0.y - offY, r: c0.r, i: c0.i, storm: c0.storm };
+      // The genus channels: a cell that names none (the ballpark's) is read from its storm flag and
+      // the day's cumulus share, as before.
+      const cb = Math.round(255 * (c0.cb ?? (c0.storm ? 1 : 0)));
+      const heap = Math.round(255 * Math.max(0, Math.min(1, c0.heap ?? cum)));
+      const rain = Math.round(255 * (c0.rain ?? (c0.storm ? 1 : 0)));
       const inten = Math.max(0, Math.min(1, c.i));
       if (inten <= 0.02) continue;
       const r = c.r * 1.05;
-      const x0 = Math.max(0, Math.floor((c.x - r + COVER_RANGE) / step)), x1 = Math.min(COVER_N - 1, Math.ceil((c.x + r + COVER_RANGE) / step));
-      const y0 = Math.max(0, Math.floor((c.y - r + COVER_RANGE) / step)), y1 = Math.min(COVER_N - 1, Math.ceil((c.y + r + COVER_RANGE) / step));
+      // The front's axis of motion: the cell's own drift, else the day's wind.
+      const mv = (c0.vx != null ? [c0.vx, c0.vy] : (wind || [1, 0]));
+      const ml = Math.hypot(mv[0], mv[1]) || 1, fu = mv[0] / ml, fv = mv[1] / ml;
+      const x0 = Math.max(0, Math.floor((c.x - r * FRONT_ASPECT + COVER_RANGE) / step)), x1 = Math.min(COVER_N - 1, Math.ceil((c.x + r * FRONT_ASPECT + COVER_RANGE) / step));
+      const y0 = Math.max(0, Math.floor((c.y - r * FRONT_ASPECT + COVER_RANGE) / step)), y1 = Math.min(COVER_N - 1, Math.ceil((c.y + r * FRONT_ASPECT + COVER_RANGE) / step));
       for (let y = y0; y <= y1; y++) {
         const wy = (y + 0.5) * step - COVER_RANGE;
         for (let x = x0; x <= x1; x++) {
           const wx = (x + 0.5) * step - COVER_RANGE;
-          const d = Math.hypot(wx - c.x, wy - c.y) / r;
+          // A cell is a front, not a disc: long across its motion, short along it (FRONT_ASPECT).
+          const dx = wx - c.x, dy = wy - c.y;
+          const d = Math.hypot((dx * fu + dy * fv) * FRONT_ASPECT, (dy * fu - dx * fv) / FRONT_ASPECT) / r;
           if (d >= 1) continue;
           const e = d < 0.55 ? 1 : 1 - (d - 0.55) / 0.45;
-          const k = (x + COVER_N * y) * 2;
+          const k = (x + COVER_N * y) * 4;
           const v = Math.round(255 * inten * e * e * (3 - 2 * e));
-          if (v > coverData[k]) { coverData[k] = v; coverData[k + 1] = c.storm ? 255 : 0; }
+          if (v > coverData[k]) { coverData[k] = v; coverData[k + 1] = cb; coverData[k + 2] = heap; coverData[k + 3] = rain; }
         }
       }
     }
     gl.bindTexture(gl.TEXTURE_2D, coverTex);
-    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, COVER_N, COVER_N, gl.RG, gl.UNSIGNED_BYTE, coverData);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, COVER_N, COVER_N, gl.RGBA, gl.UNSIGNED_BYTE, coverData);
   }
 
   let frame = 0;
@@ -382,13 +777,19 @@ export function createCloudVolume(gl) {
     const scale = Math.max(0.125, Math.min(1, opts.res || 0.25));
     const w = Math.max(16, Math.round(W * scale)), h = Math.max(16, Math.round(H * scale));
     sizeTarget(w, h);
-    bakeCover(vol.cells);
+    const cstep = (2 * COVER_RANGE) / COVER_N, ox0 = vol.ox || 0, oy0 = vol.oy || 0;
+    const coverOff = [Math.round(ox0 / cstep) * cstep - ox0, Math.round(oy0 / cstep) * cstep - oy0];
+    bakeCover(vol.cells, coverOff[0], coverOff[1], vol.cum == null ? 0.5 : vol.cum, vol.wind);
     // `opts.vp` is a caller's own matrix into this frame (camera-relative tiles, z up): the ballpark's
     const vp = opts.vp || viewProjMatrix(cam, cssH || H);
     const inv = invert4(vp);
     if (!inv) return 0;
     const far = Math.min(COVER_RANGE, vol.far || 48);
 
+    // Pass 0: the shadow bake (gl/cloudshadow.js), for the city's cloud shadows and the shafts.
+    const s = vol.sun || [0.4, 0.2, 0.9];
+    const shaftOn = (vol.shaft || 0) > 0;
+    if (opts.shadow || shaftOn) bakeShadow(vol, coverOff, s, ((opts.now || 0) / 1000) % 3600, opts.now || 0);
     // Pass 1: the march, at low resolution, into this frame's half of the colour pair.
     const ox = vol.ox || 0, oy = vol.oy || 0;
     // A jump (a respawn, a teleport, a seat change) makes last frame a different place entirely.
@@ -407,23 +808,35 @@ export function createCloudVolume(gl) {
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_3D, noiseTex); gl.uniform1i(um.noise, 0);
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, coverTex); gl.uniform1i(um.cover, 1);
     gl.uniform1f(um.coverRange, COVER_RANGE);
-    gl.uniform2f(um.origin, (vol.ox || 0) % 4096, (vol.oy || 0) % 4096);
+    gl.uniform2f(um.coverOff, coverOff[0], coverOff[1]);
+    gl.uniform2f(um.origin, (vol.ox || 0) % 2000, (vol.oy || 0) % 2000);   // 2000: both noise octaves tile on it
     gl.uniform1f(um.base, vol.base); gl.uniform1f(um.top, vol.top);
     gl.uniform1f(um.far, far);
     gl.uniform1f(um.time, ((opts.now || 0) / 1000) % 3600);
     gl.uniform1f(um.frame, (frame = (frame + 1) % 64));
     gl.uniform1f(um.cum, vol.cum == null ? 0.5 : vol.cum);
     gl.uniform1i(um.steps, Math.max(8, Math.min(128, Math.round(opts.steps || 48))));
-    const s = vol.sun || [0.4, 0.2, 0.9];
     gl.uniform3f(um.sun, s[0], s[1], s[2]);
     gl.uniform1f(um.sunStr, vol.sunStr == null ? 1 : vol.sunStr);
+    gl.uniform1f(um.phaseG, Math.max(0, Math.min(0.9, opts.phase == null ? 0.6 : opts.phase)));
+    gl.uniform1i(um.ms, Math.max(1, Math.min(3, Math.round(opts.ms == null ? 3 : opts.ms))));
     const b = opts.base || [0.7, 0.72, 0.76], l = opts.lit || [0.95, 0.95, 0.95];
     const sb = opts.stormBase || b, sl = opts.stormLit || l;
     gl.uniform3f(um.baseCol, b[0], b[1], b[2]); gl.uniform3f(um.litCol, l[0], l[1], l[2]);
+    const sc = opts.sunCol || l;
+    gl.uniform3f(um.sunCol, sc[0], sc[1], sc[2]);
     gl.uniform3f(um.stormBase, sb[0], sb[1], sb[2]); gl.uniform3f(um.stormLit, sl[0], sl[1], sl[2]);
     const wd = vol.wind || [0.05, 0.02];
     gl.uniform2f(um.wind, wd[0], wd[1]);
     gl.uniform1f(um.sheet, Math.max(0, Math.min(1, vol.sheet || 0)));
+    const sf = vol.sheetFront || [0, 1, -1e4];
+    gl.uniform1f(um.sheetOld, Math.max(0, Math.min(1, vol.sheetOld == null ? (vol.sheet || 0) : vol.sheetOld)));
+    gl.uniform3f(um.sheetFront, sf[0], sf[1], sf[2]);
+    setUpper(um, vol);
+    const fl = new Float32Array(12);
+    (vol.flashes || []).slice(0, 4).forEach((q, i) => { fl[i * 3] = q[0]; fl[i * 3 + 1] = q[1]; fl[i * 3 + 2] = q[2]; });
+    gl.uniform3fv(um.flash, fl);
+    gl.uniform3f(um.flashCol, 0.78, 0.82, 1.0);
     const glowOn = !!(vol.glow && vol.glow.length && vol.glowStr > 0);
     if (glowOn) bakeGlow(vol.glow);
     gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, glowTex); gl.uniform1i(um.glow, 3);
@@ -435,9 +848,14 @@ export function createCloudVolume(gl) {
     gl.uniformMatrix4fv(um.prevVP, false, new Float32Array(prevVP || vp));
     gl.uniform2f(um.shift, ox - prevOx, oy - prevOy);
     gl.uniform1f(um.histW, histW);
+    // Unit 4: the shadow bake, for the shafts. Bound to nothing when there's no bake.
+    gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, shaftOn && shTex ? shTex : null); gl.uniform1i(um.shMap, 4);
+    gl.uniform1f(um.shOn, shaftOn && shTex ? Math.min(1, vol.shaft) : 0);
+    gl.uniform1f(um.air, vol.air == null ? 0.015 : vol.air);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, null);
     gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, null);
+    gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, null);
     prevVP = vp; prevOx = ox; prevOy = oy; histOK = true;
 
     // Pass 2: the composite, at full resolution, on the caller's depth buffer.
@@ -458,43 +876,23 @@ export function createCloudVolume(gl) {
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, distTex); gl.uniform1i(uc.dist, 1);
     gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.depthMask(false);
     gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    // Four slices, near to far, through ±1.5 tiles of the hit (see COMP_FS).
+    const SLICES = 4;
+    gl.uniform1f(uc.slices, SLICES);
+    gl.uniform1f(uc.spread, 1.5);
+    for (let k = 0; k < SLICES; k++) {
+      gl.uniform1f(uc.slice, -1 + (2 * k + 1) / SLICES);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+    }
     gl.depthMask(true);
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, null);
     gl.activeTexture(gl.TEXTURE0);
     return vol.cells.length;
   }
 
-  return { draw };
+  // The last shadow bake (gl/cloudshadow.js), or null before the first.
+  return { draw, shadowFrame: () => shFrame };
 }
 
-// Column-major 4x4 inverse (the layout camera.js builds). Null when singular.
-export function invert4(m) {
-  const a = m, o = new Array(16);
-  const a00 = a[0], a01 = a[1], a02 = a[2], a03 = a[3], a10 = a[4], a11 = a[5], a12 = a[6], a13 = a[7];
-  const a20 = a[8], a21 = a[9], a22 = a[10], a23 = a[11], a30 = a[12], a31 = a[13], a32 = a[14], a33 = a[15];
-  const b00 = a00 * a11 - a01 * a10, b01 = a00 * a12 - a02 * a10, b02 = a00 * a13 - a03 * a10;
-  const b03 = a01 * a12 - a02 * a11, b04 = a01 * a13 - a03 * a11, b05 = a02 * a13 - a03 * a12;
-  const b06 = a20 * a31 - a21 * a30, b07 = a20 * a32 - a22 * a30, b08 = a20 * a33 - a23 * a30;
-  const b09 = a21 * a32 - a22 * a31, b10 = a21 * a33 - a23 * a31, b11 = a22 * a33 - a23 * a32;
-  let det = b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06;
-  if (!det) return null;
-  det = 1 / det;
-  o[0] = (a11 * b11 - a12 * b10 + a13 * b09) * det;
-  o[1] = (a02 * b10 - a01 * b11 - a03 * b09) * det;
-  o[2] = (a31 * b05 - a32 * b04 + a33 * b03) * det;
-  o[3] = (a22 * b04 - a21 * b05 - a23 * b03) * det;
-  o[4] = (a12 * b08 - a10 * b11 - a13 * b07) * det;
-  o[5] = (a00 * b11 - a02 * b08 + a03 * b07) * det;
-  o[6] = (a32 * b02 - a30 * b05 - a33 * b01) * det;
-  o[7] = (a20 * b05 - a22 * b02 + a23 * b01) * det;
-  o[8] = (a10 * b10 - a11 * b08 + a13 * b06) * det;
-  o[9] = (a01 * b08 - a00 * b10 - a03 * b06) * det;
-  o[10] = (a30 * b04 - a31 * b02 + a33 * b00) * det;
-  o[11] = (a21 * b02 - a20 * b04 - a23 * b00) * det;
-  o[12] = (a11 * b07 - a10 * b09 - a12 * b06) * det;
-  o[13] = (a00 * b09 - a01 * b07 + a02 * b06) * det;
-  o[14] = (a31 * b01 - a30 * b03 - a32 * b00) * det;
-  o[15] = (a20 * b03 - a21 * b01 + a22 * b00) * det;
-  return o;
-}
+// Column-major 4x4 inverse (the layout camera.js builds). Null when singular (gl/core/mat4.js).
+export { invert4 };

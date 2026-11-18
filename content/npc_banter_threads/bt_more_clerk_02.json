@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_more_clerk_02",
+  "lines": [
+    "\"I stamped six hundred things today.\"",
+    "\"What did they say?\"",
+    "\"I didn't read them. Nobody reads them.\"",
+    "\"Then why stamp them?\"",
+    "\"So someone can not read them later.\""
+  ],
+  "personality": "clerk",
+  "sort_order": 651
+}

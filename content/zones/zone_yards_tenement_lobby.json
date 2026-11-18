@@ -5,7 +5,7 @@
   ],
   "ambient_theme": "indoors",
   "bg_color": "#5a5450",
-  "description": "A cramped ground-floor lobby: a wall of dented mailboxes, half of them hanging open and empty, a buzzer panel with every wire yanked out, and a concrete stairwell that smells of damp, mildew, and somebody else’s dinner three floors up. A strip light overhead flickers like it’s thinking it over.",
+  "description": "A cramped ground-floor lobby: a wall of dented mailboxes, half of them hanging open and empty, a buzzer panel with every wire yanked out, and lift doors chained shut so long ago the chain has rusted to them. The concrete stairwell beside it smells of damp, mildew, and somebody else's dinner three floors up. A strip light overhead flickers as if it's thinking it over.",
   "exits": {
     "down": "zone_yards_tenement_util",
     "south": "zone_district_921_902",

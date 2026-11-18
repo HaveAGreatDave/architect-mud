@@ -2,9 +2,12 @@
   "name": "vending",
   "version": "1.0.0",
   "description": "Dispenser furniture: `vend` pulls a data-driven item (flags.vends) from a machine in the room, drops it in your bag, and coughs a line to the room. A machine carrying flags.vend_drink offers the row it just made to plugins/drinks, which fills the vessel and charges for it — so an espresso rig makes the cup AND the coffee. Free institutional food and the like; reusable for any dispenser.",
-  "hooks": [],
+  "hooks": [
+    "room.pieceState"
+  ],
   "commands": [
-    "vend"
+    "vend",
+    "nudge"
   ],
   "objectGatedCommands": {
     "vend": {
@@ -24,7 +27,8 @@
   "extensionPoints": [
     "A new dispenser is content: furniture flags.vends (the item id), plus flags.vend_line and flags.vend_cooldown_s.",
     "A dispenser that charges adds flags.vend_price (credits per vend). On a plain machine this plugin takes it in the dispense transaction; on a vend_drink machine the drinks plugin owns the price.",
-    "A dispenser that FILLS what it hands over adds flags.vend_drink. This plugin knows nothing about what a drink is — it offers the new inventory row to drinks.serveVended and prints whatever comes back."
+    "A dispenser that FILLS what it hands over adds flags.vend_drink. This plugin knows nothing about what a drink is — it offers the new inventory row to drinks.serveVended and prints whatever comes back.",
+    "A machine you can pull out from its wall adds flags.nudge: `nudge <machine>` slides it out (RAM only) so its plug can be reached, and appliances refuses plug/unplug while it stands home (registerPlugGate). The Room Stage reads where it stands, whether it is plugged in and its menu off room.pieceState as `vend` on the piece; a vend_menu entry may carry a short `label` for its button and a `tint` for its pouch."
   ],
   "notes": [
     "The fill seam is guarded on getRegisteredActions() because dispatchAction answers an unregistered type with an ERROR object rather than silence — an unguarded dispatch would turn every plain dispenser into a refusal the day drinks was unloaded.",

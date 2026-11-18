@@ -1,0 +1,11 @@
+{
+  "enabled": true,
+  "id": "bt_more_labourer_06",
+  "lines": [
+    "\"Foreman says we're ahead of schedule.\"",
+    "\"Are we?\"",
+    "\"No. He just doesn't know what the schedule is.\""
+  ],
+  "personality": "labourer",
+  "sort_order": 649
+}

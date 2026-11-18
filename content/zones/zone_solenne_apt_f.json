@@ -3,7 +3,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#2b3a34",
   "color": "#e8ddc7",
-  "description": "A serene one-bedroom facing the mountains, higher than its twin below and quieter for it: pale plaster, warm oak, a platform bed beneath a skylight that tracks the weather. A galley kitchen, a window seat built for watching the storms arrive from somewhere safe and dry. Leave <b>east</b> to the landing.",
+  "description": "A one-bedroom on the west corner facing the mountains, two floors above its twin and quieter for it: pale plaster, warm oak, a platform bed under the long window. A galley kitchen, a window seat built for watching the storms arrive from somewhere safe and dry. Leave <b>east</b> to the landing.",
   "exits": {
     "east": "zone_solenne_residences_34",
     "in": "zone_solenne_apt_f_bath"
@@ -16,19 +16,21 @@
     "rent_cost": 460,
     "rest_multiplier": 1.5,
     "room": {
-      "d": 11,
+      "balcony": false,
+      "d": 6.6,
       "ensuite": {
-        "d": 3.4,
+        "d": 2.4,
         "dress": "spa",
         "w": 3.2
       },
       "finish": "fine",
       "glass": [
-        "front"
+        "front",
+        "left"
       ],
-      "h": 2.9,
-      "storeys": 36,
-      "w": 10
+      "h": 3,
+      "storeys": 45,
+      "w": 11
     },
     "window": {
       "description": "A tall pane runs floor to ceiling down one wall, black-framed, holding the city out there like something in a case.",
@@ -42,7 +44,7 @@
   "grid_z": 6,
   "id": "zone_solenne_apt_f",
   "map_id": "map_int_solenne",
-  "marker": "34",
-  "name": "Solenne Residence 34-F",
+  "marker": "10",
+  "name": "Solenne Residence 10-F",
   "parent_zone": "zone_district_914_908"
 }

@@ -65,16 +65,16 @@
     },
     "content/enemies": {
       "caps-run": 3,
-      "over-length": 11
+      "over-length": 10
     },
     "content/furniture": {
       "negative-parallelism": 2,
       "constructed-irony": 7,
       "staged-reveal": 1,
       "aphoristic-closer": 2,
-      "caps-run": 121,
+      "caps-run": 132,
       "em-dash": 1,
-      "over-length": 369
+      "over-length": 400
     },
     "content/incidents": {
       "constructed-irony": 1,
@@ -87,7 +87,7 @@
       "aphoristic-closer": 2,
       "caps-run": 50,
       "em-dash": 9,
-      "over-length": 100
+      "over-length": 104
     },
     "content/job_boards": {
       "em-dash": 2
@@ -132,9 +132,9 @@
       "constructed-irony": 53,
       "aphoristic-closer": 4,
       "fiction-cliche": 34,
-      "caps-run": 116,
-      "em-dash": 285,
-      "over-length": 708
+      "caps-run": 115,
+      "em-dash": 278,
+      "over-length": 711
     },
     "docs/adr/0001-action-canonical-mutation-path.md": {
       "em-dash": 4
@@ -290,7 +290,7 @@
       "jargon-metaphor": 36,
       "aphoristic-closer": 5,
       "caps-run": 11,
-      "em-dash": 567
+      "em-dash": 565
     },
     "docs/proposals/ascendant-stronghold.md": {
       "jargon-metaphor": 2,
@@ -300,6 +300,9 @@
     "docs/proposals/broadcast-piracy.md": {
       "jargon-metaphor": 3,
       "em-dash": 64
+    },
+    "docs/proposals/clone-facility-depths.md": {
+      "caps-run": 2
     },
     "docs/proposals/coldwater-infill.md": {
       "constructed-irony": 1,
@@ -412,9 +415,6 @@
       "jargon-metaphor": 3,
       "em-dash": 44
     },
-    "docs/proposals/clone-facility-depths.md": {
-      "caps-run": 2
-    },
     "docs/proposals/subject-pool-tests.md": {
       "caps-run": 4
     },
@@ -506,7 +506,7 @@
       "jargon-metaphor": 1,
       "negative-parallelism": 1,
       "caps-run": 27,
-      "em-dash": 110
+      "em-dash": 109
     },
     "docs/reference/cockpit-lettering.md": {
       "constructed-irony": 1,
@@ -546,7 +546,7 @@
       "constructed-irony": 2,
       "aphoristic-closer": 2,
       "caps-run": 8,
-      "em-dash": 289
+      "em-dash": 287
     },
     "docs/roadmap-world-expansion.md": {
       "jargon-metaphor": 4,

@@ -1,0 +1,23 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "coast",
+  "color": "#7fd3ff",
+  "description": "The water closes cold around your shins and the ground under it falls away. The deep channel ahead needs a boat.",
+  "exits": {
+    "east": "zone_district_914_896",
+    "south": "zone_seam_914_897",
+    "west": "zone_district_913_896"
+  },
+  "flags": {
+    "district": "water",
+    "region_id": "region_coldwater",
+    "terrain": "water"
+  },
+  "grid_x": 914,
+  "grid_y": 896,
+  "grid_z": 0,
+  "id": "zone_seam_914_896",
+  "map_id": "map_world",
+  "name": "Coldwater Basin",
+  "parent_zone": null
+}

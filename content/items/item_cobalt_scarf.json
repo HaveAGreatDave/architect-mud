@@ -13,7 +13,10 @@
     "gets_wet": true,
     "hydrophobic": true,
     "insulation": 3,
-    "slot": "accessory"
+    "slot": "accessory",
+    "wear_look": {
+      "col": "#1f4ed8"
+    }
   },
   "type": "clothing",
   "value": 180,

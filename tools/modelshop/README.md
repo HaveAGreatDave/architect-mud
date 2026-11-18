@@ -782,6 +782,10 @@ every stage claims its switch at 0 draws the picture that shipped.
 - **`__glWhere()` reports GPU time** (`gpu`, `gpuP90`) beside the JavaScript phases: each measured
   paint is wrapped in a timer query on the world pass's context. First reading, Halcyon on a busy
   machine: 6.8 ms from the cab, 10.6 ms from the air.
+- **`__benchRoute(name)` and `__benchRoutes()`** (route.js) drive the routes in routes.js along
+  real roads at a fixed speed, so they pay for the map window moving as a player does, and report
+  CPU and GPU percentiles, GPU ms per pass, the phases and the GPU's name. `__benchRoutes()`'s result
+  is a device baseline for `scripts/perf/baselines/<device>.json` (docs/proposals/gl-core.md).
 
 ⚠ **One timer query at a time.** WebGL2 allows one open `TIME_ELAPSED` query, and the murmuration
 times its own steps. Under a frame timer its begin failed and its end closed the bench's query
@@ -1856,7 +1860,7 @@ because the bake once kept its own copy and drifted twice, silently losing 144 s
 and then every park feature. A third copy here would be the same mistake a third time. The
 cost is that the file is only as fresh as the last `npm run snapshot:flight`, so a building
 renamed or re-typed in `content/` since then still answers to its old name. `cells` patches
-that for one render — `{ cells: { '916,910': { bn: 'Cash & Carrion' } } }` — and cannot
+that for one render — `{ cells: { '917,910': { bn: 'Cash & Carrion' } } }` — and cannot
 reach the file.
 
 ⚠ **It is a picture, never a measurement.** No clock is frozen, no dial is pinned, no

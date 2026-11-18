@@ -19,7 +19,7 @@
     "sign_trade": "BOOKMAKER",
     "world_exit_zone": "zone_district_915_914"
   },
-  "grid_x": 914,
+  "grid_x": 915,
   "grid_y": 914,
   "grid_z": 0,
   "id": "zone_district_914_914",

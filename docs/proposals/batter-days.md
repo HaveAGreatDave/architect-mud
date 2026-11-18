@@ -1,6 +1,6 @@
 # Batter Days Fish & Chips *(as built)*
 
-**Status: BUILT.** A chip shop at 918,907 on Ironside Street, in the brick unit that was Tine &
+**Status: BUILT.** A chip shop at 919,907 on Ironside Street, in the brick unit that was Tine &
 Temper. One facade, two rooms and a cellar, one keeper, six new food items, one GLASS arm and one
 map icon.
 
@@ -15,7 +15,7 @@ which is now `ironsideunit`. [fish-works.md](fish-works.md) is the current recor
 ## 1. Why Tine & Temper went
 
 Tine & Temper sold pans, pots and utensils. Every item on its list was also on the kitchenware rack
-at Ration Nine (920,908), across the road and one tile down, and nobody could say what the shop was
+at Ration Nine (921,908), across the road and one tile down, and nobody could say what the shop was
 for. Its name didn't say what it sold either.
 
 David chose the chip shop from a list of trades Coldwater had none of. It's cheap takeaway food on a

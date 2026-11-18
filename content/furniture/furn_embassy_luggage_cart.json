@@ -1,0 +1,32 @@
+{
+  "description": "A brass birdcage cart on a red carpet deck, parked in front of the lift that doesn't work. Two suitcases, a hatbox and a garment bag ride on it. Nobody has claimed them.",
+  "flags": {
+    "aliases": "cart,trolley,luggage,suitcases,hatbox,luggage cart",
+    "look": {
+      "arche": "prop",
+      "dims": [
+        1.15,
+        0.62,
+        1.85
+      ],
+      "form": "trolley"
+    },
+    "spot": {
+      "at": [
+        -6.2,
+        1.9
+      ],
+      "turn": 90
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_embassy_luggage_cart",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "luggage cart",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_residential_lobby"
+}

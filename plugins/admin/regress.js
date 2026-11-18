@@ -57,6 +57,14 @@ export default async function regress({ run, check, getPlayer }) {
     check('an out-of-range temperature is refused before any write', res.ok === false && /-60 and 60/.test(res.error), JSON.stringify(res));
     res = await setWeather(p, { precipPct: 140 });
     check('an out-of-range precipitation chance is refused', res.ok === false && /0 to 100/.test(res.error), JSON.stringify(res));
+    // Refusals only: a real gale writes the forecast rows.
+    r = await run('sysop weather gale 9');
+    check('a gale longer than the forecast is refused', /1 to 7 days/.test(r?.message || ''), r?.message);
+    r = await run('sysop weather gale 3 500');
+    check('a gale peak out of range is refused', /30 to 150/.test(r?.message || ''), r?.message);
+    const { windDiurnal } = await import('../../server/engine/environment.js');
+    check('the wind peaks in the afternoon and lulls before dawn', windDiurnal(15 * 60) > 1.15 && windDiurnal(3 * 60) < 0.85,
+      JSON.stringify([windDiurnal(15 * 60), windDiurnal(3 * 60)]));
     r = await run('sysop weather event nothing_real');
     check('an unknown named event is refused', /Unknown event/i.test(r?.message || ''), r?.message);
 

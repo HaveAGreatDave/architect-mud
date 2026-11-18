@@ -1,0 +1,79 @@
+body:not(.room-stage-on) #vitals-hud { display: none; }
+
+#vitals-hud {
+  position: absolute;
+  right: 14px;
+  bottom: 10px;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 5px 7px 5px 6px;
+  font: 600 9px/1 ui-monospace, 'Consolas', monospace;
+  letter-spacing: 0.08em;
+  color: #9fe8ff;
+  background: linear-gradient(100deg, rgba(4, 14, 22, 0.78), rgba(4, 14, 22, 0.45));
+  border-left: 2px solid rgba(90, 220, 255, 0.7);
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%);
+  pointer-events: none;
+  transition: opacity 0.35s;
+}
+#vitals-hud.vh-empty { opacity: 0; }
+#vitals-hud[hidden] { display: none; }
+
+.vh-row {
+  display: grid;
+  grid-template-columns: 30px auto 22px;
+  align-items: center;
+  gap: 5px;
+  max-height: 10px;
+  overflow: hidden;
+  transition: max-height 0.3s, opacity 0.3s;
+  --c: #5ad8ff;
+}
+.vh-row.vh-hide { max-height: 0; opacity: 0; margin-top: -3px; }
+.vh-row[data-k="hp"]  { --c: #ff5a6e; }
+.vh-row[data-k="sta"] { --c: #f2d14a; }
+.vh-row[data-k="hun"] { --c: #ffa24a; }
+.vh-row[data-k="thi"] { --c: #4ac8ff; }
+
+.vh-lbl { color: var(--c); opacity: 0.85; }
+.vh-row.vh-cred { --c: #7dffb0; grid-template-columns: 30px auto auto; }
+.vh-cred .vh-num { text-align: left; }
+.vh-cr-delta.up { color: #7dffb0; }
+.vh-cr-delta.down { color: #ff5a6e; }
+.vh-num { text-align: right; color: #d8f6ff; font-variant-numeric: tabular-nums; }
+
+.vh-segs { display: flex; gap: 2px; }
+.vh-segs i {
+  width: 6px;
+  height: 7px;
+  transform: skewX(-20deg);
+  background: rgba(255, 255, 255, 0.08);
+  transition: background 0.25s, box-shadow 0.25s;
+}
+.vh-segs i.on { background: var(--c); box-shadow: 0 0 4px var(--c); }
+
+.vh-row[data-sev="2"] .vh-segs i.on { animation: vh-pulse 1.4s infinite; }
+.vh-row[data-sev="3"] .vh-segs i.on { animation: vh-pulse 0.6s infinite; }
+.vh-row[data-sev="3"] .vh-lbl { color: #fff; }
+.vh-row.vh-hit .vh-segs { animation: vh-hit 0.4s; }
+
+@keyframes vh-pulse { 50% { opacity: 0.35; box-shadow: none; } }
+@keyframes vh-hit { 0%, 100% { transform: none; } 25% { transform: translateX(-2px); filter: brightness(2); } 75% { transform: translateX(2px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .vh-segs i.on, .vh-row.vh-hit .vh-segs { animation: none !important; }
+}
+
+.vh-mode-btn {
+  font: 600 9px/1 ui-monospace, 'Consolas', monospace;
+  letter-spacing: 0.06em;
+  padding: 1px 4px;
+  margin-right: 4px;
+  color: #5ad8ff;
+  background: transparent;
+  border: 1px solid rgba(90, 216, 255, 0.5);
+  cursor: pointer;
+}
+.vh-mode-btn.off { color: #667; border-color: #445; }

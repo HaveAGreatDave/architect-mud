@@ -6,6 +6,13 @@
       "arche": "small",
       "form": "box",
       "wear": 0.95
+    },
+    "spot": {
+      "at": [
+        -0.4,
+        1.3
+      ],
+      "turn": 0
     }
   },
   "hp": null,

@@ -1,0 +1,28 @@
+{
+  "description": "A deep white fireclay sink set into the worktop, with drainer grooves cut beside it. A brass bridge tap stands behind it, its cross handles marked H and C.",
+  "flags": {
+    "aliases": [
+      "sink",
+      "kitchen sink",
+      "fireclay sink",
+      "tap",
+      "drainer"
+    ],
+    "interactions": [
+      "lean"
+    ],
+    "look": {
+      "dims": [
+        1,
+        0.7,
+        0.92
+      ],
+      "form": "kitchen"
+    },
+    "water_source": true
+  },
+  "id": "furn_meridian_unit_404_sink",
+  "name": "fireclay sink",
+  "object_type": "sink",
+  "zone_id": "zone_meridian_unit_404"
+}

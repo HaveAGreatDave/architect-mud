@@ -1,6 +1,6 @@
 {
   "ambient_theme": "indoors",
-  "description": "A tiled room off the concourse, under the third-base stands. A steel counter runs the width of it with a hot plate, a beer tap and a stack of paper boats, under a hand-painted menu board. A roll of waivers hangs on a nail by the till.",
+  "description": "A tiled room off the concourse, under the third-base stands. A steel counter runs across it, burgers browning on a flat-top at one end and franks turning on rollers at the other, under a painted menu board. A roll of waivers hangs on a nail by the till.",
   "exits": {
     "east": "zone_hughson_concourse"
   },
@@ -11,6 +11,117 @@
     "is_building": true,
     "is_interior": true,
     "open_all_hours": true,
+    "room": {
+      "balcony": false,
+      "d": 7,
+      "decor": {
+        "downlights": false,
+        "frieze": {
+          "h": 0.16,
+          "hex": "#1e1c1a",
+          "line": "#c49a52",
+          "y": 2.2
+        },
+        "rug": false,
+        "strips": [
+          {
+            "along": "u",
+            "at": [
+              -2,
+              2
+            ],
+            "len": 1.5
+          },
+          {
+            "along": "u",
+            "at": [
+              2,
+              2
+            ],
+            "len": 1.5
+          },
+          {
+            "along": "u",
+            "at": [
+              -2,
+              5
+            ],
+            "len": 1.5
+          },
+          {
+            "along": "u",
+            "at": [
+              2,
+              5
+            ],
+            "len": 1.5
+          }
+        ],
+        "walls": {
+          "hex": "#e8e4d8",
+          "kind": "tile",
+          "trim": "#3a2c1e",
+          "y1": 2.1
+        }
+      },
+      "door_w": {
+        "east": 2.4
+      },
+      "face": 0,
+      "ground": "tile",
+      "h": 3.4,
+      "rug": false,
+      "stadium": {
+        "accent": "#c49a52",
+        "brick": "#8a5a3c",
+        "font": "Limelight",
+        "frame": "#3a2c1e",
+        "ink": "#3a2c1e",
+        "plate": "#f3ead6",
+        "portal": "brick",
+        "signs": [
+          {
+            "at": 0,
+            "h": 0.7,
+            "kind": "enamel",
+            "sub": "Beer ₵5 · Coffee ₵4 · Waiver included",
+            "text": "Widowmaker ₵7 · Frank ₵7 · Burger ₵9",
+            "w": 4.6,
+            "wall": "back",
+            "y": 2.75
+          },
+          {
+            "at": 0,
+            "h": 0.36,
+            "kind": "enamel",
+            "sub": "No refunds after the first bite",
+            "text": "Eat It Here",
+            "w": 2.6,
+            "wall": "front",
+            "y": 2.6
+          },
+          {
+            "at": 3.5,
+            "h": 0.34,
+            "kind": "enamel",
+            "text": "Staff Only",
+            "w": 1.6,
+            "wall": "left",
+            "y": 2.6
+          }
+        ],
+        "sub": "Italiana"
+      },
+      "studio": false,
+      "tone": {
+        "accent": "#c49a52",
+        "ceiling": "#e8e6de",
+        "trim": "#3a2c1e",
+        "wall": "#efebe0"
+      },
+      "w": 8,
+      "windowless": true
+    },
     "world_exit_zone": "zone_ballpark_896_920"
   },
   "grid_x": 0,

@@ -467,6 +467,54 @@ async function chessRegress(check) {
   activeTables.delete(free.id);
   activeTables.delete(staked.id);
 
+  // ── a summoned opponent knocks at a shut door and never lets themselves in ──
+  // Any real door off the street into a building does: the table stands on its far side.
+  {
+    const { knockDoorBetween, KNOCK_EVERY_MS, KNOCK_TIMES } = await import('./table-base.js');
+    const { getZone, doorOnLink } = await import('../../server/engine/world.js');
+    const { on, off } = await import('../../server/engine/events.js');
+    const door = [...world.doors.values()].find((d) => {
+      const out = getZone(d.zone_id), inn = getZone(d.target_zone);
+      return d.hp > 0 && out?.map_id === 'map_world' && inn?.map_id && inn.map_id !== 'map_world'
+        && doorOnLink(d.zone_id, null, d.target_zone) === d;
+    });
+    if (!door) check('door knock: the world has a street door to test on', false, 'no street door loaded');
+    else {
+      const saved = { is_open: door.is_open, lock_state: door.lock_state };
+      const outside = door.zone_id, inside = door.target_zone;
+      const guest = { id: `npc_knock_regress_${process.pid}`, name: 'Regress Knocker', zone_id: outside, flags: { chess_strength: 'patzer' }, _ai: {} };
+      door.is_open = 0; door.lock_state = null;
+      check('door knock: a shut, unlocked door into the room is knocked at', knockDoorBetween(guest, outside, inside, inside) === door);
+      check('door knock: somebody who lives in the building has a key and walks in',
+        knockDoorBetween({ ...guest, home_zone: inside }, outside, inside, inside) === null);
+      check("door knock: a shut door that isn't on the way in isn't knocked at",
+        knockDoorBetween(guest, inside, outside, inside) === null);
+      door.is_open = 1;
+      check('door knock: an open door is walked through', knockDoorBetween(guest, outside, inside, inside) === null);
+      door.is_open = 0;
+
+      const knocks = [];
+      const hear = (e) => { if (e.knockerId === guest.id) knocks.push(e); };
+      on('door.knock', hear);
+      const t = new ChessTable({ id: `chess_regress_${process.pid}_door`, zone_id: inside, name: 'Regress Board', game_type: 'chess', config: { minBet: 0 }, state: '{}', phase: 'WaitingForPlayers' });
+      t._incomingBots = [{ npc: guest, path: [outside, inside], step: 1 }];   // as summonBot leaves them, at the door
+      guest._ai.waitUntil = Date.now() + 3_600_000;
+      const rewind = () => { const w = t._incomingBots[0]; if (w) w.knockAt = Date.now() - KNOCK_EVERY_MS - 1; };
+      t.stepIncomingBots();
+      check('door knock: they knock rather than open the door', knocks.length === 1 && guest.zone_id === outside && !door.is_open, `${knocks.length} knocks, in ${guest.zone_id}`);
+      t.stepIncomingBots();
+      check(`door knock: and don't knock again inside ${KNOCK_EVERY_MS / 1000}s`, knocks.length === 1, String(knocks.length));
+      for (let i = 1; i < KNOCK_TIMES; i++) { rewind(); t.stepIncomingBots(); }
+      check(`door knock: ${KNOCK_TIMES} knocks in all`, knocks.length === KNOCK_TIMES && t._incomingBots.length === 1, String(knocks.length));
+      rewind(); t.stepIncomingBots();
+      check('door knock: unanswered after the last, they give up and get their own life back',
+        t._incomingBots.length === 0 && guest.zone_id === outside && guest._ai.waitUntil == null && knocks.length === KNOCK_TIMES);
+      off('door.knock', hear);
+      activeTables.delete(t.id);
+      Object.assign(door, saved);
+    }
+  }
+
   // ── a table with a regular (chess-practice.js) ──────────────────────────────
   // Alone, the regular plays both sides in RAM; somebody who sits opposite gets a
   // game only if the regular knows them; the Room Stage reads the board off it.

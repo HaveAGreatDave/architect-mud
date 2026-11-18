@@ -12,7 +12,11 @@
       "item_sticky_cam",
       "item_motion_sensor",
       "item_audio_sensor"
-    ]
+    ],
+    "spot": {
+      "along": 9.8,
+      "wall": "left"
+    }
   },
   "hp": null,
   "hp_max": null,

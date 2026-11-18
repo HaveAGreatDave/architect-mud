@@ -183,7 +183,12 @@ function paintRgb(face, pal) {
     if (pal.factory || s.livery === 'fixed') return finishCoat(s.rgb, pal, face);
     // A truck body's slot is there for its surface (a flake, a weave), so the booth's flash still runs over it.
     if (s.livery !== 'trim' && typeof pal.pat === 'string' && pal.pat.startsWith('truck:') && faceWearsTrim(face, pal.pat)) return finishCoat(pal.trim, pal, face);
-    return finishCoat(s.livery === 'trim' ? pal.trim : pal.base, pal, face);
+    if (s.livery === 'trim') return finishCoat(pal.trim, pal, face);
+    // ⚠ A BASE SLOT ON THE HULL TAKES THE PATTERN, as a hull the builder drew does: it falls through
+    // to the pattern code below. Until 2026-11-17 it returned the base colour here, so every pattern in
+    // the maintenance list (stripes, camo, checker, warbird, jazz) painted a mesh aircraft one colour.
+    // Anything off the hull (a nacelle, a strut, a fitting) keeps the plain base, as before.
+    if (!PATTERN_ROLE.has(role) || (typeof pal.pat === 'string' && pal.pat.startsWith('truck:'))) return finishCoat(pal.base, pal, face);
   }
   // Truck hardware (`hw`) and box (`deck`). ⚠ Not `pal.accent`: the jazz scheme owns that, and it would turn every undercarriage magenta.
   if (role === 'strut' || role === 'gear' || role === 'gun') return pal.hw || [44, 48, 54];
@@ -1688,7 +1693,10 @@ function drawRotorFXInner(ctx, cls, projFn, { spin = 0, power = 0.7, parked = fa
         const e = RUN_EASE(clampN(anim?.[r.run] ?? 0, 0, 1));
         const n = r.blades, step = Math.PI * 2 / n, a0 = r.phase ?? 0;
         const d = (((sp - a0) % step) + step * 1.5) % step - step / 2;
-        spinDisc(ctx, projFn, at, r.U, r.V, r.r, a0 + d * e, dsc * e, spl * e, parked, n, 0.95 + (r.lead - 0.95) * e, bladeFade);
+        // `angle`: the owner's own integrated angle, so a rotor at a third of its speed turns at a
+        // third, rather than twitching inside one blade step.
+        const ang = r.angle ? (anim?.[r.angle] ?? a0) : a0 + d * e;
+        spinDisc(ctx, projFn, at, r.U, r.V, r.r, ang, dsc * e, spl * e, parked, n, 0.95 + (r.lead - 0.95) * e, bladeFade);
         continue;
       }
       // Folding rotor: past zero the blades stop and swing aft together, `spread` degrees apart.

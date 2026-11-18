@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_mercenary_02",
+  "lines": [
+    "\"You ever think about doing something else?\"",
+    "\"Like what?\"",
+    "\"I don't know. Baking.\"",
+    "\"I'd still end up stabbing someone. Over a cake, probably.\""
+  ],
+  "personality": "mercenary",
+  "sort_order": 664
+}

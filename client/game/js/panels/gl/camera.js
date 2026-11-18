@@ -16,6 +16,8 @@
 // Nothing here touches WebGL. It is arithmetic, so it runs in node, which is what makes the gate
 // possible at all — there is no GL context in a smoke test.
 
+import { multiply } from './core/mat4.js';
+
 // Camera space is the one GLASS already works in: +x is lateral (`l`), +y is up (`wz − EH`),
 // +z is forward (`f`). Right-handed with z INTO the screen, which is not GL's convention and does
 // not need to be: the projection matrix below is written for this space and nothing else consumes
@@ -196,15 +198,8 @@ export function projMatrix(cam, H, near = (cam && cam.near) || NEAR, far = FAR) 
   ];
 }
 
-export function multiply(a, b) {
-  const o = new Array(16);
-  for (let c = 0; c < 4; c++) {
-    for (let r = 0; r < 4; r++) {
-      o[c * 4 + r] = a[r] * b[c * 4] + a[4 + r] * b[c * 4 + 1] + a[8 + r] * b[c * 4 + 2] + a[12 + r] * b[c * 4 + 3];
-    }
-  }
-  return o;
-}
+// a · b, column-major. The sum lives in core/mat4.js; the name stays here for its callers.
+export { multiply };
 
 // The whole transform, world → clip.
 export function viewProjMatrix(cam, H, near, far) {
@@ -244,7 +239,7 @@ export function projectThrough(m, x, y, z, W, H) {
 // their own answer for the night — while `castDir` is whatever is actually throwing the shadow this
 // frame, which is the moon once the sun is down. Falling back to `dir` keeps every existing caller
 // (and every harness that hands in a bare `{dir, len}`) on exactly the matrix it had.
-export function lightMatrix(sun, b) {
+export function lightMatrix(sun, b, texels = 0) {
   const len = Math.max(0.05, sun.len || 1);
   const cd = sun.castDir || sun.dir;
   // Travel: from the caster toward the ground. `(-dir * len, -1)` before normalising, which is
@@ -275,6 +270,16 @@ export function lightMatrix(sun, b) {
     if (cx < x0) x0 = cx; if (cx > x1) x1 = cx;
     if (cy < y0) y0 = cy; if (cy > y1) y1 = cy;
     if (cz < z0) z0 = cz; if (cz > z1) z1 = cz;
+  }
+  // SNAPPED, WHEN THE CALLER NAMES ITS MAP'S SIZE. A box fitted afresh to whatever is streamed in
+  // slides by a fraction of a texel every time it changes, and every shadow edge on screen jumps with
+  // it: shadows flashing as you walk. So the width and height go up in whole steps (a tile in light
+  // space) and the corner sits on the texel grid, so a box of the same size lands texel for texel on
+  // the last one. The depth range goes out to whole tiles, so the bias doesn't wander either.
+  if (texels > 0) {
+    const fit = (a0, a1) => { const w = Math.max(1, Math.ceil(a1 - a0)), t = w / texels, o = Math.floor(a0 / t) * t; return [o, o + w]; };
+    [x0, x1] = fit(x0, x1); [y0, y1] = fit(y0, y1);
+    z0 = Math.floor(z0); z1 = Math.ceil(z1);
   }
   // A degenerate axis (one building, one tile, a flat plate) would divide by zero.
   const sx = 2 / Math.max(1e-4, x1 - x0), sy = 2 / Math.max(1e-4, y1 - y0), sz = 2 / Math.max(1e-4, z1 - z0);

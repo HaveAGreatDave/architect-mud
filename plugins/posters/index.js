@@ -25,13 +25,14 @@
  */
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
-import { getApartment, insertFurniture, deleteFurniture, deleteFurnitureWhere, getZoneFurniture } from '../../server/engine/world.js';
+import { world, getApartment, insertFurniture, updateFurniture, deleteFurniture, deleteFurnitureWhere, getZoneFurniture } from '../../server/engine/world.js';
 import { setFlag, getWorldFlagsByPrefix } from '../../server/engine/flags.js';
 import { playerControlsApt } from '../../server/engine/apartments.js';
 import { escAttr } from '../../server/engine/text.js';
 import { emit } from '../../server/engine/events.js';
+import { isStaff } from '../admin/index.js';
 // The wall order and the word it spells, and how ROOM draws each sheet (sheets.js, a leaf the Room Lab imports too)
-import { MURAL, MURAL_WORD, roomSheets } from './sheets.js';
+import { MURAL, MURAL_WORD, roomSheets, spotOf, carriedSheet } from './sheets.js';
 
 // Posters that share a secret seam. Deliberately tiny and mechanical.
 const SECRET_PAIR = { kiyo: 'cyd', cyd: 'kiyo' };
@@ -228,12 +229,8 @@ async function cmdPutup(args, raw, player, broadcast) {
   if (!playerControlsApt(player, getApartment(player.current_zone)))
     return { type: 'error', message: `You can only hang posters in a home you own: these walls aren't yours. Take it back to your place and \`putup\` there.` };
 
-  const target = args.join(' ').replace(/^(the|up)\s+/i, '').trim();
-  const { rows } = await query(
-    `SELECT id, item_id, custom_data FROM player_inventory
-      WHERE player_id=$1 AND container_id IS NULL AND item_id LIKE 'item_poster_%'`,
-    [player.id]
-  );
+  const { target, wall } = parsePutup(args);
+  const rows = await carriedPosters(player.id);
   let carried = rows;
   if (target) {
     const t = target.toLowerCase();
@@ -246,29 +243,95 @@ async function cmdPutup(args, raw, player, broadcast) {
   if (carried.length > 1)
     return { type: 'error', message: `Which one? ${carried.map(r => `"${shortName(r.custom_data?.name)}"`).join(', ')}. Try \`putup <name>\`.` };
 
-  const r = carried[0];
-  const cd = r.custom_data || {};
-  const key = cd.poster_key || r.item_id.replace('item_poster_', '');
-
-  // A fresh player row, never the authored id (see isAuthoredPoster).
-  await insertFurniture({
-    id: `furn_${randomUUID().slice(0, 8)}`, zone_id: player.current_zone,
-    name: cd.name, description: cd.description, object_type: 'decoration',
-    flags: JSON.stringify({ hero_poster: true, poster_key: key }),
-    origin: 'player', owner_id: player.id,
-  });
-  await query('DELETE FROM player_inventory WHERE id=$1', [r.id]);
-  // ROOM hangs it on the wall for whoever has the room open, and the seventh sheet plays the join
-  emit('room.sheetsChanged', { zoneId: player.current_zone });
-
+  const { key, name } = await hangPoster(carried[0], player, player.current_zone, wall ? { wall } : null);
   broadcast(player.current_zone,
-    { type: 'zone_event', message: `${player.handle} smooths the ${shortName(cd.name)} poster onto the wall.` },
+    { type: 'zone_event', message: `${player.handle} smooths the ${shortName(name)} poster onto ${wall ? WALL_NAME[wall] : 'the wall'}.` },
     player.id);
 
   // Placement report — where this sheet falls in the run, and which torn edges
   // it just answered. The wall tells you it's assembling long before it says why.
   const extra = placementLine(key, hangingKeys(player.current_zone));
-  return { type: 'take', message: `You unroll ${cd.name} and smooth it onto the wall.${extra}` };
+  return { type: 'take', message: `You unroll ${name} and smooth it onto ${wall ? WALL_NAME[wall] : 'the wall'}.${extra}` };
+}
+
+// `putup kiyo on the left wall`: the wall is the last word (before an optional "wall"), as `arrange` reads it.
+const WALLS = { left: 'left', right: 'right', front: 'front', back: 'back', window: 'front', door: 'back' };
+const WALL_NAME = { left: 'the left wall', right: 'the right wall', front: 'the window wall', back: 'the door wall' };
+function parsePutup(args) {
+  const words = args.join(' ').toLowerCase().split(/\s+/).filter(Boolean);
+  while (words.length && /^(the|up)$/.test(words[0])) words.shift();
+  if (words.length && words.at(-1) === 'wall') words.pop();
+  let wall = null;
+  if (words.length && WALLS[words.at(-1)]) {
+    wall = WALLS[words.pop()];
+    while (words.length && /^(on|onto|to|against|by|at|the)$/.test(words.at(-1))) words.pop();
+  }
+  return { target: words.join(' ').trim(), wall };
+}
+
+// The rolled posters a player carries (loose, not in a bag). One query.
+async function carriedPosters(playerId) {
+  const { rows } = await query(
+    `SELECT id, item_id, custom_data FROM player_inventory
+      WHERE player_id=$1 AND container_id IS NULL AND item_id LIKE 'item_poster_%'`,
+    [playerId]);
+  return rows;
+}
+
+// Unroll one carried poster (an inventory row) onto a wall of `zoneId`. `spot` ({ wall, along? }) is where the run
+// goes; the rest of the run already up in the room moves with it, so the sheets stay edge to edge. With no spot, the new
+// sheet joins the run where it hangs.
+async function hangPoster(r, player, zoneId, spot = null) {
+  const cd = r.custom_data || {};
+  const key = cd.poster_key || r.item_id.replace('item_poster_', '');
+  const run = getZoneFurniture(zoneId).filter(isHeroPoster);
+  const at = spot ? spotOf(spot) : spotOf(run.find((f) => spotOf(f.flags?.sheet_spot))?.flags?.sheet_spot);
+  // A fresh player row, never the authored id (see isAuthoredPoster).
+  await insertFurniture({
+    id: `furn_${randomUUID().slice(0, 8)}`, zone_id: zoneId,
+    // a sheet carried before custom_data held its words has neither; furniture.description is NOT NULL
+    name: cd.name || `hero poster: ${key.toUpperCase()}`, description: cd.description || '', object_type: 'decoration',
+    flags: JSON.stringify({ hero_poster: true, poster_key: key, ...(at ? { sheet_spot: at } : {}) }),
+    origin: 'player', owner_id: player.id,
+  });
+  await query('DELETE FROM player_inventory WHERE id=$1', [r.id]);
+  if (spot && at) await moveRun(run, at);
+  // ROOM hangs it on the wall for whoever has the room open, and the seventh sheet plays the join
+  emit('room.sheetsChanged', { zoneId });
+  return { key, name: cd.name };
+}
+
+// Every sheet of the run to one spot (at most seven rows; a run that's already there isn't written).
+async function moveRun(run, at) {
+  const want = JSON.stringify(at);
+  for (const f of run) {
+    if (JSON.stringify(spotOf(f.flags?.sheet_spot)) === want) continue;
+    await updateFurniture(f.id, { flags: JSON.stringify({ ...(f.flags || {}), sheet_spot: at }) });
+  }
+}
+
+// ── posterkit — staff only: one rolled copy of every sheet in the run ─────────
+// The wall text comes from whichever copy is hanging somewhere (RAM: the
+// furniture cache); a sheet nobody has up gets its bare title.
+async function cmdPosterkit(args, raw, player) {
+  if (!isStaff(player)) return { type: 'error', message: 'Unknown command: "posterkit". Type HELP for commands.' };
+  const hung = new Map();
+  for (const zoneId of world.zones.keys())
+    for (const f of getZoneFurniture(zoneId))
+      if (String(f.flags?.hero_poster) === 'true' && f.flags?.poster_key && !hung.has(f.flags.poster_key))
+        hung.set(f.flags.poster_key, f);
+  const ids = [], items = [], datas = [];
+  for (const key of MURAL) {
+    const f = hung.get(key);
+    ids.push(randomUUID()); items.push(`item_poster_${key}`);
+    datas.push(JSON.stringify({ poster_key: key,
+      name: f?.name || `hero poster: ${key.toUpperCase()}`, description: f?.description || '' }));
+  }
+  await query(
+    `INSERT INTO player_inventory (id, player_id, item_id, quantity, custom_data)
+     SELECT u.id, $1, u.item, 1, u.cd::jsonb FROM unnest($2::text[], $3::text[], $4::text[]) AS u(id, item, cd)`,
+    [player.id, ids, items, datas]);
+  return { type: 'take', message: `You get all ${MURAL.length} posters of the ${MURAL_WORD} run, rolled up. <span class="text-dim">(\`putup\` them in a home you own.)</span>` };
 }
 
 // ── furniture.describe hook — a "you can peel this off" telegraph, plus the ───
@@ -279,6 +342,25 @@ export const hooks = {
   'room.sheets': (zoneId) => {
     const out = roomSheets(getZoneFurniture(zoneId));
     return out.length ? out : undefined;
+  },
+  // The arrange mode's Posters menu (plugins/roomstage `arrange sheets`): the posters this player carries, each as
+  // the sheet it would hang as, keyed by its inventory row.
+  'room.sheetStock': async (player) => {
+    const out = [];
+    for (const r of await carriedPosters(player.id)) {
+      const key = r.custom_data?.poster_key || r.item_id.replace('item_poster_', '');
+      const s = carriedSheet(key, r.custom_data?.name);
+      if (s) out.push({ ...s, id: `inv:${r.id}`, inv: r.id, name: r.custom_data?.name || s.title });
+    }
+    return out.length ? out : undefined;
+  },
+  // The arrange mode's Save hanging a carried poster (plugins/roomstage arrangeLayout `sheet+<inv>@<spot>`).
+  // Answers true when it hung, false when this player doesn't carry that roll.
+  'room.sheetHang': async ({ player, zoneId, inv, spot }) => {
+    const r = (await carriedPosters(player.id)).find((x) => x.id === inv);
+    if (!r) return false;
+    await hangPoster(r, player, zoneId, spot);
+    return true;
   },
   'furniture.describe': async (f) => {
     if (f?.flags?.hero_poster !== true) return undefined;
@@ -307,7 +389,7 @@ export const hooks = {
 try { await reconcileTakenPosters(); }
 catch (e) { console.warn(`  posters: reconcile of taken posters failed: ${e.message}`); }
 
-export const commands = { takedown: cmdTakedown, take: cmdTake, putup: cmdPutup };
+export const commands = { takedown: cmdTakedown, take: cmdTake, putup: cmdPutup, posterkit: cmdPosterkit };
 
 // Exposed for the regression suite only.
 export const _test = { SECRET_PAIR, MURAL, MURAL_WORD, shortName, seamReveal, muralReveal, placementLine };

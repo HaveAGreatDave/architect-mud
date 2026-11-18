@@ -23,6 +23,7 @@ import {
 import { isNpcScheduledNow } from '../../server/engine/broadcast-bridge.js';
 import { getEnvironmentState } from '../../server/engine/environment.js';
 import { gameMsToReal } from '../../server/engine/gametime.js';
+import { linesFor } from './lines.js';
 
 // ── Tunables ────────────────────────────────────────────────────────────────
 export const MAX_FRIENDS      = 6;      // per NPC; the circle is trimmed by tie strength
@@ -36,7 +37,7 @@ const HOUSE_PARTIES           = 3;      // house parties planned per evening
 const HOUSE_GAME_HOURS        = 4;      // a house party runs longer than a round at the bar
 const MAX_HOUSE_PARTY         = 8;      // host included
 const GATHER_LIMIT_MS         = 8 * 60_000; // real time a member gets to walk there before they give up
-const SAY_GAP_MS              = 90_000; // between table lines in one venue
+const SAY_GAP_MS              = 60_000; // between table lines in one venue
 
 // ── State (RAM only) ────────────────────────────────────────────────────────
 const friends = new Map();   // npcId -> Set<npcId>
@@ -405,27 +406,6 @@ function endParty(o, host, { broadcast, ai, why }) {
   outings.delete(o.id);
 }
 
-const HOUSE_LINES = [
-  (a, b) => `${a} turns the music up. ${b} turns it back down.`,
-  (a, b) => `${a} and ${b} end up in the kitchen, the way people do.`,
-  (a) => `Somebody bangs on the wall. ${a} bangs back.`,
-  (a, b) => `${a} finds the last of the good stuff and shares it with ${b}.`,
-  (a, b) => `${a} tells ${b} the flat's bigger than it looks. It isn't.`,
-  (a, b, rest) => `${a} hands round drinks to ${rest}.`,
-  (a, b) => `${a} spills something on ${b}'s shoes and apologises twice.`,
-];
-
-const TABLE_LINES = [
-  (a, b, rest) => `${a} buys a round for ${rest}.`,
-  (a, b) => `${a} tells ${b} a story. ${b} doesn't believe a word of it.`,
-  (a, b) => `${a} and ${b} argue about the hockey.`,
-  (a, b) => `${a} pulls ${b} onto the floor. ${b} goes, complaining.`,
-  (a, b) => `${a} laughs at something ${b} said, louder than it deserved.`,
-  (a) => `${a} checks the time and orders another anyway.`,
-  (a, b) => `${a} steals one of ${b}'s chips.`,
-  (a, b) => `${a} leans over to ${b} and points out somebody across the room.`,
-];
-
 // ── The driver: holds a member while they're out ────────────────────────────
 function drive(npc, { broadcast, query, ai, zoneId }) {
   const oid = memberOf.get(npc.id);
@@ -459,11 +439,14 @@ function drive(npc, { broadcast, query, ai, zoneId }) {
   }
 
   // At the table. A line now and then, only with an audience and more than one of them there.
-  if (o.arrived.size >= 2 && now - o.lastSay > SAY_GAP_MS && Math.random() < 0.15 && getZonePlayers(o.venue).length) {
+  if (o.arrived.size >= 2 && now - o.lastSay > SAY_GAP_MS && Math.random() < 0.25 && getZonePlayers(o.venue).length) {
     o.lastSay = now;
     const others = [...o.arrived].filter(id => id !== npc.id);
-    const b = world.npcs.get(pick(others))?.name;
-    if (b) say(o.venue, pick(o.kind === 'house' ? HOUSE_LINES : TABLE_LINES)(npc.name, b, names(others)), broadcast);
+    const bId = pick(others);
+    const b = world.npcs.get(bId)?.name;
+    const c = world.npcs.get(pick(others.length > 1 ? others.filter(id => id !== bId) : others))?.name || b;
+    const stage = Math.min(1, Math.max(0, (now - o.startedAt) / Math.max(1, o.endsAt - o.startedAt)));
+    if (b) say(o.venue, pick(pick(linesFor(o.kind, stage)))(npc.name, b, names(others), c), broadcast);
   }
   return true;
 }

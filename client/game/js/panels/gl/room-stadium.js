@@ -1,6 +1,7 @@
 // GLASS 2 · A STADIUM'S PIECES on the Room Stage (client/shared/room-layout.js forms): a box office window with its
 // grille and slot, a card pack machine lit from inside, a league's Cup in a glass case on a plinth, the board that
-// shows the last champion, a door into the seats, a turnstile, a glass balustrade, and the restrooms' urinals and cubicles. The resurfacer in its
+// shows the last champion, a door into the seats, a turnstile, a glass balustrade, the restrooms' urinals and cubicles,
+// and the concourse's: a club's banner, a concession grill served over, and a tobacco booth. The resurfacer in its
 // bay is GLASS's own machine (panels/room-machine.js), so its piece draws nothing here. Pure: batches, no GL.
 //
 // ⚠ IT'S ALL DATA. Nothing here names a building or a club: a seat door letters its row's `look.label`, a case holds
@@ -12,6 +13,8 @@
 import { MAT } from './ballpark-mesh.js';
 import { legend, legendWidth } from '../../../../shared/legend-font.js';
 import { FT_M } from '../../../../shared/world-scale.js';
+import { cupDesign } from '../../../../shared/cup-design.js';
+import { drawCup } from './room-cup.js';
 
 const { GLOSS, METAL, SATIN, MATTE } = MAT;
 // the codes gl/room.js reads for a light's own face (room-mesh.js GLOW, LAMP)
@@ -19,8 +22,9 @@ const GLOW = 40, LAMP = 42;
 const FT = FT_M;
 const STEEL = '#8d949b', DARKSTEEL = '#3a3f45', PORCELAIN = '#f1f1ec', CHROME = '#d8dde2';
 
-// THE CUPS, as each sport's renderer has them (gl/arena-mesh.js buildCup, gl/ballpark-mesh.js cupInto), turned
-// here as [radius, height] in feet and stood in metres. `rim` is what each band is in: silver, dark, gold.
+// THE CUPS with no design of their own (shared/cup-design.js has the hockey Cup's), as each sport's renderer has them
+// (gl/ballpark-mesh.js cupInto), turned here as [radius, height] in feet and stood in metres. `rim` is what each band
+// is in: silver, dark, gold.
 const CUPS = {
   // the hockey Cup: a stepped silver barrel banded in black, a gold collar, a short neck and the bowl
   hockey: { parts: [
@@ -56,6 +60,23 @@ function cup(K, F, sport, x, y, z) {
   }
 }
 
+// Where a trophy case's Cup stands in its piece: its foot and top, metres up from the room's floor, and how far out
+// it reaches, for the close-up's camera (panels/room-closeup.js). The case's plinth is `ph` below.
+// A Cup that has grown a barrel (shared/cup-design.js: a hundred seasons a barrel) stands taller, and the plinth comes
+// down to take it, so its top stays clear of the lid.
+export function trophyCup(p) {
+  const design = cupDesign(p.cup || 'hockey', Array.isArray(p.rolls) ? p.rolls.length : 0), tall = design?.height ?? 0.84;
+  const ph = Math.max(0.3, Math.min(1.0, p.h * 0.45, p.h - 0.08 - 0.07 - tall - 0.06)), foot = (p.y0 || 0) + ph + 0.07;
+  return { design, ph, foot, top: foot + tall, r: design?.radius ?? 0.22, lid: (p.y0 || 0) + p.h - 0.08 };
+}
+
+// A banner's cloth, which hangs from the top of its piece: the rod's height, the foot of the cloth's sides and the
+// tip of its point, metres up the piece. The piece runs to the floor so it can be hung at any height by its `h`.
+export function bannerCloth(p) {
+  const top = p.h - 0.12, len = Math.min(2.3, Math.max(0.8, top - 0.3));
+  return { top, foot: top - len + 0.45, tip: top - len };
+}
+
 // Called from room-mesh.js drawPiece with the piece's own frame; true when it drew the piece.
 export function drawStadiumForm(K, F, p) {
   const { P, pbox } = F, w = p.w, d = p.d, h = p.h, hw = w / 2, hd = d / 2;
@@ -66,6 +87,7 @@ export function drawStadiumForm(K, F, p) {
   const FRAME = hx(ST?.frame, '#2e4a5e'), ACCENT = hx(ST?.accent, '#c9a24a');
   switch (p.form) {
     case 'resurfacer': return true;   // GLASS's machine, stood here by panels/room-machine.js
+    case 'vendor': return true;       // a vending machine that slides out from its wall: panels/room-vendor.js draws it
     case 'boxoffice': {
       // a ticket window: a panelled counter to the sill, a glass screen over it behind a grille of bars with a slot
       // under it, the frame in painted steel, a lit band over the top lettered with the row's `label`
@@ -129,7 +151,7 @@ export function drawStadiumForm(K, F, p) {
     case 'trophy': {
       // the Cup in its case: a stone plinth with a brass plate, a glass box on it with a downlight in its lid, and the
       // league's Cup on a velvet cushion inside
-      const ph = Math.min(1.0, h * 0.45), stone = { t: 'roomStone', c: '#cfc8bb' };
+      const { ph, design } = trophyCup(p), stone = { t: 'roomStone', c: '#cfc8bb' };
       pbox(-hw, hw, 0, 0.08, -hd, hd, '#2a2622', 1, null, SATIN);
       pbox(-hw + 0.05, hw - 0.05, 0.08, ph - 0.05, -hd + 0.05, hd - 0.05, '#e0d8cc', 1, stone, SATIN);
       pbox(-hw, hw, ph - 0.05, ph, -hd, hd, '#2a2622', 1, null, SATIN);
@@ -144,7 +166,10 @@ export function drawStadiumForm(K, F, p) {
       // the cushion and the Cup
       const [cu, cv] = P(0, 0, 0);
       K.lathe(cu, cv, [[0, g0], [0.24, g0], [0.26, g0 + 0.04], [0.2, g0 + 0.07], [0, g0 + 0.075]], '#5a1424', 1, 16, SATIN);
-      cup(K, F, p.cup || 'hockey', 0, g0 + 0.07, 0);
+      // a Cup with a design (shared/cup-design.js) is turned in polished chrome and gold with its winners cut into it
+      // (gl/room-cup.js), to be looked at close up; one without is the plain turned shape below
+      if (design) drawCup(K, F, design, 0, g0 + 0.07, 0, { rolls: p.rolls, inscription: p.inscription });
+      else cup(K, F, p.cup || 'hockey', 0, g0 + 0.07, 0);
       return true;
     }
     case 'champion': {
@@ -283,6 +308,140 @@ export function drawStadiumForm(K, F, p) {
       }
       // the venue's colour as a band round the cabinet under the lid
       pbox(-hw + 0.015, hw - 0.015, tall - 0.16, tall - 0.12, -hd + 0.015, hd - 0.015, FRAME, 1, null, SATIN);
+      return true;
+    }
+    case 'banner': {
+      // a club's banner on the wall: a brass rod on two brackets with finials, the cloth hanging from it in the club's
+      // first colour, edged in its second, cut to a point at the foot with a tassel, and a band of its third over the
+      // point. panels/room-stadium.js paints the crest and the name on the cloth from `club` (plugins/stands
+      // champions.js, `flags.club_banner`); with no club it's the venue's colours, blank.
+      const cols = (p.club?.colours || []).filter((x) => /^#[0-9a-f]{6}$/i.test(x));
+      const field = cols[0] || FRAME, edge = cols[1] || ACCENT, band = cols[2] || cols[1] || ACCENT;
+      const { top, foot, tip } = bannerCloth(p), z = 0.02, cw = hw - 0.06;
+      // the rod, its brackets back to the wall and a ball on each end
+      K.rounded(...F.alongX(), -hw - 0.02, hw + 0.02, z - 0.012, z + 0.012, top, top + 0.024, 0.01, ACCENT, 1.1, METAL);
+      for (const s of [-1, 1]) {
+        pbox(s * (hw - 0.12) - 0.012, s * (hw - 0.12) + 0.012, top - 0.01, top + 0.03, -hd, z, ACCENT, 1.05, null, METAL);
+        const [bu, bv] = P(s * (hw + 0.05), 0, z);
+        K.ball(bu, bv, top + 0.012, 0.035, ACCENT, 1.12, 10, METAL);
+      }
+      // the cloth: the field, the edging down both sides and along the top, all a hair proud of each other
+      pbox(-cw, cw, foot, top - 0.02, z - 0.008, z + 0.004, field, 1, null, MATTE);
+      for (const s of [-1, 1]) pbox(s * cw - (s > 0 ? 0.06 : 0), s * cw + (s < 0 ? 0.06 : 0), foot, top - 0.02, z + 0.004, z + 0.008, edge, 1, null, MATTE);
+      pbox(-cw, cw, top - 0.12, top - 0.02, z + 0.004, z + 0.008, edge, 1, null, MATTE);
+      // the point: the field narrowing to the tip, banded, and a gold tassel off it
+      const n = F.N(0, 0, 1), C = (hex) => K.C(hex, 1);
+      K.quad(K.solid, [P(-cw, foot, z + 0.004), P(cw, foot, z + 0.004), P(0, tip + 0.08, z + 0.004), P(0, tip + 0.08, z + 0.004)], n, C(field), MATTE, null, true);
+      K.quad(K.solid, [P(-cw, foot + 0.001, z + 0.007), P(cw, foot + 0.001, z + 0.007), P(cw * 0.78, foot - 0.09, z + 0.007), P(-cw * 0.78, foot - 0.09, z + 0.007)], n, C(band), MATTE, null, true);
+      const [tu, tv] = P(0, 0, z + 0.01);
+      K.lathe(tu, tv, [[0, tip + 0.08], [0.018, tip + 0.06], [0.03, tip - 0.02], [0.034, tip - 0.06], [0, tip - 0.06]], ACCENT, 1.05, 8, MATTE);
+      return true;
+    }
+    case 'grill': {
+      // a concession grill, served over: a steel counter faced in the venue's enamel with a gilt rail, a sneeze guard
+      // leaning out over the front, and on the cook's side (behind, -z) a flat-top with patties on it, a roller grill
+      // of franks, a bun warmer, the pumps (mustard, ketchup, relish), a stack of paper boats and a beer tower
+      const top = Math.min(h, 1.02), back = -hd + 0.05, steel = { t: 'roomSteel', c: '#b8bec4' };
+      pbox(-hw, hw, 0, 0.1, -hd + 0.04, hd - 0.06, '#151618', 1, null, MATTE);
+      pbox(-hw, hw, 0.1, top - 0.05, -hd, hd - 0.04, '#9aa0a6', 1, steel, METAL);
+      // the front: enamel panels in the frame colour with the accent as a band and a gilt rail
+      pbox(-hw + 0.02, hw - 0.02, 0.14, top - 0.1, hd - 0.04, hd, FRAME, 1, null, GLOSS);
+      pbox(-hw + 0.02, hw - 0.02, 0.5, 0.58, hd, hd + 0.006, ACCENT, 1.08, null, METAL);
+      const panels = Math.max(2, Math.round(w / 1.2));
+      for (let i = 1; i < panels; i++) { const x = -hw + i * w / panels; pbox(x - 0.012, x + 0.012, 0.14, top - 0.1, hd, hd + 0.008, ACCENT, 1.05, null, METAL); }
+      // the worktop and the customers' ledge, and the sneeze guard on two posts
+      pbox(-hw - 0.02, hw + 0.02, top - 0.05, top, -hd, hd + 0.02, '#c8ccd0', 1.05, steel, METAL);
+      pbox(-hw, hw, top - 0.02, top + 0.02, hd - 0.02, hd + 0.16, '#d8dde2', 1.05, null, METAL);
+      for (const s of [-1, 0, 1]) pbox(s * (hw - 0.1) - 0.012, s * (hw - 0.1) + 0.012, top, top + 0.42, hd - 0.14, hd - 0.12, CHROME, 1.08, null, METAL);
+      K.quad(K.glass, [P(-hw + 0.06, top + 0.12, hd - 0.13), P(hw - 0.06, top + 0.12, hd - 0.13), P(hw - 0.06, top + 0.46, hd - 0.2), P(-hw + 0.06, top + 0.46, hd - 0.2)], F.N(0, 0.2, 1), [0.82, 0.88, 0.92], GLOSS, null, true);
+      // the flat-top, left: black steel with a splash rim, eight patties browning on it
+      const gx0 = -hw + 0.12, gx1 = -hw + 0.12 + Math.min(1.1, w * 0.32), gz0 = back, gz1 = back + 0.5;
+      pbox(gx0, gx1, top, top + 0.03, gz0, gz1, '#1c1d20', 1, null, METAL);
+      pbox(gx0, gx1, top + 0.03, top + 0.11, gz0 - 0.01, gz0 + 0.01, '#8a9096', 1, null, METAL);
+      for (let i = 0; i < 8; i++) {
+        const [pu, pv] = P(gx0 + 0.13 + (i % 4) * (gx1 - gx0 - 0.2) / 3, 0, gz0 + 0.14 + Math.floor(i / 4) * 0.22);
+        K.lathe(pu, pv, [[0, top + 0.03], [0.055, top + 0.03], [0.058, top + 0.042], [0.05, top + 0.05], [0, top + 0.052]], i % 3 ? '#4a2a18' : '#5a3420', 1, 10, SATIN);
+        if (i % 2) K.lathe(pu, pv, [[0, top + 0.052], [0.05, top + 0.052], [0.05, top + 0.055], [0, top + 0.056]], '#e8b830', 1.05, 4, SATIN);
+      }
+      // the roller grill, middle: steel rollers under a lamp hood, a frank on every other one
+      const rx0 = gx1 + 0.15, rx1 = rx0 + Math.min(0.75, w * 0.22);
+      pbox(rx0, rx1, top, top + 0.06, gz0, gz0 + 0.42, '#7a8086', 1, null, METAL);
+      for (let i = 0; i < 9; i++) {
+        const zz = gz0 + 0.05 + i * 0.04;
+        K.rounded(...F.alongX(), rx0 + 0.02, rx1 - 0.02, zz - 0.012, zz + 0.012, top + 0.06, top + 0.084, 0.011, '#c4cad0', 1.08, METAL);
+        if (i % 2 === 0) K.rounded(...F.alongX(), rx0 + 0.05, rx1 - 0.05, zz - 0.014, zz + 0.014, top + 0.082, top + 0.11, 0.013, i % 4 ? '#9a3c1c' : '#a8441e', 1.05, GLOSS);
+      }
+      pbox(rx0 - 0.02, rx1 + 0.02, top + 0.38, top + 0.42, gz0 - 0.02, gz0 + 0.46, '#2a2c30', 1, null, METAL);
+      for (const s of [rx0, rx1]) pbox(s - 0.012, s + 0.012, top + 0.06, top + 0.38, gz0, gz0 + 0.024, CHROME, 1.05, null, METAL);
+      if (lamp) pbox(rx0 + 0.04, rx1 - 0.04, top + 0.37, top + 0.38, gz0 + 0.04, gz0 + 0.4, '#ffb070', 1.9, null, LAMP);
+      // the bun warmer: a steel drawer box with a glass lid, buns showing
+      const bx0 = rx1 + 0.12, bx1 = bx0 + 0.42;
+      if (bx1 < hw - 0.5) {
+        pbox(bx0, bx1, top, top + 0.22, gz0, gz0 + 0.36, '#b4bac0', 1.05, null, METAL);
+        for (let i = 0; i < 6; i++) { const [uu, vv] = P(bx0 + 0.08 + (i % 3) * 0.13, 0, gz0 + 0.1 + Math.floor(i / 3) * 0.15); K.ball(uu, vv, top + 0.235, 0.045, '#d9a05c', 1, 8, SATIN); }
+      }
+      // the pumps, the boats and the cups along the front of the worktop, where the customer reaches
+      for (const [x, hex] of [[hw - 0.95, '#e8c020'], [hw - 0.8, '#c8281e'], [hw - 0.65, '#4a8a2a']]) {
+        const [uu, vv] = P(x, 0, hd - 0.32);
+        K.lathe(uu, vv, [[0, top], [0.05, top], [0.05, top + 0.2], [0.03, top + 0.22], [0.012, top + 0.22], [0.012, top + 0.27], [0, top + 0.27]], hex, 1.05, 10, GLOSS);
+        pbox(x - 0.008, x + 0.008, top + 0.25, top + 0.262, hd - 0.32, hd - 0.24, '#1a1a1a', 1, null, GLOSS);
+      }
+      for (let i = 0; i < 5; i++) pbox(hw - 0.48, hw - 0.3, top + i * 0.016, top + i * 0.016 + 0.012, hd - 0.4 + i * 0.003, hd - 0.28 + i * 0.003, i % 2 ? '#e8e2cc' : '#d8d0b4', 1, null, MATTE);
+      const [cu, cv] = P(hw - 0.15, 0, hd - 0.34);
+      K.lathe(cu, cv, [[0, top], [0.045, top], [0.05, top + 0.32], [0, top + 0.32]], '#efe8d8', 1.02, 10, MATTE);
+      // the beer tower at the far end of the cook's side, two taps and a drip tray
+      const tx = hw - 0.4, [tu, tv] = P(tx, 0, back + 0.15);
+      K.lathe(tu, tv, [[0.06, top], [0.05, top + 0.04], [0.04, top + 0.42], [0.06, top + 0.44], [0, top + 0.46]], CHROME, 1.1, 12, METAL);
+      for (const s of [-1, 1]) {
+        pbox(tx + s * 0.05 - 0.01, tx + s * 0.05 + 0.01, top + 0.3, top + 0.33, back + 0.15, back + 0.26, CHROME, 1.1, null, METAL);
+        pbox(tx + s * 0.05 - 0.012, tx + s * 0.05 + 0.012, top + 0.33, top + 0.47, back + 0.23, back + 0.26, s < 0 ? '#c8281e' : ACCENT, 1.05, null, GLOSS);
+      }
+      pbox(tx - 0.14, tx + 0.14, top, top + 0.02, back + 0.18, back + 0.32, '#3a3d42', 1, null, METAL);
+      return true;
+    }
+    case 'smokebooth': {
+      // a tobacco booth: a little kiosk in the venue's frame colour, a glass case for a counter with the packs laid out
+      // in it, shelves of cartons up the back wall, a striped awning over the window and a lit band lettered with the
+      // row's `label`. Nobody's inside: the packs drop through a chute at the side, and the slot takes the money.
+      const sill = 1.0, win = h - 0.62, awn = h - 0.42, side = 0.1, wood = { t: 'roomWood', c: '#5a3a24' };
+      pbox(-hw, hw, 0, 0.08, -hd, hd, '#151618', 1, null, MATTE);
+      // the shell: the back, the two sides, the roof
+      pbox(-hw, hw, 0.08, h - 0.08, -hd, -hd + side, FRAME, 1, null, SATIN);
+      for (const s of [-1, 1]) pbox(s < 0 ? -hw : hw - side, s < 0 ? -hw + side : hw, 0.08, h - 0.08, -hd, hd - 0.02, FRAME, 1, null, SATIN);
+      pbox(-hw - 0.06, hw + 0.06, h - 0.1, h, -hd - 0.04, hd + 0.04, '#1c1a18', 1, null, SATIN);
+      // the counter: a panelled base and the glass case on it, the packs in rows inside
+      pbox(-hw + side, hw - side, 0.08, sill - 0.3, hd - 0.12, hd - 0.02, '#6a4a30', 1, wood, SATIN);
+      pbox(-hw + side, hw - side, sill - 0.3, sill - 0.27, hd - 0.5, hd, ACCENT, 1.05, null, METAL);
+      pbox(-hw + side, hw - side, sill - 0.27, sill - 0.26, hd - 0.48, hd - 0.04, lamp ? '#f4ecd8' : '#5a564c', lamp ? 1.35 : 1, null, lamp ? GLOW : MATTE);
+      const PACK = ['#c8281e', '#f2efe6', '#1f4a8a', '#e8c020', '#2a7a4a', '#1a1a1a', '#d8a050', '#8a1a3a'];
+      for (let r = 0; r < 3; r++) for (let c = 0; c < Math.floor((w - 2 * side - 0.1) / 0.11); c++) {
+        const x = -hw + side + 0.08 + c * 0.11, zz = hd - 0.42 + r * 0.13;
+        pbox(x, x + 0.06, sill - 0.26, sill - 0.17, zz, zz + 0.022, PACK[(r * 3 + c) % PACK.length], 1.05, null, GLOSS);
+      }
+      K.quad(K.glass, [P(-hw + side, sill - 0.26, hd - 0.02), P(hw - side, sill - 0.26, hd - 0.02), P(hw - side, sill, hd - 0.02), P(-hw + side, sill, hd - 0.02)], F.N(0, 0, 1), [0.84, 0.9, 0.94], GLOSS, null, true);
+      K.quad(K.glass, [P(-hw + side, sill, hd - 0.02), P(hw - side, sill, hd - 0.02), P(hw - side, sill, hd - 0.5), P(-hw + side, sill, hd - 0.5)], F.N(0, 1, 0), [0.84, 0.9, 0.94], GLOSS, null, true);
+      pbox(-hw + side, hw - side, sill, sill + 0.03, hd - 0.5, hd, '#c8ccd0', 1.05, null, METAL);
+      // the back wall's shelves of cartons, and a lamp over them
+      for (let r = 0; r < 4; r++) {
+        const y = sill + 0.1 + r * (win - sill - 0.15) / 4;
+        pbox(-hw + side, hw - side, y - 0.02, y, -hd + side, -hd + side + 0.3, '#3a2a1e', 1, null, SATIN);
+        for (let x = -hw + side + 0.04; x < hw - side - 0.2; x += 0.2) pbox(x, x + 0.17, y, y + 0.09, -hd + side + 0.04, -hd + side + 0.26, PACK[Math.round((x + hw) * 7 + r) % PACK.length], 1.02, null, SATIN);
+      }
+      if (lamp) pbox(-hw + side + 0.1, hw - side - 0.1, win - 0.03, win - 0.01, -hd + side, -hd + side + 0.3, '#fff0d0', 1.8, null, LAMP);
+      // the window's head, and the awning: striped, leaning out over the counter
+      pbox(-hw, hw, win, h - 0.1, hd - 0.12, hd - 0.02, FRAME, 1, null, SATIN);
+      const stripes = Math.max(6, Math.round(w / 0.22));
+      for (let i = 0; i < stripes; i++) {
+        const x0 = -hw - 0.04 + i * (w + 0.08) / stripes, x1 = x0 + (w + 0.08) / stripes;
+        K.quad(K.solid, [P(x0, awn, hd), P(x1, awn, hd), P(x1, awn - 0.32, hd + 0.42), P(x0, awn - 0.32, hd + 0.42)], F.N(0, 0.8, 0.6), K.C(i % 2 ? '#efe6d2' : '#b8261e', 1), MATTE, null, true);
+      }
+      // the lit band over the awning
+      pbox(-hw + 0.04, hw - 0.04, h - 0.4, h - 0.12, hd - 0.02, hd + 0.01, ST ? '#0c0c10' : lamp ? '#ffe9b8' : '#3a3628', ST ? 1 : lamp ? 1.45 : 1, null, lamp && !ST ? GLOW : MATTE);
+      if (!ST) lettering(K, F, p.label || 'Tobacco', 0, h - 0.26, hd + 0.014, fit(p.label || 'Tobacco', w - 0.3, 0.18), '#3a1c10', 0);
+      // the money slot and the chute at the right side, where the packs come out
+      pbox(hw - side - 0.3, hw - side - 0.1, sill + 0.03, sill + 0.05, hd - 0.1, hd + 0.02, '#a4aab0', 1.05, null, METAL);
+      pbox(hw, hw + 0.06, 0.7, 0.95, hd - 0.4, hd - 0.12, '#2a2c30', 1, null, METAL);
+      pbox(hw + 0.06, hw + 0.07, 0.72, 0.8, hd - 0.38, hd - 0.14, '#0a0b0c', 1, null, MATTE);
       return true;
     }
     default: return false;

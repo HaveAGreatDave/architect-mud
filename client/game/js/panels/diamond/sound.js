@@ -199,7 +199,7 @@ export function createParkSound({ win = globalThis, state = () => ({}), detail =
     if (booth() > 0.15) { log.push(['quiet', who, text]); return null; }
     log.push(['say', who, text]);
     const db = who === 'announcer' ? MIX.call.db : who === 'vendor' ? MIX.vendor.db : MIX.scene.db;
-    return AE()?.speak?.(text, { channel: 'scene', seed: who, voice: VOICES[who], gain: dbGain(db) * (o.gain ?? 1), excite: o.excite ?? 0, pa: who === 'pa' }) || null;
+    return AE()?.speak?.(text, { channel: 'scene', seed: who, voice: VOICES[who], gain: dbGain(db) * (o.gain ?? 1), excite: o.excite ?? 0, pa: who === 'pa', vary: 1 }) || null;
   }
   // an umpire from a seat: further off is quieter and later
   function umpire(text, at, gain) {
@@ -395,7 +395,7 @@ export function createParkSound({ win = globalThis, state = () => ({}), detail =
         const c = s.p?.contact;
         if (!seat && c?.text && q?.result === 'inplay' && tierAllows(tier, 'call') && booth() <= 0.15) {
           log.push(['say', 'booth', c.text]);
-          AE()?.speak?.(c.text, { channel: 'scene', seed: c.by || 'booth', gain: dbGain(MIX.call.db), excite: (+s.p.play?.ev || 0) >= 100 ? 0.8 : 0.45 });
+          AE()?.speak?.(c.text, { channel: 'scene', seed: c.by || 'booth', gain: dbGain(MIX.call.db), excite: (+s.p.play?.ev || 0) >= 100 ? 0.8 : 0.45, vary: 1 });
         }
         return;
       }

@@ -157,5 +157,7 @@ export function roomKit(L, bake, { textures = {}, cell = 1.5, glow = MAT.EMISSIV
     const front = (b, x0, x1, y0, y1, z, col, mat = E, uvs = null, raw = true) => quad(b, [P(x0, y0, z), P(x1, y0, z), P(x1, y1, z), P(x0, y1, z)], N(0, 0, 1), col, mat, uvs, raw);
     return { P, N, alongX, alongZ, alongY, pbox, front };
   };
-  return { solid, screen, glass, textured, TB, E, C, nrmOf, lift, quad, box, drop, rounded, onU, onV, leanV, lathe, ball, frame };
+  // a point in the room's frame, in the world, raised as what's drawn now is (gl/room-vat.js places a vat's fluid by it)
+  const at = (u, v, y) => L.world(u, v, y + raised);
+  return { solid, screen, glass, textured, TB, E, C, nrmOf, lift, quad, box, drop, rounded, onU, onV, leanV, lathe, ball, frame, at };
 }

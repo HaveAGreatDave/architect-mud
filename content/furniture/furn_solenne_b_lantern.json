@@ -9,11 +9,8 @@
       "form": "lantern"
     },
     "spot": {
-      "at": [
-        2.9,
-        0.6
-      ],
-      "turn": 0
+      "along": 3.38,
+      "wall": "left"
     }
   },
   "hp": null,

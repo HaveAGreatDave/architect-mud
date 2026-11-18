@@ -1,0 +1,33 @@
+{
+  "description": "A release vat, empty and dry, its grille floor lit amber from below and a big tube coming down into its crown. Your next body comes down that tube in a gush of fluid, and the drain takes the fluid away.",
+  "flags": {
+    "look": {
+      "arche": "prop",
+      "dims": [
+        1.2,
+        1.2,
+        2.9
+      ],
+      "form": "vat",
+      "state": "release",
+      "tag": "R-3"
+    },
+    "spot": {
+      "at": [
+        -1.9,
+        10.1
+      ],
+      "turn": 180
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_clone_release_3",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "release vat",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": null,
+  "zone_id": "zone_start"
+}

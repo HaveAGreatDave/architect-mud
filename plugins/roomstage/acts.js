@@ -17,7 +17,7 @@ import { drugForItem } from '../../server/engine/drugs.js';
 
 // What each act may have in the hand (client gl/figure-reach.js HELD); the first is what a dose typed in the log shows.
 export const ACTS = Object.freeze({
-  eat: ['food'], drink: ['bottle', 'can', 'glass'], smoke: ['cigarette', 'joint', 'pipe'],
+  eat: ['food', 'hotdog', 'burger'], drink: ['bottle', 'can', 'glass'], smoke: ['cigarette', 'joint', 'pipe'],
   swallow: ['pill'], inject: ['syringe'], snort: [''], huff: ['rag', 'can'],
 });
 const ACT_MS = 12_000, BEAT_MS = 250, DOSE_MS = 8_000;
@@ -31,6 +31,14 @@ export function actOfDrug(drug) {
   if (f.smokeable || f.cannabis) return 'smoke';
   return ACTS[f.taken] ? f.taken : 'swallow';
 }
+// What a food is in the hand: a frank in a bun, a burger, or anything else eaten from the hand (a roll). The stands'
+// first-person hands tell them apart the same way (client stands-hands.js foodOf).
+export function foodHoldOf(name) {
+  const n = String(name || '').toLowerCase();
+  if (/frank|hot ?dog|sausage|brat|widowmaker/.test(n)) return 'hotdog';
+  if (/burger|slider|patty/.test(n)) return 'burger';
+  return 'food';
+}
 // An item as something ROOM takes in first person, or null: { act, hold }.
 export function ritualOf(it, itemId) {
   const t = it?.tags || {};
@@ -43,7 +51,7 @@ export function ritualOf(it, itemId) {
     return { act, hold };
   }
   if (t.food_profile === 'liquid' || t.hydrating || t.drink_profile) return { act: 'drink', hold: /can\b/i.test(it.name || '') ? 'can' : 'bottle' };
-  if (t.restore_hunger || t.consumable) return { act: 'eat', hold: 'food' };
+  if (t.restore_hunger || t.consumable) return { act: 'eat', hold: foodHoldOf(it.name) };
   return null;
 }
 
@@ -79,6 +87,8 @@ export function createActs({ changed }) {
       set(player.id, act, ACTS[act][0], DOSE_MS);
     },
     forget(playerId) { acts.delete(playerId); lastBeat.delete(playerId); },
+    // an act a plugin gives them for a moment (plugins/strippers: a note held out to a dancer)
+    play(playerId, act, hold, ms) { set(playerId, act, hold, ms); },
   };
 }
 

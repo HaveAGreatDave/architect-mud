@@ -20,6 +20,7 @@
 
 import { TAU, rng } from './util.js';
 import { RL, RW, RC, BOARD_H, GOAL_X, BLUE_X, DOT_FT, MID_Y } from './geo.js';
+import { paintCentreIce, CENTRE_REACH, CENTRE_FONT } from './centre-ice.js';
 
 export const TPX = 10;                       // ice texels per foot
 export const BPX = 12;                       // board texels per foot
@@ -73,12 +74,44 @@ export function createIce(doc) {
   }
   // a mark round a point in feet, `r` feet of margin
   const touchFt = (x, y, r) => touch(IX(x - r), IY(y + r), IX(x + r), IY(y - r));
-  const clip = () => { rr(c, 0, 0, RL * TPX, RW * TPX, RC * TPX); c.clip(); };
-  function reset(seed = 7) {
+  // the night's paint at centre ice (centre-ice.js): the league's until dress() says otherwise
+  let centre = null, sheetSeed = 7;
+  function reset(seed = sheetSeed) {
+    sheetSeed = seed;
+    paintSheet(c, seed);
+    q.blood.clear(); q.cut.clear(); q.n = 0; q.strips.length = 0;
+    marked.fill(0); nMarked = 0;
+    bc.clearRect(0, 0, base.width, base.height); bc.drawImage(canvas, 0, 0);
+    wc.clearRect(0, 0, wetCv.width, wetCv.height);
+    ice.wear = 0; ice.wetness = 0;
+    ice.dirtyAll = true; ice.wetDirty = true;
+  }
+  // A NIGHT'S CENTRE ICE: the Cup's on Cup final night, the league's otherwise (paintCentreIce's
+  // `d`). Painted onto the clean copy, so the Zamboni lays it down, and onto the sheet over the
+  // square it covers, which takes any marks in that square with it.
+  function dress(d) {
+    centre = d && d.cup ? d : null;
+    paintSheet(bc, sheetSeed);
+    const R = CENTRE_REACH, x0 = IX(RL / 2 - R), y0 = IY(MID_Y + R), w = 2 * R * TPX;
+    flushMarks();
+    c.save(); c.setTransform(1, 0, 0, 1, 0, 0);
+    c.clearRect(x0, y0, w, w); c.drawImage(base, x0, y0, w, w, x0, y0, w, w);
+    c.restore();
+    touch(x0, y0, x0 + w, y0 + w);
+    if (nMarked) {
+      const before = nMarked;
+      for (let j = Math.max(0, Math.floor(MID_Y - R)); j < Math.min(RW, Math.ceil(MID_Y + R)); j++) {
+        for (let i = Math.floor(RL / 2 - R); i < Math.ceil(RL / 2 + R); i++) if (marked[j * RL + i]) { marked[j * RL + i] = 0; nMarked--; }
+      }
+      ice.wear *= nMarked / before;
+    }
+  }
+  // The clean sheet, into the sheet itself or the clean copy beside it.
+  function paintSheet(c, seed) {
     const S = TPX;
     c.setTransform(1, 0, 0, 1, 0, 0);
     c.clearRect(0, 0, canvas.width, canvas.height);
-    c.save(); clip();
+    c.save(); rr(c, 0, 0, RL * S, RW * S, RC * S); c.clip();
     const g = c.createLinearGradient(0, 0, 0, RW * S);
     g.addColorStop(0, '#dbe5ec'); g.addColorStop(0.5, '#e9f0f4'); g.addColorStop(1, '#f2f6f8');
     c.fillStyle = g; c.fillRect(0, 0, RL * S, RW * S);
@@ -87,13 +120,8 @@ export function createIce(doc) {
       c.fillStyle = r() < 0.55 ? `rgba(255,255,255,${0.05 + r() * 0.08})` : `rgba(160,182,200,${0.03 + r() * 0.05})`;
       c.beginPath(); c.ellipse(r() * RL * S, r() * RW * S, 4 + r() * 34, 2 + r() * 9, r() * 3, 0, TAU); c.fill();
     }
-    // under-ice paint: the league mark at centre and two sponsors, faded by the ice over them
-    c.save(); c.translate(IX(RL / 2), IY(MID_Y)); c.globalAlpha = 0.22; c.strokeStyle = '#1f4fbf'; c.lineWidth = 0.7 * S;
-    c.beginPath(); c.arc(0, 0, 9 * S, 0, TAU); c.stroke();
-    c.beginPath(); c.moveTo(-6.4 * S, 6.4 * S); c.lineTo(6.4 * S, -6.4 * S); c.stroke();
-    c.fillStyle = '#1f4fbf'; c.font = `800 ${3.6 * S}px ${FACE}`; c.textAlign = 'center'; c.textBaseline = 'middle';
-    c.fillText('CPhL', 0, 0.2 * S);
-    c.restore();
+    // under-ice paint: two sponsors, faded by the ice over them (centre ice is painted over the
+    // red line, below)
     c.save(); c.globalAlpha = 0.13; c.textAlign = 'center'; c.textBaseline = 'middle'; c.font = `800 ${3 * S}px ${FACE}`;
     c.fillStyle = '#b8141c'; c.fillText(HOARDINGS[0][0], IX(RL / 2), IY(71), 44 * S);
     c.fillStyle = '#1f4fbf'; c.fillText(HOARDINGS[1][0], IX(RL / 2), IY(14), 44 * S);
@@ -112,6 +140,7 @@ export function createIce(doc) {
       for (const sx of [-3, 3]) for (const sy of [17, -15]) c.fillRect(IX(x + sx) - 0.1 * S, IY(y + sy), 0.2 * S, 2 * S);
     }
     for (const k of ['aNL', 'aNR', 'hNL', 'hNR']) { const [x, y] = DOT_FT[k]; c.fillStyle = '#c4222b'; c.beginPath(); c.arc(IX(x), IY(y), S, 0, TAU); c.fill(); }
+    paintCentreIce(c, IX(RL / 2), IY(MID_Y), S, centre);
     ring(RL / 2, MID_Y, 15, '#1e4fbd');
     c.fillStyle = '#1e4fbd'; c.beginPath(); c.arc(IX(RL / 2), IY(MID_Y), 0.5 * S, 0, TAU); c.fill();
     for (const [gx, dir] of [[GOAL_X[0], 1], [GOAL_X[1], -1]]) {
@@ -121,12 +150,6 @@ export function createIce(doc) {
       c.beginPath(); c.moveTo(IX(gx), IY(31.5)); c.lineTo(IX(gx - dir * 11), IY(28.5)); c.moveTo(IX(gx), IY(53.5)); c.lineTo(IX(gx - dir * 11), IY(56.5)); c.stroke();
     }
     c.restore();
-    q.blood.clear(); q.cut.clear(); q.n = 0; q.strips.length = 0;
-    marked.fill(0); nMarked = 0;
-    bc.clearRect(0, 0, base.width, base.height); bc.drawImage(canvas, 0, 0);
-    wc.clearRect(0, 0, wetCv.width, wetCv.height);
-    ice.wear = 0; ice.wetness = 0;
-    ice.dirtyAll = true; ice.wetDirty = true;
   }
   // MARKS ARE QUEUED AND PAINTED IN ONE BATCH, the renderer calling `flush()` once a frame.
   // A hit throws a few hundred drops and every man's skates cut the sheet forty times a
@@ -292,7 +315,13 @@ export function createIce(doc) {
     if (ice.wetness === 0) wc.clearRect(0, 0, wetCv.width, wetCv.height);
   }
   reset();
-  return Object.assign(ice, { reset, blood, cut, scrape, puckMark, smear, resurface, dry, flush, markedFeet: () => nMarked,
+  // its lettering is in the game's display face, which may still be on its way: once it's here,
+  // paint centre ice again (before a puck has dropped, so there's nothing on it to lose)
+  try {
+    const F = doc.fonts, spec = `800 20px ${CENTRE_FONT}`;
+    if (F && F.load && !F.check(spec)) F.load(spec).then((got) => { if (got.length) dress(centre); }, () => {});
+  } catch { /* no font loading API: the fallback face it is */ }
+  return Object.assign(ice, { reset, dress, blood, cut, scrape, puckMark, smear, resurface, dry, flush, markedFeet: () => nMarked,
     // (the first few still marked, as [x, y] feet: for a check that fails to say where)
     markedWhere: (n = 12) => { const out = []; for (let k = 0; k < marked.length && out.length < n; k++) if (marked[k]) out.push([k % RL, (k / RL) | 0]); return out; } });
 }

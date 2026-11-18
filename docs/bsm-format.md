@@ -580,6 +580,23 @@ Rodriguez
 - `::players` — one player name per line. The runner deals **nine** to each team's lineup plus a pitcher, per airing. Give it plenty (20+) so lineups vary. If the pool is thin, a built-in default set backs it up.
 - Blank lines and `#` comments inside either block are ignored.
 
+**Baseball's dugouts (`::bullpens`, sim v5).** One club a line: the club, its manager, its pitching coach and its pen, split by `|`, the pen a comma list in its roles' order (the closer, the setup man, the middle men, and the long man last when there are four or more). It compiles to `sports_pools.bullpens`. A pen's names must not be in `::players`, or a man pitches for two clubs. Without the block, or for a club with no line, v5 plays as v4.
+
+```
+::bullpens
+Basin Blue Birds | Walt Henning | Ray Adebola | Castellano, Engstrom, Tamura, Quarles, Asante, Pacheco
+::endbullpens
+```
+
+The trips to the mound have pools of their own, said before the man coming up while the park shows the trip; they're never spent, so every trip has a line. Tokens: `{manager}` and `{skipper}` (his surname), `{coach}`, `{out}` (the man coming out) and `{outPc}` (his pitches), `{in}` (the man coming in), `{pitcher}`, `{fielding}`, `{svs}` ("12 saves"), `{warm}` (the man throwing in the pen).
+
+- `mound.visit.<why>` → `mound.visit`: the pitching coach goes out, `trouble` or `tension`.
+- `mound.change.<why>` → `mound.change`: the manager takes the ball, `tired`, `shelled`, `again` (his second trip to the man this inning), `late` (the tying run up) or `done`.
+- `mound.in.<role>` → `mound.in`: the man coming in, `closer` (`closer.saves` once he has any), `setup` or `long`.
+- `mound.inning.<role>` → `mound.inning`: a change between innings, said after the half's line.
+- `mound.warm`: somebody's throwing in the pen, once a man.
+- `tonight.pitcher.count` (his count past 85) and `story.pitcher.saves` (a closer with three or more) are booth topics like the rest.
+
 ## Line pools (`::lines <key>`)
 
 Same `::lines <key>` … `::endlines` collector as weather. Each non-empty line is one interchangeable alternative; the runner picks one at random per event and fills `{tokens}`. Re-declared keys merge. Dotted keys fall back to the base key (`hr.grand` → `hr`).
@@ -719,7 +736,7 @@ See [data/scripts/baseball.bsm](../data/scripts/baseball.bsm) for the full libra
 
 ### Hockey (`@sport hockey`)
 
-See [data/scripts/hockey.bsm](../data/scripts/hockey.bsm). The event language is different because the game is: the beat is a **scoring chance**, not an at-bat, and the pools are keyed to what the sim emits — `section.start`/`section.end` (periods), `shot.save|glove|pad|blocked|wide|post|breakaway`, `goal` + `goal.pp|sh|en`, `hattrick`, `penalty`/`penalty.major`, `powerplay.start`/`powerplay.kill`, `penalty.fight`/`fight.result`, `boards`, `scrum`, `injury`, `death`, `pull`, `ot.intro`, `shootout.*`, the three faceoff pools and the `intermission.*` set.
+See [data/scripts/hockey.bsm](../data/scripts/hockey.bsm). The event language is different because the game is: the beat is a **scoring chance**, not an at-bat, and the pools are keyed to what the sim emits — `section.start`/`section.end` (periods), `shot.save|glove|pad|blocked|wide|post|breakaway`, `goal` + `goal.pp|sh|en|delayed`, `hattrick`, `penalty`/`penalty.major`, the delayed penalty's `penalty.delayed`, `penalty.touch.goalie|block|clear` and `penalty.waived` (sim v9), `powerplay.start`/`powerplay.kill`, `penalty.fight`/`fight.result`, `boards`, `scrum`, `injury`, `death`, `pull`, `ot.intro`, `shootout.*`, the three faceoff pools and the `intermission.*` set.
 
 Three rules a hockey library must respect:
 

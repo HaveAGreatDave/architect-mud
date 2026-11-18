@@ -103,6 +103,7 @@ export function createPack({ host, silent, cmd, take, spray, onToggle = null, tu
         </div>
       </section>
       <section class="rp-packbox" aria-label="What you're carrying">
+        <div class="rp-outfits" hidden aria-label="Saved outfits"></div>
         <nav class="rp-tabs" role="tablist">${TABS.map(([k, l]) => `<button type="button" role="tab" data-tab="${k}">${l}</button>`).join('')}</nav>
         <div class="rp-grid" role="listbox" aria-label="Your things"></div>
         <div class="rp-floor" title="Drag something here to leave it on the floor">Drop here to leave it on the floor</div>
@@ -115,6 +116,7 @@ export function createPack({ host, silent, cmd, take, spray, onToggle = null, tu
   const dollEl = $('.rp-doll'), grid = $('.rp-grid'), selEl = $('.rp-sel'), sayEl = $('.rp-say'), floor = $('.rp-floor');
 
   let pack = null, tab = 'all', selected = null, ghost = null, open = false, waiting = false;
+  let wardrobeId = null;   // the wardrobe you opened it at: its saved outfits show above your things
   let stripped = [];   // what Undress took off, for Dress again (this session only)
   let sayTimer = 0;
 
@@ -199,12 +201,35 @@ export function createPack({ host, silent, cmd, take, spray, onToggle = null, tu
       <div class="rp-acts">${acts.join('')}</div>`;
   }
 
-  const paint = () => { paintHead(); paintDoll(); paintGrid(); paintSel(); };
+  // A wardrobe's saved outfits (plugins/wardrobe, the same ones its 2D panel saves). Wear Now orders in the pieces
+  // you don't have and dresses you in the lot: 'roompack outfit <wardrobe> <name>'.
+  const outEl = $('.rp-outfits');
+  function paintOutfits() {
+    const w = wardrobeId && pack?.wardrobe?.id === wardrobeId ? pack.wardrobe : null;
+    outEl.hidden = !w;
+    if (!w) return;
+    const cr = pack.credits || 0;
+    outEl.innerHTML = `<b class="rp-otitle">${esc(w.name)}: saved outfits</b>` + (w.outfits.length
+      ? `<div class="rp-olist">${w.outfits.map((o) => `<div class="rp-outfit">
+          <span class="rp-oname">${esc(o.name)}</span>
+          <span class="rp-opieces">${o.pieces.map((q) => `<i class="${q.have ? '' : 'buy'}" title="${q.have ? 'You have it' : `Ordered in for ₵${q.price}`}">${esc(q.name)}</i>`).join(', ')}</span>
+          <button type="button" class="rp-act main" data-outfit="${esc(o.name)}"${o.cost > cr ? ' title="You can&#39;t pay for all of it; it orders what you can"' : ''}>Wear now${o.buy ? ` (₵${o.cost})` : ''}</button>
+        </div>`).join('')}</div>`
+      : '<i class="rp-empty">No saved outfits here yet. Type outfits at the wardrobe to save one.</i>');
+  }
+  outEl.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-outfit]');
+    if (!b || !wardrobeId) return;
+    b.disabled = true;
+    silent(`roompack outfit ${wardrobeId} ${b.dataset.outfit}`);
+  });
+
+  const paint = () => { paintHead(); paintDoll(); paintOutfits(); paintGrid(); paintSel(); };
 
   function fetchPack() {
     if (waiting) return;
     waiting = true;
-    silent('roompack');
+    silent(wardrobeId ? `roompack wardrobe ${wardrobeId}` : 'roompack');
     setTimeout(() => { waiting = false; }, 4000);
   }
 
@@ -370,8 +395,10 @@ export function createPack({ host, silent, cmd, take, spray, onToggle = null, tu
     return k.length === 1 || k.startsWith('Arrow') || k === ' ';
   }
 
-  function openPack(withTab) {
+  function openPack(withTab, { wardrobe = null } = {}) {
     if (withTab) tab = withTab;
+    if (wardrobeId !== wardrobe) waiting = false;
+    wardrobeId = wardrobe;
     open = true; el.hidden = false;
     host.classList.add('rp-open');
     onToggle?.(true);
@@ -380,7 +407,7 @@ export function createPack({ host, silent, cmd, take, spray, onToggle = null, tu
   }
   function close() {
     if (!open) return;
-    open = false; el.hidden = true; ghost = null; spin = null;
+    open = false; el.hidden = true; ghost = null; spin = null; wardrobeId = null;
     host.classList.remove('rp-open');
     onToggle?.(false);
   }
@@ -388,6 +415,8 @@ export function createPack({ host, silent, cmd, take, spray, onToggle = null, tu
   return {
     open: openPack,
     close,
+    // at a wardrobe, its id (the room's doors stay open while it is)
+    wardrobe: () => (open ? wardrobeId : null),
     toggle(withTab) { if (open && (!withTab || withTab === tab)) close(); else openPack(withTab); },
     isOpen: () => open,
     // where you're drawn, on the page, for the room's camera to frame you in

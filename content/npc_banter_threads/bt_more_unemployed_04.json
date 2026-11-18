@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_unemployed_04",
+  "lines": [
+    "\"Do you think the Architect knows I haven't got a job?\"",
+    "\"It knows everything.\"",
+    "\"Then it could give me one.\"",
+    "\"Maybe it's seen your references.\""
+  ],
+  "personality": "unemployed",
+  "sort_order": 656
+}

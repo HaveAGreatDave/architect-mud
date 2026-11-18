@@ -561,8 +561,8 @@ forever even if the tile is renamed to "Ferric Wash"; the *name* is a field, the
 content filenames *are* the id, `content/zones/` currently reads as a coordinate atlas. Losing
 that is a real cost against "easy to manage". Three mitigations, all recommended together:
 
-1. **Coordinates become a first-class Studio search axis.** "Go to 920,911" and "what is at
-   920,911" are tool features, not grep invocations. This is strictly better than grep — it
+1. **Coordinates become a first-class Studio search axis.** "Go to 921,911" and "what is at
+   921,911" are tool features, not grep invocations. This is strictly better than grep — it
    works for interiors, which have coordinates but no coordinate ids.
 2. **A generated index** — `content/map/index.json`, written by the build, mapping
    `map_id:x,y,z → zone id` and back. Greppable, diffable, and it is derived so it never rots.

@@ -1,0 +1,207 @@
+@broadcast "Last Orders - Episode 1: The Tab"
+@channel ksab_tv
+@category comedy
+@length 180
+@type scripted
+
+::actors
+@actor npc_lo_dez
+@billing npc_lo_dez Dez Orme
+@actor npc_lo_moss
+@billing npc_lo_moss Moss
+@actor npc_lo_rook
+@billing npc_lo_rook Rook
+@actor npc_lo_ida
+@billing npc_lo_ida Ida
+::endactors
+
+::asset last_orders_logo
+ _      ___   ____ _____    ___  ____  ____  _____ ____  ____
+| |    / _ \ / ___|_   _|  / _ \|  _ \|  _ \| ____|  _ \/ ___|
+| |   | |_| |\___ \ | |   | | | | |_) | | | |  _| | |_) \___ \
+| |___|  _  | ___) || |   | |_| |  _ <| |_| | |___|  _ < ___) |
+|_____|_| |_||____/ |_|    \___/|_| \_\____/|_____|_| \_\____/
+
+                     Episode 1: "The Tab"
+::endasset
+
+::scene TITLE
+
+EVENT FADE_IN
+
+TITLE last_orders_logo
+
+3s
+
+::scene COLD OPEN
+
+CAM 1 WIDE
+
+NPC npc_lo_dez
+NPC npc_lo_moss
+NPC npc_lo_rook
+NPC npc_lo_ida
+
+ACTION npc_lo_dez polishes a glass.
+
+Moss:
+Usual, Dez.
+
+Dez Orme:
+Your usual is a tab, Moss.
+
+ACTION npc_lo_moss leans on the bar.
+
+Moss:
+And it's never let me down.
+
+EVENT LAUGHTER
+
+ACTION npc_lo_rook bangs on the jukebox.
+
+Rook:
+Dez, it's playing the same song again.
+
+Dez Orme:
+It only knows the one. Same as Moss.
+
+EVENT LAUGHTER
+
+::scene THE TAB
+
+CAM 4 MEDIUM on Moss
+
+ACTION npc_lo_dez reads the ledger.
+
+Dez Orme:
+Four hundred and twelve credits.
+
+Moss:
+Round it down.
+
+Dez Orme:
+To what?
+
+Moss:
+Nothing. It's a nice round number.
+
+EVENT LAUGHTER
+
+CAM 2 MEDIUM on Ida
+
+ACTION npc_lo_ida sips her gin.
+
+Ida:
+I'll pay it.
+
+Moss:
+Ida, you're an angel.
+
+Ida:
+If he sings.
+
+EVENT LAUGHTER
+
+CAM 1 WIDE
+
+ACTION npc_lo_moss looks at the jukebox.
+
+Moss:
+Sing what?
+
+Ida:
+Whatever that thing's playing. It's been the same song since nineteen days ago.
+
+Rook:
+Nobody knows the words, Ida.
+
+Ida:
+He's had four hundred and twelve credits to learn them.
+
+EVENT LAUGHTER
+
+::scene THE SONG
+
+CAM 3 MEDIUM on Rook
+
+ACTION npc_lo_rook bangs on the jukebox.
+
+Rook:
+It's starting again. Go on, Moss.
+
+ACTION npc_lo_moss dances.
+
+Moss:
+La la la. Something about a boat.
+
+ACTION npc_lo_ida laughs.
+
+Ida:
+That's not the words.
+
+Moss:
+It's the tune, though.
+
+EVENT LAUGHTER
+
+ACTION npc_lo_dez pulls a pint.
+
+Dez Orme:
+I'll take two hundred for the tune.
+
+ACTION npc_lo_dez slides the pint across the bar.
+
+Moss:
+And the other two hundred?
+
+Dez Orme:
+That's the words.
+
+EVENT LAUGHTER
+
+::scene TAG
+
+CAM 4 MEDIUM on Moss
+
+ACTION npc_lo_moss drinks his pint.
+
+Moss:
+Put this one on the tab, Dez.
+
+ACTION npc_lo_dez wipes down the bar.
+
+Dez Orme:
+Four hundred and fifteen.
+
+CAM 2 MEDIUM on Ida
+
+ACTION npc_lo_ida dozes off.
+
+Rook:
+Ida's asleep.
+
+Dez Orme:
+Last orders, then.
+
+Moss:
+It's eleven in the morning.
+
+CAM 1 WIDE
+
+ACTION npc_lo_dez looks into the camera.
+
+Dez Orme:
+Not for you, it isn't.
+
+EVENT APPLAUSE
+
+CREDITS 10
+LAST ORDERS
+
+Taped in front of a live studio audience
+at KSAB-TV, Coldwater
+END_CREDITS
+
+EVENT FADE_OUT
+
+END

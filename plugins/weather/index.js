@@ -42,17 +42,33 @@ function pick(rand, arr) {
 }
 
 // Turn a climate/season baseline into a concrete day's wind. The weather type sets
-// the ceiling (a foggy day can't be a gale); on top of that we roll the day's
-// "windiness": most days sit near the mean, but ~15% come out dead calm and ~15%
-// blow up into a gusty day. Deterministic — driven by the shared rand stream.
-function windForDay(baseWind, weatherType, rand) {
+// the ceiling (a foggy day can't be a gale); on top of that rides the day's
+// "windiness".
+//
+// ⚠ WINDINESS IS A SPELL, NOT A COIN. It was an independent roll per day, so a windy
+// day sat between two ordinary ones and the sea never had a blow to build on. Wind
+// comes with weather systems that take days to cross, so it's smooth noise over the
+// day index like the temperature: a ~4-day synoptic swing, a ~1.5-day wobble and a
+// little per-day jitter, mapped through exp so it's skewed the way wind is (gales
+// are rarer than calms are deep). About 15% of days come out at 1.4x or more and
+// they come in runs, about two days on average and sometimes four or five.
+// Still a pure function of the date, so a forecast day matches the day it becomes.
+const WIND_OCTAVES = [[4.0, 0.62], [1.5, 0.28]];   // [period in days, weight]
+function windNoise(t, salt) {
+  const anchor = (n) => mulberry32(seedFromString(`windnoise:${salt}:${n}`))() * 2 - 1;
+  const i = Math.floor(t), f = t - i, u = f * f * (3 - 2 * f);
+  return anchor(i) * (1 - u) + anchor(i + 1) * u;
+}
+export function windinessFor(dayIndex, jitter = 0) {
+  let n = 0.15 * jitter;
+  for (const [period, w] of WIND_OCTAVES) n += w * windNoise(dayIndex / period, period);
+  return Math.exp(0.95 * n - 0.02);   // -0.02 keeps the mean near the old roll's 1.07
+}
+function windForDay(baseWind, weatherType, rand, dayIndex) {
   const typeMult = WIND_BY_WEATHER[weatherType] ?? 1.0;
-  const r = rand();
-  let dayMult;
-  if (r < 0.15)      dayMult = 0.3 + rand() * 0.3;   // calm day
-  else if (r > 0.85) dayMult = 1.4 + rand() * 0.8;   // windy / gusty day
-  else               dayMult = 0.7 + rand() * 0.7;   // ordinary day
-  return Math.max(0, Math.round(baseWind * typeMult * dayMult));
+  // Two draws, as the old roll took, so the humidity rolled after this doesn't move.
+  const jitter = rand() * 2 - 1; rand();
+  return Math.max(0, Math.round(baseWind * typeMult * windinessFor(dayIndex, jitter)));
 }
 
 // Turn a climate/season baseline into a concrete day's relative humidity. The
@@ -147,7 +163,7 @@ function generateWeatherForDate(dateStr, climateProfile) {
 
   // Wind and humidity are rolled last so adding them never shifts the
   // temp/precip/type outcomes above for a given date+climate.
-  const windKph     = windForDay(baseWind, weatherType, rand);
+  const windKph     = windForDay(baseWind, weatherType, rand, dayIndexOf(dateStr));
   const humidityPct = humidityForDay(baseHumidity, weatherType, rand);
 
   return { weatherType, tempC, precipChance, windKph, humidityPct };

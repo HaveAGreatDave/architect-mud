@@ -2048,7 +2048,7 @@ async function onTalk({ player, npc, broadcast }) {
   if (isKeeper && npc.dialogue_tree?.root) {
     const rendered = await renderDialogueNode(npc, 'root', player, { broadcast, npc });
     if (rendered) {
-      return { type: 'dialogue', npcId: npc.id, npcName: npc.name, node: 'root', text: rendered.text, options: rendered.options, stage: rendered.stage, mood: rendered.mood };
+      return { type: 'dialogue', npcId: npc.id, npcName: npc.name, npcSex: npc.sex || null, node: 'root', text: rendered.text, options: rendered.options, stage: rendered.stage, mood: rendered.mood };
     }
   }
 

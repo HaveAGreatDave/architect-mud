@@ -4,7 +4,7 @@
   "color": "#7fd3ff",
   "description": "The shoreline drops off fast. A step out and the water is cold around your legs, and the channel ahead is deep and dark.",
   "exits": {
-    "east": "zone_district_914_899",
+    "east": "zone_seam_914_899",
     "north": "zone_district_913_898",
     "south": "zone_district_913_900",
     "west": "zone_district_912_899"

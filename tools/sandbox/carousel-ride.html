@@ -1,0 +1,14 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Carousel ride</title>
+<link rel="stylesheet" href="/client/game/styles.css">
+<style>body{background:#222;color:#ddd;font-family:monospace;padding:20px}</style></head>
+<body>
+<p>Stacked Deck carousel ride harness. window.__carouselAt(frac) freezes the frame.</p>
+<button id="down">garage park (down)</button> <button id="up">garage pull (up)</button>
+<script type="module">
+import { playCarouselRide } from '/client/game/js/panels/carousel-ride.js';
+const msg = (dir) => ({ type: 'carousel_ride', dir, ms: 11000, look: { cls: 'heli', armed: false, livery: undefined, variant: '' }, slot: 7, level: 4, roofLevel: 6, levels: [2, 3, 4, 5], slotsPerLevel: 3, occupied: [1, 2, 5, 8, 9], name: 'REGR-SD' });
+document.getElementById('down').onclick = () => playCarouselRide(msg('down'));
+document.getElementById('up').onclick = () => playCarouselRide(msg('up'));
+window.__play = (dir) => playCarouselRide(msg(dir));
+</script></body></html>

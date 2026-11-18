@@ -1,0 +1,24 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "exits": {
+    "east": "zone_district_914_919",
+    "north": "zone_seam_914_918",
+    "south": "zone_seam_914_920",
+    "west": "zone_district_913_919"
+  },
+  "flags": {
+    "district": "wasteland",
+    "region_id": "region_coldwater",
+    "terrain": "grass"
+  },
+  "grid_x": 914,
+  "grid_y": 919,
+  "grid_z": 0,
+  "id": "zone_seam_914_919",
+  "map_id": "map_world",
+  "name": "Grasslands",
+  "parent_zone": null
+}

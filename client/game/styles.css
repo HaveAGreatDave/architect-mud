@@ -12654,6 +12654,42 @@ html[data-density="compact"] .corner-grip, html.tv-popped .corner-grip { display
 .gdr-pp-time { color: #fff; font-weight: 700; }
 .gdr-pp.even { background: rgba(120, 200, 240, 0.12); border-color: rgba(120, 200, 240, 0.45); border-left-color: rgba(120, 200, 240, 0.8); }
 .gdr-pp.even i { color: #9fe4ff; }
+.gdr-pp em { font-style: normal; font-weight: 700; color: #fff; }
+/* the score and the clock never give way to the chips; the chips clip first, the delayed one before the rest */
+.gdr-head-badge, .gdr-head-score, .gdr-head-clock { flex-shrink: 0; }
+.gdr-head .gdr-pp, .gdr-head .gdr-sh { flex: 0 1 auto; min-width: 0; overflow: hidden; }
+.gdr-head .gdr-delayed { flex: 0 100 auto; min-width: 0; overflow: hidden; }
+/* the other side, short a man: named as plainly as the power play */
+.gdr-sh {
+	flex: 0 0 auto; display: inline-flex; align-items: center; gap: 4px; padding: 1px 6px 1px 5px; border-radius: 2px;
+	background: rgba(255, 90, 80, 0.12); border: 1px solid rgba(255, 110, 100, 0.5); color: #ffc2bc; letter-spacing: 1px;
+}
+.gdr-sh b { color: #fff; font-weight: 900; }
+.gdr-sh i { font-style: normal; font-weight: 900; }
+/* a delayed penalty (sim v9): the referee's arm is up on this club and play goes on */
+.gdr-delayed {
+	flex: 0 0 auto; display: inline-flex; align-items: center; gap: 4px; padding: 1px 6px 1px 5px; border-radius: 2px;
+	background: rgba(255, 220, 80, 0.22); border: 1px solid rgba(255, 220, 80, 0.75); color: #fff1b0; letter-spacing: 1px;
+	animation: tv-sb-arm 1s ease-in-out infinite;
+}
+.gdr-delayed b { color: #fff; font-weight: 900; }
+.gdr-delayed i { font-style: normal; font-weight: 900; }
+/* the penalty box on the picture: each man, what for, and his time counting down */
+.gdr-boxp {
+	position: absolute; right: 2%; top: 13%; z-index: 6; pointer-events: none;
+	min-width: 9.5rem; padding: 0.2rem 0.45rem 0.3rem; border-radius: 2px;
+	background: rgba(8, 10, 14, 0.86); border-top: 0.2rem solid #ffc43c; color: #f4efe2;
+	font-family: "Saira Condensed", "Arial Narrow", "Roboto Condensed", sans-serif; font-size: 0.8rem;
+}
+.gdr-boxp-h { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.16em; color: #ffc43c; margin-bottom: 0.1rem; }
+.gdr-boxp-row { display: flex; align-items: center; gap: 0.35rem; white-space: nowrap; line-height: 1.35; }
+.gdr-boxp-row svg { flex: 0 0 auto; width: 0.9rem; height: 0.9rem; }
+.gdr-boxp-row .nm { font-weight: 800; letter-spacing: 0.04em; }
+.gdr-boxp-row .inf { flex: 1; font-size: 0.7rem; text-transform: uppercase; color: rgba(244, 239, 226, 0.6); overflow: hidden; text-overflow: ellipsis; }
+.gdr-boxp-row .t { font-weight: 800; color: #fff; font-variant-numeric: tabular-nums; }
+.gdr-l3-row .lbl.pen { color: #ffd23f; }
+.gdr-l3-row .lbl.hurt { color: #ff6b6b; }
+[data-motion="off"] .gdr-delayed { animation: none; }
 
 /* ── the ice ───────────────────────────────────────────────────────────────────
    One canvas, drawn by client/game/js/panels/rink/render.js through a broadcast
@@ -12733,9 +12769,12 @@ html[data-density="compact"] .corner-grip, html.tv-popped .corner-grip { display
 .gds-park:hover .view-fs, .gdr-rink:hover .view-fs, #tv-gameday:hover > .view-fs, #tv-gameday:hover > div > .view-fs, .view-fs:focus-visible { opacity: 1; }
 .view-fs:hover, .view-fs:focus-visible { border-color: rgba(159,228,255,0.8); color: #dff4ff; }
 @media (hover: none) { .view-fs { opacity: 0.8; } }
-/* The view's host while it's full screen. The TV's is a 'display: contents' wrapper (inline), which
-   draws nothing full screen, so it's given a box for the view's absolute layout to fill. */
+/* The view's host while it's full screen. A 'display: contents' wrapper (inline) draws nothing full
+   screen, so it's given a box for the view's absolute layout to fill. */
 .view-fs-host:fullscreen { display: block !important; position: relative; width: 100%; height: 100%; background: #000; }
+/* On a TV the whole set goes full screen (view-fullscreen.js), header and buttons with the picture.
+   The browser makes it fill the screen; it drops the cabinet's frame, which has no edge to sit on. */
+#tv-window:fullscreen { border: 0; outline: 0; border-radius: 0; box-shadow: none; aspect-ratio: auto; }
 /* Deadball's pitch camera (gameday-grandstand.js addCamButton): behind the batter or behind the
    pitcher, beside the fullscreen button and as faint till the picture's hovered */
 .gds-cam {
@@ -12928,7 +12967,7 @@ html[data-density="compact"] .corner-grip, html.tv-popped .corner-grip { display
 /* ── Weather graphics (the weather show's cards) ───────────────────────────────
    Today, radar, week, warning. They take the top of the screen and leave the
    bottom third to the presenter's line, as a weather set does. */
-.fx-wx > div { position: absolute; left: 4cqw; right: 4cqw; top: 3cqh; bottom: 30cqh; display: flex; flex-direction: column; animation: tv-wx-in 0.4s cubic-bezier(.16, .9, .3, 1) both; }
+.fx-wx > div { position: absolute; left: 45cqw; right: 2.5cqw; top: 3cqh; bottom: 3cqh; display: flex; flex-direction: column; animation: tv-wx-in 0.4s cubic-bezier(.16, .9, .3, 1) both; }
 @keyframes tv-wx-in { from { opacity: 0; transform: translateY(-6%); } to { opacity: 1; transform: none; } }
 .tv-wx-head { font: 700 clamp(10px, 3.4cqh, 18px)/1 var(--font-display, sans-serif); letter-spacing: 0.18em; text-transform: uppercase; color: #9fd7ff; background: linear-gradient(90deg, #0f4c81, #0b2740 80%, transparent); padding: 0.45em 0.8em; align-self: flex-start; }
 .tv-wx-icon { font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif; }
@@ -12954,6 +12993,19 @@ html[data-density="compact"] .corner-grip, html.tv-popped .corner-grip { display
 .tv-wx-di { font-size: clamp(16px, 9cqh, 52px); line-height: 1; font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif; }
 .tv-wx-dt { font: 800 clamp(12px, 5.5cqh, 30px)/1 var(--font-display, sans-serif); color: #fff; }
 .tv-wx-dp { font: 600 clamp(8px, 2.4cqh, 13px)/1 sans-serif; color: #6fc3ff; }
+/* in the right-hand panel the week reads down, a day a row, so each day is big enough to read */
+.fx-wx-week .tv-wx-days { flex-direction: column; gap: 0.5cqh; padding: 1cqh 1cqw; }
+.fx-wx-week .tv-wx-day { flex-direction: row; justify-content: flex-start; gap: 2cqw; padding: 0 2cqw; }
+.fx-wx-week .tv-wx-day.hl { transform: scale(1.03); }
+.fx-wx-week .tv-wx-dl { width: 6.5em; font-size: clamp(9px, 4cqh, 22px); }
+.fx-wx-week .tv-wx-di { font-size: clamp(14px, 7.5cqh, 44px); }
+.fx-wx-week .tv-wx-dt { width: 2.6em; font-size: clamp(12px, 6.5cqh, 36px); }
+.fx-wx-week .tv-wx-dp { width: 3.2em; font-size: clamp(8px, 3.4cqh, 18px); }
+.fx-wx-week .tv-wx-dw { flex: 1; text-align: left; font-size: clamp(8px, 3.2cqh, 17px); }
+/* the 3-D set slid left while a weather card holds the right of the screen */
+.tv-stage-split > canvas { transform: translateX(-24%); transition: transform 0.45s cubic-bezier(.16, .9, .3, 1); }
+.tv-stage > canvas { transition: transform 0.45s cubic-bezier(.16, .9, .3, 1); }
+.tv-stage-split > .tv-stage-caption { right: 57% !important; }
 .tv-wx-dw { font: 600 clamp(7px, 2cqh, 11px)/1.1 sans-serif; text-transform: uppercase; color: #b9c9d6; text-align: center; padding: 0 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 
 .tv-wx-warn { background: #1a0606; border: 2px solid #ff4136; box-shadow: 0 0 30px rgba(255, 65, 54, 0.4); overflow: hidden; }
@@ -12987,7 +13039,7 @@ html[data-density="compact"] .corner-grip, html.tv-popped .corner-grip { display
 .tv-wx-radar-key .acid { color: #a4ff00; }
 .tv-wx-radar.ev-ion_storm .tv-wx-radar-frame { animation: tv-wx-ion 2.6s steps(1) infinite; }
 @keyframes tv-wx-ion { 0%, 100% { filter: none; } 47% { filter: hue-rotate(200deg) brightness(1.6); } 49% { filter: none; } 83% { filter: hue-rotate(200deg) brightness(1.3); } 84% { filter: none; } }
-.fx-wx-txt > pre.tv-wx-text { position: absolute; left: 2cqw; right: 2cqw; top: 2cqh; bottom: 30cqh; margin: 0; overflow: hidden; font: clamp(7px, 2.6cqh, 13px)/1.15 monospace; color: #9fe8b4; background: rgba(0, 0, 0, 0.85); padding: 0.6em; white-space: pre; }
+.fx-wx-txt > pre.tv-wx-text { position: absolute; left: 45cqw; right: 2cqw; top: 2cqh; bottom: 3cqh; margin: 0; overflow: hidden; font: clamp(7px, 2.6cqh, 13px)/1.15 monospace; color: #9fe8b4; background: rgba(0, 0, 0, 0.85); padding: 0.6em; white-space: pre; }
 
 /* Home run: a ball arcs from the plate into the stands, then the call slams in. */
 .tv-fx-hr { position: absolute; inset: 0; }
@@ -13384,6 +13436,39 @@ html[data-density="compact"] .corner-grip, html.tv-popped .corner-grip { display
 .tv-fx-death-name { font-family: var(--font-mono); font-weight: 900; font-size: clamp(22px, 6vw, 44px); color: #fff; letter-spacing: 2px; }
 .tv-fx-death-sub { font-family: var(--font-mono); font-size: 0.6875rem; letter-spacing: 4px; text-transform: uppercase; color: rgba(200, 216, 230, 0.5); }
 
+/* A penalty: the call, the man, his time in the box, and who has the power play. Yellow for the
+   referee's arm; a delayed call (play still on) is the lighter strip across the bottom, not the
+   whole screen, so the play stays in view. */
+.tv-fx-pen, .tv-fx-inj {
+	position: absolute; inset: 0; display: flex; flex-direction: column;
+	align-items: center; justify-content: center; gap: 6px;
+	background: radial-gradient(ellipse at center, rgba(40, 32, 0, 0.5), rgba(0, 0, 0, 0.86));
+	font-family: var(--font-mono); opacity: 0; animation: tv-fx-hold 4.2s ease-out forwards;
+}
+.tv-fx-pen.delayed {
+	inset: auto 0 0 0; padding: 8px 12px; flex-direction: row; flex-wrap: wrap; gap: 4px 12px;
+	background: linear-gradient(180deg, rgba(40, 32, 0, 0.85), rgba(0, 0, 0, 0.92)); border-top: 2px solid #ffd23f;
+	animation-duration: 3s;
+}
+.tv-fx-pen.delayed .tv-fx-brand svg { width: 28px; height: 28px; }
+.tv-fx-pen-title, .tv-fx-inj-title {
+	font-weight: 900; font-size: clamp(20px, 5.6vw, 40px); letter-spacing: 5px; color: #ffd23f;
+	animation: tv-dp-pop 0.45s cubic-bezier(.2, 1.5, .3, 1) 0.1s both;
+}
+.tv-fx-pen.delayed .tv-fx-pen-title { font-size: clamp(13px, 3vw, 20px); letter-spacing: 3px; }
+.tv-fx-pen.waived .tv-fx-pen-title { color: #9fe4ff; }
+.tv-fx-pen-who { display: flex; align-items: baseline; flex-wrap: wrap; justify-content: center; gap: 4px 12px; }
+.tv-fx-pen-who .nm { font-weight: 900; font-size: clamp(16px, 4vw, 28px); color: #fff; }
+.tv-fx-pen.delayed .tv-fx-pen-who .nm { font-size: clamp(12px, 2.6vw, 16px); }
+.tv-fx-pen-who .inf { font-size: 0.8125rem; letter-spacing: 2px; text-transform: uppercase; color: rgba(255, 240, 200, 0.8); }
+.tv-fx-pen-who .min { font-weight: 900; font-size: clamp(14px, 3.4vw, 24px); color: #1a1200; background: #ffd23f; padding: 0 6px; border-radius: 2px; font-variant-numeric: tabular-nums; }
+.tv-fx-pen-sub, .tv-fx-inj-sub { font-size: 0.6875rem; letter-spacing: 3px; text-transform: uppercase; color: rgba(240, 230, 200, 0.75); text-align: center; }
+.tv-fx-inj { background: radial-gradient(ellipse at center, rgba(40, 0, 0, 0.5), rgba(0, 0, 0, 0.88)); animation-duration: 4.4s; }
+.tv-fx-inj-title { color: #ff6b6b; }
+.tv-fx-inj-name { font-weight: 900; font-size: clamp(18px, 4.6vw, 32px); color: #fff; }
+.tv-fx-inj-wound { font-size: 0.875rem; letter-spacing: 1px; color: #ffb0a8; }
+[data-motion="off"] .tv-sb-strength.delayed { animation: none; }
+
 /* The Cup pre-game reuses the Curtain Call card's geometry, cold instead of gold. */
 .tv-fx-cup { background: radial-gradient(ellipse at center, rgba(0, 20, 40, 0.55), rgba(0, 0, 0, 0.85)); }
 .tv-fx-cup .tv-fx-ws-banner { color: #cfe9ff; text-shadow: 0 0 22px #4fd2ff, 0 3px 0 rgba(0, 0, 0, 0.5); }
@@ -13470,6 +13555,27 @@ html[data-density="compact"] .corner-grip, html.tv-popped .corner-grip { display
 .tv-sb-strength.sh { background: rgba(255, 190, 60, 0.16); color: #ffd27a; border-color: rgba(255, 190, 60, 0.45); }
 .tv-sb-strength.pp { background: rgba(255, 196, 60, 0.2); color: #ffe2a0; border-color: rgba(255, 196, 60, 0.6); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .tv-sb-strength.en { background: rgba(255, 60, 70, 0.18); color: #ff9aa2; border-color: rgba(255, 60, 70, 0.5); }
+/* a delayed penalty: the arm is up on that club and play goes on */
+.tv-sb-strength.delayed { background: rgba(255, 220, 80, 0.22); color: #fff1b0; border-color: rgba(255, 220, 80, 0.7); white-space: nowrap; animation: tv-sb-arm 1s ease-in-out infinite; }
+@keyframes tv-sb-arm { 50% { opacity: 0.55; } }
+/* each club's own row says whether it has the extra man or is short */
+.tv-sb-man {
+	font-family: var(--font-mono); font-size: 0.5625rem; font-weight: 900; letter-spacing: 1px; line-height: 1.4;
+	padding: 0 4px; border-radius: 2px; margin-left: -6px;
+}
+.tv-sb-man.pp { background: #ffc43c; color: #1a1200; }
+.tv-sb-man.sh { background: rgba(255, 255, 255, 0.12); color: #ffb0a8; border: 1px solid rgba(255, 120, 110, 0.55); }
+/* who is in the box, under the bug, with the time each has left */
+#tv-scorebug:has(.tv-sb-box), [data-tv="scorebug"]:has(.tv-sb-box) { flex-wrap: wrap; }
+.tv-sb-box {
+	flex: 1 0 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 9px;
+	padding: 2px 9px 3px; border-top: 1px solid rgba(255, 255, 255, 0.1); background: rgba(255, 196, 60, 0.07);
+	font-family: var(--font-mono); font-size: 0.625rem; letter-spacing: 0.5px; color: rgba(235, 240, 245, 0.85);
+}
+.tv-sb-box i { font-style: normal; font-weight: 900; letter-spacing: 2px; color: #ffc43c; }
+.tv-sb-box span { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
+.tv-sb-box b { color: #fff; font-variant-numeric: tabular-nums; }
+.tv-sb-box .tv-sb-crest { margin: 0; }
 
 /* Lower-third nameplate */
 .tv-overlay-text-card {
@@ -16478,7 +16584,7 @@ input.trade-qty { width: 56px; }
 	position: fixed;
 	inset: 0;
 	background: transparent;
-	z-index: 150;
+	z-index: 8950;   /* over the Room Stage (8900), where a wardrobe is opened with F */
 	align-items: center;
 	justify-content: center;
 }
@@ -16486,9 +16592,9 @@ input.trade-qty { width: 56px; }
 #wardrobe-box {
 	position: relative;
 	background:
-		linear-gradient(180deg, rgba(60, 40, 24, 0.22), rgba(0, 0, 0, 0) 60%),
+		linear-gradient(180deg, rgba(10, 40, 60, 0.22), rgba(0, 0, 0, 0) 60%),
 		var(--bg2);
-	border: 1px solid #b98b4a;
+	border: 1px solid #2fa8c4;
 	box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6) inset, 0 18px 50px rgba(0, 0, 0, 0.55);
 	padding: 20px;
 	width: 96%;
@@ -16505,7 +16611,7 @@ input.trade-qty { width: 56px; }
 	content: '';
 	position: absolute;
 	inset: 6px;
-	border: 1px solid rgba(185, 139, 74, 0.22);
+	border: 1px solid rgba(47, 168, 196, 0.22);
 	border-radius: 2px;
 	pointer-events: none;
 }
@@ -16516,15 +16622,15 @@ input.trade-qty { width: 56px; }
 }
 #wardrobe-header {
 	padding-bottom: 8px;
-	border-bottom: 1px solid rgba(185, 139, 74, 0.22);
+	border-bottom: 1px solid rgba(47, 168, 196, 0.22);
 }
 #wardrobe-header h2 {
-	color: #e0b978;
+	color: #5ee6ff;
 	font-size: 0.875rem;
 	letter-spacing: 3px;
 	text-transform: uppercase;
 	margin: 0;
-	text-shadow: 0 0 12px rgba(224, 185, 120, 0.28);
+	text-shadow: 0 0 12px rgba(94, 230, 255, 0.28);
 }
 #wardrobe-close {
 	background: transparent;
@@ -16535,7 +16641,7 @@ input.trade-qty { width: 56px; }
 	cursor: pointer;
 	border-radius: 2px;
 }
-#wardrobe-close:hover { border-color: #e0b978; color: #e0b978; }
+#wardrobe-close:hover { border-color: #5ee6ff; color: #5ee6ff; }
 /* The status line — now a pill rather than loose text, because it is answering a
    gesture you just made ("Combat plate → Plate, replacing work shirt") and needs
    to look like a reply. It reserves its own height whether or not it has content,
@@ -16550,10 +16656,10 @@ input.trade-qty { width: 56px; }
 	font-size: 0.6875rem;
 	letter-spacing: 0.3px;
 	text-align: center;
-	color: #e8c88e;
-	border: 1px solid rgba(185, 139, 74, 0.34);
+	color: #a6f3ff;
+	border: 1px solid rgba(47, 168, 196, 0.34);
 	border-radius: 10px;
-	background: rgba(185, 139, 74, 0.1);
+	background: rgba(47, 168, 196, 0.1);
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -16577,7 +16683,7 @@ input.trade-qty { width: 56px; }
 /* Two columns: the figure, and the rails it draws from. The doll column carries
    only a RIGHT edge — it's the leftmost column, so a left border would draw a
    line down the inside of the cabinet wall with nothing on the far side of it. */
-#wardrobe-doll-col { flex: 1.25; border-right: 1px solid rgba(185, 139, 74, 0.2); padding-right: 14px; }
+#wardrobe-doll-col { flex: 1.25; border-right: 1px solid rgba(47, 168, 196, 0.2); padding-right: 14px; }
 #wardrobe-stock-col { flex: 1; }
 #wardrobe-outfit-list,
 #wardrobe-hanging-list,
@@ -16598,11 +16704,11 @@ input.trade-qty { width: 56px; }
 #wardrobe-box *::-webkit-scrollbar { width: 6px; }
 #wardrobe-box *::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.25); }
 #wardrobe-box *::-webkit-scrollbar-thumb {
-	background: rgba(185, 139, 74, 0.42);
+	background: rgba(47, 168, 196, 0.42);
 	border-radius: 3px;
 }
-#wardrobe-box *::-webkit-scrollbar-thumb:hover { background: rgba(224, 185, 120, 0.66); }
-#wardrobe-box * { scrollbar-width: thin; scrollbar-color: rgba(185, 139, 74, 0.42) rgba(0, 0, 0, 0.25); }
+#wardrobe-box *::-webkit-scrollbar-thumb:hover { background: rgba(94, 230, 255, 0.66); }
+#wardrobe-box * { scrollbar-width: thin; scrollbar-color: rgba(47, 168, 196, 0.42) rgba(0, 0, 0, 0.25); }
 .wdr-empty {
 	font-size: 0.6875rem;
 	color: var(--text-dim);
@@ -16618,16 +16724,16 @@ input.trade-qty { width: 56px; }
    a struck-through chip somewhere inside it. */
 .wdr-outfit {
 	border: 1px solid var(--border);
-	border-left: 2px solid #b98b4a;
+	border-left: 2px solid #2fa8c4;
 	border-radius: 3px;
 	padding: 6px 8px;
 	cursor: pointer;
-	background: linear-gradient(180deg, rgba(185, 139, 74, 0.07), rgba(0, 0, 0, 0.22));
+	background: linear-gradient(180deg, rgba(47, 168, 196, 0.07), rgba(0, 0, 0, 0.22));
 	transition: border-color .15s, background .15s, transform .12s;
 }
 .wdr-outfit:hover {
-	border-color: #e0b978;
-	background: linear-gradient(180deg, rgba(185, 139, 74, 0.16), rgba(0, 0, 0, 0.2));
+	border-color: #5ee6ff;
+	background: linear-gradient(180deg, rgba(47, 168, 196, 0.16), rgba(0, 0, 0, 0.2));
 	transform: translateX(1px);
 }
 .wdr-outfit:active { transform: translateX(1px) translateY(1px); }
@@ -16639,7 +16745,7 @@ input.trade-qty { width: 56px; }
 	gap: 6px;
 }
 .wdr-outfit-name {
-	color: #e0b978;
+	color: #5ee6ff;
 	font-size: 0.75rem;
 	letter-spacing: 1px;
 	text-transform: uppercase;
@@ -16703,9 +16809,9 @@ input.trade-qty { width: 56px; }
 .wdr-figure {
 	position: absolute;
 	inset: 0;
-	background: linear-gradient(180deg, #e8c88e 0%, #b98b4a 55%, #7d5a2c 100%);
+	background: linear-gradient(180deg, #a6f3ff 0%, #2fa8c4 55%, #145a6e 100%);
 	opacity: 0.8;
-	filter: drop-shadow(0 0 8px rgba(224, 185, 120, 0.34));
+	filter: drop-shadow(0 0 8px rgba(94, 230, 255, 0.34));
 	pointer-events: none;
 	-webkit-mask: url('/assets/femsil-mask.png') center / contain no-repeat;
 	mask: url('/assets/femsil-mask.png') center / contain no-repeat;
@@ -16723,7 +16829,7 @@ input.trade-qty { width: 56px; }
 	width: 78%; height: 12%;
 	transform: translateX(-50%);
 	border-radius: 50%;
-	background: radial-gradient(ellipse at center, rgba(224, 185, 120, 0.22), rgba(224, 185, 120, 0) 70%);
+	background: radial-gradient(ellipse at center, rgba(94, 230, 255, 0.22), rgba(94, 230, 255, 0) 70%);
 	pointer-events: none;
 }
 
@@ -16740,8 +16846,8 @@ input.trade-qty { width: 56px; }
 	display: flex; flex-direction: column; gap: 0;
 	padding: 3px 6px; min-width: 76px; max-width: 44%;
 	border-radius: 5px; user-select: none; touch-action: none;
-	background: rgba(10, 8, 6, .88);
-	border: 1px solid rgba(185, 139, 74, .34);
+	background: rgba(4, 12, 18, .88);
+	border: 1px solid rgba(47, 168, 196, .34);
 	box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 2px 6px rgba(0,0,0,.35);
 	backdrop-filter: blur(1px);
 	transition: border-color .15s, box-shadow .15s;
@@ -16750,11 +16856,11 @@ input.trade-qty { width: 56px; }
 .wdr-pad-label { font-size: 0.5rem; letter-spacing: 1px; text-transform: uppercase; color: var(--text-dim); }
 .wdr-pad-item { font-size: 0.625rem; line-height: 1.2; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wdr-pad-sub { font-size: 0.5rem; letter-spacing: .5px; text-transform: uppercase;
-	color: rgba(224,185,120,.62); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.wdr-pad.filled { border-color: rgba(224,185,120,.6);
-	box-shadow: 0 0 10px rgba(224,185,120,.22), inset 0 1px 0 rgba(255,255,255,.05), 0 2px 6px rgba(0,0,0,.35); }
+	color: rgba(94, 230, 255,.62); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wdr-pad.filled { border-color: rgba(94, 230, 255,.6);
+	box-shadow: 0 0 10px rgba(94, 230, 255,.22), inset 0 1px 0 rgba(255,255,255,.05), 0 2px 6px rgba(0,0,0,.35); }
 .wdr-pad.filled .wdr-pad-item { color: var(--text); }
-.wdr-pad.filled .wdr-pad-label { color: #e0b978; }
+.wdr-pad.filled .wdr-pad-label { color: #5ee6ff; }
 /* The accessory pad lists every accessory, one row each, and each row is its own
    remove target. Safe to grow where a body pad isn't: it's anchored off the side
    of the figure (right: -56px), so extra rows expand into empty space rather
@@ -16796,17 +16902,17 @@ input.trade-qty { width: 56px; }
 	text-transform: uppercase;
 	color: var(--text-dim);
 	background: rgba(0, 0, 0, 0.3);
-	border: 1px solid rgba(185, 139, 74, 0.28);
+	border: 1px solid rgba(47, 168, 196, 0.28);
 	border-radius: 3px;
 	cursor: pointer;
 	transition: color .15s, border-color .15s, background .15s;
 }
-.wdr-layer-btn:hover { color: #e8c88e; border-color: rgba(224, 185, 120, 0.5); }
+.wdr-layer-btn:hover { color: #a6f3ff; border-color: rgba(94, 230, 255, 0.5); }
 .wdr-layer-btn.active {
 	color: #0a0a0a;
-	background: #e0b978;
-	border-color: #e0b978;
-	box-shadow: 0 0 10px rgba(224, 185, 120, 0.3);
+	background: #5ee6ff;
+	border-color: #5ee6ff;
+	box-shadow: 0 0 10px rgba(94, 230, 255, 0.3);
 }
 /* How many pieces sit on a layer you're NOT looking at — the one thing a
    single-layer doll can't show you, and the reason you'd click the button. */
@@ -16833,15 +16939,15 @@ input.trade-qty { width: 56px; }
 .wdr-pad-hands     { left: 0;  top: 50%; transform: translateY(-50%); text-align: left; }
 .wdr-pad-accessory { right: -56px; top: 16%; transform: translateY(-50%); text-align: right; }
 
-.wdr-pad-eligible { border-color: #e0b978 !important;
-	box-shadow: 0 0 12px rgba(224,185,120,.55) !important; }
+.wdr-pad-eligible { border-color: #5ee6ff !important;
+	box-shadow: 0 0 12px rgba(94, 230, 255,.55) !important; }
 .wdr-pad.ctr-drag-over { border-color: var(--green) !important;
 	box-shadow: 0 0 12px rgba(0,255,136,.5) !important; }
 /* The armed garment — picked up, waiting on a pad. */
 .wdr-garment.wdr-armed {
-	border-color: #e0b978;
-	background: rgba(185, 139, 74, 0.14);
-	box-shadow: 0 0 0 1px rgba(185, 139, 74, 0.35);
+	border-color: #5ee6ff;
+	background: rgba(47, 168, 196, 0.14);
+	box-shadow: 0 0 0 1px rgba(47, 168, 196, 0.35);
 }
 
 /* Narration pill — shown when a book is being read aloud with the tablet closed.
@@ -16905,14 +17011,14 @@ input.trade-qty { width: 56px; }
    wardrobe's memory of a look, this one puts it on. Filled brass rather than an
    outline, so it doesn't read as one option among five equal buttons. */
 .wdr-wear-now {
-	border-color: #e0b978;
-	background: linear-gradient(180deg, #e8c88e, #b98b4a);
+	border-color: #5ee6ff;
+	background: linear-gradient(180deg, #a6f3ff, #2fa8c4);
 	color: #0a0a0a;
 	font-weight: 600;
 }
 .wdr-wear-now:hover:not(:disabled) {
-	background: linear-gradient(180deg, #f0d49c, #c89858);
-	box-shadow: 0 0 10px rgba(224, 185, 120, 0.4);
+	background: linear-gradient(180deg, #c4f7ff, #3fc0dc);
+	box-shadow: 0 0 10px rgba(94, 230, 255, 0.4);
 }
 .wdr-wear-now:disabled {
 	background: rgba(0, 0, 0, 0.25);
@@ -16941,17 +17047,17 @@ input.trade-qty { width: 56px; }
 #wardrobe-outfit-name::placeholder { color: var(--text-dim); opacity: 0.6; font-style: italic; }
 #wardrobe-outfit-name:focus {
 	outline: none;
-	border-color: #e0b978;
-	background: rgba(185, 139, 74, 0.1);
-	box-shadow: 0 0 0 1px rgba(224, 185, 120, 0.22);
+	border-color: #5ee6ff;
+	background: rgba(47, 168, 196, 0.1);
+	box-shadow: 0 0 0 1px rgba(94, 230, 255, 0.22);
 }
 
 /* --- Stock lists --- */
 .wdr-garment {
-	border-left: 2px solid rgba(185, 139, 74, 0.55);
+	border-left: 2px solid rgba(47, 168, 196, 0.55);
 	transition: border-color .15s, background .15s;
 }
-.wdr-garment:hover { border-color: #e0b978; background: rgba(185, 139, 74, 0.09); }
+.wdr-garment:hover { border-color: #5ee6ff; background: rgba(47, 168, 196, 0.09); }
 /* The drag ghost is .ctr-item-card.dragging, shared with the container panel. */
 .wdr-slot-tag {
 	font-size: 0.5625rem;
@@ -16970,7 +17076,7 @@ input.trade-qty { width: 56px; }
 		linear-gradient(180deg, rgba(0, 0, 0, 0.34), rgba(0, 0, 0, 0.14)),
 		repeating-linear-gradient(90deg, rgba(120, 84, 40, 0.05) 0 6px, transparent 6px 13px);
 	border-radius: 4px;
-	box-shadow: inset 0 2px 14px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(185, 139, 74, 0.14);
+	box-shadow: inset 0 2px 14px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(47, 168, 196, 0.14);
 	padding: 6px 8px 8px;
 }
 .wdr-rail-head {
@@ -16999,8 +17105,8 @@ input.trade-qty { width: 56px; }
 	top: 2px;
 	height: 2px;
 	border-radius: 2px;
-	background: linear-gradient(90deg, rgba(185, 139, 74, 0.15), rgba(232, 200, 142, 0.75), rgba(185, 139, 74, 0.15));
-	box-shadow: 0 1px 5px rgba(224, 185, 120, 0.28);
+	background: linear-gradient(90deg, rgba(47, 168, 196, 0.15), rgba(166, 243, 255, 0.75), rgba(47, 168, 196, 0.15));
+	box-shadow: 0 1px 5px rgba(94, 230, 255, 0.28);
 }
 /* Each garment gets a hook onto that rail — a two-pixel detail doing the entire
    job of explaining why the list is a rail and not another inventory box. */
@@ -17012,7 +17118,7 @@ input.trade-qty { width: 56px; }
 	top: -7px;
 	width: 7px;
 	height: 7px;
-	border: 1.5px solid rgba(200, 158, 96, 0.8);
+	border: 1.5px solid rgba(63, 192, 220, 0.8);
 	border-bottom: none;
 	border-radius: 4px 4px 0 0;
 	pointer-events: none;
@@ -17023,8 +17129,8 @@ input.trade-qty { width: 56px; }
    this over there" was a rule the interface knew and never told anyone. Dashed,
    not solid: it is an invitation, not a boundary. */
 .wdr-rail-eligible {
-	border: 1px dashed rgba(224, 185, 120, 0.5) !important;
-	background: rgba(185, 139, 74, 0.06);
+	border: 1px dashed rgba(94, 230, 255, 0.5) !important;
+	background: rgba(47, 168, 196, 0.06);
 }
 .wdr-rail.ctr-drag-over {
 	border: 1px dashed var(--green) !important;
@@ -17069,7 +17175,7 @@ input.trade-qty { width: 56px; }
 		order: 1;
 		border-left: none;
 		border-right: none;
-		border-bottom: 1px solid rgba(185, 139, 74, 0.2);
+		border-bottom: 1px solid rgba(47, 168, 196, 0.2);
 		padding: 0 0 10px;
 	}
 	#wardrobe-stock-col { order: 2; }
@@ -17091,6 +17197,54 @@ input.trade-qty { width: 56px; }
 	#wardrobe-outfit-name { padding: 8px 6px; }
 }
 
+
+/* Futuristic skin: a smart closet, not a pine one. Clipped corners, a faint
+   grid behind everything, a scan line drifting down the figure, and the doll
+   drawn as a hologram. Colour lives in the rules above; this is shape only. */
+#wardrobe-box {
+	border-radius: 0;
+	clip-path: polygon(18px 0, 100% 0, 100% calc(100% - 18px), calc(100% - 18px) 100%, 0 100%, 0 18px);
+	background:
+		linear-gradient(rgba(94, 230, 255, 0.035) 1px, transparent 1px) 0 0 / 100% 22px,
+		linear-gradient(90deg, rgba(94, 230, 255, 0.035) 1px, transparent 1px) 0 0 / 22px 100%,
+		linear-gradient(180deg, rgba(10, 40, 60, 0.35), rgba(0, 0, 0, 0) 60%),
+		var(--bg2);
+	box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6) inset, 0 0 24px rgba(47, 168, 196, 0.18), 0 18px 50px rgba(0, 0, 0, 0.55);
+}
+#wardrobe-box::before {
+	border-radius: 0;
+	clip-path: polygon(13px 0, 100% 0, 100% calc(100% - 13px), calc(100% - 13px) 100%, 0 100%, 0 13px);
+}
+#wardrobe-header h2 { font-family: 'Courier New', monospace; letter-spacing: 5px; }
+#wardrobe-header h2::before { content: '\25C8  '; opacity: 0.7; }
+.wdr-figure {
+	opacity: 0.55;
+	background:
+		repeating-linear-gradient(180deg, rgba(166, 243, 255, 0.55) 0 1px, transparent 1px 3px),
+		linear-gradient(180deg, #a6f3ff 0%, #2fa8c4 55%, #145a6e 100%);
+	filter: drop-shadow(0 0 10px rgba(94, 230, 255, 0.55));
+	animation: wdr-holo-flicker 6s steps(1) infinite;
+}
+#wardrobe-doll { overflow: visible; }
+#wardrobe-doll::after {
+	content: '';
+	position: absolute; left: 8%; right: 8%; top: 0; height: 2px; z-index: 1;
+	background: linear-gradient(90deg, transparent, rgba(166, 243, 255, 0.8), transparent);
+	box-shadow: 0 0 8px rgba(94, 230, 255, 0.6);
+	pointer-events: none;
+	animation: wdr-scan 4.5s linear infinite;
+}
+#wardrobe-doll::before {
+	background: radial-gradient(ellipse at center, rgba(94, 230, 255, 0.35), rgba(94, 230, 255, 0) 70%);
+	box-shadow: 0 0 0 1px rgba(94, 230, 255, 0.25);
+}
+.wdr-pad, .wdr-outfit, .wdr-garment { border-radius: 0; clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px); }
+.wdr-wear-now { letter-spacing: 1.5px; text-transform: uppercase; }
+@keyframes wdr-scan { 0% { top: 0; opacity: 0; } 8% { opacity: 1; } 92% { opacity: 1; } 100% { top: 100%; opacity: 0; } }
+@keyframes wdr-holo-flicker { 0%, 100% { opacity: 0.55; } 47% { opacity: 0.4; } 48% { opacity: 0.6; } 49% { opacity: 0.5; } }
+@media (prefers-reduced-motion: reduce) {
+	#wardrobe-doll::after, .wdr-figure { animation: none; }
+}
 /* ── Interface tour (client/game/js/panels/tour.js) ───────────────────────────
    The one out-of-fiction onboarding surface: offered once to players new to
    text games, replayable with `tutorial`. A transparent cutout box carries a
@@ -20309,3 +20463,31 @@ input[aria-invalid="true"]::placeholder { color: var(--red); opacity: 0.8; }
 /* going in off the street: the ring on the black while the room loads (freelook-view.js coverPane) */
 .fl-loading { width: 34px; height: 34px; border-radius: 50%; border: 3px solid color-mix(in srgb, var(--accent) 18%, transparent); border-top-color: var(--accent); animation: fl-spin 0.8s linear infinite; }
 @keyframes fl-spin { to { transform: rotate(360deg); } }
+
+/* Credits chip (client/game/js/credits-float.js): every spend floats its cost off
+   the counter, every refused spend says it couldn't be afforded. */
+.cred-float {
+	position: fixed; z-index: 100000; transform: translateX(-50%);
+	pointer-events: none; white-space: nowrap;
+	font-size: 0.8125rem; font-weight: 700; letter-spacing: 0.5px;
+	padding: 2px 8px; border-radius: 3px;
+	background: rgba(0, 0, 0, 0.82);
+	animation: cred-float-up 1.6s ease-out forwards;
+}
+.cred-float-spend { color: #ff6b6b; border: 1px solid rgba(255, 107, 107, 0.5); }
+.cred-float-declined { color: #ffd166; border: 1px solid rgba(255, 59, 92, 0.7); animation-duration: 2.6s; }
+@keyframes cred-float-up {
+	0% { opacity: 0; transform: translate(-50%, -4px); }
+	12% { opacity: 1; transform: translate(-50%, 0); }
+	75% { opacity: 1; }
+	100% { opacity: 0; transform: translate(-50%, 18px); }
+}
+.cred-shake { animation: cred-shake 0.4s; color: var(--red); }
+@keyframes cred-shake {
+	0%, 100% { transform: translateX(0); } 20%, 60% { transform: translateX(-3px); } 40%, 80% { transform: translateX(3px); }
+}
+@media (prefers-reduced-motion: reduce) {
+	.cred-float { animation: cred-float-fade 1.6s linear forwards; }
+	.cred-shake { animation: none; }
+	@keyframes cred-float-fade { 0%, 75% { opacity: 1; } 100% { opacity: 0; } }
+}

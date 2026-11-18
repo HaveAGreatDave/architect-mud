@@ -1,0 +1,24 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "exits": {
+    "east": "zone_district_914_906",
+    "north": "zone_seam_914_905",
+    "south": "zone_seam_914_907",
+    "west": "zone_district_913_906"
+  },
+  "flags": {
+    "district": "wasteland",
+    "region_id": "region_coldwater",
+    "terrain": "grass"
+  },
+  "grid_x": 914,
+  "grid_y": 906,
+  "grid_z": 0,
+  "id": "zone_seam_914_906",
+  "map_id": "map_world",
+  "name": "Grasslands",
+  "parent_zone": null
+}

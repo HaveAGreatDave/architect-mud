@@ -1,0 +1,1035 @@
+{
+  "acted": false,
+  "broadcast_graph": {
+    "_start": "bsm_0",
+    "nodes": {
+      "bsm_0": {
+        "_vine": {
+          "x": 80,
+          "y": 80
+        },
+        "next": "bsm_1",
+        "type": "start"
+      },
+      "bsm_1": {
+        "_vine": {
+          "x": 300,
+          "y": 80
+        },
+        "event_type": "FADE_IN",
+        "next": "bsm_2",
+        "type": "event"
+      },
+      "bsm_10": {
+        "_vine": {
+          "x": 80,
+          "y": 400
+        },
+        "message": "polishes a glass.",
+        "next": "bsm_11",
+        "type": "npc_action"
+      },
+      "bsm_11": {
+        "_vine": {
+          "x": 300,
+          "y": 400
+        },
+        "display": "Moss",
+        "next": "bsm_12",
+        "npc_id": "npc_lo_moss",
+        "type": "npc_anchor"
+      },
+      "bsm_12": {
+        "_vine": {
+          "x": 520,
+          "y": 400
+        },
+        "next": "bsm_13",
+        "style": "raw",
+        "text": "Usual, Dez.",
+        "type": "say"
+      },
+      "bsm_13": {
+        "_vine": {
+          "x": 740,
+          "y": 400
+        },
+        "display": "Dez Orme",
+        "next": "bsm_14",
+        "npc_id": "npc_lo_dez",
+        "type": "npc_anchor"
+      },
+      "bsm_14": {
+        "_vine": {
+          "x": 960,
+          "y": 400
+        },
+        "next": "bsm_15",
+        "style": "raw",
+        "text": "Your usual is a tab, Moss.",
+        "type": "say"
+      },
+      "bsm_15": {
+        "_vine": {
+          "x": 80,
+          "y": 560
+        },
+        "display": "Moss",
+        "next": "bsm_16",
+        "npc_id": "npc_lo_moss",
+        "type": "npc_anchor"
+      },
+      "bsm_16": {
+        "_vine": {
+          "x": 300,
+          "y": 560
+        },
+        "message": "leans on the bar.",
+        "next": "bsm_17",
+        "type": "npc_action"
+      },
+      "bsm_17": {
+        "_vine": {
+          "x": 520,
+          "y": 560
+        },
+        "next": "bsm_18",
+        "style": "raw",
+        "text": "And it's never let me down.",
+        "type": "say"
+      },
+      "bsm_18": {
+        "_vine": {
+          "x": 740,
+          "y": 560
+        },
+        "event_type": "LAUGHTER",
+        "next": "bsm_19",
+        "type": "event"
+      },
+      "bsm_19": {
+        "_vine": {
+          "x": 960,
+          "y": 560
+        },
+        "display": "Rook",
+        "next": "bsm_20",
+        "npc_id": "npc_lo_rook",
+        "type": "npc_anchor"
+      },
+      "bsm_2": {
+        "_vine": {
+          "x": 520,
+          "y": 80
+        },
+        "graphic_id": "last_orders_logo",
+        "next": "bsm_3",
+        "type": "title_card"
+      },
+      "bsm_20": {
+        "_vine": {
+          "x": 80,
+          "y": 720
+        },
+        "message": "bangs on the jukebox.",
+        "next": "bsm_21",
+        "type": "npc_action"
+      },
+      "bsm_21": {
+        "_vine": {
+          "x": 300,
+          "y": 720
+        },
+        "next": "bsm_22",
+        "style": "raw",
+        "text": "Dez, it's playing the same song again.",
+        "type": "say"
+      },
+      "bsm_22": {
+        "_vine": {
+          "x": 520,
+          "y": 720
+        },
+        "display": "Dez Orme",
+        "next": "bsm_23",
+        "npc_id": "npc_lo_dez",
+        "type": "npc_anchor"
+      },
+      "bsm_23": {
+        "_vine": {
+          "x": 740,
+          "y": 720
+        },
+        "next": "bsm_24",
+        "style": "raw",
+        "text": "It only knows the one. Same as Moss.",
+        "type": "say"
+      },
+      "bsm_24": {
+        "_vine": {
+          "x": 960,
+          "y": 720
+        },
+        "event_type": "LAUGHTER",
+        "next": "bsm_25",
+        "type": "event"
+      },
+      "bsm_25": {
+        "_vine": {
+          "x": 80,
+          "y": 880
+        },
+        "label": "CAM — 4 — MEDIUM on Moss",
+        "next": "bsm_26",
+        "type": "camera_cut",
+        "zone_id": ""
+      },
+      "bsm_26": {
+        "_vine": {
+          "x": 300,
+          "y": 880
+        },
+        "message": "reads the ledger.",
+        "next": "bsm_27",
+        "type": "npc_action"
+      },
+      "bsm_27": {
+        "_vine": {
+          "x": 520,
+          "y": 880
+        },
+        "next": "bsm_28",
+        "style": "raw",
+        "text": "Four hundred and twelve credits.",
+        "type": "say"
+      },
+      "bsm_28": {
+        "_vine": {
+          "x": 740,
+          "y": 880
+        },
+        "display": "Moss",
+        "next": "bsm_29",
+        "npc_id": "npc_lo_moss",
+        "type": "npc_anchor"
+      },
+      "bsm_29": {
+        "_vine": {
+          "x": 960,
+          "y": 880
+        },
+        "next": "bsm_30",
+        "style": "raw",
+        "text": "Round it down.",
+        "type": "say"
+      },
+      "bsm_3": {
+        "_vine": {
+          "x": 740,
+          "y": 80
+        },
+        "duration": 3,
+        "next": "bsm_4",
+        "type": "wait"
+      },
+      "bsm_30": {
+        "_vine": {
+          "x": 80,
+          "y": 1040
+        },
+        "display": "Dez Orme",
+        "next": "bsm_31",
+        "npc_id": "npc_lo_dez",
+        "type": "npc_anchor"
+      },
+      "bsm_31": {
+        "_vine": {
+          "x": 300,
+          "y": 1040
+        },
+        "next": "bsm_32",
+        "style": "raw",
+        "text": "To what?",
+        "type": "say"
+      },
+      "bsm_32": {
+        "_vine": {
+          "x": 520,
+          "y": 1040
+        },
+        "display": "Moss",
+        "next": "bsm_33",
+        "npc_id": "npc_lo_moss",
+        "type": "npc_anchor"
+      },
+      "bsm_33": {
+        "_vine": {
+          "x": 740,
+          "y": 1040
+        },
+        "next": "bsm_34",
+        "style": "raw",
+        "text": "Nothing. It's a nice round number.",
+        "type": "say"
+      },
+      "bsm_34": {
+        "_vine": {
+          "x": 960,
+          "y": 1040
+        },
+        "event_type": "LAUGHTER",
+        "next": "bsm_35",
+        "type": "event"
+      },
+      "bsm_35": {
+        "_vine": {
+          "x": 80,
+          "y": 1200
+        },
+        "label": "CAM — 2 — MEDIUM on Ida",
+        "next": "bsm_36",
+        "type": "camera_cut",
+        "zone_id": ""
+      },
+      "bsm_36": {
+        "_vine": {
+          "x": 300,
+          "y": 1200
+        },
+        "display": "Ida",
+        "next": "bsm_37",
+        "npc_id": "npc_lo_ida",
+        "type": "npc_anchor"
+      },
+      "bsm_37": {
+        "_vine": {
+          "x": 520,
+          "y": 1200
+        },
+        "message": "sips her gin.",
+        "next": "bsm_38",
+        "type": "npc_action"
+      },
+      "bsm_38": {
+        "_vine": {
+          "x": 740,
+          "y": 1200
+        },
+        "next": "bsm_39",
+        "style": "raw",
+        "text": "I'll pay it.",
+        "type": "say"
+      },
+      "bsm_39": {
+        "_vine": {
+          "x": 960,
+          "y": 1200
+        },
+        "display": "Moss",
+        "next": "bsm_40",
+        "npc_id": "npc_lo_moss",
+        "type": "npc_anchor"
+      },
+      "bsm_4": {
+        "_vine": {
+          "x": 960,
+          "y": 80
+        },
+        "label": "CAM — 1 — WIDE",
+        "next": "bsm_5",
+        "type": "camera_cut",
+        "zone_id": ""
+      },
+      "bsm_40": {
+        "_vine": {
+          "x": 80,
+          "y": 1360
+        },
+        "next": "bsm_41",
+        "style": "raw",
+        "text": "Ida, you're an angel.",
+        "type": "say"
+      },
+      "bsm_41": {
+        "_vine": {
+          "x": 300,
+          "y": 1360
+        },
+        "display": "Ida",
+        "next": "bsm_42",
+        "npc_id": "npc_lo_ida",
+        "type": "npc_anchor"
+      },
+      "bsm_42": {
+        "_vine": {
+          "x": 520,
+          "y": 1360
+        },
+        "next": "bsm_43",
+        "style": "raw",
+        "text": "If he sings.",
+        "type": "say"
+      },
+      "bsm_43": {
+        "_vine": {
+          "x": 740,
+          "y": 1360
+        },
+        "event_type": "LAUGHTER",
+        "next": "bsm_44",
+        "type": "event"
+      },
+      "bsm_44": {
+        "_vine": {
+          "x": 960,
+          "y": 1360
+        },
+        "label": "CAM — 1 — WIDE",
+        "next": "bsm_45",
+        "type": "camera_cut",
+        "zone_id": ""
+      },
+      "bsm_45": {
+        "_vine": {
+          "x": 80,
+          "y": 1520
+        },
+        "display": "Moss",
+        "next": "bsm_46",
+        "npc_id": "npc_lo_moss",
+        "type": "npc_anchor"
+      },
+      "bsm_46": {
+        "_vine": {
+          "x": 300,
+          "y": 1520
+        },
+        "message": "looks at the jukebox.",
+        "next": "bsm_47",
+        "type": "npc_action"
+      },
+      "bsm_47": {
+        "_vine": {
+          "x": 520,
+          "y": 1520
+        },
+        "next": "bsm_48",
+        "style": "raw",
+        "text": "Sing what?",
+        "type": "say"
+      },
+      "bsm_48": {
+        "_vine": {
+          "x": 740,
+          "y": 1520
+        },
+        "display": "Ida",
+        "next": "bsm_49",
+        "npc_id": "npc_lo_ida",
+        "type": "npc_anchor"
+      },
+      "bsm_49": {
+        "_vine": {
+          "x": 960,
+          "y": 1520
+        },
+        "next": "bsm_50",
+        "style": "raw",
+        "text": "Whatever that thing's playing. It's been the same song since nineteen days ago.",
+        "type": "say"
+      },
+      "bsm_5": {
+        "_vine": {
+          "x": 80,
+          "y": 240
+        },
+        "display": "Dez Orme",
+        "next": "bsm_6",
+        "npc_id": "npc_lo_dez",
+        "type": "npc_anchor"
+      },
+      "bsm_50": {
+        "_vine": {
+          "x": 80,
+          "y": 1680
+        },
+        "display": "Rook",
+        "next": "bsm_51",
+        "npc_id": "npc_lo_rook",
+        "type": "npc_anchor"
+      },
+      "bsm_51": {
+        "_vine": {
+          "x": 300,
+          "y": 1680
+        },
+        "next": "bsm_52",
+        "style": "raw",
+        "text": "Nobody knows the words, Ida.",
+        "type": "say"
+      },
+      "bsm_52": {
+        "_vine": {
+          "x": 520,
+          "y": 1680
+        },
+        "display": "Ida",
+        "next": "bsm_53",
+        "npc_id": "npc_lo_ida",
+        "type": "npc_anchor"
+      },
+      "bsm_53": {
+        "_vine": {
+          "x": 740,
+          "y": 1680
+        },
+        "next": "bsm_54",
+        "style": "raw",
+        "text": "He's had four hundred and twelve credits to learn them.",
+        "type": "say"
+      },
+      "bsm_54": {
+        "_vine": {
+          "x": 960,
+          "y": 1680
+        },
+        "event_type": "LAUGHTER",
+        "next": "bsm_55",
+        "type": "event"
+      },
+      "bsm_55": {
+        "_vine": {
+          "x": 80,
+          "y": 1840
+        },
+        "label": "CAM — 3 — MEDIUM on Rook",
+        "next": "bsm_56",
+        "type": "camera_cut",
+        "zone_id": ""
+      },
+      "bsm_56": {
+        "_vine": {
+          "x": 300,
+          "y": 1840
+        },
+        "display": "Rook",
+        "next": "bsm_57",
+        "npc_id": "npc_lo_rook",
+        "type": "npc_anchor"
+      },
+      "bsm_57": {
+        "_vine": {
+          "x": 520,
+          "y": 1840
+        },
+        "message": "bangs on the jukebox.",
+        "next": "bsm_58",
+        "type": "npc_action"
+      },
+      "bsm_58": {
+        "_vine": {
+          "x": 740,
+          "y": 1840
+        },
+        "next": "bsm_59",
+        "style": "raw",
+        "text": "It's starting again. Go on, Moss.",
+        "type": "say"
+      },
+      "bsm_59": {
+        "_vine": {
+          "x": 960,
+          "y": 1840
+        },
+        "display": "Moss",
+        "next": "bsm_60",
+        "npc_id": "npc_lo_moss",
+        "type": "npc_anchor"
+      },
+      "bsm_6": {
+        "_vine": {
+          "x": 300,
+          "y": 240
+        },
+        "display": "Moss",
+        "next": "bsm_7",
+        "npc_id": "npc_lo_moss",
+        "type": "npc_anchor"
+      },
+      "bsm_60": {
+        "_vine": {
+          "x": 80,
+          "y": 2000
+        },
+        "message": "dances.",
+        "next": "bsm_61",
+        "type": "npc_action"
+      },
+      "bsm_61": {
+        "_vine": {
+          "x": 300,
+          "y": 2000
+        },
+        "next": "bsm_62",
+        "style": "raw",
+        "text": "La la la. Something about a boat.",
+        "type": "say"
+      },
+      "bsm_62": {
+        "_vine": {
+          "x": 520,
+          "y": 2000
+        },
+        "display": "Ida",
+        "next": "bsm_63",
+        "npc_id": "npc_lo_ida",
+        "type": "npc_anchor"
+      },
+      "bsm_63": {
+        "_vine": {
+          "x": 740,
+          "y": 2000
+        },
+        "message": "laughs.",
+        "next": "bsm_64",
+        "type": "npc_action"
+      },
+      "bsm_64": {
+        "_vine": {
+          "x": 960,
+          "y": 2000
+        },
+        "next": "bsm_65",
+        "style": "raw",
+        "text": "That's not the words.",
+        "type": "say"
+      },
+      "bsm_65": {
+        "_vine": {
+          "x": 80,
+          "y": 2160
+        },
+        "display": "Moss",
+        "next": "bsm_66",
+        "npc_id": "npc_lo_moss",
+        "type": "npc_anchor"
+      },
+      "bsm_66": {
+        "_vine": {
+          "x": 300,
+          "y": 2160
+        },
+        "next": "bsm_67",
+        "style": "raw",
+        "text": "It's the tune, though.",
+        "type": "say"
+      },
+      "bsm_67": {
+        "_vine": {
+          "x": 520,
+          "y": 2160
+        },
+        "event_type": "LAUGHTER",
+        "next": "bsm_68",
+        "type": "event"
+      },
+      "bsm_68": {
+        "_vine": {
+          "x": 740,
+          "y": 2160
+        },
+        "display": "Dez Orme",
+        "next": "bsm_69",
+        "npc_id": "npc_lo_dez",
+        "type": "npc_anchor"
+      },
+      "bsm_69": {
+        "_vine": {
+          "x": 960,
+          "y": 2160
+        },
+        "message": "pulls a pint.",
+        "next": "bsm_70",
+        "type": "npc_action"
+      },
+      "bsm_7": {
+        "_vine": {
+          "x": 520,
+          "y": 240
+        },
+        "display": "Rook",
+        "next": "bsm_8",
+        "npc_id": "npc_lo_rook",
+        "type": "npc_anchor"
+      },
+      "bsm_70": {
+        "_vine": {
+          "x": 80,
+          "y": 2320
+        },
+        "next": "bsm_71",
+        "style": "raw",
+        "text": "I'll take two hundred for the tune.",
+        "type": "say"
+      },
+      "bsm_71": {
+        "_vine": {
+          "x": 300,
+          "y": 2320
+        },
+        "message": "slides the pint across the bar.",
+        "next": "bsm_72",
+        "type": "npc_action"
+      },
+      "bsm_72": {
+        "_vine": {
+          "x": 520,
+          "y": 2320
+        },
+        "display": "Moss",
+        "next": "bsm_73",
+        "npc_id": "npc_lo_moss",
+        "type": "npc_anchor"
+      },
+      "bsm_73": {
+        "_vine": {
+          "x": 740,
+          "y": 2320
+        },
+        "next": "bsm_74",
+        "style": "raw",
+        "text": "And the other two hundred?",
+        "type": "say"
+      },
+      "bsm_74": {
+        "_vine": {
+          "x": 960,
+          "y": 2320
+        },
+        "display": "Dez Orme",
+        "next": "bsm_75",
+        "npc_id": "npc_lo_dez",
+        "type": "npc_anchor"
+      },
+      "bsm_75": {
+        "_vine": {
+          "x": 80,
+          "y": 2480
+        },
+        "next": "bsm_76",
+        "style": "raw",
+        "text": "That's the words.",
+        "type": "say"
+      },
+      "bsm_76": {
+        "_vine": {
+          "x": 300,
+          "y": 2480
+        },
+        "event_type": "LAUGHTER",
+        "next": "bsm_77",
+        "type": "event"
+      },
+      "bsm_77": {
+        "_vine": {
+          "x": 520,
+          "y": 2480
+        },
+        "label": "CAM — 4 — MEDIUM on Moss",
+        "next": "bsm_78",
+        "type": "camera_cut",
+        "zone_id": ""
+      },
+      "bsm_78": {
+        "_vine": {
+          "x": 740,
+          "y": 2480
+        },
+        "display": "Moss",
+        "next": "bsm_79",
+        "npc_id": "npc_lo_moss",
+        "type": "npc_anchor"
+      },
+      "bsm_79": {
+        "_vine": {
+          "x": 960,
+          "y": 2480
+        },
+        "message": "drinks his pint.",
+        "next": "bsm_80",
+        "type": "npc_action"
+      },
+      "bsm_8": {
+        "_vine": {
+          "x": 740,
+          "y": 240
+        },
+        "display": "Ida",
+        "next": "bsm_9",
+        "npc_id": "npc_lo_ida",
+        "type": "npc_anchor"
+      },
+      "bsm_80": {
+        "_vine": {
+          "x": 80,
+          "y": 2640
+        },
+        "next": "bsm_81",
+        "style": "raw",
+        "text": "Put this one on the tab, Dez.",
+        "type": "say"
+      },
+      "bsm_81": {
+        "_vine": {
+          "x": 300,
+          "y": 2640
+        },
+        "display": "Dez Orme",
+        "next": "bsm_82",
+        "npc_id": "npc_lo_dez",
+        "type": "npc_anchor"
+      },
+      "bsm_82": {
+        "_vine": {
+          "x": 520,
+          "y": 2640
+        },
+        "message": "wipes down the bar.",
+        "next": "bsm_83",
+        "type": "npc_action"
+      },
+      "bsm_83": {
+        "_vine": {
+          "x": 740,
+          "y": 2640
+        },
+        "next": "bsm_84",
+        "style": "raw",
+        "text": "Four hundred and fifteen.",
+        "type": "say"
+      },
+      "bsm_84": {
+        "_vine": {
+          "x": 960,
+          "y": 2640
+        },
+        "label": "CAM — 2 — MEDIUM on Ida",
+        "next": "bsm_85",
+        "type": "camera_cut",
+        "zone_id": ""
+      },
+      "bsm_85": {
+        "_vine": {
+          "x": 80,
+          "y": 2800
+        },
+        "display": "Ida",
+        "next": "bsm_86",
+        "npc_id": "npc_lo_ida",
+        "type": "npc_anchor"
+      },
+      "bsm_86": {
+        "_vine": {
+          "x": 300,
+          "y": 2800
+        },
+        "message": "dozes off.",
+        "next": "bsm_87",
+        "type": "npc_action"
+      },
+      "bsm_87": {
+        "_vine": {
+          "x": 520,
+          "y": 2800
+        },
+        "display": "Rook",
+        "next": "bsm_88",
+        "npc_id": "npc_lo_rook",
+        "type": "npc_anchor"
+      },
+      "bsm_88": {
+        "_vine": {
+          "x": 740,
+          "y": 2800
+        },
+        "next": "bsm_89",
+        "style": "raw",
+        "text": "Ida's asleep.",
+        "type": "say"
+      },
+      "bsm_89": {
+        "_vine": {
+          "x": 960,
+          "y": 2800
+        },
+        "display": "Dez Orme",
+        "next": "bsm_90",
+        "npc_id": "npc_lo_dez",
+        "type": "npc_anchor"
+      },
+      "bsm_9": {
+        "_vine": {
+          "x": 960,
+          "y": 240
+        },
+        "display": "Dez Orme",
+        "next": "bsm_10",
+        "npc_id": "npc_lo_dez",
+        "type": "npc_anchor"
+      },
+      "bsm_90": {
+        "_vine": {
+          "x": 80,
+          "y": 2960
+        },
+        "next": "bsm_91",
+        "style": "raw",
+        "text": "Last orders, then.",
+        "type": "say"
+      },
+      "bsm_91": {
+        "_vine": {
+          "x": 300,
+          "y": 2960
+        },
+        "display": "Moss",
+        "next": "bsm_92",
+        "npc_id": "npc_lo_moss",
+        "type": "npc_anchor"
+      },
+      "bsm_92": {
+        "_vine": {
+          "x": 520,
+          "y": 2960
+        },
+        "next": "bsm_93",
+        "style": "raw",
+        "text": "It's eleven in the morning.",
+        "type": "say"
+      },
+      "bsm_93": {
+        "_vine": {
+          "x": 740,
+          "y": 2960
+        },
+        "label": "CAM — 1 — WIDE",
+        "next": "bsm_94",
+        "type": "camera_cut",
+        "zone_id": ""
+      },
+      "bsm_94": {
+        "_vine": {
+          "x": 960,
+          "y": 2960
+        },
+        "display": "Dez Orme",
+        "next": "bsm_95",
+        "npc_id": "npc_lo_dez",
+        "type": "npc_anchor"
+      },
+      "bsm_95": {
+        "_vine": {
+          "x": 80,
+          "y": 3120
+        },
+        "message": "looks into the camera.",
+        "next": "bsm_96",
+        "type": "npc_action"
+      },
+      "bsm_96": {
+        "_vine": {
+          "x": 300,
+          "y": 3120
+        },
+        "next": "bsm_97",
+        "style": "raw",
+        "text": "Not for you, it isn't.",
+        "type": "say"
+      },
+      "bsm_97": {
+        "_vine": {
+          "x": 520,
+          "y": 3120
+        },
+        "event_type": "APPLAUSE",
+        "next": "bsm_98",
+        "type": "event"
+      },
+      "bsm_98": {
+        "_vine": {
+          "x": 740,
+          "y": 3120
+        },
+        "duration": 10,
+        "next": "bsm_99",
+        "text": "LAST ORDERS\n\nTaped in front of a live studio audience\nat KSAB-TV, Coldwater",
+        "type": "credits"
+      },
+      "bsm_99": {
+        "_vine": {
+          "x": 960,
+          "y": 3120
+        },
+        "event_type": "FADE_OUT",
+        "type": "event"
+      }
+    }
+  },
+  "category": "comedy",
+  "channel_id": "ch_7_1782953079593",
+  "created_by": "author",
+  "description": "",
+  "enabled": 1,
+  "fallback_messages": [],
+  "film_meta": null,
+  "gameshow_pools": null,
+  "id": "bc_last_orders",
+  "loop": 1,
+  "message_interval": 5,
+  "messages": [
+    "Usual, Dez.",
+    "Your usual is a tab, Moss.",
+    "And it's never let me down.",
+    "Dez, it's playing the same song again.",
+    "It only knows the one. Same as Moss.",
+    "Four hundred and twelve credits.",
+    "Round it down.",
+    "To what?",
+    "Nothing. It's a nice round number.",
+    "I'll pay it.",
+    "Ida, you're an angel.",
+    "If he sings.",
+    "Sing what?",
+    "Whatever that thing's playing. It's been the same song since nineteen days ago.",
+    "Nobody knows the words, Ida.",
+    "He's had four hundred and twelve credits to learn them.",
+    "It's starting again. Go on, Moss.",
+    "La la la. Something about a boat.",
+    "That's not the words.",
+    "It's the tune, though.",
+    "I'll take two hundred for the tune.",
+    "And the other two hundred?",
+    "That's the words.",
+    "Put this one on the tab, Dez.",
+    "Four hundred and fifteen.",
+    "Ida's asleep.",
+    "Last orders, then.",
+    "It's eleven in the morning.",
+    "Not for you, it isn't."
+  ],
+  "morning_pools": null,
+  "name": "Last Orders - Episode 1: The Tab",
+  "news_pools": null,
+  "override_duration": 180,
+  "playback_mode": "scripted",
+  "sermon_pools": null,
+  "sports_pools": null,
+  "tags": [
+    "comedy",
+    "episodic",
+    "studio"
+  ],
+  "talkshow_pools": null,
+  "updated_at": "1794871769",
+  "weather_pools": null
+}

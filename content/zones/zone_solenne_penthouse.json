@@ -6,7 +6,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#2f3a47",
   "color": "#efe4cd",
-  "description": "The whole crown of the tower, and it knows it. A single volume of glass and pale stone under a five-metre ceiling, wrapped three-sixty in an unbroken view: the bay, the mountains, the grey sprawl of Coldwater all laid at your feet and none of it able to look back in. An emperor bed floats on a raised platform beneath the north glass; a sunken lounge, a private bar, a fireplace of honed basalt. Nothing up here is loud, because nothing up here has to be. Step <b>south</b> to the landing.",
+  "description": "The whole forty-fourth floor, inside the glass bowl at the top of the tower. One long room of glass and pale stone under a five-metre ceiling, the bay along the whole of one side and the mountains at the end, and none of it able to look back in. An emperor bed on a raised platform at the glass end, a sunken lounge in the middle, a private bar, and a fireplace of honed basalt in the one stone wall. Nothing up here is loud, because nothing up here has to be. Step <b>south</b> to the landing.",
   "exits": {
     "in": "zone_solenne_penthouse_bath",
     "south": "zone_solenne_ph_landing"
@@ -18,12 +18,13 @@
     "is_interior": true,
     "rest_multiplier": 2,
     "room": {
-      "balcony": {
-        "wrap": "sides"
+      "balcony": false,
+      "d": 10.3,
+      "doors": {
+        "south": 0
       },
-      "d": 18,
       "ensuite": {
-        "d": 4.4,
+        "d": 3.4,
         "dress": "spa",
         "w": 4.2
       },
@@ -36,17 +37,18 @@
       "h": 5,
       "pit": {
         "at": [
-          -2.4,
-          3.8,
+          -3,
+          3,
           3.2,
-          9.2
+          8.4
         ],
         "depth": 0.42,
         "step": 0.42
       },
-      "storey": 35,
-      "storeys": 36,
-      "w": 16
+      "storey": 44,
+      "storeys": 45,
+      "studio": false,
+      "w": 27.4
     },
     "window": {
       "description": "Floor-to-ceiling glass runs the whole west wall, black-framed and seamless, holding the city out there like something in a case.",

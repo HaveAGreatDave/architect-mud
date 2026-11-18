@@ -72,6 +72,8 @@ A sports show previews a real simulated game. The **data** menu picks the moment
 - **A cast member the world doesn't hold**, such as a news anchor who's only a name in the script, is cast as a token: `{anchor}`. The Cast menu offers the kind's `castTokens`; the name comes from the broadcast's data and nobody's schedule changes. Only a sports show's cast is kept at work while a slate is on.
 - **A new moment** is a place in the broadcast's assembler that calls `deskSegment` with it, and a row in its kind's `moments`, in the same change. The gate fails a slot at a moment its kind never calls.
 
+**A studio show** is a scripted show written for one set, so it plays on the TV's 3D button with nothing improvised. Its skin lists the broadcast, keeps a mark `for` each billed name (`@billing`) and gives each one `looks.sex`; its `CAM` numbers stay within the set's cameras; and every stage direction is a verb `actOfLine` knows that the person can do on their mark (nobody shrugs sitting down). `node scripts/content/build-studio-show.mjs <file.bsm> <broadcast id> <set id>` checks all of that and writes the broadcast row and its title card. There are three: Arrears (a sitcom on `set_arrears_living`), Everything Must Go (REPO-TV's shopping hour on `set_everything_must_go`, with a `phone_bank` of lit lamps at the back) and Last Orders (a bar sitcom on `set_last_orders`, the backlot bar with a lit `jukebox`). Those two pieces are in set-film.js and face the cameras at yaw 0.
+
 A regular script becomes a sequence with **From a script…** in the rail: each spoken line a beat on the last `CAM` line's shot, each speaker a role on the set's next mark.
 
 ## Files

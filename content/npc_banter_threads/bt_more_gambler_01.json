@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_gambler_01",
+  "lines": [
+    "\"Feeling lucky?\"",
+    "\"Always.\"",
+    "\"And?\"",
+    "\"And then I lose. But the feeling is very real.\""
+  ],
+  "personality": "gambler",
+  "sort_order": 697
+}

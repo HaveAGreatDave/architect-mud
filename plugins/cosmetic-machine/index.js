@@ -30,7 +30,7 @@ import { adjustCredits } from '../../server/engine/economy.js';
 import { registerAction } from '../../server/engine/actions.js';
 import { emit } from '../../server/engine/events.js';
 import { loggedPanelsSync } from '../../server/engine/presentation.js';
-import { HAIR_STYLE_NAMES, FACE, TATTOO_PLACES, TATTOO_INKS } from '../../client/shared/morphex-catalog.js';
+import { HAIR_STYLE_NAMES, FACE, FACE_TUNE, TUNE_MIN, TUNE_MAX, TATTOO_PLACES, TATTOO_INKS } from '../../client/shared/morphex-catalog.js';
 
 const HAIR_COLORS  = ['black','dark brown','brown','auburn','dirty blonde','blonde','red','grey','white','silver','dyed blue','dyed green','dyed purple','dyed red'];
 const HAIR_LENGTHS = ['shaved','short','medium','long','very_long'];
@@ -128,6 +128,7 @@ function renderMorphexText(player, toast) {
   L.push(`  <b>morphex eye color</b> ${CHOICES(EYE_COLORS)}`);
   L.push(`  <b>morphex height</b> 150-210 · <b>morphex weight</b> 40-150`);
   for (const [k, F] of Object.entries(FACE)) L.push(`  <b>morphex face ${k}</b> ${CHOICES(F.values)}`);
+  L.push(`  <b>morphex face</b> &lt;slider&gt; ${TUNE_MIN} to ${TUNE_MAX} · sliders: ${CHOICES(Object.keys(FACE_TUNE))}`);
   L.push(`  <b>morphex tattoo</b> &lt;place&gt; &lt;design&gt;|none · places: ${CHOICES(Object.keys(TATTOO_PLACES))}`);
   L.push(`  <b>morphex ink</b> ${CHOICES(Object.keys(TATTOO_INKS))}`);
   if (mis) {
@@ -413,12 +414,24 @@ async function cmdMorphex(args, raw, player) {
     const app = { ...(player.appearance_data || {}) };
     let said;
     if (sub === 'face') {
-      const key = rest[0]?.toLowerCase(), val = rest.slice(1).join(' ').toLowerCase(), F = FACE[key];
-      if (!F) return buildPanelData(player, `Face options: ${Object.keys(FACE).join(', ')}`);
-      if (!F.values.includes(val)) return buildPanelData(player, `${F.label}: ${F.values.join(', ')}`);
-      if (app.face?.[key] === val) return buildPanelData(player, `Already ${val}.`);
-      app.face = { ...(app.face || {}), [key]: val };
-      said = `${F.label} → ${val}.`;
+      const key = rest[0]?.toLowerCase(), val = rest.slice(1).join(' ').toLowerCase(), F = FACE[key], T = FACE_TUNE[key];
+      // a slider: a whole number from TUNE_MIN to TUNE_MAX, 0 putting it back to the shape's own
+      if (T) {
+        const n = Number(val);
+        if (!Number.isInteger(n) || n < TUNE_MIN || n > TUNE_MAX) return buildPanelData(player, `${T.label}: a whole number from ${TUNE_MIN} (${T.lo}) to ${TUNE_MAX} (${T.hi}).`);
+        if ((Number(app.face?.[key]) || 0) === n) return buildPanelData(player, `Already ${n}.`);
+        const face = { ...(app.face || {}) };
+        if (n) face[key] = n; else delete face[key];
+        app.face = face;
+        said = `${T.label} → ${n > 0 ? '+' + n : n}.`;
+      }
+      if (!F && !T) return buildPanelData(player, `Face options: ${[...Object.keys(FACE), ...Object.keys(FACE_TUNE)].join(', ')}`);
+      if (F) {
+        if (!F.values.includes(val)) return buildPanelData(player, `${F.label}: ${F.values.join(', ')}`);
+        if (app.face?.[key] === val) return buildPanelData(player, `Already ${val}.`);
+        app.face = { ...(app.face || {}), [key]: val };
+        said = `${F.label} → ${val}.`;
+      }
     } else if (sub === 'tattoo') {
       const place = rest[0]?.toLowerCase(), val = rest.slice(1).join(' ').toLowerCase(), T = TATTOO_PLACES[place];
       if (!T) return buildPanelData(player, `Tattoo places: ${Object.keys(TATTOO_PLACES).join(', ')}`);

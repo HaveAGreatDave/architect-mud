@@ -6,6 +6,13 @@
       "arche": "table",
       "form": "coffee",
       "wear": 0.9
+    },
+    "spot": {
+      "at": [
+        -1.1,
+        6.3
+      ],
+      "turn": 0
     }
   },
   "hp": null,

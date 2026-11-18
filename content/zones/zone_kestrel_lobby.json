@@ -7,7 +7,7 @@
     "up": "zone_kestrel_f3"
   },
   "flags": {
-    "building_name": "Kestrel Court",
+    "building_name": "The Flute",
     "building_type": "apartment",
     "floor": "tile",
     "is_building": true,
@@ -25,6 +25,6 @@
   "grid_z": 0,
   "id": "zone_kestrel_lobby",
   "map_id": "map_int_kestrel",
-  "name": "Kestrel Court, Lobby",
+  "name": "The Flute, Lobby",
   "parent_zone": "zone_district_913_908"
 }

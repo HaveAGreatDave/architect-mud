@@ -1,0 +1,30 @@
+{
+  "description": "A second teak bench, angled at the drop, so whoever waits for a landing gets the city instead of the lift.",
+  "flags": {
+    "aliases": "bench,teak bench,seat",
+    "interactions": [
+      "sit"
+    ],
+    "look": {
+      "arche": "bench",
+      "form": "bench"
+    },
+    "spot": {
+      "at": [
+        -5.6,
+        9.2
+      ],
+      "turn": 180
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "light_type": null,
+  "lumen_output": null,
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "id": "furn_skypad_bench_s",
+  "name": "teak bench",
+  "zone_id": "zone_solenne_helipad"
+}

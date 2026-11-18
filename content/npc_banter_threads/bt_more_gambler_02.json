@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_gambler_02",
+  "lines": [
+    "\"How much are you down?\"",
+    "\"I'm not down. I'm invested.\"",
+    "\"In what?\"",
+    "\"The next hand.\""
+  ],
+  "personality": "gambler",
+  "sort_order": 698
+}

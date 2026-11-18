@@ -17,7 +17,9 @@ import { composeSet, mapAxes, SET_TILE } from '../../../../shared/city-set.js';
 import { setSite } from '../../../../shared/skyline-manifest.js';
 import { buildCityscape, cityShape, FACADE_GLSL, STREET_GLSL, LIGHT_STRIDE } from './cityscape.js';
 import { STRIDE, MAT, createBatch, quad } from './ballpark-mesh.js';
-import { shotMatrices, inv4, approachShot, shotAt } from '../diamond/camera.js';
+import { shotMatrices, approachShot, shotAt } from '../diamond/camera.js';
+import { invert as inv4 } from './core/mat4.js';
+import { ACES_GLSL } from './core/glsl/tone.js';
 
 // how long the shot is (s), and when in it the rink starts to show through
 export const FLY = Object.freeze({ dur: 12, fade: 1.3 });
@@ -46,7 +48,8 @@ uniform vec3 uFog; uniform float uFogD; uniform float uWin; uniform vec3 uVenue;
 out vec4 o;
 ${FACADE_GLSL}
 ${STREET_GLSL}
-vec3 curve(vec3 c) { c = max(c, 0.0); c = c * (2.51 * c + 0.03) / (c * (2.43 * c + 0.59) + 0.14); return pow(clamp(c, 0.0, 1.0), vec3(1.0 / 2.2)); }
+${ACES_GLSL}
+vec3 curve(vec3 c) { return pow(aces(max(c, 0.0)), vec3(1.0 / 2.2)); }
 float haze(vec3 p) { return 1.0 - exp(-length(p - uEye) * uFogD); }
 void main() {
   if (vMat == ${MAT.POOL}) {
@@ -79,12 +82,12 @@ const SKY_FS = `#version 300 es
 precision highp float;
 in vec2 vNdc; uniform mat4 uInv; uniform vec3 uEye; uniform vec3 uZen; uniform vec3 uHor; uniform vec3 uGlow;
 out vec4 o;
+${ACES_GLSL}
 void main() {
   vec4 w = uInv * vec4(vNdc, 1.0, 1.0); vec3 d = normalize(w.xyz / w.w - uEye);
   float e = clamp(d.y, -0.2, 1.0);
   vec3 c = mix(uHor, uZen, smoothstep(0.0, 0.55, e)) + uGlow * exp(-max(e, 0.0) * 9.0);
-  c = c * (2.51 * c + 0.03) / (c * (2.43 * c + 0.59) + 0.14);
-  o = vec4(pow(clamp(c, 0.0, 1.0), vec3(1.0 / 2.2)), 1.0);
+  o = vec4(pow(aces(c), vec3(1.0 / 2.2)), 1.0);
 }`;
 
 // The buildings' own lamps (client/shared/building-lights.js points), and the goose, as soft

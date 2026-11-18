@@ -3,7 +3,6 @@
   "bg_color": "#5a5450",
   "description": "A narrow landing off the stairwell, six numbered doors crowded around it, the stencilled numbers worn to grey ghosts. The carpet gave up years ago and the smell never will. A bare bulb buzzes overhead, throwing more shadow than light.",
   "exits": {
-    "down": "zone_yards_tenement_f9",
     "east": "zone_yards_tenement_u10_2",
     "north": "zone_yards_tenement_u10_1",
     "northeast": "zone_yards_tenement_u10_5",
@@ -14,13 +13,15 @@
   "flags": {
     "ambient_pool": "world_floor_1",
     "floor": "boards",
-    "is_interior": true
+    "is_interior": true,
+    "set_aside": true,
+    "set_aside_from": "map_int_yards_tenement 0,0,10"
   },
-  "grid_x": 0,
-  "grid_y": 0,
+  "grid_x": 32,
+  "grid_y": 2,
   "grid_z": 10,
   "id": "zone_yards_tenement_f10",
-  "map_id": "map_int_yards_tenement",
+  "map_id": "map_set_aside",
   "name": "Floor 10",
-  "parent_zone": "zone_district_921_902"
+  "parent_zone": null
 }

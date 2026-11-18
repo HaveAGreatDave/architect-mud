@@ -1,0 +1,11 @@
+{
+  "enabled": true,
+  "id": "bt_more_doctor_03",
+  "lines": [
+    "\"Wash your hands.\"",
+    "\"I've washed them nine times today.\"",
+    "\"Make it ten.\""
+  ],
+  "personality": "doctor",
+  "sort_order": 662
+}

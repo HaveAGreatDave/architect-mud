@@ -1,0 +1,29 @@
+{
+  "description": "A slatted teak bench on the balcony, silvered by the weather, facing the bay.",
+  "flags": {
+    "interactions": [
+      "sit"
+    ],
+    "look": {
+      "arche": "bench",
+      "dims": [
+        1.8,
+        0.5,
+        0.46
+      ],
+      "form": "bench"
+    },
+    "spot": {
+      "at": [
+        -1.2,
+        -1.6
+      ],
+      "turn": 180
+    }
+  },
+  "id": "furn_solenne_r_balcony_bench",
+  "name": "teak bench",
+  "object_type": "furniture",
+  "price": 1100,
+  "zone_id": "zone_solenne_apt_r"
+}

@@ -5,7 +5,11 @@
     "compartment_index": 0,
     "compartment_label": "Crockery",
     "container": 24000,
-    "dish_cabinet": true
+    "dish_cabinet": true,
+    "spot": {
+      "along": 6.35,
+      "wall": "right"
+    }
   },
   "hp": null,
   "hp_max": null,

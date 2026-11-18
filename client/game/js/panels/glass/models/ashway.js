@@ -5,11 +5,12 @@
 // How a tile becomes a building is in docs/reference/world-rendering.md.
 import { faceAway,
   DETAIL_LIFT, FACE_EPS, bakeSignText, clamp, draw3DBoxAt, drawBarrelRoof, drawFacetDrum,
-  drawSmoke, emitSurfaceText, emitWire, faceYaw, glowPool, nearOrMesh, rgb, windFlag,
+  drawSmoke, emitSurfaceText, emitWire, faceYaw, glowPool, markDoorway, nearOrMesh, rgb, windFlag,
 } from '../../windshield.js';
 import { flatOut } from './downtown.js';
 import { paintLayers, settCanvas } from '../../club-crest.js';
 import { CPHL_CRESTS } from '../../../../../shared/cphl-crests.js';
+import { GOOSE_PARTS, GOOSE_CHEVRONS, GOOSE_EYE, GOOSE_FACE, GOOSE_T } from '../../../../../shared/goose-emblem.js';
 
 // ── GOLDEN GOOSE GARDENS: SIX TILES, ONE BUILDING ────────────────────────────────────────────
 // The CPhL's own barn (scripts/content/slush-fund.mjs, docs/proposals/slush-fund.md; it opened as
@@ -195,37 +196,9 @@ function rinkHall(ctx, cam, F, W3, E, seed, night, alpha, y0, y1, gableY, clr, N
 // head is turned in profile to the viewer's left (heraldry's dexter), and each wing rises in four
 // stepped feathers, the longest on top. It's cut from plate, every part a slab GOOSE.T thick, so it
 // keeps a shape from the side. Floodlit after dark.
-// ⚠ EVERY OUTLINE IS CONVEX. A flat face is a fan on the GPU, so a concave one fills wrong; the
-// figure is built from convex parts instead.
-// ⚠ NO TWO PARTS SHARE A PLANE. Each part's front stands at its own y (the `y` beside it), so
-// where two parts overlap one is in front and neither z-fights. The wings stand furthest back.
-const GOOSE = { Y: 0.33, Z: 0.968, T: 0.012, S: 1.3 };   // S scales the figure's outlines, not its plinth
-// Each part: its front's y off GOOSE.Y, its outline (u across, v up from the plinth's top), and `k`,
-// how much of the gilt's light it takes, so the parts read apart where they overlap.
-const GOOSE_PARTS = [
-  { y: 0.004, k: 0.86, pts: [[-0.016, 0], [0.016, 0], [0.009, 0.016], [-0.009, 0.016]] },            // the tail, fanned on the plinth
-  { y: 0.006, k: 1, pts: [[0, 0.008], [0.014, 0.014], [0.026, 0.03], [0.03, 0.055], [0.022, 0.078], [0.009, 0.086],
-    [-0.009, 0.086], [-0.022, 0.078], [-0.03, 0.055], [-0.026, 0.03], [-0.014, 0.014]] },              // the body
-  { y: 0.0055, k: 0.97, pts: [[-0.0065, 0.084], [0.0065, 0.084], [0.0048, 0.162], [-0.0048, 0.162]] }, // the neck, long, which is what makes it a goose
-  { y: 0.0065, k: 1.04, pts: Array.from({ length: 10 }, (_, i) => { const a = (i / 10) * Math.PI * 2; return [0.002 + 0.0125 * Math.cos(a), 0.167 + 0.0085 * Math.sin(a)]; }) },   // the head
-  { y: 0.006, k: 0.9, pts: [[-0.008, 0.171], [-0.032, 0.1655], [-0.032, 0.1625], [-0.008, 0.1605]] },   // the bill, pointing dexter
-  { y: 0.0075, k: 0.84, pts: [[-0.017, 0], [-0.003, 0], [-0.01, 0.009]] },                              // the feet
-  { y: 0.0075, k: 0.84, pts: [[0.003, 0], [0.017, 0], [0.01, 0.009]] },
-];
-// One wing's feathers, inside to tip, top first: [root u, foot v, head v, tip u]. Each rises toward
-// its tip, and its tip leans out at the top. They darken a step at a time down the wing.
-const GOOSE_WING = [[0.004, 0.112, 0.13, 0.118], [0.008, 0.092, 0.108, 0.1], [0.012, 0.073, 0.088, 0.082], [0.016, 0.056, 0.069, 0.064]];
-for (const s of [1, -1]) GOOSE_WING.forEach(([u0, v0, v1, u1], i) => {
-  const r = (u1 - u0) * 0.3;
-  GOOSE_PARTS.push({ y: 0.002, k: 0.95 - i * 0.05, pts: [[s * u0, v0], [s * (u1 - 0.008), v0 + r], [s * u1, v1 + r], [s * u0, v1]] });
-});
-// Three chevrons down the breast, each arm its own strip, a shade darker than the body: the feathers
-// as a deco sculptor cuts them. Face only, so they're plain flats, not slabs.
-const GOOSE_CHEVRONS = [];
-for (const v of [0.028, 0.044, 0.06]) for (const s of [1, -1]) {
-  const w = 0.019 - (v - 0.028) * 0.1;
-  GOOSE_CHEVRONS.push([[0, v], [s * w, v + 0.011], [s * w, v + 0.015], [0, v + 0.004]]);
-}
+// The outlines (convex parts, each at its own depth) are client/shared/goose-emblem.js, so the same
+// bird stands on top of the Cup in its case and on the ice.
+const GOOSE = { Y: 0.33, Z: 0.968, T: GOOSE_T, S: 1.3 };   // S scales the figure's outlines, not its plinth
 function goose(ctx, cam, F, W3, E, seed, night, alpha) {
   const { Y, Z, T, S } = GOOSE, dn = night ? clamp(night, 0, 1) : 0;
   // The plinth: three stone steps, the bottom one sunk into the crown of the vault.
@@ -250,9 +223,9 @@ function goose(ctx, cam, F, W3, E, seed, night, alpha) {
     }
   }
   const cut = rgb(gilt.map((c) => c * 0.8));
-  for (const pts of GOOSE_CHEVRONS) flatOut(ctx, cam, W3, pts.map(([u, v]) => [u * S, Y + 0.0068, Z + v * S]), [0, 1, 0], cut, alpha);
+  for (const pts of GOOSE_CHEVRONS) flatOut(ctx, cam, W3, pts.map(([u, v]) => [u * S, Y + GOOSE_FACE, Z + v * S]), [0, 1, 0], cut, alpha);
   // the eye, a dark chip on the head's face
-  flatOut(ctx, cam, W3, [[-0.006, 0.169], [-0.0045, 0.1705], [-0.003, 0.169], [-0.0045, 0.1675]].map(([u, v]) => [u * S, Y + 0.0068, Z + v * S]), [0, 1, 0], 'rgb(64,44,18)', alpha);
+  flatOut(ctx, cam, W3, GOOSE_EYE.map(([u, v]) => [u * S, Y + GOOSE_FACE, Z + v * S]), [0, 1, 0], 'rgb(64,44,18)', alpha);
   if (night) { const [gx, gy] = F(0, Y + 0.06); glowPool(ctx, cam, gx, gy, Z + 0.08 * S, '255,206,120', 12, alpha * 0.35); }
 }
 
@@ -262,7 +235,7 @@ export const ASHWAY_ARMS = {
     // the court between them. From the pavement up: six glass doors, the canopy with tonight's board
     // on its fascia and a flag at each end, the name in gilt deco letters, the great window filling
     // the gable, and the goose on its plinth at the top.
-    // ⚠ THE PROSE IS THE SPEC. zone_district_915_916, Glacier Street (915,915) and the concourse's
+    // ⚠ THE PROSE IS THE SPEC. zone_district_915_916, Glacier Street (916,915) and the concourse's
     // window all describe this front, and scripts/content/slush-fund.mjs writes them.
     const { TOP, FRONT, PLINTH, EAVE } = RINK, NEAR = nearOrMesh(), dn = night ? clamp(night, 0, 1) : 0, dusk = 1 - 0.55 * dn;
     rinkHall(ctx, cam, F, W3, E, seed, night, alpha, -0.5, FRONT, FRONT, CLR, NEAR);
@@ -323,6 +296,8 @@ export const ASHWAY_ARMS = {
     // 4) THE DOORS: six glass doors in steel frames under the canopy, the concourse lit behind them.
     const doorRgb = rgb(mixRgb(WARM_DAY, WARM_NIGHT, dn * 0.8));
     for (const x of [-0.35, -0.21, -0.07, 0.07, 0.21, 0.35]) {
+      // each one a doorway; the street door is the one nearest flags.room.street_door.cx (windshield.js doorBayAt)
+      markDoorway(F, x, FRONT, 0.055, PLINTH, 0.15, FRONT + 0.006);
       flatOut(ctx, cam, W3, [[x - 0.055, FRONT + 0.003, 0.15], [x + 0.055, FRONT + 0.003, 0.15], [x + 0.055, FRONT + 0.003, PLINTH], [x - 0.055, FRONT + 0.003, PLINTH]], [0, 1, 0], doorRgb, alpha);
       if (NEAR && frontVis) {
         for (const ex of [x - 0.055, x, x + 0.055]) emitWire(ctx, cam, W3(ex, FRONT + 0.005, PLINTH), W3(ex, FRONT + 0.005, 0.15), 1.8, BAR, alpha, { pull: FACE_EPS });
@@ -337,7 +312,7 @@ export const ASHWAY_ARMS = {
     // The vault comes down to a plain gable over the yard: louvres for the ice plant's air high up,
     // the resurfacer's roller door at the foot of it with a lamp over it, a fire door, and against
     // the wall beside the roller door the heap of scrapings the staff call the nest egg.
-    // ⚠ THE PROSE IS THE SPEC: zone_district_915_917 and the yard (915,918) describe this end.
+    // ⚠ THE PROSE IS THE SPEC: zone_district_915_917 and the yard (916,918) describe this end.
     const { TOP, BACK, PLINTH, EAVE } = RINK, NEAR = nearOrMesh(), dn = night ? clamp(night, 0, 1) : 0, dusk = 1 - 0.55 * dn;
     rinkHall(ctx, cam, F, W3, E, seed, night, alpha, BACK, 0.5, BACK, CLR.map((v) => -v), NEAR);
     const gy = BACK - EAVE - 0.003, wy = BACK - 0.003, back = facing(cam, F, 0, -1, 0, BACK);

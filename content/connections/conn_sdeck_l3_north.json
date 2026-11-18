@@ -1,0 +1,9 @@
+{
+  "a": "zone_sdeck_l3",
+  "b": "zone_sdeck_s5",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_sdeck_l3_north",
+  "lockable": false,
+  "one_way": false
+}

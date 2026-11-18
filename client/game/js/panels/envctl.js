@@ -129,7 +129,7 @@ function apps(s) {
     { id: 'security', name: 'Security', glyph: '◉', on: !!cam.frame, state: cam.frame ? 'Door camera live' : cam.status === 'none' ? 'No camera' : 'No signal' },
   ];
   // a sash window's panel offers the blinds and nothing else, so its tile says so
-  if (sh) list.push({ id: 'shutters', name: sh.scenes.every((x) => x.id === 'blinds') ? 'Blinds' : 'Shutters', glyph: '▤', on: sh.down, state:!sh.down ? 'Up' : sh.scene === 'blinds' ? `Blinds ${sh.level}%` : (sh.scenes.find((x) => x.id === sh.scene)?.name || 'Down') });
+  if (sh) list.push({ id: 'shutters', name: sh.scenes.every((x) => x.id === 'drapes') ? 'Curtains' : sh.scenes.every((x) => x.id === 'blinds' || x.id === 'drapes') ? 'Window' : 'Shutters', glyph: '▤', on: sh.down, state:!sh.down ? 'Open' : sh.scene === 'drapes' ? 'Curtains drawn' : sh.scene === 'blinds' ? `Blinds ${sh.level}%` : (sh.scenes.find((x) => x.id === sh.scene)?.name || 'Down') });
   return list;
 }
 
@@ -330,19 +330,27 @@ function colourPicker(sh, blinds) {
 function shutterPage(sh, v) {
   const now = sh.scenes.find((x) => x.id === sh.scene);
   const blinds = sh.scenes.find((x) => x.id === 'blinds'), drawn = sh.down && sh.scene === 'blinds';
-  const scenes = sh.scenes.filter((x) => x.id !== 'blinds');
+  // a sash window's own drapes: drawn across in place of the blinds (flags.room.sash.drapes)
+  const drapes = sh.scenes.some((x) => x.id === 'drapes'), closed = sh.down && sh.scene === 'drapes';
+  const scenes = sh.scenes.filter((x) => x.id !== 'blinds' && x.id !== 'drapes');
+  const curtains = drapes ? `<div class="envctl-row envctl-even"><button type="button" data-cmd="curtains close" ${closed ? 'class="sel"' : ''}>Draw the curtains</button></div>` : '';
+  if (drapes && !blinds && !scenes.length) {
+    return `<div class="envctl-state${closed ? ' on' : ''}"><b>${closed ? 'Curtains drawn' : 'Curtains open'}</b></div>
+      <div class="envctl-row envctl-even"><button type="button" data-cmd="curtains close" ${closed ? 'class="sel"' : ''}>Draw</button><button type="button" data-cmd="curtains open" ${!closed ? 'class="sel"' : ''}>Open</button></div>`;
+  }
   // with no scenes (a sash window's blinds) there's one page, and no tabs
   const tab = blinds && (!scenes.length || (v.tab || (drawn ? 'blinds' : 'scenes')) === 'blinds') ? 'blinds' : 'scenes';
   const tabs = blinds && scenes.length ? `<div class="envctl-tabs" role="tablist">
       <button type="button" role="tab" data-tab="scenes" aria-selected="${tab === 'scenes'}" class="${tab === 'scenes' ? 'sel' : ''}">Scenes</button>
       <button type="button" role="tab" data-tab="blinds" aria-selected="${tab === 'blinds'}" class="${tab === 'blinds' ? 'sel' : ''}">Blinds</button>
     </div>` : '';
-  const status = `<div class="envctl-state${sh.down ? ' on' : ''}"><b>${drawn ? 'Blinds drawn' : sh.down ? 'Shutters down' : scenes.length ? 'Shutters up' : 'Blinds up'}</b><span class="envctl-clip">${drawn ? `${sh.level}% light` : sh.down ? esc(now?.name || '') : 'Window clear'}</span></div>`;
+  const status = `<div class="envctl-state${sh.down ? ' on' : ''}"><b>${closed ? 'Curtains drawn' : drawn ? 'Blinds drawn' : sh.down ? 'Shutters down' : scenes.length ? 'Shutters up' : 'Blinds up'}</b><span class="envctl-clip">${closed ? 'Window covered' : drawn ? `${sh.level}% light` : sh.down ? esc(now?.name || '') : 'Window clear'}</span></div>`;
   if (tab === 'blinds') {
     return `${tabs}${status}
       <div class="envctl-label">Light through them</div>
       <div class="envctl-row envctl-even">${[0, 25, 50, 75, 100].map((n) => `<button type="button" data-cmd="shutters blinds ${n}" ${drawn && sh.level === n ? 'class="sel"' : ''}>${n}%</button>`).join('')}</div>
       ${colourPicker(sh, blinds)}
+      ${curtains}
       <div class="envctl-row envctl-even"><button type="button" data-cmd="shutters up" ${!sh.down ? 'class="sel"' : ''}>Open the window</button></div>`;
   }
   const pg = pages(v, 'scenes', scenes, v.full ? 12 : 6);

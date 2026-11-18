@@ -1,0 +1,10 @@
+{
+  "content": "{\n \"kind\": \"set\",\n \"format\": 1,\n \"id\": \"set_arrears_living\",\n \"name\": \"Arrears: the Haddows' front room\",\n \"base\": \"tpl_living\",\n \"broadcasts\": [\n  \"bc_arrears\"\n ],\n \"palette\": {\n  \"wall\": \"#6f7a62\",\n  \"floor\": \"#3e3528\",\n  \"trim\": \"#4a4436\",\n  \"sofa\": \"#8a4a3a\",\n  \"chair\": \"#5e6a4a\",\n  \"outside\": \"#1e2838\",\n  \"accent\": \"#e8c890\"\n },\n \"parts\": {\n  \"plant\": null,\n  \"side_counter\": {\n   \"type\": \"shelf\",\n   \"w\": 1,\n   \"h\": 1.6\n  }\n },\n \"marks\": {\n  \"a\": {\n   \"at\": [\n    0.55,\n    5.55\n   ],\n   \"yaw\": -180,\n   \"pose\": \"sit\",\n   \"label\": \"Sofa, left\",\n   \"for\": [\n    \"Gil Haddow\"\n   ]\n  },\n  \"b\": {\n   \"at\": [\n    -0.55,\n    5.55\n   ],\n   \"yaw\": -180,\n   \"pose\": \"sit\",\n   \"label\": \"Sofa, right\",\n   \"for\": [\n    \"Dot Haddow\"\n   ]\n  },\n  \"c\": {\n   \"at\": [\n    2.5,\n    5\n   ],\n   \"yaw\": -120,\n   \"pose\": \"sit\",\n   \"label\": \"The armchair\",\n   \"for\": [\n    \"Nan\"\n   ]\n  },\n  \"d\": {\n   \"at\": [\n    -3.6,\n    6.9\n   ],\n   \"yaw\": -180,\n   \"pose\": \"stand\",\n   \"label\": \"In the door\",\n   \"for\": [\n    \"Mr Prosser\"\n   ]\n  }\n },\n \"looks\": {\n  \"gil haddow\": {\n   \"sex\": \"male\"\n  },\n  \"dot haddow\": {\n   \"sex\": \"female\"\n  },\n  \"nan\": {\n   \"sex\": \"female\"\n  },\n  \"mr prosser\": {\n   \"sex\": \"male\"\n  }\n },\n \"description\": \"Arrears on the sitcom template: a rented front room in faded green, the couple on the sofa, the lodger in the armchair she pays for, and the landlord in the door.\"\n}",
+  "created_at": "1794870906",
+  "description": "Arrears on the sitcom template: a rented front room in faded green, the couple on the sofa, the lodger in the armchair she pays for, and the landlord in the door.",
+  "id": "set_arrears_living",
+  "name": "Arrears: the Haddows' front room",
+  "tags": [],
+  "type": "set",
+  "updated_at": "1794870906"
+}

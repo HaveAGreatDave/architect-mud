@@ -48,7 +48,9 @@ const tri = () => ({ p: [[0, 0, 0], [0, 0, 0], [0, 0, 0]], rgb: [0, 0, 0], a: 1 
 const triFP = () => ({ p: [[0, 0, 0], [0, 0, 0], [0, 0, 0]], mp: [[0, 0, 0], [0, 0, 0], [0, 0, 0]], rgb: [0, 0, 0], a: 1, interior: 1, mv: 0 });
 
 /**
- * `env`: { sink: OWNSHIP_SINK or null, hull: { SIZE, VS, hdg, pitch, bank, baseWz } in the chase view }.
+ * `env`: { sink: OWNSHIP_SINK or null, hull: { SIZE, VS, hdg, pitch, bank, baseWz, ox?, oy? } in the chase view,
+ *   pool? }. `ox`/`oy` put the hull somewhere other than the camera's ground point (another boat);
+ *   `pool` is a record pool of the caller's own, so a second figure in a frame doesn't overwrite the first.
  */
 export function drawRodRig(ctx, cam, v, now, env = {}) {
   const R = v.rod;
@@ -81,7 +83,7 @@ export function drawRodRig(ctx, cam, v, now, env = {}) {
       const h = h0 + (y - SEAT) * FT / mpu;
       const f1 = f * cp - h * sp, h1 = f * sp + h * cp;
       const g2 = g * cr + h1 * sr, h2 = -g * sr + h1 * cr;
-      return [S * (f1 * fwdX + g2 * rgtX), S * (f1 * fwdY + g2 * rgtY), H.baseWz + S * VS * h2];
+      return [(H.ox || 0) + S * (f1 * fwdX + g2 * rgtX), (H.oy || 0) + S * (f1 * fwdY + g2 * rgtY), H.baseWz + S * VS * h2];
     };
   } else {
     // From the seat: eye-relative metres (x right, y forward, z up), the cabin's own frame, with your
@@ -119,7 +121,7 @@ export function drawRodRig(ctx, cam, v, now, env = {}) {
       if (chase) drawRodStrokes(ctx, cam, rod.map((p) => toWorld(p)), v);
       else if (env.sink) pushRodFP(env.sink, rod, toLocal, toWorld, now, cam);
     }
-    if (B && env.sink && chase) pushBody(env.sink, B, chase, toWorld, toLocal, cam, v, now);
+    if (B && env.sink && chase) pushBody(env.sink, B, chase, toWorld, toLocal, cam, v, now, env.pool || POOL);
   }
   // Without the angler (still loading, or GLASS 1 from the seat): the line leaves from where his
   // rod tip would be, out in front of the seat.
@@ -191,7 +193,7 @@ function hullPoint(G, H, f, g, h) {
   const hr = (H.hdg || 0) * Math.PI / 180, roll = (H.bank || 0) * Math.PI / 180, pitch = (H.pitch || 0) * Math.PI / 180;
   const cr = Math.cos(roll), sr = Math.sin(roll), cp = Math.cos(pitch), sp = Math.sin(pitch);
   const f1 = f * cp - h * sp, h1 = f * sp + h * cp, g2 = g * cr + h1 * sr, h2 = -g * sr + h1 * cr;
-  return [H.SIZE * (f1 * Math.sin(hr) + g2 * Math.cos(hr)), H.SIZE * (-f1 * Math.cos(hr) + g2 * Math.sin(hr)), H.baseWz + H.SIZE * (H.VS || 1) * h2];
+  return [(H.ox || 0) + H.SIZE * (f1 * Math.sin(hr) + g2 * Math.cos(hr)), (H.oy || 0) + H.SIZE * (-f1 * Math.cos(hr) + g2 * Math.sin(hr)), H.baseWz + H.SIZE * (H.VS || 1) * h2];
 }
 
 // ── the line ───────────────────────────────────────────────────────────────────────────────────
@@ -423,7 +425,7 @@ const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a
 // skinned normal by a width held to CEL.inkPx on screen, and back along its own view ray. Moving a
 // point along the ray doesn't move it on the screen, so the hull lies behind the body everywhere
 // the body covers it and shows only past his edge, as the rink's clip-depth bias does on the GPU.
-function pushBody(sink, B, chase, toWorld, toLocal, cam, v, now) {
+function pushBody(sink, B, chase, toWorld, toLocal, cam, v, now, pool = POOL) {
   if (!chase) return;
   const ox = cam.ox || 0, oy = cam.oy || 0;
   const hr = v.hour == null ? 12 : v.hour;
@@ -472,7 +474,7 @@ function pushBody(sink, B, chase, toWorld, toLocal, cam, v, now) {
     const vl = Math.hypot(vx, vy, vz) || 1; vx /= vl; vy /= vl; vz /= vl;
     if (nx * vx + ny * vy + nz * vz < 0) { nx = -nx; ny = -ny; nz = -nz; }
     const d = Math.max(0, nx * KEY[0] + ny * KEY[1] + nz * KEY[2]);
-    const r = POOL.body[k] || (POOL.body[k] = tri());
+    const r = pool.body[k] || (pool.body[k] = tri());
     k++;
     for (let j = 0; j < 3; j++) { r.p[j][0] = Wv[j][0] + ox; r.p[j][1] = Wv[j][1] + oy; r.p[j][2] = Wv[j][2]; }
     const ci = v0 * 3;
@@ -488,7 +490,7 @@ function pushBody(sink, B, chase, toWorld, toLocal, cam, v, now) {
     }
     sink.push(r);
     if (!inkFt) continue;
-    const q = POOL.ink[ki] || (POOL.ink[ki] = tri());
+    const q = pool.ink[ki] || (pool.ink[ki] = tri());
     let ok = true;
     for (let j = 0; j < 3; j++) {
       const i = (v0 + j) * 3, n0 = nout[i], n1 = nout[i + 1], n2 = nout[i + 2];
@@ -503,4 +505,32 @@ function pushBody(sink, B, chase, toWorld, toLocal, cam, v, now) {
     q.rgb[0] = inkRGB[0]; q.rgb[1] = inkRGB[1]; q.rgb[2] = inkRGB[2];
     sink.push(q);
   }
+}
+
+// ── SOMEBODY ELSE'S OPEN BOAT ────────────────────────────────────────────────────────────────────
+// A contact afloat in an open hull (`open: 1` on her row, the Keel) has her driver in plain sight,
+// so he's drawn as your own pilot is: the seated angler on her aft thwart, no rod. The windscreen
+// hands each one's hull frame (`hulls`: { id, cls, SIZE, VS, hdg, pitch, bank, baseWz, ox, oy }),
+// placed exactly as drawAircraftModel places her. He wears one of four looks off her id (anglerBody
+// keeps a built body per look, so a look per boat would build one per boat). Each has its own sitting clip, started on a
+// clock of its own so a pair of boats don't breathe in step, and its own record pool.
+// A pilothouse hides whoever's at the wheel, so a covered boat never reaches here.
+const CREWS = new Map();   // contact id -> { anim, pool, seen }
+export function drawBoatCrews(ctx, cam, v, now, sink, hulls) {
+  if (!hulls || !hulls.length) { if (CREWS.size) CREWS.clear(); return; }
+  if (!AN) { loadAngler(); return; }
+  for (const h of hulls) {
+    let C = CREWS.get(h.id);
+    if (!C) {
+      let k = 0; for (const ch of String(h.id)) k = (k * 31 + ch.charCodeAt(0)) >>> 0;
+      C = { anim: AN.newAnim(now - (k % 4000)), pool: { body: [], ink: [] }, look: { id: 'crew' + (k % 4) } };
+      CREWS.set(h.id, C);
+    }
+    C.seen = now;
+    const vv = { external: true, mapCenter: v.mapCenter || { x: 0, y: 0 }, mapOffset: v.mapOffset, cls: h.cls, hour: v.hour,
+      rod: { typeId: h.cls, bearing: 0, anim: C.anim, look: C.look, pilot: true } };
+    drawRodRig(ctx, cam, vv, now, { sink, hull: h, pool: C.pool });
+  }
+  // A boat that's gone keeps nothing.
+  for (const [id, C] of CREWS) if (C.seen !== now) CREWS.delete(id);
 }

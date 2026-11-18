@@ -28,11 +28,13 @@
     ],
     "spot": {
       "at": [
-        -3.95,
-        -0.78
-      ]
+        -6.45,
+        -1
+      ],
+      "turn": 90
     },
-    "vends": "item_cigarettes",
+    "vend_cooldown_s": 0,
+    "vend_line": "You lift one out of the box.",
     "vend_menu": [
       {
         "item": "item_cigarettes",
@@ -59,8 +61,7 @@
         "price": 0
       }
     ],
-    "vend_line": "You lift one out of the box.",
-    "vend_cooldown_s": 0
+    "vends": "item_cigarettes"
   },
   "hp": null,
   "hp_max": null,

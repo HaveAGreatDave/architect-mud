@@ -5,6 +5,10 @@
     "interactions": [
       "lean"
     ],
+    "spot": {
+      "along": 6.2,
+      "wall": "right"
+    },
     "water_source": true
   },
   "hp": null,

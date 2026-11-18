@@ -44,8 +44,8 @@ None of them needs a line of new engine code to be worth entering.
 | # | Name | `building_type` | Site | Entrance | Marker | Vendor | Hooks |
 |---|------|-----------------|------|----------|--------|--------|-------|
 | 1 | **Midway Parks Cinema** (was Reel Estate) | `cinema` | 909,914 Meltwater Row (was 912,914) | north | `MW` | Gower Nissen | betatapes, [instruments](../systems-instruments.md) |
-| 2 | **Photo Finish** | `bookmaker` | 914,914 Kiln Lane | east | `PF` | Ada Glennie | [broadcast](../systems-broadcast.md) sports leagues |
-| 3 | **Stuff It** | `taxidermist` | 917,914 The Gate Road | east | `TX` | Marnie Vandersloot | fauna, hunting, the Wildlands road |
+| 2 | **Photo Finish** | `bookmaker` | 915,914 Kiln Lane | east | `PF` | Ada Glennie | [broadcast](../systems-broadcast.md) sports leagues |
+| 3 | **Stuff It** | `taxidermist` | 918,914 The Gate Road | east | `TX` | Marnie Vandersloot | fauna, hunting, the Wildlands road |
 | 4 | **Fine Print** | `lending_library` | 903,908 Greenside Yard | north | `LI` | Lowell Ashgrove | [library](../systems-library.md) |
 
 Each is a facade tile plus two or three interior rooms and a utility room, its own interior map, a
@@ -115,7 +115,7 @@ come out of the pictures and put a line on the hockey, and the shop is open unti
 is when they do it. The adjacency is also the joke. The Acid Test is an assay office, which tells
 you what your metal is really worth; this tells you what your opinion is really worth.
 
-⚠ **It was sited at 921,912 first, and that was wrong in a way that is worth writing down.** That
+⚠ **It was sited at 922,912 first, and that was wrong in a way that is worth writing down.** That
 tile looks like the best infill site on the map — open grass with buildings on three sides, in the
 middle of a finished block between a bank and a butcher. It is Compound Interest's front garden — and
 since the bank was rebuilt it is also the one tile in Coldwater that a building is allowed to stand
@@ -218,9 +218,9 @@ walk within four seconds of seeing your boots.
 | 9 | **Negative Equity** | `photographer` | 895,904 Halcyon Boulevard | west | `NE` | Benedetta Salis |
 | 10 | **Skeleton Crew** | `locksmith` | 898,905 Filament Street | south | `SK` | Rufus Bandy (set aside 2026-10-18, see [stored-buildings.md](stored-buildings.md)) |
 | 11 | **No Regerts** | `tattooist` | 901,905 Filament Street | south | `IK` | Nell Prudhoe |
-| 12 | **Paws for Thought** | `vet` | 926,912 Kessler (residential) | south | `VT` | Constance Tiplady |
-| 13 | **Spirit Level** | `off_licence` | 919,914 The Gate Road | west | `SP` | Dermot Cassavetes |
-| 14 | **Past Perfect** | `museum` | 916,914 Kiln Lane | west | `MU` | Horace Mullan |
+| 12 | **Paws for Thought** | `vet` | 927,912 Kessler (residential) | south | `VT` | Constance Tiplady |
+| 13 | **Spirit Level** | `off_licence` | 920,914 The Gate Road | west | `SP` | Dermot Cassavetes |
+| 14 | **Past Perfect** | `museum` | 917,914 Kiln Lane | west | `MU` | Horace Mullan |
 
 **Negative Equity** is a photographer four doors from the Ascendant chrome clinic, and the site is
 the building. Its roof is a whole glazed slope facing NORTH, away from the sun, which is what every

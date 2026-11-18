@@ -1,0 +1,9 @@
+{
+  "a": "zone_solenne_apt_i",
+  "b": "zone_solenne_residences",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_solenne_apt_i_west_bhpu",
+  "lockable": true,
+  "one_way": false
+}

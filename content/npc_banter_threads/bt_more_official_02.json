@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_official_02",
+  "lines": [
+    "\"Do you ever hear from the Architect directly?\"",
+    "\"Once, in a memo.\"",
+    "\"What did it say?\"",
+    "\"It said \"noted\". Nothing else.\""
+  ],
+  "personality": "official",
+  "sort_order": 682
+}

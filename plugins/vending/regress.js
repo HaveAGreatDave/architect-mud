@@ -302,6 +302,39 @@ export default async function regress({ run, check, getPlayer }) {
         player.current_zone = Z;
       }
     }
+
+    // ── A MACHINE AGAINST THE WALL (`flags.nudge`): its plug is behind it until you pull it out ──
+    {
+      const NM = 'furn_vend_regress_nudge', ZN = 'zone_vend_regress_nudge';
+      const { _test } = await import('./index.js');
+      try {
+        await insertFurniture({
+          id: NM, name: 'test vendor', description: 'a test vendor', object_type: 'fixture', zone_id: ZN, power_draw_kw: 0.3,
+          flags: JSON.stringify({ vends: ITEM, vend_cooldown_s: 0, nudge: true, vend_menu: [{ item: ITEM, price: 0, label: 'Slop', tint: '#808080' }] }),
+        }, 'ON CONFLICT (id) DO UPDATE SET flags=EXCLUDED.flags, zone_id=EXCLUDED.zone_id, power_draw_kw=EXCLUDED.power_draw_kw');
+        _test.nudged.delete(NM);
+        player.current_zone = ZN;
+        let r = await run('unplug test vendor');
+        check('nudge: the plug is out of reach while the machine stands home', r?.type === 'error' && /NUDGE/.test(r.message || ''), JSON.stringify(r)?.slice(0, 160));
+        r = await run('nudge test vendor');
+        check('nudge pulls the machine out', r?.type === 'output' && _test.nudged.has(NM), JSON.stringify(r)?.slice(0, 160));
+        let st = _test.pieceState(ZN)?.[NM]?.vend;
+        check('nudge: the Stage is told it is out, plugged, with its menu', st?.out === true && st.plugged === true && st.menu?.[0]?.label === 'Slop', JSON.stringify(st));
+        r = await run('unplug test vendor');
+        check('nudge: pulled out, it unplugs', r?.type === 'output', JSON.stringify(r)?.slice(0, 160));
+        r = await run(`vend test vendor ${ITEM}`);
+        check('nudge: unplugged, it will not vend', r?.type === 'error', JSON.stringify(r)?.slice(0, 160));
+        await run('plug test vendor');
+        await run('nudge test vendor back');
+        st = _test.pieceState(ZN)?.[NM]?.vend;
+        check('nudge back puts it home, plugged in again', st?.out === false && st.plugged === true, JSON.stringify(st));
+      } finally {
+        _test.nudged.delete(NM);
+        await query('DELETE FROM player_inventory WHERE player_id=$1 AND item_id=$2', [player.id, ITEM]).catch(() => {});
+        await deleteFurniture(NM).catch(() => {});
+        player.current_zone = Z;
+      }
+    }
   } finally {
     // Always restore state + clean up, even if an assertion above threw, so a
     // failure here can't strand the fake player in a nonexistent zone.

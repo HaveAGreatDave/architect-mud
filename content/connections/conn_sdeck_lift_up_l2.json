@@ -1,0 +1,9 @@
+{
+  "a": "zone_sdeck_lift",
+  "b": "zone_sdeck_l2",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_sdeck_lift_up_l2",
+  "lockable": false,
+  "one_way": true
+}

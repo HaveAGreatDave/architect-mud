@@ -1,0 +1,35 @@
+{
+  "description": "A canvas cot with the number in marker on the frame. The canvas has gone the shape of whoever slept in it last.",
+  "flags": {
+    "aliases": [
+      "cot",
+      "cots",
+      "bed",
+      "cot 403"
+    ],
+    "interactions": [
+      "sit",
+      "lie",
+      "sleep"
+    ],
+    "look": {
+      "arche": "sofa",
+      "form": "cot",
+      "wear": 0.95
+    },
+    "spot": {
+      "along": 5.2,
+      "wall": "right"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_hostel_cot_4_3",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "cot 403",
+  "object_type": "bed",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_hostel_dorm_4"
+}

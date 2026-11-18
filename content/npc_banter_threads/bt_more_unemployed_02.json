@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_unemployed_02",
+  "lines": [
+    "\"How are you managing?\"",
+    "\"I eat once a day. A big once.\"",
+    "\"That's not managing.\"",
+    "\"It's a system.\""
+  ],
+  "personality": "unemployed",
+  "sort_order": 654
+}

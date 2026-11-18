@@ -1,0 +1,28 @@
+{
+  "description": "A black basin fitted under the worktop, with drainer grooves cut beside it. The tap is a tall gunmetal arc with a spray head you can pull down on its hose, and there's a soap pump to match.",
+  "flags": {
+    "aliases": [
+      "sink",
+      "kitchen sink",
+      "basin",
+      "tap",
+      "drainer"
+    ],
+    "interactions": [
+      "lean"
+    ],
+    "look": {
+      "dims": [
+        1.1,
+        0.7,
+        0.92
+      ],
+      "form": "kitchen"
+    },
+    "water_source": true
+  },
+  "id": "furn_halcyon_apt_b_sink",
+  "name": "kitchen sink",
+  "object_type": "sink",
+  "zone_id": "zone_halcyon_apt_b"
+}

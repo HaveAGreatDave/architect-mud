@@ -1,0 +1,25 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "wasteland",
+  "color": "#b5744a",
+  "description": "Rust-red hardpan, dead level. The cracks run in long lines and short ones, and the wind whistles through the deeper ones.",
+  "exits": {
+    "east": "zone_district_914_932",
+    "north": "zone_seam_914_931",
+    "south": "zone_seam_914_933",
+    "west": "zone_district_913_932"
+  },
+  "flags": {
+    "district": "wilds",
+    "radiation": 33,
+    "region_id": "region_coldwater",
+    "terrain": "redrock"
+  },
+  "grid_x": 914,
+  "grid_y": 932,
+  "grid_z": 0,
+  "id": "zone_seam_914_932",
+  "map_id": "map_world",
+  "name": "Red Hardpan",
+  "parent_zone": null
+}

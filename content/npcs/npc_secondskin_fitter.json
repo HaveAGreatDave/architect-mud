@@ -227,6 +227,10 @@
       "price": 26
     },
     {
+      "item_id": "item_knee_pads",
+      "price": 14
+    },
+    {
       "item_id": "item_shorts_cargo",
       "price": 18
     },

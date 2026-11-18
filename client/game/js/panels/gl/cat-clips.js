@@ -68,7 +68,9 @@ function moodEars(mo, mood, k = 1) {
 const GAITS = {
   walk: { f: 1.35, duty: 0.62, lift: 0.045, off: { LH: 0, LF: 0.25, RH: 0.5, RF: 0.75 }, bob: 0.006, tail: 0.2 },
   trot: { f: 2.3, duty: 0.48, lift: 0.06, off: { LH: 0, RF: 0.02, RH: 0.5, LF: 0.52 }, bob: 0.01, tail: 1 },
-  gallop: { f: 3.4, duty: 0.32, lift: 0.08, off: { LH: 0, RH: 0.08, LF: 0.5, RF: 0.58 }, bob: 0.03, tail: 0.4, flex: 0.22 },
+  // the gallop's pairs land well apart (a cat's rotary lead: left hind, right hind, right fore, left fore), or the
+  // fores read as one paw
+  gallop: { f: 3.2, duty: 0.3, lift: 0.1, off: { LH: 0, RH: 0.14, RF: 0.46, LF: 0.62 }, bob: 0.035, tail: 0.4, flex: 0.3 },
 };
 export const GAIT_SPEED = { walk: 0.32, trot: 0.75, gallop: 2.2 };
 function gait(R, t, ctx, kind) {
@@ -78,7 +80,14 @@ function gait(R, t, ctx, kind) {
     const L = pose.legs[k], u = frac(ph + G.off[k]), rest = R.legs[k].J.D;
     let z, y;
     if (u < G.duty) { z = S / 2 - S * (u / G.duty); y = 0; }
-    else { const s = (u - G.duty) / (1 - G.duty); z = -S / 2 + S * smooth(0, 1, s); y = G.lift * Math.sin(Math.PI * s); }
+    else {
+      const s = (u - G.duty) / (1 - G.duty); z = -S / 2 + S * smooth(0, 1, s); y = G.lift * Math.sin(Math.PI * s);
+      if (kind === 'gallop') {
+        // on the run a fore reaches out past its landing and comes back to it, and a hind kicks back and up first
+        if (k[1] === 'F') { z += 0.35 * S * Math.sin(Math.PI * s) * s; y *= 0.8 + 0.5 * s; }
+        else { z -= 0.3 * S * Math.sin(Math.PI * s) * (1 - s); y *= 1.2 - 0.4 * s; }
+      }
+    }
     L.paw = [rest[0], rest[1] + y, rest[2] + z];
     // the toes droop as the paw comes up
     if (y > 0) L.fwd = unit([0, -y * 4, 1]);
@@ -88,14 +97,25 @@ function gait(R, t, ctx, kind) {
   pose.root.at = [at[0], at[1] + G.bob * Math.cos(ph * Math.PI * 4) - (kind === 'gallop' ? 0.02 : 0), at[2]];
   pose.root.rot = [(G.flex || 0) * 0.5 * Math.sin(ph * Math.PI * 2), 0.04 * Math.sin(ph * Math.PI * 2), 0.03 * Math.sin(ph * Math.PI * 2)];
   if (G.flex) pose.spine.lumbar = [G.flex * Math.sin(ph * Math.PI * 2 + 1), 0, 0];
+  // the gallop: a little happy wobble side to side as the pairs land one after the other
+  if (kind === 'gallop') pose.root.rot = [pose.root.rot[0], 0.07 * Math.sin(ph * Math.PI * 2 + 0.6), 0.05 * Math.sin(ph * Math.PI * 2)];
   // tail: up with a hooked tip on the trot over to somebody, streaming out on a run; on a walk, carried as the cat is
   // (`ctx.tailCarry`, 0..1): a sure, sociable cat walks about with it straight up, a wary one level or low
   if (G.tail >= 1) pose.tail = tailUp(R);
-  else if (kind === 'gallop') pose.tail = [[0, R.Y(0.42), -0.5], [0, R.Y(0.45), -0.65], [0, R.Y(0.47), -0.8], [0, R.Y(0.5), -0.92]];
+  else if (kind === 'gallop') {
+    // zoomies: the tail up in a loose question mark, its tip bouncing with each stride
+    const hop = 0.03 * Math.sin(ph * Math.PI * 2 - 1);
+    pose.tail = [[0, R.Y(0.44), -0.5], [0, R.Y(0.52), -0.6], [0, R.Y(0.6) + hop, -0.66], [0, R.Y(0.64) + 1.6 * hop, -0.6]];
+  }
   else pose.tail = carried(R, [[0, R.Y(0.38), -0.48], [0, R.Y(0.36), -0.62], [0, R.Y(0.34), -0.76], [0, R.Y(0.38), -0.86]], ctx.tailCarry);
   const mo = idle(t, ctx, 1);
   mo.head = [0.08 - 0.05 * Math.cos(ph * Math.PI * 4), mo.head[1] * 0.25, 0];
   mo.tailSway = Math.sin(ph * Math.PI * 2) * 0.25; mo.tailFlick *= 0.3;
+  if (kind === 'gallop') {
+    // the head stays level and eager while the body pumps under it, ears pricked forward
+    mo.head = [0.02 + 0.06 * Math.sin(ph * Math.PI * 2 + 2), mo.head[1], 0.06 * Math.sin(ph * Math.PI * 2 + 0.6)];
+    moodEars(mo, 'listening', 0.6);
+  }
   return { pose, mo };
 }
 // A slow wandering value in -1..1: smooth noise along t (cubic between a random value at each whole step), so a head
@@ -103,6 +123,19 @@ function gait(R, t, ctx, kind) {
 function drift(t, seed = 0) {
   const i = Math.floor(t), f = t - i, u = f * f * (3 - 2 * f);
   return lerp(rnd(i, seed) * 2 - 1, rnd(i + 1, seed) * 2 - 1, u);
+}
+// Where a hand stroking down the back is at time `t`: strokes of 1.7 to 2.5 seconds, each one 65% the pass and the
+// rest the hand coming back off him. under(x) is how much the hand is over the point x (0 the neck, 1 the tail's root)
+// of the back now, a soft bump that lingers as the hand moves on; after is how far into the gap after a stroke.
+function strokeAt(t, seed = 0) {
+  let i = 0, t0 = 0, len = 2 + 0.8 * (rnd(0, seed) - 0.5);
+  while (t0 + len <= t && i < 400) { t0 += len; i++; len = 2 + 0.8 * (rnd(i, seed) - 0.5); }
+  const u = (t - t0) / len, pass = u / 0.65, hand = pass <= 1 ? pass * pass * (3 - 2 * pass) : 1;
+  const on = pass <= 1 ? 1 : 1 - smooth(1, 1 + 0.35 / 0.65, pass);
+  return {
+    under: (x) => on * Math.exp(-(((hand - x) / 0.28) ** 2)) + (pass > x / 1 ? 0.25 * on : 0) * smooth(x, x + 0.2, hand),
+    after: pass > 1 ? Math.sin(Math.PI * clamp((u - 0.65) / 0.35)) : 0,
+  };
 }
 // A clip of being stroked over `base`: `amp` how far the head goes (a cat lying down moves less), `awake` how
 // awake he is under the idle, `bed` the purr under it
@@ -461,36 +494,49 @@ export const CAT_CLIPS = {
   pettedLoaf: pettedOn('loaf', 0.7, 0.45, 'cat_purr_petted'),
   pettedStand: pettedOn('stand', 0.85, 0.65, 'cat_purr_tom'),
   pettedSleep: pettedOn('curl', 0.35, 0.12, 'cat_purr_soft'),
-  // stroked down the back lying down: the back rises into the hand a little, the tail's tip curls
+  // Stroked down the back, lying down or stood. A stroke is a pass of the hand from the neck to the root of the tail,
+  // about two seconds and never quite the same length twice (strokeAt). The part of the back under the hand rises into
+  // it as the hand passes: the shoulders first, then the middle of the back, then the hips, and at the end of a stroke
+  // the tail goes up after the hand. Between strokes he settles a little and waits for the next one.
   archLoaf: {
     base: 'loaf', len: 0,
     sound: { bed: 'cat_purr_tom', gain: 0.8 },
     frame(R, t, ctx) {
-      const pose = baseOf(R, 'loaf').pose, sd = (ctx.seed ?? 1) * 0.37, up = 0.5 + 0.5 * drift(t * 0.45, sd);
-      pose.spine.lumbar = [pose.spine.lumbar[0] - 0.08 * up, 0, 0];
-      pose.root.at = [pose.root.at[0], pose.root.at[1] + 0.01 * up, pose.root.at[2]];
+      const pose = baseOf(R, 'loaf').pose, sd = (ctx.seed ?? 1) * 0.37, S = strokeAt(t, sd), k = smooth(0, 0.8, t);
+      const sh = S.under(0.2) * k, mid = S.under(0.55) * k, hip = S.under(0.85) * k;
+      pose.spine.chest = [pose.spine.chest[0] - 0.05 * sh, 0, 0];
+      pose.spine.lumbar = [pose.spine.lumbar[0] - 0.09 * mid, 0, 0];
+      pose.root.at = [pose.root.at[0], pose.root.at[1] + 0.008 * mid + 0.006 * hip, pose.root.at[2]];
+      pose.root.rot = [pose.root.rot[0] - 0.03 * hip, 0, 0];
       const mo = idle(t, ctx, 0.5);
-      mo.head = [0.08 * drift(t * 0.3, sd + 2), 0.25 * drift(t * 0.2, sd + 5), 0];
-      mo.lids = Math.max(mo.lids, 0.55 + 0.3 * up);
+      // the head tips back into the start of each stroke and drops as it goes off down the back
+      mo.head = [0.1 * sh - 0.05 * hip + 0.06 * drift(t * 0.3, sd + 2), 0.22 * drift(t * 0.2, sd + 5), 0];
+      mo.lids = Math.max(mo.lids, 0.55 + 0.3 * mid);
       moodEars(mo, 'content', 0.9);
-      mo.tailFlick = 0.25 * drift(t * 0.9, sd + 7);
+      mo.tailFlick = (0.18 * hip + 0.1 * S.after) * drift(t * 0.9, sd + 7) + 0.12 * S.after;
       return { pose, mo };
     },
   },
-  // stroked down the back: up on his legs with the back arched into the hand, the tail straight up, purring
+  // stroked down the back stood: the back arches up under the hand and the hips push up into it at the end of each
+  // stroke, the tail straight up, purring
   arch: {
-    base: 'stand', len: 4,
+    base: 'stand', len: 0,
     sound: { bed: 'cat_purr_tom', gain: 0.9 },
     frame(R, t, ctx) {
-      const pose = baseOf(R, 'stand').pose, at = pose.root.at, ph = t / 4 * Math.PI * 2, up = 0.5 + 0.5 * Math.sin(ph);
-      pose.root.at = [at[0], at[1] + 0.025 * up, at[2]];
-      pose.root.rot = [0.06 - 0.06 * up, 0, 0];
-      pose.spine.lumbar = [-0.16 * up, 0, 0];
-      pose.spine.chest = [-0.06 * up, 0, 0];
-      pose.tail = tailUp(R);
+      const pose = baseOf(R, 'stand').pose, at = pose.root.at, sd = (ctx.seed ?? 1) * 0.37, S = strokeAt(t, sd), k = smooth(0, 0.8, t);
+      const sh = S.under(0.2) * k, mid = S.under(0.55) * k, hip = S.under(0.88) * k;
+      // he leans forward into the start of a stroke and back onto his hind legs as it reaches the hips
+      pose.root.at = [at[0], at[1] + 0.012 * mid + 0.022 * hip, at[2] - 0.01 * hip];
+      pose.root.rot = [0.05 * sh - 0.07 * hip, 0.04 * drift(t * 0.25, sd + 3) * k, 0];
+      pose.spine.lumbar = [-0.18 * mid - 0.06 * hip, 0, 0];
+      pose.spine.chest = [-0.08 * sh - 0.04 * mid, 0, 0];
+      pose.spine.neck = [pose.spine.neck[0] + 0.06 * sh, 0, 0];
+      // the tail up, rising a little higher and quivering as the hand leaves it
+      const up = tailUp(R), q = 0.006 * S.after * Math.sin(t * Math.PI * 2 * 9);
+      pose.tail = up.map((p, i) => [p[0] + (i > 2 ? q : 0), p[1] + 0.02 * S.after * (i / (up.length - 1)), p[2]]);
       const mo = idle(t, ctx, 0.7);
-      mo.head = [0.12 * up, mo.head[1] * 0.3, 0];
-      mo.lids = Math.max(mo.lids, 0.6);
+      mo.head = [0.14 * sh - 0.06 * hip + 0.05 * drift(t * 0.3, sd + 2), mo.head[1] * 0.3 + 0.12 * drift(t * 0.18, sd + 9), 0];
+      mo.lids = Math.max(mo.lids, 0.5 + 0.3 * mid);
       moodEars(mo, 'content', 0.9);
       return { pose, mo };
     },

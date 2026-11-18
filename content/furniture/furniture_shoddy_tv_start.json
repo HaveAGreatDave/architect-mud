@@ -7,9 +7,9 @@
       "watch"
     ],
     "spot": {
-      "along": 4.3,
+      "along": -3,
       "wall": "back",
-      "y": 1.75
+      "y": 2
     },
     "tuned_channel": 7,
     "tv": true,

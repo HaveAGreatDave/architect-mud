@@ -1,0 +1,971 @@
+{
+  "acted": false,
+  "broadcast_graph": {
+    "_start": "bsm_0",
+    "nodes": {
+      "bsm_0": {
+        "_vine": {
+          "x": 80,
+          "y": 80
+        },
+        "next": "bsm_1",
+        "type": "start"
+      },
+      "bsm_1": {
+        "_vine": {
+          "x": 300,
+          "y": 80
+        },
+        "event_type": "FADE_IN",
+        "next": "bsm_2",
+        "type": "event"
+      },
+      "bsm_10": {
+        "_vine": {
+          "x": 80,
+          "y": 400
+        },
+        "next": "bsm_11",
+        "style": "raw",
+        "text": "Good morning, Coldwater. Everything you see today was in somebody's flat last week.",
+        "type": "say"
+      },
+      "bsm_11": {
+        "_vine": {
+          "x": 300,
+          "y": 400
+        },
+        "next": "bsm_12",
+        "style": "raw",
+        "text": "They couldn't pay. You can.",
+        "type": "say"
+      },
+      "bsm_12": {
+        "_vine": {
+          "x": 520,
+          "y": 400
+        },
+        "event_type": "LAUGHTER",
+        "next": "bsm_13",
+        "type": "event"
+      },
+      "bsm_13": {
+        "_vine": {
+          "x": 740,
+          "y": 400
+        },
+        "graphic_id": "",
+        "next": "bsm_14",
+        "overlayType": "lower_third",
+        "subtext": "Lines are open. Bailiffs are standing by.",
+        "text": "EVERYTHING MUST GO",
+        "type": "overlay"
+      },
+      "bsm_14": {
+        "_vine": {
+          "x": 960,
+          "y": 400
+        },
+        "label": "CAM — 3 — MEDIUM on Jolene",
+        "next": "bsm_15",
+        "type": "camera_cut",
+        "zone_id": ""
+      },
+      "bsm_15": {
+        "_vine": {
+          "x": 80,
+          "y": 560
+        },
+        "display": "Jolene Marsh",
+        "next": "bsm_16",
+        "npc_id": "npc_emg_jolene",
+        "type": "npc_anchor"
+      },
+      "bsm_16": {
+        "_vine": {
+          "x": 300,
+          "y": 560
+        },
+        "message": "holds up the toaster.",
+        "next": "bsm_17",
+        "type": "npc_action"
+      },
+      "bsm_17": {
+        "_vine": {
+          "x": 520,
+          "y": 560
+        },
+        "next": "bsm_18",
+        "style": "raw",
+        "text": "Lot one. A two-slice toaster. Barely burnt.",
+        "type": "say"
+      },
+      "bsm_18": {
+        "_vine": {
+          "x": 740,
+          "y": 560
+        },
+        "display": "Vance Pellow",
+        "next": "bsm_19",
+        "npc_id": "npc_emg_vance",
+        "type": "npc_anchor"
+      },
+      "bsm_19": {
+        "_vine": {
+          "x": 960,
+          "y": 560
+        },
+        "next": "bsm_20",
+        "style": "raw",
+        "text": "Look at that chrome, Jolene.",
+        "type": "say"
+      },
+      "bsm_2": {
+        "_vine": {
+          "x": 520,
+          "y": 80
+        },
+        "graphic_id": "emg_logo",
+        "next": "bsm_3",
+        "type": "title_card"
+      },
+      "bsm_20": {
+        "_vine": {
+          "x": 80,
+          "y": 720
+        },
+        "display": "Jolene Marsh",
+        "next": "bsm_21",
+        "npc_id": "npc_emg_jolene",
+        "type": "npc_anchor"
+      },
+      "bsm_21": {
+        "_vine": {
+          "x": 300,
+          "y": 720
+        },
+        "next": "bsm_22",
+        "style": "raw",
+        "text": "There's a crumb tray, Vance. It comes out.",
+        "type": "say"
+      },
+      "bsm_22": {
+        "_vine": {
+          "x": 520,
+          "y": 720
+        },
+        "display": "Vance Pellow",
+        "next": "bsm_23",
+        "npc_id": "npc_emg_vance",
+        "type": "npc_anchor"
+      },
+      "bsm_23": {
+        "_vine": {
+          "x": 740,
+          "y": 720
+        },
+        "next": "bsm_24",
+        "style": "raw",
+        "text": "They don't make them like that any more. They don't make them at all, actually. The factory's a car park.",
+        "type": "say"
+      },
+      "bsm_24": {
+        "_vine": {
+          "x": 960,
+          "y": 720
+        },
+        "event_type": "LAUGHTER",
+        "next": "bsm_25",
+        "type": "event"
+      },
+      "bsm_25": {
+        "_vine": {
+          "x": 80,
+          "y": 880
+        },
+        "label": "CAM — 2 — MEDIUM on Pim",
+        "next": "bsm_26",
+        "type": "camera_cut",
+        "zone_id": ""
+      },
+      "bsm_26": {
+        "_vine": {
+          "x": 300,
+          "y": 880
+        },
+        "display": "Pim",
+        "next": "bsm_27",
+        "npc_id": "npc_emg_pim",
+        "type": "npc_anchor"
+      },
+      "bsm_27": {
+        "_vine": {
+          "x": 520,
+          "y": 880
+        },
+        "message": "picks up the phone.",
+        "next": "bsm_28",
+        "type": "npc_action"
+      },
+      "bsm_28": {
+        "_vine": {
+          "x": 740,
+          "y": 880
+        },
+        "next": "bsm_29",
+        "style": "raw",
+        "text": "Vance, I've got a caller on line three.",
+        "type": "say"
+      },
+      "bsm_29": {
+        "_vine": {
+          "x": 960,
+          "y": 880
+        },
+        "display": "Vance Pellow",
+        "next": "bsm_30",
+        "npc_id": "npc_emg_vance",
+        "type": "npc_anchor"
+      },
+      "bsm_3": {
+        "_vine": {
+          "x": 740,
+          "y": 80
+        },
+        "duration": 3,
+        "next": "bsm_4",
+        "type": "wait"
+      },
+      "bsm_30": {
+        "_vine": {
+          "x": 80,
+          "y": 1040
+        },
+        "next": "bsm_31",
+        "style": "raw",
+        "text": "Put her through, Pim.",
+        "type": "say"
+      },
+      "bsm_31": {
+        "_vine": {
+          "x": 300,
+          "y": 1040
+        },
+        "display": "Pim",
+        "next": "bsm_32",
+        "npc_id": "npc_emg_pim",
+        "type": "npc_anchor"
+      },
+      "bsm_32": {
+        "_vine": {
+          "x": 520,
+          "y": 1040
+        },
+        "next": "bsm_33",
+        "style": "raw",
+        "text": "She says that's her toaster.",
+        "type": "say"
+      },
+      "bsm_33": {
+        "_vine": {
+          "x": 740,
+          "y": 1040
+        },
+        "event_type": "LAUGHTER",
+        "next": "bsm_34",
+        "type": "event"
+      },
+      "bsm_34": {
+        "_vine": {
+          "x": 960,
+          "y": 1040
+        },
+        "label": "CAM — 1 — WIDE",
+        "next": "bsm_35",
+        "type": "camera_cut",
+        "zone_id": ""
+      },
+      "bsm_35": {
+        "_vine": {
+          "x": 80,
+          "y": 1200
+        },
+        "display": "Vance Pellow",
+        "next": "bsm_36",
+        "npc_id": "npc_emg_vance",
+        "type": "npc_anchor"
+      },
+      "bsm_36": {
+        "_vine": {
+          "x": 300,
+          "y": 1200
+        },
+        "message": "leans in.",
+        "next": "bsm_37",
+        "type": "npc_action"
+      },
+      "bsm_37": {
+        "_vine": {
+          "x": 520,
+          "y": 1200
+        },
+        "next": "bsm_38",
+        "style": "raw",
+        "text": "Was. Was her toaster.",
+        "type": "say"
+      },
+      "bsm_38": {
+        "_vine": {
+          "x": 740,
+          "y": 1200
+        },
+        "display": "Pim",
+        "next": "bsm_39",
+        "npc_id": "npc_emg_pim",
+        "type": "npc_anchor"
+      },
+      "bsm_39": {
+        "_vine": {
+          "x": 960,
+          "y": 1200
+        },
+        "next": "bsm_40",
+        "style": "raw",
+        "text": "She wants to buy it back.",
+        "type": "say"
+      },
+      "bsm_4": {
+        "_vine": {
+          "x": 960,
+          "y": 80
+        },
+        "label": "CAM — 1 — WIDE",
+        "next": "bsm_5",
+        "type": "camera_cut",
+        "zone_id": ""
+      },
+      "bsm_40": {
+        "_vine": {
+          "x": 80,
+          "y": 1360
+        },
+        "display": "Vance Pellow",
+        "next": "bsm_41",
+        "npc_id": "npc_emg_vance",
+        "type": "npc_anchor"
+      },
+      "bsm_41": {
+        "_vine": {
+          "x": 300,
+          "y": 1360
+        },
+        "message": "slaps the counter.",
+        "next": "bsm_42",
+        "type": "npc_action"
+      },
+      "bsm_42": {
+        "_vine": {
+          "x": 520,
+          "y": 1360
+        },
+        "next": "bsm_43",
+        "style": "raw",
+        "text": "Then the price just went up. Sentimental value.",
+        "type": "say"
+      },
+      "bsm_43": {
+        "_vine": {
+          "x": 740,
+          "y": 1360
+        },
+        "display": "Jolene Marsh",
+        "next": "bsm_44",
+        "npc_id": "npc_emg_jolene",
+        "type": "npc_anchor"
+      },
+      "bsm_44": {
+        "_vine": {
+          "x": 960,
+          "y": 1360
+        },
+        "next": "bsm_45",
+        "style": "raw",
+        "text": "Forty credits.",
+        "type": "say"
+      },
+      "bsm_45": {
+        "_vine": {
+          "x": 80,
+          "y": 1520
+        },
+        "display": "Pim",
+        "next": "bsm_46",
+        "npc_id": "npc_emg_pim",
+        "type": "npc_anchor"
+      },
+      "bsm_46": {
+        "_vine": {
+          "x": 300,
+          "y": 1520
+        },
+        "next": "bsm_47",
+        "style": "raw",
+        "text": "She's crying.",
+        "type": "say"
+      },
+      "bsm_47": {
+        "_vine": {
+          "x": 520,
+          "y": 1520
+        },
+        "display": "Vance Pellow",
+        "next": "bsm_48",
+        "npc_id": "npc_emg_vance",
+        "type": "npc_anchor"
+      },
+      "bsm_48": {
+        "_vine": {
+          "x": 740,
+          "y": 1520
+        },
+        "next": "bsm_49",
+        "style": "raw",
+        "text": "Forty-five.",
+        "type": "say"
+      },
+      "bsm_49": {
+        "_vine": {
+          "x": 960,
+          "y": 1520
+        },
+        "event_type": "LAUGHTER",
+        "next": "bsm_50",
+        "type": "event"
+      },
+      "bsm_5": {
+        "_vine": {
+          "x": 80,
+          "y": 240
+        },
+        "display": "Vance Pellow",
+        "next": "bsm_6",
+        "npc_id": "npc_emg_vance",
+        "type": "npc_anchor"
+      },
+      "bsm_50": {
+        "_vine": {
+          "x": 80,
+          "y": 1680
+        },
+        "label": "CAM — 3 — MEDIUM on Jolene",
+        "next": "bsm_51",
+        "type": "camera_cut",
+        "zone_id": ""
+      },
+      "bsm_51": {
+        "_vine": {
+          "x": 300,
+          "y": 1680
+        },
+        "display": "Jolene Marsh",
+        "next": "bsm_52",
+        "npc_id": "npc_emg_jolene",
+        "type": "npc_anchor"
+      },
+      "bsm_52": {
+        "_vine": {
+          "x": 520,
+          "y": 1680
+        },
+        "message": "holds up a framed photograph.",
+        "next": "bsm_53",
+        "type": "npc_action"
+      },
+      "bsm_53": {
+        "_vine": {
+          "x": 740,
+          "y": 1680
+        },
+        "next": "bsm_54",
+        "style": "raw",
+        "text": "Lot two. A family photograph, frame included.",
+        "type": "say"
+      },
+      "bsm_54": {
+        "_vine": {
+          "x": 960,
+          "y": 1680
+        },
+        "display": "Vance Pellow",
+        "next": "bsm_55",
+        "npc_id": "npc_emg_vance",
+        "type": "npc_anchor"
+      },
+      "bsm_55": {
+        "_vine": {
+          "x": 80,
+          "y": 1840
+        },
+        "next": "bsm_56",
+        "style": "raw",
+        "text": "Lovely frame. Real wood. You can take the family out.",
+        "type": "say"
+      },
+      "bsm_56": {
+        "_vine": {
+          "x": 300,
+          "y": 1840
+        },
+        "display": "Jolene Marsh",
+        "next": "bsm_57",
+        "npc_id": "npc_emg_jolene",
+        "type": "npc_anchor"
+      },
+      "bsm_57": {
+        "_vine": {
+          "x": 520,
+          "y": 1840
+        },
+        "next": "bsm_58",
+        "style": "raw",
+        "text": "Vance, that's my sister.",
+        "type": "say"
+      },
+      "bsm_58": {
+        "_vine": {
+          "x": 740,
+          "y": 1840
+        },
+        "display": "Vance Pellow",
+        "next": "bsm_59",
+        "npc_id": "npc_emg_vance",
+        "type": "npc_anchor"
+      },
+      "bsm_59": {
+        "_vine": {
+          "x": 960,
+          "y": 1840
+        },
+        "message": "looks at the photograph.",
+        "next": "bsm_60",
+        "type": "npc_action"
+      },
+      "bsm_6": {
+        "_vine": {
+          "x": 300,
+          "y": 240
+        },
+        "display": "Jolene Marsh",
+        "next": "bsm_7",
+        "npc_id": "npc_emg_jolene",
+        "type": "npc_anchor"
+      },
+      "bsm_60": {
+        "_vine": {
+          "x": 80,
+          "y": 2000
+        },
+        "next": "bsm_61",
+        "style": "raw",
+        "text": "So it is. Small world.",
+        "type": "say"
+      },
+      "bsm_61": {
+        "_vine": {
+          "x": 300,
+          "y": 2000
+        },
+        "event_type": "LAUGHTER",
+        "next": "bsm_62",
+        "type": "event"
+      },
+      "bsm_62": {
+        "_vine": {
+          "x": 520,
+          "y": 2000
+        },
+        "display": "Jolene Marsh",
+        "next": "bsm_63",
+        "npc_id": "npc_emg_jolene",
+        "type": "npc_anchor"
+      },
+      "bsm_63": {
+        "_vine": {
+          "x": 740,
+          "y": 2000
+        },
+        "next": "bsm_64",
+        "style": "raw",
+        "text": "She said she was moving.",
+        "type": "say"
+      },
+      "bsm_64": {
+        "_vine": {
+          "x": 960,
+          "y": 2000
+        },
+        "display": "Vance Pellow",
+        "next": "bsm_65",
+        "npc_id": "npc_emg_vance",
+        "type": "npc_anchor"
+      },
+      "bsm_65": {
+        "_vine": {
+          "x": 80,
+          "y": 2160
+        },
+        "next": "bsm_66",
+        "style": "raw",
+        "text": "She did move. Twelve credits, Coldwater.",
+        "type": "say"
+      },
+      "bsm_66": {
+        "_vine": {
+          "x": 300,
+          "y": 2160
+        },
+        "display": "Pim",
+        "next": "bsm_67",
+        "npc_id": "npc_emg_pim",
+        "type": "npc_anchor"
+      },
+      "bsm_67": {
+        "_vine": {
+          "x": 520,
+          "y": 2160
+        },
+        "message": "picks up the phone.",
+        "next": "bsm_68",
+        "type": "npc_action"
+      },
+      "bsm_68": {
+        "_vine": {
+          "x": 740,
+          "y": 2160
+        },
+        "next": "bsm_69",
+        "style": "raw",
+        "text": "Line one wants the toaster and the sister.",
+        "type": "say"
+      },
+      "bsm_69": {
+        "_vine": {
+          "x": 960,
+          "y": 2160
+        },
+        "display": "Vance Pellow",
+        "next": "bsm_70",
+        "npc_id": "npc_emg_vance",
+        "type": "npc_anchor"
+      },
+      "bsm_7": {
+        "_vine": {
+          "x": 520,
+          "y": 240
+        },
+        "display": "Pim",
+        "next": "bsm_8",
+        "npc_id": "npc_emg_pim",
+        "type": "npc_anchor"
+      },
+      "bsm_70": {
+        "_vine": {
+          "x": 80,
+          "y": 2320
+        },
+        "next": "bsm_71",
+        "style": "raw",
+        "text": "The sister isn't for sale. Yet.",
+        "type": "say"
+      },
+      "bsm_71": {
+        "_vine": {
+          "x": 300,
+          "y": 2320
+        },
+        "event_type": "LAUGHTER",
+        "next": "bsm_72",
+        "type": "event"
+      },
+      "bsm_72": {
+        "_vine": {
+          "x": 520,
+          "y": 2320
+        },
+        "label": "CAM — 2 — MEDIUM on Pim",
+        "next": "bsm_73",
+        "type": "camera_cut",
+        "zone_id": ""
+      },
+      "bsm_73": {
+        "_vine": {
+          "x": 740,
+          "y": 2320
+        },
+        "display": "Pim",
+        "next": "bsm_74",
+        "npc_id": "npc_emg_pim",
+        "type": "npc_anchor"
+      },
+      "bsm_74": {
+        "_vine": {
+          "x": 960,
+          "y": 2320
+        },
+        "message": "picks up the phone.",
+        "next": "bsm_75",
+        "type": "npc_action"
+      },
+      "bsm_75": {
+        "_vine": {
+          "x": 80,
+          "y": 2480
+        },
+        "next": "bsm_76",
+        "style": "raw",
+        "text": "Vance, there's a man on line six. He's from the bank.",
+        "type": "say"
+      },
+      "bsm_76": {
+        "_vine": {
+          "x": 300,
+          "y": 2480
+        },
+        "display": "Vance Pellow",
+        "next": "bsm_77",
+        "npc_id": "npc_emg_vance",
+        "type": "npc_anchor"
+      },
+      "bsm_77": {
+        "_vine": {
+          "x": 520,
+          "y": 2480
+        },
+        "next": "bsm_78",
+        "style": "raw",
+        "text": "Tell him we're live.",
+        "type": "say"
+      },
+      "bsm_78": {
+        "_vine": {
+          "x": 740,
+          "y": 2480
+        },
+        "display": "Pim",
+        "next": "bsm_79",
+        "npc_id": "npc_emg_pim",
+        "type": "npc_anchor"
+      },
+      "bsm_79": {
+        "_vine": {
+          "x": 960,
+          "y": 2480
+        },
+        "next": "bsm_80",
+        "style": "raw",
+        "text": "He says he knows. He says he's in reception.",
+        "type": "say"
+      },
+      "bsm_8": {
+        "_vine": {
+          "x": 740,
+          "y": 240
+        },
+        "display": "Vance Pellow",
+        "next": "bsm_9",
+        "npc_id": "npc_emg_vance",
+        "type": "npc_anchor"
+      },
+      "bsm_80": {
+        "_vine": {
+          "x": 80,
+          "y": 2640
+        },
+        "display": "Jolene Marsh",
+        "next": "bsm_81",
+        "npc_id": "npc_emg_jolene",
+        "type": "npc_anchor"
+      },
+      "bsm_81": {
+        "_vine": {
+          "x": 300,
+          "y": 2640
+        },
+        "message": "points at the counter.",
+        "next": "bsm_82",
+        "type": "npc_action"
+      },
+      "bsm_82": {
+        "_vine": {
+          "x": 520,
+          "y": 2640
+        },
+        "next": "bsm_83",
+        "style": "raw",
+        "text": "He wants the counter, Vance.",
+        "type": "say"
+      },
+      "bsm_83": {
+        "_vine": {
+          "x": 740,
+          "y": 2640
+        },
+        "display": "Pim",
+        "next": "bsm_84",
+        "npc_id": "npc_emg_pim",
+        "type": "npc_anchor"
+      },
+      "bsm_84": {
+        "_vine": {
+          "x": 960,
+          "y": 2640
+        },
+        "message": "looks at the phones.",
+        "next": "bsm_85",
+        "type": "npc_action"
+      },
+      "bsm_85": {
+        "_vine": {
+          "x": 80,
+          "y": 2800
+        },
+        "next": "bsm_86",
+        "style": "raw",
+        "text": "And the phones.",
+        "type": "say"
+      },
+      "bsm_86": {
+        "_vine": {
+          "x": 300,
+          "y": 2800
+        },
+        "label": "CAM — 1 — WIDE",
+        "next": "bsm_87",
+        "type": "camera_cut",
+        "zone_id": ""
+      },
+      "bsm_87": {
+        "_vine": {
+          "x": 520,
+          "y": 2800
+        },
+        "display": "Vance Pellow",
+        "next": "bsm_88",
+        "npc_id": "npc_emg_vance",
+        "type": "npc_anchor"
+      },
+      "bsm_88": {
+        "_vine": {
+          "x": 740,
+          "y": 2800
+        },
+        "message": "looks into the camera.",
+        "next": "bsm_89",
+        "type": "npc_action"
+      },
+      "bsm_89": {
+        "_vine": {
+          "x": 960,
+          "y": 2800
+        },
+        "next": "bsm_90",
+        "style": "raw",
+        "text": "You heard him, Coldwater. Everything must go.",
+        "type": "say"
+      },
+      "bsm_9": {
+        "_vine": {
+          "x": 960,
+          "y": 240
+        },
+        "message": "spreads his arms.",
+        "next": "bsm_10",
+        "type": "npc_action"
+      },
+      "bsm_90": {
+        "_vine": {
+          "x": 80,
+          "y": 2960
+        },
+        "event_type": "APPLAUSE",
+        "next": "bsm_91",
+        "type": "event"
+      },
+      "bsm_91": {
+        "_vine": {
+          "x": 300,
+          "y": 2960
+        },
+        "duration": 10,
+        "next": "bsm_92",
+        "text": "EVERYTHING MUST GO\n\nAll goods sold as seen.\nNo refunds. No returns. No questions.\nREPO-TV, Coldwater",
+        "type": "credits"
+      },
+      "bsm_92": {
+        "_vine": {
+          "x": 520,
+          "y": 2960
+        },
+        "event_type": "FADE_OUT",
+        "type": "event"
+      }
+    }
+  },
+  "category": "shopping",
+  "channel_id": "ch_7_1782953079593",
+  "created_by": "author",
+  "description": "",
+  "enabled": 1,
+  "fallback_messages": [],
+  "film_meta": null,
+  "gameshow_pools": null,
+  "id": "bc_everything_must_go",
+  "loop": 1,
+  "message_interval": 5,
+  "messages": [
+    "Good morning, Coldwater. Everything you see today was in somebody's flat last week.",
+    "They couldn't pay. You can.",
+    "Lot one. A two-slice toaster. Barely burnt.",
+    "Look at that chrome, Jolene.",
+    "There's a crumb tray, Vance. It comes out.",
+    "They don't make them like that any more. They don't make them at all, actually. The factory's a car park.",
+    "Vance, I've got a caller on line three.",
+    "Put her through, Pim.",
+    "She says that's her toaster.",
+    "Was. Was her toaster.",
+    "She wants to buy it back.",
+    "Then the price just went up. Sentimental value.",
+    "Forty credits.",
+    "She's crying.",
+    "Forty-five.",
+    "Lot two. A family photograph, frame included.",
+    "Lovely frame. Real wood. You can take the family out.",
+    "Vance, that's my sister.",
+    "So it is. Small world.",
+    "She said she was moving.",
+    "She did move. Twelve credits, Coldwater.",
+    "Line one wants the toaster and the sister.",
+    "The sister isn't for sale. Yet.",
+    "Vance, there's a man on line six. He's from the bank.",
+    "Tell him we're live.",
+    "He says he knows. He says he's in reception.",
+    "He wants the counter, Vance.",
+    "And the phones.",
+    "You heard him, Coldwater. Everything must go."
+  ],
+  "morning_pools": null,
+  "name": "Everything Must Go",
+  "news_pools": null,
+  "override_duration": 180,
+  "playback_mode": "scripted",
+  "sermon_pools": null,
+  "sports_pools": null,
+  "tags": [
+    "comedy",
+    "episodic",
+    "studio"
+  ],
+  "talkshow_pools": null,
+  "updated_at": "1794871768",
+  "weather_pools": null
+}

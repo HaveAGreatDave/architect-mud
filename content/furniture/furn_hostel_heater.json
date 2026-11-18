@@ -6,6 +6,13 @@
       "arche": "small",
       "form": "heater",
       "wear": 0.9
+    },
+    "spot": {
+      "at": [
+        2.4,
+        1.5
+      ],
+      "turn": 0
     }
   },
   "hp": null,

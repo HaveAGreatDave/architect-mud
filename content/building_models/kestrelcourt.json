@@ -35,7 +35,7 @@
   "bind": [
     {
       "by": "name",
-      "key": "Kestrel Court"
+      "key": "The Flute"
     }
   ],
   "detail": [
@@ -66,17 +66,17 @@
       "z": 0.076
     },
     {
-      "bare": true,
-      "cx": -0.1,
+      "color": "#2a1c10",
+      "cx": 0,
       "cy": 0.31,
       "font": "deco",
-      "half": 0.13,
-      "hh": 0.008,
-      "ink": "#5a3e1e",
+      "half": 0.2,
+      "hh": 0.022,
+      "ink": "#ffd890",
       "kind": "signBoard",
       "label": "$name",
-      "nightInk": "#ffe0a8",
-      "z": 0.09
+      "nightInk": "#ffe8b8",
+      "z": 0.11
     },
     {
       "bars": 3,
@@ -222,7 +222,7 @@
     }
   ],
   "id": "kestrelcourt",
-  "note": "KESTREL COURT: twelve storeys of flats on Marrow Street, between Adequate! and Solenne (docs/proposals/marrow-midrises.md).\n\nSolenne's developers built it on the rest of the plot, in Solenne's own materials and a fraction of the budget: the same champagne glass (`ty_solenne`, blue panes in gold frames), the same pale ashlar (`ty_marble_col`) and bronze (`ty_marble_bronze`) as the Solenne arm's podium. Stone fins run up the glass and carry Solenne's gold light at night; the top storeys step back under a bronze coping; a glass stair tower climbs the east end; every flat has a bronze-railed balcony round the back over the Strand.\n\n⚠ THE SLAB IS THE ONLY NON-SQUARE BOX AND IT IS CENTRED. F() rotates a box's position to the entrance and leaves its footprint pointing north, so an off-centre box wider than it is deep reaches a different radius at each facing and gl:mesh fails it (the Sentinel's note has the history). The stair tower and the motor room are off-centre, so they are square.\n\n⚠ THE GLASS DRAWS ITS OWN STOREYS. A GLASS_WALL palette paints a pane grid and floor plates instead of a window grid, so there are no window repeats on the slab; the fins give the front its rhythm.\n\n⚠ THE BACK BALCONIES ONLY DRAW BECAUSE `balcony` PROJECTS OUT FROM A NEGATIVE FACE (fixed 2026-10-08). On the 2-D painter only the lowest shows, the mean-depth sort the Modelshop README describes; GLASS 2 draws them all.",
+  "note": "THE FLUTE: twelve storeys of flats on Marrow Street, between Adequate! and Solenne (docs/proposals/marrow-midrises.md).\n\nSolenne's developers built it on the rest of the plot, in Solenne's own materials and a fraction of the budget: the same champagne glass (`ty_solenne`, blue panes in gold frames), the same pale ashlar (`ty_marble_col`) and bronze (`ty_marble_bronze`) as the Solenne arm's podium. Stone fins run up the glass and carry Solenne's gold light at night; the top storeys step back under a bronze coping; a glass stair tower climbs the east end; every flat has a bronze-railed balcony round the back over the Strand.\n\n⚠ THE SLAB IS THE ONLY NON-SQUARE BOX AND IT IS CENTRED. F() rotates a box's position to the entrance and leaves its footprint pointing north, so an off-centre box wider than it is deep reaches a different radius at each facing and gl:mesh fails it (the Sentinel's note has the history). The stair tower and the motor room are off-centre, so they are square.\n\n⚠ THE GLASS DRAWS ITS OWN STOREYS. A GLASS_WALL palette paints a pane grid and floor plates instead of a window grid, so there are no window repeats on the slab; the fins give the front its rhythm.\n\n⚠ THE BACK BALCONIES ONLY DRAW BECAUSE `balcony` PROJECTS OUT FROM A NEGATIVE FACE (fixed 2026-10-08). On the 2-D painter only the lowest shows, the mean-depth sort the Modelshop README describes; GLASS 2 draws them all.",
   "pal": "ty_solenne",
   "segs": [
     {

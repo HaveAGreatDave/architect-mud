@@ -37,6 +37,8 @@
 // own frame (x to the player's left, y up, z his forward), placed in the park by `at` and `yaw`.
 
 import { solvePose, solveTorso, solveHips, mirrorPose, scalePose, shoulderBackOf } from './rig.js';
+import { handsAt, mixHands } from './hands.js';
+import { CLIPS } from './clips.js';
 
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
@@ -263,6 +265,15 @@ function holdOf(clip, S, t) {
 //   · `mirror`, for a left-hander: the clips are keyed right-handed and he does it in a mirror.
 //     `ground` is still the real one; the sample works out which side is which.
 export function sampleClip(clip, t, opts = {}) {
+  const mix = opts.traits ? slotMix(clip, opts.traits.armAngle) : null;
+  if (mix) {
+    // a delivery at his own arm angle: the two slot clips either side of it, mixed (slotMix)
+    const o = { ...opts, traits: { ...opts.traits, armAngle: null } };
+    const a = sampleClip(mix.A, t, o), b = sampleClip(mix.B, t, o);
+    const P = mixPose(a, b, mix.w, { ground: opts.ground, scale: opts.scale });
+    if (!P.hands && (a.hands || b.hands)) P.hands = (mix.w < 0.5 ? a : b).hands;
+    return P;
+  }
   const s = opts.scale || 1, real = opts.ground || flatGround, mirror = !!opts.mirror;
   const ground = mirror ? (x, z) => real(-x, z) : real;
   t = clip.loop ? ((t % clip.duration) + clip.duration) % clip.duration : clamp(t, 0, clip.duration);
@@ -272,8 +283,11 @@ export function sampleClip(clip, t, opts = {}) {
     if (opts.traits) P = vary(P, opts.traits, clip.role, here);
     return fitPlants(P, ground, s, holds);
   };
-  const P = batHandoff(clip, t, run(t), run, s);
-  return mirror ? mirrorPose(P) : P;
+  const P = batHandoff(clip, t, run(t), run, s), out = mirror ? mirrorPose(P) : P;
+  // the hand shapes the clip keys (hands.js), which the figure's hands take
+  const hands = handsAt(clip, t, mirror);
+  if (hands) out.hands = hands;
+  return out;
 }
 
 // A bat let go at a key, or taken up at one: the hands' own curve, between that key and the next
@@ -519,8 +533,10 @@ export function mixPose(a, b, w, opts = {}) {
     P['plant' + S] = both && apart <= MIX_STEP * s;
   }
   for (const S of FEET) if (a['clear' + S] != null || b['clear' + S] != null) P['clear' + S] = lerp(a['clear' + S] ?? 1, b['clear' + S] ?? 1, w);
-  if (a.bat && b.bat) P.bat = { knob: [0, 1, 2].map((i) => lerp(a.bat.knob[i], b.bat.knob[i], w)), dir: norm([0, 1, 2].map((i) => lerp(a.bat.dir[i], b.bat.dir[i], w))), bottom: (w < 0.5 ? a : b).bat.bottom, ...((w < 0.5 ? a : b).bat.one ? { one: true } : {}) };
+  if (a.bat && b.bat) P.bat = { knob: [0, 1, 2].map((i) => lerp(a.bat.knob[i], b.bat.knob[i], w)), dir: norm([0, 1, 2].map((i) => lerp(a.bat.dir[i], b.bat.dir[i], w))), bottom: (w < 0.5 ? a : b).bat.bottom, ...((w < 0.5 ? a : b).bat.one ? { one: true } : {}), ...(a.bat.slide || b.bat.slide ? { slide: lerp(a.bat.slide || 0, b.bat.slide || 0, w) } : {}) };
   else if ((w < 0.5 ? a : b).bat) P.bat = (w < 0.5 ? a : b).bat;
+  const hands = mixHands(a.hands, b.hands, w);
+  if (hands) P.hands = hands;
   return guardMix(P);
 }
 // A mix lerps the hand's way apart from the forearm, which only the solve settles, and a free foot's
@@ -718,6 +734,26 @@ export function lookAt(P, target, w = 1, s = 1) {
   return { ...P, neck: [lerp(n[0], pitch * 0.6, w), lerp(n[1], yaw * 0.6, w), n[2]], head: [lerp(h[0], pitch * 0.4, w), lerp(h[1], yaw * 0.4, w), h[2]] };
 }
 
+// ── the delivery's slot ──
+// A pitcher's arm comes through at his own angle (traitsOf `armAngle`, degrees: sidearm low, over the top high),
+// not one of three. The three slot clips were keyed at SLOT_ANGLE, at the same times with the same release, so
+// any of them sampled for a man with an arm angle is the two either side of his angle mixed pose by pose
+// (sampleClip), and the ball leaves from where that mixed hand is (director.js). Below the sidearm clip's angle
+// or above the over-the-top one's he throws that clip as it is: a submarine clip is still to come.
+export const SLOT_ANGLE = Object.freeze({ side: 20, three: 50, over: 80 });
+const DELIVERY = /^pitch_(windup|stretch)_(side|three|over)$/;
+export function slotMix(clip, angle) {
+  if (angle == null || !clip?.id) return null;
+  const m = DELIVERY.exec(clip.id);
+  if (!m) return null;
+  const a = clamp(angle, SLOT_ANGLE.side, SLOT_ANGLE.over), low = a < SLOT_ANGLE.three;
+  const lo = low ? 'side' : 'three', hi = low ? 'three' : 'over', w = (a - SLOT_ANGLE[lo]) / (SLOT_ANGLE[hi] - SLOT_ANGLE[lo]);
+  const A = CLIPS[`pitch_${m[1]}_${lo}`], B = CLIPS[`pitch_${m[1]}_${hi}`];
+  if (!A || !B || w <= 0.001 || w >= 0.999) return null;
+  if (!(w > 0) && !(w < 1)) return null;
+  return { A, B, w };
+}
+
 // ── his own way ────────────────────────────────────────────────────────────────
 // A player's own way of doing things, off his name, so a regular viewer knows him by it: the
 // pitcher's arm slot (which delivery the director plays him) and leg kick, the hitter's stance
@@ -726,15 +762,41 @@ export function traitsOf(id) {
   const h = hashStr('traits:' + id), r = (k) => ((h >>> (k * 3)) & 1023) / 1023;
   return {
     armSlot: r(0) < 0.15 ? 'side' : r(0) < 0.6 ? 'three' : 'over',
+    ...deliveryOf(id, r(0)),
     kick: 0.8 + 0.4 * r(1),
     width: 0.88 + 0.24 * r(2),
     crouch: 0.85 + 0.3 * r(3),
     batAngle: -12 + 24 * r(4),
     tempo: 0.92 + 0.16 * r(5),
+    ...gripOf(id),
   };
 }
+// A pitcher's delivery as numbers (deadball-players-v2.md section 4): the angle his arm comes through at, in
+// the band his old slot was (sidearm 15 to 32 degrees, three-quarters 32 to 62, over the top 62 to 85), so a
+// regular viewer's pitcher still throws from where he did; and where along the rubber he stands, in feet off
+// its middle (+ toward the glove side's base, mirrored for a lefty). Off its own hash for the rubber.
+export function deliveryOf(id, u = (hashStr('traits:' + id) & 1023) / 1023) {
+  const armAngle = u < 0.15 ? 15 + 17 * (u / 0.15) : u < 0.6 ? 32 + 30 * ((u - 0.15) / 0.45) : 62 + 23 * ((u - 0.6) / 0.4);
+  let h = hashStr('rubber:' + id);
+  h ^= h >>> 16; h = Math.imul(h, 0x85ebca6b); h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35); h ^= h >>> 16;
+  const v = (h >>> 0) / 4294967296;
+  return { armAngle: Math.round(armAngle * 10) / 10, rubber: Math.round((v < 0.6 ? -0.5 + v : (v - 0.6) * 1.25) * 100) / 100 };
+}
+// Where his hands sit on the bat (deadball-players-v2.md section 2): the standard grip, choked up a couple of
+// inches, the knob in his bottom palm, or his little finger hooked over the knob. It's how far the bat slides
+// through his hands, in feet up the handle (+ choked, the knob nearer his body; - down, the bat longer out of
+// them). The hands stay where the clip keyed them, so every grip's wrists are the clip's own. Off its own hash,
+// finalised (murmur3's fmix), since FNV alone clusters names that differ in a last character.
+export const BAT_GRIPS = Object.freeze({ standard: 0, choked: 0.2, palm: -0.08, pinky: -0.13 });
+export function gripOf(id) {
+  let h = hashStr('grip:' + id);
+  h ^= h >>> 16; h = Math.imul(h, 0x85ebca6b); h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35); h ^= h >>> 16;
+  const u = (h >>> 0) / 4294967296;
+  const grip = u < 0.55 ? 'standard' : u < 0.7 ? 'choked' : u < 0.88 ? 'palm' : 'pinky';
+  return { grip, slide: BAT_GRIPS[grip] };
+}
 // The ends of each trait's range, for the gate: every clip has to hold up done either way.
-export const TRAIT_RANGE = Object.freeze({ kick: [0.8, 1.2], width: [0.88, 1.12], crouch: [0.85, 1.15], batAngle: [-12, 12] });
+export const TRAIT_RANGE = Object.freeze({ kick: [0.8, 1.2], width: [0.88, 1.12], crouch: [0.85, 1.15], batAngle: [-12, 12], slide: [BAT_GRIPS.pinky, BAT_GRIPS.choked] });
 // A pose done his way: `role` says which traits apply. sampleClip calls this before it fits the
 // plants, so a wider stance still has its feet in reach. The arm slot isn't here: each slot is a
 // delivery of its own (pitch_stretch_over, _three, _side). `here` is where a clip that travels has
@@ -769,6 +831,7 @@ export function vary(P, traits, role, here = null) {
       const t = traits.batAngle / DEG * up * up * (3 - 2 * up), c = Math.cos(t), sn = Math.sin(t);
       if (t) out.bat = { ...out.bat, dir: norm([d[0] * c - d[1] * sn, d[0] * sn + d[1] * c, d[2]]) };
     }
+    if (out.bat && traits.slide) out.bat = { ...out.bat, slide: traits.slide };
   }
   return out;
 }

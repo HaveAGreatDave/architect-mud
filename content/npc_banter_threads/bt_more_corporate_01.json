@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_more_corporate_01",
+  "lines": [
+    "\"Quarterlies are in.\"",
+    "\"Good?\"",
+    "\"Good for the board.\"",
+    "\"And for us?\"",
+    "\"There's free fruit in the break room now.\""
+  ],
+  "personality": "corporate",
+  "sort_order": 679
+}

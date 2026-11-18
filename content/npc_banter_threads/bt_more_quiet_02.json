@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_quiet_02",
+  "lines": [
+    "\"Nice to sit for a minute.\"",
+    "\"Mm.\"",
+    "\"You don't have to talk.\"",
+    "\"Good.\""
+  ],
+  "personality": "quiet",
+  "sort_order": 673
+}

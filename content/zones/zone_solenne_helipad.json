@@ -8,9 +8,9 @@
   "ambient_theme": "urban",
   "bg_color": "#1c242c",
   "color": "#cfd8e0",
-  "description": "The crown of the tower: a circle of non-slip deck ringed in recessed landing lights, cantilevered past the parapet over four hundred feet of air. A lit windsock at the northern rail. Two glass-doored bays behind the pad, each big enough for a light rotorcraft. A refuelling point under a brass cover in the deck. The hall is <b>south</b>.",
+  "description": "The south-east corner of the roof terrace: a square of non-slip deck ringed in landing lights, a white H in the middle. The pad is a lift; a brass terminal by its edge sends your aircraft down to the <b>garage</b>. Teak benches and planters line the west rail, with viewing <b>binoculars</b> at the front. The lift house is <b>west</b>.",
   "exits": {
-    "south": "zone_solenne_hall_45"
+    "west": "zone_solenne_hall_40"
   },
   "flags": {
     "always_lit": true,
@@ -25,35 +25,22 @@
     "residents_only_deny": "The panel by the pad door reads your hand, finds no residence attached to it, and stays shut. Somewhere below, a concierge is already deciding not to mention it.",
     "room": {
       "balcony": false,
-      "d": 18,
+      "d": 11,
       "decor": {
-        "doors": [
-          {
-            "at": -5.5,
-            "finish": "steel",
-            "label": "Bay 1",
-            "w": 2.4,
-            "wall": "back"
-          },
-          {
-            "at": 5.5,
-            "finish": "steel",
-            "label": "Bay 2",
-            "w": 2.4,
-            "wall": "back"
-          }
-        ],
         "downlights": false,
         "pad": {
           "at": [
-            0,
-            8
+            3.28,
+            4.65
           ],
-          "r": 6
+          "r": 3.75
         },
         "rug": false
       },
-      "face": 0,
+      "doors": {
+        "west": 5.65
+      },
+      "face": 90,
       "finish": "fine",
       "glass": [
         "front",
@@ -68,7 +55,7 @@
         "trim": "#1c1f23",
         "wall": "#3a3f45"
       },
-      "w": 18
+      "w": 15.9
     },
     "sanctuary": true,
     "window": {
@@ -79,9 +66,9 @@
     },
     "world_exit_zone": "zone_district_914_908"
   },
-  "grid_x": 0,
-  "grid_y": -1,
-  "grid_z": 7,
+  "grid_x": 1,
+  "grid_y": 0,
+  "grid_z": 9,
   "id": "zone_solenne_helipad",
   "map_id": "map_int_solenne",
   "name": "Solenne Sky Pad",

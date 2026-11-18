@@ -1,7 +1,7 @@
 {
   "ambient_theme": "indoors",
   "bg_color": "#c9a884",
-  "description": "Unit 2A, over the street. Sage walls under a white plaster cornice, a waxed parquet floor, and a kitchen in an L of oak and butcher block with plates stacked on open shelves above it. Two armchairs face the window across a rug. The big canvas behind them was somebody's rent: Lowry takes part of it in paintings, and they hang in every unit in the building.",
+  "description": "Unit 2A, a long room with its window over the street. Sage walls under a white plaster cornice and a waxed parquet floor. Two armchairs face the window across a low oak table, and a brass bed stands at the dim end by the bathroom. The big canvas on the wall beside them was somebody's rent: Lowry takes part of it in paintings, and they hang in every room in the building.",
   "exits": {
     "in": "zone_apt_1_bath",
     "south": "zone_embassy_floor_2nd"
@@ -12,11 +12,11 @@
     "is_apartment": true,
     "room": {
       "blinds": true,
-      "d": 10,
+      "d": 12.3,
       "decor": {
         "art": [
           {
-            "at": 3,
+            "at": 2.95,
             "h": 1,
             "seed": 11,
             "w": 1.5,
@@ -24,7 +24,7 @@
             "y": 1.85
           },
           {
-            "at": 0.6,
+            "at": 0.55,
             "h": 1,
             "seed": 23,
             "w": 0.8,
@@ -36,7 +36,7 @@
             "h": 1,
             "seed": 37,
             "w": 0.8,
-            "wall": "front",
+            "wall": "right",
             "y": 1.6
           }
         ],
@@ -54,19 +54,19 @@
         },
         "plants": [
           [
-            -3.55,
+            -1.25,
             0.45,
             1.1
           ]
         ],
         "rug": {
           "at": [
-            -1.7,
+            -0.3,
             2.4
           ],
           "d": 2.6,
           "style": "persian",
-          "w": 3
+          "w": 2.1
         },
         "sconces": {
           "hex": "#b8924a",
@@ -83,14 +83,11 @@
           "y": 1.8
         }
       },
-      "h": 3,
-      "kitchen": {
-        "front": "#5a6a4a",
-        "grade": 2,
-        "pendants": "globe",
-        "top": "butcher",
-        "uppers": "shelves"
+      "ensuite": {
+        "d": 2.8
       },
+      "face": 270,
+      "h": 4.13,
       "sash": {
         "drapes": "#6b4a2e",
         "head": true,
@@ -98,13 +95,14 @@
         "transom": 0.4,
         "w": 1.8
       },
+      "studio": false,
       "tone": {
         "accent": "#b8924a",
         "ceiling": "#f2eee4",
         "trim": "#efe9dc",
         "wall": "#9caf98"
       },
-      "w": 8
+      "w": 3.3
     },
     "window": {
       "description": "A tall sash window, reglazed, that opens and shuts and keeps the weather where it belongs.",

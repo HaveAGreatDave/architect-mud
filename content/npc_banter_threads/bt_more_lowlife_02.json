@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "id": "bt_more_lowlife_02",
+  "lines": [
+    "\"You still owe me.\"",
+    "\"I know.\"",
+    "\"When?\"",
+    "\"When I've got it.\"",
+    "\"When's that?\"",
+    "\"Ask the Architect. It knows everything.\""
+  ],
+  "personality": "lowlife",
+  "sort_order": 667
+}

@@ -1,0 +1,36 @@
+{
+  "description": "A high-backed wing chair in green velvet, worn to the weave where heads have rested, with brass nails down each arm. It sinks further than you expect.",
+  "flags": {
+    "aliases": "chair,wing chair,wingback,armchair",
+    "interactions": [
+      "sit"
+    ],
+    "look": {
+      "arche": "seat",
+      "dims": [
+        0.86,
+        0.86,
+        1.15
+      ],
+      "dress": "emerald",
+      "form": "wingback"
+    },
+    "spot": {
+      "at": [
+        -5,
+        6.45
+      ],
+      "turn": 90
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_embassy_wingback_1",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "green wing chair",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_residential_lobby"
+}

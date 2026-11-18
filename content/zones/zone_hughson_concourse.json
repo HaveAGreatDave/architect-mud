@@ -1,6 +1,6 @@
 {
   "ambient_theme": "indoors",
-  "description": "A long concourse under the stands, its concrete floor sticky in patches and lit by caged bulbs. The concession stand is through an opening to the west, under a hand-painted menu board. Stairs climb to the club level, and the ramps lead north to the stands.",
+  "description": "A long concourse under the stands, terrazzo underfoot and brick to shoulder height under a black and gold frieze. The eight clubs' banners hang along the north wall either side of the ramp to the stands. A tobacco booth stands on the east wall, and the concession stand is west. Stairs climb to the club level.",
   "exits": {
     "down": "zone_util_zone_hughson_concourse",
     "north": "zone_hughson_stands",
@@ -15,6 +15,227 @@
     "is_building": true,
     "is_interior": true,
     "open_all_hours": true,
+    "room": {
+      "balcony": false,
+      "d": 10,
+      "decor": {
+        "downlights": false,
+        "floor": {
+          "border": "#1e1c1a",
+          "field": "#e2d6bf",
+          "inset": 0.45,
+          "line": "#c49a52",
+          "medallion": [
+            0,
+            5,
+            1.8
+          ],
+          "ray": "#b98a4a",
+          "rays": 16,
+          "star": "sunburst",
+          "w": 0.24
+        },
+        "frieze": {
+          "h": 0.3,
+          "hex": "#1e1c1a",
+          "line": "#c49a52",
+          "y": 5.2
+        },
+        "lights": [
+          {
+            "at": [
+              -9,
+              5
+            ],
+            "drop": 1.8,
+            "k": 1.4,
+            "kind": "tiers",
+            "r": 0.55,
+            "tiers": 3
+          },
+          {
+            "at": [
+              0,
+              5
+            ],
+            "drop": 2,
+            "k": 1.7,
+            "kind": "tiers",
+            "r": 0.7,
+            "tiers": 4
+          },
+          {
+            "at": [
+              9,
+              5
+            ],
+            "drop": 1.8,
+            "k": 1.4,
+            "kind": "tiers",
+            "r": 0.55,
+            "tiers": 3
+          }
+        ],
+        "pilasters": {
+          "hex": "#e8dfcc",
+          "points": [
+            [
+              "front",
+              -3.8
+            ],
+            [
+              "front",
+              3.8
+            ],
+            [
+              "back",
+              -3.4
+            ],
+            [
+              "back",
+              3.4
+            ],
+            [
+              "back",
+              -11
+            ],
+            [
+              "back",
+              11
+            ],
+            [
+              "left",
+              2
+            ],
+            [
+              "left",
+              8
+            ]
+          ],
+          "trim": "#c49a52",
+          "w": 0.36,
+          "y1": 5.2
+        },
+        "rug": false,
+        "sconces": {
+          "kind": "fan",
+          "points": [
+            [
+              "front",
+              -13.6
+            ],
+            [
+              "front",
+              13.6
+            ],
+            [
+              "back",
+              -8.5
+            ],
+            [
+              "back",
+              8.5
+            ],
+            [
+              "right",
+              1.6
+            ],
+            [
+              "right",
+              8.4
+            ]
+          ],
+          "y": 2.9
+        },
+        "walls": {
+          "hex": "#8a5a3c",
+          "kind": "brick",
+          "trim": "#1e1c1a",
+          "y1": 1.6
+        }
+      },
+      "door_w": {
+        "north": 4,
+        "south": 3,
+        "west": 2.6
+      },
+      "face": 0,
+      "ground": "terrazzo",
+      "h": 6,
+      "rug": false,
+      "stadium": {
+        "accent": "#c49a52",
+        "brick": "#8a5a3c",
+        "font": "Limelight",
+        "frame": "#3a2c1e",
+        "ink": "#3a2c1e",
+        "plate": "#f3ead6",
+        "portal": "brick",
+        "signs": [
+          {
+            "at": 0,
+            "h": 0.62,
+            "kind": "gilt",
+            "sub": "All sections · Mind the ramp",
+            "text": "To the Stands",
+            "w": 4.4,
+            "wall": "front",
+            "y": 4.75
+          },
+          {
+            "at": 0,
+            "h": 0.5,
+            "kind": "gilt",
+            "sub": "Box office · Way out",
+            "text": "Rotunda",
+            "w": 3.6,
+            "wall": "back",
+            "y": 4.6
+          },
+          {
+            "at": 5,
+            "h": 0.5,
+            "kind": "neon",
+            "sub": "Franks · Burgers · Beer",
+            "text": "Concessions",
+            "tint": "#ff5a3a",
+            "w": 3.2,
+            "wall": "left",
+            "y": 3.4
+          },
+          {
+            "at": -8.5,
+            "h": 0.42,
+            "kind": "enamel",
+            "sub": "Up the stairs · Members",
+            "text": "Club Level",
+            "w": 3,
+            "wall": "back",
+            "y": 4.6
+          },
+          {
+            "at": 11,
+            "h": 0.4,
+            "kind": "enamel",
+            "sub": "Keep your stub",
+            "text": "No Re-entry",
+            "w": 2.6,
+            "wall": "back",
+            "y": 4.6
+          }
+        ],
+        "sub": "Italiana"
+      },
+      "studio": false,
+      "tone": {
+        "accent": "#c49a52",
+        "ceiling": "#e6dcc8",
+        "trim": "#3a2c1e",
+        "wall": "#d9cfba"
+      },
+      "w": 28,
+      "windowless": true
+    },
     "world_exit_zone": "zone_ballpark_896_920"
   },
   "grid_x": 0,

@@ -72,6 +72,8 @@ export function createBallparkFigures(gl) {
   // by slot: the man (`look`, `fit`), his template records by level, and this frame's rows
   const men = new Map();
   let frame = 0;
+  // where the ball is (the park's setBall), for the hand that's holding it, and the pitch it's gripped for
+  let ballAt = null, ballGrip = null;
 
   // The cast: who stands in each slot. Their records are made when the switch is first on (`want`).
   function setCast(cast) {
@@ -104,16 +106,17 @@ export function createBallparkFigures(gl) {
     const kit = plain ? null : { cell: Float32Array.from(mesh.kitCell(m.look.slot ?? 0)), pants: Float32Array.from(mesh.KIT_PANTS[sd]), socks: Float32Array.from(mesh.KIT_SOCKS[sd]), sleeves: Float32Array.from(mesh.KIT_SLEEVES[sd]), patch: mesh.LOGO_CELLS.patch[sd] };
     // clean at the start of a game: the street's grime (`grit`) isn't a ballplayer's, and the park keeps its own dirt
     // a belt and nothing else of the figure's gear (a settled look's `gear` is all or none), in the kit's belt colour
-    return (m.recs[level] = { ...r, key: { ...r.key, gear: { belt: true } }, col, kit, trim: Float32Array.from(lin(f.trim)), grit: 0, sway: [0, 0, 0], jiggle: null, seatJ: null });
+    // `clean`: everybody in the park starts the game new, kit or no kit (gl/figure-hd.js uKitOn)
+    return (m.recs[level] = { ...r, key: { ...r.key, gear: { belt: true } }, col, kit, clean: true, trim: Float32Array.from(lin(f.trim)), grit: 0, sway: [0, 0, 0], jiggle: null, seatJ: null });
   }
 
   // A slot's pose for this frame, from the park's own solve (rig.js solvePose's { J, W, s } and its boneFrames):
   // kept, and turned into the figure's rows only if he's drawn as one (rowsOf), so a man posed before the
   // figure's modules arrived, and stood still since, still has his.
-  function pose(slot, sol, frames) {
+  function pose(slot, sol, frames, keyed = null) {
     const m = men.get(slot);
     if (!m) return;
-    m.sol = sol;
+    m.sol = sol; m.hands = keyed;
     m.frames = m.frames && m.frames.length === frames.length ? m.frames : new Float32Array(frames.length);
     m.frames.set(frames);
     m.posedAt = (m.posedAt || 0) + 1;
@@ -121,7 +124,9 @@ export function createBallparkFigures(gl) {
   function rowsOf(m) {
     if (!m.sol) return null;
     if (m.rowsAt !== m.posedAt) {
-      m.rows = mods.rig.figureRows(m.sol, m.frames, m.fit || mods.rig.figureFit(m.look), m.rows || undefined, m.glove);
+      // which way round each hand holds a bat, kept between frames (figure-rig.js figureRows)
+      m.grip ??= { L: false, R: false };
+      m.rows = mods.rig.figureRows(m.sol, m.frames, m.fit || mods.rig.figureFit(m.look), m.rows || undefined, m.glove, m.grip);
       m.tw = mods.rig.forearmTwist(m.rows);
       m.J = m.sol.J; m.rowsAt = m.posedAt;
     }
@@ -173,9 +178,9 @@ export function createBallparkFigures(gl) {
     for (const slot of slots) {
       const m = men.get(slot), r = m?.now;
       if (!r || !m.rows) continue;
-      const H = mods.rig.handHolds(m.J, m.glove);
+      const H = mods.rig.handHolds(m.J, m.glove, ballAt, ballGrip ? mods.rig.gripOf(ballGrip) : null, m.hands);
       const every = 3.6 + (slot % 5) * 0.7, b = (t + slot * 1.37) % every;
-      out.push({ ...r, rows: m.rows, hands: hands.handsUniforms(H.L, H.R, m.tw?.L || 0, m.tw?.R || 0), blink: b < 0.15 ? Math.sin((b / 0.15) * Math.PI) : 0 });
+      out.push({ ...r, rows: m.rows, hands: hands.handsUniforms(hands.shapeMix(H.L), hands.shapeMix(H.R), m.tw?.L || 0, m.tw?.R || 0, m.J.gripL ? mods.rig.GRIP_HOLD : null, m.J.gripR ? mods.rig.GRIP_HOLD : null), blink: b < 0.15 ? Math.sin((b / 0.15) * Math.PI) : 0 });
     }
     return out;
   }
@@ -228,6 +233,7 @@ export function createBallparkFigures(gl) {
 
   return {
     setCast, pose, prepare,
+    setBall(p, grip = null) { ballAt = p ? p.slice() : null; ballGrip = grip || null; },
     get loaded() { return !!mods; },
     // Draws `slots` (prepare's) as figures: their outline when `ink` is set, then their bodies, lit. `M` is the
     // shot's matrices (feet), `w`×`h` the target.

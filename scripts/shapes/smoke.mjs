@@ -435,7 +435,7 @@ async function main() {
   // must answer with a real deck height at its centre — that is the number roofPadProximity
   // requires above zero before it will offer a pad at all.
   const pad = { kind: 'field', biome: 'badlands', bt: 'apartment', bn: 'Solenne Residences', ent: 'south' };
-  const padFt = ws.buildingRoofFtAt(914, 908, pad, 914, 908);
+  const padFt = ws.buildingRoofFtAt(915, 908, pad, 915, 908);
   if (!(padFt > 50)) solid.push(`the Solenne's rooftop pad reads ${padFt.toFixed(1)} ft at the tile centre — the pad can never arm`);
   for (const s of solid) problems.push(`solid  ${s}`);
 

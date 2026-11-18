@@ -29,7 +29,7 @@ const REPORT = process.argv.includes('--report');
 const W = 640, H = 480;
 stubCanvas('__park', W, H);
 
-const FEATURES = ['grove', 'pond', 'benches', 'flowerbeds', 'path', 'fountain', 'parterre', 'pergola', 'forecourt'];
+const FEATURES = ['grove', 'pond', 'benches', 'flowerbeds', 'path', 'fountain', 'parterre', 'pergola', 'forecourt', 'statue'];
 // Flat grass with one park tile on it, several tiles ahead. ⚠ THE GRASS IS `citycore`, because a
 // lawn of `park` tiles would put furniture on every tile and the control would measure all of it.
 const N = 25, C = 12, AHEAD = 5;
@@ -103,14 +103,21 @@ for (const f of FEATURES) {
   // The same dressing two tiles east must come back as the same geometry two tiles east. The seed
   // differs with the tile, so a seeded dressing is not the same shape; an authored `pf` is, and
   // every tile here has one.
-  const there = collect(scene(f, C + 2, C - AHEAD));
-  const a = centroid(here.recs), b = there && centroid(there.recs);
-  if (!b) problems.push(`'${f}' two tiles further on collected nothing`);
-  else {
-    const ddx = b[0] - a[0], ddy = b[1] - a[1];
-    // A grove's trees and a bed's flowers are placed off the seed, so only a margin is honest.
-    if (Math.abs(ddx - 2) > 0.35 || Math.abs(ddy) > 0.35) problems.push(`'${f}' two tiles east moved by (${ddx.toFixed(2)}, ${ddy.toFixed(2)}) instead of (2, 0) — the records are not in the map-window frame`);
+  // ⚠ The path's seed turns it along or across the tile (its tree swaps corners), and since the grown trees
+  // (2026-11) a tree outweighs the rest of a path in vertices, so one tile further on can be the mirror image.
+  // So the tile 2, 4 and 6 east are tried: a records frame that is wrong is wrong on all three.
+  const a = centroid(here.recs);
+  let best = null, any = false;
+  for (const k of [2, 4, 6]) {
+    const there = collect(scene(f, C + k, C - AHEAD)), b = there && centroid(there.recs);
+    if (!b) continue;
+    any = true;
+    const ddx = b[0] - a[0], ddy = b[1] - a[1], ok = Math.abs(ddx - k) <= 0.35 && Math.abs(ddy) <= 0.35;
+    if (ok) { best = null; break; }
+    if (!best) best = [k, ddx, ddy];
   }
+  if (!any) problems.push(`'${f}' further on collected nothing`);
+  if (best) problems.push(`'${f}' ${best[0]} tiles east moved by (${best[1].toFixed(2)}, ${best[2].toFixed(2)}) instead of (${best[0]}, 0), and so did 4 and 6 — the records are not in the map-window frame`);
   // ── ⚠ MOVING THE EYE MOVES NOTHING ─────────────────────────────────────────────────────────
   const nudged = collect(scene(f), { ...BASE, mapOffset: { x: -0.38, y: 0.44 } });
   if (!nudged || nudged.recs.length !== here.recs.length) {

@@ -1,0 +1,29 @@
+{
+  "ambient_events": [
+    "A groundskeeper picks ticket stubs out of a flowerbed one at a time.",
+    "Somebody eats a hot dog on a bench and watches the Coliseum wall.",
+    "A pigeon lands on the nearest lamp and looks at you."
+  ],
+  "ambient_theme": "urban",
+  "color": "#8fd08a",
+  "description": "A stand of plane trees on the East Gardens' outer edge. Kerbstone Row's towers stand over the east side.",
+  "exits": {
+    "north": "zone_ballpark_891_918",
+    "south": "zone_hughsonpark_897_918",
+    "west": "zone_ballpark_892_917"
+  },
+  "flags": {
+    "district": "halcyon_fields",
+    "park_feature": "grove",
+    "region_id": "region_coldwater",
+    "street_life": true,
+    "terrain": "park"
+  },
+  "grid_x": 897,
+  "grid_y": 917,
+  "grid_z": 0,
+  "id": "zone_hughsonpark_897_917",
+  "map_id": "map_world",
+  "name": "East Gardens",
+  "parent_zone": null
+}

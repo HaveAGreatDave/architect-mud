@@ -33,7 +33,7 @@ const map = Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x)
   return { kind: 'land', biome: 'city', flr: 0 };
 }));
 const view = (hour) => ({ cls: 'truck', variant: 'hauler', phase: 'ground', worldBlend: 1, height: 0, eyeH: 0.12, fovMul: 1.22,
-  hour, weather: 'clear', speed: 0, map, heading: 0, mapCenter: { x: 921, y: 916 }, mapOffset: { x: 0, y: 0 }, resFloor: 1 });
+  hour, weather: 'clear', speed: 0, map, heading: 0, mapCenter: { x: 922, y: 916 }, mapOffset: { x: 0, y: 0 }, resFloor: 1 });
 
 const clock = globalThis.performance;
 globalThis.performance = { ...clock, now: () => 1e6 };

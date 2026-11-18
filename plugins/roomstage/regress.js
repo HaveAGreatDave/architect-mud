@@ -310,8 +310,37 @@ async function packs(check, run, getPlayer) {
   }
 }
 
+// A respawn in the Vat Hall (docs/proposals/clone-facility-depths.md): the engine's `vat.emerging` picks a release vat in
+// turn, stands the body just out of its front, and tells the room which vat and when (`room_vat`), so the Stage plays it.
+async function vatArrivals(check, getPlayer) {
+  const p = getPlayer(), Z = 'zone_start';
+  const bays = getZoneFurniture(Z).filter((f) => f.flags?.look?.state === 'release').map((f) => f.id);
+  if (!bays.length) { check('the Vat Hall has release vats to arrive in', false, 'none in zone_start'); return; }
+  const sent = [], was = getBroadcast(), wasZone = p.current_zone;
+  setBroadcast((z, msg, ex, to) => { if (to === p.id) sent.push(msg); return was?.(z, msg, ex, to); });
+  try {
+    p.current_zone = Z;
+    const cue = async () => { for (let i = 0; i < 80 && !sent.some((m) => m.type === 'room_vat'); i++) await new Promise((res) => setTimeout(res, 25)); return sent.find((m) => m.type === 'room_vat'); };
+    emit('vat.emerging', { actor: p, zone: Z, t0: 1234 });
+    const a = await cue();
+    check('a respawn in the Vat Hall cues its room with a release vat and the clock it started on', a?.zone === Z && a.who === p.id && bays.includes(a.piece) && a.t0 === 1234, JSON.stringify(a));
+    const w = _test.where.get(p.id);
+    check('and stands the body in the room, just out of that vat', w?.zone === Z && Array.isArray(w.at) && w.at.every(Number.isFinite), JSON.stringify(w));
+    sent.length = 0;
+    emit('vat.emerging', { actor: p, zone: Z, t0: 1300 });
+    const b = await cue();
+    check('the next respawn comes down to the next release vat', !!b && bays.includes(b.piece) && (bays.length < 2 || b.piece !== a?.piece), JSON.stringify([a?.piece, b?.piece]));
+  } finally {
+    setBroadcast(was);
+    p.current_zone = wasZone;
+    _test.viewers.get(Z)?.delete(p.id);
+    _test.where.delete(p.id);
+  }
+}
+
 export default async function regress({ run, check, getPlayer }) {
   fills(check);
+  await vatArrivals(check, getPlayer);
   await residents(check);
   await comings(check);
   await packs(check, run, getPlayer);
@@ -357,7 +386,8 @@ export default async function regress({ run, check, getPlayer }) {
     const noStage = [...world.zones.values()].filter((z) => z.flags?.is_apartment && !_test.specOf(z.id)).map((z) => z.id);
     check('every flat in the world has a Stage', !noStage.length, noStage.slice(0, 5).join(' '));
     const crown = _test.specOf('zone_solenne_penthouse');
-    check('the Solenne Penthouse has a Stage, with its spa behind it', crown?.w === 16 && crown?.annex?.zone === 'zone_solenne_penthouse_bath', JSON.stringify(crown)?.slice(0, 200));
+    check('the Solenne Penthouse has a Stage, with its spa behind it', crown?.w === 27.4 &&   // the forty-fourth floor in the bowl, 27.4 by 10.3
+       crown?.annex?.zone === 'zone_solenne_penthouse_bath', JSON.stringify(crown)?.slice(0, 200));
     const lounge = await _test.roomPieces('zone_solenne_penthouse', crown), down = roomLayout(crown, lounge);
     check('its lounge is down in the pit and its bar and fire are on the floor', down.placed.find((x) => x.id === 'furn_penthouse_lounge')?.y0 === -crown.pit?.depth && !down.placed.find((x) => x.id === 'furn_penthouse_bar')?.y0 && down.placed.find((x) => x.id === 'furn_penthouse_fireplace')?.form === 'hearth', JSON.stringify(down.placed.map((x) => [x.id, x.y0])).slice(0, 300));
 
@@ -428,6 +458,8 @@ export default async function regress({ run, check, getPlayer }) {
       _test.acts.forget(p.id);
       check('pockets: food is eaten, a hydrating can is drunk, a drug goes by its route', ritualOf({ name: 'Bread roll', tags: { restore_hunger: 4 } }, 'x')?.act === 'eat'
         && ritualOf({ name: 'Can of cola', tags: { hydrating: 2 } }, 'y')?.hold === 'can' && actOfDrug({ flags: { taken: 'snort' } }) === 'snort' && actOfDrug({ flags: { alcoholic: true } }) === 'drink');
+      check('pockets: a frank is held as a hot dog and a burger as a burger, the rest as a roll', ritualOf({ name: 'Widowmaker', tags: { restore_hunger: 26 } }, 'w')?.hold === 'hotdog'
+        && ritualOf({ name: 'grandstand burger', tags: { restore_hunger: 22 } }, 'b')?.hold === 'burger' && ritualOf({ name: 'Bread roll', tags: { restore_hunger: 4 } }, 'x')?.hold === 'food');
     }
 
     // an en-suite: the zone `in` reaches, whose `out` comes back and whose parent is the flat, is drawn
@@ -653,16 +685,17 @@ export default async function regress({ run, check, getPlayer }) {
     // a tower's lift (Solenne Residences, from content): every floor is on the walk, the car is one room
     // whose doors open on the floor it's parked at, and riding it is the elevator's own `floor <n>`
     if (world.zones.get('zone_solenne_elevator')?.flags?.room) {
-      const LOBBY = 'zone_solenne_lobby', CAR = 'zone_solenne_elevator', F30 = 'zone_solenne_residences', A30 = 'zone_solenne_apt_a';
+      const LOBBY = 'zone_solenne_lobby', CAR = 'zone_solenne_elevator', F8 = 'zone_solenne_residences', A8 = 'zone_solenne_apt_a';
       const sent = [], was = getBroadcast(), saved = p.current_zone;
       setBroadcast((z, msg, ex, to) => { if (to === p.id) sent.push(msg); return was?.(z, msg, ex, to); });
       const wait = async (ok, ms = 8000) => { for (let i = 0; i < ms / 50 && !ok(); i++) await new Promise((res) => setTimeout(res, 50)); };
       try {
         _test.clearBuildings();
         const bld = _test.buildingOfRoom(LOBBY);
-        check('Solenne is one walk, lobby to sky pad, with no problems', bld && !bld.plan.problems.length && [CAR, F30, A30, 'zone_solenne_penthouse', 'zone_solenne_helipad'].every((z) => bld.b.walk.includes(z)), JSON.stringify(bld?.plan.problems));
+        check('Solenne is one walk, lobby to sky pad, with no problems', bld && !bld.plan.problems.length && [CAR, F8, A8, 'zone_solenne_penthouse', 'zone_solenne_helipad'].every((z) => bld.b.walk.includes(z)), JSON.stringify(bld?.plan.problems));
         const stops = bld?.plan.lifts?.[CAR]?.stops || [];
-        check('the lift stops are stacked bottom to top, each above the last', stops.length === 8 && stops.every((s, i) => !i || s.y > stops[i - 1].y), JSON.stringify(stops.map((s) => [s.n, s.y])));
+        check('the lift stops are stacked bottom to top, each above the last', stops.length === 14 &&   // the upper residences (solenne-upper.mjs) added 24 to 40
+           stops.every((s, i) => !i || s.y > stops[i - 1].y), JSON.stringify(stops.map((s) => [s.n, s.y])));
         world.zones.get(p.current_zone)?.players.delete(p.id);
         p.current_zone = LOBBY; world.zones.get(LOBBY).players.add(p.id); p._elevatorAt = null;
         await run('room');
@@ -670,18 +703,18 @@ export default async function regress({ run, check, getPlayer }) {
         await run('in');
         await wait(() => sent.some((m) => m.type === 'room_view' && m.zone === CAR));
         const car = sent.find((m) => m.type === 'room_view' && m.zone === CAR);
-        check('walking into the car keeps the Stage open, with its panel of real floors', car?.via === LOBBY && car.lift?.floors.map((f) => f.n).join() === '1,12,18,30,34,40,41,44,45' && car.lift.at === 1, JSON.stringify(car?.lift));
+        check('walking into the car keeps the Stage open, with its panel of real floors', car?.via === LOBBY && car.lift?.floors.map((f) => f.n).join() === '1,8,10,12,18,19,24,26,28,34,36,38,40,44,45' && car.lift.at === 1, JSON.stringify(car?.lift));
         check('parked at the lobby, the car is open on the lobby', car?.spec.openings?.some((o) => o.kind === 'door' && o.to === LOBBY && o.dir === 'out') && car.building?.neighbours?.map((n) => n.zone).join() === LOBBY, JSON.stringify(car?.spec.openings));
         sent.length = 0;
-        await run('floor 30');
+        await run('floor 8');
         await wait(() => sent.some((m) => m.type === 'room_view' && m.ride));
         const up = sent.find((m) => m.type === 'room_view' && m.ride);
-        check('a ride opens the car\'s doors on that floor, the landing drawn level with it', up?.zone === CAR && up.lift?.at === 30 && up.spec.openings.some((o) => o.kind === 'door' && o.to === F30 && o.dir === 'out') && up.building?.neighbours?.[0]?.zone === F30 && up.building.neighbours[0].spec.floor === 0, JSON.stringify(up?.spec?.openings));
+        check('a ride opens the car\'s doors on that floor, the landing drawn level with it', up?.zone === CAR && up.lift?.at === 8 && up.spec.openings.some((o) => o.kind === 'door' && o.to === F8 && o.dir === 'out') && up.building?.neighbours?.[0]?.zone === F8 && up.building.neighbours[0].spec.floor === 0, JSON.stringify(up?.spec?.openings));
         sent.length = 0;
         await run('out');
-        await wait(() => p.current_zone === F30 && sent.some((m) => m.type === 'room_view'));
-        const hall = sent.find((m) => m.type === 'room_view' && m.zone === F30);
-        check('stepping out walks onto the thirtieth floor, still in the Stage', p.current_zone === F30 && hall?.via === CAR && hall.building?.neighbours?.some((n) => n.zone === A30) && hall.building.neighbours.some((n) => n.zone === CAR && n.spec.floor === 0), JSON.stringify(hall?.building?.neighbours?.map((n) => [n.zone, n.spec.floor])));
+        await wait(() => p.current_zone === F8 && sent.some((m) => m.type === 'room_view'));
+        const hall = sent.find((m) => m.type === 'room_view' && m.zone === F8);
+        check('stepping out walks onto the eighth floor, still in the Stage', p.current_zone === F8 && hall?.via === CAR && hall.building?.neighbours?.some((n) => n.zone === A8) && hall.building.neighbours.some((n) => n.zone === CAR && n.spec.floor === 0), JSON.stringify(hall?.building?.neighbours?.map((n) => [n.zone, n.spec.floor])));
 
         // the street door (building-stage.md step 5): out onto the pavement in GLASS on foot, and back in
         const FACADE = 'zone_district_914_908', STREET = 'zone_district_914_909';
@@ -696,8 +729,8 @@ export default async function regress({ run, check, getPlayer }) {
         await wait(() => sent.some((m) => m.type === 'freelook_open'));
         const street = sent.find((m) => m.type === 'freelook_open');
         check('out of the street door the room holds for the street, not the text', sent.some((m) => m.type === 'room_close' && m.street), JSON.stringify(sent.map((m) => m.type)));
-        check('the street opens on foot in front of the door, facing away from it', p.current_zone === STREET && street?.stand?.foot && street.gx === 914 && street.gy === 909 && street.stand.yaw === 180 && street.stand.y < 0, JSON.stringify([p.current_zone, street?.stand]));
-        check("the street comes with the building's door: its facade's tile, the edge it's on and its width", street?.doors?.some((d) => d.gx === 914 && d.gy === 908 && d.edge === 'south' && d.w > 1 && d.slide), JSON.stringify(street?.doors));
+        check('the street opens on foot in front of the door, facing away from it', p.current_zone === STREET && street?.stand?.foot && street.gx === 915 && street.gy === 909 && street.stand.yaw === 180 && street.stand.y < 0, JSON.stringify([p.current_zone, street?.stand]));
+        check("the street comes with the building's door: its facade's tile, the edge it's on and its width", street?.doors?.some((d) => d.gx === 915 && d.gy === 908 && d.edge === 'south' && d.w > 1 && d.slide), JSON.stringify(street?.doors));
         sent.length = 0;
         await run('north');
         await wait(() => sent.some((m) => m.type === 'room_view' && m.zone === LOBBY));
@@ -706,7 +739,7 @@ export default async function regress({ run, check, getPlayer }) {
         check('walking back in closes the street and opens the lobby stood in its street door', back?.via === FACADE && sent.some((m) => m.type === 'freelook_close') && !p._onFoot, JSON.stringify(sent.map((m) => m.type)));
       } finally {
         setBroadcast(was);
-        for (const id of [LOBBY, CAR, F30, 'zone_district_914_909']) { world.zones.get(id)?.players.delete(p.id); _test.viewers.delete(id); }
+        for (const id of [LOBBY, CAR, F8, 'zone_district_914_909']) { world.zones.get(id)?.players.delete(p.id); _test.viewers.delete(id); }
         p._onFoot = false;
         p._elevatorAt = null; p._elevator = null;
         p.current_zone = saved; world.zones.get(saved)?.players.add(p.id);
@@ -716,10 +749,10 @@ export default async function regress({ run, check, getPlayer }) {
     // a room's outlook: the tile its building stands on, and the bearing from its way in
     {
       const TILE = '__roomstage_test_tile__';
-      world.zones.set(TILE, { id: TILE, name: TILE, flags: {}, exits: {}, map_id: 'map_world', grid_x: 914, grid_y: 908, players: new Set(), npcs: new Set(), enemies: new Set(), corpses: new Set() });
+      world.zones.set(TILE, { id: TILE, name: TILE, flags: {}, exits: {}, map_id: 'map_world', grid_x: 915, grid_y: 908, players: new Set(), npcs: new Set(), enemies: new Set(), corpses: new Set() });
       Object.assign(world.zones.get(APT), { parent_zone: TILE, marker: '30', exits: { west: PLAIN } });
       const o = _test.outlookOf(APT);
-      check('a flat looks out from its building, its storey and away from its door', o?.gx === 914 && o.gy === 908 && o.storey === 30 && o.bearing === 90, JSON.stringify(o));
+      check('a flat looks out from its building, its storey and away from its door', o?.gx === 915 && o.gy === 908 && o.storey === 30 && o.bearing === 90, JSON.stringify(o));
       const full = _test.outlookPayload(APT);
       check('room_outlook carries a map window', full?.type === 'room_outlook' && full.map?.length > 1);
       check('room_outlook carries the fields flights go between', Array.isArray(full?.fields) && full.fields.length > 0 && full.fields.every((f) => f.id && Number.isFinite(f.gx) && typeof f.pad === 'boolean'), JSON.stringify(full?.fields)?.slice(0, 160));

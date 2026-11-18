@@ -1,0 +1,25 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "city",
+  "description": "Marrow Street along the back of KSAB's Writers' Wing, with the lot's wall running either side of it, cream render with a cyan stripe at its foot. Every door on the block is inside the wall, through the gate on Foundry Way.",
+  "exits": {
+    "east": "zone_district_914_909",
+    "north": "zone_district_913_908",
+    "west": "zone_district_913_909"
+  },
+  "flags": {
+    "district": "marrow",
+    "region_id": "region_coldwater",
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_level": 1,
+    "street_life": true,
+    "terrain": "road"
+  },
+  "grid_x": 914,
+  "grid_y": 909,
+  "grid_z": 0,
+  "id": "zone_seam_914_909",
+  "map_id": "map_world",
+  "name": "Marrow Street",
+  "parent_zone": null
+}

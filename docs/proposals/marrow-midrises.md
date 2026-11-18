@@ -6,7 +6,7 @@ Lever Lane beside Watts The Damage, with Mixed Bag Variety Store in its ground f
 to the old weigh-house off The Gate Road to make room. Unit 4 moved across Marrow Street, and Nuts
 to That and Cash & Carrion closed. Four GLASS models, one painter fix.
 
-Built 2026-10-08, and reshuffled the same day: Corbett first went up on 915,908, the tile Marrow
+Built 2026-10-08, and reshuffled the same day: Corbett first went up on 916,908, the tile Marrow
 House has now.
 
 ## 1. Why
@@ -33,11 +33,11 @@ about a storey either way of `floors`.
 
 | tile | was | is |
 |---|---|---|
-| 913,908 | Unit 4, Marrow Street | **Kestrel Court** (`apartment`, map code `KC`) |
-| 915,908 | Nuts to That | **Marrow House** (`office`, `MO`) |
-| 916,906 | The Slip | **Corbett Mansions** (`apartment`, `CN`), facing east onto Lever Lane |
-| 917,917 | Where the Weigh Was, the lay-by | **The Slip** (`fence`, `SL`), facing east onto The Gate Road |
-| 916,910 | Cash & Carrion | **Unit 4, Marrow Street** (`shop`, `M4`) |
+| 914,908 (was 913,908) | Unit 4, Marrow Street | **The Flute**, first built as Kestrel Court (`apartment`, map code `TF`). Moved onto the Solenne Forecourt tile and renamed 2026-11-16; its old plot at 913,908 is a vacant plot, and the zone ids still say `kestrel` |
+| 916,908 | Nuts to That | **Marrow House** (`office`, `MO`) |
+| 917,906 | The Slip | **Corbett Mansions** (`apartment`, `CN`), facing east onto Lever Lane |
+| 918,917 | Where the Weigh Was, the lay-by | **The Slip** (`fence`, `SL`), facing east onto The Gate Road |
+| 917,910 | Cash & Carrion | **Unit 4, Marrow Street** (`shop`, `M4`) |
 
 - **Unit 4 is one of four storefronts a player can buy**, so it moved rather than closed.
   `zone_sf_marrow4` kept its id, price and terms, so any deed in the storefront tables follows it.
@@ -46,7 +46,7 @@ about a storey either way of `floors`.
   and Sluice all kept their ids; only the facade tile changed. It took the old weigh-house at the
   top of the lay-by where the weighbridge stood, two tiles from the gate into the Shingles. A weigh
   slip is the ticket a weighbridge clerk hands a driver. The clerk's dial and his plated-over hatch
-  are new furniture in the shop, and the plates' tile at 917,918 now mentions the hut.
+  are new furniture in the shop, and the plates' tile at 918,918 now mentions the hut.
 - **Cash & Carrion** was the third fence within four tiles. Hock's radio and watch, which nobody
   else sold, went to Kade at Sentimental Value Pawn. Dell Fry took over Hock's row in
   `npc_residences` for Meridian 404.
@@ -106,7 +106,7 @@ fires while the file still says what it used to, so a re-run is safe. Room names
 than the lib's dash, and a flat's name ends `Unit 3A` so `floorDesignation` gives it a map marker.
 
 - ⚠ **Corbett has to be authored before Marrow House.** Until it is, Corbett's rooms still name
-  915,908 as their parent, and `authorBuilding` skips a tile's own rooms when it strips the links
+  916,908 as their parent, and `authorBuilding` skips a tile's own rooms when it strips the links
   into a new facade.
 - ⚠ **Corbett's shop moved from east of the lobby to south of it.** Facing east, the lobby's east
   slot is the street door. The script rewrites the shop's exits and the shop door, and deletes the

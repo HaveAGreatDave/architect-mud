@@ -7,7 +7,7 @@
 // The glass sleeps again when you walk away from it or leave it alone for a while.
 
 import { facing, roomSees, HUNG_AT } from '../../../shared/room-layout.js';
-import { quadMatrix } from './room-lock.js';
+import { quadMatrix, piecesBlock, peopleBlock } from './room-lock.js';
 import { attachWall, detachWall } from './envctl.js';
 
 // metres per pixel of the page (a hololock's card is 0.0015; this is finer, for its smaller words)
@@ -49,7 +49,7 @@ export function createRoomEnvctl({ host, project }) {
   }
 
   // Laid over its four points, every frame. `eye` is the camera's, `at` where you stand on the plan.
-  function draw(w, h, eye, at) {
+  function draw(w, h, eye, at, bodies) {
     if (!quad) { hide(); return; }
     const dist = Math.hypot(mid.world[0] - eye[0], mid.world[2] - eye[2]);
     // asleep again once you've walked off, or left it alone
@@ -58,6 +58,10 @@ export function createRoomEnvctl({ host, project }) {
     const front = (eye[0] - mid.world[0]) * face[0] + (eye[2] - mid.world[2]) * face[1] > 0.02;
     const here = at || L.local(eye);
     if (!front || dist > SEEN || (here && !roomSees(L, here, mid.local))) { hide(); return; }
+    // nor through furniture or a person standing in front of it, as a door's keypad (room-lock.js): the page is
+    // over the picture, so the picture's depth can't hide it. Eye to each corner and the middle.
+    const E = L.local(eye), pts = [mid.world, ...quad].map((p) => L.local(p));
+    if (pts.some((p) => piecesBlock(L, E, p) || peopleBlock(bodies, E, p))) { hide(); return; }
     const q = quad.map((p) => project(p, w, h));
     let m = null;
     if (q.every(Boolean)) {

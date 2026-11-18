@@ -9,6 +9,10 @@
       "form": "crate",
       "wear": 0.08,
       "wood": "#5a2a4a"
+    },
+    "spot": {
+      "along": 9.8,
+      "wall": "left"
     }
   },
   "hp": null,

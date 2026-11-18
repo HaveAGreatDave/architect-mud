@@ -17,6 +17,12 @@
 // the collision outright, silently shadowing it. Combat has the stronger claim
 // on that word, so the appliance side moved to the plug/unplug pair instead.
 import { getZoneFurniture, updateFurniture } from '../../server/engine/world.js';
+import { emit } from '../../server/engine/events.js';
+
+// A plug can be out of reach: a machine stood against the wall hides its socket (plugins/vending `nudge`).
+// A gate is (machine, targetState, player) => a refusal, or null to let it through.
+const plugGates = [];
+export function registerPlugGate(fn) { if (typeof fn === 'function' && !plugGates.includes(fn)) plugGates.push(fn); }
 
 // True unless a furniture row has been explicitly unplugged.
 export function isPluggedIn(furniture) {
@@ -43,7 +49,13 @@ export async function togglePluggedByName(player, nameStr, targetState, broadcas
   if (already === targetState) {
     return { type: 'message', message: `The ${machine.name} is already ${targetState ? 'plugged in' : 'unplugged'}.` };
   }
+  for (const gate of plugGates) {
+    const why = gate(machine, targetState, player);
+    if (why) return { type: 'error', message: why };
+  }
   await updateFurniture(machine.id, { flags: JSON.stringify({ ...machine.flags, plugged_in: targetState }) });
+  // the Room Stage draws where the plug is (a machine's cable and its lights), so the room's pieces go again
+  emit('furniture.changed', { zoneId: player.current_zone, id: machine.id });
   broadcast?.(player.current_zone, { type: 'zone_event', message: `${player.handle} ${targetState ? 'plugs in' : 'unplugs'} the ${machine.name}.` }, player.id);
   // Only the plug-in side names the building supply — on the way out it's both
   // contradictory and something the player has no use for.

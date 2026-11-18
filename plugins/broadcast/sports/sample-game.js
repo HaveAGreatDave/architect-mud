@@ -15,7 +15,7 @@ export function sampleGame(row, seed = 1) {
   const play = (s, day) => {
     const a = teams[s % teams.length], h = teams[(s * 7 + 3 + (s % 5)) % teams.length];
     const home = h === a ? teams[(teams.indexOf(a) + 1) % teams.length] : h;
-    return sport.simGame({ away: a, home, teams, clubs: row.clubs }, row.players, sportsRng(s), { seed: s, version: row.sim, day });
+    return sport.simGame({ away: a, home, teams, clubs: row.clubs, ...(row.bullpens ? { bullpens: row.bullpens } : {}) }, row.players, sportsRng(s), { seed: s, version: row.sim, day });
   };
   for (let i = 0; i < SEASON_GAMES; i++) {
     const g = play(seed * 131 + i + 1, i);

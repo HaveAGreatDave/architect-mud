@@ -34,6 +34,7 @@ import { clamp, lerp } from './util.js';
 import { RL, RW, GOAL_X, MID_Y, BOARD_H } from './geo.js';
 import { ROOF_Z } from '../gl/arena-crowd.js';
 import { shotEye } from './ken-comic.js';
+import { multiply } from '../gl/core/mat4.js';
 
 export const NEAR = 0.6, FAR = 600;
 
@@ -118,6 +119,8 @@ export function createRinkCamera(W, { snap = false, from = null } = {}) {
       case 'fight': return { lx: f[0], ly: f[1], lz: 3.0, dist: 17.5, pitch: 0.1, fm: 0.95 };
       // the winner of a fight, close on his head and shoulders before the pan back out
       case 'winner': return { lx: f[0], ly: f[1], lz: 5.0, dist: 9, pitch: 0.08, fm: 0.9 };
+      // the spotlight between plays (director.js `spot`): one man, head to skates, from down at ice level
+      case 'closeup': return { lx: f[0], ly: f[1], lz: 3.1, dist: 12.5, pitch: 0.05, fm: 0.85 };
       case 'zoom': return { lx: f[0], ly: f[1] - 2, lz: 1.5, dist: 40, pitch: 0.4, fm: 1 };
       case 'push': return { lx: f[0], ly: f[1], lz: 2.0, dist: 30, pitch: 0.32, fm: 1 };
       // the replay: down at ice level and close, following the puck a beat behind; never
@@ -355,13 +358,8 @@ export function matrices(C, mirror = false, near = NEAR, far = FAR) {
   return { view: V, proj: Pm, viewProj: mul(Pm, V) };
 }
 
-export function mul(a, b) {
-  const o = new Array(16);
-  for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) {
-    o[c * 4 + r] = a[r] * b[c * 4] + a[4 + r] * b[c * 4 + 1] + a[8 + r] * b[c * 4 + 2] + a[12 + r] * b[c * 4 + 3];
-  }
-  return o;
-}
+// a · b, column-major (gl/core/mat4.js).
+export const mul = multiply;
 
 // A world point through a column-major matrix to pixels, the way GL would draw it. The
 // parity check in rink-smoke holds this to `P`.

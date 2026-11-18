@@ -7,7 +7,7 @@
 // docs/systems-admin.md.
 import {
   WEATHER_TYPES, PRECIP_FORECAST_TYPES, getHUDPayload, getForecast, getWeatherEvent,
-  devOverrideWeather, devClearWeatherOverride, devTriggerWeatherEvent,
+  devOverrideWeather, devClearWeatherOverride, devTriggerWeatherEvent, devScheduleForecastDay,
   powerAnchorOf, pushZoneWeatherNow,
 } from '../../server/engine/environment.js';
 import { getZone } from '../../server/engine/world.js';
@@ -79,6 +79,36 @@ export async function resetWeather(player) {
   return { ok: true, message: 'Override cleared. The weather is back on its forecast.' };
 }
 
+// A gale: several days of high wind the way a deep low brings them. It builds, peaks in
+// the middle of the spell and eases off, so the sea gets a blow to build on and a swell
+// that outlasts it. Today is forced (the override), the days after are written into the
+// forecast so they arrive as they roll over; 'sysop time skip 24' walks through it.
+// The peak is the day's figure; each tile still adds the hour (windDiurnal) and the
+// storm cells overhead (WIND_STORM_GAIN), so a cell's core can blow well past it.
+export async function scheduleGale(player, days = 3, peakKph = 75) {
+  const n = Number(days), peak = Number(peakKph);
+  if (!Number.isInteger(n) || n < 1 || n > 7) return { ok: false, error: 'A gale lasts 1 to 7 days (the forecast holds seven).' };
+  if (!Number.isFinite(peak) || peak < 30 || peak > 150) return { ok: false, error: 'Peak wind must be 30 to 150 kph.' };
+  const forecast = getForecast() || [];
+  const plan = [];
+  for (let i = 0; i < n; i++) {
+    // A sine over the spell: one day is all peak, three go strong / peak / strong.
+    const shape = n === 1 ? 1 : Math.pow(Math.sin(Math.PI * (i + 0.5) / n), 0.6);
+    const kph = Math.round(Math.max(28, peak * shape));
+    // Fog and clear skies don't come with a gale; the worst day is a storm.
+    const was = forecast[i]?.weatherType || 'overcast';
+    const type = kph >= 90 ? 'storm' : ['fog', 'haze', 'clear', 'cloudy'].includes(was) ? 'overcast' : was;
+    plan.push({ day: i, kph, type });
+  }
+  const today = await setWeather(player, { weatherType: plan[0].type, windKph: plan[0].kph });
+  if (!today.ok) return today;
+  for (const p of plan.slice(1)) {
+    await devScheduleForecastDay({ forecastDay: p.day, weatherType: p.type, windKph: p.kph });
+  }
+  logActivity('admin_cmd', player.handle, null, `weather gale ${n}d peak ${peak}kph`);
+  return { ok: true, message: `Gale scheduled: ${plan.map(p => `day ${p.day} ${p.kph} kph ${p.type}`).join(' · ')}. Skip a day with <b>sysop time skip 24</b>; <b>sysop weather reset</b> ends it and regenerates the whole forecast.` };
+}
+
 export function fireWeatherEvent(player, type) {
   const t = String(type || '').toLowerCase().replace(/\s+/g, '_');
   const known = heroEventTypes();
@@ -124,7 +154,7 @@ const USAGE = [
   'sysop weather',
   'sysop weather set &lt;type&gt; [tempC] [precip%]',
   'sysop weather temp &lt;C&gt;  |  sysop weather rain &lt;0-100&gt;  |  sysop weather wind &lt;kph&gt;',
-  'sysop weather event &lt;type&gt;',
+  'sysop weather event &lt;type&gt;  |  sysop weather gale [days 1-7] [peak kph]',
   'sysop weather reset',
   'sysop time  |  sysop time skip &lt;4|8|12|24&gt;  |  sysop time set &lt;HH:MM&gt;',
   'sysop time freeze  |  sysop time unfreeze  |  sysop time speed &lt;1|2|3|6&gt;',
@@ -203,6 +233,7 @@ async function cmdSysop(args, raw, player) {
     if (!rest.length) return { type: 'error', message: `Events: ${weatherEventOptions().map(e => e.type).join(', ')}.` };
     return out(fireWeatherEvent(player, rest.join('_')));
   }
+  if (sub === 'gale') return out(await scheduleGale(player, rest[0] ?? 3, rest[1] ?? 75));
   if (sub === 'reset' || sub === 'clear') return out(await resetWeather(player));
   return { type: 'error', message: USAGE };
 }

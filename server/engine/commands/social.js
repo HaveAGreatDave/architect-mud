@@ -97,7 +97,7 @@ async function cmdTalk(targetStr, player, broadcast) {
   // Bottom Display Mode rung: no panel, so the conversation is written into the
   // log and answered with `reply <n>` — see openLogTalk below.
   if (loggedPanelsSync(player)) return openLogTalk(player, npc, rendered);
-  return { type:'dialogue', npcId:npc.id, npcName:npc.name, node:'root', text:rendered.text, options:rendered.options, stage:rendered.stage, mood:rendered.mood };
+  return { type:'dialogue', npcId:npc.id, npcName:npc.name, npcSex:npc.sex || null, node:'root', text:rendered.text, options:rendered.options, stage:rendered.stage, mood:rendered.mood };
 }
 
 // ── Talking, at the bottom Display Mode rung ─────────────────────────────────

@@ -48,6 +48,10 @@ One OS (`client/game/js/panels/envctl.js`) on two screens:
   `shutters up` clears either. The screen's Shutters page has a button for each, and a colour wheel
   (hue round it, strength out from the middle) with Pale, Mid and Deep shades for the blinds.
 - `blinds [up|down|<0-100>|colour <#rrggbb>]`: the blinds alone, the way you'd say it at a window.
+- `curtains [open|close]`: a sash window's drapes (`flags.room.sash.drapes`) let down and drawn across, or tied back.
+  They're the `drapes` entry in `scenes.js`, kind `drapes`, offered only where the room has drapes and never on a
+  glass wall. One covering at a time, so drawing them raises the blinds. The Room Stage draws them in the mesh
+  (`buildRoom`'s `drawn`), so the room is built again when they move, and the day through the window drops to 30%.
   Bare toggles them; `down` draws them at the level they were. It goes through `shutters`.
 
 ## Shutters and blinds

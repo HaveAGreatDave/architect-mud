@@ -1,3 +1,4 @@
+import { TICKER_WIRE } from './ticker-wire.js';
 import { randomUUID } from 'crypto';
 import { textRender } from '../../server/engine/minigame.js';
 import { query } from '../../server/models/db.js';
@@ -374,7 +375,9 @@ function stageFor(channelId) {
     if (guest && !people.some((p) => p.name === guest.name)) people.push(guest);
   }
   const set = stageSet(graphicsCache, { broadcast: bid, zone, type: item?.playback_mode || '' });
-  return { ...none, set, broadcast: bid, programName: item?.broadcastName || '', people, ...(pools ? { kind: item.playback_mode } : {}) };
+  return { ...none, set, broadcast: bid, programName: item?.broadcastName || '', people, ...(pools ? { kind: item.playback_mode } : {}),
+    // a name super over whoever speaks is a news show's; a sitcom or a talk show never puts one up
+    ...(item?.playback_mode === 'news' || state.channelType === 'news' ? { news: true } : {}) };
 }
 
 // The same for a league's venue: where its park stands (sports_pools.venue) and the skyline
@@ -2855,15 +2858,24 @@ function roundRobinRounds(n) {
 }
 
 // ── The daily slate ──────────────────────────────────────────────────────────
-// Every club plays every in-game day (docs/proposals/daily-slate.md). The sports share
-// the day's eight slots, taking turns, and the pattern swaps each day: on an even day
-// the first sport in SPORTS has 00, 06, 12 and 18 and the second 03, 09, 15 and 21, and
-// on an odd day the other way round. So each sport gets the 18:00 game, KSAB-TV's, every
-// other day. In its four slots a sport plays one round of its round robin. The club
-// order is shuffled once a month, not once a day, so a month walks the whole round
-// robin. The pairings are shuffled into the slots by the day's seed, except the 18:00
-// one, which goes to the pairing whose clubs have had the fewest 18:00 games so far this
-// month, so every club is on KSAB-TV about as often as every other.
+// docs/proposals/daily-slate.md. A season is the in-game month, and in it every club plays
+// every other club twice, once at home and once away: a double round robin, fourteen games
+// a club with eight clubs, seven of them at home. Every club plays the same number of games.
+//
+// The day has eight 3-hour slots. 09:00 and 21:00 (SLATE_BUFFER_SODS) are never a game's:
+// they're the overflow, where a game that ran long finishes (see _sportsHold). The other six
+// alternate between the sports, and the pattern swaps each day, so each sport has three slots
+// a day and the 18:00 game, KSAB-TV's, every other day.
+//
+// A sport's games are spread evenly over the month's regular days (`monthPlan`), about two
+// a day, so most days one of its three slots is empty too: more room for a game that runs
+// long. No club plays twice in a day, and every club has played within a game or two of
+// every other all month. The plan is laid out by club index and only then named, through the
+// club order the month's seed shuffles, so it depends on nothing but the club count, the
+// month's length and which days have the sport at 18:00. On those days the planner puts the
+// game whose clubs have had the fewest 18:00 games this month at 18:00, so every club is on
+// KSAB-TV about as often as every other. The rest go into the sport's other slots by the
+// day's seed.
 //
 // The last day of the in-game month is Cup day. Nothing is played but the two finals, each
 // at its own hour (the sport's `season.finalAt`: Deadball's at 13:00, the Cup at 20:00), in
@@ -2874,12 +2886,14 @@ function roundRobinRounds(n) {
 // All of it is a pure function of the day number and the club names, like the games.
 const SLATE_SPORTS = Object.keys(SPORTS);
 const SLATE_FEATURED_SOD = 6;   // 18:00, the slot KSAB-TV carries
-// 09:00 and 21:00 have no game on a regular day: they're the overflow, where a game that
-// ran long finishes (see _sportsHold), so three games at most are played back to back. Both
-// are the same sport's on a given day, so that sport plays two games and the other four,
-// and it swaps the next day. The pairings that would have played them sit the day out; the
-// 09:00 one is still drawn, so the 15:00 game is the one it always was.
+// 09:00 and 21:00 have no game on a regular day and belong to no sport: they're the
+// overflow, where a game that ran long finishes (see _sportsHold), so three games at most
+// are played back to back.
 const SLATE_BUFFER_SODS = new Set([3, 7]);
+const SLATE_GAME_SODS = Array.from({ length: SPORTS_GAMES_PER_DAY }, (_, s) => s).filter((s) => !SLATE_BUFFER_SODS.has(s));
+// How far down the season's game list the planner may reach for a day's games: two rounds.
+// Further makes the 18:00 pick fairer but leaves games stranded at the end of the month.
+const SLATE_LOOKAHEAD = 8;
 const DAY_MS = 86400000;
 const slateDate = (day) => new Date(day * DAY_MS);
 // The in-game day a slot falls on, and its slot of the day.
@@ -2889,8 +2903,14 @@ const slotSod = (slot) => ((slot % SPORTS_GAMES_PER_DAY) + SPORTS_GAMES_PER_DAY)
 const monthStartDay = (day) => day - (slateDate(day).getUTCDate() - 1);
 const isCupDay = (day) => slateDate(day + 1).getUTCDate() === 1;
 const monthEndDay = (day) => { const d = slateDate(day); return Math.floor(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0) / DAY_MS); };
-// The sport whose turn slot-of-day `sod` is on a day, by the alternating pattern.
-const _turnAt = (day, sod) => SLATE_SPORTS[(((sod + day) % SLATE_SPORTS.length) + SLATE_SPORTS.length) % SLATE_SPORTS.length];
+// The sport whose turn slot-of-day `sod` is on a day, by the alternating pattern, or null
+// for an overflow slot. The game slots take turns, and on an even day the first sport in
+// SPORTS has 18:00.
+const _modS = (x) => ((x % SLATE_SPORTS.length) + SLATE_SPORTS.length) % SLATE_SPORTS.length;
+const _turnAt = (day, sod) => {
+  const i = SLATE_GAME_SODS.indexOf(sod);
+  return i < 0 ? null : SLATE_SPORTS[_modS(i - SLATE_GAME_SODS.indexOf(SLATE_FEATURED_SOD) + day)];
+};
 // When a sport's final starts on Cup day, in in-game minutes after midnight: its own
 // `season.finalAt`, or the start of its last slot by the pattern.
 function finalAtMin(sport, day) {
@@ -2927,64 +2947,111 @@ function slateStartOffsetMin(sport, slot) {
 const slateStartHour = (sport, slot) => (slotSod(slot) * SPORTS_SLOT_GAME_MIN + slateStartOffsetMin(sport, slot)) / 60;
 const sportSalt = (sport) => sportsHash(...[...String(sport)].map((c) => c.charCodeAt(0)));
 
-// One sport's games on one day: [{ sod, away, home }] in time order, or on Cup day
-// [{ sod, final: true }]. `counts` holds each club's 18:00 games so far this month and
-// is read, not written.
-function buildSportDay(sport, day, names, counts) {
-  if (isCupDay(day)) { const sod = finalSodOf(sport, day); return sod == null ? [] : [{ sod, final: true }]; }
-  const sods = slateSodsFor(sport, day);
-  if (!sods.length) return [];
-  const salt = sportSalt(sport);
-  const order = sportsShuffle(names, sportsRng(sportsHash(monthStartDay(day), salt, 0x5c4e)));
-  const rounds = roundRobinRounds(order.length);
-  const round = rounds[((day % rounds.length) + rounds.length) % rounds.length];
-  const pairs = sportsShuffle(
-    round.filter(([a, h]) => a < order.length && h < order.length).map(([a, h]) => [order[a], order[h]]),
-    sportsRng(sportsHash(day, salt, 0x51a7)),
-  );
-  // The fairest pairing takes 18:00. The shuffle above breaks ties.
-  let featured = null;
-  if (sods.includes(SLATE_FEATURED_SOD) && pairs.length) {
-    let best = 0, bestN = Infinity;
-    pairs.forEach(([a, h], i) => { const n = (counts.get(a) || 0) + (counts.get(h) || 0); if (n < bestN) { best = i; bestN = n; } });
-    featured = pairs.splice(best, 1)[0];
+// A month's games for `n` clubs, by club index. `days` is one entry per regular day,
+// { cap, featured }: how many slots the sport has that day and whether one is 18:00. Pure.
+//
+// The game list is a double round robin: the circle method's rounds, then the same rounds
+// again with home and away swapped, so each club meets each other club once at home and
+// once away. Day i takes its even share of the list (`total` spread over the days, never
+// more than `cap`), no club twice. On an 18:00 day it first takes the game, of the next
+// SLATE_LOOKAHEAD in the list, whose clubs have had the fewest 18:00 games, and then fills
+// up with whichever games there have the clubs that have played the fewest. If a month is
+// too short for both legs it plays one, so every club still plays the same number of games.
+//
+// Returns { legs, days: [{ featured: [away, home] | null, games: [[away, home], …] }] },
+// where `games` excludes the featured one; `left` counts any game it couldn't fit, which
+// the gate holds at zero for every month the calendar has.
+function monthPlan(n, days) {
+  const leg = [];
+  roundRobinRounds(n).forEach((round, r) => round.forEach(([a, b], i) => {
+    if (a >= n || b >= n) return;   // the BYE of an odd league
+    leg.push((r + i) % 2 ? [b, a] : [a, b]);   // home and away alternate round to round
+  }));
+  let plan = null;
+  for (const legs of [2, 1]) {
+    const games = legs === 2 ? [...leg, ...leg.map(([a, h]) => [h, a])] : leg.slice();
+    const total = games.length, D = days.length;
+    const played = new Array(n).fill(0), feat = new Array(n).fill(0);
+    const left = games.slice(), out = [];
+    for (let i = 0; i < D; i++) {
+      const q = Math.min(days[i].cap, Math.floor(((i + 1) * total) / D) - Math.floor((i * total) / D));
+      const used = new Set(), day = { featured: null, games: [] };
+      const open = () => left.slice(0, SLATE_LOOKAHEAD).filter(([a, h]) => !used.has(a) && !used.has(h));
+      const take = (g) => { left.splice(left.indexOf(g), 1); for (const c of g) { used.add(c); played[c]++; } };
+      if (days[i].featured && q > 0) {
+        let best = null, bestN = Infinity;
+        for (const g of open()) { const s = feat[g[0]] + feat[g[1]]; if (s < bestN) { bestN = s; best = g; } }
+        if (best) { take(best); feat[best[0]]++; feat[best[1]]++; day.featured = best; }
+      }
+      while (day.games.length + (day.featured ? 1 : 0) < q) {
+        let g = null, bestN = Infinity;
+        for (const c of open()) { const s = played[c[0]] + played[c[1]]; if (s < bestN) { bestN = s; g = c; } }
+        g = g || left.find(([a, h]) => !used.has(a) && !used.has(h));
+        if (!g) break;
+        take(g);
+        day.games.push(g);
+      }
+      out.push(day);
+    }
+    plan = { legs, days: out, left: left.length };
+    if (!left.length) break;
   }
+  return plan;
+}
+
+// The month plans, by club count and the shape of the month: there are only a handful.
+const _monthPlans = new Map();
+function monthPlanFor(n, days) {
+  const key = `${n}|${days.map((d) => `${d.cap}${d.featured ? 'f' : ''}`).join(',')}`;
+  let p = _monthPlans.get(key);
+  if (!p) {
+    p = monthPlan(n, days);
+    if (p.left) console.warn(`[broadcast] the slate can't fit ${p.left} game(s) for ${n} clubs into ${days.length} days; clubs won't play the same number`);
+    _monthPlans.set(key, p);
+  }
+  return p;
+}
+
+// One sport's month: an array by day of the month of [{ sod, away, home }] in time order,
+// or on Cup day [{ sod, final: true }].
+function buildSportMonth(sport, m0, names) {
+  const end = monthEndDay(m0), salt = sportSalt(sport);
+  const order = sportsShuffle(names, sportsRng(sportsHash(m0, salt, 0x5c4e)));
+  const regular = [];
+  for (let d = m0; d <= end; d++) {
+    if (isCupDay(d)) continue;
+    const sods = slateSodsFor(sport, d);
+    regular.push({ day: d, sods, cap: sods.length, featured: sods.includes(SLATE_FEATURED_SOD) });
+  }
+  const plan = monthPlanFor(order.length, regular);
   const out = [];
-  for (const sod of sods) {
-    const p = sod === SLATE_FEATURED_SOD && featured ? featured : pairs.shift();
-    if (!p || SLATE_BUFFER_SODS.has(sod)) continue;
-    const flip = (sportsHash(day * SPORTS_GAMES_PER_DAY + sod, 0xa17f) & 1) === 1;
-    out.push(flip ? { sod, away: p[1], home: p[0] } : { sod, away: p[0], home: p[1] });
+  for (let d = m0; d <= end; d++) {
+    if (isCupDay(d)) { const sod = finalSodOf(sport, d); out.push(sod == null ? [] : [{ sod, final: true }]); continue; }
+    const i = regular.findIndex((r) => r.day === d), { sods } = regular[i], p = plan.days[i];
+    // The other games go into the sport's other slots, in an order the day's seed shuffles.
+    const free = sportsShuffle(sods.filter((s) => !(p.featured && s === SLATE_FEATURED_SOD)), sportsRng(sportsHash(d, salt, 0x51a7)));
+    const day = [];
+    if (p.featured) day.push({ sod: SLATE_FEATURED_SOD, g: p.featured });
+    p.games.forEach((g, k) => { if (k < free.length) day.push({ sod: free[k], g }); });
+    out.push(day.sort((x, y) => x.sod - y.sod).map(({ sod, g }) => ({ sod, away: order[g[0]], home: order[g[1]] })));
   }
   return out;
 }
 
-// Memoised by sport, day and roster. Building a day needs the month's earlier 18:00
-// games, so a miss walks from the first of the month, keeping every day it builds.
+// One sport's games on one day. Memoised by sport, month and roster: a miss builds the
+// whole month.
 const _slateMemo = new Map();
-const SLATE_MEMO_MAX = 256;
+const SLATE_MEMO_MAX = 16;
 function sportDaySlate(sport, day, names) {
-  const nk = names.join('\u0001');
-  const key = (d) => `${sport}|${d}|${nk}`;
-  const hit = _slateMemo.get(key(day));
-  if (hit) return hit;
-  const counts = new Map();
-  let out = [];
-  for (let d = monthStartDay(day); d <= day; d++) {
-    let s = _slateMemo.get(key(d));
-    if (!s) {
-      s = buildSportDay(sport, d, names, counts);
-      _slateMemo.set(key(d), s);
-      if (_slateMemo.size > SLATE_MEMO_MAX) _slateMemo.delete(_slateMemo.keys().next().value);
-    }
-    for (const g of s) {
-      if (g.final || g.sod !== SLATE_FEATURED_SOD) continue;
-      counts.set(g.away, (counts.get(g.away) || 0) + 1);
-      counts.set(g.home, (counts.get(g.home) || 0) + 1);
-    }
-    out = s;
+  const m0 = monthStartDay(day);
+  const key = `${sport}|${m0}|${names.join('\u0001')}`;
+  let month = _slateMemo.get(key);
+  if (!month) {
+    month = buildSportMonth(sport, m0, names);
+    _slateMemo.set(key, month);
+    if (_slateMemo.size > SLATE_MEMO_MAX) _slateMemo.delete(_slateMemo.keys().next().value);
   }
-  return out;
+  return month[day - m0] || [];
 }
 
 // The whole day's slate across every sport with a script: [{ slot, sod, sport, away,
@@ -3279,6 +3346,8 @@ function sportsGameForSlot(script, slot, override, unavailable) {
   matchup.teams = sportsTeamNames(script.teams);
   // And each club's authored identity, so the sim's profile wears the club's colours.
   if (script.clubs) matchup.clubs = script.clubs;
+  // And its bullpen and dugout (Deadball sim v5: sports_pools.bullpens).
+  if (script.bullpens) matchup.bullpens = script.bullpens;
   // `unavailable` is the injury chain's answer for this slot. Passing it in explicitly
   // (rather than looking it up here) is what stops the chain recursing into itself
   // while it is being built.
@@ -3408,6 +3477,8 @@ function assembleSportsGraph(script, broadcastId, slot, override, opts = {}) {
       xpick,
       // the season's finalists, for the champions' seed on Cup night
       seasonState: seasonOf(sportMod.id),
+      // and which Cup it is, for centre ice
+      finalNo: finalNumber(sportMod.id),
       // The vat: who's back tonight from a reprint, and the lines about it, drawn from a
       // stream of their own so no line the booth already picks moves.
       vatBack: vatReturnsAt(script, slot, injuryWindowStart(sportMod.id, slot)),
@@ -4232,6 +4303,15 @@ async function refreshSeason(nowMs, sport = 'baseball') {
 
 // Each league's closed seasons, for the booth's club history. Filled by refreshSeason.
 const _historyCaches = new Map();   // sport -> { era, seasons }
+// Which final this is: one more than the league has crowned. Centre ice letters it on Cup night
+// (the rink's "Second Inaugural Coldwater Cup"). sportsleague keeps the last 24 seasons, so a
+// history that long may be missing the first finals, and the season's own number stands in.
+function finalNumber(sport) {
+  const h = _historyCaches.get(sport), no = seasonOf(sport).seasonNo;
+  if (!h) return no || null;
+  const crowned = h.seasons.filter((s) => s.champion).length + 1;
+  return h.seasons.length >= 24 && no ? Math.max(no, crowned) : crowned;
+}
 // What's worth saying tonight about two clubs' pasts, against where they stand now.
 function loreFor(sport, home, away) {
   const h = _historyCaches.get(sport);
@@ -6842,9 +6922,30 @@ function _newsOutNow() {
 // hour; the client keeps the list, and a login gets it once.
 const TICKER_STORIES = 6, TICKER_EVERY_MS = 60000;
 let _headlinesSent = '', _headlinesAt = 0;
+// The line is the paper's front page, the weather desk, and between them the wire: a real headline,
+// then a wire item, then the weather, so the band is never all bad news or all jokes.
 async function _headlinesNow() {
   const res = await dispatchAction({ type: 'news.getStories', params: { total: TICKER_STORIES } }).catch(() => null);
-  return (res?.stories || []).map((s) => s.headline).filter(Boolean);
+  const real = (res?.stories || []).map((s) => s.headline).filter(Boolean);
+  const env = getEnvironmentState() || {};
+  const hour = Math.floor((env.minutes || 0) / 60) + (Number(String(env.date || "").slice(-2)) || 0) * 24;
+  const wire = [0, 1, 2].map((k) => TICKER_WIRE[(hour * 7 + k * 11) % TICKER_WIRE.length]);
+  const info = [];
+  if (env.weatherType) {
+    const t = Math.round(env.tempC ?? 0), feels = Math.round(env.feelsLikeC ?? t);
+    info.push(`Coldwater weather: ${String(env.weatherType).replace(/_/g, ' ')}, ${t}C${feels !== t ? `, feels like ${feels}C` : ''}${env.windKph ? `, wind ${Math.round(env.windKph)} kph` : ''}`);
+  }
+  const next = env.forecast?.[1];
+  if (next?.weatherType) info.push(`Tomorrow: ${String(next.weatherType).replace(/_/g, ' ')}${Number.isFinite(next.tempC) ? `, ${Math.round(next.tempC)}C` : ''}`);
+  const ev = getWeatherEvent()?.type;
+  if (ev) info.push(`Weather warning: ${String(ev).replace(/_/g, ' ')} in effect. Stay indoors`);
+  const out = [];
+  for (let i = 0, n = Math.max(real.length, wire.length, info.length); i < n; i++) {
+    if (real[i]) out.push(real[i]);
+    if (wire[i]) out.push(wire[i]);
+    if (info[i]) out.push(info[i]);
+  }
+  return out;
 }
 async function _pushHeadlines(nowMs) {
   if (nowMs - _headlinesAt < TICKER_EVERY_MS) return;
@@ -9505,7 +9606,9 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
         if (state.channelType === 'live' && stageZoneId) {
           _stageLine(stageZoneId, `<span style="color:var(--text-dim);font-style:italic">${evText}</span>`);
         }
-        return { text: evText, key: `event:${channelId}:${nodeId}:${nowMs}`, style: 'raw', ...(swap ? { graphic: swap } : {}) };
+        // a crowd reaction is flagged so the set plays the audience (tv.js playCrowd) instead of reading the words
+        const crowdEv = ['LAUGHTER', 'APPLAUSE', 'CHEERING', 'BOOING', 'GASPING', 'MURMURING'].includes(evType);
+        return { text: evText, key: `event:${channelId}:${nodeId}:${nowMs}`, style: 'raw', ...(crowdEv ? { crowd: true } : {}), ...(swap ? { graphic: swap } : {}) };
       }
 
       case 'tech_difficulties': {
@@ -9862,17 +9965,22 @@ registerAction({
 registerAction({
   type: 'broadcast.getTeamCard',
   handler: async ({ params = {} } = {}) => {
-    // A club plays once a day, every day, so six days back is enough for five games of form.
-    const { sport = 'baseball', team, back = 48, ahead = 24 } = params;
+    // A club plays about every other day (the slate's double round robin), never more than
+    // five days apart, so fourteen days back is enough for five games of form and six ahead
+    // always finds the next one. Only the club's own slots are simulated: the matchup is
+    // read off the slate first, which costs nothing.
+    const { sport = 'baseball', team, back = 112, ahead = 48 } = params;
     if (!team) return null;
     const script = await anySportsScript(sport);
     if (!script) return null;
     const now = sportsSlotIndex();
     const isOurs = (g) => g && (g.away.name === team || g.home.name === team);
+    const plays = (slot) => { const m = sportsMatchupForSlot(slot, script.teams, sportOf(script).id); return !!m && (m.away === team || m.home === team); };
 
     // Form, newest first. Only games this club actually played.
     const form = [];
     for (let slot = now - 1; slot >= Math.max(0, now - back) && form.length < 5; slot--) {
+      if (!plays(slot)) continue;
       const gs = sportsGameForSlot(script, slot, null);
       if (!isOurs(gs?.game)) continue;
       const g = gs.game;
@@ -9888,6 +9996,7 @@ registerAction({
     // The next time they're on. Matchup and airtime only — see the spoiler rule.
     let next = null;
     for (let slot = now; slot < now + ahead; slot++) {
+      if (!plays(slot)) continue;
       const gs = sportsGameForSlot(script, slot, null);
       if (!isOurs(gs?.game)) continue;
       const g = gs.game;
@@ -12083,7 +12192,7 @@ export const _test = {
   sportsGameForSlot, sportsMatchupForSlot, roundRobinRounds, sportsSlotIndex,
   sportsSlotMs, sportsAiring, SPORTS_GAMES_PER_DAY, seasonCalendar,
   // a slot timed from the moment this server saw it turn over (sportsSegElapsedSec)
-  slotTurnAfter: _slotTurnAfter, slotTurnElapsedSec: _slotTurnElapsedSec, SPORTS_TURN_SEEN_MS, SPORTS_TOP_GRACE_S, sportsSlateForDay, sportDaySlate, slateSportAt, isCupDay, monthStartDay,
+  slotTurnAfter: _slotTurnAfter, slotTurnElapsedSec: _slotTurnElapsedSec, SPORTS_TURN_SEEN_MS, SPORTS_TOP_GRACE_S, sportsSlateForDay, sportDaySlate, slateSportAt, isCupDay, monthStartDay, monthPlan, SLATE_GAME_SODS,
   assembleNewsGraph, newsFill, newsSceneNames,
   // The weather report had no test seam at all, which is how a two-line handover and a
   // 2am airing greeting you with "Afternoon, survivors" both shipped: the only thing that

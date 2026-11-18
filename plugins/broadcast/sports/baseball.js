@@ -1004,9 +1004,89 @@ export function lineupForDay(club, day) {
   return { lineup, pitcher: club.rotation[((day % ROSTER_ROTATION) + ROSTER_ROTATION) % ROSTER_ROTATION].name };
 }
 
+// ── the bullpen and the dugout (sim v5) ──────────────────────────────────────
+// v5 is v4 with a pitch count, a pen and a manager. Each club has six relievers, a manager and a
+// pitching coach (`sports_pools.bullpens`, the .bsm's ::bullpens block); the pen is the club's for
+// good, so it isn't dealt or traded, and its order is its roles: the closer, the setup man, three
+// middle men and the long man.
+//
+// A pitcher's count is the pitches the park throws him: each at-bat's are synthPitches' off the
+// at-bat's own seed (pitchCountOf replays its draws without building them), so the count the booth
+// says and the pitches the park shows are the same pitches. Past his limit he tires, and a tired
+// man walks more, gives up more hits and strikes out fewer (TIRE, read against the one draw the
+// at-bat always took). Three men on in a row in an inning rattle him (`rattle`) until he gets an
+// out or the pitching coach comes out. A reliever is fresh and the closer and the setup man are the
+// best of them (`edge`).
+//
+// The manager decides before every batter and before every half his side's in the field: a man
+// over his limit, or shelled, or tired late with the tying run up, comes out; a man in trouble
+// gets a visit from the pitching coach first, once an inning; and the 8th and the 9th of a close
+// game are the setup man's and the closer's. Each call is a pure function of the game so far and
+// of the dugout's own stream (salt 0x4d47), so the sim's stream draws what v4's did, play for play.
+// A manager's hook (hookOf, off his name) is how quick he is to go to the pen.
+//
+// What it adds to the beats: `pc`, the pitcher's count before the play; `mound` on the beat after a
+// call, { kind: 'visit', coach, pitcher, pc, why } or { kind: 'change', manager, out, outRole,
+// outPc, in, role, why, between }, `between` when it was made at the half's start (the half_start
+// carries it too); and `warm`, the reliever who started throwing in the pen. Each side's
+// `pitchers` is everyone who pitched for it in order; `pitcher` stays the starter.
+export const PEN_ROLES = Object.freeze(['closer', 'setup', 'middle', 'middle', 'middle', 'long']);
+export const PEN = Object.freeze({
+  // a starter's limit, by how durable he is (durabilityOf), and a reliever's by his role
+  starter: [94, 118], closer: 28, setup: 30, middle: 34, long: 62,
+  // the share of his limit he starts to tire at, and how tired he is at his limit
+  tireFrom: 0.78, tire: 0.55,
+  // three on in a row in an inning
+  rattle: 0.3,
+  // how much better than a fresh starter a reliever is, by role
+  edge: { starter: 0, closer: 0.22, setup: 0.16, middle: 0.08, long: 0.03 },
+  // how far a manager's hook moves a starter's limit either way (pitches)
+  hook: 10,
+  // the most times a pitching coach goes out in a game
+  visits: 3,
+});
+// How the at-bat table leans for a pitcher `f` tired (f < 0 is a fresh arm with good stuff).
+const TIRE = Object.freeze({ strikeout: -0.32, groundout: -0.04, flyout: 0, popout: -0.18, single: 0.16, walk: 0.5, double: 0.3, triple: 0.2, homerun: 0.5 });
+export function rollAtBatAs(rand, f) {
+  if (!f) return rollAtBat(rand);
+  const w = ATBAT_TABLE.map((o) => Math.max(1, o.w * (1 + TIRE[o.kind] * f)));
+  let roll = rand() * w.reduce((s, x) => s + x, 0);
+  for (let i = 0; i < w.length; i++) { roll -= w[i]; if (roll <= 0) return ATBAT_TABLE[i]; }
+  return ATBAT_TABLE[0];
+}
+// How many pitches synthPitches throws for an at-bat that ended `kind`, without building them: the
+// same draws in the same order up to the last pitch.
+export function pitchCountOf(seed, kind) {
+  const rand = sportsRng(seed);
+  let balls, strikes;
+  if (kind === 'strikeout') { balls = Math.floor(rand() * 4); strikes = 2; }
+  else if (kind === 'walk') { balls = 3; strikes = Math.floor(rand() * 3); }
+  else { balls = Math.floor(rand() * 4); strikes = Math.floor(rand() * 3); }
+  for (let i = 0; i < strikes; i++) rand();
+  let n = balls + strikes;
+  for (let i = n - 1; i > 0; i--) rand();
+  if (strikes === 2) { let extra = 0; while (rand() < 0.30 && extra++ < 2) n++; }
+  return n + 1;
+}
+// A starter's stamina, and a manager's hook: 0 an old hand who lets his man pitch, 1 quick to the pen.
+export const durabilityOf = (name) => traitOf(name, 0x4455);
+export const hookOf = (manager) => traitOf(manager, 0x484b);
+// A club's pen as roles, from its list (the closer first, the long man last).
+export function penOf(club) {
+  const list = Array.isArray(club?.pen) ? club.pen.filter((n) => typeof n === 'string' && n) : [];
+  return list.map((name, i) => ({ name, role: i === 0 ? 'closer' : i === 1 ? 'setup' : i === list.length - 1 && list.length >= 4 ? 'long' : 'middle' }));
+}
+// A man's limit for the night.
+export function limitOf(name, role, manager = '') {
+  if (role !== 'starter') return PEN[role] || PEN.middle;
+  const [lo, hi] = PEN.starter;
+  return Math.round(lo + (hi - lo) * durabilityOf(name) + PEN.hook * (0.5 - hookOf(manager)) * 2);
+}
+
 // `lineups` (sim v3) names each side's nine and pitcher; without it the pool is shuffled and
-// dealt for the night, as v2 always did.
-export function simGameV2(matchup, players, rand = Math.random, { seed = 0, rates = SIM_V2_RATES, lineups = null, version = 2 } = {}) {
+// dealt for the night, as v2 always did. `staff` (sim v5) is each side's bullpen row
+// ({ manager, coach, pen }); a side without one has no pen, and a game needs both for v5's calls.
+export function simGameV2(matchup, players, rand = Math.random, { seed = 0, rates = SIM_V2_RATES, lineups = null, version = 2, staff = null } = {}) {
   // how readily a man is sent on a hit: v3's one number, or v4's by the outs (TWO_OUT_SEND)
   const sendOn = (k, v3, outs) => (version >= 4 ? TWO_OUT_SEND[k][outs >= 2 ? 1 : 0] : v3);
   const side = sportsRng(sportsHash(seed >>> 0, 0x5132));
@@ -1027,12 +1107,131 @@ export function simGameV2(matchup, players, rand = Math.random, { seed = 0, rate
   const beats = [];
   let gameOver = false, inning = 0;
 
+  // ── the dugouts (sim v5) ──
+  const v5 = version >= 5 && penOf(staff?.[awayName]).length > 0 && penOf(staff?.[homeName]).length > 0;
+  const mgr = v5 ? sportsRng(sportsHash(seed >>> 0, 0x4d47)) : null;
+  const dugs = new Map();
+  const newInn = () => ({ bf: 0, on: 0, runs: 0, streak: 0, visited: false, sinceVisit: 0, runsAtVisit: 0 });
+  const mkArm = (name, role, manager) => ({ name, role, limit: limitOf(name, role, manager), pc: 0, bf: 0, outs: 0, runs: 0, inn: newInn() });
+  if (v5) {
+    for (const t of [away, home]) {
+      const row = staff[t.name], manager = String(row.manager || ''), coach = String(row.coach || '');
+      dugs.set(t, { manager, coach, hook: hookOf(manager), pen: penOf(row).map((r) => ({ ...r, used: false })), arm: mkArm(t.pitcher, 'starter', manager), visits: 0, warming: null, list: [t.pitcher] });
+    }
+  }
+  // How tired he is for this at-bat: past `tireFrom` of his limit, rattled, less a reliever's edge.
+  const tiredness = (a) => {
+    const from = PEN.tireFrom * a.limit;
+    return (a.pc > from ? PEN.tire * (a.pc - from) / (a.limit - from) : 0) + (a.inn.streak >= 3 ? PEN.rattle : 0) - (PEN.edge[a.role] || 0);
+  };
+  // Who comes in: the role the spot calls for, else the next man down the pen, the closer last.
+  const choose = (D, lead, menOn, isHome) => {
+    const free = D.pen.filter((r) => !r.used);
+    if (!free.length) return null;
+    const blowout = Math.abs(lead) >= 5;
+    const save = lead > 0 && (lead <= 3 || lead <= menOn + 2);
+    const order = !blowout && inning >= 9 && (save || (lead === 0 && isHome)) ? ['closer', 'setup', 'middle', 'long']
+      : !blowout && inning >= 8 && lead >= 0 && lead <= 3 ? ['setup', 'middle', 'long', 'closer']
+        : inning <= 5 ? ['long', 'middle', 'setup', 'closer'] : ['middle', 'long', 'setup', 'closer'];
+    // the man who's been throwing, when the spot's his
+    const warm = D.warming && free.find((r) => r.name === D.warming);
+    if (warm && order.slice(0, 2).includes(warm.role)) return warm;
+    for (const role of order) { const r = free.find((x) => x.role === role); if (r) return r; }
+    return free[0];
+  };
+  const bring = (D, r, why, between) => {
+    const old = D.arm, warmed = D.warming === r.name;
+    r.used = true;
+    D.arm = mkArm(r.name, r.role, D.manager);
+    D.list.push(r.name);
+    D.warming = null;
+    return { kind: 'change', manager: D.manager, out: old.name, outRole: old.role, outPc: old.pc, in: r.name, role: r.role, why, ...(warmed ? { warmed: true } : {}), ...(between ? { between: true } : {}) };
+  };
+  // The call before a half in the field: the man out there stays, or the spot's somebody else's.
+  const callInning = (D, fielding, batting) => {
+    const a = D.arm, lead = fielding.score - batting.score, isHome = fielding === home;
+    const blowout = Math.abs(lead) >= 5;
+    const free = (role) => D.pen.some((r) => !r.used && r.role === role);
+    // a starter going well, under an old hand, keeps the ball a while longer
+    const keep = a.role === 'starter' && a.pc < 0.84 * a.limit && a.runs <= 1 && mgr() < 0.75 * (1 - D.hook);
+    // a reliever's had his innings: one for the closer and the setup man, more in a game that's gone
+    const stint = a.role === 'long' ? (blowout ? 12 : 9) : a.role === 'middle' ? (blowout ? 6 : 3) : 3;
+    let why = null;
+    if (a.pc >= 0.94 * a.limit) why = 'tired';
+    else if (a.role === 'starter' && a.runs >= 6) why = 'shelled';
+    else if (a.role !== 'starter' && a.outs >= stint) why = 'done';
+    else if (!blowout && inning >= 9 && a.role !== 'closer' && free('closer') && ((lead > 0 && lead <= 3) || (lead === 0 && isHome)) && !keep) why = 'save';
+    else if (!blowout && inning === 8 && a.role === 'starter' && free('setup') && lead >= 1 && lead <= 3 && !keep) why = 'setup';
+    if (!why) return null;
+    const r = choose(D, lead, 0, isHome);
+    return r ? bring(D, r, why, true) : null;
+  };
+
   const playHalf = (half, batting, fielding) => {
-    beats.push({ type: 'half_start', inning, half, battingName: batting.name, fieldingName: fielding.name, pitcher: fielding.pitcher, awayScore: away.score, homeScore: home.score });
+    const D = v5 ? dugs.get(fielding) : null;
+    let change = null, pend = null, warmNote = null, abIdx = 0;
+    if (D) { D.arm.inn = newInn(); change = callInning(D, fielding, batting); }
+    beats.push({ type: 'half_start', inning, half, battingName: batting.name, fieldingName: fielding.name, pitcher: D ? D.arm.name : fielding.pitcher, awayScore: away.score, homeScore: home.score, ...(change ? { mound: change } : {}) });
     let outs = 0, walkoff = false;
     const occ = [null, null, null];          // who's on first, second and third
     const on = (i) => occ[i] != null;
-    const pitcher = fielding.pitcher, catcher = fielding.lineup[CATCHER_SLOT];
+    const catcher = fielding.lineup[CATCHER_SLOT];
+    let pitcher = D ? D.arm.name : fielding.pitcher;
+    // v5: the pitcher's count before the play, and the call the manager made before it
+    const note = () => {
+      if (!D) return {};
+      const o = { pc: D.arm.pc };
+      if (pend) { o.mound = pend; pend = null; }
+      if (warmNote) { o.warm = warmNote; warmNote = null; }
+      return o;
+    };
+    // v5: the play against the man on the mound
+    const charge = (made, runs, reached, kind) => {
+      if (!D) return;
+      const a = D.arm;
+      if (kind) { a.pc += pitchCountOf(sportsHash(seed, inning * 2 + (half === 'bottom' ? 1 : 0), abIdx++ >>> 0), kind); a.bf++; a.inn.bf++; }
+      a.outs += made; a.runs += runs; a.inn.runs += runs;
+      if (made) a.inn.streak = 0;
+      else if (reached) { a.inn.on++; a.inn.streak++; if (a.inn.visited) a.inn.sinceVisit++; }
+    };
+    // v5: the call before a batter. He comes out, or the coach goes out, or the pen stirs.
+    const consult = () => {
+      const a = D.arm, lead = fielding.score - batting.score, isHome = fielding === home;
+      const menOn = occ.filter((n) => n != null).length;
+      if (!a.inn.bf) return;
+      const late = inning >= 7;
+      const shelled = a.role === 'starter' ? a.runs >= 7 || a.inn.runs >= 5 : a.inn.runs >= 3 || (late && a.inn.runs >= 2 && Math.abs(lead) <= 1);
+      // the tying or the go-ahead run on base or at the plate
+      const tyingUp = lead >= 0 && lead <= menOn + 1;
+      const struggling = a.inn.on >= 2 && (a.inn.runs >= 1 || a.inn.streak >= 2 || menOn >= 2);
+      // in real trouble: men on, a run in, and he can't get anybody out
+      const trouble = a.inn.bf >= 3 && a.inn.on >= 3 && menOn >= 2 && (a.inn.runs >= 1 || a.inn.streak >= 3);
+      let why = null;
+      if (a.pc >= 1.15 * a.limit) why = 'tired';
+      else if (shelled) why = 'shelled';
+      else if (a.pc >= a.limit && (menOn > 0 || late)) why = 'tired';
+      // the second trip out to the same man in an inning is the manager's, and he takes the ball
+      else if (a.inn.visited && a.inn.sinceVisit >= 2 && a.inn.runs > a.inn.runsAtVisit && struggling) why = 'again';
+      else if (late && tyingUp && a.role === 'starter' && a.pc >= 0.9 * a.limit) why = 'late';
+      if (why) {
+        const r = choose(D, lead, menOn, isHome);
+        if (r) { pend = bring(D, r, why, false); pitcher = D.arm.name; return; }
+      }
+      // the pitching coach goes out: to settle a man in trouble, or in a tight spot late
+      const tense = late && Math.abs(lead) <= 1 && (on(1) || on(2)) && a.inn.on >= 1;
+      // (not for a man barely started, unless they're really getting to him)
+      const settled = a.pc >= 25 || a.inn.runs >= 2;
+      if (!a.inn.visited && D.visits < PEN.visits && settled && ((trouble && a.inn.runs >= 1) || (tense && mgr() < 0.3))) {
+        a.inn.visited = true; a.inn.streak = 0; a.inn.runsAtVisit = a.inn.runs; D.visits++;
+        pend = { kind: 'visit', coach: D.coach, manager: D.manager, pitcher: a.name, pc: a.pc, why: struggling ? 'trouble' : 'tension' };
+        return;
+      }
+      // somebody starts throwing in the pen
+      if (!D.warming && a.role === 'starter' && (a.pc >= 0.82 * a.limit || (struggling && a.runs >= 4) || (late && tyingUp && a.pc >= 0.7 * a.limit))) {
+        const r = choose(D, lead, menOn, isHome);
+        if (r) { D.warming = r.name; warmNote = r.name; }
+      }
+    };
     const head = () => ({ inning, half, battingName: batting.name, fieldingName: fielding.name });
     const tail = () => ({ awayScore: away.score, homeScore: home.score, walkoff, bases: occ.map((n) => n != null), runners: occ.slice() });
     // A play's moves, every runner who didn't move added as holding, lead runner first.
@@ -1084,20 +1283,22 @@ export function simGameV2(matchup, players, rand = Math.random, { seed = 0, rate
       if (out) outs += 1;
       batting.score += runs;
       walkoff = half === 'bottom' && inning >= 9 && runs > 0 && home.score > away.score;
-      beats.push({ type: 'run', ...head(), batter, pitcher, kind, runner, base, out, outs, rbi: 0, runs, ...tail(), moves: settle(before, moves) });
+      beats.push({ type: 'run', ...head(), batter, pitcher, kind, runner, base, out, outs, rbi: 0, runs, ...tail(), moves: settle(before, moves), ...note() });
+      charge(out ? 1 : 0, runs, false, null);
       return outs >= 3 || walkoff;
     };
 
     while (outs < 3) {
       const batter = batting.lineup[batting.idx % 9];
       batting.idx++;
+      if (D) consult();
       if (runningGame(batter)) {
         if (!walkoff) batting.idx--;   // the third out came on the bases: he leads off the next inning
         break;
       }
-      const ab = rollAtBat(rand);
+      const ab = D ? rollAtBatAs(rand, tiredness(D.arm)) : rollAtBat(rand);
       let kind = ab.kind, runs = 0;
-      const before = occ.slice(), moves = [];
+      const before = occ.slice(), moves = [], o0 = outs;
 
       if (ab.out) {
         // v1's outs, draw for draw.
@@ -1140,7 +1341,8 @@ export function simGameV2(matchup, players, rand = Math.random, { seed = 0, rate
         walkoff = half === 'bottom' && inning >= 9 && runs > 0 && home.score > away.score;
         moves.push({ from: 0, out: RAN_IT_OUT.has(kind) ? 1 : 0, name: batter });
         const rbi = kind === 'doubleplay' || kind === 'tripleplay' ? 0 : runs;
-        beats.push({ type: 'atbat', ...head(), batter, pitcher, kind, out: true, outs, rbi, runs, ...tail(), moves: settle(before, moves) });
+        beats.push({ type: 'atbat', ...head(), batter, pitcher, kind, out: true, outs, rbi, runs, ...tail(), moves: settle(before, moves), ...note() });
+        charge(outs - o0, runs, false, kind);
         if (walkoff) break;
         continue;
       }
@@ -1199,7 +1401,8 @@ export function simGameV2(matchup, players, rand = Math.random, { seed = 0, rate
       batting.score += runs;
       walkoff = half === 'bottom' && inning >= 9 && runs > 0 && home.score > away.score;
       const rbi = kind === 'error' ? 0 : runs;
-      beats.push({ type: 'atbat', ...head(), batter, pitcher, kind, out: false, outs, rbi, runs, ...(fielder ? { fielder, errorType } : {}), ...tail(), moves: settle(before, moves) });
+      beats.push({ type: 'atbat', ...head(), batter, pitcher, kind, out: false, outs, rbi, runs, ...(fielder ? { fielder, errorType } : {}), ...tail(), moves: settle(before, moves), ...note() });
+      charge(0, runs, true, kind);
       if (walkoff) break;
     }
     beats.push({ type: 'half_end', inning, half, battingName: batting.name, fieldingName: fielding.name, awayScore: away.score, homeScore: home.score });
@@ -1216,8 +1419,9 @@ export function simGameV2(matchup, players, rand = Math.random, { seed = 0, rate
     const kind = r < 0.15 ? 'homerun' : (r < 0.5 ? 'double' : 'single');
     bat.score += 1;
     const batter = bat.lineup[bat.idx % 9];
-    beats.push({ type: 'half_start', inning, half, battingName: bat.name, fieldingName: fld.name, pitcher: fld.pitcher, awayScore: away.score - (homeWins ? 0 : 1), homeScore: home.score - (homeWins ? 1 : 0) });
-    beats.push({ type: 'atbat', inning, half, battingName: bat.name, fieldingName: fld.name, batter, pitcher: fld.pitcher, kind, out: false, outs: 0, rbi: 1, runs: 1, awayScore: away.score, homeScore: home.score, walkoff: homeWins, bases: [false, false, false], runners: [null, null, null], moves: [{ from: 0, to: 4, name: batter }] });
+    const arm = v5 ? dugs.get(fld).arm.name : fld.pitcher;
+    beats.push({ type: 'half_start', inning, half, battingName: bat.name, fieldingName: fld.name, pitcher: arm, awayScore: away.score - (homeWins ? 0 : 1), homeScore: home.score - (homeWins ? 1 : 0) });
+    beats.push({ type: 'atbat', inning, half, battingName: bat.name, fieldingName: fld.name, batter, pitcher: arm, kind, out: false, outs: 0, rbi: 1, runs: 1, awayScore: away.score, homeScore: home.score, walkoff: homeWins, bases: [false, false, false], runners: [null, null, null], moves: [{ from: 0, to: 4, name: batter }] });
     beats.push({ type: 'half_end', inning, half, battingName: bat.name, fieldingName: fld.name, awayScore: away.score, homeScore: home.score });
   };
 
@@ -1233,8 +1437,11 @@ export function simGameV2(matchup, players, rand = Math.random, { seed = 0, rate
     }
   }
   if (away.score === home.score) forceFinish();
+  // everyone who pitched for each side, the starter first
+  if (v5) for (const t of [away, home]) t.pitchers = dugs.get(t).list.slice();
+  const dugouts = v5 ? Object.fromEntries([away, home].map((t) => { const D = dugs.get(t); return [t.name, { manager: D.manager, coach: D.coach, pen: D.pen.map((r) => ({ name: r.name, role: r.role })) }]; })) : null;
 
-  return { away, home, awayScore: away.score, homeScore: home.score, beats, innings: inning, version: 2 };
+  return { away, home, awayScore: away.score, homeScore: home.score, beats, innings: inning, version: 2, ...(dugouts ? { dugouts } : {}) };
 }
 
 // The booth's words for a sim v2 play: {runner}, {base} (the bag in play) and {fielder}
@@ -1256,8 +1463,10 @@ export function playTokens(b, play) {
   };
 }
 
-// The descriptor's sim: v2 when sportsGameForSlot says the slot plays it, else v1.
+// The descriptor's sim: v2 when sportsGameForSlot says the slot plays it, else v1. From v5 the
+// clubs' bullpens ride on the matchup (`bullpens`, sports_pools.bullpens), as their identities do.
 function simGameFor(matchup, players, rand, opts) {
+  if (opts?.version >= 5 && matchup?.bullpens && !opts.staff) opts = { ...opts, staff: matchup.bullpens };
   if (opts?.version >= 3 && Number.isFinite(opts.day)) {
     const R = clubRosters(matchup?.teams, players, seasonOfDay(opts.day), { firstGen: !!opts.firstGen });
     const a = R?.clubs[matchup?.away], h = R?.clubs[matchup?.home];
@@ -1315,7 +1524,9 @@ const STEAL_PLAYS = new Set(['steal', 'caughtstealing', 'doublesteal']);
 //     man is thrown out, neither is credited with one; the man thrown out is caught
 //     stealing. A pickoff isn't a caught stealing.
 //   • A pitcher's OUTS are the outs made while he's on the mound (an inning is three).
-//     Each side's pitcher goes the distance, so the winning side's takes the win.
+//     Before sim v5 each side's pitcher goes the distance, so the winning side's takes the
+//     win. From v5 the pitcher of record takes it, a run is charged to the man who put its
+//     runner on, and a reliever gets saves (`sv`) and blown saves (`bs`); see below.
 //   • EARNED RUNS, the way a scorer rebuilds an inning without its errors: a run is
 //     unearned when it scores on an error or a passed ball, when the man scoring reached
 //     on an error, or when the errors, counted as outs, would already have ended the
@@ -1347,39 +1558,99 @@ export function foldGame(acc, game, { before, after } = {}) {
     r.pos = { ...r.pos, [pos]: (r.pos?.[pos] || 0) + 1 };
     r.clubs = { ...r.clubs, [club]: (r.clubs?.[club] || 0) + 1 };
   };
+  const starterOf = {};   // team -> the man who started for it
   for (const t of [game.away, game.home]) {
     if (!t?.name || !Array.isArray(t.lineup)) continue;
     t.lineup.forEach((name, k) => { if (name) tally(bat(name, t.name), LINEUP_POSITIONS[k] || 'DH', t.name); });
-    if (t.pitcher) tally(arm(t.pitcher, t.name), 'P', t.name);
+    // every man who pitched (sim v5's `pitchers`), else the one who went the distance
+    for (const n of Array.isArray(t.pitchers) && t.pitchers.length ? t.pitchers : [t.pitcher]) if (n) tally(arm(n, t.name), 'P', t.name);
+    if (t.pitcher) starterOf[t.name] = t.pitcher;
   }
   // the half so far: its outs, the errors that should have been outs, who reached on one
   let outs = 0, errOuts = 0;
   const onError = new Set();
-  const pitcherOf = {};   // team -> the man pitching for it
+  // Who put each runner on (sim v5): a run is charged to the pitcher who let its man on, so a
+  // reliever who comes in with the bags full owes none of the three who were there.
+  const resp = new Map();
+  const cur = {};         // team -> the man pitching for it now
+  const nightOuts = new Map();
+  // The pitcher of record (sim v5's rules, which a game with one pitcher a side meets trivially):
+  // the winner is whoever was pitching for the winners when they went ahead for the last time
+  // (their starter only with five innings behind him, else the reliever who got the most outs);
+  // the loser is the man charged with the run that put them ahead.
+  let goAhead = null;     // { team, win, lose }
+  // A reliever's save: his side ahead when he came in, by three or less with an inning in him, or
+  // with the tying run on or due up, or for three innings; a blown save is that lead gone with him out there.
+  const entry = new Map(); // reliever -> { team, lead, on }
+  const blown = new Set();
+  let bags = [false, false, false];
+  const scoreOf = (team, b) => (team === game.home?.name ? b.homeScore : b.awayScore) ?? 0;
+  let last = { awayScore: 0, homeScore: 0 };
   for (const b of game.beats || []) {
     if (b.type === 'half_start') {
-      outs = 0; errOuts = 0; onError.clear();
-      if (b.pitcher && b.fieldingName) pitcherOf[b.fieldingName] = b.pitcher;
+      outs = 0; errOuts = 0; onError.clear(); resp.clear(); bags = [false, false, false];
+      if (b.pitcher && b.fieldingName) {
+        if (!starterOf[b.fieldingName]) starterOf[b.fieldingName] = b.pitcher;
+        cur[b.fieldingName] = b.pitcher;
+      }
       continue;
     }
     if (b.type !== 'atbat' && b.type !== 'run') continue;
     before?.(b);
-    if (b.pitcher && b.fieldingName && !pitcherOf[b.fieldingName]) pitcherOf[b.fieldingName] = b.pitcher;
-    // the runs on the play, and which of them were earned
+    const team = b.fieldingName, opp = b.battingName;
+    if (b.pitcher && team) {
+      if (!starterOf[team]) starterOf[team] = b.pitcher;
+      cur[team] = b.pitcher;
+      // a reliever coming in: the lead he was handed and the men on when he got it
+      if (b.pitcher !== starterOf[team] && !entry.has(b.pitcher)) {
+        entry.set(b.pitcher, { team, lead: scoreOf(team, last) - scoreOf(opp, last), on: bags.filter(Boolean).length });
+      }
+    }
+    // the runs on the play, and which of them were earned, each charged to the man who put its runner on
     const runs = Number.isFinite(b.runs) ? b.runs : (b.rbi || 0);
-    let earned = runs;
     if (runs > 0 && Array.isArray(b.moves)) {
-      earned = outs + errOuts >= 3 || b.kind === 'error' || b.kind === 'passedball' ? 0
-        : Math.min(runs, b.moves.filter((m) => m.to === 4 && !onError.has(m.name)).length);
+      let left = outs + errOuts >= 3 || b.kind === 'error' || b.kind === 'passedball' ? 0 : runs;
+      for (const m of b.moves) {
+        if (m.to !== 4) continue;
+        const e = left > 0 && !onError.has(m.name) ? 1 : 0;
+        left -= e;
+        const who = (m.name && resp.get(m.name)) || b.pitcher;
+        if (who && e) arm(who, team).er += e;
+      }
+    } else if (runs > 0 && b.pitcher) arm(b.pitcher, team).er += runs;
+    // the lead changing hands: who's in line for the win and the loss
+    const was = scoreOf(opp, last) - scoreOf(team, last), now = scoreOf(opp, b) - scoreOf(team, b);
+    if (was <= 0 && now > 0) {
+      const scorers = Array.isArray(b.moves) ? b.moves.filter((m) => m.to === 4) : [];
+      const run = scorers[Math.min(scorers.length - 1, -was)];
+      goAhead = { team: opp, win: cur[opp] || starterOf[opp] || null, lose: (run?.name && resp.get(run.name)) || b.pitcher || cur[team] || null };
+    }
+    // a lead given away by the man trying to save it
+    if (now >= 0 && b.pitcher && entry.get(b.pitcher)?.team === team) {
+      const en = entry.get(b.pitcher);
+      if (en.lead > 0 && (en.lead <= 3 || en.lead <= en.on + 2)) blown.add(b.pitcher);
     }
     if (b.kind === 'error' && b.batter) { errOuts += 1; onError.add(b.batter); }
     const made = Number.isFinite(b.outs) ? Math.max(0, b.outs - outs) : 0;
     if (Number.isFinite(b.outs)) outs = b.outs;
     if (b.pitcher) {
-      const p = arm(b.pitcher, b.fieldingName);
-      p.outs += made; p.er += earned;
+      const p = arm(b.pitcher, team);
+      p.outs += made;
       if (b.type === 'atbat' && b.kind === 'strikeout') p.k += 1;
+      nightOuts.set(b.pitcher, (nightOuts.get(b.pitcher) || 0) + made);
     }
+    // who's on now and whose they are: a batter who reached is the pitcher's, a runner keeps his
+    // pitcher, and a batter safe on a force takes the place of the man forced
+    if (Array.isArray(b.moves)) {
+      const forced = b.moves.find((m) => m.from > 0 && m.out != null && m.name);
+      for (const m of b.moves) {
+        if (!m.name) continue;
+        if (m.from === 0 && m.to >= 1 && m.to <= 3) resp.set(m.name, (forced && resp.get(forced.name)) || b.pitcher);
+        else if (m.to === 4 || m.out != null || m.off) resp.delete(m.name);
+      }
+    }
+    if (Array.isArray(b.bases)) bags = b.bases;
+    last = b;
     if (b.type === 'atbat' && b.batter) {
       const r = bat(b.batter, b.battingName);
       r.pa += 1;
@@ -1404,8 +1675,24 @@ export function foldGame(acc, game, { before, after } = {}) {
   const away = game.away?.name, home = game.home?.name;
   if (Number.isFinite(a) && Number.isFinite(h) && a !== h && away && home) {
     const [win, lose] = a > h ? [away, home] : [home, away];
-    if (pitcherOf[win]) arm(pitcherOf[win], win).w += 1;
-    if (pitcherOf[lose]) arm(pitcherOf[lose], lose).l += 1;
+    const G = goAhead?.team === win ? goAhead : null;
+    let winner = G?.win || cur[win] || starterOf[win];
+    // a starter needs five innings for the win; short of them it's the reliever who got the most outs
+    if (winner && winner === starterOf[win] && (nightOuts.get(winner) || 0) < 15) {
+      let best = null;
+      for (const [n, o] of nightOuts) if (n !== winner && acc.arms.get(n)?.team === win && (!best || o > best[1])) best = [n, o];
+      if (best) winner = best[0];
+    }
+    const loser = G?.lose || cur[lose] || starterOf[lose];
+    if (winner) arm(winner, win).w += 1;
+    if (loser) arm(loser, lose).l += 1;
+    // the save: the man who finished it for the winners, if he isn't the winner and the lead was his to keep
+    const fin = cur[win], en = fin && entry.get(fin);
+    if (en && fin !== winner && !blown.has(fin)) {
+      const o = nightOuts.get(fin) || 0;
+      if (en.lead > 0 && ((en.lead <= 3 && o >= 3) || en.lead <= en.on + 2 || o >= 9)) { const r = arm(fin, win); r.sv = (r.sv || 0) + 1; }
+    }
+    for (const n of blown) { const r = arm(n, entry.get(n).team); r.bs = (r.bs || 0) + 1; }
   }
   return acc;
 }
@@ -1507,8 +1794,9 @@ export const BASEBALL = {
   simGame: simGameFor,
   // The sim versions this sport has. sportsGameForSlot picks one by slot; see the switch
   // in broadcast/index.js. v3 is v2 played by the season's fixed club rosters (clubRosters); v4
-  // is v3 with two-out running (TWO_OUT_SEND).
-  simVersions: [1, 2, 3, 4],
+  // is v3 with two-out running (TWO_OUT_SEND); v5 is v4 with pitch counts, bullpens and the
+  // managers' calls (PEN).
+  simVersions: [1, 2, 3, 4, 5],
   clubRosters, seasonOfDay, lineupForDay,
   synthDetail: synthPitches,
   synthPlay,

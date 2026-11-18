@@ -1,0 +1,11 @@
+{
+  "enabled": true,
+  "id": "bt_more_labourer_04",
+  "lines": [
+    "\"Back hurts.\"",
+    "\"Lift with your legs.\"",
+    "\"I lift with my legs. Then my legs hurt.\""
+  ],
+  "personality": "labourer",
+  "sort_order": 647
+}

@@ -280,6 +280,29 @@ Alongside the visible star bar runs an invisible **heat** meter per player (`hea
 (`WATCHED_CUES` — faint ≥25, watched ≥50, closing ≥80), delivered by `maybeWatchedCue` on an
 interval that shrinks with heat.
 
+### A citizen's call (2026-11-15)
+
+The `POLICE_CALL` action (`policeCall`, `callTick`) is somebody who panicked and phoned it in:
+[plugins/ambient-life panic.js](../plugins/ambient-life/panic.js) (a stranger who won't leave a home,
+somebody seen working a keypad) and the burglary plugin's resident once their call lands.
+
+- **1★** (or `params.stars`; burglary passes 0 because its crime already charged), and a patrol: the
+  hunter roster mustered at `params.muster` (the hall outside, so it walks in) **25 s** after the call
+  (`CALL_PATROL_MS`), not the 90 s a camera's 1★ waits. At ≤3.5★ it arrests (the Apprehend prompt).
+- **+½★ every 30 s** (`CALL_STAY_MS`, `CALL_STAY_STARS`) you're still in the room the call came from, and
+  the caller watching you keeps the stars from bleeding off.
+- **Leave and it's over.** A call made against a clean suspect then sends no hunt of its own
+  (`standDown` holds the pursuit until the stars rise past where they were), so the star decays unseen as
+  usual. Anything new you do raises a pursuit as normal.
+- No call from a `lawless` or `unsurveilled` zone, none against an admin or dev, and one call per suspect
+  per room in five minutes.
+
+**Keypad hacking is watched** (`lock.hackAttempt` / `lock.hackEnded`, fired by the engine's `hackDoor` and
+`hackresolve`). A live camera on the hacker's side turns to the door, and from then until the lock gives
+or they walk off, the `hacking` crime runs as an active offence: every sweep rolls the camera's rising
+catch chance (the ATM jack's ramp), and a cop standing there makes them at once. The NPCs standing there
+are panic.js's.
+
 ### Apprehend — non-lethal detention (≤3.5★)
 
 At `APPREHEND_MAX` (3.5★) or below, hunters **detain rather than kill**: on contact the client gets

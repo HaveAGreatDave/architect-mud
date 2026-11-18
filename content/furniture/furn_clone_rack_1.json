@@ -1,0 +1,29 @@
+{
+  "description": "A steel tower of screens: vitals for the vats either side of it, a column of status lights, a keyboard nobody uses. A harness of cable leaves its top for the ceiling.",
+  "flags": {
+    "look": {
+      "arche": "prop",
+      "dims": [
+        0.9,
+        0.62,
+        2.3
+      ],
+      "form": "vatrack",
+      "tag": "MON-A1"
+    },
+    "spot": {
+      "along": 3.3,
+      "wall": "left"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_clone_rack_1",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "monitoring tower",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": null,
+  "zone_id": "zone_start"
+}

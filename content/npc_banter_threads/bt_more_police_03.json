@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_police_03",
+  "lines": [
+    "\"Does it ever bother you? The job?\"",
+    "\"Some days.\"",
+    "\"Which days?\"",
+    "\"The ones where I know who did it and can't do anything.\""
+  ],
+  "personality": "police",
+  "sort_order": 643
+}

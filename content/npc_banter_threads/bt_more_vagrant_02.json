@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_vagrant_02",
+  "lines": [
+    "\"Did you eat?\"",
+    "\"Someone gave me half a pie.\"",
+    "\"What kind?\"",
+    "\"The good kind. The kind someone else paid for.\""
+  ],
+  "personality": "vagrant",
+  "sort_order": 704
+}

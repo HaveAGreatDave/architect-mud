@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_preacher_01",
+  "lines": [
+    "\"Do you think the Architect is God?\"",
+    "\"No.\"",
+    "\"What, then?\"",
+    "\"A very big landlord. God is something else.\""
+  ],
+  "personality": "preacher",
+  "sort_order": 685
+}

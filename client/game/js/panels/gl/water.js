@@ -85,6 +85,61 @@ export const FAR_FADE = 24 / SEA_K;     // tiles of crossfade at the far edge, d
 // is the second statement of one number and the array it sizes is silently truncated if it shrinks.
 const MAX_WAKES = 6;
 
+// ── ROTOR DOWNWASH ON THE SEA ────────────────────────────────────────────────────────────────
+// A VTOL low over water (rotorWashes in windshield.js: the helis, the Drake, the Merlin, yours or
+// anyone's) presses a shallow crater under its disc, beats the chop and the wind sea flat there, and
+// runs a train of rings outward. One function, read by both shaders: the vertex shader displaces by
+// the height, the fragment shader lights by the slope, so the rings the light shows are the rings
+// the mesh moved. `fine` adds a short ripple to the slope only, which the mesh is too coarse to carry.
+// ⚠ THE RING'S CLOCK IS A FIXED 6.0 rad/s, a multiple of 0.01 like every other time term on this
+// sea, or seaClock's wrap puts a seam through it. The rotor's rpm sets how strong the wash is, never
+// how fast the rings run.
+// uWashP: x, y (the window frame the wakes use), reach in tiles, strength 0..1.
+const MAX_WASH = 4;
+const WASH_GLSL = `
+#define MAX_WASH ${MAX_WASH}
+uniform highp int uNWash;
+uniform vec4  uWashP[MAX_WASH];
+uniform float uWashAmp;   // the rings' height in tiles at full strength
+float rotorWash(vec2 p, float t, float fine, out vec2 slope, out float calm, out float froth) {
+  float h = 0.0;
+  slope = vec2(0.0); calm = 0.0; froth = 0.0;
+  for (int i = 0; i < MAX_WASH; i++) {
+    if (i >= uNWash) break;
+    vec4 s = uWashP[i];
+    vec2 d = p - s.xy;
+    float r = length(d);
+    float q = r / s.z;
+    if (q >= 1.0) continue;
+    vec2 u = d / max(r, 1e-4);
+    float k = s.w;
+    // The crater: pressed down under the disc, the water pushed out from the middle.
+    float cr = exp(-q * q * 5.0);
+    float hh = -0.6 * cr;
+    float dr = 6.0 * q * cr / s.z;
+    // The rings, about three and a half across the reach, running out and dying as they go.
+    float lam = max(0.2, s.z * 0.3);
+    float K = 6.2831853 / lam;
+    float env = smoothstep(0.1, 0.32, q) * (1.0 - smoothstep(0.55, 1.0, q)) / (1.0 + 2.5 * q);
+    float ph = r * K - t * 6.0;
+    hh += sin(ph) * env;
+    dr += cos(ph) * K * env;
+    if (fine > 0.0) {
+      float fenv = (1.0 - smoothstep(0.15, 0.7, q)) * fine;
+      dr += cos(r * K * 3.3 - t * 9.0 + sin(atan(d.y, d.x) * 7.0) * 1.5) * K * 3.3 * 0.12 * fenv;
+    }
+    h += hh * k;
+    slope += u * dr * k;
+    calm = max(calm, k * (1.0 - smoothstep(0.25, 0.85, q)));
+    // White water torn up round the crater's lip, where the wash hits the surface and turns out.
+    float lip = exp(-(q - 0.3) * (q - 0.3) / 0.012);
+    froth = max(froth, k * lip * (0.55 + 0.45 * sin(ph * 0.5 + atan(d.y, d.x) * 5.0)));
+  }
+  slope *= uWashAmp;
+  return h * uWashAmp;
+}
+`;
+
 const VERT = `#version 300 es
 precision highp float;
 layout(location = 0) in vec2 aOff;     // tile offset from the camera's ground point
@@ -135,6 +190,7 @@ out vec2  vShoal;        // how far the sampling position was warped, so the fra
 out float vJ;            // the breaker fold's Jacobian: 1 unfolded, near 0 at a breaking lip
 
 ${SEA_GLSL}
+${WASH_GLSL}
 
 // ⚠ THE SAME CLAMPED texelFetch THE FLOOR USES. A different sampling rule here is a mesh whose
 // edge disagrees with the coast the floor is painting, which is a seam along every shoreline.
@@ -231,7 +287,12 @@ void main() {
   vec2 sp = seaFrame(w, uSeaRot);
   vec2 swR = seaFrame(sw, uSeaRot);
   float ph = seaPh(sp, uT);
-  float h = seaRoll(swR, uT, uRoll * gate * shel, uSpread) + seaWind(swR, uT, ph, uWind * gate * shel * windK, uSpread);
+  // The rotor wash, worked out first: it beats the short seas flat under the disc (calm), and its
+  // own crater and rings go on top below. The long swell runs under it untouched.
+  vec2 rwSlope; float rwCalm, rwFroth;
+  float rwH = uNWash > 0 ? rotorWash(w, uT, 0.0, rwSlope, rwCalm, rwFroth) : 0.0;
+  if (uNWash == 0) rwCalm = 0.0;
+  float h = seaRoll(swR, uT, uRoll * gate * shel, uSpread) + seaWind(swR, uT, ph, uWind * gate * shel * windK, uSpread) * (1.0 - 0.7 * rwCalm);
 
   // ── AND THE CHOP GETS A SILHOUETTE, NEAR THE EYE ────────────────────────────────────────────
   //
@@ -251,7 +312,12 @@ void main() {
   // the fragment normal comes from the same height field either way, so it describes the chop
   // whether or not the mesh has also moved to it. Displaced or not, the two agree.
   float chopF = clamp((uChopR - r) / max(0.001, uChopR * 0.4), 0.0, 1.0);
+  float hPreChop = h;
   h += seaChop(sp, uT, ph) * uAmp * gate * chopF;
+  h = hPreChop + (h - hPreChop) * (1.0 - 0.8 * rwCalm);   // beaten flat under a rotor
+  // ⚠ ON 'deep' AND NOT 'gate': the wash is the craft's, not the sea's, so a sheltered harbour gets
+  // it at full height, but it still can't push a ring through a beach.
+  h += rwH * deep;
   // The breaker's forward pitch, on the swell, in the surf zone only.
   h += seaSurfLean(swR, uT, uRoll * gate * shel) * seaSurfZone(hM, H0) * smoothstep(0.0, 0.5, deep) * uSurf;
 
@@ -381,6 +447,22 @@ uniform vec4  uHullS;
 
 ${SEA_GLSL}
 ${SEA_DETAIL_GLSL}
+${WASH_GLSL}
+
+// ── CAT'S PAWS: GUSTS RUNNING OVER THE WATER ─────────────────────────────────────────────────────
+// A gust roughens the water under it within a second, so on a breezy day the sea carries darker,
+// rougher patches tens of metres across that run downwind faster than any wave. 0 between gusts,
+// 1 under one. Laid out in the wind's frame, longer along it than across, and drifting at about the
+// wind's own speed (1.26 rad/s on a 0.9 rad/tile train is ~1.4 tiles/s, ~10 m/s).
+// ⚠ EVERY TIME TERM IS A MULTIPLE OF 0.01 rad/s, like the rest of the sea, or 'seaClock' wraps
+// with a seam across the patches every ten and a half minutes.
+float seaGust(vec2 p, vec2 wd, float t) {
+  float a = dot(p, wd), c = dot(p, vec2(-wd.y, wd.x));
+  float g1 = sin(a * 0.90 - t * 1.26 + 1.6 * sin(c * 0.41 + t * 0.07));
+  float g2 = sin(a * 0.53 + c * 0.37 - t * 0.74 + 1.2 * sin(a * 0.23 - c * 0.61));
+  float g = 0.5 + 0.5 * (0.6 * g1 + 0.4 * g2) * (0.7 + 0.3 * sin(c * 0.29 - a * 0.17 - t * 0.24));
+  return smoothstep(0.45, 0.8, g);
+}
 
 void main() {
   // ⚠ THE FRAGMENT MUST USE THE WARP THE VERTEX SHADER APPLIED, carried across rather than
@@ -406,11 +488,25 @@ void main() {
   // normal or the lighting and the silhouette disagree about which way a face is pointing.
   // ⚠ THE SAME SHELTER THE VERTEX SHADER DISPLACED BY. Leave it out and the lighting describes a
   // full sea over a harbour the mesh has already flattened — every crest lit that is not there.
-  vec2 dd = seaSlope(spR, uT, ph, uAmp, uRoll * gate * vShelter, uWind * gate * vShelter, uSpread);
+  // ⚠ THE SAME WASH THE VERTEX SHADER DISPLACED BY, calm included, or the light describes chop on
+  // water the mesh has already beaten flat.
+  vec2 rwSlope = vec2(0.0); float rwCalm = 0.0, rwFroth = 0.0;
+  if (uNWash > 0) rotorWash(vWorld, uT, 1.0, rwSlope, rwCalm, rwFroth);
+  rwSlope *= deep;
+  float ampW = uAmp * (1.0 - 0.8 * rwCalm), windW = uWind * (1.0 - 0.7 * rwCalm);
+  vec2 dd = seaSlope(spR, uT, ph, ampW, uRoll * gate * vShelter, windW * gate * vShelter, uSpread);
   // ⚠ THE LEAN IS IN THE SLOPE TOO, or the lighting describes a symmetric wave the mesh is not.
   if (zone > 0.0) dd += seaSurfLeanD(spR, uT, uRoll * gate * vShelter) * zone;
-  dd += seaDetail(spR, uT, uAmp) * smoothstep(0.0, 0.5, deep);   // gl/sea-detail.js: the fine surface
+  // Cat's paws: visible from a light air up to a strong breeze; in a gale the whole sea is rough
+  // and a gust has nothing left to change. Sheltered water gets the gust too, which is right: a
+  // paw needs no fetch, so it's the one sign of wind on a harbour.
+  float pawK = smoothstep(0.02, 0.12, uState) * (1.0 - 0.7 * smoothstep(0.35, 0.8, uState));
+  // The lulls between paws are smoother, so the ripples average out to the sea it had before; with
+  // pawK 0 the factor is exactly 1.
+  float paw = pawK > 0.0 ? seaGust(vWorld, normalize(uWindDir + vec2(1e-5, 0.0)), uT) * pawK : 0.0;
+  dd += seaDetail(spR, uT, uAmp) * smoothstep(0.0, 0.5, deep) * (1.0 - 0.45 * pawK + 1.6 * paw);   // gl/sea-detail.js: the fine surface
   dd = seaUnframe(dd, uSeaRot);   // the slope back out into world axes, where N is built
+  dd += rwSlope;                  // already in world axes: the wash is centred on the craft, not the sea
   // The breaker fold squeezed this stretch of surface by vJ along the swell, so its slope that way
   // is steeper by 1/vJ. One Jacobian for the mesh and the light, or the face is lit as a gentle one.
   if (vJ < 0.999) {
@@ -434,7 +530,7 @@ void main() {
   // so it is zero-mean at every hour, and a lobe as wide as the sea is rough.
   float se = uSunDir3.z, me = uMoonDir3.z;
   float upS = step(0.02, se), upM = step(0.02, me) * clamp(uNight, 0.0, 1.0);
-  float mxs = max(0.02, uAmp * 5.9);
+  float mxs = max(0.02, uAmp * 5.9 * (1.0 + 0.8 * paw));   // a paw is rougher, so its highlight spreads and dims
   float shin = clamp(2.0 / (mxs * mxs), 4.0, 400.0);
   float spc = upS * pow(max(0.0, dot(N, normalize(uSunDir3 + V))), shin) * (0.35 + 0.65 * se)
             + upM * pow(max(0.0, dot(N, normalize(uMoonDir3 + V))), shin * 0.5) * 0.45;
@@ -659,6 +755,12 @@ void main() {
   // own trough, which is the sub-tile slide 'world.js' warns about for the puddle reflections.
   float wfoam = clamp(abs(vWake) * 1.45 - 0.12, 0.0, 1.0);
   cap = max(cap, wfoam * wfoam * 0.85);
+  // The rotor wash: its own whitecaps beaten down with the chop, and white water on the crater's lip.
+  if (uNWash > 0) {
+    cap *= 1.0 - 0.7 * rwCalm;
+    float fr = rwFroth * deep * (0.6 + 0.4 * fract(sin(dot(floor(vWorld * 40.0), vec2(12.9898, 78.233))) * 43758.5453));
+    cap = max(cap, fr * 0.9);
+  }
   col += vec3(cr * 55.0 + spc * 235.0, cr * 70.0 + spc * 230.0, cr * 90.0 + spc * 205.0) / 255.0;
   // ── FOAM WHERE THE HULL HAS ALREADY BEEN ────────────────────────────────────────────────────
   //
@@ -879,6 +981,7 @@ export function createWaterLayer(gl) {
     refl: U('uRefl'), sky: U('uSky'), reflOn: U('uReflOn'), reflGain: U('uReflGain'),
     reflBend: U('uReflBend'), skyOn: U('uSkyOn'), reflVP: U('uReflVP'), skyTop: U('uSkyTop'), skyHor: U('uSkyHor'),
     nWake: U('uNWake'), wakeP: U('uWakeP'), wakeS: U('uWakeS'), hullP: U('uHullP'), hullS: U('uHullS'),
+    nWash: U('uNWash'), washP: U('uWashP'), washAmp: U('uWashAmp'),
     lut0: U('uLut0'), mh: U('uMh'), r: U('uR'),
     seaDetail: U('uSeaDetail'), seaDetailAmt: U('uSeaDetailAmt'),
     amp: U('uAmp'), seaLit: U('uSeaLit'), sss: U('uSss'), spread: U('uSpread'),
@@ -994,6 +1097,17 @@ export function createWaterLayer(gl) {
     const hl = s.ownHull;
     gl.uniform4f(loc.hullP, hl ? hl.x : 0, hl ? hl.y : 0, hl ? hl.dx : 1, hl ? hl.dy : 0);
     gl.uniform4f(loc.hullS, hl ? hl.hl : 1, hl ? hl.hb : 1, hl ? hl.z : 0, hl ? hl.k : 0);
+    // The rotor wash (rotorWashes in windshield.js). Written every frame for the same reason as the
+    // wakes: a count left from the last frame leaves rings standing where a craft has gone.
+    const ws = s.washes || [];
+    const nw = Math.min(ws.length, MAX_WASH);
+    gl.uniform1i(loc.nWash, nw);
+    gl.uniform1f(loc.washAmp, s.washAmp == null ? 0.014 : s.washAmp);
+    if (nw > 0) {
+      const P = new Float32Array(MAX_WASH * 4);
+      for (let i = 0; i < nw; i++) { const w = ws[i]; P[i * 4] = w.x; P[i * 4 + 1] = w.y; P[i * 4 + 2] = w.reach; P[i * 4 + 3] = w.k; }
+      gl.uniform4fv(loc.washP, P);
+    }
     gl.uniform1f(loc.amp, s.seaAmp == null ? 0.02 : s.seaAmp);
     gl.uniform1f(loc.seaLit, s.seaLit == null ? 0 : s.seaLit);
     gl.uniform1f(loc.sss, s.seaSss == null ? 0 : s.seaSss);

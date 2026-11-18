@@ -1,0 +1,36 @@
+{
+  "description": "The other wing chair, in claret velvet, with the good springs. Regulars wait for it rather than take the green one.",
+  "flags": {
+    "aliases": "chair,wing chair,wingback,armchair",
+    "interactions": [
+      "sit"
+    ],
+    "look": {
+      "arche": "seat",
+      "dims": [
+        0.86,
+        0.86,
+        1.15
+      ],
+      "dress": "claret",
+      "form": "wingback"
+    },
+    "spot": {
+      "at": [
+        -2.2,
+        6.45
+      ],
+      "turn": -90
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_embassy_wingback_2",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "claret wing chair",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_residential_lobby"
+}

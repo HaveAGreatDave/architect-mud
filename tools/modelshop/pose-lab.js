@@ -55,6 +55,8 @@ function bake(d) {
       events: (d.events || []).map((e) => ({ ...e })).sort((a, b) => a.t - b.t),
       plants: (d.plants || []).map((p) => ({ ...p })).sort((a, b) => a.from - b.from),
       ...(rootOk(d.root) ? { root: d.root.map((k) => ({ t: k.t, at: k.at.slice(), ...(k.yaw ? { yaw: k.yaw } : {}) })) } : {}),
+      // the hands' shapes (diamond/hands.js), as the bake keeps them
+      ...(Array.isArray(d.hands) && d.hands.length ? { hands: d.hands.map((h) => ({ ...h })).sort((a, b) => a.t - b.t) } : {}),
       keys: d.keys.map((k) => ({ t: k.t, ...(k.tension ? { tension: k.tension } : {}), pose: completePose(k.pose) })),
     };
   } catch { return null; }

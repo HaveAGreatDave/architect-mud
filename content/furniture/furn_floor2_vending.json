@@ -3,8 +3,8 @@
   "flags": {
     "interactions": [],
     "spot": {
-      "along": -6.6,
-      "wall": "back"
+      "along": 1,
+      "wall": "right"
     }
   },
   "hp": null,

@@ -1,0 +1,25 @@
+{
+  "description": "Brushed alloy, with shelves that rearrange themselves round whatever you put in, and a light that comes on half a second before the door opens. A freezer drawer at the top. The plate says Polaris Executive.",
+  "flags": {
+    "aliases": [
+      "fridge"
+    ],
+    "appliance_grade": "consumer",
+    "container": 70000,
+    "interactions": [
+      "lean"
+    ],
+    "paired_container": "furn_solenne_freezer_c",
+    "preserves": "refrigerated"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_solenne_fridge_g",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "Polaris Executive Refrigeration Unit",
+  "object_type": "container",
+  "power_draw_kw": 0.1,
+  "price": 0,
+  "zone_id": "zone_solenne_apt_g"
+}

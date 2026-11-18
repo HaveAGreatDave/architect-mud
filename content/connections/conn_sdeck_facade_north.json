@@ -1,0 +1,9 @@
+{
+  "a": "zone_seam_914_908",
+  "b": "zone_sdeck_lobby",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_sdeck_facade_north",
+  "lockable": true,
+  "one_way": false
+}

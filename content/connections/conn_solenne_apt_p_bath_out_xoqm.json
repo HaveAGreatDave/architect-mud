@@ -1,0 +1,9 @@
+{
+  "a": "zone_solenne_apt_p_bath",
+  "b": "zone_solenne_apt_p",
+  "blocked": false,
+  "dir": "out",
+  "id": "conn_solenne_apt_p_bath_out_xoqm",
+  "lockable": true,
+  "one_way": false
+}

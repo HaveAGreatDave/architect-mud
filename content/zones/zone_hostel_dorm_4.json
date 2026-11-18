@@ -8,7 +8,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#221d18",
   "color": "#c9a86a",
-  "description": "A shed of corrugated sheet on scaffold poles, with more washers holding the roof down than bolts. Hammocks are slung three deep between the poles, because bunks would weigh too much this high up. When the wind gets up the whole floor sways a little. The regulars sleep through it, and the new ones lie very still.",
+  "description": "A shed of corrugated sheet on scaffold poles, with more washers holding the roof down than bolts. Cots stand on every wall and two down the middle, the light ones, because bunks would weigh too much this high up. When the wind gets up the whole floor sways a little. The regulars sleep through it, and the new ones lie very still.",
   "exits": {
     "down": "zone_hostel_dorm_3",
     "up": "zone_hostel_dorm_5"
@@ -22,6 +22,95 @@
     "is_dwelling": true,
     "is_interior": true,
     "region_id": "region_coldwater",
+    "room": {
+      "balcony": false,
+      "d": 8.2,
+      "decor": {
+        "damp": [
+          {
+            "at": [
+              -1.5,
+              6.8
+            ],
+            "r": 0.5
+          },
+          {
+            "at": [
+              3,
+              2.2
+            ],
+            "r": 0.35
+          }
+        ],
+        "mags": [
+          {
+            "at": [
+              3.5,
+              6.3
+            ],
+            "n": 5,
+            "seed": 8
+          }
+        ],
+        "rubbish": [
+          {
+            "at": [
+              0.6,
+              3
+            ],
+            "n": 22,
+            "r": [
+              1.8,
+              1.2
+            ],
+            "seed": 10
+          }
+        ],
+        "rug": false,
+        "strips": [
+          {
+            "at": [
+              0.5,
+              2.5
+            ],
+            "cage": true
+          },
+          {
+            "at": [
+              0.5,
+              5.5
+            ],
+            "cage": true
+          }
+        ]
+      },
+      "doors": {
+        "down": [
+          0.93,
+          6.3
+        ]
+      },
+      "face": 180,
+      "ground": "boards",
+      "h": 2.6,
+      "stair": {
+        "at": [
+          -3,
+          1
+        ],
+        "climb": "back",
+        "w": 0.9
+      },
+      "studio": false,
+      "tone": {
+        "accent": "#6a6a62",
+        "ceiling": "#7a7a72",
+        "trim": "#3a3a36",
+        "wall": "#8a8a80"
+      },
+      "w": 9.6,
+      "windowless": true
+    },
     "sanctuary": true,
     "world_exit_zone": "zone_district_917_903"
   },

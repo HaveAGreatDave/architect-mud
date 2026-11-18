@@ -1,0 +1,29 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_vat_suit_spring",
+  "name": "vat suit",
+  "tags": {
+    "armor_soak": {
+      "edged": 1,
+      "kinetic": 1
+    },
+    "bulkiness": 1,
+    "covers": [
+      "legs"
+    ],
+    "description": "A one-piece in vat orange, zipped from crotch to collar, elastic at the waist and cuffs. Somebody sewed patches over both knees and the shoulders before you ever wore it. A white tape over the right breast carries a batch number, and the left pocket snaps shut on nothing.",
+    "gets_wet": true,
+    "insulation": 4,
+    "layer": "outerwear",
+    "slot": "torso",
+    "wear_look": {
+      "col": "#ea7a22",
+      "cut": "vatsuit_spring",
+      "fabric": "canvas"
+    }
+  },
+  "type": "clothing",
+  "value": 30,
+  "weight": 900
+}

@@ -103,19 +103,59 @@ stranger in their stockroom overnight.
   everyone inside who doesn't belong gets one line and, after a 20s grace, an escort out through
   `cmdMove` (the same `bypassEncumbrance` exemption `shove` uses, so every gate and arrival
   description runs normally).
-- **the intrusion beat** now schedules the same escort, so a challenge you can stand in forever
-  became a challenge with a deadline.
+- **the intrusion beat** used to schedule the same escort. Since 2026-11-15 it calls the police
+  instead (the panic section below): an escort left nothing to stay for, and staying is now what costs you.
 
-`belongsHere(player, npc, zone)` is the single answer to *who gets thrown out*, asked by both paths
-and pinned by [regress.js](regress.js):
+`belongsHere(player, npc, zone)` is the single answer to *who belongs*, asked by both paths and by
+remarks.js, and pinned by [regress.js](regress.js):
 
 | Who | Result |
 |---|---|
-| admin/dev | never challenged, never moved |
-| tenant/owner of a unit either side, or any resident of the building | belongs |
+| admin/dev | never thrown out or reported; in a home, a fright and then "Oh. It's just you." |
+| tenant/owner of a unit either side, or any resident of the building | belongs; no challenge at all |
 | a **regular** — `familiar`+ with this NPC | belongs; a shop closing tells them, politely |
 | someone the NPC is fighting | left alone — an eviction must never be a way to win a fight |
-| everyone else | warned, then walked out |
+| everyone else | in a shop at closing, warned and walked out; in a home, challenged, then the police |
+
+## Panic: somebody frightened, and the police called (as built)
+
+[panic.js](panic.js). Two things set it off:
+
+- **A stranger who won't leave a home.** intrusion.js challenges them; still there after 15 s
+  (`GRACE_MS`), the resident panics and phones the police.
+- **Somebody working a keypad.** The engine's `hackDoor` fires `lock.hackAttempt` for whoever's on the
+  hacker's side of the door (the residents behind it are the burglary plugin's). One or two NPCs standing
+  there startle ("That isn't your door"), then call it in. Cops, animals, sleepers, anybody already
+  frightened and anybody with `flags.wont_call_police` don't.
+
+The call is surveillance's `POLICE_CALL` action: **1★**, a patrol mustered in the hall outside 25 s later
+and coming in to arrest you, and **+½★ for every 30 s you're still in that room**. Leave and the call's
+over; a call against a clean suspect then sends no hunt of its own and the star bleeds off unseen (see
+[systems-surveillance.md](../../docs/systems-surveillance.md#a-citizens-call-2026-11-15)).
+
+While you stay they keep reacting every 7 to 11 s: on the phone ("They're still here. Please hurry."),
+hands up, backing off, looking for a way out, begging you to go, screaming for help. When you leave they
+calm down ("sags against the wall, still shaking"). **The words drive the body:** every line names
+something client/shared/npc-acts.js reads as an act (`callcops`, `handsup`, `backoff`, `scan`, `plead`,
+`scream`, `startle`, `shaken`), so anybody in a room with the Stage open is seen doing it, in the clips in
+client/game/js/panels/actor-moods.js. A resident the Room Stage is walking round their flat also gets
+`npc.panic`, so npc-life.js stops them, turns them to you and holds the clip between lines. The burglary
+plugin's alarm sends the same event.
+
+**An admin is recognised, not reported.** The first time an NPC sees an admin or dev where they shouldn't
+be, they get the fright like anybody would, then a proper look: "Oh. It's just you." After that, for two
+hours, that NPC doesn't react to them at all.
+
+## Remarks: said to you (as built)
+
+[remarks.js](remarks.js). Everything else an NPC says goes to the room; this is said to the player near
+them. Somebody who knows you says hello a moment after you come in (half the time, once in 20 minutes per
+NPC). On the 30 s tick, now and then (a player gets one every 2 to 5 minutes at most), somebody in the
+room comments on what they can see: you're wanted, bleeding, filthy, drunk or high; else the weather,
+the hour, or small talk. How well they know you (relations.js) sets the register: a stranger is guarded,
+a regular uses your first name, somebody who hates you tells you to keep walking. All of it is RAM: no
+query, no write. It gives way to anybody asleep, fighting, frightened, mid-banter or who spoke in the last
+45 s, and to intrusion.js (nobody chats to a stranger in their flat). `flags.no_remarks` opts an NPC out.
 
 No resist roll: a refusal mechanic would let a player stand in a locked shop indefinitely by losing
 rolls, which is the situation the whole file exists to end. The timer re-validates everything (still

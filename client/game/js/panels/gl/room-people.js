@@ -12,14 +12,18 @@
 // the CPU into a batch of ballpark-mesh.js vertices, which the Figure Lab draws beside the close-up
 // one to compare.
 
-import { actorBake, actorOutfit, actorSkinAt, actorSkinMix, actorSkinBlend, actorClipFace, actorStrideM, ACTOR_CLIPS, ACTOR_IDLES, ACTOR_IDLE_SLOT, ACTOR_ACTS, ACTOR_MAT, ACTOR_ROOM_CLIPS } from '../actor3d.js';
+import { actorBake, actorOutfit, actorSkinAt, actorSkinMix, actorSkinBlend, actorClipFace, actorStrideM, ACTOR_CLIPS, ACTOR_IDLES, ACTOR_IDLE_SLOT, ACTOR_ON_BEAT, DANCE_BEAT, ACTOR_ACTS, ACTOR_MAT, ACTOR_ROOM_CLIPS } from '../actor3d.js';
+import { softHead, SOFT_HEADS, HARD_HEADS } from '../actor-head.js';
 import { occlusionOf } from '../figure-occlusion.js';
 import { gaitFor } from '../actor-gait.js';
-import { buildFigure, figureKey, figureGear, figureFabric, mutationLook, wildMutations, somaOf, FIGURE_FACIAL, FIG_SLOT, FIG_FABRIC, FIGURE_CUTS, bustApex, FIGURE_XBONES, FIGURE_BONE_COUNT, FIGURE_BONES, FIGURE_BONE, SCULPT_BUILDS, FIGURE_CROWN, propKey, propsOf, propBind, propUpright, handScaleOf, cutPaint, FIGURE_BOTTOMS } from '../figure.js';
+import { buildFigure, figureKey, figureGear, figureFabric, mutationLook, wildMutations, somaOf, FIGURE_FACIAL, FIG_SLOT, FIG_FABRIC, FIGURE_CUTS, bustApex, FIGURE_XBONES, FIGURE_BONE_COUNT, FIGURE_BONES, FIGURE_BONE, SCULPT_BUILDS, FIGURE_CROWN, propKey, propsOf, propBind, propUpright, handScaleOf, cutPaint, FIGURE_BOTTOMS, hairLoose, CUTS_OF_BASE, cutBase } from '../figure.js';
 import { createBatch, vtx, lin, MAT } from './ballpark-mesh.js';
+import { multiply } from './core/mat4.js';
+import { FT_M } from '../../../../shared/world-scale.js';
 import { finishArms } from './figure-reach.js';
 import { expressionOf, easeExpression } from '../../../../shared/expressions.js';
 import { feelBand, wearFor } from '../../../../shared/comfort.js';
+import { doorwaysOf, pieceBoxes, pieceHangs, HUNG_AT } from '../../../../shared/room-layout.js';
 
 let bake = null;
 // The body, baked once and kept; null until asked for (it takes a few hundred milliseconds).
@@ -113,7 +117,7 @@ function lookOf(id, level, dress = '', sculpt = false, sex = '', figure = null, 
     skin: f0.skin.map((v, j) => v * 0.55 + pickOf(WILD.tint, 30)[j] * 0.45), mat: [0, 0, 2], face: { ...f0.face, iris: pickOf(WILD.iris, 31), hairStyle: pickOf([3, 2, 3, 0, 4], 32) } } : { ...f0 };
   // a sculpted person: head shape, build and age off the same rand, slots 46 and 52 to 53. The soft
   // head is a woman's, and takes a woman's build and hair.
-  const sculptHead = !sculpt ? 0 : fg?.head ?? (sex === 'female' ? 3 : sex === 'male' ? Math.min(2, Math.floor(R(46) * 3)) : Math.min(3, Math.floor(R(46) * 4))), soft = sculptHead === 3, br = R(52);
+  const sculptHead = !sculpt ? 0 : fg?.head ?? (sex === 'female' ? SOFT_HEADS[Math.floor(R(46) * SOFT_HEADS.length) % SOFT_HEADS.length] : sex === 'male' ? HARD_HEADS[Math.floor(R(46) * HARD_HEADS.length) % HARD_HEADS.length] : Math.min(3, Math.floor(R(46) * 4))), soft = softHead(sculptHead), br = R(52);
   // dressed for the occasion and the temperature: another cut in their own colour, in plain cloth, and the
   // bottoms, hat and scarf to go with it. Slots 120 and 121.
   const wardrobe = wardrobeOf(R, fg, soft, f.cut);
@@ -130,10 +134,12 @@ function lookOf(id, level, dress = '', sculpt = false, sex = '', figure = null, 
   // sculpted, nothing below the waist is paler than worn denim: the eye belongs on the face and jacket
   if (f.cut === 'strapwrap' && !fg?.top) f.coat = [226, 222, 212];
   // an underwear set's bottoms are its top's colour (figure.js FIGURE_CUTS legs)
-  const legs0 = FIGURE_CUTS[f.cut]?.legs && !fg?.legs ? c(f.coat) : c(f.legs), legK = sculpt && !FIGURE_CUTS[f.cut]?.legs ? Math.min(1, 0.05 / Math.max(1e-3, (legs0[0] + legs0[1] + legs0[2]) / 3)) : 1;
+  // (a one-piece, the vat suit, is one cloth top to toe: its legs keep the top's colour and aren't darkened)
+  const whole = /^vatsuit/.test(f.cut || '');
+  const legs0 = (FIGURE_CUTS[f.cut]?.legs && !fg?.legs) || whole ? c(f.coat) : c(f.legs), legK = sculpt && !FIGURE_CUTS[f.cut]?.legs && !whole ? Math.min(1, 0.05 / Math.max(1e-3, (legs0[0] + legs0[1] + legs0[2]) / 3)) : 1;
   // sculpted skin is warmed and deepened; dark skin is lifted instead, or its planes go to mud
   const skin0 = c(f.skin), dk = Math.max(0, Math.min(1, (0.14 - (skin0[0] + skin0[1] + skin0[2]) / 3) / 0.1));
-  const skin = skin0.map((v, j) => v * (sculpt && !fg?.skin ? [0.82, 0.68, 0.58][j] + ([1.12, 1.0, 0.94][j] - [0.82, 0.68, 0.58][j]) * dk : 1)), top = c(f.coat), legs = legs0.map((v, j) => v * legK * (sculpt ? [0.96, 1, 1.08][j] : 1)), shoes = c(f.shoes), hair = c(f.hair).map((v) => (sculpt && !fg?.hair ? (age ? v * 0.1 + 0.22 * age : v * 0.3) : v));
+  const skin = skin0.map((v, j) => v * (sculpt && !fg?.skin ? [0.82, 0.68, 0.58][j] + ([1.12, 1.0, 0.94][j] - [0.82, 0.68, 0.58][j]) * dk : 1)), top = c(f.coat), legs = legs0.map((v, j) => v * legK * (sculpt && !whole ? [0.96, 1, 1.08][j] : 1)), shoes = c(f.shoes), hair = c(f.hair).map((v) => (sculpt && !fg?.hair ? (age ? v * 0.1 + 0.22 * age : v * 0.3) : v));
   const col = new Float32Array(60), surf = new Float32Array(20).fill(MAT.SKIN);
   const put = (slot, rgb, m) => { col.set(rgb, slot * 3); surf[slot] = m; };
   // skin is matte: the comic manner has no sheen on a face (gl/figure-hd.js)
@@ -159,9 +165,13 @@ function lookOf(id, level, dress = '', sculpt = false, sex = '', figure = null, 
   // a pair of glasses' frames in theirs (`glasses`)
   if (fg?.hat_col) put(FIG_SLOT.hat, c(fg.hat_col), MAT.CLOTH);
   else { put(FIG_SLOT.hat, shoes, surf[FIG_SLOT.shoes]); fab[FIG_SLOT.hat] = fab[FIG_SLOT.shoes]; }
-  put(FIG_SLOT.specs, c(Array.isArray(fg?.glasses) ? fg.glasses : [30, 32, 38]), MAT.GLOSS);
-  const g0 = figureGear(R), style = fg?.hair_style ?? (soft ? pickOf([3, 3, 1, 4], 55) : f.face?.hairStyle ?? 0);
-  const gear = wild ? { belt: true, strap: g0.strap, pouch: true, pads: false, gloves: false } : fg?.gear === false ? { belt: false } : g0;
+  // a chain round the neck (`chain`, its colour) shares the frames' slot: a pair of glasses keeps theirs
+  put(FIG_SLOT.specs, c(Array.isArray(fg?.glasses) ? fg.glasses : Array.isArray(fg?.chain) ? fg.chain : [30, 32, 38]), MAT.GLOSS);
+  // a rolled style, and on a close-up half the time one of the cuts that stands in for it (figure.js CUTS_OF_BASE), so
+  // the street, which draws the cut as its base, still dresses them alike
+  const base0 = soft ? pickOf([3, 3, 1, 4], 55) : f.face?.hairStyle ?? 0, alt = CUTS_OF_BASE[base0] || [base0];
+  const g0 = figureGear(R), style = fg?.hair_style ?? (sculpt && R(75) < 0.5 ? alt[1 + Math.floor(R(76) * (alt.length - 1)) % Math.max(1, alt.length - 1)] ?? base0 : base0);
+  const gear = wild ? { belt: true, strap: g0.strap, pouch: true, pads: false, gloves: false } : fg?.gear === false ? { belt: false } : fg?.gear && typeof fg.gear === 'object' ? { ...g0, ...fg.gear } : g0;
   // their changes, a Gift asked for or a Lesson not (docs/lore-wildblood.md): one or two each
   const body = wild ? { mighty: R(36) < 0.35 ? (R(37) < 0.5 ? 'L' : 'R') : '', thorn: R(38) < 0.3, horns: R(39) < 0.3, claws: R(40) < 0.35, teeth: R(41) < 0.6, goggles: R(42) < 0.25 } : null;
   if (body && !body.mighty && !body.thorn && !body.horns && !body.claws) body.claws = true;
@@ -179,7 +189,7 @@ function lookOf(id, level, dress = '', sculpt = false, sex = '', figure = null, 
     print: fg?.print || '', badge: !sculpt || !fg?.hat_badge ? 0 : HAT_BADGES.includes(fg.hat_badge) ? HAT_BADGES.indexOf(fg.hat_badge) + 1 : HAT_CLUB,
     badgeClub: sculpt && fg?.hat_badge && !HAT_BADGES.includes(fg.hat_badge) ? { name: String(fg.hat_badge), sport: fg.hat_badge_sport || 'baseball' } : null,
     // a cap's front panels and the underside of its brim in their own colours (hat_front, hat_under), or -1 for none
-    hatF: new Float32Array(sculpt && fg?.hat_front ? c(fg.hat_front) : [-1, -1, -1]), hatU: new Float32Array(sculpt && fg?.hat_under ? c(fg.hat_under) : [-1, -1, -1]), tat: fg?.tat || 0, tatCol: new Float32Array(c(fg?.tat_ink || [12, 12, 16])), mut: ml.paint, mutCol: new Float32Array(c(fg?.mut_accent ?? pickOf(MUT_ACCENT, 69))), key: { cut: f.cut, style, level, gear, body: bodyM, sculpt, head: sculptHead, spikes: sculpt ? Math.round(Math.max(0, Math.min(1, +fg?.spikes || 0)) * 10) / 10 : 0, build, weight, beard: fl.beardMesh, prop: sculpt ? propKey(fg?.props) : '', bust: !sculpt ? null : fg?.bust ?? (soft ? Math.round((0.15 + 0.7 * R(70)) * 10) / 10 : null), groin: sculpt && globalThis.__figureMature && !soft ? 'm' : '', ...wardrobe, ...(sculpt && fg?.glasses ? { specs: 1 } : {}), ...(sculpt && +fg?.fan > 0 ? { fan: Math.round(Math.min(1, +fg.fan) * 10) / 10 } : {}), ...(sculpt && fg?.boots === 'steeltoe' ? { boots: 'steeltoe' } : {}), butt: !sculpt ? null : fg?.butt ?? (soft ? Math.round((0.15 + 0.75 * R(71)) * 10) / 10 : null) }, neck: fg?.neckline || null, slit: fg?.slit || null, age, col, beardA: fl.beardA, beardB: fl.beardB, faceV: new Float32Array([fg?.brow ?? (soft ? 0.5 : 0.75 + 0.55 * R(48)), fg?.mouth ?? 0.88 + 0.22 * R(49), fg?.beard ?? fl.stubble * (0.8 + 0.4 * R(51)), soft ? 1 : 0]), smile: fg?.smile || 0, trim: new Float32Array(fg?.trim ? c(fg.trim) : [0.02, 0.02, 0.02]), surf, fab, gloves: gear.gloves, glove: new Float32Array(glove),
+    hatF: new Float32Array(sculpt && fg?.hat_front ? c(fg.hat_front) : [-1, -1, -1]), hatU: new Float32Array(sculpt && fg?.hat_under ? c(fg.hat_under) : [-1, -1, -1]), tat: fg?.tat || 0, tatCol: new Float32Array(c(fg?.tat_ink || [12, 12, 16])), mut: ml.paint, mutCol: new Float32Array(c(fg?.mut_accent ?? pickOf(MUT_ACCENT, 69))), key: { cut: f.cut, style, level, gear, body: bodyM, sculpt, head: sculptHead, ...(sculpt && fg?.tune ? { tune: String(fg.tune) } : {}), spikes: sculpt ? Math.round(Math.max(0, Math.min(1, +fg?.spikes || 0)) * 10) / 10 : 0, build, weight, beard: fl.beardMesh, prop: sculpt ? propKey(fg?.props) : '', bust: !sculpt ? null : fg?.bust ?? (soft ? Math.round((0.15 + 0.7 * R(70)) * 10) / 10 : null), groin: sculpt && globalThis.__figureMature && !soft ? 'm' : '', ...wardrobe, ...(sculpt && fg?.glasses ? { specs: 1 } : {}), ...(sculpt && fg?.chain ? { chain: 1 } : {}), ...(sculpt && +fg?.fan > 0 ? { fan: Math.round(Math.min(1, +fg.fan) * 10) / 10 } : {}), ...(sculpt && fg?.boots === 'steeltoe' ? { boots: 'steeltoe' } : {}), ...(sculpt && fg?.wear ? { wear: fg.wear } : {}), butt: !sculpt ? null : fg?.butt ?? (soft ? Math.round((0.15 + 0.75 * R(71)) * 10) / 10 : null) }, neck: fg?.neckline || null, slit: fg?.slit || null, age, col, beardA: fl.beardA, beardB: fl.beardB, faceV: new Float32Array([fg?.brow ?? (soft ? 0.5 : 0.75 + 0.55 * R(48)), fg?.mouth ?? 0.88 + 0.22 * R(49), fg?.beard ?? fl.stubble * (0.8 + 0.4 * R(51)), soft ? 1 : 0]), smile: fg?.smile || 0, trim: new Float32Array(fg?.trim ? c(fg.trim) : [0.02, 0.02, 0.02]), surf, fab, gloves: gear.gloves, glove: new Float32Array(glove),
     wild, grit: sculpt ? gritOf(R, fg, soft) : 0, mark: Math.floor(R(43) * 4), markCol: new Float32Array(c(pickOf(WILD.mark, 44))), wrapCol: new Float32Array(c(pickOf(WILD.wrap, 45))),
     face: new Float32Array([f.face?.layout ?? 0, sculpt && !soft ? 0 : f.face?.makeup ?? 0, cutPaint(style), rand(id)(5) * 50]),
     lip: new Float32Array(sculpt ? skin.map((v, j) => v * [0.8, 0.6, 0.55][j]) : c(f.face?.lip || f.skin)), lipstick: new Float32Array(c(f.face?.lipstick || f.skin)), iris: new Float32Array(c(f.face?.iris || [60, 40, 30])),
@@ -211,7 +221,7 @@ export function streetLook(t, female = false, figure = null) {
   out = { ...base, coat, legs: bare ? legs0.map((v, j) => Math.round(v + (skin0[j] - v) * bare)) : legs0, bare, shoes: slotRgb(col, FIG_SLOT.shoes), skin: slotRgb(col, FIG_SLOT.skin), hair: slotRgb(col, FIG_SLOT.hair),
     mat: [SURF_CODE.get(o.surf[FIG_SLOT.top]) ?? 0, SURF_CODE.get(o.surf[FIG_SLOT.legs]) ?? 0, SURF_CODE.get(o.surf[FIG_SLOT.shoes]) ?? 2],
     cut: o.key.cut, tone: Math.max(0, Math.min(5, Math.floor(luma * 1.9 * 6))),
-    face: { ...base.face, layout: o.face[0] | 0, makeup: o.face[1], hairStyle: Math.min(5, o.key.style | 0), lip: [...o.lip].map(toSrgb), lipstick: [...o.lipstick].map(toSrgb), iris: [...o.iris].map(toSrgb) },
+    face: { ...base.face, layout: o.face[0] | 0, makeup: o.face[1], hairStyle: Math.min(5, cutBase(o.key.style | 0)), lip: [...o.lip].map(toSrgb), lipstick: [...o.lipstick].map(toSrgb), iris: [...o.iris].map(toSrgb) },
     // what the close-up figure draws them with, for the street's own close-up level (glass/street-hd.js)
     hd: { id, sex: female ? 'female' : 'male', figure } };
   streetLooks.set(k, out);
@@ -270,7 +280,7 @@ const HK_32 = new Float32Array(16), HK_64 = new Float64Array(16);
 // The grown bones (figure.js FIGURE_XBONES), posed off their parents after the clip and the stance:
 // each is its parent's skin matrix, then to its joint, turned, scaled, and back from where it was modelled.
 const XPARENT = FIGURE_XBONES.map((x) => FIGURE_BONE[x.parent]);
-function mul4(a, b) { const o = new Array(16); for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) o[c * 4 + r] = a[r] * b[c * 4] + a[4 + r] * b[c * 4 + 1] + a[8 + r] * b[c * 4 + 2] + a[12 + r] * b[c * 4 + 3]; return o; }
+const mul4 = (a, b) => multiply(a, b);
 // Ry · Rx · Rz, column-major, scaled by k
 function turn4(yaw, pitch, roll, k) {
   const cy = Math.cos(yaw), sy = Math.sin(yaw), cx = Math.cos(pitch), sx = Math.sin(pitch), cz = Math.cos(roll), sz = Math.sin(roll);
@@ -295,6 +305,7 @@ const hash1 = (n) => { const x = Math.sin(n) * 43758.5453; return x - Math.floor
 function growBones(S, t, seed) {
   const out = S.slice();
   FIGURE_XBONES.forEach((x, i) => {
+    if (x.move === 'girdle') return; // shoulderGirdle has set it
     let yaw = x.yaw || 0, pitch = x.pitch || 0, roll = x.roll || 0;
     if (x.move === 'look') {
       // a second head looks about on its own clock: a glance every couple of seconds, eased
@@ -316,6 +327,45 @@ function growBones(S, t, seed) {
     }
     const m = mul4(mul4(T4(x.at), turn4(yaw, pitch, roll, x.k || 1)), T4((x.from || x.at).map((v) => -v)));
     out[FIGURE_BONES.length + i] = mul4(out[XPARENT[i]], m);
+  });
+  return out;
+}
+// The shoulder girdle. The clips turn an arm at the shoulder joint alone; a real arm past about 30° takes the
+// collarbone and shoulder blade with it, a third of the lift by the time it's overhead, and reaching forward or
+// across brings the shoulder forward. So each collarbone (figure.js clavL/clavR) is turned about the breastbone's
+// end by where its arm points in the chest's frame, the top of the shoulder rides it, and the arm's joint is
+// carried to where the collarbone has put it, keeping the direction the clip gave the arm. Hanging, nothing moves.
+const SC_JOINT = { L: [0.022, 1.43, 0.035], R: [-0.022, 1.43, 0.035] }, SH_JOINT = { L: [0.195, 1.39, -0.01], R: [-0.195, 1.39, -0.01] };
+const smoothG = (a, b, x) => { const u = Math.max(0, Math.min(1, (x - a) / (b - a))); return u * u * (3 - 2 * u); };
+export function shoulderGirdle(S) {
+  const out = S.slice(), C = S[BN.chest], Ci = inv4(C);
+  for (const [L, sd] of [['L', 1], ['R', -1]]) {
+    // the arm's line (bind -Y) in the chest's frame
+    const rel = mul4(Ci, S[BN['uarm' + L]]), dx = -rel[4], dy = -rel[5], dz = -rel[6], n = Math.hypot(dx, dy, dz) || 1;
+    const e = Math.acos(Math.max(-1, Math.min(1, -dy / n))), se = Math.sin(e);
+    const lift = 0.42 * smoothG(0.5, 2.9, e);
+    const fwd = Math.max(-0.2, se * (0.26 * (dz / n) + 0.18 * Math.max(0, (-sd * dx) / n)));
+    const G = mul4(mul4(T4(SC_JOINT[L]), turn4(-sd * fwd, 0, sd * lift, 1)), T4(SC_JOINT[L].map((v) => -v)));
+    const K = mul4(C, G);
+    out[BN['clav' + L]] = K;
+    const was = at(S[BN['uarm' + L]], SH_JOINT[L]), now = at(K, SH_JOINT[L]);
+    for (const b of ['uarm', 'farm', 'hand']) {
+      const m = Array.from(S[BN[b + L]]);
+      for (let r = 0; r < 3; r++) m[12 + r] += now[r] - was[r];
+      out[BN[b + L]] = m;
+    }
+  }
+  return out;
+}
+// How far each elbow and knee is bent, 0 straight to 1 folded, for the muscles that answer them (gl/figure-hd.js
+// flexPush): the angle between the two bones' long axes, from about 15° to about 125°.
+const FLEX_PAIRS = [['uarmL', 'farmL'], ['uarmR', 'farmR'], ['thighL', 'shinL'], ['thighR', 'shinR']].map(([a, b]) => [FIGURE_BONE[a], FIGURE_BONE[b]]);
+function flexOf(S) {
+  const out = new Float32Array(4);
+  FLEX_PAIRS.forEach(([a, b], i) => {
+    const A = S[a], Bm = S[b], la = Math.hypot(A[4], A[5], A[6]) || 1, lb = Math.hypot(Bm[4], Bm[5], Bm[6]) || 1;
+    const c = (A[4] * Bm[4] + A[5] * Bm[5] + A[6] * Bm[6]) / (la * lb);
+    out[i] = smoothG(0.26, 2.2, Math.acos(Math.max(-1, Math.min(1, c))));
   });
   return out;
 }
@@ -379,10 +429,117 @@ function onSurfaces(S, tests, clear, anchors = {}, land = {}) {
   }
   return M;
 }
+// Turn bone matrices by `ang` about the unit axis `k` through `p` (Rodrigues, right-handed).
+function turnAbout(M, bones, k, ang, p) {
+  const c = Math.cos(ang), s = Math.sin(ang), t = 1 - c, [x, y, z] = k;
+  const R = [t * x * x + c, t * x * y - s * z, t * x * z + s * y, t * x * y + s * z, t * y * y + c, t * y * z - s * x, t * x * z - s * y, t * y * z + s * x, t * z * z + c];
+  for (const i of bones) {
+    const m = (M[i] = Float32Array.from(M[i]));
+    for (let col = 0; col < 4; col++) {
+      const o = col * 4, e = col === 3, q = [m[o] - (e ? p[0] : 0), m[o + 1] - (e ? p[1] : 0), m[o + 2] - (e ? p[2] : 0)];
+      for (let r = 0; r < 3; r++) m[o + r] = R[r * 3] * q[0] + R[r * 3 + 1] * q[1] + R[r * 3 + 2] * q[2] + (e ? p[r] : 0);
+    }
+  }
+}
+// ⚠ AN ARM DOESN'T GO THROUGH THE WALL. A person stands as little as 0.27 m off a wall (roomLayout's bounds), and a
+// stretch, a point or a wave put the hands into it. After the pose and the table tops, a fingertip, a palm or an elbow
+// past one of the room's walls (or into a partition or a tall piece) swings the arm at the shoulder, about the axis
+// that carries that point straight back out, until it's clear by its margin. Bind-space points on [bone, point, clear]:
+// the farm's elbow, the hand's palm and the fingertips (the wrist is at 0.87, the fingertips about 0.68).
+const ARM_PROBES = (sd) => [[1, [sd * 0.195, 1.1, -0.03], 0.05], [2, [sd * 0.195, 0.8, 0.01], 0.03], [2, [sd * 0.2, 0.69, 0.015], 0.02]];
+function offWalls(M, test) {
+  for (const [L, sd] of [['L', 1], ['R', -1]]) {
+    const arm = [BN['uarm' + L], BN['farm' + L], BN['hand' + L]];
+    let turned = 0;
+    for (let k = 0; k < 6; k++) {
+      const sh = at(M[arm[0]], JOINT['uarm' + L]);
+      let worst = null;
+      for (const [b, p, cl] of ARM_PROBES(sd)) {
+        const q = at(M[arm[b]], p), r = test(q, cl);
+        if (r && (!worst || r.pen > worst.pen)) worst = { ...r, q };
+      }
+      if (!worst) break;
+      const v = [worst.q[0] - sh[0], worst.q[1] - sh[1], worst.q[2] - sh[2]], n = worst.n;
+      const ax = [v[1] * n[2] - v[2] * n[1], v[2] * n[0] - v[0] * n[2], v[0] * n[1] - v[1] * n[0]], s = Math.hypot(...ax);
+      // a point straight out from the shoulder along the wall's normal: no turn at the shoulder moves it back
+      if (s < 0.04) break;
+      const ang = Math.min(0.3, (worst.pen + 0.004) / s);
+      if ((turned += ang) > 1.5) break;
+      turnAbout(M, arm, ax.map((x) => x / s), ang, sh);
+    }
+  }
+  return M;
+}
+// What an arm keeps out of in a room, kept per layout: its four walls with their doorways open (an arm through a
+// doorway is in the next room, not the wall), and boxes in the layout's frame [u0, u1, v0, v1, y0, y1], the
+// partitions standing in it and every piece whose top is over UPRIGHT_H (a wardrobe, a fridge, a shelf). A bar
+// or a table is lower, and the table tops above (onSurfaces) look after it.
+const UPRIGHT_H = 1.2, uprights = new WeakMap();
+function uprightsOf(L) {
+  let U = uprights.get(L);
+  if (U) return U;
+  const S = L.spec || {}, kM = (L.ft || FT_M) / FT_M, gaps = { front: [], back: [], left: [], right: [] };
+  for (const o of doorwaysOf(S)) gaps[o.wall]?.push([o.a, o.b]);
+  if (S.annex?.door) gaps.back.push(S.annex.door);
+  if (S.balcony?.door) gaps.front.push(S.balcony.door);
+  const boxes = [];
+  for (const q of S.walls || []) boxes.push([q[0], q[1], q[2], q[3], -Infinity, Infinity]);
+  for (const p of L.placed || []) {
+    const lo = pieceHangs(p) ? (p.mount ? p.mount - p.h / 2 : HUNG_AT * kM) : (p.y0 || 0) + (p.rise || 0), hi = lo + (p.h || 0);
+    if (hi < UPRIGHT_H * kM) continue;
+    for (const b of pieceBoxes(p, kM)) boxes.push([b[0], b[1], b[2], b[3], lo, hi]);
+  }
+  U = { hu: L.w / 2, d: L.d, gaps, boxes };
+  uprights.set(L, U);
+  return U;
+}
+// Clips whose hands are meant to be in a tall piece: into the fridge, along the back bar's shelves, round the pole.
+// The walls still hold for them.
+const INTO_PIECES = /^(sit)?(fridge|reach|Reach|rummage|checkBottle|tapPull|pour|Pour|polish|wipe|wash|counter|pickUp|shower|pole)/;
+// The test offWalls takes for one body: `toWorld` carries a body-space point into the host frame. Gives the
+// deepest wall or box the point is in, as how far it must come back out (body metres, its clearance in) along `n`, a
+// body-space unit normal, or null.
+function wallTest(L, body, toWorld, hk, AX, AY, AZ, clip) {
+  if (body.next || !L.spec || !L.local || !body.at) return null;
+  const U = uprightsOf(L), [bu, bv] = body.at, inRoom = bu > -U.hu && bu < U.hu && bv > 0 && bv < U.d;
+  // the boxes the body itself is outside of, with the side it's on: a piece somebody sits or lies on is under them
+  const boxes = [];
+  if (!INTO_PIECES.test(clip || '')) for (const b of U.boxes) {
+    const out = [b[0] - bu, bu - b[1], b[2] - bv, bv - b[3]];
+    let side = 0;
+    for (let i = 1; i < 4; i++) if (out[i] > out[side]) side = i;
+    if (out[side] > 0) boxes.push([b, side]);
+  }
+  if (!inRoom && !boxes.length) return null;
+  // the layout's +u and +v in the body's frame (world = at + r u - f v)
+  const toBody = (w) => [w[0] * AX[0] + w[1] * AX[1] + w[2] * AX[2], w[0] * AY[0] + w[1] * AY[1] + w[2] * AY[2], w[0] * AZ[0] + w[1] * AZ[1] + w[2] * AZ[2]];
+  const U_ = toBody(L.r), V_ = toBody([-L.f[0], -L.f[1], -L.f[2]]), NEG = (n) => [-n[0], -n[1], -n[2]];
+  const gap = (list, x) => list.some(([a, b]) => x > a && x < b);
+  return (q, cl) => {
+    const [u, v, y] = L.local(toWorld(q));
+    let best = null;
+    const take = (pen, n) => { if (pen > 0 && (!best || pen > best.pen)) best = { pen, n }; };
+    if (inRoom) {
+      if (!gap(U.gaps.right, v)) take((u - U.hu) / hk + cl, NEG(U_));
+      if (!gap(U.gaps.left, v)) take((-U.hu - u) / hk + cl, U_);
+      if (!gap(U.gaps.front, u)) take(-v / hk + cl, V_);
+      if (!gap(U.gaps.back, u)) take((v - U.d) / hk + cl, NEG(V_));
+    }
+    for (const [b, side] of boxes) {
+      const c = cl * hk;
+      if (y < b[4] || y > b[5] || u < b[0] - c || u > b[1] + c || v < b[2] - c || v > b[3] + c) continue;
+      if (side === 0) take((u - b[0]) / hk + cl, NEG(U_));
+      else if (side === 1) take((b[1] - u) / hk + cl, U_);
+      else if (side === 2) take((v - b[2]) / hk + cl, NEG(V_));
+      else take((b[3] - v) / hk + cl, V_);
+    }
+    return best;
+  };
+}
 const HEAD_SINK = 0.016;
 // the sculpted face's lower half, lifted to put it in thirds; the head sinks by the same again, so the chin
 // stays where it was on the neck. A soft face is shorter already.
-const FACE_UP = 0.012, FACE_UP_SOFT = 0.006, faceUpOf = (key) => (!key.sculpt ? 0 : key.head === 3 ? FACE_UP_SOFT : FACE_UP);
+const FACE_UP = 0.012, FACE_UP_SOFT = 0.006, faceUpOf = (key) => (!key.sculpt ? 0 : softHead(key.head) ? FACE_UP_SOFT : FACE_UP);
 function stance(S, key, armsOff = 1) {
   const B0 = key.sculpt ? SCULPT_BUILDS[key.build] : null, Bd = B0 && key.weight !== null && key.weight !== undefined ? { ...B0, abduct: (B0.abduct || 0) + somaOf(key.weight).abduct } : B0;
   if (!Bd) return S;
@@ -411,18 +568,26 @@ const IDLE_SLOT = 10, IDLE_BLEND = 1.2;
 // their slots go to the cold or the heat, a third of them just past the edge and most of them at its worst.
 // A dancer at her pole keeps dancing, and nobody asleep notices.
 const TEMP_IDLES = { '-2': 'cold', '-1': 'cool', 1: 'warm', 2: 'hot' }, TEMP_SIT = { '-2': 'sitCold', '-1': 'sitCool', 1: 'sitWarm', 2: 'sitHot' };
-const NO_TEMP = new Set(['lie', 'sleep', 'out', 'sitSleep', 'sitOut', 'pole', 'floorwork', 'poleHot', 'floorHot']);
+const NO_TEMP = new Set(['lie', 'sleep', 'out', 'sitSleep', 'sitOut', 'pole', 'floorwork', 'poleHot', 'floorHot', 'punter', 'sitPunter']);
 const TEMP_SHARE = [0.3, 0.85];
 function idlePlan(id, kind, t, feel = 0) {
   const own = ACTOR_IDLES[kind] || ACTOR_IDLES.stand, slot = ACTOR_IDLE_SLOT[kind] || IDLE_SLOT, R = rand(id);
   const band = feel && !NO_TEMP.has(kind) ? feelBand(feel) : 0, temp = band ? ACTOR_IDLES[(kind === 'sit' ? TEMP_SIT : TEMP_IDLES)[band]] : null;
   const share = TEMP_SHARE[0] + (TEMP_SHARE[1] - TEMP_SHARE[0]) * Math.abs(feel);
-  const u = (t + R(6) * slot) / slot, n = Math.floor(u), f = u - n;
-  const pick = (i) => {
-    const j = ((i % 40) + 40) % 40, list = temp && R(130 + j) < share ? temp : own;
-    let w = R(60 + j) * list.reduce((s, c) => s + c[1], 0);
+  const u = (t + (ACTOR_ON_BEAT.has(kind) ? Math.floor(R(6) * 8) * 4 * DANCE_BEAT : R(6) * slot)) / slot, n = Math.floor(u), f = u - n;
+  const raw = (i, not = null) => {
+    const j = ((i % 40) + 40) % 40, all = temp && R(130 + j) < share ? temp : own, list = not ? all.filter((c) => c[0] !== not) : all;
+    if (!list.length) return all[0][0];
+    let w = R(not ? 90 + j : 60 + j) * list.reduce((s, c) => s + c[1], 0);
     for (const c of list) { w -= c[1]; if (w <= 0) return c[0]; }
     return list[0][0];
+  };
+  // ⚠ NOT THE SAME CLIP TWICE RUNNING. A heavy weight (a stand's plain breathing) drew the same slot back to back,
+  // and somebody did the one thing over and over. A slot that rolls what the one before it rolled draws again from
+  // the rest; still a pure function of the id and the clock. Sleep, out cold and a dancer's set are meant to repeat.
+  const pick = (i) => {
+    const r = raw(i);
+    return NO_TEMP.has(kind) || r !== raw(i - 1) ? r : raw(i, r);
   };
   const a = pick(n - 1), b = pick(n), cycles = (c) => Math.max(1, Math.round(slot / (CLIP_DUR[c] || slot)));
   const x = Math.min(1, (f * slot) / IDLE_BLEND);
@@ -441,7 +606,8 @@ function wardrobeOf(R, fg, soft, cut) {
   return { bottoms: pick('bottoms', soft ? BOTTOMS_F : BOTTOMS_M, 72), hat: pick('hat', HATS, 73), scarf: pick('scarf', SCARVES, 74) };
 }
 // A man's facial hair, as [name, how often]. A roll, unless his look is settled (flags.figure.facial).
-const FACIAL_ROLL = [['clean', 3.2], ['stubble', 2], ['shadow', 1.4], ['moustache', 0.8], ['goatee', 1], ['vandyke', 0.5], ['soulpatch', 0.3], ['chinstrap', 0.4], ['sideburns', 0.4], ['trimmed', 0.8], ['full', 0.8], ['long', 0.25]];
+const FACIAL_ROLL = [['clean', 3.2], ['stubble', 2], ['shadow', 1.4], ['moustache', 0.8], ['goatee', 1], ['vandyke', 0.5], ['soulpatch', 0.3], ['chinstrap', 0.4], ['sideburns', 0.4], ['trimmed', 0.8], ['full', 0.8], ['long', 0.25],
+  ['mutton', 0.25], ['friendly_mutton', 0.2], ['horseshoe', 0.3], ['anchor', 0.25], ['chin_curtain', 0.15], ['walrus', 0.25], ['fumanchu', 0.06], ['bushy', 0.3], ['forked', 0.08], ['braided', 0.06]];
 const facialLook = (name) => { const F = FIGURE_FACIAL[name] || FIGURE_FACIAL.clean; return { beardA: new Float32Array(F.shape || [0, 0, 0, 0]), beardB: new Float32Array(F.more || [0, 0, 0]), beardMesh: F.mesh || '', stubble: F.stubble || 0 }; };
 // How an order dresses its people in a room, by the order's id (plugins/roomstage sends an NPC's).
 // The others wear the city's clothes.
@@ -461,7 +627,7 @@ function levelAt(L, body, asked, eye) {
 // The figure keys (figure.js buildFigure) a body is drawn with by figurePeople, close up and past FIGURE_LOD.near, so a
 // caller can have them built before it draws them (figure-ahead.js, for the street's close-up level). Only a body
 // that sets none of the Lab's own picks (build, bottoms, weight…): those change the key after the look.
-export const figureLooks = (body) => ['hd', 'lite'].map((lv) => lookOf(body.id, lv, body.dress || '', !!body.sculpt, body.sex || '', body.figure || null, body.wear || null).key);
+export const figureLooks = (body) => ['hd', 'lite'].map((lv) => { const k = lookOf(body.id, lv, body.dress || '', !!body.sculpt, body.sex || '', body.figure || null, body.wear || null).key; return body.faceHd && lv === 'hd' ? { ...k, faceHd: true } : k; });
 // `bodies` as peopleBatch takes them, each with a `dress` (dressOf); `level` is figure.js's (`lite`
 // on a phone). Returns
 // [{ key, rows, col, surf, face, lip, lipstick, iris }] for gl/figure-hd.js.
@@ -471,6 +637,8 @@ export function figurePeople(L, bodies, t = 0, { level: asked = 'hd', eye = null
   for (const body of bodies) {
     const level = eye ? levelAt(L, body, asked, eye) : asked;
     let o = lookOf(body.id, level, body.dress || '', !!body.sculpt, body.sex || '', body.figure || null, body.wear || null);
+    // the fine close-up head (figure.js faceHd), for a body that asks for it at the close-up level (the vats' sleepers)
+    if (body.faceHd && level === 'hd') o = { ...o, key: { ...o.key, faceHd: true } };
     // the Lab's own picks
     if (body.build) o = { ...o, key: { ...o.key, build: body.build } };
     if (body.grit !== undefined && body.grit !== '') o = { ...o, grit: +body.grit };
@@ -485,7 +653,7 @@ export function figurePeople(L, bodies, t = 0, { level: asked = 'hd', eye = null
     const clip = told === 'walk' ? gaitFor({ ...body, age: o.age, weight: o.key.weight }, rand(body.id)(88)) : told, dur = CLIP_DUR[clip] || 4;
     // with nothing to do, what they're doing comes off their id and the clock: from what suits how they are, asleep
     // or out cold, or at the work they're at (`manner`, plugins/roomstage)
-    const kind = lying ? body.rest || 'lie' : body.pose === 'sit' ? (body.rest === 'sleep' ? 'sitSleep' : body.rest === 'out' ? 'sitOut' : 'sit') : body.manner || 'stand';
+    const kind = lying ? body.rest || 'lie' : body.pose === 'sit' ? (body.rest === 'sleep' ? 'sitSleep' : body.rest === 'out' ? 'sitOut' : body.manner === 'punter' ? 'sitPunter' : 'sit') : body.manner || 'stand';
     const plan0 = !body.clip && body.phase === undefined && (body.pose === 'sit' || body.pose === 'stand' || lying) ? idlePlan(body.id, kind, t, body.feel || 0) : null;
     // a man sits with his knees wide: each clip's 'Wide' twin where it has one (actor3d.js wideKnees)
     const plan = plan0 && body.sex === 'male' ? { ...plan0, a: widen(plan0.a), b: widen(plan0.b) } : plan0;
@@ -524,12 +692,14 @@ export function figurePeople(L, bodies, t = 0, { level: asked = 'hd', eye = null
       for (let r = 0; r < 3; r++) O[r] += AZ[r] * fwd;
     }
     // the head goes where the eyes go, and turns to whoever's watching when they come close
-    const { S: S1, eyes } = lying ? { S: S0, eyes: gaze } : lookAround(S0, body, kind, O, AX, AY, AZ, eye, gaze, t);
+    const { S: S1a, eyes } = lying ? { S: S0, eyes: gaze } : lookAround(S0, body, kind, O, AX, AY, AZ, eye, gaze, t);
+    // the collarbones, from where the arms point (every close-up body is weighted to them)
+    const S1 = shoulderGirdle(S1a);
     // the grown bones, off the posed ones (only a mutated body has anything on them)
     const S2 = o.key.body ? growBones(S1, t, R0(66)) : S1;
     // the hands, and the arms finished so what's in a hand arrives at the mouth, the nose or the arm (gl/figure-reach.js)
     const playing = mx ? (mx.k > 0.5 ? mx.b : mx.a) : now ? now.c : clip;
-    const arms = finishArms(S2, { clip: playing, key: o.key, grip: holding(gripOf(playing), o.key.prop), props: propsOf(o.key.prop || ''), holds: body.holds || {}, meal: !!body.meal });
+    const arms = finishArms(S2, { clip: playing, key: o.key, grip: holding(gripOf(playing), o.key.prop), props: propsOf(o.key.prop || ''), holds: body.holds || {}, meal: body.meal || false, t, id: body.id, lift: body.lift || 0, table: Array.isArray(body.meal?.at) && L.world ? L.world(0, 0, body.meal.at[2])[1] - L.world(0, 0, 0)[1] : null });
     const S = arms.S;
     // stood on the floor: the lowest sole point at zero, as the bake drops its frames. Lying, the feet are where
     // placeOf puts them, and a knee drawn up mustn't slide the whole body up the bed
@@ -560,6 +730,10 @@ export function figurePeople(L, bodies, t = 0, { level: asked = 'hd', eye = null
     // a slam's hit, from the hand down to the table to the hold
     if (now && /^(sit)?[sS]lam$/.test(now.c)) { const q = ((now.p % 1) + 1) % 1; if (q > 0.42 && q < 0.7) land.R = true; }
     const SP = tests.length ? onSurfaces(S, tests, { L: held.L ? 0.06 : 0.05, R: held.R ? 0.06 : 0.05 }, anchors, land) : Array.from(S);
+    // and out of the walls and the tall pieces beside them (offWalls)
+    const toWorld = (q) => { const sc = piv.map((v, j) => v + hk * (q[j] - v)); return [0, 1, 2].map((r) => O[r] + AX[r] * sc[0] + AY[r] * (sc[1] - drop) + AZ[r] * sc[2]); };
+    const wt = wallTest(L, body, toWorld, hk, AX, AY, AZ, playing);
+    if (wt) offWalls(SP, wt);
     // an upright prop's bone: carried from its place on the hand in bind space to where the hand has put it, unturned
     for (const [L, sd] of [['L', 1], ['R', -1]]) {
       if (!held[L] || !propUpright(held[L])) continue;
@@ -588,13 +762,18 @@ export function figurePeople(L, bodies, t = 0, { level: asked = 'hd', eye = null
     sp.t = t; springs.set(body.id, sp);
     let sway = [sp.p[0] - hip[0], (sp.p[1] - hip[1]) * 0.3, sp.p[2] - hip[2]];
     const sl = Math.hypot(...sway); if (sl > 0.15) sway = sway.map((v) => (v * 0.15) / sl);
-    // the bust's bounce: a damped spring on the chest bone, so a step or a turn sets it moving and it settles
-    // a beat later (gl/figure-hd.js jiggle). Only a sculpted body with a bust carries one.
-    // the seat's the same off the pelvis, a little stiffer
-    const jiggle = o.key.sculpt && (o.key.bust ?? 0) > 0 ? bounceOf(body.id + '|c', rows, FIGURE_BONE.chest, t, JIGGLE) : null;
-    const seatJ = o.key.sculpt && (o.key.butt ?? 0) > 0 ? bounceOf(body.id + '|p', rows, FIGURE_BONE.pelvis, t, SEAT_JIGGLE) : null;
-    const nip = o.key.sculpt ? bustApex(o.key.bust ?? (o.key.head === 3 ? 0.35 : 0), o.key.weight ?? null) : null;
-    out.push({ key: o.key, rows, sway, jiggle, seatJ, nip, floor: O[1], print: o.print, badge: o.badge || 0, badgeClub: o.badgeClub, hatF: o.hatF, hatU: o.hatU, hands: arms.hands, hold: arms.hold, on: arms.on, clip: playing, col: o.col, surf: o.surf, fab: o.fab, mut: o.mut || 0, mutCol: o.mutCol, tat: o.tat || 0, tatCol: o.tatCol, blink2: o.key.body?.head2 ? blinkOf(t + 1.7, R0) : 0, grit: o.grit || 0, face: o.face, lip: o.lip, lipstick: o.lipstick, iris: o.iris, faceV: o.faceV, age: o.age, smile: X ? Math.min(1, Math.max(o.smile, X.smile)) : o.smile, trim: o.trim,
+    // the bust's bounce: a damped spring on a point of the bust, so a step sets it moving and it settles a beat
+    // later (gl/figure-hd.js jiggle). Only a sculpted body with a bust carries one. It's driven by the clip's own
+    // pose (S0, before the head and chest turn to look at the camera) and by the body's travel through the room,
+    // never by which way the body faces, so turning the camera (a mirror turns you with it) moves nothing.
+    // The seat's the same off the pelvis, a little stiffer. What they wear holds both still (bounceHold).
+    const jiggle = o.key.sculpt && (o.key.bust ?? 0) > 0 ? bounceOf(body.id + '|c', at(S0[FIGURE_BONE.chest], BUST_AT), drop, O, AX, AY, AZ, t, JIGGLE, bustHold(o.key)) : null;
+    const seatJ = o.key.sculpt && (o.key.butt ?? 0) > 0 ? bounceOf(body.id + '|p', at(S0[FIGURE_BONE.pelvis], SEAT_AT), drop, O, AX, AY, AZ, t, SEAT_JIGGLE, seatHold(o.key)) : null;
+    // the hair's swing: the same spring on the back of the crown, slow and loose, so a step or a turn of the head
+    // throws long hair and it settles over a second (gl/figure-hd.js hairSway). Nothing for a crop.
+    const hairJ = o.key.sculpt && hairLoose(o.key.style, o.key.beard) > 0 ? bounceOf(body.id + '|h', at(S0[FIGURE_BONE.head], HAIR_AT), drop, O, AX, AY, AZ, t, HAIR_SWING, 0.35) : null;
+    const nip = o.key.sculpt ? bustApex(o.key.bust ?? (softHead(o.key.head) ? 0.35 : 0), o.key.weight ?? null) : null;
+    out.push({ key: o.key, rows, sway, jiggle, seatJ, hairJ, nip, flex: flexOf(SP), floor: O[1], print: o.print, badge: o.badge || 0, badgeClub: o.badgeClub, hatF: o.hatF, hatU: o.hatU, hands: arms.hands, hold: arms.hold, on: arms.on, plate: arms.plate ? toWorld(arms.plate.o) : null, knifeDown: arms.knifeDown, clip: playing, col: o.col, surf: o.surf, fab: o.fab, mut: o.mut || 0, mutCol: o.mutCol, tat: o.tat || 0, tatCol: o.tatCol, blink2: o.key.body?.head2 ? blinkOf(t + 1.7, R0) : 0, grit: o.grit || 0, face: o.face, lip: o.lip, lipstick: o.lipstick, iris: o.iris, faceV: o.faceV, age: o.age, smile: X ? Math.min(1, Math.max(o.smile, X.smile)) : o.smile, trim: o.trim,
       expr: X ? [X.browIn, X.browUp, X.lid, X.frown] : null, sneer: X?.sneer || 0, beardA: o.beardA, beardB: o.beardB,
       mouthA: [Math.min(1, (M?.open ?? cf?.open ?? 0) + (X?.jaw || 0)), M?.wide ?? 0, M?.round ?? cf?.round ?? 0], mouthB: [M?.press ?? 0, M?.teeth ?? 0, M?.tongue ?? 0], blink: o.key.sculpt ? blink : 0, faceUp: faceUpOf(o.key), realEye: o.key.sculpt && o.key.level === 'hd', gaze: eyes, gloves: o.gloves, glove: o.glove, neck: o.neck, slit: o.slit, wild: o.wild, mark: o.mark, markCol: o.markCol, wrapCol: o.wrapCol });
   }
@@ -637,7 +816,9 @@ const GRIP = { spread: [-0.55, -0.55, 0, 0], holdup: [-0.5, -0.5, 0, 0], clap: [
   sitCook: [0.8, 0.75, 0, 0], sitShake: [0.25, 0.9, 0, 0], sitPour: [0.2, 0.85, 0, 0],
   sitClasp: [0.55, 0.55, 0, 0], sitBarSmoke: [0.15, 0.35, 0, 0], sitRest: [0.25, 0.35, 0, 0], sitBar: [0.15, 0.1, 0, 0], phone: [0.2, 0.75, 0, 0], drink: [0.2, 0.8, 0, 0], smoke: [0.25, 0.45, 0, -0.3],
   // a plate or a bowl on the left palm and a fork in the right; a spoon going round a pan
-  eat: [-0.2, 0.8, 0, 0], stir: [0.55, 0.9, 0, 0], squatStir: [0.3, 0.9, 0, 0] };
+  eat: [-0.2, 0.8, 0, 0], stir: [0.55, 0.9, 0, 0], squatStir: [0.3, 0.9, 0, 0],
+  // asleep in a clone vat: weightless, the fingers barely curled and a little apart
+  vatFloat: [0.08, 0.14, 0, 0] };
 // a hand with something in it keeps hold of it, whatever the clip says
 // (a glass in a full grip; a cigarette between the fingers, so they stay nearly straight)
 const holding = (g, prop) => { if (!prop) return g; const h = propsOf(prop), min = (n) => (n === 'cigarette' ? 0.15 : 0.55); return g.map((v, i) => (i < 2 && h[i ? 'R' : 'L'] ? Math.max(v, min(h[i ? 'R' : 'L'])) : i >= 2 && h[i === 3 ? 'R' : 'L'] ? Math.max(v, 0) : v)); };
@@ -647,17 +828,55 @@ const gripOf0 = (clip) => GRIP[clip] || GRIP[String(clip || '').replace(/^sit([A
 const fades = new Map(), CLIP_FADE = 0.4;
 // Each person's cloth lag (figurePeople): the hips' eased position and the clock it was eased at.
 // The bust's is about 2.5 Hz and settles in two or three swings; it moves up and down far more than side to
-// side or in and out (`axis`), and `max` keeps a jolt to a couple of centimetres of lag, as measured on a walk.
-const bounces = new Map(), JIGGLE = { k: 250, c: 9, axis: [0.45, 1, 0.35], max: 0.022 }, SEAT_JIGGLE = { k: 190, c: 7 };
-// A damped spring on one bone's position: where the flesh over it thinks the bone is, less where it is, in room
-// metres. Underdamped, so a step sets it moving and it settles a beat later.
-function bounceOf(key, rows, bone, t, K) {
-  const b = bone * 12, at = [rows[b + 3], rows[b + 7], rows[b + 11]], js = bounces.get(key) || { p: at.slice(), v: [0, 0, 0], t };
+// side or in and out (`axis`, in the body's own frame), and `max` keeps a jolt to a couple of centimetres of
+// lag, as measured on a walk.
+const bounces = new Map(), JIGGLE = { k: 250, c: 9, axis: [0.45, 1, 0.35], max: 0.022 }, SEAT_JIGGLE = { k: 190, c: 7, max: 0.03 };
+// the points the springs follow, in bind space: the front of the bust, and the back of the seat
+const BUST_AT = [0, 1.25, 0.1], SEAT_AT = [0, 0.9, -0.1];
+// the hair's: a point behind the crown, on a soft, lightly damped spring
+// (passed a hold of 0.35, which stiffens it a little and lets a third of the lag through, so a walk from standing
+// throws the hair about 5 cm instead of pinning it at the limit; the limit works out at 6 cm)
+const HAIR_AT = [0, 1.64, -0.07], HAIR_SWING = { k: 60, c: 3.5, axis: [1, 0.6, 1], max: 0.17 };
+// How much of the bounce gets through what they wear, 1 bare. Support is in the cut: a sports bra or a corset holds
+// the bust nearly still, a bra-cut set a lot, a fitted top some; past that, thick loose cloth (ease) hides most of it.
+const BUST_HOLD = { briefs: 0.3, corset: 0.3, longline: 0.42, bodysuit: 0.48, baselayer: 0.48, hexsuit: 0.52, strapwrap: 0.52, cutout: 0.52,
+  boyshorts: 0.55, bikini: 0.58, stagelace: 0.6, stagehex: 0.6, slip: 0.65, plunge: 0.65 };
+const bustHold = (key) => BUST_HOLD[key.cut] ?? Math.max(0.35, Math.min(0.75, 0.8 - 14 * (FIGURE_CUTS[key.cut] || FIGURE_CUTS.coat).top.ease));
+// The seat's: by the bottoms, or the cut's own legs (a set's briefs, a base layer's leggings, a suit's trousers).
+const SEAT_HOLD = { '': 0.55, shorts: 0.6, cutoffs: 0.6, bermudas: 0.62, capris: 0.55, pencil: 0.55, mini: 0.7, aline: 0.75, midi: 0.75, longskirt: 0.78 };
+function seatHold(key) {
+  const D = FIGURE_CUTS[key.cut], lg = D?.legs;
+  if (lg) return lg.hem == null ? 0.5 : lg.hug >= 0.5 ? 0.7 : 0.85;
+  if (key.cut === 'suit' || key.cut === 'coverall') return 0.55;
+  return SEAT_HOLD[key.bottoms || ''] ?? 0.6;
+}
+// A damped spring on one point of the body (`q`, the clip's pose of it, `drop` off its y as the body is stood on the
+// floor): where the flesh thinks it is, less where it is. It's kept in the body's own frame, so turning on the spot
+// does nothing; the body's travel through the room (O) is carried in against it, so a start, a stop or a step up
+// sets it going. Underdamped, so a step sets it moving and it settles a beat later. `hold` is what the clothes let
+// through: a stiffer spring and less of its lag. Returns the lag in room metres.
+function bounceOf(key, q0, drop, O, AX, AY, AZ, t, K, hold = 1) {
+  const q = [q0[0], q0[1] - drop, q0[2]];
+  let js = bounces.get(key);
+  // new, or back after a gap (out of view, or dropped to the lite figure and back): start at rest, not with a jolt
+  if (!js || t - js.t > 0.3 || t < js.t) js = { p: q.slice(), v: [0, 0, 0], t, O: O.slice(), w: [0, 0, 0] };
+  // the body's speed through the room, in its own frame and eased (a walk's steps arrive unevenly): only a change in
+  // it moves the flesh, which keeps going as it was while the body starts, stops or steps up, and walking steadily
+  // on drags nothing behind
+  const d = [O[0] - js.O[0], O[1] - js.O[1], O[2] - js.O[2]], ft = t - js.t;
+  if (Math.hypot(d[0], d[1], d[2]) > 0.5) { js.p = q.slice(); js.v = [0, 0, 0]; js.w = [0, 0, 0]; }
+  else if (ft > 1e-4) {
+    const e = 1 - Math.exp(-ft * 12);
+    for (const [i, A] of [[0, AX], [1, AY], [2, AZ]]) { const w = js.w[i] + ((d[0] * A[0] + d[1] * A[1] + d[2] * A[2]) / ft - js.w[i]) * e; js.v[i] -= w - js.w[i]; js.w[i] = w; }
+  }
+  js.O = O.slice();
+  const k = K.k * (1 + 0.6 * (1 - hold));
   let dt = Math.max(0, Math.min(0.05, t - js.t));
-  while (dt > 0) { const h = Math.min(dt, 1 / 120); for (let i = 0; i < 3; i++) { js.v[i] += (K.k * (at[i] - js.p[i]) - K.c * js.v[i]) * h; js.p[i] += js.v[i] * h; } dt -= h; }
+  while (dt > 0) { const h = Math.min(dt, 1 / 120); for (let i = 0; i < 3; i++) { js.v[i] += (k * (q[i] - js.p[i]) - K.c * js.v[i]) * h; js.p[i] += js.v[i] * h; } dt -= h; }
   js.t = t; bounces.set(key, js);
-  const lim = K.max ?? 0.04;
-  return [0, 1, 2].map((i) => Math.max(-lim, Math.min(lim, (js.p[i] - at[i]) * (K.axis ? K.axis[i] : 1))));
+  const lim = (K.max ?? 0.04) * hold;
+  const l = [0, 1, 2].map((i) => Math.max(-lim, Math.min(lim, (js.p[i] - q[i]) * hold * (K.axis ? K.axis[i] : 1))));
+  return [0, 1, 2].map((r) => AX[r] * l[0] + AY[r] * l[1] + AZ[r] * l[2]);
 }
 const springs = new Map();
 // Where somebody's head is pointed, eased per person so it turns rather than snaps: { y, p, t, on }.
@@ -672,6 +891,16 @@ function lookAround(S, body, kind, O, AX, AY, AZ, eye, gaze, t) {
   let ty = gaze[0] * 0.6, tp = gaze[1] * 0.5, on = false;
   // `look` [yaw, pitch] is where the head is pointed and no wander: yours in a mirror, where the camera points
   if (Array.isArray(body.look)) { ty = Math.max(-NOTICE.yaw, Math.min(NOTICE.yaw, body.look[0])); tp = Math.max(-0.6, Math.min(0.6, body.look[1])); }
+  // `watch` is somewhere they keep their eyes on, a dancer as plugins/roomstage has it ([world x, y, z]): most of the
+  // time, with a few seconds now and then for the room
+  else if (Array.isArray(body.watch) && awake && !body.gaze && R(14 + (Math.floor((t + R(15) * 6) / 6) % 20)) < 0.85) {
+    const hy = body.pose === 'sit' ? 1.15 : 1.55, d = [0, 1, 2].map((r) => body.watch[r] - (O[r] + AY[r] * hy));
+    const x = d[0] * AX[0] + d[1] * AX[1] + d[2] * AX[2], y = d[0] * AY[0] + d[1] * AY[1] + d[2] * AY[2], z = d[0] * AZ[0] + d[1] * AZ[1] + d[2] * AZ[2];
+    const flat = Math.hypot(x, z);
+    on = true;
+    ty = Math.max(-NOTICE.yaw, Math.min(NOTICE.yaw, Math.atan2(x, z)));
+    tp = Math.max(-0.6, Math.min(0.6, Math.atan2(y, flat)));
+  }
   else if (eye && awake && !body.gaze) {
     const hy = body.pose === 'sit' ? 1.15 : 1.55, d = [0, 1, 2].map((r) => eye[r] - (O[r] + AY[r] * hy));
     const x = d[0] * AX[0] + d[1] * AX[1] + d[2] * AX[2], y = d[0] * AY[0] + d[1] * AY[1] + d[2] * AY[2], z = d[0] * AZ[0] + d[1] * AZ[1] + d[2] * AZ[2];

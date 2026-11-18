@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "id": "bt_more_quiet_01",
+  "lines": [
+    "\"You all right?\"",
+    "nods.",
+    "\"You sure?\"",
+    "\"Just tired.\"",
+    "\"All right. I'll stop asking.\"",
+    "smiles slightly."
+  ],
+  "personality": "quiet",
+  "sort_order": 672
+}

@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "id": "bt_more_tv_host_01",
+  "lines": [
+    "\"Ratings?\"",
+    "\"Down.\"",
+    "\"Why?\"",
+    "\"The hockey's on.\"",
+    "\"Then do the hockey.\"",
+    "\"I don't know which way the goals go.\""
+  ],
+  "personality": "tv_host",
+  "sort_order": 689
+}

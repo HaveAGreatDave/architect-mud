@@ -1,25 +1,26 @@
 {
-  "description": "A long desk in fluted brass and pink marble, polished to a shine nobody pays for. A brass bell at one end. The guest book on it stops the week of the Handoff; tenants have signed under it since.",
+  "description": "A long mahogany desk in raised panels under a pink marble top, polished to a shine nobody pays for. A brass bell, a green banker's lamp, and the guest book, which stops the week of the Handoff. Tenants have signed under it since.",
   "flags": {
-    "aliases": "desk,reception,bell,guest book,guestbook",
+    "aliases": "desk,reception,bell,guest book,guestbook,register,lamp",
     "interactions": [
       "lean"
     ],
     "look": {
       "arche": "surface",
       "dims": [
-        3.6,
+        3,
         0.8,
         1.1
       ],
+      "dress": "hotel",
       "form": "reception"
     },
     "spot": {
       "at": [
-        -1.5,
-        8.2
+        -3.6,
+        1.75
       ],
-      "turn": 0
+      "turn": 180
     }
   },
   "hp": null,

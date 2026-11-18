@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_bartender_01",
+  "lines": [
+    "\"You ever drink at work?\"",
+    "\"Never.\"",
+    "\"Really?\"",
+    "\"Never while anyone's looking.\""
+  ],
+  "personality": "bartender",
+  "sort_order": 657
+}

@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_labourer_05",
+  "lines": [
+    "\"Did they pay you for Saturday?\"",
+    "\"They paid me for half of Saturday.\"",
+    "\"You worked all of it.\"",
+    "\"I know. I was there. Both halves.\""
+  ],
+  "personality": "labourer",
+  "sort_order": 648
+}

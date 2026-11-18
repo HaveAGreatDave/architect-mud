@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_doctor_02",
+  "lines": [
+    "\"Do you think the vats make people careless?\"",
+    "\"They make them stupid.\"",
+    "\"That's harsh.\"",
+    "\"I sewed a man's ear back on. He said not to bother, he'd just die and get a new one.\""
+  ],
+  "personality": "doctor",
+  "sort_order": 661
+}

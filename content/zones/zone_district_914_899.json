@@ -7,14 +7,14 @@
     "east": "zone_district_915_899",
     "north": "zone_district_914_898",
     "south": "zone_district_914_900",
-    "west": "zone_district_913_899"
+    "west": "zone_seam_914_899"
   },
   "flags": {
     "district": "water",
     "region_id": "region_coldwater",
     "terrain": "water"
   },
-  "grid_x": 914,
+  "grid_x": 915,
   "grid_y": 899,
   "grid_z": 0,
   "id": "zone_district_914_899",

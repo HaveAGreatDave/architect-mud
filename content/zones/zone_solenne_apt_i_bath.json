@@ -1,0 +1,27 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#2b3a34",
+  "color": "#e8ddc7",
+  "description": "Pale marble on every wall and warm stone underfoot, with a cove of light round the ceiling instead of a lamp. The walk-in shower is behind frameless glass against black marble, and a frosted slot up high carries the weather. A wide mirror over the walnut vanity is lit from behind. The door seals with a soft sigh.",
+  "exits": {
+    "out": "zone_solenne_apt_i"
+  },
+  "flags": {
+    "floor": "stone",
+    "is_interior": true,
+    "window": {
+      "description": "A high slot of frosted glass under the ceiling. It lets the day in and nobody look back.",
+      "light": 0.75,
+      "name": "the frosted slot",
+      "visibility": 0.8
+    }
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_solenne_apt_i_bath",
+  "map_id": null,
+  "name": "Residence 8-B en-suite",
+  "parent_zone": "zone_solenne_apt_i"
+}

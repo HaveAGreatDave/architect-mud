@@ -33,6 +33,7 @@ import { createCloudVolume } from './cloudvol.js';
 import { createShadowLayer, SHADOW_BIAS_TILES } from './shadow.js';
 import { createPropShadowLayer, PROP_SHADOW_GLSL, PROP_SHADOW_UNIFORMS, bindPropShadow } from './propshadow.js';
 import { createLampShadowLayer } from './lampshadow.js';
+import { CLOUD_SHADOW_GLSL, CLOUD_SHADOW_UNIFORMS, bindCloudShadow } from './cloudshadow.js';
 import { createSSAOLayer } from './ssao.js';
 import { createHDRLayer } from './hdr.js';
 import { createMirrorLayer } from './mirror.js';
@@ -40,6 +41,7 @@ import { createSkylineStrip } from './skyline.js';
 // SSAO inverts depth back to tiles with the same clip constants the vertices went through.
 import { NEAR, zRow } from './camera.js';
 import { declareProgram, prewarmPrograms, layerProgram } from './programs.js';
+import { passTimer, passTimes, timerFor, timeMethods } from './core/timer.js';
 import { linearOut, applyLinOut, LIN, linRgb, LIN_IN_GLSL } from './colour.js';
 import { LIGHTGRID_GLSL, LIGHTGRID_UNIFORMS, createLightGridTextures, bindNoLightGrid, makeGroundGrid, buildGroundGrid } from './lightgrid.js';
 import { createEnvCube, ENV_MAX_LOD } from './envcube.js';
@@ -185,7 +187,7 @@ uniform float uFadePass;
 // building's tile centre. It runs forward to the tile's edge, wherever the model's facade happens to stand.
 uniform vec4 uCutA;
 uniform vec4 uCutB;
-uniform vec2 uCutTile;
+uniform vec3 uCutTile;   // .z: how far the building reaches from its tile's middle at this floor (roomCut reach)
 // The ground-to-air crossfade. The 2-D pass multiplies every world object by it and drops the
 // object entirely below 0.02, which is how the Mode-7 city gives way to the flat airport scene
 // as you settle onto the deck. The mass had no idea it existed and drew the real city at full
@@ -231,13 +233,19 @@ uniform float uBakedAo;   // strength of the PER-VERTEX bake; 0 makes that term 
 //
 // See gl/shadow.js. 'uShadowStr' is the strength AND the off switch: at 0 the function below is
 // never called, the key term is left exactly as it was, and the frame is the one that shipped.
-// It defaults to 0 today — see the note on RENDER_TUNE.glShadow in windshield.js for what works
-// and what does not.
+// The note on RENDER_TUNE.glShadow in windshield.js has the measurements.
 uniform highp sampler2D uShadowMap;
 uniform mat4 uLightVP;
 uniform float uShadowStr;
 uniform float uShadowTexel;
 uniform float uShadowBias;
+// The near cascade (RENDER_TUNE.glShadowNear): the same sun over the tiles round the eye, unit 13.
+// uShadowNearOn 0 is off, and the whole-window map above answers alone, as it did before.
+uniform highp sampler2D uShadowMapN;
+uniform mat4 uLightVPN;
+uniform float uShadowNearOn;
+uniform float uShadowTexelN;
+uniform float uShadowBiasN;
 uniform vec3 uSunDir;
 // What stands in the street, on its own near map (gl/propshadow.js, RENDER_TUNE.glPropShadow).
 // uPropWall is its strength on a wall; uPropOn 0 skips the read and is the frame that shipped.
@@ -247,6 +255,13 @@ uniform float uPropOn;
 uniform float uPropTexel;
 uniform float uPropBias;
 uniform float uPropWall;
+// The weather's shadow (gl/cloudshadow.js, RENDER_TUNE.glCloudShadow). uCloudOn 0 skips the read.
+uniform sampler2D uCloudMap;
+uniform vec4 uCloudBox;
+uniform vec2 uCloudSlope;
+uniform float uCloudBase;
+uniform float uCloudOn;
+uniform float uShaftOn;
 // ── WHAT THE SURFACE IS MADE OF ─────────────────────────────────────────────
 //
 // Until this existed every surface in the city answered the light identically: one half-lambert key
@@ -408,7 +423,8 @@ float sunShadow(vec3 wp, vec3 n) {
   // Slope-scaled: a surface nearly edge-on to the light crosses many texels' worth of depth inside
   // one texel of the map, which is where acne comes from and where a flat bias cannot reach.
   float ndl = clamp(dot(n, uSunDir), 0.0, 1.0);
-  float r = clamp(p.z - uShadowBias * (1.0 + 3.0 * (1.0 - ndl)), 0.0, 1.0);
+  float slope = 1.0 + 3.0 * (1.0 - ndl);
+  float r = clamp(p.z - uShadowBias * slope, 0.0, 1.0);
   vec2 uv = clamp(p.xy, 0.0, 1.0);
   float t = uShadowTexel;
   // Four taps averaged by hand — percentage-closer filtering without the hardware compare sampler.
@@ -417,9 +433,27 @@ float sunShadow(vec3 wp, vec3 n) {
           + step(r, textureLod(uShadowMap, uv + vec2( 0.5, -0.5) * t, 0.0).r)
           + step(r, textureLod(uShadowMap, uv + vec2(-0.5,  0.5) * t, 0.0).r)
           + step(r, textureLod(uShadowMap, uv + vec2( 0.5,  0.5) * t, 0.0).r);
-  return (1.0 - s * 0.25) * uShadowStr * inside;
+  float far = (1.0 - s * 0.25) * inside;
+  // The near cascade, where it covers. A uniform branch, so off costs nothing; inside it the taps are
+  // unconditional, for the reason at the top of this function. It takes over from the far map across
+  // the outer tenth of its box, so its edge is a blend and not a line where the shadow sharpens.
+  if (uShadowNearOn > 0.5) {
+    vec3 q = (uLightVPN * vec4(wp, 1.0)).xyz * 0.5 + 0.5;
+    vec2 e = min(q.xy, 1.0 - q.xy);
+    float w = clamp(min(e.x, e.y) * 10.0, 0.0, 1.0) * (q.z > 1.0 || q.z < 0.0 ? 0.0 : 1.0);
+    float rn = clamp(q.z - uShadowBiasN * slope, 0.0, 1.0);
+    vec2 un = clamp(q.xy, 0.0, 1.0);
+    float tn = uShadowTexelN;
+    float sn = step(rn, textureLod(uShadowMapN, un + vec2(-0.5, -0.5) * tn, 0.0).r)
+             + step(rn, textureLod(uShadowMapN, un + vec2( 0.5, -0.5) * tn, 0.0).r)
+             + step(rn, textureLod(uShadowMapN, un + vec2(-0.5,  0.5) * tn, 0.0).r)
+             + step(rn, textureLod(uShadowMapN, un + vec2( 0.5,  0.5) * tn, 0.0).r);
+    far = mix(far, 1.0 - sn * 0.25, w);
+  }
+  return far * uShadowStr;
 }
 ${PROP_SHADOW_GLSL}
+${CLOUD_SHADOW_GLSL}
 ${HEIGHT_FOG_GLSL}
 ${LIGHT_SHAFT_GLSL}
 // The light grid (gl/lightgrid.js, RENDER_TUNE.glCluster). Declared here rather than in the chunk,
@@ -505,9 +539,9 @@ void massLight(vec3 P, vec3 raw, vec3 C, float R, float LR, vec3 n, vec3 Vw, flo
 }
 void main() {
   if (uCutB.w > 0.5) {
-    vec2 q = vWorld.xy - uCutA.xy, t = abs(vWorld.xy - uCutTile);
+    vec2 q = vWorld.xy - uCutA.xy, t = abs(vWorld.xy - uCutTile.xy);
     float s = sin(uCutA.z), c = cos(uCutA.z), u = c * q.x + s * q.y, v = c * q.y - s * q.x;
-    if (abs(u) < uCutA.w && v < uCutB.x && vWorld.z > uCutB.y && vWorld.z < uCutB.z && t.x < 0.5 && t.y < 0.5) discard;
+    if (abs(u) < uCutA.w && v < uCutB.x && vWorld.z > uCutB.y && vWorld.z < uCutB.z && t.x < uCutTile.z && t.y < uCutTile.z) discard;
   }
   // ⚠ THE FAR DISSOLVE IS SPLIT ACROSS TWO DRAWS, because the floor and the roads are drawn AFTER
   // this pass and test against its depth. A building at 20% opacity in the haze band still wrote
@@ -730,6 +764,9 @@ void main() {
   // A post or a person between the sun and the wall: the darker of the two maps, never the sum, so
   // a post standing in a building's shadow adds nothing to it. propShadow sanitises as shK does.
   if (uPropOn > 0.0) shK = max(shK, propShadow(vWorld) * uPropWall);
+  // A cloud between the sun and the wall: the same key term a building's shadow takes away, so a
+  // wall in a building's shadow under a cloud is no darker than either. uCloudOn carries the strength.
+  if (uCloudOn > 0.0) shK = max(shK, cloudShadow(vWorld));
   // ── THE CEL LOOK'S LIGHT (RENDER_TUNE.glToon) ───────────────────────────────
   // The key term in a few flat steps, and the sun's shadow with a hard edge at half coverage (the
   // map's four taps give five levels; see sunShadow). shK carries uShadowStr, so it's divided out
@@ -1194,7 +1231,10 @@ void main() {
   // belong to this fragment's own coverage, or a shaft would draw at full strength across the
   // dissolving far edge of the city.
   // Fog is a mix toward a colour as well: display values at level 2, then decoded.
-  vec3 fogged = uLinIn > 0.5 ? glassLin(mix(glassSrgb(base), glassSrgb(uFog), fog)) : mix(base, uFog, fog);
+  // Sun shafts: the haze in a cloud's shadow is darker (gl/cloudshadow.js). Skipped where there's no haze.
+  vec3 fogCol = uFog;
+  if (uShaftOn > 0.0 && fog > 0.01) fogCol *= 1.0 - airShadow(uEye, vWorld);
+  vec3 fogged = uLinIn > 0.5 ? glassLin(mix(glassSrgb(base), glassSrgb(fogCol), fog)) : mix(base, fogCol, fog);
   outColor = vec4((fogged + scat) * a, a);
 }`, 'outColor');
 
@@ -1208,29 +1248,9 @@ const withLights = (src) => src.split("GLASS_MAX_LIGHTS").join(String(MAX_LIGHTS
 // Lights, wires and decals are drawn in the map window's frame (the layer adds ox, oy as it writes),
 // so a record kept on the GPU doesn't depend on where the camera sits in its tile.
 //
-// Per-pass GPU time: see docs/reference/glass-notes.md#per-pass-gpu-time-__glpassms. Off (null)
-// unless a bench turns it on. Timer queries can't nest, so an inner pass pauses the outer one.
-let PASS_T = null;
-export function glPassTimer(on) {
-  const prev = PASS_T;
-  PASS_T = on ? { list: [], stack: [] } : null;
-  return prev;
-}
-// Reads a finished collector (the value `glPassTimer(false)` returns) into ms per name, or null if
-// the GPU clock jumped or the extension is missing. Results arrive a few frames late.
-export async function glPassTimes(t) {
-  if (!t || !t.list.length) return null;
-  const [, lastQ, gl] = t.list[t.list.length - 1];
-  for (let k = 0; k < 200 && !gl.getQueryParameter(lastQ, gl.QUERY_RESULT_AVAILABLE); k++) await new Promise((r) => setTimeout(r, 10));
-  const out = {};
-  let disjoint = false;
-  for (const [name, q, g, ext] of t.list) {
-    disjoint = disjoint || !!g.getParameter(ext.GPU_DISJOINT_EXT);
-    if (g.getQueryParameter(q, g.QUERY_RESULT_AVAILABLE)) out[name] = (out[name] || 0) + g.getQueryParameter(q, g.QUERY_RESULT) / 1e6;
-    g.deleteQuery(q);
-  }
-  return disjoint ? null : out;
-}
+// Per-pass GPU time: see docs/reference/glass-notes.md#per-pass-gpu-time-__glpassms. The collector
+// is gl/core/timer.js, shared with ROOM, the ballpark and the rink; these names stay for the benches.
+export { passTimer as glPassTimer, passTimes as glPassTimes };
 // Splits a sink's retained groups (`list.groups`) out of its records. A group whose records aren't
 // where it says (a sink truncated after a throw) is dropped and its records go as usual.
 function splitGroups(list, ox, oy) {
@@ -1265,18 +1285,7 @@ export function createGLView(canvas, opts = {}) {
   // ⚠ A lost context is silent, and without preventDefault it's permanent. The pass checks `lost()`
   // each frame; see docs/reference/glass-notes.md#a-pass-that-didnt-draw.
   canvas.addEventListener('webglcontextlost', (e) => e.preventDefault(), false);
-  let passExt;   // see glPassTimer; looked up the first time a timed frame needs it
-  function timed(name, fn) {
-    const T = PASS_T;
-    if (!T) return fn();
-    if (passExt === undefined) passExt = gl.getExtension('EXT_disjoint_timer_query_webgl2');
-    if (!passExt) return fn();
-    const open = (n) => { const q = gl.createQuery(); gl.beginQuery(passExt.TIME_ELAPSED_EXT, q); T.list.push([n, q, gl, passExt]); };
-    const top = T.stack[T.stack.length - 1], outer = top && top[1] === gl ? top[0] : null;
-    if (outer) gl.endQuery(passExt.TIME_ELAPSED_EXT);
-    T.stack.push([name, gl]); open(name);
-    try { return fn(); } finally { gl.endQuery(passExt.TIME_ELAPSED_EXT); T.stack.pop(); if (outer) open(outer); }
-  }
+  const timed = timerFor(gl);   // the passes inside `draw` (shadow, ssao, ...), timed apart from it
   // Every declared layer program starts compiling now, side by side, before anything asks for one.
   prewarmPrograms(gl);
 
@@ -1338,6 +1347,11 @@ export function createGLView(canvas, opts = {}) {
     bakedAo: gl.getUniformLocation(prog, 'uBakedAo'),
     shadowMap: gl.getUniformLocation(prog, 'uShadowMap'),
     lightVP: gl.getUniformLocation(prog, 'uLightVP'),
+    shadowMapN: gl.getUniformLocation(prog, 'uShadowMapN'),
+    lightVPN: gl.getUniformLocation(prog, 'uLightVPN'),
+    shadowNearOn: gl.getUniformLocation(prog, 'uShadowNearOn'),
+    shadowTexelN: gl.getUniformLocation(prog, 'uShadowTexelN'),
+    shadowBiasN: gl.getUniformLocation(prog, 'uShadowBiasN'),
     shadowStr: gl.getUniformLocation(prog, 'uShadowStr'),
     shadowTexel: gl.getUniformLocation(prog, 'uShadowTexel'),
     shadowBias: gl.getUniformLocation(prog, 'uShadowBias'),
@@ -1389,6 +1403,7 @@ export function createGLView(canvas, opts = {}) {
   for (const n of LIGHTGRID_UNIFORMS) loc[n] = gl.getUniformLocation(prog, n);
   for (const n of PROP_SHADOW_UNIFORMS) loc[n] = gl.getUniformLocation(prog, n);
   loc.propWall = gl.getUniformLocation(prog, 'uPropWall');
+  for (const n of CLOUD_SHADOW_UNIFORMS) loc[n] = gl.getUniformLocation(prog, n);
   const lgTex = createLightGridTextures(gl);
   const lgGrid = makeGroundGrid();
   let massGrid = null, wallGridNow = null;
@@ -1793,7 +1808,31 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
       timed('shadow', () => shadow.render(vao, count, shiftVP(vp, massShift)));
       sunKept = { build: meshBuild, count, vp: Array.from(vp), sx: massShift[0], sy: massShift[1] };
     }
+    nearPass(s, opts);
     return shadow;
+  }
+  // The near cascade (RENDER_TUNE.glShadowNear, world.js nearShadowBox): a second map over the tiles
+  // round the eye. Kept like the far one, so it's redrawn when the eye crosses a tile, the sun moves
+  // or the mesh changes, and then only the runs inside its own box are sent. `nearFrame` is what the
+  // draw binds this frame, or null.
+  let nearMap = null, nearTried = false, nearKept = null, nearFrame = null;
+  function nearPass(s, opts) {
+    nearFrame = null;
+    const N = s.near;
+    if (!N || !N.lightVP) return;
+    if (!nearMap && !nearTried) {
+      nearTried = true;
+      try { nearMap = createShadowLayer(gl, loc.pos); } catch { nearMap = null; }
+    }
+    if (!nearMap) return;
+    if (!(nearKept && nearKept.build === meshBuild && nearKept.count === count && vpClose(nearKept.vp, N.lightVP)
+        && nearKept.sx === massShift[0] && nearKept.sy === massShift[1])) {
+      const m = shiftVP(N.lightVP, massShift);
+      const cull = opts.massCull > 0 && ranges && ranges.length;
+      timed('shadownear', () => nearMap.render(vao, count, m, cull ? () => drawRuns(viewRuns(m)) : null));
+      nearKept = { build: meshBuild, count, vp: Array.from(N.lightVP), sx: massShift[0], sy: massShift[1] };
+    }
+    nearFrame = { tex: nearMap.tex, texel: nearMap.texel, vp: nearKept.vp, bias: N.bias };
   }
   // The sun's map is redrawn only when the mesh or the light matrix changes ("same" is within 2e-4 of
   // its largest entry, about a third of a texel). ⚠ Lookups use the matrix it was drawn with (`sunVP`).
@@ -1937,6 +1976,8 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     if (!into && !fade) worldSun = sun ? { tex: sun.tex, vp: new Float32Array(sunVP(opts)), texel: sun.texel, bias: opts.sunShadow.bias } : null;
     // Not skipped with the mass: the road reads it too. The mirror draws without it.
     const prop = fade ? fadeKept.prop : into ? null : propPass(opts);
+    // The weather's shadow; the mirror draws without it, as without the prop map.
+    const cloudSh = fade ? fadeKept.cloudSh : into ? null : (opts.cloudShadow || null);
     if (!fade && !into) lampPass(opts);
     const W = into ? into[0] : canvas.width, H = into ? into[1] : canvas.height;
     const occl = fade ? fadeKept.occl : into ? null : ssaoPass(cam, opts, W, H);
@@ -1946,7 +1987,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     if (!into) gl.viewport(0, 0, W, H);
     // Split only on the screen and only with a band (the mirror has no floor drawn after it).
     const split = !into && !fade && !!opts.fadeSplit && opts.hazeNear != null && !opts.skipMass && count > 0;
-    if (!fade) fadeKept = split ? { envTex, sun, occl, prop } : null;
+    if (!fade) fadeKept = split ? { envTex, sun, occl, prop, cloudSh } : null;
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LEQUAL);
     // ⚠ No backface cull: buildings aren't closed (soffits, canopy undersides).
@@ -1976,7 +2017,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     const cut = opts.cut;
     gl.uniform4f(loc.cutA, cut ? cut.x : 0, cut ? cut.y : 0, cut ? cut.rad : 0, cut ? cut.half : 0);
     gl.uniform4f(loc.cutB, cut ? cut.back : 0, cut ? cut.z0 : 0, cut ? cut.z1 : 0, cut ? 1 : 0);
-    gl.uniform2f(loc.cutTile, cut ? cut.tx : 0, cut ? cut.ty : 0);
+    gl.uniform3f(loc.cutTile, cut ? cut.tx : 0, cut ? cut.ty : 0, cut ? (cut.reach || 0.5) : 0.5);
     const k = opts.keyDir || [-0.7, 0.35, -0.7];
     gl.uniform3f(loc.keyDir, k[0], k[1], k[2]);
     // ⚠ `shadow` is the vertex-light base colour and `sunShadow` is the sun. An object in `shadow`
@@ -2130,10 +2171,23 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
       gl.bindTexture(gl.TEXTURE_2D, sun.tex);
       gl.uniform1i(loc.shadowMap, 1);
     }
+    // Unit 13: the near cascade, bound on every draw to its map or to nothing, and its switch with it.
+    const nearOn = !!(sun && nearFrame);
+    gl.uniform1f(loc.shadowNearOn, nearOn ? 1 : 0);
+    gl.activeTexture(gl.TEXTURE13);
+    gl.bindTexture(gl.TEXTURE_2D, nearOn ? nearFrame.tex : null);
+    gl.uniform1i(loc.shadowMapN, 13);
+    if (nearOn) {
+      gl.uniformMatrix4fv(loc.lightVPN, false, mat4f(nearFrame.vp));
+      gl.uniform1f(loc.shadowTexelN, nearFrame.texel);
+      gl.uniform1f(loc.shadowBiasN, nearFrame.bias);
+    }
     // Unit 11, clear of the light grid's 8 to 10. Written every draw, on or off, for the reason the
     // strength above is; the mirror passes null and so reflects no prop shadow.
     bindPropShadow(gl, loc, 11, prop);
     gl.uniform1f(loc.propWall, prop ? prop.wall : 0);
+    // Unit 14, the one the wall had free (0-13 are taken: see the binds above).
+    bindCloudShadow(gl, loc, 14, cloudSh, 'wall');
     // ⚠ Every frame, including when the SSAO pass declined; zero is the exact off switch.
     gl.uniform1f(loc.ssaoStr, ssaoTex ? (opts.ssao > 1 ? 1 : opts.ssao) : 0);
     if (ssaoTex) {
@@ -2537,8 +2591,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
         if (q.cloud) clouds.push(q);
         else if (q.actor) actorRecs.push(q);
         else if (q.cloth) clothRecs.push(q);
-        else (q.inst ? instRecs : all).push(q);
-      }
+        else (q.inst ? instRecs : all).push(q);      }
     }
     // every cloud of the frame stepped under one save of the GL state, not one each
     if (clouds.length) {
@@ -2683,19 +2736,14 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   const drawFishShadows = (cam, s, cssH) => (s && s.n > 0 ? (fsh || (fsh = createFishShadowLayer(gl))).draw(cam, s, cssH) : 0);
   // The window's cells and the eye in the mesh frame (gl/skyline.js). Called before draw, which reads it.
   function setSkyline(cells, eye, facesOf) { try { skylineLayer().update(cells, eye, facesOf); } catch { /* no strip is the flat environment, which is the picture that shipped */ } }
-  const api = { murmurGPU: () => mg, gl, massDrawn: () => [massDrawn, count], setNightPage, setSkyline, upload, uploadGroups, uploadKept, setMassShift, massDebug, draw, drawFade, beginTarget, hdrLive, composite, hdrPeak, setMatPage, setSurfPage, drawSeabed, drawSeabedPoints, drawFishShadows, drawSprites, drawCurtain, drawDecals, decalCost, drawStrokes, drawInteriors, drawBillboards, billboardTextures, drawGround, groundGrid: () => (grd ? grd.grid : null), wallGrid: () => massGrid, setLightGrid, taaSplit, drawFloor, drawWater, drawCloudDeck, drawCloudVolume, drawMirror, mirrorPeak, uploadSolids, uploadShip, drawSolids, drawActors, uploadInterior, drawInterior, drawInteriorAlone, setAtlas, lost: () => gl.isContextLost(),
+  const api = { murmurGPU: () => mg, gl, massDrawn: () => [massDrawn, count], setNightPage, setSkyline, upload, uploadGroups, uploadKept, setMassShift, massDebug, draw, drawFade, beginTarget, hdrLive, composite, hdrPeak, setMatPage, setSurfPage, drawSeabed, drawSeabedPoints, drawFishShadows, drawSprites, drawCurtain, drawDecals, decalCost, drawStrokes, drawInteriors, drawBillboards, billboardTextures, drawGround, groundGrid: () => (grd ? grd.grid : null), wallGrid: () => massGrid, setLightGrid, taaSplit, drawFloor, drawWater, drawCloudDeck, drawCloudVolume, cloudShadowFrame: () => (cloudVol ? cloudVol.shadowFrame() : null), drawMirror, mirrorPeak, uploadSolids, uploadShip, drawSolids, drawActors, uploadInterior, drawInterior, drawInteriorAlone, setAtlas, lost: () => gl.isContextLost(),
     maxTexture: gl.getParameter(gl.MAX_TEXTURE_SIZE), get triangles() { return count / 3; },
     // The mesh's box in the window's frame (for the light projection) and the shadow map size (0: refused).
     get bounds() { return boundsInWindow(); }, get shadowSize() { return shadow ? shadow.size : 0; },
     // This frame's prop map (gl/propshadow.js): size, triangles, and what went in. null when off.
     get propShadow() { return propFrame ? { size: propFrame.size, tris: propFrame.tris, ...(propLayer && propLayer.last) } : null; },
     get lampShadow() { return lampFrame ? { size: lampFrame.size, tris: lampFrame.tris, w: Array.from(lampFrame.W.subarray(0, lampFrame.n)), ...(lampLayer && lampLayer.last) } : null; } };
-  // Fixed arity rather than rest args, so an untimed frame allocates nothing here (no method takes more than six).
-  for (const [k, name] of TIMED_PASSES) {
-    const f = api[k];
-    api[k] = (a, b, c, d, e, g) => (PASS_T ? timed(name, () => f(a, b, c, d, e, g)) : f(a, b, c, d, e, g));
-  }
-  return api;
+  return timeMethods(gl, api, TIMED_PASSES);
 }
 // The view methods `glPassTimer` reports, by the name it reports them under. `draw` is the city's
 // main pass less the shadow and SSAO passes it runs inside itself.

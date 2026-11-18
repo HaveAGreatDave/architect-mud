@@ -1,0 +1,35 @@
+{
+  "description": "A canvas cot with a blanket balled at the foot. There's a burn hole in the canvas just where your hip goes.",
+  "flags": {
+    "aliases": [
+      "cot",
+      "cots",
+      "bed",
+      "cot 503"
+    ],
+    "interactions": [
+      "sit",
+      "lie",
+      "sleep"
+    ],
+    "look": {
+      "arche": "sofa",
+      "form": "cot",
+      "wear": 0.95
+    },
+    "spot": {
+      "along": 1,
+      "wall": "left"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_hostel_cot_5_3",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "cot 503",
+  "object_type": "bed",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_hostel_dorm_5"
+}

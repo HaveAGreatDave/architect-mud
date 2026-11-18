@@ -33,7 +33,7 @@ import { query, logActivity } from '../models/db.js';
 import { addSweat } from './hygiene.js';
 import { warmthBonus, tickWarmth } from './warmth.js';
 import { appetiteMessages } from './appetite.js';
-import { getEnvironmentState, getZoneTemperature, feltAmbientC, isClimateExempt, waterTemperature, getZoneHumidity, getWindKph, recordLightningKill, getZoneStormIntensity, getWeatherFieldSnapshot, getZonePrecip, getZoneWeatherType, seasonForDate, activeWeatherEvent, strikeableBuildings, overloadJunctionBoxes, powerAnchorOf } from './environment.js';
+import { getEnvironmentState, getZoneTemperature, feltAmbientC, isClimateExempt, waterTemperature, getZoneHumidity, getWindKph, recordLightningKill, getZoneStormIntensity, getWeatherFieldSnapshot, getZonePrecip, getZoneWeatherType, seasonForDate, outdoorTempC, activeWeatherEvent, strikeableBuildings, overloadJunctionBoxes, powerAnchorOf } from './environment.js';
 import { tickDrugDecayAll, tickDrugs, tickOnsets, tickWithdrawalAll, drugWatched, clearActiveDrugState } from './drugs.js';
 import { getTimeScale } from './gametime.js';
 import { escAttr } from './text.js';
@@ -63,8 +63,8 @@ const WELL_FED_REGEN_MULT = 1.5;
 // path: consciousness arrives immediately, the body reports in, then a dressing
 // robot clothes you and bills your account. A jail override takes custody of the
 // body instead and runs none of this.
-const VAT_ASSIMILATE_MS = 2600;
-const VAT_DRESS_MS = 5200;
+const VAT_ASSIMILATE_MS = 9600; // the body stands up out of the drained vat (panels/room-vatcycle.js VAT_CYCLE)
+const VAT_DRESS_MS = 13200;     // the gantry has it dressed (VAT_CYCLE.dressed)
 
 let broadcastFn = null;
 let lastNoCombatWarn = 0;
@@ -187,7 +187,7 @@ async function tick() {
             const cry = cries[Math.floor(Math.random() * cries.length)]
               .replace(/\$enemy/g, enemy.name)
               .replace(/\$player/g, randomPlayer?.handle || 'you');
-            broadcastFn(enemy.zoneId, { type: 'output', message: formatBattleCry(enemy.name, cry) });
+            broadcastFn?.(enemy.zoneId, { type: 'output', message: formatBattleCry(enemy.name, cry) });
           }
 
           // Escalating aggro roll — chance grows 5% per 5-second tick.
@@ -247,12 +247,12 @@ async function tick() {
         // kneeling, butchering, scavenging) — posture is the orchestrator; the
         // activity plugins' ticks see the change and discard their own state.
         if (forceStand(target, 'attacked')) {
-          broadcastFn(null, { type: 'output', message: `You scramble to your feet as the attack comes in!` }, null, target.id);
+          broadcastFn?.(null, { type: 'output', message: `You scramble to your feet as the attack comes in!` }, null, target.id);
         }
         if (result.hit) {
           target.hp = Math.max(0, target.hp - result.damage);
           target._resDirty = true; // coalesced into the 1s flushDirtyResources write
-          broadcastFn(null, { type:'combat_incoming', message:result.message, player_update:{ hp:target.hp, hp_max:target.hp_max } }, null, target.id);
+          broadcastFn?.(null, { type:'combat_incoming', message:result.message, player_update:{ hp:target.hp, hp_max:target.hp_max } }, null, target.id);
           if (target.hp <= 0) {
             // TAKEN ALIVE. A police manhunt unit (`_takesAlive`, set by
             // surveillance at ≥4★) beats you unconscious instead of killing you.
@@ -260,8 +260,8 @@ async function tick() {
             // and it is deliberately not general: an ordinary enemy kills you.
             if (enemy._takesAlive) {
               knockOut(target, { ms: KO_MS, by: enemy });
-              broadcastFn(target.current_zone, { type: 'zone_event', message: `${enemy.name} puts ${target.handle} on the ground and cuffs them there.`, refresh: true }, target.id);
-              broadcastFn(null, { type: 'combat', message: `<span class="msg-combat">The world goes sideways. Somebody is kneeling on your back.</span>` }, null, target.id);
+              broadcastFn?.(target.current_zone, { type: 'zone_event', message: `${enemy.name} puts ${target.handle} on the ground and cuffs them there.`, refresh: true }, target.id);
+              broadcastFn?.(null, { type: 'combat', message: `<span class="msg-combat">The world goes sideways. Somebody is kneeling on your back.</span>` }, null, target.id);
               emit('police.tookAlive', { player: target, officer: enemy });
               return;
             }
@@ -275,7 +275,7 @@ async function tick() {
           const currentTargetAlive = currentCombatEnemy && currentCombatEnemy.zoneId === target.current_zone;
           if (!currentTargetAlive && !((target.disengagedUntil || 0) > Date.now())) target.combatTargetId = enemy.instanceId;
         } else {
-          broadcastFn(null, { type:'combat_miss', message:result.message }, null, enemy.targetId);
+          broadcastFn?.(null, { type:'combat_miss', message:result.message }, null, enemy.targetId);
         }
       }).catch(() => {});
     }
@@ -285,7 +285,7 @@ async function tick() {
   // per victim: this walk already exists, and a KO is far too short-lived to
   // justify timer bookkeeping across logout, death and reconnect.
   tickUnconscious(world.players.values(), (b, msg) =>
-    broadcastFn(null, { type: 'output', message: `<span class="msg-system">${msg}</span>` }, null, b.id));
+    broadcastFn?.(null, { type: 'output', message: `<span class="msg-system">${msg}</span>` }, null, b.id));
   tickUnconscious(world.npcs.values(), null);
 
   // Sneakers whose window has run out get looked at again. Same walk, same
@@ -320,7 +320,7 @@ async function tick() {
       playerCombat.resolveAttack(player, combatEnemy, broadcastFn)
         .then(atkResult => {
           if (atkResult?.type === 'combat') {
-            broadcastFn(null, { ...atkResult, auto: true }, null, playerId);
+            broadcastFn?.(null, { ...atkResult, auto: true }, null, playerId);
           } else {
             // Target gone (killed by another player, etc.) — stop
             player.combatTargetId = null;
@@ -346,9 +346,9 @@ async function tick() {
     if (!pvpTarget || pvpTarget.current_zone !== player.current_zone) {
       if (pvpTarget) {
         pvpTarget.pvpTargetId = null;
-        broadcastFn(null, { type: 'output', message: `${player.handle} has left. Combat ends.` }, null, pvpTarget.id);
+        broadcastFn?.(null, { type: 'output', message: `${player.handle} has left. Combat ends.` }, null, pvpTarget.id);
       }
-      broadcastFn(null, { type: 'output', message: 'Your opponent has left. Combat ends.' }, null, playerId);
+      broadcastFn?.(null, { type: 'output', message: 'Your opponent has left. Combat ends.' }, null, playerId);
       player.pvpTargetId = null;
       continue;
     }
@@ -358,10 +358,10 @@ async function tick() {
       // Same rule as the PvE handler above: any hit attempt clears any
       // non-standing posture, not just sitting.
       if (forceStand(pvpTarget, 'attacked')) {
-        broadcastFn(null, { type: 'output', message: `You scramble to your feet as the attack comes in!` }, null, pvpTarget.id);
+        broadcastFn?.(null, { type: 'output', message: `You scramble to your feet as the attack comes in!` }, null, pvpTarget.id);
       }
-      broadcastFn(null, { type: 'combat', message: result.attackerMsg, auto: true }, null, playerId);
-      broadcastFn(null, { type: 'combat_incoming', message: result.defenderMsg, player_update: { hp: result.defenderHp, hp_max: result.defenderHpMax } }, null, pvpTarget.id);
+      broadcastFn?.(null, { type: 'combat', message: result.attackerMsg, auto: true }, null, playerId);
+      broadcastFn?.(null, { type: 'combat_incoming', message: result.defenderMsg, player_update: { hp: result.defenderHp, hp_max: result.defenderHpMax } }, null, pvpTarget.id);
       if (result.killed) {
         player.pvpTargetId = null;
         pvpTarget.pvpTargetId = null;
@@ -391,7 +391,7 @@ async function tick() {
       playerCombat.resolveAttackNpc(player, npc, broadcastFn)
         .then(atkResult => {
           if (atkResult?.type === 'combat') {
-            broadcastFn(null, { ...atkResult, auto: true }, null, playerId);
+            broadcastFn?.(null, { ...atkResult, auto: true }, null, playerId);
           } else {
             player.npcCombatTargetId = null;
           }
@@ -416,7 +416,7 @@ async function tick() {
       const floorHp = npc._brawlFloorHp ?? 0;
       npcAttackNpc(npc, npcFoe, { floorHp }).then(result => {
         if (!result) return;
-        broadcastFn(npc.zone_id, { type: 'zone_event', message: result.message });
+        broadcastFn?.(npc.zone_id, { type: 'zone_event', message: result.message });
         if (result.killed) {
           npc._combatTargetId = null;
           emit('npc.killed', { npc: npcFoe, killer: npc });
@@ -434,7 +434,7 @@ async function tick() {
       if (result.hit) {
         target.hp = Math.max(0, target.hp - result.damage);
         target._resDirty = true; // coalesced into the 1s flushDirtyResources write
-        broadcastFn(null, { type: 'combat_incoming', message: result.message, player_update: { hp: target.hp, hp_max: target.hp_max } }, null, target.id);
+        broadcastFn?.(null, { type: 'combat_incoming', message: result.message, player_update: { hp: target.hp, hp_max: target.hp_max } }, null, target.id);
         if (target.hp <= 0) {
           await handlePlayerDeath(target, null, { type: 'combat', label: `Killed by ${npc.name}` });
         } else if (!target.npcCombatTargetId && !((target.disengagedUntil || 0) > Date.now())) {
@@ -446,7 +446,7 @@ async function tick() {
           emit('npc.aggressed', { npc, target });
         }
       } else {
-        broadcastFn(null, { type: 'combat_miss', message: result.message }, null, target.id);
+        broadcastFn?.(null, { type: 'combat_miss', message: result.message }, null, target.id);
       }
     }).catch(() => {});
   }
@@ -477,7 +477,7 @@ async function tick() {
       // `refresh` rides the spoken beat rather than every tick: the Hostiles line
       // is where the HP bar and the (Burning) label live, and re-rendering the
       // room once a second for the whole twenty is not worth the accuracy.
-      if (intent.speak) broadcastFn(zoneId, { type: 'zone_event', message: intent.message, refresh: true });
+      if (intent.speak) broadcastFn?.(zoneId, { type: 'zone_event', message: intent.message, refresh: true });
       if (result.killed) {
         // The kill is announced and looted exactly as a swing's would be. Corpse
         // creation lives in the weapon plugin (registerPlayerCombat) — the engine
@@ -487,7 +487,7 @@ async function tick() {
         const corpseLink = combat?.spawnEnemyCorpse
           ? await combat.spawnEnemyCorpse(zoneId, enemy.name, result).catch(() => null)
           : null;
-        broadcastFn(zoneId, {
+        broadcastFn?.(zoneId, {
           type: 'zone_event',
           message: `${enemy.name} ${intent.effect === 'burning' ? 'stops moving, still burning' : 'bleeds out and falls'}.${corpseLink ? ` ${corpseLink}` : ''}`,
           refresh: true,
@@ -505,7 +505,7 @@ async function tick() {
     const hpBefore = player.hp;
     const stamBefore = player.stamina;
     const messages = [...tickEffects(player), ...tickDrugs(player), ...tickOnsets(player)];
-    if (messages.length) broadcastFn(null, { type:'status_tick', messages }, null, playerId);
+    if (messages.length) broadcastFn?.(null, { type:'status_tick', messages }, null, playerId);
     // Effects mutate hp/stamina in memory but this per-second tick historically
     // neither persisted nor pushed them — so effect damage was invisible on the
     // HUD until the minute tick. Persist + broadcast when an effect changed them.
@@ -513,7 +513,7 @@ async function tick() {
     const stamChanged = player.stamina !== stamBefore;
     if (hpChanged || stamChanged) {
       player._resDirty = true; // coalesced into flushDirtyResources at the end of the tick
-      broadcastFn(null, { type:'resource_tick', messages:[], player_update:{ hp: player.hp, stamina: player.stamina } }, null, playerId);
+      broadcastFn?.(null, { type:'resource_tick', messages:[], player_update:{ hp: player.hp, stamina: player.stamina } }, null, playerId);
     }
     if ((messages.length || hpChanged) && player.hp <= 0) await handlePlayerDeath(player, null, { type: 'survival', label: 'Succumbed to your condition' });
   }
@@ -555,7 +555,7 @@ async function minuteTickFn() {
       if (minuteTick % 10 === 0 && (player.radiation || 0) < 100) {
         player.radiation = Math.min(100, (player.radiation || 0) + 1);
         radDirty.push([playerId, player.radiation]);
-        broadcastFn(null, { type:'player_update', radiation: player.radiation }, null, playerId);
+        broadcastFn?.(null, { type:'player_update', radiation: player.radiation }, null, playerId);
       }
     } else if ((player.radiation || 0) > 0) {
       const hydrated = player.hydratedUntil && Date.now() < player.hydratedUntil;
@@ -563,7 +563,7 @@ async function minuteTickFn() {
       player.radiation = Math.max(0, player.radiation - decay);
       radDirty.push([playerId, player.radiation]);
       if (player.radiation % 10 === 0 && player.radiation > 0) {
-        broadcastFn(null, { type:'player_update', radiation: player.radiation }, null, playerId);
+        broadcastFn?.(null, { type:'player_update', radiation: player.radiation }, null, playerId);
       }
     }
     if (player.hydratedUntil && Date.now() >= player.hydratedUntil) player.hydratedUntil = null;
@@ -596,7 +596,7 @@ async function minuteTickFn() {
   // Withdrawal: apply/clear addiction debuffs; decay addiction toward sobriety.
   const wdByPlayer = await tickWithdrawalAll(drugRoster);
   for (const [playerId, messages] of wdByPlayer) {
-    broadcastFn(null, { type: 'status_tick', messages }, null, playerId);
+    broadcastFn?.(null, { type: 'status_tick', messages }, null, playerId);
   }
 }
 
@@ -636,34 +636,40 @@ export async function spawnPlayerCorpse(victim, zoneId) {
   return { corpseId, corpseName };
 }
 
-// The torso garment the vats issue, by season. Layers are a fixed three with one item
-// per (slot, layer), and `item_basic_shirt` is itself torso/outerwear — so this garment
-// REPLACES the shirt rather than going over it. Legs and feet are unchanged year-round.
+// The vat suit: the one-piece the dressing gantry puts on every reprinted body, in vat
+// orange, one design a season (each names its own cut on the close-up figure: figure.js
+// FIGURE_CUTS vatsuit_*). It's torso/outerwear and `covers` the legs, so it takes the
+// place of both the old shirt and the basic pants; shoes and underwear go on as before.
 //
 // The numbers are °C of insulation, summed with the rest of the kit by recomputeEquipped
-// and read against COLD_THRESHOLD. Coldwater's climate profile peaks at 16°C in July, so
-// this ladder only ever defends against cold: HOT_THRESHOLD is unreachable outdoors and
-// there is deliberately nothing tuned on the heat side. Kit totals, with pants (1.5) and
-// shoes (0.5): winter 6.0, autumn 5.5, spring 4.5, summer 3.0.
+// and read against COLD_THRESHOLD; a `covers` garment counts once. Each suit is the old
+// season's torso piece plus the pants' 1.5, so the kit totals with shoes (0.5) are what
+// they were: winter 6.0, autumn 5.5, spring 4.5, summer 3.0. Coldwater peaks at 16°C in
+// July, so the ladder only defends against cold.
 //
-// Summer reproducing exactly 3.0 is not a coincidence — that is what the old fixed kit
-// issued in every season, which is the evidence it was authored for mild weather and
-// never revisited. A body that came back in January met a -12°C night wearing it.
-//
-// These are deliberately shabby. The vats are not being kind: a body that walks fewer
-// metres is a worse asset, and the winter coat at 4 leaves real cold-weather gear
-// (item_thermal_parka at 8, item_snowsuit at 9) worth every credit it costs.
-export const SEASONAL_TORSO = {
-  winter: 'item_vat_coat_quilted',
-  autumn: 'item_vat_jacket_lined',
-  spring: 'item_vat_jacket_light',
-  summer: 'item_vat_overshirt',
+// These are deliberately shabby. The vats are not being kind, and the winter suit at 5.5
+// leaves real cold-weather gear (item_thermal_parka at 8, item_snowsuit at 9) worth buying.
+export const SEASONAL_SUIT = {
+  winter: 'item_vat_suit_winter',
+  autumn: 'item_vat_suit_autumn',
+  spring: 'item_vat_suit_spring',
+  summer: 'item_vat_suit_summer',
 };
 
-// What to issue when the world clock has not loaded (pre-boot, regress). Autumn is the
-// middle of the ladder, so an unknown date costs the player warmth in winter rather than
-// leaving them in an overshirt at -12°C. Never leave a body naked over a missing date.
-const SEASONAL_TORSO_FALLBACK = SEASONAL_TORSO.autumn;
+// Which suit, by the weather the body walks out into: the coldest band whose ceiling the
+// outdoor temperature is at or under, else summer. Before the clock has loaded there is no
+// temperature, so the calendar's season; with no date either, autumn, the middle of the
+// ladder, so an unknown day costs warmth in winter rather than leaving a body in short
+// sleeves at -12°C. Never leave a body naked over a missing reading.
+const SUIT_CEILING_C = [[2, 'winter'], [8, 'autumn'], [13, 'spring']];
+export function suitSeasonFor(tempC, date = null) {
+  if (Number.isFinite(tempC)) {
+    for (const [c, s] of SUIT_CEILING_C) if (tempC <= c) return s;
+    return 'summer';
+  }
+  return seasonForDate(date) || 'autumn';
+}
+const suitNow = () => SEASONAL_SUIT[suitSeasonFor(outdoorTempC(), gameToday())] || SEASONAL_SUIT.autumn;
 
 // Issued gear arrives worn, not box-fresh. This fires on EVERY respawn, so a Pristine
 // kit would make dying a free way to refresh a battered wardrobe. Sits just above the
@@ -688,24 +694,21 @@ export function equipStarterOutfit(victimId, sex) {
            AND NOT EXISTS (SELECT 1 FROM player_inventory WHERE player_id=$2 AND item_id=$5 AND is_equipped=1)`,
       [randomUUID(), victimId, slot, layer, itemId, STARTER_CONDITION]).catch(() => {});
   const pending = underwear.map(([itemId, slot]) => equip(itemId, slot, 1));
-  const torso = SEASONAL_TORSO[seasonForDate(gameToday())] || SEASONAL_TORSO_FALLBACK;
-  for (const [itemId, slot] of [[torso,'torso'],['item_basic_pants','legs'],['item_basic_shoes','feet']]) pending.push(equip(itemId, slot, 2));
+  for (const [itemId, slot] of [[suitNow(), 'torso'], ['item_basic_shoes', 'feet']]) pending.push(equip(itemId, slot, 2));
   return Promise.all(pending);
 }
 
-// What the gantry SAYS it put on you. The torso garment is the only part of the kit
-// that moves (SEASONAL_TORSO), so it is read out of the item cache rather than typed
-// out here a second time — the line promised "a t-shirt" through a January respawn
-// that actually issued a quilted coat, which is the drift a hand-written list buys.
-// Underwear stays a category rather than the two rows equipStarterOutfit inserts: the
-// message is a body being clothed, not a packing slip.
+// What the gantry SAYS it put on you. The suit is the part of the kit that moves
+// (SEASONAL_SUIT), so its name is read out of the item cache rather than typed out here
+// a second time, which is the drift a hand-written list buys. Underwear stays a category
+// rather than the rows equipStarterOutfit inserts: the message is a body being clothed,
+// not a packing slip.
 export function starterOutfitPhrase() {
-  const id = SEASONAL_TORSO[seasonForDate(gameToday())] || SEASONAL_TORSO_FALLBACK;
-  const name = getItem(id)?.name;
+  const name = getItem(suitNow())?.name;
   // No cache (pre-boot, or the row was pulled) falls back to the generic noun rather
-  // than to nothing — the sentence still has to name four garments.
-  const garment = name ? `${/^[aeiou]/i.test(name) ? 'an' : 'a'} ${name}` : 'a shirt';
-  return `underwear, pants, ${garment}, a pair of shoes`;
+  // than to nothing: the sentence still has to name the garments.
+  const garment = name ? `${/^[aeiou]/i.test(name) ? 'an' : 'a'} ${name}` : 'a vat suit';
+  return `underwear, ${garment}, a pair of shoes`;
 }
 
 // How long after the gantry finishes before the witness system is allowed to look
@@ -718,7 +721,11 @@ export const VAT_DRESS_GRACE_MS = 4000;
 // robot clothes you and prints an invoice against your account. Cloning is free
 // for everyone — the invoice reads COMPLIMENTARY and the balance is left untouched.
 function scheduleVatEmergence(player) {
-  const send = (message) => broadcastFn(null, { type: 'output', message }, null, player.id);
+  // guarded: the game loop isn't started in regress, and these land on timers after a suite's death
+  const send = (message) => broadcastFn?.(null, { type: 'output', message }, null, player.id);
+  // the room's picture of it (plugins/roomstage: a body down a tube to a release vat, the gantry dressing it), on this
+  // same clock: the text below and the picture say the same thing at the same moment
+  emit('vat.emerging', { actor: player, zone: player.current_zone, t0: Date.now() });
 
   // The clone is naked until the dressing gantry clothes it (VAT_DRESS_MS). Mark
   // that window so the witness system doesn't charge indecent exposure for a body
@@ -740,7 +747,7 @@ function scheduleVatEmergence(player) {
     // it just stamps the total COMPLIMENTARY and never touches the balance.
     const balance = player.credits ?? 0;
     send(`<span class="clone-vat-message">A dressing gantry unfolds on too many arms and plants you upright in the lab. It sheathes you (${starterOutfitPhrase()}) with the tenderness of an industrial press, then slaps an invoice against your account and stamps it before you can read the line items: <span class="credits">COMPLIMENTARY</span>. The Architect eats the cost of cloning, tailoring, and incidental resurrection, not out of generosity but because a debt you could die to escape is no leash at all. Balance: <span class="credits">₵${balance}</span>.</span>`);
-    broadcastFn(null, { type: 'player_update', credits: balance }, null, player.id);
+    broadcastFn?.(null, { type: 'player_update', credits: balance }, null, player.id);
   }, VAT_DRESS_MS);
 }
 
@@ -859,7 +866,8 @@ export async function handlePlayerDeath(player, killer, cause = null) {
 
   const vatLine = respawnOverride?.message
     || `<span class="clone-vat-message">Nothing. Then less than nothing: a dark so total it has weight. Then, without ceremony, you: consciousness arrives the way a switch does, no dimmer and no warning, just ON, a self where a moment ago there was only the Architect's arithmetic.</span>`;
-  broadcastFn(null, {
+  // ?. because regress kills players without starting the game loop (startGameLoop sets broadcastFn)
+  broadcastFn?.(null, {
     type:'player_death',
     message:`\n<span class="death-message">☠ ${msg}${killerMsg}</span>\n${vatLine}`,
     respawn_zone: respawnZone,
@@ -874,7 +882,7 @@ export async function handlePlayerDeath(player, killer, cause = null) {
   // the same lootable body anyone else leaves.
   if (corpseId) {
     const corpseLink = `<span class="action-link corpse-link" data-action="loot" data-target="${corpseId}" data-label="${escAttr(corpseName)}" title="Loot ${escAttr(corpseName)}">${corpseName}</span>`;
-    broadcastFn(deathZone, { type:'zone_event', message:`${player.handle} has died. ${corpseLink}`, refresh: true }, player.id);
+    broadcastFn?.(deathZone, { type:'zone_event', message:`${player.handle} has died. ${corpseLink}`, refresh: true }, player.id);
   }
 
   query('UPDATE players SET hp=$1, sanity=$2, hunger=$3, thirst=$4, radiation=$5, stamina=$6, body_temp_c=$7, clothing_contamination=$8, current_zone=$9 WHERE id=$10',
@@ -937,7 +945,7 @@ async function ambientTick() {
     // Plugin hook first
     const pluginAmbient = await fireHook('zone.describeAmbient', zone);
     if (pluginAmbient) {
-      broadcastFn(zoneId, { type:'ambient', message:`<span class="msg-ambient">${pluginAmbient}</span>`, flavour: true });
+      broadcastFn?.(zoneId, { type:'ambient', message:`<span class="msg-ambient">${pluginAmbient}</span>`, flavour: true });
       continue;
     }
 
@@ -1097,8 +1105,8 @@ async function ionStormTick() {
       if (!z || z.map_id !== 'map_world' || z.grid_x == null) continue;
       if (z.flags?.is_interior || z.flags?.is_apartment || z.flags?.is_building) continue;
       if (cheb({ x: z.grid_x, y: z.grid_y }, b) > ION_FLASH_TILES) continue;
-      broadcastFn(zid, { type: 'lightning' });
-      broadcastFn(zid, { type: 'ambient', message: line, flavour: true });
+      broadcastFn?.(zid, { type: 'lightning' });
+      broadcastFn?.(zid, { type: 'ambient', message: line, flavour: true });
     }
   }
   // A cloud-to-cloud flicker line now and then for people outdoors, so the text
@@ -1109,15 +1117,15 @@ async function ionStormTick() {
       const z = world.zones.get(zid);
       if (!z || z.map_id !== 'map_world') continue;
       if (z.flags?.is_interior || z.flags?.is_apartment || z.flags?.is_building) continue;
-      broadcastFn(zid, { type: 'lightning' });
-      broadcastFn(zid, { type: 'ambient', message: msg, flavour: true });
+      broadcastFn?.(zid, { type: 'lightning' });
+      broadcastFn?.(zid, { type: 'ambient', message: msg, flavour: true });
     }
   }
   if (!overload.length) return;
   const darkened = await overloadJunctionBoxes(overload);
   for (const zid of occupied) {
     if (!darkened.has(zid)) continue;
-    broadcastFn(zid, { type: 'ambient', message: `<span class="msg-ambient">${pick(ION_SHAKE_LINES)}</span>` });
+    broadcastFn?.(zid, { type: 'ambient', message: `<span class="msg-ambient">${pick(ION_SHAKE_LINES)}</span>` });
   }
 }
 
@@ -1137,7 +1145,7 @@ async function stormTick() {
     if (Math.random() > intensity / 6) continue;   // 5s tick: 1/6 the 30s odds → same per-minute rate
 
     // Flash the ground players + emit the world-coord strike the flight sim renders.
-    broadcastFn(zoneId, { type: 'lightning' });
+    broadcastFn?.(zoneId, { type: 'lightning' });
     emit('weather.lightningStrike', { gx: zone.grid_x, gy: zone.grid_y, intensity });
 
     // Very rare: one player in the zone gets struck by lightning, scaled by
@@ -1147,11 +1155,11 @@ async function stormTick() {
       const victimId = playerIds[Math.floor(Math.random() * playerIds.length)];
       const victim = getLivePlayer(victimId);
       if (victim && !victim.sleeping) {
-        broadcastFn(null, {
+        broadcastFn?.(null, {
           type: 'output',
           message: `<span class="death-message">⚡ ⚡ ⚡ LIGHTNING STRIKES! ⚡ ⚡ ⚡\nA blinding bolt of lightning tears through the sky and strikes you squarely. Thunder explodes overhead as the world disappears in a flash of searing white.</span>`,
         }, null, victim.id);
-        broadcastFn(zoneId, { type: 'zone_event', message: `A bolt of lightning strikes ${victim.handle} dead.` }, victim.id);
+        broadcastFn?.(zoneId, { type: 'zone_event', message: `A bolt of lightning strikes ${victim.handle} dead.` }, victim.id);
         const kill = await recordLightningKill(victim.handle);
         console.log(`[weather] Lightning killed ${victim.handle} in zone ${zoneId} at ${kill.date} ${kill.time}.`);
         await handlePlayerDeath(victim, null, { type: 'weather', label: 'Lightning Strike' });
@@ -1165,7 +1173,7 @@ async function stormTick() {
       // flavour: thunder repeats for as long as the storm runs. The storm's
       // actual danger is carried by the ⚠ forecast band and the room's own
       // warning line, both of which survive at every rung.
-      broadcastFn(zoneId, { type: 'ambient', message: msg, flavour: true });
+      broadcastFn?.(zoneId, { type: 'ambient', message: msg, flavour: true });
       emit('weather.thunder', { zoneId });
     }, delay);
   }
@@ -1716,7 +1724,7 @@ async function resourceTick() {
       // not become a second copy of it. tickSleep reads the result and wakes on cold.
       driftBodyTemperature(player, gm);
       const result = await tickSleep(player, broadcastFn);
-      if (result) broadcastFn(null, result, null, playerId);
+      if (result) broadcastFn?.(null, result, null, playerId);
       // Sleep moves hunger, thirst, healing and last_slept_at every minute; they go
       // out in the batched write below rather than a round trip per sleeper.
       dirtyResources.add(player);
@@ -1944,7 +1952,7 @@ async function resourceTick() {
     const tiredBand = fatigueLabel(tired);
     const bandChanged = player._lastFatigueBand !== tiredBand;
     player._lastFatigueBand = tiredBand;
-    if (messages.length || bodyTempChanged || bandChanged || player.sanity !== prevSanity) broadcastFn(null, { type:'resource_tick', messages, player_update:{hunger:player.hunger,thirst:player.thirst,hp:player.hp,stamina:player.stamina,body_temp_c:player.body_temp_c,sanity:player.sanity,fatigue:Math.round(tired)} }, null, playerId);
+    if (messages.length || bodyTempChanged || bandChanged || player.sanity !== prevSanity) broadcastFn?.(null, { type:'resource_tick', messages, player_update:{hunger:player.hunger,thirst:player.thirst,hp:player.hp,stamina:player.stamina,body_temp_c:player.body_temp_c,sanity:player.sanity,fatigue:Math.round(tired)} }, null, playerId);
 
     if (player.hp <= 0) {
       await handlePlayerDeath(player, null, lethalCause);
@@ -2079,7 +2087,7 @@ async function restRegenTick() {
       const msg = SIT_REGEN_MESSAGES[Math.floor(Math.random() * SIT_REGEN_MESSAGES.length)];
       messages.push(`${msg} (+${healed} HP)`);
     }
-    broadcastFn(null, {
+    broadcastFn?.(null, {
       type: 'resource_tick',
       messages,
       player_update: { hp, stamina },
@@ -2101,7 +2109,7 @@ async function npcWanderTick() {
         const dest = npc.home_zone || npc.zone_id;
         npc.zone_id = dest;
         world.zones.get(dest)?.npcs.add(id);
-        broadcastFn(dest, { type: 'zone_event', message: `${npc.name} returns.`, refresh: true });
+        broadcastFn?.(dest, { type: 'zone_event', message: `${npc.name} returns.`, refresh: true });
         // Position is RAM-only (boot places NPCs at home_zone); persist only hp.
         query('UPDATE npcs SET hp=$1 WHERE id=$2', [npc.hp, id]).catch(() => {});
       }
@@ -2274,7 +2282,7 @@ async function rentCollectionTick() {
     if (carried + banked < cost) {
       // Can't cover from the bank or on hand — evict
       await releaseApartment(apt, apt.zone_id);
-      broadcastFn(null, {
+      broadcastFn?.(null, {
         type: 'output',
         message: `<span style="color:var(--red)">EVICTION NOTICE: You couldn't cover the ${cost}₵ rent for <em>${zoneName}</em> in ${buildingName}. Your lease has been terminated and the unit re-listed. Next time, keep credits banked or on hand.</span>`,
       }, null, p.id);
@@ -2301,7 +2309,7 @@ async function rentCollectionTick() {
     if (live) {
       live.bank_credits = Math.max(0, (live.bank_credits || 0) - fromBank);
       live.credits = Math.max(0, (live.credits || 0) - fromCarried);
-      broadcastFn(null, {
+      broadcastFn?.(null, {
         type: 'output',
         message: `<span style="color:var(--yellow)">RENT COLLECTED: ${cost}₵ deducted for <em>${zoneName}</em> in ${buildingName}. Banked: ${live.bank_credits}₵ · On hand: ${live.credits}₵.</span>`,
         player_update: { credits: live.credits, bank_credits: live.bank_credits },

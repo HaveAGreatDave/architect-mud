@@ -7,7 +7,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#1b2733",
   "color": "#e8ddc6",
-  "description": "A members' room glassed on the water side, forty-one floors up, Coldwater bay flat and grey below and weather at eye level. Low leather chairs face outward in ones and twos. A bar along the back wall, no prices. A brass telescope on a stand by the north pane, pointed at the deep water. The hall is <b>south</b>.",
+  "description": "The members' room at the waist of the tower, nineteen floors up, where the Solenne is narrowest: glass on three sides, so the city is all round you and the stem flares away above and below. Deep chairs, a long bar, and staff who never ask your name twice. The hall is <b>south</b>.",
   "exits": {
     "south": "zone_solenne_hall_41"
   },
@@ -17,26 +17,8 @@
     "is_interior": true,
     "room": {
       "balcony": false,
-      "d": 10,
+      "d": 5.2,
       "decor": {
-        "art": [
-          {
-            "at": 2.75,
-            "h": 1.2,
-            "seed": 5,
-            "w": 1.6,
-            "wall": "right",
-            "y": 1.95
-          },
-          {
-            "at": 5.25,
-            "h": 1.2,
-            "seed": 44,
-            "w": 1.6,
-            "wall": "right",
-            "y": 1.95
-          }
-        ],
         "ceiling": {
           "band": 0.5,
           "drop": 0.2,
@@ -49,7 +31,7 @@
           {
             "at": [
               0,
-              5
+              4.4
             ],
             "drop": 1.5,
             "k": 1.6,
@@ -57,39 +39,15 @@
             "tiers": 3
           }
         ],
-        "plants": [
-          [
-            5.8,
-            0.9,
-            1.05
-          ],
-          [
-            -5.8,
-            9.2,
-            0.95
-          ]
-        ],
         "sconces": {
           "points": [
             [
-              "right",
-              1.5
-            ],
-            [
-              "right",
-              4
-            ],
-            [
-              "right",
-              6.5
+              "back",
+              -3
             ],
             [
               "back",
-              -4.6
-            ],
-            [
-              "back",
-              -2.2
+              3
             ]
           ],
           "y": 1.9
@@ -103,11 +61,15 @@
           ]
         }
       },
+      "doors": {
+        "south": 0
+      },
       "face": 0,
       "finish": "fine",
       "glass": [
         "front",
-        "left"
+        "left",
+        "right"
       ],
       "h": 3.6,
       "studio": false,
@@ -117,7 +79,7 @@
         "trim": "#11161b",
         "wall": "#27313a"
       },
-      "w": 13
+      "w": 10.6
     },
     "sanctuary": true
   },

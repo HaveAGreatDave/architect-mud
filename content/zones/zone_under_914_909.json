@@ -5,7 +5,7 @@
   "description": "The sewer beneath Marrow Street is all crumbling grade and standing filth, the kind of dark that has never been disturbed by anyone with a reason to be here.",
   "exits": {
     "east": "zone_under_915_909",
-    "west": "zone_under_913_909"
+    "west": "zone_seam_914_909_l1"
   },
   "flags": {
     "ambient_pool": "world_sewer_line",
@@ -15,7 +15,7 @@
     "scavenging_table_id": "scav_sewer",
     "terrain": "sewer"
   },
-  "grid_x": 914,
+  "grid_x": 915,
   "grid_y": 909,
   "grid_z": -1,
   "id": "zone_under_914_909",

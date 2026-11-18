@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_chatty_02",
+  "lines": [
+    "\"I love it when it rains.\"",
+    "\"Why?\"",
+    "\"Everyone stands under the same awning and you can talk to anyone.\"",
+    "\"That's why I hate it.\""
+  ],
+  "personality": "chatty",
+  "sort_order": 675
+}

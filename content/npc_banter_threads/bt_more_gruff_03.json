@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_more_gruff_03",
+  "lines": [
+    "\"Get anything done today?\"",
+    "\"Kept out of trouble.\"",
+    "\"That's it?\"",
+    "\"That's a lot, round here.\""
+  ],
+  "personality": "gruff",
+  "sort_order": 671
+}

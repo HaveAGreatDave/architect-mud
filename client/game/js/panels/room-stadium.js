@@ -14,6 +14,9 @@ import { facing } from '../../../shared/room-layout.js';
 import { createRoomMachine } from './room-machine.js';
 import { createRoomRink } from './room-rink.js';
 import { styleOf, facesOf, loadFace, paintSign } from './stadium-signs.js';
+import { roomMarks } from './room-marks.js';
+import { trophyCup, bannerCloth } from './gl/room-stadium.js';
+import { CUP_FACE } from './gl/room-cup.js';
 
 const hexRgb = (h) => { const n = parseInt(String(h || '#808080').slice(1, 7), 16); return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255]; };
 
@@ -44,6 +47,40 @@ function paintChampion(c, st = styleOf(null)) {
   if (g.measureText(name).width > 320 && words.length > 1) { const h = Math.ceil(words.length / 2); g.fillText(words.slice(0, h).join(' '), 256, 470); g.fillText(words.slice(h).join(' '), 256, 508); } else g.fillText(name, 256, 485);
   if (c.season) { g.fillStyle = '#f4e4b0'; g.font = `26px "${st.sub}", Georgia, serif`; g.fillText(`SEASON ${c.season}`, 256, 540); }
   return { cv, glow: hexRgb(a) };
+}
+
+// A club's banner (gl/room-stadium.js 'banner'): its first colour, a stripe of each of the others under the rod,
+// the crest, and the club's name stacked down the cloth. Paint, not light: it's lit like the wall it hangs on.
+function paintBanner(c, st = styleOf(null)) {
+  const cv = document.createElement('canvas');
+  cv.width = 256; cv.height = 512;
+  const g = cv.getContext('2d'), cols = (c.colours || []).filter((x) => /^#[0-9a-f]{6}$/i.test(x));
+  const a = cols[0] || '#3a2c1e', b = cols[1] || '#c49a52', ink = inkOn(a, cols);
+  g.fillStyle = a; g.fillRect(0, 0, 256, 512);
+  cols.slice(1).forEach((col, i) => { g.fillStyle = col; g.fillRect(0, 40 + i * 16, 256, 10); });
+  if (!paintCrest(g, { crest: c.crest, colours: cols }, 128, 190, 170)) { g.fillStyle = b; g.beginPath(); g.arc(128, 190, 70, 0, Math.PI * 2); g.fill(); }
+  g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = ink;
+  // the place first, smaller; the nickname under it in the venue's face, as big as the cloth allows
+  const words = String(c.name || '').toUpperCase().split(' ').filter(Boolean);
+  // the nickname is the last word, or the last two when a colour leads it (Blue Birds, Red Sox)
+  const two = words.length > 2 && /^(BLUE|RED|WHITE|BLACK|GREEN|GOLD|GOLDEN|SILVER|GREY|GRAY|BROWN|ORANGE)$/.test(words[words.length - 2]);
+  const nick = words.length > 1 ? words.slice(two ? -2 : -1) : words, place = words.slice(0, words.length - nick.length).join(' ');
+  g.font = `26px "${st.sub}", Georgia, serif`;
+  if (place) g.fillText(place, 128, 315);
+  nick.forEach((wd, i) => {
+    let px = 48;
+    const set = () => { g.font = `${px}px "${st.font}", Georgia, serif`; };
+    set();
+    while (px > 20 && g.measureText(wd).width > 220) { px -= 2; set(); }
+    g.fillText(wd, 128, 365 + i * 52);
+  });
+  return cv;
+}
+// the club colour that reads best on its first: whichever of the rest differs most from it, else white or black
+function inkOn(bg, cols) {
+  const lum = (h) => { const [r, g, b] = hexRgb(h); return 0.2126 * r + 0.7152 * g + 0.0722 * b; }, L0 = lum(bg);
+  const best = cols.slice(1).sort((x, y) => Math.abs(lum(y) - L0) - Math.abs(lum(x) - L0))[0];
+  return best && Math.abs(lum(best) - L0) > 0.35 ? best : L0 > 0.5 ? '#111111' : '#ffffff';
 }
 
 /** The stadium's things for one open Stage. `R` is the room's renderer and `host` the element its canvas is in. */
@@ -87,8 +124,9 @@ export function createRoomStadium({ R, host }) {
       const hw = p.w / 2, hd = p.d / 2, h = p.h;
       if (p.form === 'seatdoor') { const ow = Math.max(0.9, p.w - 0.5), oh = h - 0.55; put(`sign:${p.id}`, p, -ow / 2, ow / 2, oh + 0.07, h - 0.07, hd + 0.053, { kind: 'lightbox', text: p.label || 'Seats', sub: p.sub || '' }); }
       else if (p.form === 'boxoffice') { const top = h - 0.42; put(`sign:${p.id}`, p, -hw + 0.04, hw - 0.04, top + 0.12, h - 0.04, hd + 0.003, { kind: 'lightbox', text: p.label || 'Tickets', sub: p.sub || '' }); }
+      else if (p.form === 'smokebooth') put(`sign:${p.id}`, p, -hw + 0.04, hw - 0.04, h - 0.4, h - 0.12, hd + 0.012, { kind: 'lightbox', text: p.label || 'Tobacco', sub: p.sub || '' });
       else if (p.form === 'packs') put(`sign:${p.id}`, p, -hw + 0.04, hw - 0.04, h - 0.27, h - 0.05, hd + 0.003, { kind: 'neon', text: p.label || 'Cards' });
-      else if (p.form === 'trophy') { const ph = Math.min(1.0, h * 0.45); put(`sign:${p.id}`, p, -0.3, 0.3, ph * 0.5, ph * 0.5 + 0.16, hd - 0.035, { kind: 'gilt', text: p.label || 'The Cup', sub: p.sub || '' }); }
+      else if (p.form === 'trophy') { const { ph } = trophyCup(p); put(`sign:${p.id}`, p, -0.3, 0.3, ph * 0.5, ph * 0.5 + 0.16, hd - 0.035, { kind: 'gilt', text: p.label || 'The Cup', sub: p.sub || '' }); }
       else if (p.form === 'champion') put(`sign:${p.id}`, p, -0.3, 0.3, 0.12, 0.26, hd + 0.002, { kind: 'gilt', text: p.champ?.name ? 'Champions' : 'Awaiting a champion', sub: p.champ?.season ? `Season ${p.champ.season}` : '' });
     }
     // the room's own: { wall, at, y, w, h, text, sub, kind, tint }
@@ -100,14 +138,26 @@ export function createRoomStadium({ R, host }) {
       const w = Number(s0.w) || 1.4, hh = Number(s0.h) || 0.4, y = Number(s0.y) || 2.2;
       put(`wsign:${i}`, { u, v, turn, y0: 0 }, -w / 2, w / 2, y - hh / 2, y + hh / 2, 0.02, { kind: s0.kind || 'gilt', text: s0.text, sub: s0.sub || '', tint: s0.tint || null });
     }
-    decals = [...decals.filter((d) => !d.key.startsWith('sign:') && !d.key.startsWith('wsign:')), ...out];
+    // and the room's own marks (room-marks.js: labels, stencils, placards, tags, readouts, stains, flat on the floor too)
+    const marks = await roomMarks(L).catch((e) => { console.warn('[room] marks:', e?.message); return []; });
+    if (gen !== signGen || !L) return;
+    decals = [...decals.filter((d) => !d.key.startsWith('sign:') && !d.key.startsWith('wsign:') && !d.key.startsWith('mark:')), ...out, ...marks];
     dirty = true;
   }
 
   function champions() {
-    decals = decals.filter((d) => !d.key.startsWith('champ:'));
+    decals = decals.filter((d) => !d.key.startsWith('champ:') && !d.key.startsWith('banner:'));
     champGlows = rinkLight();
     for (const p of L?.placed || []) {
+      if (p.form === 'banner' && p.club?.name) {
+        const key = `banner:${p.id}:${p.club.name}`;
+        let pic = champCache.get(key);
+        if (!pic) { pic = { cv: paintBanner(p.club, styleOf(L.spec)) }; champCache.set(key, pic); }
+        // the cloth from the top of its point to under the rod (gl/room-stadium.js), a hair proud of it
+        const { top, foot } = bannerCloth(p), cw = p.w / 2 - 0.06, q = faceQuad(L, p, -cw, cw, foot, top - 0.02, 0.031);
+        decals.push({ key, src: pic.cv, ...q });
+        continue;
+      }
       if (p.form !== 'champion' || !p.champ?.name) continue;
       const key = `champ:${p.id}:${p.champ.name}:${p.champ.season || ''}`;
       let pic = champCache.get(key);
@@ -130,6 +180,9 @@ export function createRoomStadium({ R, host }) {
   function load(Lnew) {
     L = Lnew;
     machine.load(L);
+    // the Cup's engraving face, so its atlas is painted in it (gl/room-cup.js paintCupRoll; room-stage.js paints
+    // it again if it was drawn first)
+    if ((L?.placed || []).some((p) => p.form === 'trophy')) loadFace(CUP_FACE);
     champions();
     signs().catch((e) => console.warn('[room] signs:', e?.message));
     // the ice, drawn from the room's own camera as the room is drawn (gl/room.js setUnder)

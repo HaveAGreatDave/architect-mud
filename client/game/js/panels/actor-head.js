@@ -118,12 +118,84 @@ FACE_STYLES.sculptBroad = { ...FACE_STYLES.sculpt, jaw: -0.25, jawSq: 1.3, chinW
 FACE_STYLES.sculptLean = { ...FACE_STYLES.sculpt, jaw: 0.3, jawSq: 0.6, hollow: 2.6, chin: 2.5, chinW: 1, nose: 1.35 };
 // The soft head is a woman's: hardly any brow ridge, a shorter smaller nose, the jaw tapering to a small
 // chin with no corner, and `chinUp` shortening the face under the mouth.
-FACE_STYLES.sculptSoft = { ...FACE_STYLES.sculpt, brow: 0.6, bridge: 0.75, socket: 0.7, ball: 0.7, cheek: 1.5, cheekHi: 0.006, hollow: 0.35, nose: 0.72, tip: 0.85, wings: 0.7, folds: 0, lips: 1.3, chin: 0.8, chinW: 0.85, jaw: 1.1, jawSq: 0, browEdge: 1.2, chinUp: 0.011, chinOut: 0, browY: 1.6645, eyeX: 0.0312, noseNarrow: 0, wings: 0.7, tip: 0.85 };
+FACE_STYLES.sculptSoft = { ...FACE_STYLES.sculpt, brow: 0.6, bridge: 0.75, socket: 0.7, ball: 0.7, cheek: 1.5, cheekHi: 0.006, hollow: 0.35, nose: 0.72, tip: 0.85, wings: 0.7, folds: 0, lips: 1.3, chin: 0.8, chinW: 0.85, jaw: 1.1, jawSq: 0, browEdge: 1.2, chinUp: 0.011, chinOut: 0, browY: 1.6645, eyeX: 0.0312, noseNarrow: 0, wings: 0.7, tip: 0.85, soft: 1 };
 // The leading man's head: the plain sculpted head with a firmer jaw and a broad, rounded chin, a little
 // squared in front (`chinFlat`), and nothing pushed far enough to read as a caricature. Nobody rolls it
 // (the rolls stop at 3); a settled look asks for it (John Akerson's).
 FACE_STYLES.sculptChin = { ...FACE_STYLES.sculpt, cheek: 2.5, hollow: 1.9, nose: 1.2, chin: 1.9, chinW: 1.4, chinOut: 0.0045, jaw: -0.1, jawSq: 1.1, jawY: 1.57, jawR: 0.02, chinFlat: 0.35 };
-export const SCULPT_HEADS = ['sculpt', 'sculptBroad', 'sculptLean', 'sculptSoft', 'sculptChin'];
+// More women's heads, each the soft head pushed one way (they keep its eyes, `soft`): heart (wide high cheekbones
+// over a small pointed chin), oval (longer and even), round (full cheeks, a soft round chin), angular (high
+// cheekbones, a defined jaw with a corner), elfin (small chin, a short tipped-up nose, big open sockets) and strong
+// (a square jaw and a firmer brow).
+FACE_STYLES.sculptHeart = { ...FACE_STYLES.sculptSoft, cheek: 2.0, cheekHi: 0.008, hollow: 0.6, chin: 0.9, chinW: 0.65, jaw: 1.5, chinOut: 0.002 };
+FACE_STYLES.sculptOval = { ...FACE_STYLES.sculptSoft, cheek: 1.3, chinUp: 0.007, chin: 1.0, chinW: 0.8, jaw: 0.9, nose: 0.85 };
+FACE_STYLES.sculptRound = { ...FACE_STYLES.sculptSoft, cheek: 1.1, hollow: 0, chin: 0.6, chinW: 1.1, jaw: 0.5, lips: 1.45, nose: 0.68 };
+FACE_STYLES.sculptAngular = { ...FACE_STYLES.sculptSoft, cheek: 2.3, cheekHi: 0.009, hollow: 1.3, jaw: 0.6, jawSq: 0.55, chin: 1.2, chinW: 0.9, brow: 0.9, nose: 0.85, noseNarrow: 0.25 };
+FACE_STYLES.sculptElfin = { ...FACE_STYLES.sculptSoft, socket: 0.5, ball: 0.85, cheek: 1.7, cheekHi: 0.007, nose: 0.55, tip: 1.15, chin: 0.65, chinW: 0.6, jaw: 1.4, chinUp: 0.013 };
+FACE_STYLES.sculptStrong = { ...FACE_STYLES.sculptSoft, brow: 1.1, cheek: 1.8, jaw: 0.25, jawSq: 0.8, chin: 1.4, chinW: 1.05, chinOut: 0.002, nose: 0.9, lips: 1.15 };
+// and more men's: gaunt (the hollows sunk), a boxer's (flattened broad nose, heavy brow), boyish (smooth and young)
+// and craggy (everything pushed).
+FACE_STYLES.sculptGaunt = { ...FACE_STYLES.sculpt, cheek: 2.8, hollow: 3.2, jaw: 0.35, jawSq: 0.8, chin: 2.2, nose: 1.4, noseNarrow: 0.5 };
+FACE_STYLES.sculptBoxer = { ...FACE_STYLES.sculpt, brow: 3.6, browEdge: 0.55, nose: 1.05, wings: 1.7, bridge: 0.5, noseNarrow: 0, jaw: -0.3, jawSq: 1.3, chinW: 1.3 };
+FACE_STYLES.sculptBoyish = { ...FACE_STYLES.sculpt, brow: 1.8, socket: 1.1, cheek: 1.9, hollow: 0.9, jaw: 0.4, jawSq: 0.6, chin: 1.6, chinW: 1.0, lips: 0.7, folds: 0.2 };
+FACE_STYLES.sculptCraggy = { ...FACE_STYLES.sculpt, brow: 3.8, socket: 2.0, cheek: 2.9, hollow: 2.3, nose: 1.5, wings: 1.45, folds: 1.0, chin: 2.6, jawSq: 1.4 };
+// By index, so a figure's `head` keeps meaning the same head: append, never reorder.
+export const SCULPT_HEADS = ['sculpt', 'sculptBroad', 'sculptLean', 'sculptSoft', 'sculptChin', 'sculptHeart', 'sculptOval', 'sculptRound', 'sculptAngular', 'sculptElfin', 'sculptStrong', 'sculptGaunt', 'sculptBoxer', 'sculptBoyish', 'sculptCraggy'];
+// a woman's head (the soft head's eyes, bust and face height go with it), by style name or by SCULPT_HEADS index
+export const softFace = (style) => !!FACE_STYLES[style]?.soft;
+export const softHead = (i) => softFace(SCULPT_HEADS[i]);
+// the heads a woman's figure rolls among, and a man's (sculptChin is a settled look's, never rolled)
+export const SOFT_HEADS = [3, 5, 6, 7, 8, 9, 10], HARD_HEADS = [0, 1, 2, 11, 12, 13, 14];
+// The MORPHEX's fine sliders (morphex-catalog.js FACE_TUNE), -5 to 5 each, added to a head's numbers. `tune` is the
+// figure's compact form, 'jaw:2,nose:-3'. Each tuned head is registered once under its own name, like weightedFace.
+const TUNE = {
+  jaw: (K, v) => { K.jaw -= v * 0.16; K.jawSq += v * 0.12; K.chinW += v * 0.04; },
+  chin: (K, v) => { K.chin += v * 0.28; K.chinOut = (K.chinOut || 0) + v * 0.0007; },
+  cheeks: (K, v) => { K.cheek += v * 0.24; K.cheekHi += v * 0.0007; },
+  hollows: (K, v) => { K.hollow += v * 0.3; },
+  nose: (K, v) => { K.nose += v * 0.09; K.tip += v * 0.06; K.wings += v * 0.07; },
+  bridge: (K, v) => { K.bridge += v * 0.15; K.noseNarrow = (K.noseNarrow || 0) + v * 0.05; },
+  lips: (K, v) => { K.lips += v * 0.16; },
+  browridge: (K, v) => { K.brow += v * 0.3; },
+  eyes: (K, v) => { K.socket += v * 0.18; },
+  // the eye's outline (figure.js eyeParts, and its paint in gl/figure-hd.js): K.eyeAdj is [spacing added in metres,
+  // width scale, opening scale, tilt added]; eyeAdjust gives the same from a tune string
+  eyesize: (K, v) => { const A = eyeAdj(K); A[1] *= 1 + 0.04 * v; A[2] *= 1 + 0.04 * v; },
+  eyeopen: (K, v) => { eyeAdj(K)[2] *= 1 + 0.07 * v; },
+  eyetilt: (K, v) => { eyeAdj(K)[3] += 0.012 * v; },
+  eyeset: (K, v) => { eyeAdj(K)[0] += 0.0006 * v; K.eyeX = (K.eyeX || 0.031) + 0.0006 * v; },
+};
+const eyeAdj = (K) => (K.eyeAdj ||= [0, 1, 1, 0]);
+const _eyeAdj = new Map();
+export function eyeAdjust(tune) {
+  if (!tune) return null;
+  let A = _eyeAdj.get(tune);
+  if (A === undefined) {
+    const K = {};
+    for (const part of String(tune).split(',')) {
+      const [k, n] = part.split(':'), v = Math.max(-5, Math.min(5, Number(n) || 0));
+      if (k.startsWith('eye') && k !== 'eyes' && TUNE[k] && v) TUNE[k](K, v);
+    }
+    A = K.eyeAdj || null;
+    _eyeAdj.set(tune, A);
+  }
+  return A;
+}
+export function tunedFace(style, tune) {
+  if (!tune || !FACE_STYLES[style]) return style;
+  const name = style + '~' + tune;
+  if (FACE_STYLES[name]) return name;
+  const K = { ...FACE_STYLES[style] };
+  delete K.eyeAdj;
+  for (const part of String(tune).split(',')) {
+    const [k, n] = part.split(':'), v = Math.max(-5, Math.min(5, Number(n) || 0));
+    if (TUNE[k] && v) TUNE[k](K, v);
+  }
+  for (const k of ['brow', 'bridge', 'socket', 'cheek', 'hollow', 'nose', 'tip', 'wings', 'lips', 'chin', 'chinW', 'jawSq', 'noseNarrow']) K[k] = Math.max(k === 'chinW' ? 0.4 : 0, K[k] || 0);
+  K.jaw = Math.max(-1.5, Math.min(2.2, K.jaw));
+  FACE_STYLES[name] = K;
+  return name;
+}
 // A sculpted head drawn on HEAD_HD: the rows there can hold the relief the coarse head left to the paint, so the
 // lips are put back toward the real head's, and the rest softened: flatter, broader cheekbones over a shallower hollow (they
 // stood out in profile as a triangle), a rounder brow and a gentler jaw. Not the folds: deeper, the philtrum shades

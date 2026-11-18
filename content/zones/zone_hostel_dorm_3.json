@@ -8,7 +8,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#221d18",
   "color": "#c9a86a",
-  "description": "The second container, stacked on the first and turned a quarter round, so this floor points down the cut. Two portholes have been cut in the side with a gas axe and glazed with bus windows. A curtain of old flags hangs between each bunk and the next, which is as close to a private room as this building gets.",
+  "description": "The second container, stacked on the first and turned a quarter round, so this floor points down the cut. Two portholes have been cut in the side with a gas axe and glazed with bus windows. Cots run head to foot down the east wall, with a curtain of old flags between each one and the next, which is as private as this building gets.",
   "exits": {
     "down": "zone_hostel_dorm_2",
     "up": "zone_hostel_dorm_4"
@@ -22,6 +22,90 @@
     "is_dwelling": true,
     "is_interior": true,
     "region_id": "region_coldwater",
+    "room": {
+      "balcony": false,
+      "d": 10.6,
+      "decor": {
+        "damp": [
+          {
+            "at": [
+              0.6,
+              9.4
+            ],
+            "r": 0.45
+          }
+        ],
+        "mags": [
+          {
+            "at": [
+              -1.2,
+              8.6
+            ],
+            "n": 7,
+            "seed": 7
+          }
+        ],
+        "rubbish": [
+          {
+            "at": [
+              -0.8,
+              6.4
+            ],
+            "n": 18,
+            "r": [
+              0.5,
+              2.6
+            ],
+            "seed": 9
+          }
+        ],
+        "rug": false,
+        "strips": [
+          {
+            "along": "v",
+            "at": [
+              0,
+              2.5
+            ],
+            "len": 1.2
+          },
+          {
+            "along": "v",
+            "at": [
+              0,
+              7.5
+            ],
+            "len": 1.2
+          }
+        ]
+      },
+      "doors": {
+        "down": [
+          -1.33,
+          3.8
+        ]
+      },
+      "face": 180,
+      "ground": "metal",
+      "h": 2.6,
+      "stair": {
+        "at": [
+          2,
+          4
+        ],
+        "climb": "back",
+        "w": 0.9
+      },
+      "studio": false,
+      "tone": {
+        "accent": "#2a4a6a",
+        "ceiling": "#3a4652",
+        "trim": "#1a2026",
+        "wall": "#3a5a7a"
+      },
+      "w": 5.4,
+      "windowless": true
+    },
     "sanctuary": true,
     "world_exit_zone": "zone_district_917_903"
   },

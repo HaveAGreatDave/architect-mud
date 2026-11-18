@@ -110,6 +110,7 @@ function compileBsm(text) {
   const weatherPools = {};    // pool_key → [line, …]  (only meaningful for @type weather AND @type sports — both use ::lines pools)
   const teams = [];           // team names from ::teams block  (only meaningful for @type sports)
   const players = [];         // player names from ::players block (only meaningful for @type sports)
+  const bullpens = {};        // club -> { manager, coach, pen } from ::bullpens (Deadball sim v5)
   const say = {};             // word → phonemes, from ::say blocks: how the voice says what no dictionary carries
   const guests = [];          // guest personas {name,title,theme} from ::guests block (only meaningful for @type talkshow)
   const contestants = [];     // plain contestant NAMES from ::contestants block (only meaningful for @type gameshow)
@@ -361,6 +362,20 @@ function compileBsm(text) {
       const content = collectBlock('::endplayers');
       for (const s of content.split('\n').map(t => t.trim()).filter(t => t && !t.startsWith('#'))) {
         players.push(unquote(s));
+      }
+      continue;
+    }
+
+    // ── Sports bullpens (::bullpens … ::endbullpens) ─────────────────────────
+    // Deadball sim v5: one club a line, "Club | manager | pitching coach | pen", the pen a
+    // comma list in its roles' order: the closer, the setup man, the middle men, the long man.
+    if (ln === '::bullpens') {
+      i++;
+      const content = collectBlock('::endbullpens');
+      for (const s of content.split('\n').map(t => t.trim()).filter(t => t && !t.startsWith('#'))) {
+        const [club, manager, coach, pen] = s.split('|').map(t => unquote(t.trim()));
+        if (!club || !pen) continue;
+        bullpens[club] = { manager: manager || '', coach: coach || '', pen: pen.split(',').map(t => unquote(t.trim())).filter(Boolean) };
       }
       continue;
     }
@@ -760,6 +775,7 @@ function compileBsm(text) {
   // broadcast never spawns a studio NPC. See docs/bsm-format.md#sports-broadcasts-type-sports.
   const sportsScript = { sport: meta.sport || 'baseball', announcer: meta.announcer, ...(meta.analyst ? { analyst: meta.analyst } : {}), teams, players, pools: weatherPools, title: meta.titlecard || '', airSlots: (meta.airSlots && meta.airSlots.length) ? meta.airSlots : null, ...(meta.sim ? { sim: { version: meta.sim, ...(meta.firstGen ? { firstGen: true } : {}) } } : {}),
     ...(Object.keys(say).length ? { say } : {}), ...(meta.voice ? { voice: meta.voice } : {}),
+    ...(Object.keys(bullpens).length ? { bullpens } : {}),
     // the network's open: plays under the title card, once, and the card holds for it
     ...(meta.theme ? { theme: meta.theme } : {}) };
 

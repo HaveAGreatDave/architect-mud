@@ -1,0 +1,60 @@
+{
+  "ambient_events": [
+    "The car hums between floors."
+  ],
+  "ambient_theme": "indoors",
+  "bg_color": "#1a2228",
+  "color": "#cfe4ea",
+  "description": "A steel car with a rubber floor and a dent in the back wall at aircraft-part height. The buttons go G, 2, 3, 4, 5 and R for the roof pad. Step <b>out</b> when the doors open.",
+  "exits": {
+    "out": "zone_sdeck_lobby",
+    "up": [
+      "zone_sdeck_l2",
+      "zone_sdeck_l3",
+      "zone_sdeck_l4",
+      "zone_sdeck_l5",
+      "zone_sdeck_pad"
+    ]
+  },
+  "flags": {
+    "building_name": "Stacked Deck",
+    "is_interior": true,
+    "floor": "metal",
+    "elevator": true,
+    "hide_exits": true,
+    "elevator_floors": [
+      {
+        "label": "Parking, level 2",
+        "n": 2,
+        "zone": "zone_sdeck_l2"
+      },
+      {
+        "label": "Parking, level 3",
+        "n": 3,
+        "zone": "zone_sdeck_l3"
+      },
+      {
+        "label": "Parking, level 4",
+        "n": 4,
+        "zone": "zone_sdeck_l4"
+      },
+      {
+        "label": "Parking, level 5",
+        "n": 5,
+        "zone": "zone_sdeck_l5"
+      },
+      {
+        "label": "Roof pad",
+        "n": 6,
+        "zone": "zone_sdeck_pad"
+      }
+    ]
+  },
+  "grid_x": 0,
+  "grid_y": -1,
+  "grid_z": 0,
+  "id": "zone_sdeck_lift",
+  "map_id": "map_int_stackeddeck",
+  "name": "Lift",
+  "parent_zone": "zone_seam_914_908"
+}

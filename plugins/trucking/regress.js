@@ -177,7 +177,7 @@ async function regressBody({ run, check, getPlayer }) {
     // walker all describe the same place with the same numbers. These are the invariants that
     // buys, and every one of them was a way it went wrong while being written.
     {
-      const A = { x0: 918, y0: 947, x1: 910, y1: 1042 };     // Coldwater's south rim → the Reach
+      const A = { x0: 919, y0: 947, x1: 910, y1: 1042 };     // Coldwater's south rim → the Reach
       const r = corridorFor(VOIDKEY, DESTKEY, 4242, 8, 4, null, A);
       const straight = Math.hypot(A.x1 - A.x0, A.y1 - A.y0);
       check('an anchored road starts on the rim tile it left',
@@ -1207,7 +1207,7 @@ async function regressBody({ run, check, getPlayer }) {
       { key: DESTKEY, name: 'The Reach', nodes: 8, x: 910, y: 1042 },
       { key: 'exodus', name: 'Terminus', nodes: 8, x: 1000, y: 1020 },
     ] };
-    const r = corridorFor(VOIDKEY, DESTKEY, 4242, 8, 4, plan, { x0: 918, y0: 947, x1: 910, y1: 1042 });
+    const r = corridorFor(VOIDKEY, DESTKEY, 4242, 8, 4, plan, { x0: 919, y0: 947, x1: 910, y1: 1042 });
     const sib = r.branches?.[0];
     check("a route carries the limb it didn't take", !!sib, String(r.branches?.length));
     if (sib) {
@@ -1268,7 +1268,7 @@ async function regressBody({ run, check, getPlayer }) {
   // teaching the wander about waypoints — every invariant of a segment stays a property the
   // existing builder already guarantees, and what is tested here is only the joining.
   {
-    const A = corridorFor(VOIDKEY, DESTKEY, 4242, 8, 4, null, { x0: 918, y0: 947, x1: 910, y1: 1000 });
+    const A = corridorFor(VOIDKEY, DESTKEY, 4242, 8, 4, null, { x0: 919, y0: 947, x1: 910, y1: 1000 });
     const B = corridorFor(VOIDKEY, 'exodus', 4242, 8, 4, null, { x0: 910, y0: 1000, x1: 910, y1: 1042 });
     const J = joinRoutes([A, B]);
     check('joining two segments gives one road as long as both', Math.abs(J.L - (A.L + B.L)) < 1e-6,
@@ -3311,7 +3311,7 @@ async function regressBody({ run, check, getPlayer }) {
       };
       // Two roads of the network, gate to gate (each pair has a pass carved for it in the bake).
       for (const [name, anch, seed] of [
-        ['Coldwater → the Scarletwastes', { x0: 918, y0: 947, x1: 1000, y1: 957 }, 'region_coldwater|region_scarletwastes'],
+        ['Coldwater → the Scarletwastes', { x0: 919, y0: 947, x1: 1000, y1: 957 }, 'region_coldwater|region_scarletwastes'],
         ['Terminus → the Scarletwastes', { x0: 1200, y0: 940, x1: 1092, y1: 957 }, 'region_terminus|region_scarletwastes'],
       ]) {
         const path = reliefPathFor(anch);
@@ -3346,7 +3346,7 @@ async function regressBody({ run, check, getPlayer }) {
       // road now runs down the valley the rock leaves, so a cut would go over a massif; a walker
       // being stopped by one is phase 8 of the relief proposal. What still holds is the trail's shape.
       {
-        const lanch = { x0: 918, y0: 947, x1: 1200, y1: 940 }, seed = 'region_coldwater|region_terminus';
+        const lanch = { x0: 919, y0: 947, x1: 1200, y1: 940 }, seed = 'region_coldwater|region_terminus';
         const rd = corridorFor('region_coldwater', 'exodus', 4242, 282, 20, null, lanch, seed);
         const t = trailFor(rd, seed, 4242);
         check('the trail is its own path with real length', !!t && t.L > 0, t ? t.L.toFixed(0) : 'none');

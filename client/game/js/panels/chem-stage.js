@@ -220,6 +220,7 @@ function renderMenu() {
       <button type="button" class="cs-splice" ${splice?.state === 'ok' ? 'data-cmd="splice"' : 'disabled'}>Splice${splice?.state === 'ok' ? '' : ` <small>${esc(splice?.value || 'locked')}</small>`}</button>
       <button type="button" data-act="leave">Leave the bench</button>
     </footer>
+    ${m.dev ? `<button type="button" class="cs-debug" data-cmd="synthstock" data-refresh="1" style="margin:6px 12px;color:#e0b64f;border:1px dashed #e0b64f;background:none;padding:4px 8px;cursor:pointer">DEBUG: stock every reagent</button>` : ''}
     ${m.assistant?.note ? `<p class="cs-note">${m.assistant.note}</p>` : ''}`;
   el.hidden = false;
   el.classList.remove('cs-on'); void el.offsetWidth; el.classList.add('cs-on');

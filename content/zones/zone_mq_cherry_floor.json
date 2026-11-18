@@ -55,7 +55,9 @@
       "windowless": true,
       "street_door": {
         "bars": true,
-        "leaf": "#6e1e28"
+        "cx": 0.1,
+        "dark": true,
+        "leaf": "#1c0a0e"
       }
     },
     "world_exit_zone": "zone_district_901_907"

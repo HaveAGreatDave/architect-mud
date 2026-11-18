@@ -1,0 +1,30 @@
+{
+  "description": "Box and white geraniums in a bronze planter. The geraniums are new; the wind takes them about once a month.",
+  "flags": {
+    "aliases": "planter,plants,plant",
+    "interactions": [
+      "examine"
+    ],
+    "look": {
+      "arche": "prop",
+      "form": "bonsai"
+    },
+    "spot": {
+      "at": [
+        -7.3,
+        10.4
+      ],
+      "turn": 90
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "light_type": null,
+  "lumen_output": null,
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "id": "furn_skypad_planter_4",
+  "name": "bronze planter",
+  "zone_id": "zone_solenne_helipad"
+}

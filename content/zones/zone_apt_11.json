@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#c9a884",
-  "description": "Unit 4C, which the corkboard downstairs calls cozy. It's small, but it's terracotta and white, with a terrazzo island, open shelves, and the window that was painted shut scraped free again. Bowls from somebody's wheel sit on every flat surface, most of them for sale.",
+  "description": "Unit 4C, which the corkboard downstairs calls cozy. It's small and shallow, but it's terracotta and white, and the window that was painted shut has been scraped free again. Bowls from somebody's wheel sit on every flat surface, most of them for sale.",
   "exits": {
     "in": "zone_apt_11_bath",
     "west": "zone_embassy_floor3"
@@ -12,11 +12,11 @@
     "is_apartment": true,
     "room": {
       "blinds": true,
-      "d": 8.6,
+      "d": 3.2,
       "decor": {
         "art": [
           {
-            "at": 3.6,
+            "at": 2.4,
             "h": 0.8,
             "seed": 111,
             "w": 1,
@@ -49,7 +49,7 @@
         "rug": {
           "at": [
             -1.6,
-            2.4
+            2
           ],
           "d": 1.8,
           "w": 2.2
@@ -59,25 +59,21 @@
           "points": [
             [
               "left",
-              2.6
+              1.2
             ],
             [
-              "left",
-              4.6
+              "front",
+              3.3
             ]
           ],
           "y": 1.8
         }
       },
-      "h": 2.9,
-      "kitchen": {
-        "face": "shelves",
-        "front": "#b8704e",
-        "grade": 2,
-        "island": true,
-        "top": "terrazzo",
-        "uppers": "shelves"
+      "ensuite": {
+        "d": 1.8
       },
+      "face": 90,
+      "h": 3.96,
       "sash": {
         "drapes": "#3a4a3e",
         "head": true,
@@ -85,13 +81,14 @@
         "transom": 0.4,
         "w": 1.8
       },
+      "studio": false,
       "tone": {
         "accent": "#a07c52",
         "ceiling": "#f4eee4",
         "trim": "#f2ebe0",
         "wall": "#b8704e"
       },
-      "w": 7
+      "w": 8
     },
     "window": {
       "description": "A tall sash window, reglazed, that opens and shuts and keeps the weather where it belongs.",
