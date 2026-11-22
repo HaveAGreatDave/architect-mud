@@ -15,6 +15,7 @@ import { readFileSync } from 'node:fs';
 import { TYPES, createState, step } from '../client/game/js/panels/flight-model.js';
 import { MR, newMerlinState, merlinHover, merlinLock, merlinBoostOn, stepMerlin, CAR_PARK_PADS } from '../client/game/js/panels/merlin-modes.js';
 import { HOVER_CARS, HOVER_CAR_IDS } from '../client/shared/hover-cars.js';
+import { BRANDS } from '../client/shared/interior-brands.js';
 
 let fails = 0, checks = 0;
 const ok = (c, m) => { checks++; if (!c) { fails++; console.log('  FAIL  ' + m); } };
@@ -47,6 +48,9 @@ for (const id of HOVER_CAR_IDS) {
   try { T = typeRow(id); } catch { ok(false, id + ': no content/aircraft_types/ac_' + id + '.json'); }
   if (!A || !Rd || !T) continue;
   ok(T.class === id, id + ': its type row\'s class is "' + T.class + '"');
+  // What the dealership stocks by: every hover car's row says so, and names its maker as the cockpit does.
+  ok(T.data?.segment === 'hover_car', id + ': its type row is not marked data.segment "hover_car", so no dealer stocks it');
+  ok(T.data?.maker === BRANDS[car.maker]?.name, id + ': its type row names the maker "' + T.data?.maker + '", its cockpit "' + BRANDS[car.maker]?.name + '"');
   table[id] = NUMBERS.map(([, fn]) => fn(id, A, Rd, T));
   // What every car in the class shares.
   const M = typeRow('merlin'), MRd = TYPES.merlin_road, MA = TYPES.merlin;

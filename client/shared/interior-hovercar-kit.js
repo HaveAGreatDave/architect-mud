@@ -338,14 +338,15 @@ export function hoverCarProfile(C, doc, cfg) {
   for (const f of [...room.faces, ...room.doorFaces[1], ...room.doorFaces[-1]]) f.p.forEach(see);
   for (const pn of allGlass) pn.forEach(see);
   const xCentre = X(0), halfW = Math.max(xCentre - x0, x1 - xCentre) + 1e-6;
-  // The side rays go out through the middle of the door glass.
-  const SG = C.glass.side, wq = toShell(C.point((SG.f[0] + SG.f[1]) / 2, (SG.a[0] + SG.a[1]) / 2, 0));
+  // The side rays go out through the door glass a hand above its sill, so a ray a little lower meets
+  // the door card however deep the glass is.
+  const SG = C.glass.side, wq = toShell(C.point((SG.f[0] + SG.f[1]) / 2, (SG.a[0] + SG.a[1]) / 2, 0)), sillZ = toShell(C.point(I.eyeF, SG.a[0], 0))[2];
   const P = {
     label: cfg.label,
     xCentre, halfW,
     floor: z0 - 1e-6, roof: z1 + 1e-6, front: y1 + 1e-6, back: y0 - 1e-6,
     mPerUnit: m,
-    winY: [wq[1] - 0.08, wq[1] + 0.08], winZ: [wq[2] - 0.04, wq[2] + 0.04],
+    winY: [wq[1] - 0.08, wq[1] + 0.08], winZ: [sillZ + 0.03, sillZ + 0.11],
     dashY: cfg.dashY, dashZ: cfg.dashZ, headerZ: z1 - 0.06, pillarW: 0.03,
     seatZ: zF + cfg.seatZ, seatHalf: cfg.seatHalf, seatY: cfg.seatY, backZ: 0.02,
     seats: 2, centrePost: 0,

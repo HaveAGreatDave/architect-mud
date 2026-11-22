@@ -72,6 +72,7 @@ The papers behind the FM matcher, the music critic and ORACLE are under [Papers 
 | The Daily Express buildings in Fleet Street and Manchester | The Coldwater Sentinel building. | [media-lot.md](../proposals/media-lot.md) |
 | Diamond DA42 and the Garmin G1000 | The cockpit's layout and reading order. It must never look like a Garmin. | [Cockpit_Design_Reference.md](Cockpit_Design_Reference.md) |
 | Real aircraft | Each class's frame (the Mule is a Twin Otter, the Reaper an A-10, the Leviathan an An-124), each 2076 body (the Drake after the Sikorsky Raider X, the Viper after the Bell V-280) and each cockpit, held against Wikimedia Commons photos. | [systems-flight.md](../systems-flight.md), [fleet-2076.md](../proposals/fleet-2076.md) |
+| The Jaguar E-Type, the 1970 Dodge Challenger, the 1959 Mini and the Honda e | The proportions of the Hallard Lanner (the long bonnet and fastback), the Garrow Bustard (the square body, grille, scoop and stripes) and the Minim Pipit (one box, round lamps). No names, badges or details. | [hover-cars.md](../proposals/hover-cars.md) |
 | Charles Hughson | Sir Charles, and the Coliseum's name. | [hughson-coliseum.md](../proposals/hughson-coliseum.md) |
 
 ## Papers and published methods

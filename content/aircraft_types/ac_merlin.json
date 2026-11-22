@@ -4,7 +4,9 @@
   "class": "merlin",
   "cruise_speed": 3,
   "data": {
-    "feel": "A supercar with four fans where the wheels should be. Quick, twitchy, loud, and it only seats two."
+    "feel": "A supercar with four fans where the wheels should be. Quick, twitchy, loud, and it only seats two.",
+    "maker": "Corvane Aerospace",
+    "segment": "hover_car"
   },
   "engines": 1,
   "fuel_burn_base": 1.6,

@@ -4,7 +4,9 @@
   "class": "pipit",
   "cruise_speed": 3,
   "data": {
-    "feel": "A delivery pod with windows and a second seat. It turns in its own length and climbs like a lift, and it is the slowest thing in the showroom."
+    "feel": "A delivery pod with windows and a second seat. It turns in its own length and climbs like a lift, and it is the slowest thing in the showroom.",
+    "maker": "Minim Motor Company",
+    "segment": "hover_car"
   },
   "engines": 1,
   "fuel_burn_base": 1.5,

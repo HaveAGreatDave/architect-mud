@@ -4,7 +4,9 @@
   "class": "bustard",
   "cruise_speed": 3,
   "data": {
-    "feel": "Four freight fans and a body welded round them. It leaves hardest and takes a knock best, and the charge goes quicker than you would like."
+    "feel": "Four freight fans and a body welded round them. It leaves hardest and takes a knock best, and the charge goes quicker than you would like.",
+    "maker": "Garrow Motor Works",
+    "segment": "hover_car"
   },
   "engines": 1,
   "fuel_burn_base": 1.75,

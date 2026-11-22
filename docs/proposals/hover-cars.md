@@ -1,9 +1,9 @@
 # Hover cars: three more starter mini VTOLs
 
-**Status: the class, the Hallard Lanner and the Garrow Bustard are built (2026-11-22): each has its
-mesh, type row, liveries, flight and road rows, voice, maker and cockpit, with HOVER, LOCK, BOOST and
-PIT working for any car in the class. The Pipit is design. Nothing sells them yet: the dealership on Marrow
-Street is a separate build.**
+**Status: built (2026-11-22). The class, the Hallard Lanner, the Garrow Bustard and the Minim Pipit
+each have a mesh, a type row, four liveries, flight and road rows, a voice, a maker and a cockpit,
+with HOVER, LOCK, BOOST and PIT working for any car in the class. The setup menu and the underglow
+are still the Merlin's alone. The dealership on Marrow Street that sells them is a separate build.**
 
 The Merlin is a class of one. This adds three more cars to the class, each from its own maker, so a
 new player has four to pick from at the dealership on Marrow Street. They are starting cars: a
@@ -106,7 +106,7 @@ Eight numbers a player can feel. The Merlin's are the baseline and don't change.
 | Climb (ft/min) | 3000 | 3000 | 3150 | **3200** |
 | Road pull-away (kt/s) | 18 | 17 | **19.8** | 18.5 |
 | Road top speed (kt) | 120 | **128** | 120 | 110 |
-| Endurance (charge over burn) | 562 | **619** | 514 | 587 |
+| Endurance (charge over burn) | 563 | **619** | 514 | 587 |
 | Hull | 12 | 12 | **13** | 11 |
 
 What each leads on, and what it gives up for it:
@@ -148,6 +148,8 @@ to the cut-out, PIT, and LOCK onto a car park pad. `scripts/merlin-modes.mjs` st
 | The room every cockpit is built in, off the car's own body | `client/shared/interior-hovercar-kit.js`, gated per car by `scripts/shapes/cockpit-hovercar-lib.mjs` |
 | The Hallard Lanner | `cabin-lanner.js`, `scripts/shapes/concepts/lanner.mjs`, `mesh_lanner.json`, `ac_lanner.json`, four liveries, `lanner` and `lanner_road` in `flight-model.js`, `lanner` in `engine-audio.js`, `hallard` in `interior-brands.js`, `interior-lanner.js`, `scripts/shapes/cockpit-lanner.mjs` |
 | The Garrow Bustard | `cabin-bustard.js`, `scripts/shapes/concepts/bustard.mjs`, `mesh_bustard.json`, `ac_bustard.json`, four liveries, `bustard` and `bustard_road` in `flight-model.js`, `bustard` in `engine-audio.js`, `garrow` in `interior-brands.js`, `interior-bustard.js`, `scripts/shapes/cockpit-bustard.mjs` |
+| The Minim Pipit | `cabin-pipit.js`, `scripts/shapes/concepts/pipit.mjs`, `mesh_pipit.json`, `ac_pipit.json`, four liveries, `pipit` and `pipit_road` in `flight-model.js`, `pipit` in `engine-audio.js`, `minim` in `interior-brands.js`, `interior-pipit.js`, `scripts/shapes/cockpit-pipit.mjs` |
+| What a dealer stocks by | `data.segment: "hover_car"` and `data.maker` on each of the four type rows, the Merlin's included; `scripts/hover-cars.mjs` fails a hover car without them |
 
 The Merlin keeps its own older files (`cabin-merlin.js`, `merlin.mjs`, `interior-merlin.js`): the
 shared ones were written from them and it wasn't ported back.
@@ -165,7 +167,28 @@ buttons in a block (HOVER, LOCK, BOOST with its heat bar, PIT), a HUD knob, and 
 wheel. The lift is a pistol-grip lever in a slotted plate on the tunnel, marked OFF and MAX: you
 drag it. High-backed vinyl buckets with harnesses, a roll hoop and an extinguisher behind them.
 
-Still to build: the Pipit.
+**The Pipit's cockpit.** An open rubber-floored tray right across under the screen, with one big
+dial on a pod in the middle of the car turned to the driver: speed on a needle, height as a number,
+charge and lift as arcs up either side, the fans as a number, and what the car is doing. Under the
+tray's lip, eight piano keys: START, LIGHTS, PANEL, CABIN in cream, then HOVER, LOCK, BOOST and PIT in
+colours. A sat-nav on a stalk, three warning lamps in a hood behind the wheel, a HUD knob, and a
+squared wheel with the lift on two thumb keys, UP and DN, that turn with it. Thin check-cloth seats,
+door bins, cup holders.
+
+### As measured
+
+| | Length | Width across the fans | Height on its feet | Faces near, far |
+| --- | --- | --- | --- | --- |
+| Lanner | 4.90 m | 2.58 m | 1.39 m | 4,032, 158 |
+| Bustard | 4.70 m | 2.88 m | 1.30 m | 4,128, 172 |
+| Pipit | 4.00 m | 2.44 m | 1.62 m to the roof | 3,293, 157 |
+
+### Checked, and not
+
+Each car's gates pass: its cockpit gate, `scripts/hover-cars.mjs`, the controls and legibility gate,
+and the mesh, livery, hangar, shell and ink gates. The Lanner and the Bustard were looked at in the
+Modelshop, outside and from the seat. None of the three has been flown in the running game, and
+`npm run test:regress` wasn't run for this build.
 
 ## Open questions
 
