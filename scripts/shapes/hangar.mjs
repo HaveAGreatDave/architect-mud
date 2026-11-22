@@ -87,7 +87,7 @@ try {
   // regular one, and she is checked against both so the heavy bay can't quietly stop holding her.
   const HEAVY = { ...AIR, bk: 'heavy' }, DH = ws.bayDims(HEAVY);
   if (DH === D) problems.push('bayDims gives a heavy bay the regular hangar\'s dimensions');
-  const classes = [['prop'], ['heavy', false, DH], ['gunship'], ['divebomber'], ['locust'], ['grasshopper'], ['ultralight'], ['drake'], ['merlin'], ['lanner'], ['heli'], ['heli', true]];
+  const classes = [['prop'], ['heavy', false, DH], ['gunship'], ['divebomber'], ['locust'], ['grasshopper'], ['ultralight'], ['drake'], ['merlin'], ['bustard'], ['lanner'], ['heli'], ['heli', true]];
   const fits = [];
   for (const [cls, armed, dims] of classes) {
     const f = ws.hangarFit(cls, !!armed);

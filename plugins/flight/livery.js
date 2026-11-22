@@ -47,6 +47,12 @@ export const TRIMS = {
     { id: 'ivory', label: 'Ivory · cream, green line' },
     { id: 'midnight', label: 'Midnight · dark blue, silver line' },
   ],
+  // The Bustard's four factory paint jobs (mesh_bustard.json 'schemes').
+  bustard: [    { id: 'orange', label: 'Orange · black stripes' },
+    { id: 'black', label: 'Black · orange stripes' },
+    { id: 'primer', label: 'Primer · grey, as welded' },
+    { id: 'plum', label: 'Plum · white stripes' },
+  ],
   // the 2076 body is a different model, not a paint scheme (mesh_heli.json 'variants').
   // An armed heli reads `viper` below, not this (its livery model; aircraftLiveryModel).
   heli: [    { id: '2076', label: 'Dragonfly 2076 · the 2076' },

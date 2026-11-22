@@ -123,6 +123,8 @@ export const CABIN_WEAR = Object.freeze({
   merlin: { grime: 0.08, chips: 0.05, hatch: 0.4, grain: 0.12, dirt: [0.30, 0.28, 0.26] },
   // A coachbuilt tourer: polished weekly, a little wear on the wheel rim and the carpet by the pedals.
   lanner: { grime: 0.06, chips: 0.04, hatch: 0.4, grain: 0.14, dirt: [0.32, 0.28, 0.22] },
+  // A muscle car built on a night shift: scuffed vinyl, chipped paint on the dash, dust in the seams.
+  bustard: { grime: 0.3, chips: 0.35, hatch: 0.55, grain: 0.3, dirt: [0.30, 0.29, 0.28] },
   // A fabric-and-tube Cub: dust from grass strips, paint worn off the stick and the sill.
   grasshopper: { grime: 0.45, chips: 0.55, hatch: 0.7, grain: 0.4, dirt: [0.52, 0.42, 0.28] },
   // A crop sprayer: chemical crust in yellow-green, everything scuffed.

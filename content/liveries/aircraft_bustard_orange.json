@@ -1,0 +1,20 @@
+{
+  "blurb": "Orange with two black stripes. You can see it from the far end of the lane, which is the idea.",
+  "default": true,
+  "exterior": {
+    "base": "#e25c16",
+    "finish": "gloss",
+    "pattern": "factory",
+    "trim": "#101012",
+    "variant": "orange"
+  },
+  "id": "orange",
+  "interior": {
+    "cabin": "#161618",
+    "uphol": "leather"
+  },
+  "kind": "aircraft",
+  "model": "bustard",
+  "name": "Orange",
+  "unlock": null
+}

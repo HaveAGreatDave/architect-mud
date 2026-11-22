@@ -1,0 +1,24 @@
+{
+  "altitude_ceiling": 2,
+  "cargo_capacity": 15,
+  "class": "bustard",
+  "cruise_speed": 3,
+  "data": {
+    "feel": "Four freight fans and a body welded round them. It leaves hardest and takes a knock best, and the charge goes quicker than you would like."
+  },
+  "engines": 1,
+  "fuel_burn_base": 1.75,
+  "fuel_capacity": 900,
+  "fuel_type": "charge",
+  "handling": 2,
+  "hardpoints": 0,
+  "hull_hp": 13,
+  "id": "ac_bustard",
+  "max_takeoff_weight": 110,
+  "name": "Bustard",
+  "noise": 3,
+  "price_buy": 18000,
+  "price_rent_hourly": 240,
+  "seats": 2,
+  "takeoff_mode": "vtol"
+}

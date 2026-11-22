@@ -1,0 +1,20 @@
+{
+  "blurb": "Black with orange stripes. The weld seams show less. Garrow charges the same.",
+  "default": false,
+  "exterior": {
+    "base": "#121214",
+    "finish": "gloss",
+    "pattern": "factory",
+    "trim": "#e25c16",
+    "variant": "black"
+  },
+  "id": "black",
+  "interior": {
+    "cabin": "#141414",
+    "uphol": "leather"
+  },
+  "kind": "aircraft",
+  "model": "bustard",
+  "name": "Black",
+  "unlock": null
+}

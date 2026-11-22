@@ -1,0 +1,20 @@
+{
+  "blurb": "Grey primer, as it leaves the welding bay. The seams are still straw-coloured from the heat.",
+  "default": false,
+  "exterior": {
+    "base": "#7a7e80",
+    "finish": "gloss",
+    "pattern": "factory",
+    "trim": "#161618",
+    "variant": "primer"
+  },
+  "id": "primer",
+  "interior": {
+    "cabin": "#18181a",
+    "uphol": "leather"
+  },
+  "kind": "aircraft",
+  "model": "bustard",
+  "name": "Primer",
+  "unlock": null
+}

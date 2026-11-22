@@ -1,0 +1,20 @@
+{
+  "blurb": "Dark purple with white stripes. One of the night shift mixed it and it stayed on the list.",
+  "default": false,
+  "exterior": {
+    "base": "#481854",
+    "finish": "gloss",
+    "pattern": "factory",
+    "trim": "#ece8e0",
+    "variant": "plum"
+  },
+  "id": "plum",
+  "interior": {
+    "cabin": "#1e1620",
+    "uphol": "leather"
+  },
+  "kind": "aircraft",
+  "model": "bustard",
+  "name": "Plum",
+  "unlock": null
+}

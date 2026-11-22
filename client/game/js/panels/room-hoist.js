@@ -42,7 +42,7 @@ const REACH = 2.2;
 const APRON = 0.6;
 // how long each kind is, nose to tail, in metres, so a small aircraft isn't blown up to fill a big hangar's stand.
 // The stand's box is the most it can be; this is what it would be
-const TRUE_LEN = { truck: 9.5, prop: 9, ultralight: 6.5, grasshopper: 7, locust: 8.5, heli: 12, gunship: 15, heavy: 21, divebomber: 11, podracer: 9, merlin: 4.6, lanner: 4.9,
+const TRUE_LEN = { truck: 9.5, prop: 9, ultralight: 6.5, grasshopper: 7, locust: 8.5, heli: 12, gunship: 15, heavy: 21, divebomber: 11, podracer: 9, merlin: 4.6, bustard: 4.7, lanner: 4.9,
   skiff: 5.5, hydro: 7, spur: 8, gamecock: 9 };
 // the words for each kind: what's on the floor, the way out, the way in
 const WORDS = {

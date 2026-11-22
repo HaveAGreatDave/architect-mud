@@ -1,8 +1,8 @@
 # Hover cars: three more starter mini VTOLs
 
-**Status: the class and the Hallard Lanner are built (2026-11-22): its mesh, type row, liveries,
-flight and road rows, voice, maker and cockpit, with HOVER, LOCK, BOOST and PIT working for any car
-in the class. The Bustard and the Pipit are design. Nothing sells them yet: the dealership on Marrow
+**Status: the class, the Hallard Lanner and the Garrow Bustard are built (2026-11-22): each has its
+mesh, type row, liveries, flight and road rows, voice, maker and cockpit, with HOVER, LOCK, BOOST and
+PIT working for any car in the class. The Pipit is design. Nothing sells them yet: the dealership on Marrow
 Street is a separate build.**
 
 The Merlin is a class of one. This adds three more cars to the class, each from its own maker, so a
@@ -147,6 +147,7 @@ to the cut-out, PIT, and LOCK onto a car park pad. `scripts/merlin-modes.mjs` st
 | The exterior machinery every car has: fans, jets, feet, doors on four kinds of hinge, the glass frame | `scripts/shapes/concepts/hovercar-lib.mjs` |
 | The room every cockpit is built in, off the car's own body | `client/shared/interior-hovercar-kit.js`, gated per car by `scripts/shapes/cockpit-hovercar-lib.mjs` |
 | The Hallard Lanner | `cabin-lanner.js`, `scripts/shapes/concepts/lanner.mjs`, `mesh_lanner.json`, `ac_lanner.json`, four liveries, `lanner` and `lanner_road` in `flight-model.js`, `lanner` in `engine-audio.js`, `hallard` in `interior-brands.js`, `interior-lanner.js`, `scripts/shapes/cockpit-lanner.mjs` |
+| The Garrow Bustard | `cabin-bustard.js`, `scripts/shapes/concepts/bustard.mjs`, `mesh_bustard.json`, `ac_bustard.json`, four liveries, `bustard` and `bustard_road` in `flight-model.js`, `bustard` in `engine-audio.js`, `garrow` in `interior-brands.js`, `interior-bustard.js`, `scripts/shapes/cockpit-bustard.mjs` |
 
 The Merlin keeps its own older files (`cabin-merlin.js`, `merlin.mjs`, `interior-merlin.js`): the
 shared ones were written from them and it wasn't ported back.
@@ -157,7 +158,14 @@ toggles (START, LIGHTS, PANEL, CABIN), four ringed push buttons (HOVER, LOCK, BO
 arc, PIT), a HUD knob, a wood-rimmed wheel on three drilled spokes and two brass stalks behind it
 that step the lift. Fluted tan seats, green carpet, a glovebox with the car's name on it.
 
-Still to build: the Bustard, then the Pipit.
+**The Bustard's cockpit.** A flat steel dash with a painted top rail, a ribbon speedometer the
+width of the wheel, a height counter, bars for CHG and LIFT, three warning lamps, a tachometer for
+the fans on a pod on top of the dash, four rockers (START, LIGHTS, PANEL, CABIN), four square push
+buttons in a block (HOVER, LOCK, BOOST with its heat bar, PIT), a HUD knob, and a deep-dish steel
+wheel. The lift is a pistol-grip lever in a slotted plate on the tunnel, marked OFF and MAX: you
+drag it. High-backed vinyl buckets with harnesses, a roll hoop and an extinguisher behind them.
+
+Still to build: the Pipit.
 
 ## Open questions
 

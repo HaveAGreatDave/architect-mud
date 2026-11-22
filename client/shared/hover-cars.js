@@ -22,6 +22,8 @@ export const HOVER_CARS = {
     nozzle: [-0.835, 0, 0.035], bore: 0.05, washM: 5, acc: '#a896ff', rgb: [168, 150, 255], doors: 'gull wing' },
   lanner: { id: 'lanner', name: 'Lanner', maker: 'hallard', air: 'lanner', road: 'lanner_road', lengthM: 4.9,
     nozzle: [-0.865, 0, 0.035], bore: 0.045, washM: 5, acc: '#54e2d0', rgb: [84, 226, 208], doors: 'front-hinged' },
+  bustard: { id: 'bustard', name: 'Bustard', maker: 'garrow', air: 'bustard', road: 'bustard_road', lengthM: 4.7,
+    nozzle: [-0.855, 0, 0.035], bore: 0.055, washM: 5.6, acc: '#d6e8ff', rgb: [214, 232, 255], doors: 'scissor' },
 };
 
 export const HOVER_CAR_IDS = Object.keys(HOVER_CARS);

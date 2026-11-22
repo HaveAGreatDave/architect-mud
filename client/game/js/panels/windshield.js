@@ -37560,7 +37560,7 @@ const CONTACT_VS = 1.6;          // vertical exaggeration so the projected model
 // hulls, the rig and the racer keep 1.6: the sea, the road and the boat-ride gate
 // (scripts/shapes/boatride.mjs) are tuned to it. Every height that has to agree with the drawn model
 // (ground drop, mid-height, bounds, the guns, the GL ship matrix) asks vsOf, never CONTACT_VS.
-const AIR_CLS = new Set(['ultralight', 'heli', 'prop', 'heavy', 'gunship', 'wreck', 'grasshopper', 'locust', 'divebomber', 'drake', 'merlin', 'lanner']);
+const AIR_CLS = new Set(['ultralight', 'heli', 'prop', 'heavy', 'gunship', 'wreck', 'grasshopper', 'locust', 'divebomber', 'drake', 'merlin', 'bustard', 'lanner']);
 // ── HULLS DRAWN AT TRUE SIZE ──────────────────────────────────────────────────
 // The Keel is drawn in the chase view at the scale the helm seats you in her: her own `mPerUnit`
 // over the sea's tile, which is the ruler, at true height: 4.9 m is 0.27 tiles, beside a one-tile
@@ -55235,7 +55235,7 @@ export { setVehicleParams, clearVehicleParams, vehicleParamBase, vehicleParamIds
 // file lands rather than the day somebody remembers this list.
 export const VEHICLE_PARAM_TABLE = { prop: 'fw', heavy: 'fw', gunship: 'fw', divebomber: 'fw', locust: 'fw', hydro: 'boat',
   ...Object.fromEntries(vehicleParamIds('boat').map((id) => [id, 'boat'])) };
-export const VEHICLE_CLASSES = ['prop', 'heavy', 'ultralight', 'heli', 'gunship', 'divebomber', 'grasshopper', 'locust', 'truck', 'wreck', 'hydro', 'drake', 'merlin', 'lanner', 'podracer', 'column',
+export const VEHICLE_CLASSES = ['prop', 'heavy', 'ultralight', 'heli', 'gunship', 'divebomber', 'grasshopper', 'locust', 'truck', 'wreck', 'hydro', 'drake', 'merlin', 'bustard', 'lanner', 'podracer', 'column',
   ...vehicleParamIds('boat').filter((id) => id !== 'hydro')];
 // Framing derived from the subject, exactly as a building's is derived from its roof. These
 // craft differ in size by seven times — CONTACT_SIZE runs 0.030 for a rig to 0.21 for the

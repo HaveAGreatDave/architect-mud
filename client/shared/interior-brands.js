@@ -50,11 +50,19 @@ export const BRANDS = {
     line: [84, 226, 208],
     finish: { carbon: { spec: 0.4, pow: 30 }, carbonLt: { spec: 0.38, pow: 28 }, lining: { spec: 0.25, pow: 16 }, metal: { spec: 0.8, pow: 50 } },
   },
+  // Freight fans. Black vinyl and bare steel, an arc-white line: nothing in the cabin is there to be liked.
+  garrow: {
+    name: 'Garrow Motor Works',
+    tones: { lining: [40, 40, 42], liningDk: [28, 28, 30], headliner: [34, 34, 36], carbon: [64, 66, 70], carbonLt: [96, 100, 106], tub: [22, 22, 24],
+      glow: [224, 238, 255], glowDim: [84, 92, 108], screen: [8, 9, 12] },
+    line: [214, 232, 255],
+    finish: { carbon: { spec: 0.5, pow: 20 }, carbonLt: { spec: 0.5, pow: 22 }, tub: { spec: 0.1, pow: 8 }, metal: { spec: 0.6, pow: 26 } },
+  },
 };
 
 // Which firm built which seat, by the seat's trim prefix.
 export const SEAT_BRAND = {
-  viper: 'corvane', reaper: 'corvane', shrike: 'corvane', merlin: 'corvane', lanner: 'hallard',
+  viper: 'corvane', reaper: 'corvane', shrike: 'corvane', merlin: 'corvane', bustard: 'garrow', lanner: 'hallard',
   mule: 'harcourt', leviathan: 'harcourt',
   mayfly: 'lumen', dragonfly: 'lumen', grasshopper: 'lumen',
   locust: 'ostler', carcass: 'ostler',

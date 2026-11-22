@@ -80,6 +80,11 @@ const FE_VOICE = {
   //   motorB/motorS: the motor whine; roar: the duct air; rev: how far a blip overshoots.
   merlin:     { coreB: 46, coreS: 30, wave: 'triangle', pulseB: 0.5, pulseS: 0, pDep: [0.02, 0.02], biteB: 1400, biteS: 2200, biteM: 0.5, subB: 26, subM: 1.6, lpB: 240, lpS: 500, crk: 0, det: 1.003, mas: 1.1,
     fan: { bpfB: 210, bpfS: 760, beat: [1, 1.0061, 0.9947, 1.0113], motorB: 1500, motorS: 3600, roar: 1.0, rev: 0.16 } },
+  // THE BUSTARD. Five broad blades a fan, so the blade-pass tone is low, and the four fans run well apart
+  // in speed, so they beat slowly and hard: a throb. A sawtooth core and a little crackle for the freight
+  // motors, the loudest duct roar in the class, and the biggest overshoot on a blip.
+  bustard:    { coreB: 38, coreS: 34, wave: 'sawtooth', pulseB: 0.5, pulseS: 0, pDep: [0.03, 0.03], biteB: 1000, biteS: 1700, biteM: 0.55, subB: 22, subM: 2.0, lpB: 220, lpS: 520, crk: 0.15, det: 1.006, mas: 1.2,
+    fan: { bpfB: 150, bpfS: 560, beat: [1, 1.011, 0.989, 1.021], motorB: 1100, motorS: 2600, roar: 1.35, rev: 0.24 } },
   // THE LANNER. Nine blades a fan and the four held close together in speed, so the blade-pass tone is
   // higher and smoother than the Merlin's and barely beats: a turbine hum where the Merlin shimmers.
   lanner:     { coreB: 44, coreS: 26, wave: 'triangle', pulseB: 0.5, pulseS: 0, pDep: [0.02, 0.02], biteB: 1200, biteS: 1900, biteM: 0.4, subB: 28, subM: 1.4, lpB: 230, lpS: 460, crk: 0, det: 1.002, mas: 1.0,
@@ -118,7 +123,7 @@ const FLYBY_CLASS = { grasshopper: 'ultralight', drake: 'prop', jet: 'heavy' };
 export const FLYBY_LOUD = {
   ultralight: { ref: 1.0, hear: 22 }, wreck: { ref: 1.8, hear: 30 }, prop: { ref: 2.2, hear: 36 },
   locust: { ref: 2.6, hear: 40 }, divebomber: { ref: 3.2, hear: 48 }, heli: { ref: 5.0, hear: 70 },
-  merlin: { ref: 3.0, hear: 50 }, lanner: { ref: 2.8, hear: 46 },
+  merlin: { ref: 3.0, hear: 50 }, bustard: { ref: 3.4, hear: 56 }, lanner: { ref: 2.8, hear: 46 },
   // a heavy at cruise is 10 km up and still a faint rumble, so it's heard a very long way
   gunship: { ref: 5.0, hear: 120 }, heavy: { ref: 6.5, hear: 700 },
 };
@@ -648,6 +653,16 @@ const SPOOL_UP = {
     { waveform: 'sine', freq: 520, delay: 0.2, pitchBend: { to: 1900, time: 2.5 }, vibrato: { rate: 5, depth: 4 }, adsr: { a: 0.5, d: 0, s: 1, r: 0.5 }, gain: 0.022 },
     { waveform: 'noise', noiseMix: 1, delay: 0.7, filter: { type: 'bandpass', freq: 900, q: 0.8 }, adsr: { a: 1.6, d: 0, s: 1, r: 0.6 }, gain: 0.04 },
     { waveform: 'sine', freq: 26, delay: 0.4, pitchBend: { to: 48, time: 2.0 }, adsr: { a: 0.9, d: 0, s: 1, r: 0.5 }, gain: 0.05 } ] },
+  // Bustard: three heavy contactors, then the fans drag themselves up out of a growl, well apart.
+  bustard: { duration: 3.0, layers: [
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 1100, q: 1.2 }, adsr: { a: 0.002, d: 0.08, s: 0, r: 0.04 }, gain: 0.13 },
+    { waveform: 'noise', noiseMix: 1, delay: 0.2, filter: { type: 'bandpass', freq: 950, q: 1.2 }, adsr: { a: 0.002, d: 0.08, s: 0, r: 0.04 }, gain: 0.12 },
+    { waveform: 'noise', noiseMix: 1, delay: 0.4, filter: { type: 'bandpass', freq: 800, q: 1.2 }, adsr: { a: 0.002, d: 0.09, s: 0, r: 0.04 }, gain: 0.12 },
+    { waveform: 'sawtooth', freq: 40, delay: 0.5, pitchBend: { to: 250, time: 2.2 }, filter: { type: 'bandpass', freq: 380, q: 2.0 }, adsr: { a: 0.3, d: 0, s: 1, r: 0.4 }, gain: 0.09 },
+    { waveform: 'sawtooth', freq: 42.5, delay: 0.55, pitchBend: { to: 262, time: 2.2 }, filter: { type: 'bandpass', freq: 380, q: 2.0 }, adsr: { a: 0.3, d: 0, s: 1, r: 0.4 }, gain: 0.08 },
+    { waveform: 'sawtooth', freq: 37.5, delay: 0.6, pitchBend: { to: 241, time: 2.2 }, filter: { type: 'bandpass', freq: 380, q: 2.0 }, adsr: { a: 0.3, d: 0, s: 1, r: 0.4 }, gain: 0.08 },
+    { waveform: 'noise', noiseMix: 1, delay: 0.7, filter: { type: 'bandpass', freq: 700, q: 0.7 }, adsr: { a: 1.4, d: 0, s: 1, r: 0.6 }, gain: 0.07 },
+    { waveform: 'sine', freq: 20, delay: 0.5, pitchBend: { to: 40, time: 2.0 }, adsr: { a: 0.8, d: 0, s: 1, r: 0.5 }, gain: 0.07 } ] },
   // Piston single: starter cranks (chugging square), the engine catches after a
   // beat, then revs up with an exhaust bark.
   prop:    { duration: 1.9, layers: [

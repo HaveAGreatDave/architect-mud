@@ -231,6 +231,36 @@ export const TYPES = {
     engineLag: 0.5, boostK: 0.8, pitKt: 16,
     vne: 160, cruise: 128, vs0: 12,
   },
+  // Bustard: Garrow's muscle car (docs/proposals/hover-cars.md). Four freight fans in a heavy square
+  // body: a strong climb, the toughest hull, a BOOST that adds a little more, and a quick lever.
+  // It yaws slowest in the class, and its thirst is in the type row, not here.
+  bustard: {
+    name: 'Bustard', heli: true, mass: 1.25,
+    vne: 228, cruise: 172, vs0: 12,
+    vr: 0, aoaCrit: 90, liftScale: 1,
+    pitchRate: 32, pitchTau: 0.3, rollRate: 58, rollTau: 0.27,
+    pitchStable: 1.0, rollStable: 1.1,
+    yawRate: 74,
+    engineLag: 0.42,
+    cyclicThrust: 6.5,
+    dragP: 0.00088,
+    liftMax: 2.6, hoverThrust: 1.0,
+    vsGain: 1100, vsGainUp: 2400, vsMax: 3150, vsTau: 0.7,
+    vrsVs: 900,
+    rollFric: 10,
+    ceiling: 22000,
+    boostK: 0.9, boostVne: 0.22,
+  },
+  // The Bustard on the road: the hardest pull-away in the class, and the heaviest steering.
+  bustard_road: {
+    name: 'Bustard (road)', road: true, mass: 1.25,
+    accel: 19.8, topSpeed: 120, dragP: 0.00135, rollFric: 1.2, brake: 34,
+    reverse: 6, reverseMax: 14,
+    steerRate: 88,
+    rideFt: 1.6,
+    engineLag: 0.42, boostK: 0.85, pitKt: 16,
+    vne: 150, cruise: 120, vs0: 12,
+  },
   // Drake, wing mode (conversion past halfway): wings out, rotor folded. Convert back to land.
   drake_wing: {
     // She leaves the conversion at the hover's 40-60% lever, so thrust is sized for 50% to hold cruise.

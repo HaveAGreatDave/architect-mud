@@ -74,6 +74,7 @@ const VEHICLES = [
   ...['noir', 'midnight', 'neon', 'ivory', 'quackhawk'].map((s) => ({ key: 'vehicle:drake/' + s, vehicle: { cls: 'drake', variant: s }, m: { type: 'drake ' + s } })),
   // The Merlin's, the same way (mesh_merlin.json 'schemes'); Rosso is the class itself.
   ...['nero', 'giallo', 'bianco'].map((s) => ({ key: 'vehicle:merlin/' + s, vehicle: { cls: 'merlin', variant: s }, m: { type: 'merlin ' + s } })),
+  ...['black', 'primer', 'plum'].map((s) => ({ key: 'vehicle:bustard/' + s, vehicle: { cls: 'bustard', variant: s }, m: { type: 'bustard ' + s } })),
   ...['claret', 'ivory', 'midnight'].map((s) => ({ key: 'vehicle:lanner/' + s, vehicle: { cls: 'lanner', variant: s }, m: { type: 'lanner ' + s } })),
   // Every body variant a class's mesh file names in `variants`: the eleven 2076 editions and the
   // podracer's types. Each is a different model, but it's still its class with a variant, so
