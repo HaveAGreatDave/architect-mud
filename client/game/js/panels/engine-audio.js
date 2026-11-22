@@ -80,6 +80,10 @@ const FE_VOICE = {
   //   motorB/motorS: the motor whine; roar: the duct air; rev: how far a blip overshoots.
   merlin:     { coreB: 46, coreS: 30, wave: 'triangle', pulseB: 0.5, pulseS: 0, pDep: [0.02, 0.02], biteB: 1400, biteS: 2200, biteM: 0.5, subB: 26, subM: 1.6, lpB: 240, lpS: 500, crk: 0, det: 1.003, mas: 1.1,
     fan: { bpfB: 210, bpfS: 760, beat: [1, 1.0061, 0.9947, 1.0113], motorB: 1500, motorS: 3600, roar: 1.0, rev: 0.16 } },
+  // THE PIPIT. Small fans with eleven blades each, so the blade-pass tone is the highest in the class:
+  // a whirr more than a hum, with a thin motor whine over it and very little roar from the short ducts.
+  pipit:      { coreB: 56, coreS: 28, wave: 'triangle', pulseB: 0.5, pulseS: 0, pDep: [0.02, 0.02], biteB: 1700, biteS: 2400, biteM: 0.4, subB: 32, subM: 1.1, lpB: 260, lpS: 480, crk: 0, det: 1.003, mas: 0.95,
+    fan: { bpfB: 300, bpfS: 900, beat: [1, 1.0045, 0.9958, 1.0082], motorB: 1900, motorS: 4200, roar: 0.7, rev: 0.1 } },
   // THE BUSTARD. Five broad blades a fan, so the blade-pass tone is low, and the four fans run well apart
   // in speed, so they beat slowly and hard: a throb. A sawtooth core and a little crackle for the freight
   // motors, the loudest duct roar in the class, and the biggest overshoot on a blip.
@@ -123,7 +127,7 @@ const FLYBY_CLASS = { grasshopper: 'ultralight', drake: 'prop', jet: 'heavy' };
 export const FLYBY_LOUD = {
   ultralight: { ref: 1.0, hear: 22 }, wreck: { ref: 1.8, hear: 30 }, prop: { ref: 2.2, hear: 36 },
   locust: { ref: 2.6, hear: 40 }, divebomber: { ref: 3.2, hear: 48 }, heli: { ref: 5.0, hear: 70 },
-  merlin: { ref: 3.0, hear: 50 }, bustard: { ref: 3.4, hear: 56 }, lanner: { ref: 2.8, hear: 46 },
+  merlin: { ref: 3.0, hear: 50 }, pipit: { ref: 2.4, hear: 40 }, bustard: { ref: 3.4, hear: 56 }, lanner: { ref: 2.8, hear: 46 },
   // a heavy at cruise is 10 km up and still a faint rumble, so it's heard a very long way
   gunship: { ref: 5.0, hear: 120 }, heavy: { ref: 6.5, hear: 700 },
 };
@@ -663,6 +667,15 @@ const SPOOL_UP = {
     { waveform: 'sawtooth', freq: 37.5, delay: 0.6, pitchBend: { to: 241, time: 2.2 }, filter: { type: 'bandpass', freq: 380, q: 2.0 }, adsr: { a: 0.3, d: 0, s: 1, r: 0.4 }, gain: 0.08 },
     { waveform: 'noise', noiseMix: 1, delay: 0.7, filter: { type: 'bandpass', freq: 700, q: 0.7 }, adsr: { a: 1.4, d: 0, s: 1, r: 0.6 }, gain: 0.07 },
     { waveform: 'sine', freq: 20, delay: 0.5, pitchBend: { to: 40, time: 2.0 }, adsr: { a: 0.8, d: 0, s: 1, r: 0.5 }, gain: 0.07 } ] },
+  // Pipit: a chime, one small click, and the fans whirr straight up.
+  pipit:   { duration: 2.2, layers: [
+    { waveform: 'sine', freq: 880, adsr: { a: 0.005, d: 0.25, s: 0, r: 0.1 }, gain: 0.05 },
+    { waveform: 'sine', freq: 1320, delay: 0.12, adsr: { a: 0.005, d: 0.3, s: 0, r: 0.1 }, gain: 0.045 },
+    { waveform: 'noise', noiseMix: 1, delay: 0.3, filter: { type: 'bandpass', freq: 2400, q: 1.6 }, adsr: { a: 0.002, d: 0.04, s: 0, r: 0.02 }, gain: 0.06 },
+    { waveform: 'sawtooth', freq: 90, delay: 0.35, pitchBend: { to: 520, time: 1.5 }, filter: { type: 'bandpass', freq: 760, q: 2.6 }, adsr: { a: 0.25, d: 0, s: 1, r: 0.4 }, gain: 0.06 },
+    { waveform: 'sawtooth', freq: 91, delay: 0.35, pitchBend: { to: 525, time: 1.5 }, filter: { type: 'bandpass', freq: 760, q: 2.6 }, adsr: { a: 0.25, d: 0, s: 1, r: 0.4 }, gain: 0.055 },
+    { waveform: 'sine', freq: 800, delay: 0.3, pitchBend: { to: 2900, time: 1.7 }, vibrato: { rate: 8, depth: 6 }, adsr: { a: 0.3, d: 0, s: 1, r: 0.4 }, gain: 0.022 },
+    { waveform: 'noise', noiseMix: 1, delay: 0.5, filter: { type: 'bandpass', freq: 1400, q: 0.8 }, adsr: { a: 1.0, d: 0, s: 1, r: 0.5 }, gain: 0.03 } ] },
   // Piston single: starter cranks (chugging square), the engine catches after a
   // beat, then revs up with an exhaust bark.
   prop:    { duration: 1.9, layers: [

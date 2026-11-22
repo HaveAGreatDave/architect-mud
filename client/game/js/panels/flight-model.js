@@ -261,6 +261,35 @@ export const TYPES = {
     engineLag: 0.42, boostK: 0.85, pitKt: 16,
     vne: 150, cruise: 120, vs0: 12,
   },
+  // Pipit: Minim's city car (docs/proposals/hover-cars.md). Light, short and upright: the quickest yaw
+  // and the best climb in the class, a quick lever, and a tall blunt body that tops out early.
+  pipit: {
+    name: 'Pipit', heli: true, mass: 0.95,
+    vne: 212, cruise: 162, vs0: 12,
+    vr: 0, aoaCrit: 90, liftScale: 1,
+    pitchRate: 35, pitchTau: 0.27, rollRate: 61, rollTau: 0.25,
+    pitchStable: 0.95, rollStable: 1.05,
+    yawRate: 88,
+    engineLag: 0.4,
+    cyclicThrust: 5.8,
+    dragP: 0.00096,
+    liftMax: 2.6, hoverThrust: 1.0,
+    vsGain: 1100, vsGainUp: 2450, vsMax: 3200, vsTau: 0.7,
+    vrsVs: 900,
+    rollFric: 10,
+    ceiling: 22000,
+    boostK: 0.85, boostVne: 0.22,
+  },
+  // The Pipit on the road: the quickest steering in the class, and the lowest top speed.
+  pipit_road: {
+    name: 'Pipit (road)', road: true, mass: 0.95,
+    accel: 18.5, topSpeed: 110, dragP: 0.0015, rollFric: 1.2, brake: 34,
+    reverse: 6, reverseMax: 14,
+    steerRate: 104,
+    rideFt: 1.6,
+    engineLag: 0.4, boostK: 0.8, pitKt: 16,
+    vne: 140, cruise: 110, vs0: 12,
+  },
   // Drake, wing mode (conversion past halfway): wings out, rotor folded. Convert back to land.
   drake_wing: {
     // She leaves the conversion at the hover's 40-60% lever, so thrust is sized for 50% to hold cruise.

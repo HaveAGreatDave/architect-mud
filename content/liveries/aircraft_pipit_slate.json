@@ -1,0 +1,20 @@
+{
+  "blurb": "Grey with a black roof, for people who wanted a small car and not a cheerful one.",
+  "default": false,
+  "exterior": {
+    "base": "#54606c",
+    "finish": "gloss",
+    "pattern": "factory",
+    "trim": "#1a1c20",
+    "variant": "slate"
+  },
+  "id": "slate",
+  "interior": {
+    "cabin": "#8a8e96",
+    "uphol": "leather"
+  },
+  "kind": "aircraft",
+  "model": "pipit",
+  "name": "Slate",
+  "unlock": null
+}

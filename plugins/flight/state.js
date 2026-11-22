@@ -146,7 +146,7 @@ export const PILOT_IP = {
 // Craft flown on the continuous cockpit sim. The whole fleet is here now — the fixed-wing
 // set plus the Dragonfly (VTOL), which flies the client's dedicated hover model (collective
 // + cyclic + pedals) instead of the old modal VTOL-lift deck.
-export const CONTINUOUS_TYPES = new Set(['ac_mayfly', 'ac_mule', 'ac_leviathan', 'ac_reaper', 'ac_carcass', 'ac_dragonfly', 'ac_grasshopper', 'ac_locust', 'ac_viper', 'ac_shrike', 'ac_drake', 'ac_merlin', 'ac_bustard', 'ac_lanner']);
+export const CONTINUOUS_TYPES = new Set(['ac_mayfly', 'ac_mule', 'ac_leviathan', 'ac_reaper', 'ac_carcass', 'ac_dragonfly', 'ac_grasshopper', 'ac_locust', 'ac_viper', 'ac_shrike', 'ac_drake', 'ac_merlin', 'ac_pipit', 'ac_bustard', 'ac_lanner']);
 export function isContinuous(live) { return !!live && CONTINUOUS_TYPES.has(live.type?.id); }
 
 // Continuous altitude (ft) → the legacy band the consequence systems still read

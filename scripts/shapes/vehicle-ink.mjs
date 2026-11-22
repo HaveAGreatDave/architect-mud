@@ -54,7 +54,7 @@ const classes = [];
 for (const id of VEHICLE_IDS.fw) classes.push([id, false, '']);
 for (const id of VEHICLE_IDS.truck) classes.push(['truck', false, id]);
 for (const id of VEHICLE_IDS.boat) classes.push([id, false, '']);
-for (const id of ['heli', 'ultralight', 'grasshopper', 'drake', 'merlin', 'bustard', 'lanner', 'wreck', 'podracer']) classes.push([id, false, '']);
+for (const id of ['heli', 'ultralight', 'grasshopper', 'drake', 'merlin', 'pipit', 'bustard', 'lanner', 'wreck', 'podracer']) classes.push([id, false, '']);
 classes.push(['heli', true, '']);
 let total = 0;
 for (const [cls, armed, variant] of classes) {

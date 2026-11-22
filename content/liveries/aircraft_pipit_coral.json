@@ -1,0 +1,20 @@
+{
+  "blurb": "Pink-orange with a cream roof. It fades in the sun and people buy it anyway.",
+  "default": false,
+  "exterior": {
+    "base": "#ee7864",
+    "finish": "gloss",
+    "pattern": "factory",
+    "trim": "#f0ece0",
+    "variant": "coral"
+  },
+  "id": "coral",
+  "interior": {
+    "cabin": "#ccc4ba",
+    "uphol": "leather"
+  },
+  "kind": "aircraft",
+  "model": "pipit",
+  "name": "Coral",
+  "unlock": null
+}

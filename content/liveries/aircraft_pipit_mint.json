@@ -1,0 +1,20 @@
+{
+  "blurb": "Pale green with a cream roof. Halcyon insures more of these than any other colour.",
+  "default": true,
+  "exterior": {
+    "base": "#96d6ba",
+    "finish": "gloss",
+    "pattern": "factory",
+    "trim": "#f0ece0",
+    "variant": "mint"
+  },
+  "id": "mint",
+  "interior": {
+    "cabin": "#c8c4ba",
+    "uphol": "leather"
+  },
+  "kind": "aircraft",
+  "model": "pipit",
+  "name": "Mint",
+  "unlock": null
+}

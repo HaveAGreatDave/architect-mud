@@ -1,0 +1,20 @@
+{
+  "blurb": "Yellow with a white roof. Easy to find in a car park.",
+  "default": false,
+  "exterior": {
+    "base": "#f2d66e",
+    "finish": "gloss",
+    "pattern": "factory",
+    "trim": "#faf8f0",
+    "variant": "custard"
+  },
+  "id": "custard",
+  "interior": {
+    "cabin": "#d2ccba",
+    "uphol": "leather"
+  },
+  "kind": "aircraft",
+  "model": "pipit",
+  "name": "Custard",
+  "unlock": null
+}

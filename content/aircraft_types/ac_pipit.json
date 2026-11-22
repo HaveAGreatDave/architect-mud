@@ -1,0 +1,24 @@
+{
+  "altitude_ceiling": 2,
+  "cargo_capacity": 14,
+  "class": "pipit",
+  "cruise_speed": 3,
+  "data": {
+    "feel": "A delivery pod with windows and a second seat. It turns in its own length and climbs like a lift, and it is the slowest thing in the showroom."
+  },
+  "engines": 1,
+  "fuel_burn_base": 1.5,
+  "fuel_capacity": 880,
+  "fuel_type": "charge",
+  "handling": 2,
+  "hardpoints": 0,
+  "hull_hp": 11,
+  "id": "ac_pipit",
+  "max_takeoff_weight": 110,
+  "name": "Pipit",
+  "noise": 3,
+  "price_buy": 18000,
+  "price_rent_hourly": 240,
+  "seats": 2,
+  "takeoff_mode": "vtol"
+}

@@ -58,11 +58,19 @@ export const BRANDS = {
     line: [214, 232, 255],
     finish: { carbon: { spec: 0.5, pow: 20 }, carbonLt: { spec: 0.5, pow: 22 }, tub: { spec: 0.1, pow: 8 }, metal: { spec: 0.6, pow: 26 } },
   },
+  // Delivery pods. Pale cloth and cream plastic, a magenta line: wipe-clean, and cheerful on purpose.
+  minim: {
+    name: 'Minim Motor Company',
+    tones: { lining: [200, 202, 204], liningDk: [168, 170, 174], headliner: [226, 224, 218], carbon: [222, 214, 196], carbonLt: [238, 232, 218], tub: [150, 152, 156],
+      glow: [255, 140, 224], glowDim: [110, 56, 96], screen: [16, 8, 14] },
+    line: [255, 110, 214],
+    finish: { carbon: { spec: 0.45, pow: 34 }, carbonLt: { spec: 0.45, pow: 34 }, lining: { spec: 0.12, pow: 8 }, metal: { spec: 0.6, pow: 30 } },
+  },
 };
 
 // Which firm built which seat, by the seat's trim prefix.
 export const SEAT_BRAND = {
-  viper: 'corvane', reaper: 'corvane', shrike: 'corvane', merlin: 'corvane', bustard: 'garrow', lanner: 'hallard',
+  viper: 'corvane', reaper: 'corvane', shrike: 'corvane', merlin: 'corvane', pipit: 'minim', bustard: 'garrow', lanner: 'hallard',
   mule: 'harcourt', leviathan: 'harcourt',
   mayfly: 'lumen', dragonfly: 'lumen', grasshopper: 'lumen',
   locust: 'ostler', carcass: 'ostler',

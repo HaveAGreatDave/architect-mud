@@ -53,6 +53,12 @@ export const TRIMS = {
     { id: 'primer', label: 'Primer · grey, as welded' },
     { id: 'plum', label: 'Plum · white stripes' },
   ],
+  // The Pipit's four factory paint jobs (mesh_pipit.json 'schemes').
+  pipit: [    { id: 'mint', label: 'Mint · cream roof' },
+    { id: 'custard', label: 'Custard · white roof' },
+    { id: 'coral', label: 'Coral · cream roof' },
+    { id: 'slate', label: 'Slate · black roof' },
+  ],
   // the 2076 body is a different model, not a paint scheme (mesh_heli.json 'variants').
   // An armed heli reads `viper` below, not this (its livery model; aircraftLiveryModel).
   heli: [    { id: '2076', label: 'Dragonfly 2076 · the 2076' },
