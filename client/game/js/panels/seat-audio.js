@@ -75,7 +75,7 @@ const CLASS_VOICE = {
   ultralight: 'light', grasshopper: 'light',
   prop: 'prop', locust: 'prop', divebomber: 'prop', wreck: 'prop', drake: 'prop',
   heli: 'heli',
-  heavy: 'jet', gunship: 'jet', merlin: 'jet',   // the Merlin's fans whine like a turbine from outside
+  heavy: 'jet', gunship: 'jet', merlin: 'jet', lanner: 'jet',   // the Merlin's fans whine like a turbine from outside
   truck: 'truck',
   column: 'rotgas',
   hydro: 'boat',

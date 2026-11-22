@@ -201,6 +201,36 @@ export const TYPES = {
     engineLag: 0.45, boostK: 0.8, pitKt: 16,
     vne: 150, cruise: 120, vs0: 12,       // read by the HUD and the gauges, not by stepRoad
   },
+  // Lanner: Hallard's grand tourer (docs/proposals/hover-cars.md). The Merlin's machinery in a longer,
+  // heavier, slipperier body: the best cruise and the longest legs in the class, and the slowest to
+  // roll and to answer the lever. It steadies itself a little more than the Merlin does.
+  lanner: {
+    name: 'Lanner', heli: true, mass: 1.15,
+    vne: 240, cruise: 186, vs0: 12,
+    vr: 0, aoaCrit: 90, liftScale: 1,
+    pitchRate: 31, pitchTau: 0.32, rollRate: 56, rollTau: 0.28,
+    pitchStable: 1.0, rollStable: 1.1,
+    yawRate: 76,
+    engineLag: 0.5,
+    cyclicThrust: 6.2,
+    dragP: 0.00073,
+    liftMax: 2.6, hoverThrust: 1.0,
+    vsGain: 1100, vsGainUp: 2300, vsMax: 3000, vsTau: 0.7,
+    vrsVs: 900,
+    rollFric: 10,
+    ceiling: 22000,
+    boostK: 0.85, boostVne: 0.22,
+  },
+  // The Lanner on the road: a little slower off the line than the Merlin, and faster flat out.
+  lanner_road: {
+    name: 'Lanner (road)', road: true, mass: 1.15,
+    accel: 17, topSpeed: 128, dragP: 0.00098, rollFric: 1.2, brake: 34,
+    reverse: 6, reverseMax: 14,
+    steerRate: 90,
+    rideFt: 1.6,
+    engineLag: 0.5, boostK: 0.8, pitKt: 16,
+    vne: 160, cruise: 128, vs0: 12,
+  },
   // Drake, wing mode (conversion past halfway): wings out, rotor folded. Convert back to land.
   drake_wing: {
     // She leaves the conversion at the hover's 40-60% lever, so thrust is sized for 50% to hold cruise.

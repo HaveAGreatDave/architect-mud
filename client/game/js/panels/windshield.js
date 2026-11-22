@@ -17,6 +17,7 @@
 import { isWeatherFxEnabled } from './weather-fx.js';
 import { layTrailPoint, uploadTrail } from '../../../shared/trail-store.js';
 import { parkTiles } from '../../../shared/coliseum-plan.js';
+import { HOVER_CARS, isHoverCar } from '../../../shared/hover-cars.js';
 import { MPH_KMH, STOREY_M, TILE_M, FT_M, tripM, fmtDistance, heightToZ } from '../../../shared/world-scale.js';
 import { seaShelter, SURF_DEPTH_Q, surfHullGain, surfGain, seaHeadingFor, setSeaHeading, seaRotPair, SEA_K } from '../../../shared/sea-swell.js';
 import { windGust, windVeer, stormOf } from '../../../shared/wind-gust.js';
@@ -22913,7 +22914,7 @@ let WAKE_SHIPS = { seq: -1, map: null, R: 0, list: null };
 // `disc` is the rotor (or the fans' footprint) in metres. The wash is full below about half a
 // disc's height and gone by three and a half; on the water it runs out about three discs.
 const WASH_DISC_M = { heli: 7.5, drake: 12, merlin: 5 };
-const washDiscM = (cls, armed) => (cls === 'heli' && armed ? 14 : WASH_DISC_M[cls] || 0);
+const washDiscM = (cls, armed) => (cls === 'heli' && armed ? 14 : WASH_DISC_M[cls] || (isHoverCar(cls) ? HOVER_CARS[cls].washM : 0));
 let ROTOR_WASH = [];
 const WASH_OUT = [];   // reused every frame: the alloc gate counts a fresh array a paint
 function rotorWashes(v, off, LUT, mh, onDeck) {
@@ -37559,7 +37560,7 @@ const CONTACT_VS = 1.6;          // vertical exaggeration so the projected model
 // hulls, the rig and the racer keep 1.6: the sea, the road and the boat-ride gate
 // (scripts/shapes/boatride.mjs) are tuned to it. Every height that has to agree with the drawn model
 // (ground drop, mid-height, bounds, the guns, the GL ship matrix) asks vsOf, never CONTACT_VS.
-const AIR_CLS = new Set(['ultralight', 'heli', 'prop', 'heavy', 'gunship', 'wreck', 'grasshopper', 'locust', 'divebomber', 'drake', 'merlin']);
+const AIR_CLS = new Set(['ultralight', 'heli', 'prop', 'heavy', 'gunship', 'wreck', 'grasshopper', 'locust', 'divebomber', 'drake', 'merlin', 'lanner']);
 // ── HULLS DRAWN AT TRUE SIZE ──────────────────────────────────────────────────
 // The Keel is drawn in the chase view at the scale the helm seats you in her: her own `mPerUnit`
 // over the sea's tile, which is the ruler, at true height: 4.9 m is 0.27 tiles, beside a one-tile
@@ -38234,7 +38235,7 @@ function ownShipBaseWz(cam, v) {
   // a hair proud of the ground instead.
   // The Merlin is the same case: three thin mag-lock pucks, its fan ducts close above them. It stands
   // clear by a little more, so the ducts never read as sunk into a pad.
-  const sink = v.cls === 'drake' ? -0.004 : v.cls === 'merlin' ? -0.012 : RENDER_TUNE.chaseSink;
+  const sink = v.cls === 'drake' ? -0.004 : isHoverCar(v.cls) ? -0.012 : RENDER_TUNE.chaseSink;
   // ⚠ A WRECK RESTS ON WHAT IS LEFT OF HER. `natural` is "gear level on the deck", and in a crash the
   // gear, the wings and the engines have all gone their own way — so she is placed by the lowest
   // vertex of the faces she still owns, plus the fall the camera is carrying.
@@ -39766,8 +39767,9 @@ function ownShipModelOpts(v) {
 //
 // ⚠ ON THE CLOCK, NEVER Math.random, as every flame in this file: rebuilt each frame, a random length
 // strobes at the frame rate.
-const MERLIN_NOZZLE = [-0.835, 0, 0.035], MERLIN_BORE = 0.05;
+// Every hover car has the flame, out of its own pusher (hover-cars.js 'nozzle' and 'bore').
 function drawMerlinBoost(ctx, cam, P, c, now = 0, SIZE = 0.034) {
+  const HC = HOVER_CARS[c.cls] || HOVER_CARS.merlin, MERLIN_NOZZLE = HC.nozzle, MERLIN_BORE = HC.bore;
   const s = clamp(c.boost || 0, 0, 1.6);
   const q0 = P(MERLIN_NOZZLE);
   if (!q0 || q0.f <= 0.08) return;
@@ -40755,7 +40757,7 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
   // chain it fell out of the bottom and got no engine effect at all — which is the same silence the
   // default arm of `aircraftFaces` gives a class with no builder, and just as quiet.
   // The Merlin's boost: on top of whatever its fans are doing, so it isn't an arm of the chain below.
-  if (c.cls === 'merlin' && c.boost > 0.01) drawMerlinBoost(ctx, cam, P, c, now, SIZE);
+  if (isHoverCar(c.cls) && c.boost > 0.01) drawMerlinBoost(ctx, cam, P, c, now, SIZE);
   if (WATER_CLASSES().has(c.cls)) drawBoatExhaust(ctx, cam, P, Wp, c, sun, now, detail, SIZE);
   else if (c.cls === 'gunship' || c.cls === 'heavy' || (c.cls === 'divebomber' && c.variant === '2076')) {
     const np = P([1, 0, 0.02]), tp = P([-1, 0, 0.05]);
@@ -55233,7 +55235,7 @@ export { setVehicleParams, clearVehicleParams, vehicleParamBase, vehicleParamIds
 // file lands rather than the day somebody remembers this list.
 export const VEHICLE_PARAM_TABLE = { prop: 'fw', heavy: 'fw', gunship: 'fw', divebomber: 'fw', locust: 'fw', hydro: 'boat',
   ...Object.fromEntries(vehicleParamIds('boat').map((id) => [id, 'boat'])) };
-export const VEHICLE_CLASSES = ['prop', 'heavy', 'ultralight', 'heli', 'gunship', 'divebomber', 'grasshopper', 'locust', 'truck', 'wreck', 'hydro', 'drake', 'merlin', 'podracer', 'column',
+export const VEHICLE_CLASSES = ['prop', 'heavy', 'ultralight', 'heli', 'gunship', 'divebomber', 'grasshopper', 'locust', 'truck', 'wreck', 'hydro', 'drake', 'merlin', 'lanner', 'podracer', 'column',
   ...vehicleParamIds('boat').filter((id) => id !== 'hydro')];
 // Framing derived from the subject, exactly as a building's is derived from its roof. These
 // craft differ in size by seven times — CONTACT_SIZE runs 0.030 for a rig to 0.21 for the

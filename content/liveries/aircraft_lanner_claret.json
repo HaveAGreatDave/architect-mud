@@ -1,0 +1,20 @@
+{
+  "blurb": "Deep red, cream coachline, dark hide. The one the foreman drives.",
+  "default": false,
+  "exterior": {
+    "base": "#701222",
+    "finish": "gloss",
+    "pattern": "factory",
+    "trim": "#ece2cc",
+    "variant": "claret"
+  },
+  "id": "claret",
+  "interior": {
+    "cabin": "#3a2018",
+    "uphol": "leather"
+  },
+  "kind": "aircraft",
+  "model": "lanner",
+  "name": "Claret",
+  "unlock": null
+}

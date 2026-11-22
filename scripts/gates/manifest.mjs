@@ -77,6 +77,7 @@ export const GROUPS = [
       'scripts/client/paper-doll-smoke.mjs',   // every wearable item in content/ draws on the Pack's paper doll, both bodies
       'scripts/bank-hold-tune.mjs --check',   // the ← → bank hold settles, holds height and lets go, on every airframe
       'scripts/merlin-modes.mjs',             // the Merlin's HOVER, LOCK, BOOST and PIT, driven headlessly
+      'scripts/hover-cars.mjs',               // every hover car: the class's balance, and the four buttons on its own rows
     ],
   },
   {
@@ -278,6 +279,7 @@ export const GROUPS = [
       'scripts/shapes/cockpit-dragonfly.mjs',
       'scripts/shapes/cockpit-dragonfly-2076.mjs',
       'scripts/shapes/cockpit-merlin.mjs',
+      'scripts/shapes/cockpit-lanner.mjs',
       'scripts/shapes/cockpit-mule-2076.mjs',
       'scripts/shapes/cockpit-mayfly-2076.mjs',
       'scripts/shapes/cockpit-grasshopper-2076.mjs',

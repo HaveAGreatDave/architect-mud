@@ -177,6 +177,8 @@ import { carcass2076Profile } from './interior-carcass-2076.js';
 import { drake2076Profile } from './interior-drake-2076.js';
 // The Corvane Merlin: a supercar's tub under a raked screen, driven by a race wheel (interior-merlin.js).
 import { merlinProfile } from './interior-merlin.js';
+// The Lanner: a coachbuilt tourer's cabin with a wood wheel (interior-lanner.js).
+import { lannerProfile } from './interior-lanner.js';
 import { defaultLivery, aircraftLiveryModel } from './livery-sets.js';
 const CRAFT_PROFILE = {};
 const craftProfile = (id, build) => (CRAFT_PROFILE[id] ||= build());
@@ -348,6 +350,7 @@ export const SHELL_PROFILES = {
   get drake2076() { return craftProfile('drake2076', drake2076Profile); },
   // The Merlin's tub, lofted off cabin-merlin.js like the Dragonfly 2076's pod.
   get merlin() { return craftProfile('merlin', merlinProfile); },
+  get lanner() { return craftProfile('lanner', lannerProfile); },
   // The generic bubble the Dragonfly used to borrow, kept as the reference `bubbleRoom` shape.
   bubble: {
     label: 'helicopter bubble',
@@ -469,6 +472,7 @@ export const SHELL_CLASS = {
   bridge: 'bridge',       // the Echelon's wheelhouse — see helm-view, which sends it only from the bridge seat
   drake: 'drake',         // the inside of a duck's head, and you sit in the eye
   merlin: 'merlin',       // a supercar's tub with a race wheel (interior-merlin.js)
+  lanner: 'lanner',       // a coachbuilt tourer's cabin with a wood wheel (interior-lanner.js)
   podracer: 'podracer',   // an open tub on two cables (interior-podracer.js)
 };
 

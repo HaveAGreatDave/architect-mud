@@ -80,6 +80,10 @@ const FE_VOICE = {
   //   motorB/motorS: the motor whine; roar: the duct air; rev: how far a blip overshoots.
   merlin:     { coreB: 46, coreS: 30, wave: 'triangle', pulseB: 0.5, pulseS: 0, pDep: [0.02, 0.02], biteB: 1400, biteS: 2200, biteM: 0.5, subB: 26, subM: 1.6, lpB: 240, lpS: 500, crk: 0, det: 1.003, mas: 1.1,
     fan: { bpfB: 210, bpfS: 760, beat: [1, 1.0061, 0.9947, 1.0113], motorB: 1500, motorS: 3600, roar: 1.0, rev: 0.16 } },
+  // THE LANNER. Nine blades a fan and the four held close together in speed, so the blade-pass tone is
+  // higher and smoother than the Merlin's and barely beats: a turbine hum where the Merlin shimmers.
+  lanner:     { coreB: 44, coreS: 26, wave: 'triangle', pulseB: 0.5, pulseS: 0, pDep: [0.02, 0.02], biteB: 1200, biteS: 1900, biteM: 0.4, subB: 28, subM: 1.4, lpB: 230, lpS: 460, crk: 0, det: 1.002, mas: 1.0,
+    fan: { bpfB: 250, bpfS: 820, beat: [1, 1.0028, 0.9975, 1.0052], motorB: 1300, motorS: 3000, roar: 0.8, rev: 0.12 } },
   truck:      { coreB: 17, coreS: 34, wave: 'sawtooth', pulseB: 9,  pulseS: 16, pDep: [0.44, 0.52], biteB: 320,  biteS: 180,  biteM: 0.25, subB: 11, subM: 2.2, lpB: 150, lpS: 620,  crk: 1.8,  det: 1.019, mas: 1.1 },
 };
 
@@ -114,7 +118,7 @@ const FLYBY_CLASS = { grasshopper: 'ultralight', drake: 'prop', jet: 'heavy' };
 export const FLYBY_LOUD = {
   ultralight: { ref: 1.0, hear: 22 }, wreck: { ref: 1.8, hear: 30 }, prop: { ref: 2.2, hear: 36 },
   locust: { ref: 2.6, hear: 40 }, divebomber: { ref: 3.2, hear: 48 }, heli: { ref: 5.0, hear: 70 },
-  merlin: { ref: 3.0, hear: 50 },
+  merlin: { ref: 3.0, hear: 50 }, lanner: { ref: 2.8, hear: 46 },
   // a heavy at cruise is 10 km up and still a faint rumble, so it's heard a very long way
   gunship: { ref: 5.0, hear: 120 }, heavy: { ref: 6.5, hear: 700 },
 };
@@ -636,6 +640,14 @@ const SPOOL_UP = {
     { waveform: 'sine', freq: 600, delay: 0.25, pitchBend: { to: 2300, time: 2.2 }, vibrato: { rate: 7, depth: 6 }, adsr: { a: 0.4, d: 0, s: 1, r: 0.5 }, gain: 0.025 },
     { waveform: 'noise', noiseMix: 1, delay: 0.6, filter: { type: 'bandpass', freq: 1100, q: 0.8 }, adsr: { a: 1.4, d: 0, s: 1, r: 0.6 }, gain: 0.05 },
     { waveform: 'sine', freq: 24, delay: 0.4, pitchBend: { to: 46, time: 1.8 }, adsr: { a: 0.8, d: 0, s: 1, r: 0.5 }, gain: 0.05 } ] },
+  // Lanner: one contactor, then the four fans rise together in a single smooth tone.
+  lanner:  { duration: 3.0, layers: [
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 1400, q: 1.4 }, adsr: { a: 0.002, d: 0.07, s: 0, r: 0.03 }, gain: 0.08 },
+    { waveform: 'sawtooth', freq: 72, delay: 0.2, pitchBend: { to: 430, time: 2.3 }, filter: { type: 'bandpass', freq: 600, q: 2.6 }, adsr: { a: 0.4, d: 0, s: 1, r: 0.5 }, gain: 0.08 },
+    { waveform: 'sawtooth', freq: 72.4, delay: 0.2, pitchBend: { to: 432, time: 2.3 }, filter: { type: 'bandpass', freq: 600, q: 2.6 }, adsr: { a: 0.4, d: 0, s: 1, r: 0.5 }, gain: 0.07 },
+    { waveform: 'sine', freq: 520, delay: 0.2, pitchBend: { to: 1900, time: 2.5 }, vibrato: { rate: 5, depth: 4 }, adsr: { a: 0.5, d: 0, s: 1, r: 0.5 }, gain: 0.022 },
+    { waveform: 'noise', noiseMix: 1, delay: 0.7, filter: { type: 'bandpass', freq: 900, q: 0.8 }, adsr: { a: 1.6, d: 0, s: 1, r: 0.6 }, gain: 0.04 },
+    { waveform: 'sine', freq: 26, delay: 0.4, pitchBend: { to: 48, time: 2.0 }, adsr: { a: 0.9, d: 0, s: 1, r: 0.5 }, gain: 0.05 } ] },
   // Piston single: starter cranks (chugging square), the engine catches after a
   // beat, then revs up with an exhaust bark.
   prop:    { duration: 1.9, layers: [

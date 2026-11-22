@@ -1,0 +1,20 @@
+{
+  "blurb": "Dark blue with a silver line. Ordered mostly by people who are driven.",
+  "default": false,
+  "exterior": {
+    "base": "#121a3a",
+    "finish": "gloss",
+    "pattern": "factory",
+    "trim": "#c6ccd6",
+    "variant": "midnight"
+  },
+  "id": "midnight",
+  "interior": {
+    "cabin": "#96744e",
+    "uphol": "leather"
+  },
+  "kind": "aircraft",
+  "model": "lanner",
+  "name": "Midnight",
+  "unlock": null
+}

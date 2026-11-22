@@ -41,6 +41,12 @@ export const TRIMS = {
     { id: 'giallo', label: 'Giallo · yellow and black' },
     { id: 'bianco', label: 'Bianco · pearl, red pinstripe' },
   ],
+  // The Lanner's four factory paint jobs (mesh_lanner.json 'schemes').
+  lanner: [    { id: 'racing', label: 'Racing · green, cream line' },
+    { id: 'claret', label: 'Claret · deep red, cream line' },
+    { id: 'ivory', label: 'Ivory · cream, green line' },
+    { id: 'midnight', label: 'Midnight · dark blue, silver line' },
+  ],
   // the 2076 body is a different model, not a paint scheme (mesh_heli.json 'variants').
   // An armed heli reads `viper` below, not this (its livery model; aircraftLiveryModel).
   heli: [    { id: '2076', label: 'Dragonfly 2076 · the 2076' },

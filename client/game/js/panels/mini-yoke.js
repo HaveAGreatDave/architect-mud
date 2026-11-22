@@ -6,6 +6,7 @@
 // Drawn once per craft at the neutral pose, seen from just off the pilot's eye; the frame loop moves the
 // canvas with the same CSS transform the old SVG took, so input feels exactly as before.
 import { shellProfileFor, shellFaces } from '../../../shared/interior-shell.js';
+import { isHoverCar } from '../../../shared/hover-cars.js';
 
 const TONE = { dash: [46, 52, 60], pil: [62, 68, 76], hdr: [54, 60, 68], seat: [58, 62, 70], floor: [30, 33, 38] };
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
@@ -33,7 +34,7 @@ export function yokeFaces(cls, armed, variant) {
 export function paintMiniYoke(cv, cls, armed, variant, accent = '#5fd0ff') {
   // The Merlin's hotspot is on a grip, so the cut came out as a stray grip and keys; its own drawn
   // yoke (cockpit.js YOKE_MERLIN) shows instead.
-  if (cls === 'merlin') return false;
+  if (isHoverCar(cls)) return false;
   const got = yokeFaces(cls, armed, variant);
   if (!got) return false;
   // From a little right of and above the seat, so a stick reads as a solid rather than its top.

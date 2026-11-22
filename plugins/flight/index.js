@@ -52,6 +52,7 @@ import './hvac.js';   // registers a running cockpit as a climate-controlled cab
 import { boardCompanions } from './companions.js';
 import { describeExterior, rampColorWord, conspicuousnessMult, normalizeLivery } from './livery.js';
 import { aircraftLiveryModel } from '../../client/shared/livery-sets.js';
+import { isHoverCar } from '../../client/shared/hover-cars.js';
 import { districtBiome } from './biomes.js';
 import { rollHazards, commands as hazardCommands } from './hazards.js';
 import { commands as drakeStoreCommands } from './drake-stores.js';
@@ -496,7 +497,7 @@ async function cmdDisembark(args, raw, player, broadcast) {
   // Out of a Merlin: you step out under the open gull wing onto the street on foot in GLASS (plugins/freelook
   // answers `roomstage.onfoot`). Sent once the client has shown the doors swing and shut the cockpit
   // (cockpit.js holdForDoors, 950 ms), or the cockpit's close lands on top of the street view.
-  if (live.type?.class === 'merlin' && !inHangarBay && getZone(player.current_zone)?.map_id === 'map_world' && !loggedPanelsSync(player)) {
+  if (isHoverCar(live.type?.class) && !inHangarBay && getZone(player.current_zone)?.map_id === 'map_world' && !loggedPanelsSync(player)) {
     const pid = player.id, zone = player.current_zone;
     setTimeout(() => { const p = getLivePlayer(pid); if (p && p.current_zone === zone && !p.aircraftId) emit('roomstage.onfoot', { player: p, zone }); }, 1200);
   }
@@ -1339,7 +1340,7 @@ async function cmdFlightEvent(args, raw, player, broadcast) {
   // The Merlin on the road glancing off a wall (client merlin-modes.js merlinGlance): `scrape <pct>`,
   // 0 to 15, nothing under 30 kt. A road scrape is a car's, not a roof clip's fifth of the hull.
   // Rate-limited as the wave is, so a client can't grind the hull down by repeating it.
-  if (ev === 'scrape' && live.type?.class === 'merlin') {
+  if (ev === 'scrape' && isHoverCar(live.type?.class)) {
     if (!live.row.airborne) return { type: 'noop' };
     const now = Date.now();
     if (now - (live._lastScrape || 0) < 700) return { type: 'noop' };
@@ -1347,7 +1348,7 @@ async function cmdFlightEvent(args, raw, player, broadcast) {
     const pct = Math.max(0, Math.min(15, Number(args[1]) || 0));
     if (!pct) { out(player.id, '<span class="text-dim">You nudge the wall.</span>'); return { type: 'noop' }; }
     live.row.damage = Math.min(1, (live.row.damage || 0) + pct / 100);
-    out(player.id, '<span class="text-amber">The Merlin glances off the wall in a spray of sparks.</span>');
+    out(player.id, '<span class="text-amber">The ' + (live.type?.name || 'car') + ' glances off the wall in a spray of sparks.</span>');
     if (live.row.damage >= 1) { await crash(live, 'cfit'); return { type: 'noop' }; }
     await persist(live);
     pushHud(live);

@@ -42,11 +42,19 @@ export const BRANDS = {
     line: [190, 226, 90],
     finish: { carbon: { spec: 0.22, pow: 16 }, carbonLt: { spec: 0.2, pow: 14 }, lining: { spec: 0.3, pow: 18 }, metal: { spec: 0.35, pow: 16 } },
   },
+  // Coachbuilders. Tan hide, walnut and green carpet, a sea-teal line: built to order, by post.
+  hallard: {
+    name: 'Hallard Coachbuilders',
+    tones: { lining: [150, 118, 82], liningDk: [112, 86, 58], headliner: [196, 186, 166], carbon: [58, 40, 26], carbonLt: [92, 64, 40], tub: [30, 44, 36],
+      glow: [120, 236, 220], glowDim: [40, 96, 90], screen: [6, 14, 13] },
+    line: [84, 226, 208],
+    finish: { carbon: { spec: 0.4, pow: 30 }, carbonLt: { spec: 0.38, pow: 28 }, lining: { spec: 0.25, pow: 16 }, metal: { spec: 0.8, pow: 50 } },
+  },
 };
 
 // Which firm built which seat, by the seat's trim prefix.
 export const SEAT_BRAND = {
-  viper: 'corvane', reaper: 'corvane', shrike: 'corvane', merlin: 'corvane',
+  viper: 'corvane', reaper: 'corvane', shrike: 'corvane', merlin: 'corvane', lanner: 'hallard',
   mule: 'harcourt', leviathan: 'harcourt',
   mayfly: 'lumen', dragonfly: 'lumen', grasshopper: 'lumen',
   locust: 'ostler', carcass: 'ostler',

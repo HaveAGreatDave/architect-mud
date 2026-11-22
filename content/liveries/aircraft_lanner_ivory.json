@@ -1,0 +1,20 @@
+{
+  "blurb": "Cream with a green line and green hide. Shows every mark.",
+  "default": false,
+  "exterior": {
+    "base": "#e8e0cc",
+    "finish": "gloss",
+    "pattern": "factory",
+    "trim": "#163e2c",
+    "variant": "ivory"
+  },
+  "id": "ivory",
+  "interior": {
+    "cabin": "#1a3c2c",
+    "uphol": "leather"
+  },
+  "kind": "aircraft",
+  "model": "lanner",
+  "name": "Ivory",
+  "unlock": null
+}

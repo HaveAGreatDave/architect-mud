@@ -68,6 +68,7 @@ import { compactHidePanel } from '../../../shared/compact-view.js';
 import { DRAKE_WHEEL } from '../../../shared/interior-drake.js';
 import { HUD_TINTS, HUD_TINT_ORDER, HUD_WHEEL, hudTint, isHudHex } from '../../../shared/interior-cockpit-kit.js';
 import { newMenu, menuTurn, menuPick, menuTick, menuOpen, MENU_HOLD_MS } from '../../../shared/merlin-menu.js';
+import { isHoverCar, hoverCar } from '../../../shared/hover-cars.js';
 import { newMerlinState, merlinHover, merlinLock, merlinBoostOn, stepMerlin, merlinRoad, merlinGlance, MR } from './merlin-modes.js';
 // The HUD's colour, the pilot's choice per aircraft type, kept in this browser (a convenience, not state).
 const HUD_TINT_KEY = (craft) => 'fsim.hudTint.' + (craft || 'any');
@@ -115,7 +116,8 @@ const CLASS_THEME = {
   divebomber: { acc: '#ff5cb0', chrome: 'military',    radar: 'md' },   // matches the tile crosshair she aims with
   wreck:      { acc: '#9bd06a', chrome: 'degraded',    radar: 'sm' },
 };
-const themeFor = (cls) => CLASS_THEME[cls] || CLASS_THEME.prop;
+// A hover car without its own row wears the Merlin's chrome in its maker's line colour (hover-cars.js).
+const themeFor = (cls) => CLASS_THEME[cls] || (isHoverCar(cls) ? { ...CLASS_THEME.merlin, acc: hoverCar(cls).acc } : CLASS_THEME.prop);
 
 // Accent blended from the livery (base, trim, cabin), else the class accent.
 function liveryAccent(livery, fallbackHex) {
@@ -841,7 +843,7 @@ const FLAP_BY_CRAFT = { mayfly: 'johnson', mule: 'johnson', leviathan: 'quadrant
   // The Shrike's flap lever also drives her dive brakes, so it gets the quadrant.
   shrike: 'quadrant' };
 function flapStyleFor(craftType) {
-  const key = craftType in FLAP_BY_CRAFT ? FLAP_BY_CRAFT[craftType] : 'switch';
+  const key = craftType in FLAP_BY_CRAFT ? FLAP_BY_CRAFT[craftType] : isHoverCar(craftType) ? null : 'switch';
   return key ? { key, ...FLAP_STYLES[key] } : null;
 }
 function buildFlapHtml(st) {
@@ -1496,6 +1498,8 @@ const YOKE_MERLIN = `<svg class="fsim-yoke-svg" id="fsim-yoke-svg" viewBox="0 0 
 
 // Control art per craft type; anything unlisted gets the default wheel.
 function yokeSvgFor(t) {
+  // Every hover car's 2-D yoke is the class's, with its own name on the hub.
+  if (isHoverCar(t) && t !== 'merlin') return YOKE_MERLIN.replace('>MERLIN<', '>' + hoverCar(t).name.toUpperCase() + '<');
   return { merlin: YOKE_MERLIN, mayfly: YOKE_MAYFLY, grasshopper: STICK_GRASSHOPPER, locust: STICK_LOCUST, leviathan: YOKE_LEVIATHAN, reaper: STICK_REAPER, shrike: STICK_REAPER, dragonfly: CYCLIC_DRAGONFLY, viper: CYCLIC_VIPER }[t] || YOKE_SVG;
 }
 
@@ -1568,7 +1572,8 @@ export function openFlightSim(opts = {}) {
   window.dispatchEvent(new Event('flightsim:open'));   // WASD walk mode disarms; those keys fly now
   suppressWeatherFx(true, 'cockpit');   // now, so rain never flashes over the cockpit on embark
   ensureWindshieldStyles(); ensureFlightSimStyles(); refreshAccent();
-  const skin = FSIM_SKIN[opts.craftType] || null;
+  const hc = hoverCar(opts.craftType);
+  const skin = FSIM_SKIN[opts.craftType] || (hc ? { id: hc.id, acc: hc.acc, rgb: hc.rgb } : null);
   if (skin) { ACCENT = skin.acc; ACCENT_RGB = skin.rgb; }
   const P = TYPES[opts.craftType] || TYPES.mayfly;
   const s = createState(P);
@@ -1626,12 +1631,12 @@ export function openFlightSim(opts = {}) {
     nightLight: false, landingLight: false,          // PANEL and LIGHTS; both need engine power
     hudTint: savedHudTint(opts.craftType),           // the HUD key's colour (interior-cockpit-kit HUD_TINTS)
     mrMenu: opts.craftType === 'merlin' ? newMenu() : null,   // the HUD knob's setup menu (merlin-menu.js)
-    mr: opts.craftType === 'merlin' ? newMerlinState() : null,   // the Merlin's HOVER, LOCK, BOOST and PIT (merlin-modes.js)
+    mr: isHoverCar(opts.craftType) ? newMerlinState(opts.craftType) : null,   // a hover car's HOVER, LOCK, BOOST and PIT (merlin-modes.js)
     raf: 0, last: 0, syncAcc: 0, hornBeat: 0, audioAcc: 0,
     temp: 40, battery: 100,          // cosmetic
     engines: Math.max(1, opts.engines || 1), seats: Math.max(1, opts.seats || 1), occupants: opts.occupants || [],
     // Powerplant class picks the engine gauges' labels and scales.
-    engStyle: { mule: 'turboprop', reaper: 'turbofan', leviathan: 'turbofan', shrike: 'turboprop', dragonfly: 'heli', viper: 'heli', drake: 'heli', merlin: 'heli' }[opts.craftType] || 'piston',
+    engStyle: { mule: 'turboprop', reaper: 'turbofan', leviathan: 'turbofan', shrike: 'turboprop', dragonfly: 'heli', viper: 'heli', drake: 'heli', merlin: 'heli' }[opts.craftType] || (isHoverCar(opts.craftType) ? 'heli' : 'piston'),
     temps: [], rpms: [], engWander: 0,
 
     disp: { ias: 0, alt: 0, vs: 0, hdg: s.heading, rpm: 0, pitch: 0, bank: 0 },
@@ -2653,7 +2658,7 @@ export function openFlightSim(opts = {}) {
   // The Merlin's doors by hand: open them on the ground and sit with them open; GET OUT shows on
   // the open door. The frame loop shuts them if she leaves the ground.
   add(q('#fsim-doorbtn'), 'click', () => {
-    if (F.cls !== 'merlin' || !(F.s && F.s.onGround)) return;
+    if (!isHoverCar(F.cls) || !(F.s && F.s.onGround)) return;
     F.doorWant = !F.doorWant;
     fsimToast(F.doorWant ? '⇿ DOORS OPEN' : '⇿ DOORS SHUT');
   });
@@ -3286,7 +3291,7 @@ function merlinDoor(F, dt) {
 // the seat hands the pane back. Returns true when it took the close; `done` then runs when they're open.
 export function holdForDoors(done) {
   const F = _fsim;
-  if (!F || F.cls !== 'merlin' || F.doorWant || !(F.s && F.s.onGround)) return false;
+  if (!F || !isHoverCar(F.cls) || F.doorWant || !(F.s && F.s.onGround)) return false;
   F.doorWant = true;
   setTimeout(done, 950);
   return true;
@@ -3299,7 +3304,7 @@ function classAnim(F, dt) {
   if (F.cls === 'heli' && F.hardpoints > 0) return { drones: 0 };
   // The Merlin's yaw thrusters: the pedal fires the pair on the far side of the turn (yawL turns the
   // nose left: the right front jet and the left rear one). Eased so a jet blooms and dies.
-  if (F.cls === 'merlin') {
+  if (isHoverCar(F.cls)) {
     const ped = clampNum(F.input.pedal || 0, -1, 1), k = Math.min(1, dt * 9);
     F.yawJetL = (F.yawJetL || 0) + ((ped < -0.05 && F.engineOn ? -ped : 0) - (F.yawJetL || 0)) * k;
     F.yawJetR = (F.yawJetR || 0) + ((ped > 0.05 && F.engineOn ? ped : 0) - (F.yawJetR || 0)) * k;
@@ -4205,7 +4210,7 @@ function fsimFrameBody(now) {
   }
 
   document.getElementById('fsim-disembarkbtn')?.classList.toggle('on', !!s.onGround);
-  if (F.cls === 'merlin') {
+  if (isHoverCar(F.cls)) {
     if (!s.onGround && F.doorWant) F.doorWant = false;   // never airborne with the doors out
     document.getElementById('fsim-doorbtn')?.classList.toggle('on', !!s.onGround);
     document.getElementById('fsim-getout')?.classList.toggle('on', !!s.onGround && (F.doorAnim || 0) > 0.85);

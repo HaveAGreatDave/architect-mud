@@ -21,6 +21,14 @@
 // aircraft further than the sim it rides on.
 
 import { TYPES } from './flight-model.js';
+import { HOVER_CARS } from '../../../shared/hover-cars.js';
+
+// Every hover car (client/shared/hover-cars.js) has the Merlin's four buttons on its own pair of
+// rows: the one it flies on and the one it drives on. Its state carries which car it is as `M.cls`;
+// the times, the limits and the pad rules below are the class's.
+const carOf = (F) => HOVER_CARS[F.mr && F.mr.cls] || HOVER_CARS.merlin;
+export const airRow = (F) => TYPES[carOf(F).air];
+export const roadRow = (F) => TYPES[carOf(F).road];
 
 export const MR = {
   HOVER_MAX_AGL_FT: 100,   // about 30 m: higher than this, HOVER refuses
@@ -46,7 +54,7 @@ const faceVec = (ent) => (ent === 'north' ? [0, -1] : ent === 'south' ? [0, 1] :
 // windshield.js `facePt`: model-local onto the world, turned to the entrance.
 const facePt = (dx, dy, lx, ly, E) => [dx + lx * E[1] + ly * E[0], dy - lx * E[0] + ly * E[1]];
 
-export const newMerlinState = () => ({ mode: 'air', t: 0, heat: 0, over: 0, key: false, tap: 0, pit: false, lock: null, near: null, lit: 0, flame: 0 });
+export const newMerlinState = (cls = 'merlin') => ({ cls: HOVER_CARS[cls] ? cls : 'merlin', mode: 'air', t: 0, heat: 0, over: 0, key: false, tap: 0, pit: false, lock: null, near: null, lit: 0, flame: 0 });
 export const merlinRoad = (F) => !!F.mr && (F.mr.mode === 'road' || F.mr.mode === 'down');
 export const merlinBoostOn = (F) => !!F.mr && !(F.mr.over > 0) && (F.mr.key || F.mr.tap > 0) && F.engineOn;
 
@@ -94,7 +102,7 @@ export function merlinHover(F, toast) {
     if (why) { toast(why); return; }
     M.mode = 'down'; M.t = 0; toast('HOVER: coming down to ride height');
   } else if (M.mode === 'road') {
-    M.mode = 'up'; M.t = 0; F.P = TYPES.merlin; F.heli = true; F.input.throttle = Math.max(F.input.throttle || 0, 0.62);
+    M.mode = 'up'; M.t = 0; F.P = airRow(F); F.heli = true; F.input.throttle = Math.max(F.input.throttle || 0, 0.62);
     toast('HOVER: up to flight');
   } else if (M.mode === 'down') { M.mode = 'air'; M.t = 0; toast('HOVER: cancelled'); }
   else if (M.mode === 'up') { M.mode = 'down'; M.t = 0; toast('HOVER: back down'); }
@@ -141,12 +149,12 @@ export function stepMerlin(F, s, dt, fx, cellAt) {
   // HOVER's transitions.
   if (M.mode === 'down') {
     M.t += dt;
-    const tgt = (s.groundFt || 0) + TYPES.merlin_road.rideFt, k = Math.min(1, dt * 1.3);
+    const tgt = (s.groundFt || 0) + roadRow(F).rideFt, k = Math.min(1, dt * 1.3);
     s.altitude += (tgt - s.altitude) * k; s.vs = 0;
     if (s.airspeed > 20) s.airspeed -= Math.min(s.airspeed - 20, 12 * dt);
     s.pitch += (0 - s.pitch) * Math.min(1, dt * 3); s.bank += (0 - s.bank) * Math.min(1, dt * 3);
     if (M.t >= MR.DOWN_S && Math.abs(s.altitude - tgt) < 0.8) {
-      M.mode = 'road'; M.t = 0; F.P = TYPES.merlin_road; F.heli = false;
+      M.mode = 'road'; M.t = 0; F.P = roadRow(F); F.heli = false;
       fx.toast('ROAD: on the cushion · hold R to go, F or S to brake, A/D steer');
       fx.settle?.();
     }
@@ -178,7 +186,7 @@ export function stepMerlin(F, s, dt, fx, cellAt) {
     s.altitude = (s.groundFt || 0) + (L.a0 - (s.groundFt || 0)) * (1 - u);
     if (L.t >= MR.LOCK_S) {
       M.lock = null; M.mode = 'air'; M.t = 0;
-      if (F.P !== TYPES.merlin) { F.P = TYPES.merlin; F.heli = true; }
+      if (F.P !== airRow(F)) { F.P = airRow(F); F.heli = true; }
       F.input.throttle = 0; F.touchVs = -40;
       s.altitude = s.groundFt || 0; s.onGround = true;
       fx.clamp?.(); fx.toast('LOCKED: feet clamped');

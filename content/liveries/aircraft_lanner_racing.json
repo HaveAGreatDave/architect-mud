@@ -1,0 +1,20 @@
+{
+  "blurb": "Racing green with a cream coachline. Hallard has painted this colour since before anyone at the works was born.",
+  "default": true,
+  "exterior": {
+    "base": "#163e2c",
+    "finish": "gloss",
+    "pattern": "factory",
+    "trim": "#ece2cc",
+    "variant": "racing"
+  },
+  "id": "racing",
+  "interior": {
+    "cabin": "#2c2219",
+    "uphol": "leather"
+  },
+  "kind": "aircraft",
+  "model": "lanner",
+  "name": "Racing",
+  "unlock": null
+}
