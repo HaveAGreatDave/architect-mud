@@ -186,8 +186,8 @@ door bins, cup holders.
 ### Checked, and not
 
 Each car's gates pass: its cockpit gate, `scripts/hover-cars.mjs`, the controls and legibility gate,
-and the mesh, livery, hangar, shell and ink gates. The Lanner and the Bustard were looked at in the
-Modelshop, outside and from the seat. None of the three has been flown in the running game, and
+and the mesh, livery, hangar, shell and ink gates. All three were looked at in the Modelshop,
+outside and from the seat. None of the three has been flown in the running game, and
 `npm run test:regress` wasn't run for this build.
 
 ## Open questions
