@@ -13,6 +13,8 @@
 // Change that car's row in DEALER_CARS: its own `cls` and `metres`, a livery of its own, and drop
 // `standIn`. One line. A bay whose car has `standIn` holds a Merlin in the maker's colour.
 
+import { HOVER_EMBLEMS } from './hover-car-emblems.js';
+
 // A livery is what `liveryPalette` (panels/aircraft3d.js) takes: the row's `exterior`.
 export const DEALER_CARS = {
   merlin:  { cls: 'merlin', metres: 4.6, livery: { base: '#b2162a', trim: '#ece8e0', finish: 'gloss', pattern: 'factory', variant: 'rosso' } },
@@ -26,9 +28,9 @@ export const DEALER_CARS = {
 // round its turntable.
 export const DEALER_BAYS = [
   { where: 'a', maker: 'Corvane', mark: 'C', line: [168, 150, 255], car: 'merlin' },
-  { where: 'b', maker: 'Castellan', mark: 'H', line: [84, 226, 208],  car: 'wraith' },
-  { where: 'c', maker: 'Brakk',  mark: 'G', line: [214, 232, 255], car: 'wolverine' },
-  { where: 'd', maker: 'Vex',   mark: 'M', line: [255, 110, 214], car: 'hornet' },
+  { where: 'b', maker: 'Castellan', mark: 'C', line: [84, 226, 208],  car: 'wraith' },
+  { where: 'c', maker: 'Brakk',  mark: 'B', line: [214, 232, 255], car: 'wolverine' },
+  { where: 'd', maker: 'Vex',   mark: 'V', line: [255, 110, 214], car: 'hornet' },
 ];
 // The car on the pylon outside: whichever the dealership is showing off.
 export const DEALER_PYLON = 'merlin';
@@ -53,46 +55,23 @@ export const DEALER_PLAN = {
 };
 
 // ── THE MAKERS' EMBLEMS ─────────────────────────────────────────────────────────────────────
-// Each is a list of quads in a unit box, u right and v up, -1 to 1, drawn in the maker's line colour
-// on a dark plate. A badge has to be told from its neighbour by its outline before anything inside
-// it can be read, so the four have four outlines: wings, a lozenge, a hexagon and a roundel. The
-// figures are the badges docs/proposals/hover-cars.md gives each maker; Corvane's is the wings an
-// aerospace firm would wear.
-const arc = (cx, cy, rx, ry, t, n, rot = 0, a0 = 0, a1 = Math.PI * 2) => {
-  const cr = Math.cos(rot), sr = Math.sin(rot), out = [];
-  const at = (a, k) => { const x = Math.cos(a) * rx * k, y = Math.sin(a) * ry * k; return [cx + x * cr - y * sr, cy + x * sr + y * cr]; };
-  for (let i = 0; i < n; i++) { const p = a0 + (a1 - a0) * i / n, q = a0 + (a1 - a0) * (i + 1) / n; out.push([at(p, 1), at(q, 1), at(q, 1 - t), at(p, 1 - t)]); }
-  return out;
-};
-const bar = (x0, y0, x1, y1) => [[x0, y1], [x1, y1], [x1, y0], [x0, y0]];
-// a frame between a polygon and the same polygon shrunk by `k`
-const frame = (pts, k) => pts.map((p, i) => { const q = pts[(i + 1) % pts.length]; return [p, q, [q[0] * k, q[1] * k], [p[0] * k, p[1] * k]]; });
-const HEX = [0, 1, 2, 3, 4, 5].map((i) => [Math.cos(i * Math.PI / 3) * 0.98, Math.sin(i * Math.PI / 3) * 0.98]);
+// Castellan's, Brakk's and Vex's are the cars' own (client/shared/hover-car-emblems.js, the drawing on
+// each car's nose and wheel): a tower on a shield, a beast's head with its jaw open, a V in a circle.
+// Corvane's isn't in that table, so its wings are here: an aerospace firm's, swept either side of a
+// kite. Every emblem is a list of convex pieces in a box from -1 to 1, back to front, each
+// { p, tone }: 'field' is the ground it sits on and 'mark' the device.
+const CORVANE_WINGS = [
+  [[0, 0.62], [0.17, 0.02], [0, -0.62], [-0.17, 0.02]],
+  ...[-1, 1].flatMap((side) => [0, 1, 2].map((i) => {
+    const y0 = 0.30 - i * 0.27, xt = 1.0 - i * 0.22, yt = 0.66 - i * 0.30;
+    return [[side * 0.24, y0], [side * xt, yt], [side * xt, yt - 0.11], [side * 0.24, y0 - 0.20]];
+  })),
+].map((q) => ({ p: q, tone: 'mark' }));
 export const DEALER_EMBLEMS = {
-  // swept wings of three feathers either side of a kite
-  Corvane: [
-    [[0, 0.62], [0.17, 0.02], [0, -0.62], [-0.17, 0.02]],
-    ...[-1, 1].flatMap((s) => [0, 1, 2].map((i) => {
-      const y0 = 0.30 - i * 0.27, xt = 1.0 - i * 0.22, yt = 0.66 - i * 0.30;
-      return [[s * 0.24, y0], [s * xt, yt], [s * xt, yt - 0.11], [s * 0.24, y0 - 0.20]];
-    })),
-  ],
-  // an upright lozenge, a coachline inside it, and a bar across
-  Castellan: [
-    ...frame([[0, 1], [0.66, 0], [0, -1], [-0.66, 0]], 0.76),
-    bar(-0.92, -0.085, 0.92, 0.085),
-  ],
-  // a hexagon nut holding three stacked bars, the longest on top
-  Brakk: [
-    ...frame(HEX, 0.82),
-    bar(-0.56, 0.24, 0.56, 0.44), bar(-0.42, -0.10, 0.42, 0.10), bar(-0.27, -0.44, 0.27, -0.24),
-  ],
-  // a roundel holding a vex: an open note head on a stem
-  Vex: [
-    ...arc(0, 0, 1, 1, 0.13, 18),
-    ...arc(-0.14, -0.36, 0.36, 0.25, 0.42, 12, 0.35),
-    bar(0.15, -0.30, 0.25, 0.64),
-  ],
+  Corvane: CORVANE_WINGS,
+  Castellan: HOVER_EMBLEMS.castellan,
+  Brakk: HOVER_EMBLEMS.brakk,
+  Vex: HOVER_EMBLEMS.vex,
 };
 export const dealerEmblem = (maker) => DEALER_EMBLEMS[maker] || [];
 

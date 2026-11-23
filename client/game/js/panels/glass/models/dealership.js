@@ -225,7 +225,18 @@ export const DEALERSHIP_ARMS = {
       pane('f', yE, bx - hw, bx + hw, z0, z1, [10, 11, 14], [14, 16, 20], 1, 1.3);
       // the maker's emblem (dealer-display.js), in its line colour: quads on the plate, so it's mesh and lit after dark
       const zc = (z0 + z1) / 2, k = Math.min(hw, (z1 - z0) / 2) * 0.82;
-      for (const q of dealerEmblem(bay.maker)) flat(q.map(([u, v]) => [bx + u * k, yE + FACE_EPS, zc + v * k]), [0, 1, 0], bay.line.map((c) => c * 0.82), bay.line, 1, 1.6);
+      // Pieces come back to front on one plane, so each layer stands a hair off the last: the ground (a dim
+      // tint of the line), the device (the line, lit after dark), then anything cut out of it (the plate's black).
+      let layer = 0;
+      dealerEmblem(bay.maker).forEach((piece, n) => {
+        const mark = piece.tone !== 'field';
+        if (mark && layer < 1) layer = 1; else if (!mark && n > 0 && layer >= 1) layer = 2;
+        const day = !mark ? (layer === 2 ? [10, 11, 14] : bay.line.map((c) => c * 0.22)) : bay.line.map((c) => c * 0.82);
+        const lit = !mark ? (layer === 2 ? [14, 16, 20] : bay.line.map((c) => c * 0.30)) : bay.line;
+        const pts = piece.p.map(([u, v]) => [bx + u * k, yE + FACE_EPS * (1 + layer * 0.6), zc + v * k]);
+        // a flat is three or four points, so a longer convex piece goes out as a fan
+        for (let j = 1; j + 1 < pts.length; j += 2) flat([pts[0], pts[j], pts[j + 1], ...(pts[j + 2] ? [pts[j + 2]] : [])], [0, 1, 0], day, lit, 1, 1.6 + layer * 0.2);
+      });
     });
     // The trade on the other street side, never the name twice (building-styles §4.1).
     { const [ax, ay] = F(-EDGE, 0), [bx, by] = F(-EDGE - 1, 0);
