@@ -1,13 +1,13 @@
-// THE GARROW BUSTARD'S COCKPIT: the inside of the muscle car, as geometry.
+// THE BRAKK WOLVERINE'S COCKPIT: the inside of the muscle car, as geometry.
 //
-// The Bustard is Garrow Motor Works' two-seat mini VTOL (docs/proposals/hover-cars.md), and the
+// The Wolverine is Brakk Motor Works' two-seat mini VTOL (docs/proposals/hover-cars.md), and the
 // cockpit is what a night shift would build: a flat steel dash with a painted top, a ribbon
 // speedometer the width of the wheel, a tachometer for the fans bolted on top of the dash where a
 // drag car carries one, rocker switches, square push buttons, a deep-dish steel wheel, high-backed
 // vinyl buckets with harnesses, a roll hoop behind them and a pistol-grip lever on the floor that
 // is the lift.
 //
-// ⚠ THE ROOM IS THE EXTERIOR'S BODY: client/shared/cabin-bustard.js states it, and
+// ⚠ THE ROOM IS THE EXTERIOR'S BODY: client/shared/cabin-wolverine.js states it, and
 // interior-hovercar-kit.js builds the wall, the glass, the floor and the doors off it. Nothing about
 // the shape of the cabin is typed here.
 //
@@ -24,13 +24,13 @@ import { memoPart } from './interior-memo.js';
 import { hotspotHalo, panelGps, gpsHotspot, lensLamp, eased, pressPulse, HALO, bootAge, reveal, alertLight,
   lightLine, bandFrame, glassBand, windscreenHud, hudTint } from './interior-cockpit-kit.js';
 import { MESH_ROWS } from './vehicle-meshes.js';
-import { BUSTARD } from './cabin-bustard.js';
+import { WOLVERINE } from './cabin-wolverine.js';
 import { hoverCarProfile, readings, night, panelOn, onRoad, driveWord, driveLights, switchOn, doorHotspots, outHoloDraw,
-  yawPedals, overhead, roomHalfW, fancyText, fancyDigits, TAU, DEG, add, sub, mul, cross, norm } from './interior-hovercar-kit.js';
+  yawPedals, overhead, roomHalfW, fancyText, drawEmblem, fancyDigits, TAU, DEG, add, sub, mul, cross, norm } from './interior-hovercar-kit.js';
 
 // ── THE STYLE ────────────────────────────────────────────────────────────────
-// Garrow's black vinyl and bare steel, with the body's orange on the dash top and down the seats.
-export const BUSTARD_TRIM = {
+// Brakk's black vinyl and bare steel, with the body's orange on the dash top and down the seats.
+export const WOLVERINE_TRIM = {
   lining: [40, 40, 42], liningDk: [28, 28, 30], headliner: [34, 34, 36],
   carbon: [64, 66, 70], carbonLt: [96, 100, 106], tub: [22, 22, 24],
   vinyl: [26, 26, 28], vinylDk: [16, 16, 18], paint: [206, 84, 24], paintDk: [150, 58, 16],
@@ -40,7 +40,7 @@ export const BUSTARD_TRIM = {
   glow: [224, 238, 255], glowDim: [84, 92, 108], screen: [8, 9, 12],
   red: [235, 60, 48], amber: [255, 176, 64], marker: [255, 196, 40], belt: [30, 30, 32], bottle: [190, 30, 26],
 };
-const T = BUSTARD_TRIM;
+const T = WOLVERINE_TRIM;
 for (const k of ['lining', 'liningDk', 'vinyl', 'vinylDk']) TEXTURE.set(T[k], 'leather');
 TEXTURE.set(T.headliner, 'fabric');
 for (const k of ['carbon', 'carbonLt', 'steel', 'steelDk']) TEXTURE.set(T[k], 'brushed');
@@ -49,14 +49,14 @@ for (const k of ['paint', 'paintDk', 'bottle']) TEXTURE.set(T[k], 'paint');
 for (const k of ['tub', 'mat', 'matEdge']) TEXTURE.set(T[k], 'rubber');
 TEXTURE.set(T.belt, 'fabric');
 SHINY.set(T.screen, { spec: 0.6, pow: 60 });
-brandTrim(T, 'bustard', TEXTURE, SHINY);
+brandTrim(T, 'wolverine', TEXTURE, SHINY);
 SHINY.set(T.steel, { spec: 0.6, pow: 26 });
 SHINY.set(T.steelDk, { spec: 0.45, pow: 20 });
 SHINY.set(T.paint, { spec: 0.55, pow: 40 });
 SHINY.set(T.vinyl, { spec: 0.3, pow: 14 });
 SHINY.set(T.face, { spec: 0.5, pow: 50 });
 
-// Garrow stamps its plates in a heavy slab; small switch labels stay in the legend face.
+// Brakk stamps its plates in a heavy slab; small switch labels stay in the legend face.
 const F_SLAB = 'alfaslab';
 
 // ── THE WHEEL ────────────────────────────────────────────────────────────────
@@ -117,7 +117,7 @@ function tachAt(P) {
   return { o, r, u, n: n[1] < 0 ? n : mul(n, -1), rad: 0.043 };
 }
 
-function bustardHotspots(P, live) {
+function wolverineHotspots(P, live) {
   const R = readings(live), K = makeKit(() => {}), D = dashOf(P), xC = P.xCentre, out = [];
   for (const d of DRIVE) out.push({ id: 'ck:' + d.id, p: D.at(K, d.x, d.v).pt(0, 0, 0.012), r: 0.023, kind: 'click' });
   for (const t of ROCKERS(xC)) out.push({ id: 'ck:' + t.id, p: D.at(K, t.x, V_ROCK).pt(0, 0, 0.012), r: 0.021, kind: 'click' });
@@ -132,7 +132,7 @@ function bustardHotspots(P, live) {
 }
 
 // The cabin's own light: the chart, the ribbon and the tach spill a cold white on the steel, with power.
-function bustardGlows(P, live) {
+function wolverineGlows(P, live) {
   const R = readings(live);
   if (!R.powered) return [];
   const K = makeKit(() => {}), D = dashOf(P), up = reveal(bootAge(live), 0.3);
@@ -147,9 +147,9 @@ function bustardGlows(P, live) {
 }
 
 // ── THE PROFILE ──────────────────────────────────────────────────────────────
-export function bustardProfile(doc = MESH_ROWS.bustard) {
-  return hoverCarProfile(BUSTARD, doc, {
-    label: 'Garrow Bustard', tag: 'bu', fN: 0.38,
+export function wolverineProfile(doc = MESH_ROWS.wolverine) {
+  return hoverCarProfile(WOLVERINE, doc, {
+    label: 'Brakk Wolverine', tag: 'bu', fN: 0.38,
     tones: { headliner: T.headliner, upper: T.lining, mid: T.liningDk, lower: T.tub, doorUpper: T.lining, doorLower: T.vinylDk,
       reveal: T.steelDk, seal: T.glowDim, firewall: T.steelDk, floor: T.mat, floorEdge: T.matEdge, floorLine: null,
       sill: T.steel, sillLine: T.glow, seam: T.steelDk },
@@ -157,7 +157,7 @@ export function bustardProfile(doc = MESH_ROWS.bustard) {
     dashY: DASH.yMid - 0.08, dashZ: DASH.z0 + 0.1, seatZ: 0.17, seatHalf: 0.25, seatY: [-0.26, 0.2],
     floods: (xC) => [{ p: [xC * 0.5, 0.5, -0.3], r: 0.5 }, { p: [xC, -0.05, 0.1], r: 0.6 }],
     floodGain: 1.7, glare: 0.2,
-    doorCard, roomFit, seats, fit: bustardFit, hotspots: bustardHotspots, glows: bustardGlows,
+    doorCard, roomFit, seats, fit: wolverineFit, hotspots: wolverineHotspots, glows: wolverineGlows,
   });
 }
 
@@ -169,7 +169,7 @@ function doorCard({ K, S, A, s, D, pull }) {
   for (let i = 0; i <= 4; i++) { const q = S(lerp(D.f[0] + 0.07, D.f[1] - 0.1, i / 4), A(-30), 0.0); K.rod(q, S(lerp(D.f[0] + 0.07, D.f[1] - 0.1, i / 4), A(-30), 0.04), 0.005, 'pil', 0.3, T.weld, 0, 6); }
   // A painted rail along the top of the card, under the glass.
   const cap = [];
-  for (let i = 0; i <= 8; i++) cap.push(S(lerp(D.f[0] + 0.03, D.f[1] - 0.04, i / 8), A(BUSTARD.glass.side.a[0] - 4), 0.01));
+  for (let i = 0; i <= 8; i++) cap.push(S(lerp(D.f[0] + 0.03, D.f[1] - 0.04, i / 8), A(WOLVERINE.glass.side.a[0] - 4), 0.01));
   for (let i = 1; i < cap.length; i++) K.rod(cap[i - 1], cap[i], 0.011, 'pil', 0.1, T.paint, 0, 5, false);
   // The pull: a loop of webbing bolted to the card near its back edge, where a scissor door latches.
   const p0 = S(D.f[0] + 0.1, A(4), 0.012), p1 = S(D.f[0] + 0.1, A(-12), 0.012), mid = S(D.f[0] + 0.1, A(-4), 0.05);
@@ -201,7 +201,7 @@ function roomFit({ K, xC, zF, yB }) {
   const Pp = K.panel([xC, y + 0.012, zF + 0.6], [1, 0, 0], [0, 0, 1], 'post', 0.2);
   Pp.rect(-0.07, -0.02, 0.07, 0.02, T.steel, 0.03, 0.001);
   for (const [a, b] of [[-0.062, -0.013], [0.062, -0.013], [-0.062, 0.013], [0.062, 0.013]]) Pp.disc(a, b, 0.003, T.steelDk, 0, 0.002, 6);
-  fancyText(Pp, 'GARROW', 0, 0, 0.014, T.bezelBlk, 0, 0.003, F_SLAB, 0.1);
+  fancyText(Pp, 'BRAKK', 0, 0, 0.014, T.bezelBlk, 0, 0.003, F_SLAB, 0.1);
 }
 
 // ── THE SEATS: high-backed vinyl buckets on steel frames, an orange stripe, a four-point harness ──
@@ -234,7 +234,7 @@ function seats(P, push) {
 }
 
 // ── THE FIT-OUT ──────────────────────────────────────────────────────────────
-function bustardFit(P, live, push) {
+function wolverineFit(P, live, push) {
   const K = makeKit(push);
   const R = readings(live);
   const zF = P.hc.zF, xC = P.xCentre, D = dashOf(P);
@@ -264,7 +264,7 @@ function bustardFit(P, live, push) {
     const Pg = D.at(K, 2 * xC - 0.02, 0.11, 0.004);
     Pg.rect(-0.12, -0.03, 0.12, 0.03, T.steel, 0.03, 0.001);
     for (const [a, b] of [[-0.11, -0.022], [0.11, -0.022], [-0.11, 0.022], [0.11, 0.022]]) Pg.disc(a, b, 0.004, T.steelDk, 0, 0.002, 6);
-    fancyText(Pg, 'BUSTARD', 0, 0, 0.024, T.bezelBlk, S.panel ? 0.05 : 0, 0.003, F_SLAB, 0.2);
+    fancyText(Pg, 'WOLVERINE', 0, 0, 0.024, T.bezelBlk, S.panel ? 0.05 : 0, 0.003, F_SLAB, 0.2);
     const g0 = Pg.pt(-0.11, -0.07, 0.045), g1 = Pg.pt(0.11, -0.07, 0.045);
     K.rod(g0, g1, 0.011, 'dash', 0.3, T.steel, 0, 8);
     for (const [q, a] of [[g0, -0.11], [g1, 0.11]]) K.rod(q, Pg.pt(a, -0.07, 0), 0.008, 'dash', 0.3, T.steelDk, 0, 6);
@@ -419,7 +419,7 @@ function bustardFit(P, live, push) {
   yawPedals(K, R, zF, { y: 0.7, half: 0.09, z: 0.12, w: 0.045, plate: T.steel, rail: T.steelDk, hole: T.bezelBlk });
   overhead(K, P, R, al.rgb, (R.dome && lit ? 1 : 0.4) * Math.max(amb, 0.2) * (lit ? al.k : 1), { domeY: -0.08, domeOn: [236, 244, 255] });
   outHoloDraw(K, P, live, F_SLAB);
-  hotspotHalo(K, bustardHotspots(P, live), live);
+  hotspotHalo(K, wolverineHotspots(P, live), live);
 }
 
 // ── THE WHEEL, drawn: built at rest and moved (K.posed), as the Merlin's is ──
@@ -445,9 +445,9 @@ function wheelBody(K, W, lit, near, line) {
     const Ps = K.panel(add(mul(add(p0, p1), 0.5), mul(nn, nn[1] < 0 ? 0.0035 : -0.0035)), along, side, 'dash', 0.2);
     for (const i of [-1, 0, 1]) Ps.rect(i * 0.04 - 0.014, -0.006, i * 0.04 + 0.014, 0.006, T.bezelBlk, 0, 0.0005);
   }
-  // The boss: a steel cup with Garrow's three bars.
+  // The boss: a steel cup with Brakk's beast's head.
   K.rod(add(hub, mul(a, -0.01)), add(hub, mul(a, 0.014)), 0.042, 'dash', 0.3, T.steel, 0, 18);
   const Pb = K.panel(add(hub, mul(a, 0.0145)), u, v, 'dash', 0.3);
   Pb.disc(0, 0, 0.034, T.bezelBlk, 0, 0.0004, 18);
-  [0.022, 0.016, 0.01].forEach((w, i) => Pb.rect(-w, 0.01 - i * 0.012, w, 0.016 - i * 0.012, T.paint, 0.1, 0.001));
+  drawEmblem(Pb, 'brakk', 0.024, T.bezelBlk, T.paint);
 }

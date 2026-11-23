@@ -1,11 +1,11 @@
 {
   "altitude_ceiling": 2,
   "cargo_capacity": 15,
-  "class": "bustard",
+  "class": "wolverine",
   "cruise_speed": 3,
   "data": {
     "feel": "Four freight fans and a body welded round them. It leaves hardest and takes a knock best, and the charge goes quicker than you would like.",
-    "maker": "Garrow Motor Works",
+    "maker": "Brakk Motor Works",
     "segment": "hover_car"
   },
   "engines": 1,
@@ -15,9 +15,9 @@
   "handling": 2,
   "hardpoints": 0,
   "hull_hp": 13,
-  "id": "ac_bustard",
+  "id": "ac_wolverine",
   "max_takeoff_weight": 110,
-  "name": "Bustard",
+  "name": "Wolverine",
   "noise": 3,
   "price_buy": 18000,
   "price_rent_hourly": 240,

@@ -1,5 +1,5 @@
 {
-  "blurb": "Black with orange stripes. The weld seams show less. Garrow charges the same.",
+  "blurb": "Black with orange stripes. The weld seams show less. Brakk charges the same.",
   "default": false,
   "exterior": {
     "base": "#121214",
@@ -14,7 +14,7 @@
     "uphol": "leather"
   },
   "kind": "aircraft",
-  "model": "bustard",
+  "model": "wolverine",
   "name": "Black",
   "unlock": null
 }

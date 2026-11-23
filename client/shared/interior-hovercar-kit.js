@@ -23,6 +23,7 @@ import { contactShadow, bootAge, lightLine } from './interior-cockpit-kit.js';
 import { compileMesh } from './vehicle-mesh.js';
 import { glyphRuns } from './glyph-runs.js';
 import { legendWidth } from './legend-font.js';
+import { HOVER_EMBLEMS } from './hover-car-emblems.js';
 
 export const TAU = Math.PI * 2, DEG = Math.PI / 180;
 export const num = (v, d = 0) => (Number.isFinite(+v) ? +v : d);
@@ -52,6 +53,12 @@ export function fancyDigits(Pn, a, b, h, str, rgb, emis, right, face) {
   if (!g) return Pn.digits(a, b, h, str, rgb, false);
   const box = right - a, k = g.w * h > box ? box / g.w : h, x0 = a + box - g.w * k;
   for (const [a0, b0, a1, b1] of g.rects) Pn.rect(x0 + a0 * k, b + b0 * k, x0 + a1 * k, b + b1 * k, rgb, emis, 0.006);
+}
+
+// A maker's emblem (hover-car-emblems.js) on a panel, `s` half its size: its field in one colour and
+// its mark in another, the mark a hair proud.
+export function drawEmblem(Pn, maker, s, field, mark, emis = 0.1, lift = 0.001, x = 0, y = 0) {
+  for (const pc of HOVER_EMBLEMS[maker]) Pn.plate(pc.p.map(([a, b]) => [x + a * s, y + b * s]), pc.tone === 'mark' ? mark : field, emis, lift + (pc.tone === 'mark' ? 0.0006 : 0));
 }
 
 // ── THE READINGS ─────────────────────────────────────────────────────────────

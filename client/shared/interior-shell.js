@@ -177,12 +177,12 @@ import { carcass2076Profile } from './interior-carcass-2076.js';
 import { drake2076Profile } from './interior-drake-2076.js';
 // The Corvane Merlin: a supercar's tub under a raked screen, driven by a race wheel (interior-merlin.js).
 import { merlinProfile } from './interior-merlin.js';
-// The Pipit: a city car's open tray, one big dial and a row of keys (interior-pipit.js).
-import { pipitProfile } from './interior-pipit.js';
-// The Bustard: a muscle car's steel dash, a deep-dish wheel and a floor lever (interior-bustard.js).
-import { bustardProfile } from './interior-bustard.js';
-// The Lanner: a coachbuilt tourer's cabin with a wood wheel (interior-lanner.js).
-import { lannerProfile } from './interior-lanner.js';
+// The Hornet: a city car's open tray, one big dial and a row of keys (interior-hornet.js).
+import { hornetProfile } from './interior-hornet.js';
+// The Wolverine: a muscle car's steel dash, a deep-dish wheel and a floor lever (interior-wolverine.js).
+import { wolverineProfile } from './interior-wolverine.js';
+// The Wraith: a coachbuilt tourer's cabin with a wood wheel (interior-wraith.js).
+import { wraithProfile } from './interior-wraith.js';
 import { defaultLivery, aircraftLiveryModel } from './livery-sets.js';
 const CRAFT_PROFILE = {};
 const craftProfile = (id, build) => (CRAFT_PROFILE[id] ||= build());
@@ -354,9 +354,9 @@ export const SHELL_PROFILES = {
   get drake2076() { return craftProfile('drake2076', drake2076Profile); },
   // The Merlin's tub, lofted off cabin-merlin.js like the Dragonfly 2076's pod.
   get merlin() { return craftProfile('merlin', merlinProfile); },
-  get pipit() { return craftProfile('pipit', pipitProfile); },
-  get bustard() { return craftProfile('bustard', bustardProfile); },
-  get lanner() { return craftProfile('lanner', lannerProfile); },
+  get hornet() { return craftProfile('hornet', hornetProfile); },
+  get wolverine() { return craftProfile('wolverine', wolverineProfile); },
+  get wraith() { return craftProfile('wraith', wraithProfile); },
   // The generic bubble the Dragonfly used to borrow, kept as the reference `bubbleRoom` shape.
   bubble: {
     label: 'helicopter bubble',
@@ -478,9 +478,9 @@ export const SHELL_CLASS = {
   bridge: 'bridge',       // the Echelon's wheelhouse — see helm-view, which sends it only from the bridge seat
   drake: 'drake',         // the inside of a duck's head, and you sit in the eye
   merlin: 'merlin',       // a supercar's tub with a race wheel (interior-merlin.js)
-  pipit: 'pipit',       // a city car's open tray, one big dial and a row of keys (interior-pipit.js)
-  bustard: 'bustard',       // a muscle car's steel dash, a deep-dish wheel and a floor lever (interior-bustard.js)
-  lanner: 'lanner',       // a coachbuilt tourer's cabin with a wood wheel (interior-lanner.js)
+  hornet: 'hornet',       // a city car's open tray, one big dial and a row of keys (interior-hornet.js)
+  wolverine: 'wolverine',       // a muscle car's steel dash, a deep-dish wheel and a floor lever (interior-wolverine.js)
+  wraith: 'wraith',       // a coachbuilt tourer's cabin with a wood wheel (interior-wraith.js)
   podracer: 'podracer',   // an open tub on two cables (interior-podracer.js)
 };
 

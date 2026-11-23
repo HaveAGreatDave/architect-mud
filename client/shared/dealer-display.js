@@ -16,9 +16,9 @@
 // A livery is what `liveryPalette` (panels/aircraft3d.js) takes: the row's `exterior`.
 export const DEALER_CARS = {
   merlin:  { cls: 'merlin', metres: 4.6, livery: { base: '#b2162a', trim: '#ece8e0', finish: 'gloss', pattern: 'factory', variant: 'rosso' } },
-  lanner:  { cls: 'lanner', metres: 4.9, livery: { base: '#163e2c', trim: '#ece2cc', finish: 'gloss', pattern: 'factory', variant: 'racing' } },
-  bustard: { cls: 'bustard', metres: 4.7, livery: { base: '#e25c16', trim: '#101012', finish: 'gloss', pattern: 'factory', variant: 'orange' } },
-  pipit:   { cls: 'pipit', metres: 4.0, livery: { base: '#96d6ba', trim: '#f0ece0', finish: 'gloss', pattern: 'factory', variant: 'mint' } },
+  wraith:  { cls: 'wraith', metres: 4.9, livery: { base: '#163e2c', trim: '#ece2cc', finish: 'gloss', pattern: 'factory', variant: 'racing' } },
+  wolverine: { cls: 'wolverine', metres: 4.7, livery: { base: '#e25c16', trim: '#101012', finish: 'gloss', pattern: 'factory', variant: 'orange' } },
+  hornet:   { cls: 'hornet', metres: 4.0, livery: { base: '#96d6ba', trim: '#f0ece0', finish: 'gloss', pattern: 'factory', variant: 'mint' } },
 };
 
 // The four bays, one per maker, in the order the badges run along the roof edge. `line` is the
@@ -26,9 +26,9 @@ export const DEALER_CARS = {
 // round its turntable.
 export const DEALER_BAYS = [
   { where: 'a', maker: 'Corvane', mark: 'C', line: [168, 150, 255], car: 'merlin' },
-  { where: 'b', maker: 'Hallard', mark: 'H', line: [84, 226, 208],  car: 'lanner' },
-  { where: 'c', maker: 'Garrow',  mark: 'G', line: [214, 232, 255], car: 'bustard' },
-  { where: 'd', maker: 'Minim',   mark: 'M', line: [255, 110, 214], car: 'pipit' },
+  { where: 'b', maker: 'Castellan', mark: 'H', line: [84, 226, 208],  car: 'wraith' },
+  { where: 'c', maker: 'Brakk',  mark: 'G', line: [214, 232, 255], car: 'wolverine' },
+  { where: 'd', maker: 'Vex',   mark: 'M', line: [255, 110, 214], car: 'hornet' },
 ];
 // The car on the pylon outside: whichever the dealership is showing off.
 export const DEALER_PYLON = 'merlin';
@@ -78,17 +78,17 @@ export const DEALER_EMBLEMS = {
     })),
   ],
   // an upright lozenge, a coachline inside it, and a bar across
-  Hallard: [
+  Castellan: [
     ...frame([[0, 1], [0.66, 0], [0, -1], [-0.66, 0]], 0.76),
     bar(-0.92, -0.085, 0.92, 0.085),
   ],
   // a hexagon nut holding three stacked bars, the longest on top
-  Garrow: [
+  Brakk: [
     ...frame(HEX, 0.82),
     bar(-0.56, 0.24, 0.56, 0.44), bar(-0.42, -0.10, 0.42, 0.10), bar(-0.27, -0.44, 0.27, -0.24),
   ],
-  // a roundel holding a minim: an open note head on a stem
-  Minim: [
+  // a roundel holding a vex: an open note head on a stem
+  Vex: [
     ...arc(0, 0, 1, 1, 0.13, 18),
     ...arc(-0.14, -0.36, 0.36, 0.25, 0.42, 12, 0.35),
     bar(0.15, -0.30, 0.25, 0.64),

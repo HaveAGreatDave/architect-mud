@@ -1,11 +1,11 @@
 {
   "altitude_ceiling": 2,
   "cargo_capacity": 16,
-  "class": "lanner",
+  "class": "wraith",
   "cruise_speed": 3,
   "data": {
     "feel": "A long bonnet, a wood wheel and four fans. It covers ground faster than the others and takes its time turning round.",
-    "maker": "Hallard Coachbuilders",
+    "maker": "Castellan Coachbuilders",
     "segment": "hover_car"
   },
   "engines": 1,
@@ -15,9 +15,9 @@
   "handling": 2,
   "hardpoints": 0,
   "hull_hp": 12,
-  "id": "ac_lanner",
+  "id": "ac_wraith",
   "max_takeoff_weight": 110,
-  "name": "Lanner",
+  "name": "Wraith",
   "noise": 3,
   "price_buy": 18000,
   "price_rent_hourly": 240,

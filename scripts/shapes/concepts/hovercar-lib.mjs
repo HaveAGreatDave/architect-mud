@@ -11,6 +11,7 @@
 import { writeFileSync } from 'node:fs';
 import { R, P3, skin, loft, pod, tube, mirror, group, poly as rawPoly, quad, DEG } from '../fw-meshes/lib.mjs';
 const { formatMesh, validateMesh, compileMesh, animFacePoints } = await import('../../../client/shared/vehicle-mesh.js');
+const { HOVER_EMBLEMS } = await import('../../../client/shared/hover-car-emblems.js');
 
 export { R, P3, pod, tube, mirror, group, quad, DEG };
 export const FINE = { minDetail: 1 }, COARSE = { maxDetail: 0 };
@@ -49,6 +50,13 @@ export function discAt(c, r, out, n = 12, extra = {}) {
 }
 const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 const norm = (a) => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
+
+// A maker's emblem (client/shared/hover-car-emblems.js) as faces looking forward: centred at
+// (f, g, h), `s` half its size, its field and its mark each in the paint named. The mark stands a
+// hair proud of the field.
+export function emblem(maker, [f, g, h], s, paints) {
+  return HOVER_EMBLEMS[maker].map((pc) => faceOut(pc.p.map(([x, y]) => [f + (pc.tone === 'mark' ? 0.0008 : 0), g + x * s, h + y * s]), [1, 0, 0], { paint: paints[pc.tone], sh: 1 }));
+}
 
 // The tint every hover car's glass takes unless its script says otherwise.
 export const SMOKED = [12, 14, 18];

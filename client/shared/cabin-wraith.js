@@ -1,17 +1,17 @@
-// THE HALLARD LANNER'S BODY, GLASS AND DOORS, STATED ONCE.
+// THE CASTELLAN WRAITH'S BODY, GLASS AND DOORS, STATED ONCE.
 //
-// Two things are built off this: the exterior (scripts/shapes/concepts/lanner.mjs writes
-// mesh_lanner.json from it) and the cockpit (interior-lanner.js derives the room from it), as the
+// Two things are built off this: the exterior (scripts/shapes/concepts/wraith.mjs writes
+// mesh_wraith.json from it) and the cockpit (interior-wraith.js derives the room from it), as the
 // Merlin's are built off cabin-merlin.js. The arithmetic is cabin-hovercar.js.
 //
-// The Lanner is Hallard Coachbuilders' two-seat grand tourer (docs/proposals/hover-cars.md): a long
+// The Wraith is Castellan Coachbuilders' two-seat grand tourer (docs/proposals/hover-cars.md): a long
 // bonnet, the cab two thirds of the way back under a short upright screen, and a fastback roof that
 // runs down to a cut-off tail. The front fans sit well forward, so there is more bonnet than car
 // behind them. Long doors hinged at the front, as a car's are.
 import { makeCabin } from './cabin-hovercar.js';
 
-export const LANNER = makeCabin({
-  id: 'lanner',
+export const WRAITH = makeCabin({
+  id: 'wraith',
   // Nose to tail. A small oval mouth, a bonnet that climbs gently for a metre and a half to the
   // cowl at 0.14, the screen up to the roof at -0.13, the peak over the seats at -0.24, then the
   // fastback falling to a tail cut off square.

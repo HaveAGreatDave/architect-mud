@@ -1,11 +1,11 @@
 {
   "altitude_ceiling": 2,
   "cargo_capacity": 14,
-  "class": "pipit",
+  "class": "hornet",
   "cruise_speed": 3,
   "data": {
     "feel": "A delivery pod with windows and a second seat. It turns in its own length and climbs like a lift, and it is the slowest thing in the showroom.",
-    "maker": "Minim Motor Company",
+    "maker": "Vex Motors",
     "segment": "hover_car"
   },
   "engines": 1,
@@ -15,9 +15,9 @@
   "handling": 2,
   "hardpoints": 0,
   "hull_hp": 11,
-  "id": "ac_pipit",
+  "id": "ac_hornet",
   "max_takeoff_weight": 110,
-  "name": "Pipit",
+  "name": "Hornet",
   "noise": 3,
   "price_buy": 18000,
   "price_rent_hourly": 240,

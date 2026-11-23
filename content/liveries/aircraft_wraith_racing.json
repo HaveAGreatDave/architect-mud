@@ -1,5 +1,5 @@
 {
-  "blurb": "Racing green with a cream coachline. Hallard has painted this colour since before anyone at the works was born.",
+  "blurb": "Racing green with a cream coachline. Castellan has painted this colour since before anyone at the works was born.",
   "default": true,
   "exterior": {
     "base": "#163e2c",
@@ -14,7 +14,7 @@
     "uphol": "leather"
   },
   "kind": "aircraft",
-  "model": "lanner",
+  "model": "wraith",
   "name": "Racing",
   "unlock": null
 }

@@ -43,24 +43,24 @@ export const BRANDS = {
     finish: { carbon: { spec: 0.22, pow: 16 }, carbonLt: { spec: 0.2, pow: 14 }, lining: { spec: 0.3, pow: 18 }, metal: { spec: 0.35, pow: 16 } },
   },
   // Coachbuilders. Tan hide, walnut and green carpet, a sea-teal line: built to order, by post.
-  hallard: {
-    name: 'Hallard Coachbuilders',
+  castellan: {
+    name: 'Castellan Coachbuilders',
     tones: { lining: [150, 118, 82], liningDk: [112, 86, 58], headliner: [196, 186, 166], carbon: [58, 40, 26], carbonLt: [92, 64, 40], tub: [30, 44, 36],
       glow: [120, 236, 220], glowDim: [40, 96, 90], screen: [6, 14, 13] },
     line: [84, 226, 208],
     finish: { carbon: { spec: 0.4, pow: 30 }, carbonLt: { spec: 0.38, pow: 28 }, lining: { spec: 0.25, pow: 16 }, metal: { spec: 0.8, pow: 50 } },
   },
   // Freight fans. Black vinyl and bare steel, an arc-white line: nothing in the cabin is there to be liked.
-  garrow: {
-    name: 'Garrow Motor Works',
+  brakk: {
+    name: 'Brakk Motor Works',
     tones: { lining: [40, 40, 42], liningDk: [28, 28, 30], headliner: [34, 34, 36], carbon: [64, 66, 70], carbonLt: [96, 100, 106], tub: [22, 22, 24],
       glow: [224, 238, 255], glowDim: [84, 92, 108], screen: [8, 9, 12] },
     line: [214, 232, 255],
     finish: { carbon: { spec: 0.5, pow: 20 }, carbonLt: { spec: 0.5, pow: 22 }, tub: { spec: 0.1, pow: 8 }, metal: { spec: 0.6, pow: 26 } },
   },
   // Delivery pods. Pale cloth and cream plastic, a magenta line: wipe-clean, and cheerful on purpose.
-  minim: {
-    name: 'Minim Motor Company',
+  vex: {
+    name: 'Vex Motors',
     tones: { lining: [200, 202, 204], liningDk: [168, 170, 174], headliner: [226, 224, 218], carbon: [222, 214, 196], carbonLt: [238, 232, 218], tub: [150, 152, 156],
       glow: [255, 140, 224], glowDim: [110, 56, 96], screen: [16, 8, 14] },
     line: [255, 110, 214],
@@ -70,7 +70,7 @@ export const BRANDS = {
 
 // Which firm built which seat, by the seat's trim prefix.
 export const SEAT_BRAND = {
-  viper: 'corvane', reaper: 'corvane', shrike: 'corvane', merlin: 'corvane', pipit: 'minim', bustard: 'garrow', lanner: 'hallard',
+  viper: 'corvane', reaper: 'corvane', shrike: 'corvane', merlin: 'corvane', hornet: 'vex', wolverine: 'brakk', wraith: 'castellan',
   mule: 'harcourt', leviathan: 'harcourt',
   mayfly: 'lumen', dragonfly: 'lumen', grasshopper: 'lumen',
   locust: 'ostler', carcass: 'ostler',

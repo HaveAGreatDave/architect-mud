@@ -1,15 +1,15 @@
-// THE GATE FOR THE GARROW BUSTARD'S COCKPIT (client/shared/interior-bustard.js).
+// THE GATE FOR THE BRAKK WOLVERINE'S COCKPIT (client/shared/interior-wolverine.js).
 //
-// The class's questions are cockpit-hovercar-lib.mjs's. What is the Bustard's own: its lift is a
+// The class's questions are cockpit-hovercar-lib.mjs's. What is the Wolverine's own: its lift is a
 // lever on the floor that you drag, its speed is a ribbon and its height a counter, and the fans'
 // tachometer stands on top of the dash without getting in the way of the road.
-// `node scripts/shapes/cockpit-bustard.mjs`, exit 1 on failure.
+// `node scripts/shapes/cockpit-wolverine.mjs`, exit 1 on failure.
 import { runCockpitGate } from './cockpit-hovercar-lib.mjs';
-import { bustardProfile } from '../../client/shared/interior-bustard.js';
-import { BUSTARD } from '../../client/shared/cabin-bustard.js';
+import { wolverineProfile } from '../../client/shared/interior-wolverine.js';
+import { WOLVERINE } from '../../client/shared/cabin-wolverine.js';
 
 runCockpitGate({
-  id: 'bustard', label: 'Garrow Bustard', profile: bustardProfile, cabin: BUSTARD,
+  id: 'wolverine', label: 'Brakk Wolverine', profile: wolverineProfile, cabin: WOLVERINE,
   pedalAt: [0, 0.7, 0.12], lift: 'drag', budget: [2500, 12000],
   extra({ P, ok, REST, sig, near, grip, shellFaces }) {
     // The lever goes where the lift is: its grip moves fore and aft, and the shaft is drawn to it.

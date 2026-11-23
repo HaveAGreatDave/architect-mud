@@ -41,20 +41,20 @@ export const TRIMS = {
     { id: 'giallo', label: 'Giallo · yellow and black' },
     { id: 'bianco', label: 'Bianco · pearl, red pinstripe' },
   ],
-  // The Lanner's four factory paint jobs (mesh_lanner.json 'schemes').
-  lanner: [    { id: 'racing', label: 'Racing · green, cream line' },
+  // The Wraith's four factory paint jobs (mesh_wraith.json 'schemes').
+  wraith: [    { id: 'racing', label: 'Racing · green, cream line' },
     { id: 'claret', label: 'Claret · deep red, cream line' },
     { id: 'ivory', label: 'Ivory · cream, green line' },
     { id: 'midnight', label: 'Midnight · dark blue, silver line' },
   ],
-  // The Bustard's four factory paint jobs (mesh_bustard.json 'schemes').
-  bustard: [    { id: 'orange', label: 'Orange · black stripes' },
+  // The Wolverine's four factory paint jobs (mesh_wolverine.json 'schemes').
+  wolverine: [    { id: 'orange', label: 'Orange · black stripes' },
     { id: 'black', label: 'Black · orange stripes' },
     { id: 'primer', label: 'Primer · grey, as welded' },
     { id: 'plum', label: 'Plum · white stripes' },
   ],
-  // The Pipit's four factory paint jobs (mesh_pipit.json 'schemes').
-  pipit: [    { id: 'mint', label: 'Mint · cream roof' },
+  // The Hornet's four factory paint jobs (mesh_hornet.json 'schemes').
+  hornet: [    { id: 'mint', label: 'Mint · cream roof' },
     { id: 'custard', label: 'Custard · white roof' },
     { id: 'coral', label: 'Coral · cream roof' },
     { id: 'slate', label: 'Slate · black roof' },

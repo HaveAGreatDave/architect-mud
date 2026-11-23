@@ -1,14 +1,14 @@
-// THE GATE FOR THE HALLARD LANNER'S COCKPIT (client/shared/interior-lanner.js).
+// THE GATE FOR THE CASTELLAN WRAITH'S COCKPIT (client/shared/interior-wraith.js).
 //
-// The class's questions are cockpit-hovercar-lib.mjs's. What is the Lanner's own: its lift is on two
+// The class's questions are cockpit-hovercar-lib.mjs's. What is the Wraith's own: its lift is on two
 // stalks behind the wheel, its dials are needles that have to swing, and its toggles have to flick.
-// `node scripts/shapes/cockpit-lanner.mjs`, exit 1 on failure.
+// `node scripts/shapes/cockpit-wraith.mjs`, exit 1 on failure.
 import { runCockpitGate } from './cockpit-hovercar-lib.mjs';
-import { lannerProfile } from '../../client/shared/interior-lanner.js';
-import { LANNER } from '../../client/shared/cabin-lanner.js';
+import { wraithProfile } from '../../client/shared/interior-wraith.js';
+import { WRAITH } from '../../client/shared/cabin-wraith.js';
 
 runCockpitGate({
-  id: 'lanner', label: 'Hallard Lanner', profile: lannerProfile, cabin: LANNER,
+  id: 'wraith', label: 'Castellan Wraith', profile: wraithProfile, cabin: WRAITH,
   pedalAt: [0, 0.66, 0.12], lift: 'click', budget: [2500, 12000],
   extra({ P, ok, REST, sig, near, grip, shellFaces }) {
     // Each dial's needle swings: the faces round the board in front of the driver differ with its reading.

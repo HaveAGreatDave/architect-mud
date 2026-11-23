@@ -1,17 +1,17 @@
-// THE MINIM PIPIT'S BODY, GLASS AND DOORS, STATED ONCE.
+// THE VEX HORNET'S BODY, GLASS AND DOORS, STATED ONCE.
 //
-// Two things are built off this: the exterior (scripts/shapes/concepts/pipit.mjs writes
-// mesh_pipit.json from it) and the cockpit (interior-pipit.js derives the room from it). The
+// Two things are built off this: the exterior (scripts/shapes/concepts/hornet.mjs writes
+// mesh_hornet.json from it) and the cockpit (interior-hornet.js derives the room from it). The
 // arithmetic is cabin-hovercar.js.
 //
-// The Pipit is Minim Motor Company's two-seat city car (docs/proposals/hover-cars.md): one box, four
+// The Hornet is Vex Motors's two-seat city car (docs/proposals/hover-cars.md): one box, four
 // metres long and taller than the other hover cars, the screen starting almost at the nose, glass
 // most of the way round, a flat hatch at the back. Small fans tucked into the corners. Coach doors
 // hinged at the back, so you step straight out forwards.
 import { makeCabin } from './cabin-hovercar.js';
 
-export const PIPIT = makeCabin({
-  id: 'pipit',
+export const HORNET = makeCabin({
+  id: 'hornet',
   // Nose to tail. A short rounded nose, the screen climbing from 0.50 to the roof at 0.14, a long
   // level roof, and the hatch dropping from -0.50 to a tail that is nearly upright.
   stations: [

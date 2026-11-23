@@ -1,17 +1,17 @@
-// THE GARROW BUSTARD'S BODY, GLASS AND DOORS, STATED ONCE.
+// THE BRAKK WOLVERINE'S BODY, GLASS AND DOORS, STATED ONCE.
 //
-// Two things are built off this: the exterior (scripts/shapes/concepts/bustard.mjs writes
-// mesh_bustard.json from it) and the cockpit (interior-bustard.js derives the room from it). The
+// Two things are built off this: the exterior (scripts/shapes/concepts/wolverine.mjs writes
+// mesh_wolverine.json from it) and the cockpit (interior-wolverine.js derives the room from it). The
 // arithmetic is cabin-hovercar.js.
 //
-// The Bustard is Garrow Motor Works' two-seat muscle car (docs/proposals/hover-cars.md): square and
+// The Wolverine is Brakk Motor Works' two-seat muscle car (docs/proposals/hover-cars.md): square and
 // wide, a blunt upright nose that is all grille, a long flat bonnet, a high waist under a short strip
 // of glass, a short deck and a flat tail. The fans are the biggest in the class. Scissor doors that
 // lift on their front edge, because a door that swung out would foul the fan beside it.
 import { makeCabin } from './cabin-hovercar.js';
 
-export const BUSTARD = makeCabin({
-  id: 'bustard',
+export const WOLVERINE = makeCabin({
+  id: 'wolverine',
   // Nose to tail, every section nearly square (`boxy` 0.8 and up). The nose is a flat face almost
   // the full width; the bonnet runs level to the cowl at 0.18; the screen climbs to a low roof at
   // -0.08; the rear screen falls from -0.36 to the deck at -0.56; the tail is cut off flat.

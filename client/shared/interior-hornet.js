@@ -1,12 +1,12 @@
-// THE MINIM PIPIT'S COCKPIT: the inside of the city car, as geometry.
+// THE VEX HORNET'S COCKPIT: the inside of the city car, as geometry.
 //
-// The Pipit is Minim Motor Company's two-seat mini VTOL (docs/proposals/hover-cars.md), and the
+// The Hornet is Vex Motors's two-seat mini VTOL (docs/proposals/hover-cars.md), and the
 // cockpit is a small cheap car's, done cheerfully: an open tray right across under a big screen, one
 // large round dial on a pod in the middle of the car that says everything, a row of eight piano keys
 // under it, a sat-nav on a stalk, and a squared-off wheel with the lift on two thumb keys. Check
-// cloth on thin upright seats, cream plastic, and Minim's magenta wherever a line goes.
+// cloth on thin upright seats, cream plastic, and Vex's magenta wherever a line goes.
 //
-// ⚠ THE ROOM IS THE EXTERIOR'S BODY: client/shared/cabin-pipit.js states it, and
+// ⚠ THE ROOM IS THE EXTERIOR'S BODY: client/shared/cabin-hornet.js states it, and
 // interior-hovercar-kit.js builds the wall, the glass, the floor and the doors off it. Nothing about
 // the shape of the cabin is typed here.
 //
@@ -23,13 +23,13 @@ import { memoPart } from './interior-memo.js';
 import { hotspotHalo, panelGps, gpsHotspot, lensLamp, eased, pressPulse, HALO, bootAge, reveal, alertLight,
   lightLine, bandFrame, glassBand, windscreenHud, hudTint } from './interior-cockpit-kit.js';
 import { MESH_ROWS } from './vehicle-meshes.js';
-import { PIPIT } from './cabin-pipit.js';
+import { HORNET } from './cabin-hornet.js';
 import { hoverCarProfile, readings, night, panelOn, onRoad, driveWord, driveLights, switchOn, doorHotspots, outHoloDraw,
-  yawPedals, overhead, roomHalfW, fancyText, fancyDigits, TAU, add, sub, mul, cross, norm } from './interior-hovercar-kit.js';
+  yawPedals, overhead, roomHalfW, fancyText, drawEmblem, fancyDigits, TAU, add, sub, mul, cross, norm } from './interior-hovercar-kit.js';
 
 // ── THE STYLE ────────────────────────────────────────────────────────────────
-// Minim's pale cloth and cream plastic, with a dark check in the cloth and magenta for the accent.
-export const PIPIT_TRIM = {
+// Vex's pale cloth and cream plastic, with a dark check in the cloth and magenta for the accent.
+export const HORNET_TRIM = {
   lining: [200, 202, 204], liningDk: [168, 170, 174], headliner: [226, 224, 218],
   carbon: [222, 214, 196], carbonLt: [238, 232, 218], tub: [150, 152, 156],
   cloth: [186, 188, 192], check: [104, 108, 116], accent: [255, 110, 214], accentDk: [176, 60, 140],
@@ -38,18 +38,18 @@ export const PIPIT_TRIM = {
   glow: [255, 140, 224], glowDim: [110, 56, 96], screen: [16, 8, 14],
   red: [235, 60, 48], amber: [255, 176, 64], marker: [255, 206, 70], green: [120, 214, 140], blue: [120, 176, 255], belt: [60, 62, 68],
 };
-const T = PIPIT_TRIM;
+const T = HORNET_TRIM;
 for (const k of ['lining', 'liningDk', 'headliner', 'cloth', 'check']) TEXTURE.set(T[k], 'fabric');
 for (const k of ['carbon', 'carbonLt', 'tub', 'grey', 'dark', 'accent', 'accentDk']) TEXTURE.set(T[k], 'plastic');
 for (const k of ['mat', 'matEdge']) TEXTURE.set(T[k], 'rubber');
 TEXTURE.set(T.belt, 'fabric');
 SHINY.set(T.screen, { spec: 0.6, pow: 60 });
-brandTrim(T, 'pipit', TEXTURE, SHINY);
+brandTrim(T, 'hornet', TEXTURE, SHINY);
 SHINY.set(T.accent, { spec: 0.5, pow: 36 });
 SHINY.set(T.face, { spec: 0.6, pow: 60 });
 SHINY.set(T.grey, { spec: 0.3, pow: 20 });
 
-// Minim letters its dial in a soft squared sans; the keys stay in the legend face.
+// Vex letters its dial in a soft squared sans; the keys stay in the legend face.
 const F_SOFT = 'chakra';
 
 // ── THE WHEEL ────────────────────────────────────────────────────────────────
@@ -100,7 +100,7 @@ const navAt = () => ({ o: [NAV.x, NAV.y, DASH.z0 + DASH.h + NAV.zOver], r: NAV.r
 const BIN = { y: 0.75, zOver: 0.075 };
 const binAt = () => ({ o: [0, BIN.y, DASH.z0 + DASH.h + BIN.zOver], r: [1, 0, 0], u: norm([0, 0.3, 0.95]) });
 
-function pipitHotspots(P, live) {
+function hornetHotspots(P, live) {
   const R = readings(live), K = makeKit(() => {}), D = dashOf(P), xC = P.xCentre, out = [];
   for (const k of KEYS(xC)) out.push({ id: 'ck:' + k.id, p: D.at(K, k.x, V_KEY).pt(0, -0.004, 0.014), r: 0.022, kind: 'click' });
   const nv = navAt();
@@ -114,7 +114,7 @@ function pipitHotspots(P, live) {
 }
 
 // The cabin's own light: the dial and the sat-nav spill magenta on the cream, with power.
-function pipitGlows(P, live) {
+function hornetGlows(P, live) {
   const R = readings(live);
   if (!R.powered) return [];
   const up = reveal(bootAge(live), 0.3);
@@ -128,9 +128,9 @@ function pipitGlows(P, live) {
 }
 
 // ── THE PROFILE ──────────────────────────────────────────────────────────────
-export function pipitProfile(doc = MESH_ROWS.pipit) {
-  return hoverCarProfile(PIPIT, doc, {
-    label: 'Minim Pipit', tag: 'pp', fN: 0.62,
+export function hornetProfile(doc = MESH_ROWS.hornet) {
+  return hoverCarProfile(HORNET, doc, {
+    label: 'Vex Hornet', tag: 'pp', fN: 0.62,
     tones: { headliner: T.headliner, upper: T.lining, mid: T.liningDk, lower: T.carbon, doorUpper: T.cloth, doorLower: T.carbon,
       reveal: T.carbonLt, seal: T.glowDim, firewall: T.liningDk, floor: T.mat, floorEdge: T.matEdge, floorLine: null,
       sill: T.tub, sillLine: T.glow, seam: T.tub },
@@ -138,7 +138,7 @@ export function pipitProfile(doc = MESH_ROWS.pipit) {
     dashY: DASH.yMid - 0.08, dashZ: DASH.z0 + 0.06, seatZ: 0.36, seatHalf: 0.23, seatY: [-0.24, 0.2],
     floods: (xC) => [{ p: [xC * 0.5, 0.5, -0.3], r: 0.55 }, { p: [xC, -0.05, 0.2], r: 0.7 }],
     floodGain: 1.2, glare: 0.24,
-    doorCard, roomFit, seats, fit: pipitFit, hotspots: pipitHotspots, glows: pipitGlows,
+    doorCard, roomFit, seats, fit: hornetFit, hotspots: hornetHotspots, glows: hornetGlows,
   });
 }
 
@@ -157,7 +157,7 @@ function doorCard({ K, S, A, s, D, pull }) {
   K.rod(S(D.f[0] + 0.08, A(-32), 0.03), S(D.f[1] - 0.1, A(-32), 0.03), 0.03, 'pil', 0, T.carbon, 0, 4, false);
   // The grab rail under the glass, magenta.
   const cap = [];
-  for (let i = 0; i <= 8; i++) cap.push(S(lerp(D.f[0] + 0.04, D.f[1] - 0.04, i / 8), A(PIPIT.glass.side.a[0] - 4), 0.012));
+  for (let i = 0; i <= 8; i++) cap.push(S(lerp(D.f[0] + 0.04, D.f[1] - 0.04, i / 8), A(HORNET.glass.side.a[0] - 4), 0.012));
   for (let i = 1; i < cap.length; i++) K.rod(cap[i - 1], cap[i], 0.009, 'pil', 0.1, T.accent, 0, 5, false);
   // The pull: a loop of magenta webbing near the front edge, where a coach door latches.
   const p0 = S(D.f[1] - 0.08, A(-2), 0.012), p1 = S(D.f[1] - 0.08, A(-16), 0.012), mid = S(D.f[1] - 0.08, A(-9), 0.05);
@@ -183,7 +183,7 @@ function roomFit({ K, xC, zF, yB }) {
   K.rod([xC, yB + 0.01, zF + 0.98], [xC, yB + 0.05, zF + 0.97], 0.006, 'post', 0.3, T.accent, 0, 6);
   const Pt = K.panel([xC, yB + 0.014, zF + 0.6], [1, 0, 0], [0, 0, 1], 'post', 0.2);
   Pt.rect(-0.05, -0.016, 0.05, 0.016, T.accent, 0.05, 0.001);
-  fancyText(Pt, 'MINIM', 0, 0, 0.012, T.ink, 0.2, 0.003, F_SOFT, 0.08);
+  fancyText(Pt, 'VEX', 0, 0, 0.012, T.ink, 0.2, 0.003, F_SOFT, 0.08);
 }
 
 // ── THE SEATS: thin and upright, check cloth, a hole through the headrest, a three-point belt ──
@@ -213,7 +213,7 @@ function seats(P, push) {
 }
 
 // ── THE FIT-OUT ──────────────────────────────────────────────────────────────
-function pipitFit(P, live, push) {
+function hornetFit(P, live, push) {
   const K = makeKit(push);
   const R = readings(live);
   const zF = P.hc.zF, xC = P.xCentre, D = dashOf(P);
@@ -241,7 +241,7 @@ function pipitFit(P, live, push) {
     for (const x of [xC - 0.3, xC + 0.3]) K.rod(D.F.P(D.sOf(x), 0.02, -0.03), [x, DASH.yMid - 0.02, zF + 0.03], 0.016, 'dash', 0.1, T.grey, 0, 6);
     // The car's name moulded into the strip on the passenger's side, and a round vent at each end.
     const Pn = D.at(K, 2 * xC - 0.12, 0.054, 0.004);
-    fancyText(Pn, 'PIPIT', 0, 0, 0.026, T.accent, 0.15, 0.002, F_SOFT, 0.14);
+    fancyText(Pn, 'HORNET', 0, 0, 0.026, T.accent, 0.15, 0.002, F_SOFT, 0.14);
     for (const x of [D.xL + 0.05, D.xR - 0.045]) {
       const Pv = D.at(K, x, 0.058, 0.004);
       Pv.disc(0, 0, 0.026, T.dark, 0, 0.0005, 18);
@@ -357,7 +357,7 @@ function pipitFit(P, live, push) {
   yawPedals(K, R, zF, { y: 0.72, half: 0.085, z: 0.13, plate: T.grey, rail: T.dark, hole: T.accentDk });
   overhead(K, P, R, al.rgb, (R.dome && lit ? 1 : 0.4) * Math.max(amb, 0.2) * (lit ? al.k : 1), { domeY: 0.0, domeR: 0.05, domeOn: [255, 236, 250] });
   outHoloDraw(K, P, live, F_SOFT);
-  hotspotHalo(K, pipitHotspots(P, live), live);
+  hotspotHalo(K, hornetHotspots(P, live), live);
 }
 
 // ── THE WHEEL, drawn: built at rest and moved (K.posed), as the Merlin's is ──
@@ -382,12 +382,11 @@ function wheelBody(K, W, lit, near, line) {
     const top = Math.abs(RIM[i][0]) < 0.04 && RIM[i][1] > 0;
     K.rod(P(RIM[i - 1][0], RIM[i - 1][1]), P(RIM[i][0], RIM[i][1]), WHEEL.tube, 'dash', 0.1, top ? T.accent : T.grey, top && lit ? 0.2 : 0, 8);
   }
-  // Two flat spokes and the pad, with Minim's ring on its stem.
+  // Two flat spokes and the pad, with Vex's V in a circle.
   for (const s of [-1, 1]) K.obox(P(s * 0.105, 0, -0.004), u, v, a, 0.06, 0.03, 0.007, 'dash', 0.1, T.carbonLt);
   K.rod(add(c, mul(a, -0.02)), add(c, mul(a, 0.008)), 0.05, 'dash', 0.15, T.carbonLt, 0, 20);
   const Pb = K.panel(add(c, mul(a, 0.0085)), u, v, 'dash', 0.3);
-  Pb.annulus(0, 0.008, 0.012, 0.018, T.accent, 0.15, 0.001, 18);
-  Pb.rect(0.015, 0.008, 0.019, 0.034, T.accent, 0.15, 0.001);
+  drawEmblem(Pb, 'vex', 0.03, T.accent, T.accent, 0.15);
 }
 // A thumb key on a spoke: a round magenta pad that sinks, lettered.
 function thumbKey(K, W, i, dip, hov, flash, lit, panel) {

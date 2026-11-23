@@ -62,8 +62,8 @@ is lit inside it, not by its height.
   emblems in a row and the name once, with the trade under it; round the corner it says HOVER CARS.
 - **Each maker has its own emblem**, told apart by its outline before anything in it is read, the
   way real marques are: Corvane's swept wings round a kite (an aerospace firm's, as Bentley's
-  came from aero engines), Hallard's upright lozenge with a bar across, Garrow's hexagon nut
-  holding three stacked bars, and Minim's roundel holding the note it's named for. They're quads
+  came from aero engines), Castellan's upright lozenge with a bar across, Brakk's hexagon nut
+  holding three stacked bars, and Vex's roundel holding the note it's named for. They're quads
   in `DEALER_EMBLEMS`, drawn in the maker's line colour and lit after dark.
 - **A landing pad on the roof**, a yellow ring and an H in the middle of the slab with lamps round
   it. It's a real pad: the dealership is its own small VTOL field, so a car you buy is standing on

@@ -52,7 +52,7 @@
             "lit": true,
             "plate": true,
             "plateHex": "#14161a",
-            "text": "GARROW",
+            "text": "BRAKK",
             "wall": "back",
             "y": 2.9
           },
@@ -63,7 +63,7 @@
             "lit": true,
             "plate": true,
             "plateHex": "#14161a",
-            "text": "MINIM",
+            "text": "VEX",
             "wall": "back",
             "y": 2.9
           },

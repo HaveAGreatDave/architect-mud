@@ -159,11 +159,11 @@ const room = {
 // What each turntable says, in the text world. The cars themselves are docs/proposals/hover-cars.md.
 const BAY_TEXT = {
   Corvane: 'A Corvane Merlin in red on a turntable ringed in violet: a low wedge with gull-wing doors and four fans where the wheels would be. A card on a stand gives the price and says HIRE BY THE HOUR.',
-  Hallard: 'A Hallard Lanner on a turntable ringed in teal: a long bonnet, a cab set well back and a fastback tail, in dark green over tan hide. The card says every one is built to order.',
-  Garrow: 'A Garrow Bustard on a turntable ringed in white: square, wide and orange, with the biggest fans in the room and the weld seams left showing. The card says FREIGHT FANS, FOUR OF THEM.',
-  Minim: 'A Minim Pipit on a turntable ringed in magenta: a tall little car in mint green with glass most of the way round. The card lists its insurance band, which is the lowest there is.',
+  Castellan: 'A Castellan Wraith on a turntable ringed in teal: a long bonnet, a cab set well back and a fastback tail, in dark green over tan hide. The card says every one is built to order.',
+  Brakk: 'A Brakk Wolverine on a turntable ringed in white: square, wide and orange, with the biggest fans in the room and the weld seams left showing. The card says FREIGHT FANS, FOUR OF THEM.',
+  Vex: 'A Vex Hornet on a turntable ringed in magenta: a tall little car in mint green with glass most of the way round. The card lists its insurance band, which is the lowest there is.',
 };
-const CAR_WORD = { Corvane: 'merlin', Hallard: 'lanner', Garrow: 'bustard', Minim: 'pipit' };
+const CAR_WORD = { Corvane: 'merlin', Castellan: 'wraith', Brakk: 'wolverine', Vex: 'hornet' };
 
 const spec = {
   slug: SLUG, name: NAME, type: 'vtol_dealer', roomName: NAME,
@@ -243,7 +243,7 @@ person(SALES, {
   chitchat: [
     '"Sit in it. It costs nothing to sit in it."',
     'wipes a fingerprint off the Merlin\'s door with his cuff',
-    '"The Pipit\'s the one people buy. The Merlin\'s the one they come in to look at."',
+    '"The Hornet\'s the one people buy. The Merlin\'s the one they come in to look at."',
     'straightens the brochures on the desk so the edges line up',
     '"Hire one for an hour first. Most people are back before the hour\'s up, asking about colours."',
     'watches somebody on the pavement look at the cars, and waits',
@@ -266,7 +266,7 @@ person(SALES, {
       ],
     },
     makers: {
-      text: '"The Corvane Merlin\'s the fast one. The Hallard Lanner goes furthest, the Garrow Bustard\'s built like a dock crane, and the Minim Pipit turns on the spot. Same price, all four." He shrugs. "Pick the one you like looking at."',
+      text: '"The Corvane Merlin\'s the fast one. The Castellan Wraith goes furthest, the Brakk Wolverine\'s built like a dock crane, and the Vex Hornet turns on the spot. Same price, all four." He shrugs. "Pick the one you like looking at."',
       options: [{ label: 'How do I buy one?', next: 'buying' }, { label: 'Back up.', next: 'root' }],
     },
     buying: {
@@ -315,7 +315,7 @@ person(TECH, {
       ],
     },
     pick: {
-      text: '"The Bustard. It\'s ugly and nothing on it is hard to get at." She nods at the Merlin. "That one\'s lovely until you have to change a fan."',
+      text: '"The Wolverine. It\'s ugly and nothing on it is hard to get at." She nods at the Merlin. "That one\'s lovely until you have to change a fan."',
       options: [{ label: 'Back up.', next: 'root' }],
     },
     fix: {

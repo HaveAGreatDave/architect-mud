@@ -24,9 +24,9 @@ const FACES = {
   syncopate: 'syncopate.woff2',   // very wide, tight: a nameplate
   orbitron: 'orbitron.woff2',     // geometric numerals: the big readouts
   // The hover cars' makers (docs/proposals/hover-cars.md), a face each.
-  federo: 'federo.woff2',         // Hallard: a deco roman, as engraved on a coachbuilder's dials
-  alfaslab: 'alfa-slab-one.woff2',   // Garrow: a heavy slab, stamped
-  chakra: 'chakra-petch.woff2',   // Minim: a soft squared sans
+  federo: 'federo.woff2',         // Castellan: a deco roman, as engraved on a coachbuilder's dials
+  alfaslab: 'alfa-slab-one.woff2',   // Brakk: a heavy slab, stamped
+  chakra: 'chakra-petch.woff2',   // Vex: a soft squared sans
 };
 const ROWS = 40;
 const state = new Map();          // face -> 'loading' | 'ok' | 'fail'

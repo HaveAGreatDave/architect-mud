@@ -1,15 +1,15 @@
-// THE GATE FOR THE MINIM PIPIT'S COCKPIT (client/shared/interior-pipit.js).
+// THE GATE FOR THE VEX HORNET'S COCKPIT (client/shared/interior-hornet.js).
 //
-// The class's questions are cockpit-hovercar-lib.mjs's. What is the Pipit's own: one dial in the
+// The class's questions are cockpit-hovercar-lib.mjs's. What is the Hornet's own: one dial in the
 // middle of the car carries the speed, the height, the charge, the lift and the fans, so each has
 // to move it; the lift is on two thumb keys that turn with the wheel; and the eight piano keys tip.
-// `node scripts/shapes/cockpit-pipit.mjs`, exit 1 on failure.
+// `node scripts/shapes/cockpit-hornet.mjs`, exit 1 on failure.
 import { runCockpitGate } from './cockpit-hovercar-lib.mjs';
-import { pipitProfile } from '../../client/shared/interior-pipit.js';
-import { PIPIT } from '../../client/shared/cabin-pipit.js';
+import { hornetProfile } from '../../client/shared/interior-hornet.js';
+import { HORNET } from '../../client/shared/cabin-hornet.js';
 
 runCockpitGate({
-  id: 'pipit', label: 'Minim Pipit', profile: pipitProfile, cabin: PIPIT,
+  id: 'hornet', label: 'Vex Hornet', profile: hornetProfile, cabin: HORNET,
   pedalAt: [0, 0.72, 0.13], lift: 'click', budget: [2500, 12000],
   extra({ P, ok, REST, sig, near, grip, shellFaces }) {
     // The one dial: everything it shows moves it. It stands on the tray in the middle of the car.

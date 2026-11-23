@@ -20,11 +20,11 @@
 export const HOVER_CARS = {
   merlin: { id: 'merlin', name: 'Merlin', maker: 'corvane', air: 'merlin', road: 'merlin_road', lengthM: 4.6,
     nozzle: [-0.835, 0, 0.035], bore: 0.05, washM: 5, acc: '#a896ff', rgb: [168, 150, 255], doors: 'gull wing' },
-  lanner: { id: 'lanner', name: 'Lanner', maker: 'hallard', air: 'lanner', road: 'lanner_road', lengthM: 4.9,
+  wraith: { id: 'wraith', name: 'Wraith', maker: 'castellan', air: 'wraith', road: 'wraith_road', lengthM: 4.9,
     nozzle: [-0.865, 0, 0.035], bore: 0.045, washM: 5, acc: '#54e2d0', rgb: [84, 226, 208], doors: 'front-hinged' },
-  bustard: { id: 'bustard', name: 'Bustard', maker: 'garrow', air: 'bustard', road: 'bustard_road', lengthM: 4.7,
+  wolverine: { id: 'wolverine', name: 'Wolverine', maker: 'brakk', air: 'wolverine', road: 'wolverine_road', lengthM: 4.7,
     nozzle: [-0.855, 0, 0.035], bore: 0.055, washM: 5.6, acc: '#d6e8ff', rgb: [214, 232, 255], doors: 'scissor' },
-  pipit: { id: 'pipit', name: 'Pipit', maker: 'minim', air: 'pipit', road: 'pipit_road', lengthM: 4,
+  hornet: { id: 'hornet', name: 'Hornet', maker: 'vex', air: 'hornet', road: 'hornet_road', lengthM: 4,
     nozzle: [-0.735, 0, -0.005], bore: 0.042, washM: 4.4, acc: '#ff6ed6', rgb: [255, 110, 214], doors: 'coach' },
 };
 

@@ -233,7 +233,7 @@ ok(!!shellProfileFor('heli') && typeof shellProfileFor('heli').room === 'functio
 // ⚠ EVERY FLYABLE CLASS HAS ITS OWN ROOM NOW (interior-<id>.js), and "its own" is the check:
 // two classes resolving to one profile is the shared tub this replaced.
 const CRAFT = { prop: 'mule', heavy: 'leviathan', gunship: 'reaper', divebomber: 'shrike', locust: 'locust',
-  grasshopper: 'grasshopper', ultralight: 'mayfly', wreck: 'carcass', drake: 'drake', merlin: 'merlin', pipit: 'pipit', bustard: 'bustard', lanner: 'lanner' };
+  grasshopper: 'grasshopper', ultralight: 'mayfly', wreck: 'carcass', drake: 'drake', merlin: 'merlin', hornet: 'hornet', wolverine: 'wolverine', wraith: 'wraith' };
 for (const [cls, key] of Object.entries(CRAFT)) ok(shellProfileFor(cls) === SHELL_PROFILES[key], cls + ' does not sit in its own cockpit (' + key + ')');
 ok(shellProfileFor('heli', true) === SHELL_PROFILES.viper, 'the armed helicopter is sitting in the Dragonfly\'s bubble');
 ok(shellProfileFor('heli', false) === SHELL_PROFILES.heli, 'the Dragonfly lost its bubble');

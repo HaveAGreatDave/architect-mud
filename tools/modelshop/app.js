@@ -74,9 +74,9 @@ const VEHICLES = [
   ...['noir', 'midnight', 'neon', 'ivory', 'quackhawk'].map((s) => ({ key: 'vehicle:drake/' + s, vehicle: { cls: 'drake', variant: s }, m: { type: 'drake ' + s } })),
   // The Merlin's, the same way (mesh_merlin.json 'schemes'); Rosso is the class itself.
   ...['nero', 'giallo', 'bianco'].map((s) => ({ key: 'vehicle:merlin/' + s, vehicle: { cls: 'merlin', variant: s }, m: { type: 'merlin ' + s } })),
-  ...['custard', 'coral', 'slate'].map((s) => ({ key: 'vehicle:pipit/' + s, vehicle: { cls: 'pipit', variant: s }, m: { type: 'pipit ' + s } })),
-  ...['black', 'primer', 'plum'].map((s) => ({ key: 'vehicle:bustard/' + s, vehicle: { cls: 'bustard', variant: s }, m: { type: 'bustard ' + s } })),
-  ...['claret', 'ivory', 'midnight'].map((s) => ({ key: 'vehicle:lanner/' + s, vehicle: { cls: 'lanner', variant: s }, m: { type: 'lanner ' + s } })),
+  ...['custard', 'coral', 'slate'].map((s) => ({ key: 'vehicle:hornet/' + s, vehicle: { cls: 'hornet', variant: s }, m: { type: 'hornet ' + s } })),
+  ...['black', 'primer', 'plum'].map((s) => ({ key: 'vehicle:wolverine/' + s, vehicle: { cls: 'wolverine', variant: s }, m: { type: 'wolverine ' + s } })),
+  ...['claret', 'ivory', 'midnight'].map((s) => ({ key: 'vehicle:wraith/' + s, vehicle: { cls: 'wraith', variant: s }, m: { type: 'wraith ' + s } })),
   // Every body variant a class's mesh file names in `variants`: the eleven 2076 editions and the
   // podracer's types. Each is a different model, but it's still its class with a variant, so
   // without these the list drew only the stock bodies. The Viper's variants are on its own file

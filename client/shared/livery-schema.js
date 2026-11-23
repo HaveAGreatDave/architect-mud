@@ -27,7 +27,7 @@ export const LIVERY_KINDS = ['aircraft', 'boat', 'truck'];
 // are per class), except the Viper, which shares `heli` with the Dragonfly and keys on `viper`
 // (aircraftLiveryModel in livery-sets.js). A truck keys on its type id, a boat on its hull.
 export const LIVERY_MODELS = {
-  aircraft: ['prop', 'gunship', 'heavy', 'locust', 'divebomber', 'heli', 'viper', 'ultralight', 'grasshopper', 'drake', 'wreck', 'merlin', 'pipit', 'bustard', 'lanner'],
+  aircraft: ['prop', 'gunship', 'heavy', 'locust', 'divebomber', 'heli', 'viper', 'ultralight', 'grasshopper', 'drake', 'wreck', 'merlin', 'hornet', 'wolverine', 'wraith'],
   boat: ['hydro', 'spur', 'gamecock', 'skiff'],
   truck: ['scrapper', 'hauler', 'drayman', 'continental'],
 };

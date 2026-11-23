@@ -1,10 +1,10 @@
 {
-  "description": "A Minim Pipit on a turntable ringed in magenta: a tall little car in mint green with glass most of the way round. The card lists its insurance band, which is the lowest there is.",
+  "description": "A Vex Hornet on a turntable ringed in magenta: a tall little car in mint green with glass most of the way round. The card lists its insurance band, which is the lowest there is.",
   "flags": {
-    "aliases": "minim,minim turntable,turntable,plinth,pipit"
+    "aliases": "vex,vex turntable,turntable,plinth,hornet"
   },
   "id": "furn_dealer_marrow_bay_d",
-  "name": "the Minim turntable",
+  "name": "the Vex turntable",
   "object_type": "decoration",
   "zone_id": "zone_dealer_marrow_showroom"
 }

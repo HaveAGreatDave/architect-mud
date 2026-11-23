@@ -201,11 +201,11 @@ export const TYPES = {
     engineLag: 0.45, boostK: 0.8, pitKt: 16,
     vne: 150, cruise: 120, vs0: 12,       // read by the HUD and the gauges, not by stepRoad
   },
-  // Lanner: Hallard's grand tourer (docs/proposals/hover-cars.md). The Merlin's machinery in a longer,
+  // Wraith: Castellan's grand tourer (docs/proposals/hover-cars.md). The Merlin's machinery in a longer,
   // heavier, slipperier body: the best cruise and the longest legs in the class, and the slowest to
   // roll and to answer the lever. It steadies itself a little more than the Merlin does.
-  lanner: {
-    name: 'Lanner', heli: true, mass: 1.15,
+  wraith: {
+    name: 'Wraith', heli: true, mass: 1.15,
     vne: 240, cruise: 186, vs0: 12,
     vr: 0, aoaCrit: 90, liftScale: 1,
     pitchRate: 31, pitchTau: 0.32, rollRate: 56, rollTau: 0.28,
@@ -221,9 +221,9 @@ export const TYPES = {
     ceiling: 22000,
     boostK: 0.85, boostVne: 0.22,
   },
-  // The Lanner on the road: a little slower off the line than the Merlin, and faster flat out.
-  lanner_road: {
-    name: 'Lanner (road)', road: true, mass: 1.15,
+  // The Wraith on the road: a little slower off the line than the Merlin, and faster flat out.
+  wraith_road: {
+    name: 'Wraith (road)', road: true, mass: 1.15,
     accel: 17, topSpeed: 128, dragP: 0.00098, rollFric: 1.2, brake: 34,
     reverse: 6, reverseMax: 14,
     steerRate: 90,
@@ -231,11 +231,11 @@ export const TYPES = {
     engineLag: 0.5, boostK: 0.8, pitKt: 16,
     vne: 160, cruise: 128, vs0: 12,
   },
-  // Bustard: Garrow's muscle car (docs/proposals/hover-cars.md). Four freight fans in a heavy square
+  // Wolverine: Brakk's muscle car (docs/proposals/hover-cars.md). Four freight fans in a heavy square
   // body: a strong climb, the toughest hull, a BOOST that adds a little more, and a quick lever.
   // It yaws slowest in the class, and its thirst is in the type row, not here.
-  bustard: {
-    name: 'Bustard', heli: true, mass: 1.25,
+  wolverine: {
+    name: 'Wolverine', heli: true, mass: 1.25,
     vne: 228, cruise: 172, vs0: 12,
     vr: 0, aoaCrit: 90, liftScale: 1,
     pitchRate: 32, pitchTau: 0.3, rollRate: 58, rollTau: 0.27,
@@ -251,9 +251,9 @@ export const TYPES = {
     ceiling: 22000,
     boostK: 0.9, boostVne: 0.22,
   },
-  // The Bustard on the road: the hardest pull-away in the class, and the heaviest steering.
-  bustard_road: {
-    name: 'Bustard (road)', road: true, mass: 1.25,
+  // The Wolverine on the road: the hardest pull-away in the class, and the heaviest steering.
+  wolverine_road: {
+    name: 'Wolverine (road)', road: true, mass: 1.25,
     accel: 19.8, topSpeed: 120, dragP: 0.00135, rollFric: 1.2, brake: 34,
     reverse: 6, reverseMax: 14,
     steerRate: 88,
@@ -261,10 +261,10 @@ export const TYPES = {
     engineLag: 0.42, boostK: 0.85, pitKt: 16,
     vne: 150, cruise: 120, vs0: 12,
   },
-  // Pipit: Minim's city car (docs/proposals/hover-cars.md). Light, short and upright: the quickest yaw
+  // Hornet: Vex's city car (docs/proposals/hover-cars.md). Light, short and upright: the quickest yaw
   // and the best climb in the class, a quick lever, and a tall blunt body that tops out early.
-  pipit: {
-    name: 'Pipit', heli: true, mass: 0.95,
+  hornet: {
+    name: 'Hornet', heli: true, mass: 0.95,
     vne: 212, cruise: 162, vs0: 12,
     vr: 0, aoaCrit: 90, liftScale: 1,
     pitchRate: 35, pitchTau: 0.27, rollRate: 61, rollTau: 0.25,
@@ -280,9 +280,9 @@ export const TYPES = {
     ceiling: 22000,
     boostK: 0.85, boostVne: 0.22,
   },
-  // The Pipit on the road: the quickest steering in the class, and the lowest top speed.
-  pipit_road: {
-    name: 'Pipit (road)', road: true, mass: 0.95,
+  // The Hornet on the road: the quickest steering in the class, and the lowest top speed.
+  hornet_road: {
+    name: 'Hornet (road)', road: true, mass: 0.95,
     accel: 18.5, topSpeed: 110, dragP: 0.0015, rollFric: 1.2, brake: 34,
     reverse: 6, reverseMax: 14,
     steerRate: 104,

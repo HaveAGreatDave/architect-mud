@@ -1,12 +1,12 @@
-// THE HALLARD LANNER'S COCKPIT: the inside of the grand tourer, as geometry.
+// THE CASTELLAN WRAITH'S COCKPIT: the inside of the grand tourer, as geometry.
 //
-// The Lanner is Hallard Coachbuilders' two-seat mini VTOL (docs/proposals/hover-cars.md), and the
+// The Wraith is Castellan Coachbuilders' two-seat mini VTOL (docs/proposals/hover-cars.md), and the
 // cockpit is a coachbuilt car's: a walnut fascia under a hide crash roll, round dials in brass bezels
 // with cream ink on black, a row of brass toggles, a wood-rimmed wheel on three drilled spokes, fluted
 // tan seats and dark green carpet. You fly it and drive it with the wheel; the lift is on two brass
 // stalks behind it.
 //
-// ⚠ THE ROOM IS THE EXTERIOR'S BODY: client/shared/cabin-lanner.js states it, and
+// ⚠ THE ROOM IS THE EXTERIOR'S BODY: client/shared/cabin-wraith.js states it, and
 // interior-hovercar-kit.js builds the wall, the glass, the floor and the doors off it. Nothing about
 // the shape of the cabin is typed here.
 //
@@ -23,13 +23,13 @@ import { memoPart } from './interior-memo.js';
 import { hotspotHalo, panelGps, gpsHotspot, lensLamp, eased, pressPulse, HALO, bootAge, reveal, alertLight,
   lightLine, bandFrame, glassBand, windscreenHud, hudTint } from './interior-cockpit-kit.js';
 import { MESH_ROWS } from './vehicle-meshes.js';
-import { LANNER } from './cabin-lanner.js';
+import { WRAITH } from './cabin-wraith.js';
 import { hoverCarProfile, readings, night, panelOn, onRoad, driveWord, driveLights, switchOn, doorHotspots, outHoloDraw,
-  yawPedals, overhead, roomHalfW, fancyText, TAU, DEG, add, sub, mul, cross, norm } from './interior-hovercar-kit.js';
+  yawPedals, overhead, roomHalfW, fancyText, drawEmblem, TAU, DEG, add, sub, mul, cross, norm } from './interior-hovercar-kit.js';
 
 // ── THE STYLE ────────────────────────────────────────────────────────────────
-// Hallard's tan hide, green carpet and walnut, with brass where a hand goes.
-export const LANNER_TRIM = {
+// Castellan's tan hide, green carpet and walnut, with brass where a hand goes.
+export const WRAITH_TRIM = {
   lining: [150, 118, 82], liningDk: [112, 86, 58], headliner: [196, 186, 166],
   carbon: [58, 40, 26], carbonLt: [92, 64, 40], tub: [30, 44, 36],
   hide: [178, 142, 100], hideDk: [134, 102, 68], piping: [226, 214, 188],
@@ -40,7 +40,7 @@ export const LANNER_TRIM = {
   glow: [120, 236, 220], glowDim: [40, 96, 90], screen: [6, 14, 13],
   red: [235, 60, 48], amber: [255, 176, 64], marker: [255, 196, 40], belt: [40, 36, 30],
 };
-const T = LANNER_TRIM;
+const T = WRAITH_TRIM;
 for (const k of ['lining', 'liningDk', 'hide', 'hideDk', 'piping']) TEXTURE.set(T[k], 'leather');
 TEXTURE.set(T.headliner, 'fabric');
 for (const k of ['carbon', 'carbonLt', 'wood', 'woodDk', 'woodLt']) TEXTURE.set(T[k], 'wood');
@@ -48,7 +48,7 @@ for (const k of ['tub', 'carpet', 'carpetEdge']) TEXTURE.set(T[k], 'carpet');
 for (const k of ['brass', 'brassDk', 'chrome', 'alu']) TEXTURE.set(T[k], 'brushed');
 TEXTURE.set(T.belt, 'fabric');
 SHINY.set(T.screen, { spec: 0.6, pow: 60 });
-brandTrim(T, 'lanner', TEXTURE, SHINY);
+brandTrim(T, 'wraith', TEXTURE, SHINY);
 SHINY.set(T.wood, { spec: 0.42, pow: 30 });
 SHINY.set(T.woodLt, { spec: 0.42, pow: 30 });
 SHINY.set(T.woodDk, { spec: 0.36, pow: 26 });
@@ -58,7 +58,7 @@ SHINY.set(T.chrome, { spec: 0.95, pow: 90 });
 SHINY.set(T.hide, { spec: 0.26, pow: 16 });
 SHINY.set(T.face, { spec: 0.5, pow: 50 });
 
-// Hallard letters its dials in a deco roman; small switch labels stay in the legend face.
+// Castellan letters its dials in a deco roman; small switch labels stay in the legend face.
 const F_DIAL = 'federo', F_BADGE = 'federo';
 
 // ── THE WHEEL ────────────────────────────────────────────────────────────────
@@ -108,7 +108,7 @@ const DRIVE = [
 const TOGGLES = (xC) => [['master', 'START'], ['land', 'LIGHTS'], ['panel', 'PANEL'], ['dome', 'CABIN']].map(([id, name], i) => ({ id, name, x: xC - 0.09 + i * 0.06 }));
 const HUD_X = 0.19, CHART = { hw: 0.05, hh: 0.044 };
 
-function lannerHotspots(P, live) {
+function wraithHotspots(P, live) {
   const R = readings(live), K = makeKit(() => {}), D = dashOf(P), xC = P.xCentre, out = [];
   for (const d of DRIVE) out.push({ id: 'ck:' + d.id, p: D.at(K, d.x, V_LO).pt(0, 0, 0.012), r: 0.022, kind: 'click' });
   for (const t of TOGGLES(xC)) out.push({ id: 'ck:' + t.id, p: D.at(K, t.x, V_LO).pt(0, 0.004, 0.016), r: 0.02, kind: 'click' });
@@ -122,7 +122,7 @@ function lannerHotspots(P, live) {
 }
 
 // The cabin's own light: the chart and the lit dials spill a little teal on the wood, with power.
-function lannerGlows(P, live) {
+function wraithGlows(P, live) {
   const R = readings(live);
   if (!R.powered) return [];
   const K = makeKit(() => {}), D = dashOf(P), up = reveal(bootAge(live), 0.3);
@@ -135,9 +135,9 @@ function lannerGlows(P, live) {
 }
 
 // ── THE PROFILE ──────────────────────────────────────────────────────────────
-export function lannerProfile(doc = MESH_ROWS.lanner) {
-  return hoverCarProfile(LANNER, doc, {
-    label: 'Hallard Lanner', tag: 'ln', fN: 0.34,
+export function wraithProfile(doc = MESH_ROWS.wraith) {
+  return hoverCarProfile(WRAITH, doc, {
+    label: 'Castellan Wraith', tag: 'ln', fN: 0.34,
     tones: { headliner: T.headliner, upper: T.headliner, mid: T.liningDk, lower: T.tub, doorUpper: T.hide, doorLower: T.tub,
       reveal: T.woodDk, seal: T.glowDim, firewall: T.liningDk, floor: T.carpet, floorEdge: T.carpetEdge, floorLine: null,
       sill: T.woodDk, sillLine: T.glow, seam: T.woodDk },
@@ -145,13 +145,13 @@ export function lannerProfile(doc = MESH_ROWS.lanner) {
     dashY: DASH.yMid - 0.08, dashZ: DASH.z0 + 0.1, seatZ: 0.17, seatHalf: 0.25, seatY: [-0.26, 0.2],
     floods: (xC) => [{ p: [xC * 0.5, 0.5, -0.3], r: 0.5 }, { p: [xC, -0.05, 0.14], r: 0.6 }],
     floodGain: 1.4, glare: 0.2,
-    doorCard, roomFit, seats, fit: lannerFit, hotspots: lannerHotspots, glows: lannerGlows,
+    doorCard, roomFit, seats, fit: wraithFit, hotspots: wraithHotspots, glows: wraithGlows,
   });
 }
 
 // ── THE DOOR CARD: a wood capping under the glass, a hide armrest, a brass pull, a map pocket ──
 function doorCard({ K, S, A, s, D, pull }) {
-  const SGa = LANNER.glass.side.a[0];
+  const SGa = WRAITH.glass.side.a[0];
   // The capping: a walnut rail along the top of the card.
   const cap = [];
   for (let i = 0; i <= 8; i++) cap.push(S(lerp(D.f[0] + 0.03, D.f[1] - 0.04, i / 8), A(SGa - 3), 0.012));
@@ -181,7 +181,7 @@ function roomFit({ K, xC, zF, yB }) {
   K.box(xC - 0.5, yB, zF + 0.74, xC + 0.5, yB + 0.07, zF + 0.76, 'post', 0.05, T.wood);
   const Pp = K.panel([xC, yB + 0.03, zF + 0.58], [1, 0, 0], [0, 0, 1], 'post', 0.2);
   Pp.rect(-0.05, -0.016, 0.05, 0.016, T.brass, 0.05, 0.001);
-  fancyText(Pp, 'HALLARD', 0, 0, 0.011, T.woodDk, 0, 0.003, F_BADGE, 0.086);
+  fancyText(Pp, 'CASTELLAN', 0, 0, 0.011, T.woodDk, 0, 0.003, F_BADGE, 0.086);
 }
 
 // ── THE SEATS: low armchairs in fluted tan hide, piped, a lap and diagonal belt ──
@@ -212,13 +212,13 @@ function seats(P, push) {
   }
 }
 
-// ── A dial in Hallard's manner: brass bezel, black face, cream ink, its name in the deco face ──
+// ── A dial in Castellan's manner: brass bezel, black face, cream ink, its name in the deco face ──
 function dial(Pn, u, v, rad, frac, name, o = {}) {
   Pn.dial(u, v, rad, frac, { bezel: T.brass, face: T.face, tick: T.ink, needle: o.needle || T.ink, name, nameH: Math.max(0.0085, rad * 0.2), label: T.ink, ...o });
 }
 
 // ── THE FIT-OUT ──────────────────────────────────────────────────────────────
-function lannerFit(P, live, push) {
+function wraithFit(P, live, push) {
   const K = makeKit(push);
   const R = readings(live);
   const zF = P.hc.zF, xC = P.xCentre, D = dashOf(P);
@@ -252,7 +252,7 @@ function lannerFit(P, live, push) {
     for (const [a0, b0, a1, b1] of [[-0.132, -0.064, 0.132, -0.06], [-0.132, 0.06, 0.132, 0.064], [-0.132, -0.064, -0.128, 0.064], [0.128, -0.064, 0.132, 0.064]]) Pg.rect(a0, b0, a1, b1, T.brass, 0.05, 0.002);
     Pg.disc(0.105, 0, 0.009, T.brass, 0.05, 0.003, 12);
     Pg.rect(0.1035, -0.005, 0.1065, 0.005, T.bezelBlk, 0, 0.004);
-    fancyText(Pg, 'LANNER', -0.02, 0.0, 0.018, T.brass, S.panel ? 0.25 : 0.05, 0.003, F_BADGE, 0.15);
+    fancyText(Pg, 'WRAITH', -0.02, 0.0, 0.018, T.brass, S.panel ? 0.25 : 0.05, 0.003, F_BADGE, 0.15);
     // The vents: two brass-ringed eyeballs at the board's ends.
     for (const x of [D.xL + 0.07, D.xR - 0.045]) {
       const Pv = D.at(K, x, 0.15, 0.004);
@@ -387,7 +387,7 @@ function lannerFit(P, live, push) {
   yawPedals(K, R, zF, { y: 0.66, half: 0.085, z: 0.12, plate: T.alu, rail: T.brassDk, hole: T.woodDk });
   overhead(K, P, R, al.rgb, (R.dome && lit ? 1 : 0.4) * Math.max(amb, 0.2) * (lit ? al.k : 1), { domeY: -0.1 });
   outHoloDraw(K, P, live, F_DIAL);
-  hotspotHalo(K, lannerHotspots(P, live), live);
+  hotspotHalo(K, wraithHotspots(P, live), live);
 }
 
 // ── THE WHEEL, drawn: built at rest and moved (K.posed), as the Merlin's is ──
@@ -414,10 +414,9 @@ function wheelBody(K, W, lit, near, line) {
     for (let i = -2; i <= 2; i++) Ps.disc(i * 0.028, 0, 0.0075 - Math.abs(i) * 0.001, T.woodDk, 0, 0.0005, 10);
     K.rod(add(add(c, mul(dir, WHEEL.r)), mul(a, WHEEL.tube * 0.6)), add(add(c, mul(dir, WHEEL.r)), mul(a, WHEEL.tube + 0.002)), 0.004, 'dash', 0.4, T.brass, 0, 8);
   }
-  // The boss: brass, with Hallard's lozenge and bar.
+  // The boss: brass, with Castellan's tower on a shield.
   K.rod(add(c, mul(a, -0.02)), add(c, mul(a, 0.012)), 0.04, 'dash', 0.3, T.brass, 0, 20);
   const Pb = K.panel(add(c, mul(a, 0.0125)), u, v, 'dash', 0.3);
   Pb.disc(0, 0, 0.033, T.bezelBlk, 0, 0.0004, 20);
-  Pb.plate([[0, 0.024], [0.016, 0], [0, -0.024], [-0.016, 0]], T.brass, 0.1, 0.001);
-  Pb.rect(-0.021, -0.004, 0.021, 0.004, T.piping, 0.1, 0.0016);
+  drawEmblem(Pb, 'castellan', 0.025, T.brass, T.bezelBlk);
 }
