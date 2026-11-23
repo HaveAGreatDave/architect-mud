@@ -651,6 +651,8 @@ export const BUILDING_TYPE_ICON = Object.freeze({
   noodle_bar: 'bldg_noodlebar', outfitter: 'bldg_outfitter',
   // The Stacked Deck: decks stacked under a pad (docs/systems-flight.md, the Stacked Deck).
   vtol_park: 'bldg_vtol_park',
+  // A hover car dealership (docs/proposals/vtol-dealership.md): a wedge car over a pad ring.
+  vtol_dealer: 'bldg_vtol_dealer',
   // The Coldwater Palais (docs/proposals/coldwater-palais.md): a ticket on the box office, a coupe
   // on the bar. The stage tile has no door, so the facade gate keeps its proscenium off the map
   // today; it is registered so the type is never the one without an icon.

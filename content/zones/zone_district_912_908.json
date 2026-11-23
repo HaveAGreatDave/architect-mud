@@ -1,22 +1,30 @@
 {
-  "ambient_events": [],
+  "ambient_events": [
+    "The cars behind the glass catch the light as a cloud moves off.",
+    "A hover car settles onto the roof pad and its fans wind down.",
+    "Somebody stops on the corner to look up at the car on the pylon."
+  ],
   "ambient_theme": "urban",
-  "bg_color": "#2a241d",
-  "color": "#8ba36a",
-  "description": "Four floors of discount department store wearing a banner that just says ADEQUATE! in letters tall enough to read from the water. The ground-floor windows are a wall of mannequins in this season's one coat, each posed mid-shrug. A tannoy leaks out under the doors, announcing a sale that has been running since before the lights went out.",
+  "bg_color": "#161a20",
+  "color": "#d6e8ff",
+  "description": "A glass showroom on the corner of Marrow Street and Meltwater Row, under a thin white roof with a black sign band. Four hover cars stand on turntables behind the glass. A fifth is clamped nose-up on a pylon over the corner, and there is a landing pad on the roof. The doors are <b>north</b>.",
   "exits": {
-    "north": "zone_adequate_floor",
+    "north": "zone_dealer_marrow_showroom",
     "south": "zone_district_912_909"
   },
   "flags": {
-    "building_name": "Adequate!",
-    "building_type": "dept_store",
+    "airfield_id": "af_dealer_marrow",
+    "building_name": "Higher Purchase",
+    "building_type": "vtol_dealer",
+    "dealer_stock": "hover_car",
     "district": "marrow",
     "entrance": "south",
     "facade": true,
+    "floors": 2,
+    "hangar_interior_zone": "zone_dealer_marrow_showroom",
     "is_building": true,
     "region_id": "region_coldwater",
-    "sign_trade": "DEPARTMENT STORE",
+    "sign_trade": "HOVER CARS",
     "world_exit_zone": "zone_district_912_909"
   },
   "grid_x": 912,
@@ -24,7 +32,7 @@
   "grid_z": 0,
   "id": "zone_district_912_908",
   "map_id": "map_world",
-  "marker": "AD",
-  "name": "Adequate!",
+  "marker": "HP",
+  "name": "Higher Purchase",
   "parent_zone": null
 }

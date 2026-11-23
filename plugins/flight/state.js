@@ -34,6 +34,7 @@ import { getEnvironmentState, getWeatherFieldSnapshot, getWeatherEvent, getZoneP
 import { gatherHookSync } from '../../server/engine/plugins.js';
 import { isPrivateCraft, indexAircraft, unindexAircraft } from './access.js';
 import { KT_MS, FT_M } from '../../client/shared/world-scale.js';
+import { isHoverCar } from '../../client/shared/hover-cars.js';
 
 export const TICK_MS = 3000;
 // Overall traversal pace — a single knob that slows the flight down without
@@ -796,13 +797,30 @@ export function vtolOnlyField(field) {
 // no jets — fly something thirsty out to The Reach and getting home is your
 // problem. A field with no `fuels` list at all keeps the old behaviour rather
 // than silently emptying its own showroom.
+//
+// A DEALERSHIP SELLS ONE SEGMENT. A field tile with `flags.dealer_stock` (the hover car
+// dealership's is 'hover_car') offers only the types whose `data.segment` is that word, on top of
+// the fuel rule. Both ends are content: a new car joins every dealership when its row is marked,
+// and a dealership in another town is a tile with the flag. A field without it sells what it did.
 export async function acquirableTypes(field) {
   const fuels = airfieldOf(field)?.fuels;
+  const segment = dealerStockOf(field);
   const { rows } = await query(
-    `SELECT id, name, class, seats, cargo_capacity, fuel_type, price_buy, price_rent_hourly, takeoff_mode, hardpoints
-       FROM aircraft_types WHERE class <> 'wreck'${vtolOnlyField(field) ? " AND takeoff_mode = 'vtol'" : ''} ORDER BY price_buy`);
-  if (!Array.isArray(fuels) || !fuels.length) return rows;
-  return rows.filter(r => fuels.includes(r.fuel_type));
+    `SELECT id, name, class, seats, cargo_capacity, fuel_type, price_buy, price_rent_hourly, takeoff_mode, hardpoints, data
+       FROM aircraft_types WHERE class <> 'wreck'${vtolOnlyField(field) ? " AND takeoff_mode = 'vtol'" : ''} ORDER BY price_buy, name`);
+  const stock = segment ? rows.filter(r => segmentOf(r) === segment) : rows;
+  if (!Array.isArray(fuels) || !fuels.length) return stock;
+  return stock.filter(r => fuels.includes(r.fuel_type));
+}
+// The segment an airframe is sold in: its row's own `data.segment`, or `hover_car` for a class on the
+// hover cars' one list (client/shared/hover-cars.js), so a new car is stocked the day its row lands.
+export function segmentOf(type) {
+  return type?.data?.segment || (isHoverCar(type?.class) ? 'hover_car' : null);
+}
+// The one segment a field's dealer sells, or null for a field that sells whatever it can fuel.
+export function dealerStockOf(field) {
+  const s = field?.flags?.dealer_stock;
+  return typeof s === 'string' && s.trim() ? s.trim() : null;
 }
 
 // ── Live aircraft registry (in-memory; the aircraft owns its occupant set) ────

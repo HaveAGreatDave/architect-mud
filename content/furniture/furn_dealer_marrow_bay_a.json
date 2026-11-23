@@ -1,0 +1,10 @@
+{
+  "description": "A Corvane Merlin in red on a turntable ringed in violet: a low wedge with gull-wing doors and four fans where the wheels would be. A card on a stand gives the price and says HIRE BY THE HOUR.",
+  "flags": {
+    "aliases": "corvane,corvane turntable,turntable,plinth,merlin"
+  },
+  "id": "furn_dealer_marrow_bay_a",
+  "name": "the Corvane turntable",
+  "object_type": "decoration",
+  "zone_id": "zone_dealer_marrow_showroom"
+}

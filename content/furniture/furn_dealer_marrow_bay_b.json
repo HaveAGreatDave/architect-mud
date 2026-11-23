@@ -1,0 +1,10 @@
+{
+  "description": "A Hallard Lanner on a turntable ringed in teal: a long bonnet, a cab set well back and a fastback tail, in dark green over tan hide. The card says every one is built to order.",
+  "flags": {
+    "aliases": "hallard,hallard turntable,turntable,plinth,lanner"
+  },
+  "id": "furn_dealer_marrow_bay_b",
+  "name": "the Hallard turntable",
+  "object_type": "decoration",
+  "zone_id": "zone_dealer_marrow_showroom"
+}

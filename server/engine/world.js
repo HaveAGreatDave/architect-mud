@@ -421,6 +421,7 @@ const POI_BY_BUILDING = {
   // looking for a freight office, and on the map the two are one hue apart.
   fuel_yard: 'fuel', gas_station: 'fuel', fuel_station: 'fuel', charging_station: 'fuel',
   hangar: 'airfield', control_tower: 'airfield', arrivals: 'airfield', departures: 'airfield',
+  vtol_dealer: 'shops',
 };
 // Ranked highest-first, and this only decides what a tile inherits from its NEIGHBOURS.
 // A tile's OWN type is not ranked at all — it wins outright (see poiStatic), which is the

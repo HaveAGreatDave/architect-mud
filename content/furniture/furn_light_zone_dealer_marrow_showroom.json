@@ -1,0 +1,11 @@
+{
+  "description": "Rows of white light battens in the ceiling, and a spot over each turntable.",
+  "flags": {},
+  "id": "furn_light_zone_dealer_marrow_showroom",
+  "light_type": "overhead",
+  "lumen_output": 1200,
+  "name": "the showroom lights",
+  "object_type": "light",
+  "power_draw_kw": 0.03,
+  "zone_id": "zone_dealer_marrow_showroom"
+}

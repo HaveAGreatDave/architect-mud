@@ -1,0 +1,9 @@
+{
+  "a": "zone_dealer_marrow_showroom",
+  "b": "zone_util_zone_dealer_marrow_showroom",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_hf_dealer_marrow_showroom_down",
+  "lockable": false,
+  "one_way": false
+}

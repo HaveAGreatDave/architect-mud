@@ -1,0 +1,18 @@
+{
+  "description": "A low concrete room under the showroom. The building's junction box is on one wall and the charger switchgear on the other, in grey cabinets that hum. A cable tray runs up through the ceiling to the roof pad.",
+  "exits": {
+    "up": "zone_dealer_marrow_showroom"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_912_908"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_dealer_marrow_showroom",
+  "map_id": "map_int_dealer_marrow",
+  "name": "Higher Purchase Plant Room",
+  "parent_zone": "zone_district_912_908"
+}

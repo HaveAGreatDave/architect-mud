@@ -1,6 +1,6 @@
 {
   "ambient_theme": "indoors",
-  "description": "The seventh floor landing, four flights up and the same as the last, except for a pushchair folded against the wall and the smell of somebody's dinner. Doors A and B face each other across the lino. Through the stair glass you can see over Adequate!'s roof to the green.",
+  "description": "The seventh floor landing, four flights up and the same as the last, except for a pushchair folded against the wall and the smell of somebody's dinner. Doors A and B face each other across the lino. Through the stair glass you can see over the car showroom's roof to the green.",
   "exits": {
     "down": "zone_kestrel_f3",
     "east": "zone_kestrel_7b",

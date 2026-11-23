@@ -2,5 +2,5 @@
   "entry_zone_id": "zone_adequate_floor",
   "id": "map_int_adequate",
   "name": "Adequate! — Interior",
-  "parent_zone_id": "zone_district_912_908"
+  "parent_zone_id": "zone_lot_912_913"
 }

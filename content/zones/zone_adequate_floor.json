@@ -6,7 +6,7 @@
   "exits": {
     "down": "zone_util_zone_adequate_floor",
     "east": "zone_adequate_upper",
-    "south": "zone_district_912_908"
+    "north": "zone_lot_912_913"
   },
   "flags": {
     "building_name": "Adequate!",
@@ -20,7 +20,7 @@
       "name": "the shopfront window",
       "visibility": 0.9
     },
-    "world_exit_zone": "zone_district_912_908"
+    "world_exit_zone": "zone_lot_912_913"
   },
   "grid_x": 0,
   "grid_y": 0,
@@ -28,5 +28,5 @@
   "id": "zone_adequate_floor",
   "map_id": "map_int_adequate",
   "name": "Adequate! — Shop Floor",
-  "parent_zone": "zone_district_912_908"
+  "parent_zone": "zone_lot_912_913"
 }

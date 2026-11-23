@@ -21,7 +21,7 @@ import { computeStats, perfAxes, kitAxes, KIT_AXES, tuneRange, installedKits, KI
   PARTS, PART_SLOTS, slotsFor, installedParts, partDefs, partEnvelope, PYLON_MIN_TOW,
   shearRoll, surfacesWire, anyWingLost, resetSurfaces, SURFACE_KEYS,
   isWalkableCabin, cabinTypeOf, cabinEntryZone, isCabinZone, liveAircraft, getZone, loadAircraft, stalledState, CONTINUOUS_TYPES, listAirfields, nearestAirfield, listRegions, worldTerrainMap, salvoOf, bombLoad, bombAmmo, waypointFor, bounds as flightBounds,
-  vtolOnlyField, acquirableTypes, hangarRampFor, HANGAR_REACH, BANDS, airfieldOf, fieldOpenTo, fieldName, gpsDirectory } from './state.js';
+  vtolOnlyField, acquirableTypes, segmentOf, hangarRampFor, HANGAR_REACH, BANDS, airfieldOf, fieldOpenTo, fieldName, gpsDirectory } from './state.js';
 import { isFreightLicensed, ensureFreightDrops, isAirCargoUnlocked, hasCacheStanding,
   openOrders, placeCacheOrder, rawsCatalogue, trustFor, unitsPerPallet, palletPrice,
   waitingDropAt, FENCE_CACHES } from './contracts.js';
@@ -371,6 +371,29 @@ async function regressBody({ run, check, getPlayer }) {
     check('Buzzard Field still sells something, and none of it burns jet',
       buzzRoster.length > 0 && buzzRoster.every(t => t.fuel_type !== 'jet'),
       buzzRoster.map(t => `${t.id}(${t.fuel_type})`).join(',') || 'EMPTY');
+
+    // A DEALERSHIP SELLS ONE SEGMENT (`flags.dealer_stock` on the field's tile, `data.segment` on the
+    // type). The hover car dealership is the case it was written for: every car on its list is a
+    // hover car, and a field without the flag offers what it did before.
+    {
+      const all = await acquirableTypes({ flags: {} });
+      const cars = await acquirableTypes({ flags: { dealer_stock: 'hover_car' } });
+      check('a dealer_stock field offers only its segment',
+        cars.length > 0 && cars.every(t => segmentOf(t) === 'hover_car') && cars.length < all.length, cars.map(t => t.id).join(',') || 'empty');
+      check('a field with no dealer_stock offers the whole list', all.some(t => segmentOf(t) !== 'hover_car'), all.length + ' types');
+      check('a segment nothing is sold in is an empty lot, not the whole list',
+        (await acquirableTypes({ flags: { dealer_stock: 'regress_no_such_segment' } })).length === 0);
+      const dealers = fields.map(f => getZone(f.id)).filter(z => z?.flags?.dealer_stock);
+      for (const z of dealers) {
+        const here = await acquirableTypes(z);
+        check(`${z.name} has cars to sell`, here.length > 0 && here.every(t => t.data?.segment === z.flags.dealer_stock),
+          here.map(t => t.id).join(',') || 'EMPTY: no aircraft_types row carries data.segment ' + z.flags.dealer_stock);
+        const room = getZone(z.flags.hangar_interior_zone);
+        check(`${z.name} is a room you walk into, and it names its field`,
+          !!room && room.flags?.is_interior === true && room.flags?.hangar_ramp === z.id && room.flags?.hangar_interior === true, room?.id || 'no hangar_interior_zone');
+        check(`${z.name} sells and hires, to VTOLs only`, airfieldOf(z)?.dealer === true && airfieldOf(z)?.rental === true && vtolOnlyField(z));
+      }
+    }
 
     // vtolOnlyField is also the ONLY key for the out-the-canopy render: a field it
     // calls VTOL-only draws a circle-H pad instead of a departure strip

@@ -11,9 +11,9 @@
     "district": "marrow",
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_roadside_junk",
+    "street_level": 1,
     "street_life": true,
-    "terrain": "road",
-    "street_level": 1
+    "terrain": "road"
   },
   "grid_x": 912,
   "grid_y": 909,

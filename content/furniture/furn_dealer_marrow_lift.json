@@ -1,0 +1,10 @@
+{
+  "description": "A steel door in the back wall, wide enough for a car, with PAD lit over it. It takes a car from the floor to the roof and brings one down for service.",
+  "flags": {
+    "aliases": "lift,car lift,lift door,pad"
+  },
+  "id": "furn_dealer_marrow_lift",
+  "name": "the car lift",
+  "object_type": "decoration",
+  "zone_id": "zone_dealer_marrow_showroom"
+}

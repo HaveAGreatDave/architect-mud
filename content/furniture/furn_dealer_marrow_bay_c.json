@@ -1,0 +1,10 @@
+{
+  "description": "A Garrow Bustard on a turntable ringed in white: square, wide and orange, with the biggest fans in the room and the weld seams left showing. The card says FREIGHT FANS, FOUR OF THEM.",
+  "flags": {
+    "aliases": "garrow,garrow turntable,turntable,plinth,bustard"
+  },
+  "id": "furn_dealer_marrow_bay_c",
+  "name": "the Garrow turntable",
+  "object_type": "decoration",
+  "zone_id": "zone_dealer_marrow_showroom"
+}

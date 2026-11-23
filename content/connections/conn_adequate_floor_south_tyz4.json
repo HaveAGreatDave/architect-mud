@@ -1,8 +1,8 @@
 {
   "a": "zone_adequate_floor",
-  "b": "zone_district_912_908",
+  "b": "zone_lot_912_913",
   "blocked": false,
-  "dir": "south",
+  "dir": "north",
   "id": "conn_adequate_floor_south_tyz4",
   "lockable": true,
   "one_way": false

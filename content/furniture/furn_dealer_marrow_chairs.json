@@ -1,0 +1,13 @@
+{
+  "description": "Two low leather chairs and a glass table by the window, where people sit while the paperwork is done.",
+  "flags": {
+    "aliases": "chairs,chair,waiting chairs,table",
+    "interactions": [
+      "sit"
+    ]
+  },
+  "id": "furn_dealer_marrow_chairs",
+  "name": "the waiting chairs",
+  "object_type": "furniture",
+  "zone_id": "zone_dealer_marrow_showroom"
+}

@@ -1,0 +1,31 @@
+{
+  "description": "A long white desk with a dark top, a screen at one end and a tray of key cards at the other. A brochure for each maker is fanned out along the front edge.",
+  "flags": {
+    "aliases": "desk,sales desk,counter,brochures,key cards",
+    "dealer_desk": true,
+    "interactions": [
+      "lean"
+    ],
+    "look": {
+      "arche": "surface",
+      "dims": [
+        3,
+        0.8,
+        1.05
+      ],
+      "dress": "hotel",
+      "form": "reception"
+    },
+    "spot": {
+      "at": [
+        0.3,
+        9.13
+      ],
+      "turn": 180
+    }
+  },
+  "id": "furn_dealer_marrow_desk",
+  "name": "the sales desk",
+  "object_type": "fixture",
+  "zone_id": "zone_dealer_marrow_showroom"
+}

@@ -1452,6 +1452,8 @@ function keepClear(S) {
   if (S.pit) out.push([S.pit.u0, S.pit.u1, S.pit.v0, S.pit.v1, false]);
   // a depot's stand, where a called-up vehicle comes out onto the floor, with room to walk round it
   if (S.stand) { const b = S.stand.box; out.push([b[0] - 0.6, b[1] + 0.6, b[2] - 0.6, b[3] + 0.6, false]); }
+  // a showroom's display cars on their plinths, with room to walk round each
+  for (const c of S.display || []) out.push([c.box[0] - 0.5, c.box[1] + 0.5, c.box[2] - 0.5, c.box[3] + 0.5, false]);
   for (const q of S.walls || []) out.push([q[0] - 0.3, q[1] + 0.3, q[2] - 0.3, q[3] + 0.3, false]);
   for (const st of S.stairs || []) out.push([st.box[0] - 0.4, st.box[1] + 0.4, st.box[2] - 0.4, st.box[3] + 0.4, false]);
   // a flight and its well, and a clear landing off the end you step on from (the bottom below, the top above)
@@ -1665,7 +1667,25 @@ export function roomSpecOf(flags, isFlat, { storey = null } = {}) {
   if (Number(base.storeys) && (Number(base.storey) || storey) >= Number(base.storeys) - 1) out.crown = true;
   const stand = standSpecOf(base.stand, w, d);
   if (stand) out.stand = stand;
+  const display = displaysOf(base.display, w, d);
+  if (display.length) out.display = display;
   if (base.bay === 'truck') out.bay = 'truck';
+  return out;
+}
+// A showroom's display cars, from `flags.room.display`: a list of `{ bay, at: [u, v], turn, r, h }`. `bay` names a
+// bay of client/shared/dealer-display.js (which car that is lives there, never here), `at` the plinth's middle on
+// the floor, `turn` the car's nose in degrees clockwise from the front wall, `r` the plinth's radius (2.2 m) and
+// `h` its height (0.14 m). Kept inside the room. The Stage draws them (panels/room-hoist.js `displays`).
+export function displaysOf(list, w, d) {
+  if (!Array.isArray(list)) return [];
+  const out = [];
+  for (const s of list.slice(0, 8)) {
+    if (!s || typeof s !== 'object' || typeof s.bay !== 'string') continue;
+    const r = clampN(s.r, 1.2, 3.2, 2.2), h = clampN(s.h, 0.04, 0.5, 0.14);
+    const at = Array.isArray(s.at) && s.at.length === 2 && s.at.every(Number.isFinite) ? s.at : [0, d / 2];
+    const u = clampN(at[0], -w / 2 + r, w / 2 - r, 0), v = clampN(at[1], r, Math.max(r, d - r), d / 2);
+    out.push({ bay: s.bay, at: [u, v], turn: clampN(s.turn, -360, 360, 0), r, h, box: [u - r, u + r, v - r, v + r] });
+  }
   return out;
 }
 // THE TRUCK SHED. A depot's shed on foot is the shed a truck drives into on the street (windshield.js

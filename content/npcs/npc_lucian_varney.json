@@ -1,0 +1,308 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "\"Sit in it. It costs nothing to sit in it.\"",
+    "wipes a fingerprint off the Merlin's door with his cuff",
+    "\"The Pipit's the one people buy. The Merlin's the one they come in to look at.\"",
+    "straightens the brochures on the desk so the edges line up",
+    "\"Hire one for an hour first. Most people are back before the hour's up, asking about colours.\"",
+    "watches somebody on the pavement look at the cars, and waits"
+  ],
+  "description": "A tall man in a grey suit with no tie and very clean shoes. He stands with his hands behind his back until you look at a car for more than a few seconds, and then he is beside you.",
+  "dialogue_tree": {
+    "buying": {
+      "options": [
+        {
+          "label": "Where do I keep it?",
+          "next": "parking"
+        },
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"At the desk. <b>buy</b> shows you the list and <b>buy merlin</b> buys you one. She's on the roof pad by the time you've signed. You'll need a licence to fly her off it.\""
+    },
+    "bye": {
+      "options": [],
+      "text": "\"I'll be here.\""
+    },
+    "hire": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"<b>rent</b> one. You pay for the hour and bring her back to the pad. If you like her, we talk.\""
+    },
+    "makers": {
+      "options": [
+        {
+          "label": "How do I buy one?",
+          "next": "buying"
+        },
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The Corvane Merlin's the fast one. The Hallard Lanner goes furthest, the Garrow Bustard's built like a dock crane, and the Minim Pipit turns on the spot. Same price, all four.\" He shrugs. \"Pick the one you like looking at.\""
+    },
+    "parking": {
+      "actions": [
+        {
+          "action": "GPS_TO",
+          "zone": "zone_seam_914_908"
+        }
+      ],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Marrow Street Parking, next door. Land on their roof, <b>garage park</b>, and keep the ticket. It's free, which is why we built here.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What have you got?",
+          "next": "makers"
+        },
+        {
+          "label": "How do I buy one?",
+          "next": "buying"
+        },
+        {
+          "label": "Can I try one first?",
+          "next": "hire"
+        },
+        {
+          "label": "Where do I keep it?",
+          "next": "parking"
+        },
+        {
+          "label": "Do you buy them back?",
+          "next": "selling"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Just looking.",
+          "next": "bye"
+        }
+      ],
+      "text": [
+        "\"Which one are you looking at?\"",
+        "\"Take your time. They're not going anywhere.\""
+      ],
+      "text_by_relation": {
+        "familiar": "\"There you are. How's she flying?\"",
+        "first": "\"Lucian Varney. Four makers, one of each on the floor, and they all fly.\" He nods at the turntables. \"Have a look round.\"",
+        "known": "\"Back again.\" He looks pleased about it. \"Same one, or have you changed your mind?\""
+      }
+    },
+    "selling": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"We do. Land her on the pad, come down, and <b>sell</b> at the desk. You won't get what you paid.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a grey two-button suit",
+      "a white open-collar shirt",
+      "polished black shoes",
+      "grey boxers"
+    ],
+    "personality": "vendor",
+    "post": "furn_dealer_marrow_desk",
+    "post_gap": 0.5
+  },
+  "home_activities": [],
+  "home_zone": "zone_kestrel_7b",
+  "hp": 22,
+  "hp_max": 22,
+  "id": "npc_lucian_varney",
+  "name": "Lucian Varney",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 0,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 8,
+        "to": 20
+      }
+    ],
+    "mon": [
+      {
+        "from": 8,
+        "to": 20
+      }
+    ],
+    "sat": [
+      {
+        "from": 8,
+        "to": 20
+      }
+    ],
+    "sun": [
+      {
+        "from": 8,
+        "to": 17
+      }
+    ],
+    "thu": [
+      {
+        "from": 8,
+        "to": 20
+      }
+    ],
+    "tue": [
+      {
+        "from": 8,
+        "to": 20
+      }
+    ],
+    "wed": [
+      {
+        "from": 8,
+        "to": 20
+      }
+    ]
+  },
+  "vendor_shop_name": "Higher Purchase",
+  "vendor_stock_size": 0,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_dealer_marrow_showroom"
+}

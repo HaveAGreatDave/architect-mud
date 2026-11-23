@@ -22,6 +22,7 @@ import { loadAircraft3d, aircraftFaces, standFaces, faceBaseRgb, liveryPalette, 
 import { podracerLook, podracerLivery } from './podracer-model.js';
 import { vtx, lin, MAT } from './gl/ballpark-mesh.js';
 import { bayOf } from '../../../shared/room-layout.js';
+import { dealerBay, dealerCar } from '../../../shared/dealer-display.js';
 
 const CSS = await loadCss(new URL('./room-hoist.css', import.meta.url));
 function ensureStyles() {
@@ -193,6 +194,12 @@ export function createRoomHoist({ host, send, walker }) {
       }
     }
     panel.hidden = !V;
+    // a showroom's display cars (below): solid where they stand, and their meshes asked for once
+    if (Lnew) {
+      if (L.solid) for (let i = L.solid.length - 1; i >= 0; i--) if (L.solid[i]._hoist === 'display') L.solid.splice(i, 1);
+      for (const d of L.spec?.display || []) if (L.solid) { const q = d.box.slice(); q._hoist = 'display'; L.solid.push(q); }
+      if (L.spec?.display?.length && !ready) loadAircraft3d().then(() => { ready = true; ver++; }).catch(() => {});
+    }
     // a slip is water whether or not there's a boat in it: you can't walk into it
     const S = standOf();
     setSolid('water', V && S?.water ? S.box : null);
@@ -220,6 +227,7 @@ export function createRoomHoist({ host, send, walker }) {
     const B = bayOf(L?.spec);
     // a shed's platform is always somewhere: flush with the floor with nothing on it, else where the lift has it
     if (L && B) shedPlate(b, B, V?.lift ? level(now) : 1);
+    if (L) displays(b);
     if (!L || !V) return;
     const S = standOf(), from = fromOf(), kind = kindOf(), lf = V.lift;
     const [u, v] = spot();
@@ -309,6 +317,54 @@ export function createRoomHoist({ host, send, walker }) {
     box = (lift && B ? (lf && k < 0.999 ? pad : k > 0.02 ? body : null)
       : lift ? (k > 0.02 ? body : k < 0.999 && lf ? boxAt([u, v], hl, hw) : null) : (k > 0.05 && !S?.water ? body : null));
     setSolid('body', box);
+  }
+
+  // A SHOWROOM'S DISPLAY CARS (`flags.room.display`, room-layout.js displaysOf): each a round plinth with a ring in
+  // its maker's colour and the car stood on it. Which car is on which bay is client/shared/dealer-display.js, the
+  // table the dealership's GLASS arm reads, so the street and the room show the same cars. They're scenery: nothing
+  // here is for sale, and the counter says what is.
+  function displays(b) {
+    const list = L.spec?.display;
+    if (!list?.length) return;
+    const up = [0, 1, 0], uv = [0, 0], N = 20, steel = lin('#aeb6be'), top = lin('#e6e4de');
+    for (const d of list) {
+      const bay = dealerBay(d.bay), car = dealerCar(bay), [u, v] = d.at, r = d.r, ph = d.h;
+      const ring = lin(hex(bay ? bay.line : [200, 210, 220]));
+      const at = (a, rr, y) => L.world(u + Math.cos(a) * rr, v + Math.sin(a) * rr, y);
+      for (let i = 0; i < N; i++) {
+        const a0 = i / N * Math.PI * 2, a1 = (i + 1) / N * Math.PI * 2, am = (a0 + a1) / 2;
+        // the plinth's top, the ring let into it, and its steel edge
+        for (const p of [L.world(u, v, ph), at(a0, r * 0.84, ph), at(a1, r * 0.84, ph)]) vtx(b, p, up, uv, top, MAT.SATIN);
+        for (const [ra, rb, col, mat] of [[0.84, 0.9, ring, MAT.GLOSS], [0.9, 1, steel, MAT.SATIN]]) {
+          const q = [at(a0, r * ra, ph), at(a0, r * rb, ph), at(a1, r * rb, ph), at(a1, r * ra, ph)];
+          for (const k of [0, 1, 2, 0, 2, 3]) vtx(b, q[k], up, uv, col, mat);
+        }
+        const o = L.world(0, 0, 0), w = L.world(Math.cos(am), Math.sin(am), 0), n = [w[0] - o[0], 0, w[2] - o[2]];
+        const q = [at(a0, r, 0), at(a1, r, 0), at(a1, r, ph), at(a0, r, ph)];
+        for (const k of [0, 1, 2, 0, 2, 3]) vtx(b, q[k], n, uv, steel, MAT.PLATE);
+      }
+      if (!ready) continue;
+      const m = modelOf({ cls: car.cls, livery: car.livery });
+      if (!m) continue;
+      const s = (car.metres || 4.6) / Math.max(1e-6, m.f1 - m.f0), t = d.turn * Math.PI / 180;
+      // the nose's way on the floor: 0 is toward the front wall (v = 0), turning clockwise seen from above
+      const F = [Math.sin(t), -Math.cos(t)], Rr = [-F[1], F[0]];
+      const WF = sub(L.world(u + F[0], v + F[1], 0), L.world(u, v, 0)), WR = sub(L.world(u + Rr[0], v + Rr[1], 0), L.world(u, v, 0));
+      const O = L.world(u, v, ph + 0.005);
+      const place = (p) => { const f = (p[0] - m.c[0]) * s, g = (p[1] - m.c[1]) * s, h = (p[2] - m.h0) * s; return [O[0] + WF[0] * f + WR[0] * g, O[1] + h, O[2] + WF[2] * f + WR[2] * g]; };
+      const C = place(m.c);
+      for (const fc of m.faces) {
+        const q = fc.p.map(place);
+        if (q.length < 3) continue;
+        const a = sub(q[1], q[0]), e = sub(q[2], q[0]);
+        let n = [a[1] * e[2] - a[2] * e[1], a[2] * e[0] - a[0] * e[2], a[0] * e[1] - a[1] * e[0]];
+        const nl = Math.hypot(n[0], n[1], n[2]) || 1; n = [n[0] / nl, n[1] / nl, n[2] / nl];
+        const mid = q.reduce((acc, p) => [acc[0] + p[0] / q.length, acc[1] + p[1] / q.length, acc[2] + p[2] / q.length], [0, 0, 0]);
+        if ((mid[0] - C[0]) * n[0] + (mid[1] - C[1]) * n[1] + (mid[2] - C[2]) * n[2] < 0) n = [-n[0], -n[1], -n[2]];
+        const mat = fc.glass ? MAT.GLOSS : MAT.SATIN;
+        for (let j = 1; j + 1 < q.length; j++) for (const p of [q[0], q[j], q[j + 1]]) vtx(b, p, n, uv, fc.col, mat);
+      }
+    }
   }
 
   // a big door in a wall: `go` it's open, a dark mouth; shut, ribbed steel (or a water gate over a slip)

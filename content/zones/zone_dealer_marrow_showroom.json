@@ -1,0 +1,227 @@
+{
+  "ambient_events": [
+    "A turntable creeps round a few degrees and stops.",
+    "Somebody on the pavement cups their hands against the glass to look in.",
+    "The lift behind the desk hums up to the roof and comes back down."
+  ],
+  "ambient_theme": "indoors",
+  "bg_color": "#161a20",
+  "color": "#d6e8ff",
+  "description": "A white floor under a high ceiling, with glass on two sides. Four hover cars stand on low turntables, one from each maker, each ringed in its maker's colour. The sales desk is at the back, beside the lift up to the roof pad. Marrow Street is <b>south</b> through the glass doors.",
+  "exits": {
+    "down": "zone_util_zone_dealer_marrow_showroom",
+    "south": "zone_district_912_908"
+  },
+  "flags": {
+    "building_name": "Higher Purchase",
+    "building_type": "vtol_dealer",
+    "floor": "stone",
+    "hangar_interior": true,
+    "hangar_ramp": "zone_district_912_908",
+    "is_building": true,
+    "is_interior": true,
+    "room": {
+      "balcony": false,
+      "d": 10.08,
+      "decor": {
+        "doors": [
+          {
+            "at": 8.9,
+            "finish": "steel",
+            "w": 1,
+            "wall": "left"
+          }
+        ],
+        "rug": false,
+        "signs": [
+          {
+            "along": 0,
+            "h": 0.34,
+            "hex": "#e8f4ff",
+            "lit": true,
+            "plate": true,
+            "plateHex": "#14161a",
+            "text": "HIGHER PURCHASE",
+            "wall": "back",
+            "y": 4.25
+          },
+          {
+            "along": -4.23,
+            "h": 0.26,
+            "hex": "#d6e8ff",
+            "lit": true,
+            "plate": true,
+            "plateHex": "#14161a",
+            "text": "GARROW",
+            "wall": "back",
+            "y": 2.9
+          },
+          {
+            "along": 4.5,
+            "h": 0.26,
+            "hex": "#ff6ed6",
+            "lit": true,
+            "plate": true,
+            "plateHex": "#14161a",
+            "text": "MINIM",
+            "wall": "back",
+            "y": 2.9
+          },
+          {
+            "along": 8.9,
+            "h": 0.12,
+            "hex": "#f2efe4",
+            "plate": true,
+            "plateHex": "#3a3f46",
+            "text": "STAFF ONLY",
+            "wall": "left",
+            "y": 2.3
+          }
+        ],
+        "strips": [
+          {
+            "along": "u",
+            "at": [
+              -4.6,
+              2.6
+            ],
+            "len": 2.4
+          },
+          {
+            "along": "u",
+            "at": [
+              -4.6,
+              7.4
+            ],
+            "len": 2.4
+          },
+          {
+            "along": "u",
+            "at": [
+              0,
+              2.6
+            ],
+            "len": 2.4
+          },
+          {
+            "along": "u",
+            "at": [
+              0,
+              7.4
+            ],
+            "len": 2.4
+          },
+          {
+            "along": "u",
+            "at": [
+              4.6,
+              2.6
+            ],
+            "len": 2.4
+          },
+          {
+            "along": "u",
+            "at": [
+              4.6,
+              7.4
+            ],
+            "len": 2.4
+          }
+        ]
+      },
+      "display": [
+        {
+          "at": [
+            4.59,
+            2.61
+          ],
+          "bay": "a",
+          "h": 0.14,
+          "r": 2.16,
+          "turn": 30
+        },
+        {
+          "at": [
+            -0.36,
+            2.61
+          ],
+          "bay": "b",
+          "h": 0.14,
+          "r": 2.16,
+          "turn": -25
+        },
+        {
+          "at": [
+            -4.23,
+            7.38
+          ],
+          "bay": "c",
+          "h": 0.14,
+          "r": 2.16,
+          "turn": 15
+        },
+        {
+          "at": [
+            4.5,
+            7.65
+          ],
+          "bay": "d",
+          "h": 0.14,
+          "r": 2.16,
+          "turn": 60
+        }
+      ],
+      "doors": {
+        "south": 5.58
+      },
+      "face": 180,
+      "finish": "fine",
+      "ground": "stone",
+      "h": 5,
+      "panes": [
+        {
+          "a": -4.38,
+          "b": 7.05,
+          "wall": "front",
+          "y0": 0.05,
+          "y1": 4.65
+        },
+        {
+          "a": 0.15,
+          "b": 9.78,
+          "wall": "right",
+          "y0": 0.05,
+          "y1": 4.65
+        }
+      ],
+      "street_door": {
+        "glass": "#9fc4d4",
+        "kind": "sliding",
+        "trim": "#5c646c",
+        "w": 1.62
+      },
+      "studio": false,
+      "tone": {
+        "accent": "#d6e8ff",
+        "ceiling": "#e9eaec",
+        "trim": "#aab2ba",
+        "wall": "#2b2e34"
+      },
+      "w": 14.4
+    },
+    "window": {
+      "description": "Floor-to-ceiling glass along Marrow Street and round the corner onto Meltwater Row. People slow down on the pavement to look at the cars, and the cars are angled so they can.",
+      "light": 0.95,
+      "name": "the showroom glass",
+      "visibility": 0.95
+    },
+    "world_exit_zone": "zone_district_912_908"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_dealer_marrow_showroom",
+  "map_id": "map_int_dealer_marrow",
+  "name": "Higher Purchase Showroom",
+  "parent_zone": "zone_district_912_908"
+}

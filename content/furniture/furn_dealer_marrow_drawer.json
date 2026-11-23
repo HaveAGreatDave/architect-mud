@@ -1,0 +1,13 @@
+{
+  "description": "A locked steel drawer under the sales desk, for deposits and spare key cards.",
+  "flags": {
+    "aliases": "drawer,desk drawer,cash drawer",
+    "hack_difficulty": 4,
+    "vendor_npc_id": "npc_lucian_varney",
+    "vendor_safe": true
+  },
+  "id": "furn_dealer_marrow_drawer",
+  "name": "the desk drawer",
+  "object_type": "fixture",
+  "zone_id": "zone_dealer_marrow_showroom"
+}

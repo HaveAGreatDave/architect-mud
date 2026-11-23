@@ -12,7 +12,7 @@
     "floor": "linoleum",
     "is_building": true,
     "is_interior": true,
-    "world_exit_zone": "zone_district_912_908"
+    "world_exit_zone": "zone_lot_912_913"
   },
   "grid_x": 1,
   "grid_y": 0,
@@ -20,5 +20,5 @@
   "id": "zone_adequate_upper",
   "map_id": "map_int_adequate",
   "name": "Adequate! — Housewares",
-  "parent_zone": "zone_district_912_908"
+  "parent_zone": "zone_lot_912_913"
 }

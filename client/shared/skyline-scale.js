@@ -60,6 +60,8 @@ export const TYPE_FLOORS = {
   fish_works: 3, chip_shop: 3,
   // Grounds for Concern and its car park: one storey, and one storey of nothing. So is a plot to let.
   coffee_shop: 1, car_park: 1, staff_lot: 1, vacant_plot: 1,
+  // A hover car dealership: one tall showroom floor under its roof pad.
+  vtol_dealer: 2,
   // A compact harbour crane stands about seven storeys to the slew house, which is what every
   // fraction in its arm — the boom height, the counterweight, the hook travel — is measured against.
   quay_crane: 7,

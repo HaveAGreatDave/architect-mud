@@ -1,7 +1,7 @@
 {
   "connection_id": "conn_adequate_floor_south_tyz4",
   "door_type": "basic",
-  "exit_dir": "south",
+  "exit_dir": "north",
   "flags": {},
   "hololock_difficulty": 5,
   "hp": 1000,
@@ -22,6 +22,6 @@
       }
     }
   },
-  "target_zone": "zone_district_912_908",
+  "target_zone": "zone_lot_912_913",
   "zone_id": "zone_adequate_floor"
 }

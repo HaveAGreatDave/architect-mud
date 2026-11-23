@@ -2612,6 +2612,12 @@ export const commands = {
   ...hazardCommands, ...drakeStoreCommands, ...acquisitionCommands, ...combatCommands, ...contractCommands, ...hangarCommands, ...scuttleCommands, ...charterCommands,
 };
 
+// A dealership's sales desk (`flags.dealer_desk`) offers Showroom, on examine and on the Room
+// Stage's card. Declaration only: `showroom` is the ordinary command, which deals the counter.
+export const specializedActions = [
+  { verb: 'showroom', requiredFlag: 'dealer_desk', handler: null },
+];
+
 export const hooks = {
   'zone.describeRoom': describeAirfield,
   // One of yours pulled out onto a hangar's floor by the tug, for the Room Stage (server/engine/vehicle-stand.js). Sync, RAM.

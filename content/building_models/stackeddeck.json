@@ -42,7 +42,7 @@
   "bind": [
     {
       "by": "name",
-      "key": "Stacked Deck"
+      "key": "Marrow Street Parking"
     }
   ],
   "detail": [
@@ -190,7 +190,7 @@
     }
   ],
   "id": "stackeddeck",
-  "note": "STACKED DECK: VTOL parking on Marrow Street, between Adequate! and The Flute. Open precast decks round a rotary carousel; you land on the pad on the roof, the carousel takes the craft down into a slot, and the lift on the north-east corner takes you to the street. Every box is square and centred or square off-centre, for the reason in Kestrel's note (now The Flute).",
+  "note": "STACKED DECK: VTOL parking on Marrow Street, between the hover car showroom and The Flute. Open precast decks round a rotary carousel; you land on the pad on the roof, the carousel takes the craft down into a slot, and the lift on the north-east corner takes you to the street. Every box is square and centred or square off-centre, for the reason in Kestrel's note (now The Flute).",
   "pal": "ty_sdeck_black",
   "segs": [
     {

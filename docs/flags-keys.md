@@ -93,6 +93,8 @@ nothing, silently; wire a reader first.
 | `greeter` | jobboard | greeter NPC gate zone |
 | `hangar_interior` | flight | inside a hangar |
 | `hangar_interior_zone` | flight | link from ramp to hangar interior |
+| `dealer_stock` | flight | on a field's tile: the one segment its dealer and hire desk offer. Only `aircraft_types` rows whose `data.segment` is this word are listed (`acquirableTypes`), on top of the fuel rule. The hover car dealership's is `hover_car` ([vtol-dealership.md](proposals/vtol-dealership.md)) |
+| `dealer_desk` | flight | on FURNITURE: a dealership's sales desk. It offers Showroom on `examine` and on the Room Stage's card, which deals the field's counter (`showroom`) |
 | `hangar_ramp` | flight | the ramp an indoor room belongs to. On a hangar interior, and on a terminal room (Coldwater Regional's check-in, lounge and gate), where `fieldFor` resolves the field, `charter` books and `embark` boards |
 | `arrivals_zone` | flight | on a ramp: the room a charter passenger is set down in on arrival (before `hangar_interior_zone`) |
 | `insurance_desk` | flight | aircraft insurance vendor here |

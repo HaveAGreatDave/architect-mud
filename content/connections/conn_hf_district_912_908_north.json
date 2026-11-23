@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_912_908",
+  "b": "zone_dealer_marrow_showroom",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_hf_district_912_908_north",
+  "lockable": true,
+  "one_way": false
+}

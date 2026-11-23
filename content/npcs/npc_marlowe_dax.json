@@ -1,0 +1,252 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "crouches by a fan duct and turns a blade a few degrees with one finger",
+    "\"Don't lean on that one. It's just been polished and he'll blame me.\"",
+    "reads the charge meter, taps it, and reads it again",
+    "\"They all take the same charge. Whatever he tells you about range, halve it in the cold.\"",
+    "wipes her hands on the rag and puts it back in the same pocket"
+  ],
+  "description": "A short woman in grey overalls with a charge meter clipped to one pocket and a rag in the other. Her forearms are freckled with small burns. She looks at the cars the way other people look at a kettle that is about to boil.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Right.\""
+    },
+    "fix": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Land her on the roof pad and ask at the desk. <b>repair</b> for the hull, <b>refuel</b> for charge. I do the work, he does the bill.\""
+    },
+    "pick": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The Bustard. It's ugly and nothing on it is hard to get at.\" She nods at the Merlin. \"That one's lovely until you have to change a fan.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "Which one would you buy?",
+          "next": "pick"
+        },
+        {
+          "label": "Can you fix mine?",
+          "next": "fix"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Never mind.",
+          "next": "bye"
+        }
+      ],
+      "text": [
+        "\"If it's about buying, that's him at the desk.\"",
+        "\"Mind the turntable. It moves.\""
+      ],
+      "text_by_relation": {
+        "familiar": "\"Bring her round to the pad if she's pulling. I'll have a look.\"",
+        "first": "\"Marlowe. I keep them charged and I fix what people bring back.\" She looks at your hands. \"You fly?\"",
+        "known": "\"You again. Anything broken?\""
+      }
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "grey zip-front overalls with the sleeves pushed up",
+      "a black vest",
+      "black work boots",
+      "grey briefs"
+    ],
+    "personality": "gruff"
+  },
+  "home_activities": [],
+  "home_zone": "zone_kestrel_7b",
+  "hp": 24,
+  "hp_max": 24,
+  "id": "npc_marlowe_dax",
+  "name": "Marlowe Dax",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 0,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 8,
+        "to": 20
+      }
+    ],
+    "mon": [
+      {
+        "from": 8,
+        "to": 20
+      }
+    ],
+    "sat": [
+      {
+        "from": 8,
+        "to": 20
+      }
+    ],
+    "sun": [
+      {
+        "from": 8,
+        "to": 17
+      }
+    ],
+    "thu": [
+      {
+        "from": 8,
+        "to": 20
+      }
+    ],
+    "tue": [
+      {
+        "from": 8,
+        "to": 20
+      }
+    ],
+    "wed": [
+      {
+        "from": 8,
+        "to": 20
+      }
+    ]
+  },
+  "vendor_shop_name": "Higher Purchase",
+  "vendor_stock_size": 0,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_dealer_marrow_showroom"
+}

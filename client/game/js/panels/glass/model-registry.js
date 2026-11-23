@@ -442,6 +442,8 @@ export const TYPE_MODEL = {
   staff_lot:        { type: 'car_park',  pal: 'ty_yard_tarmac' },   // the Codfather's staff car park, the same lot
   // An empty plot to let: a bare slab behind mesh fencing and a letting board (glass/models/greenside.js).
   vacant_plot:      { type: 'vacant_plot', pal: 'ty_quay_deck' },
+  // A hover car dealership: a glass showroom under a roof pad, a car on a pylon (glass/models/dealership.js).
+  vtol_dealer:      { type: 'vtol_dealer', pal: 'ty_marble_col', neon: '#e8f4ff' },
   chip_shop:        { type: 'shop',      pal: 'ty_unit_brick', neon: '#ffd27a' },
   butcher:          { type: 'butcher',   pal: 'ty_butcher', neon: '#ff3e4a' },
   // St Garneau's. NO NEON, and that is the point: it is the one building on the

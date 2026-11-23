@@ -1,0 +1,16 @@
+{
+  "charter": false,
+  "charter_vtol_only": false,
+  "dealer": true,
+  "fuels": [
+    "charge"
+  ],
+  "id": "af_dealer_marrow",
+  "lawless": false,
+  "name": "Higher Purchase",
+  "rental": true,
+  "residents_only": null,
+  "surface": null,
+  "theme": null,
+  "vtol_only": true
+}

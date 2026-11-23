@@ -152,6 +152,8 @@ four depots do it.
 | dealer | verbs | desk clerk (dialogue actions) | verbs | verbs |
 | text rung | textdrive.js | texthelm.js | textpilot.js | not yet |
 
+The hover car dealership ([vtol-dealership.md](../proposals/vtol-dealership.md)) isn't a fifth depot. It's a field whose room is a showroom, so it meets the standard through the hangar's column: `hangar-bay.js` is its counter, and a desk flagged `dealer_desk` offers it.
+
 ## Adding a depot
 
 Build its counter with `headHtml` inside a `.ds-root.ds-counter`, and its bay with `mountBay`, `setBayOpen` and `bayHtml` in the seat's service host. Route clicks through `shellClick` first, call `armHolds` after each render, `noteAct` before sending a verb, and `notePush` with the old and new credits when a push lands. If the seat has a chase camera, give it a `…Frame(shot)` that calls `tweenOrbit`, and export a bay adapter beside it for `openBay`; the bay's jobs, fold, camera and preview then go through the controller, never through the depot's own code.

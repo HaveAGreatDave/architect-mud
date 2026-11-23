@@ -18370,6 +18370,7 @@ const BLDG_TYPE_3D = {
   // Marrow Street — the workaday downtown strip. Low-rise throughout except the
   // department store, which is the only thing on the street with four floors.
   dept_store:       { a: 'citycore',    h: 0.30 }, // Adequate! — the strip's anchor
+  vtol_dealer:      { a: 'citycore',    h: 0.32 }, // a hover car dealership: its arm is in tile units, and this is its roof slab
   hardware:         { a: 'citycore',    h: 0.13 }, // Nuts to That, stock under the awning
   bathhouse:        { a: 'citycore',    h: 0.14 }, // Lather & Lye, venting steam
   noodle_bar:       { a: 'oldcoldwater', h: 0.09 }, // Nico's Noodle Bar, one storey, open front
@@ -54254,6 +54255,7 @@ const SIGN_HANZI = {
   garage: '修車', fuel_yard: '加油', truck_depot: '貨運', freight_office: '貨運',
   freight_forwarder: '貨運', forwarder: '貨運', warehouse: '倉庫', container_yard: '倉庫',
   hardware: '五金', gun_shop: '槍械', blade_shop: '刀具', comic_shop: '書店', archive: '檔案',
+  vtol_dealer: '飛車',
   chrome: '義體', asc_vats: '義體', asc_weave: '義體',   // 義體 — a prosthetic body, which is what an Ascendant clinic sells
   church: '廟', undertaker: '殯儀',   // ⚠ NO police AND NO civic: a station and a city hall do not hang a lit trade blade on the corner
   studio: '電視', greenhouse: '花圃', junkyard: '廢料',
@@ -54296,6 +54298,7 @@ const SIGN_WORD = {
   garage: 'GARAGE', fuel_yard: 'FUEL', truck_depot: 'FREIGHT', freight_office: 'FREIGHT',
   freight_forwarder: 'FREIGHT', forwarder: 'FREIGHT', warehouse: 'STORAGE', container_yard: 'STORAGE',
   hardware: 'HARDWARE', gun_shop: 'GUNSMITH', blade_shop: 'CUTLERY', comic_shop: 'BOOKS', archive: 'ARCHIVE',
+  vtol_dealer: 'HOVER CARS',
   chrome: 'PROSTHETICS', asc_vats: 'PROSTHETICS', asc_weave: 'PROSTHETICS',
   undertaker: 'UNDERTAKER',
   studio: 'BROADCAST', greenhouse: 'NURSERY', junkyard: 'SALVAGE',

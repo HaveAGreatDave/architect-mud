@@ -232,6 +232,8 @@ const COL_PITCH_RICH = 0.085;
 // ⚠ Walls: the same tile repeats and each derives a different "front", so one-sided parts read as noise.
 // ⚠ Jetty, yards and plots: their decks are unyawed boxes the kit would glaze like walls.
 const NO_KIT = new Set(['trm_wall', 'thornwall', 'damwall', 'pier', 'harbour_yard', 'lighthouse', 'quay_crane', 'pontoon', 'fuel_dock', 'car_park', 'staff_lot', 'vacant_plot',
+  // A glass box with its own door, sign and roof pad: anything the kit hung would stand in the glass.
+  'vtol_dealer',
   // Each draws all four of its own sides (building-styles.md §4.3).
   'gym', 'boatshed', 'landing_stage',
   // A mole is a wall in the sea, and repeats like one.

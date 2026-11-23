@@ -56,6 +56,7 @@ Flagged onto fitting zones (the `zones.flags.airfield_id` pattern):
 | Buzzard Field | `buzzard_field` | `zone_the_reach_870_1958` (910,986) | charter only · **lawless** · dust strip |
 | **Solenne Sky Pad** | `af_solenne` | `zone_district_914_908` (915,908) | **private** — residents only · charge/hydrogen/jet · **VTOL-only** |
 | **Stacked Deck** | `af_stackeddeck` | `zone_seam_914_908` (913,908) | public VTOL parking, free · a carousel under the roof pad, ticket per craft · charge · **VTOL-only** |
+| **Higher Purchase** | `af_dealer_marrow` | `zone_district_912_908` (912,908) | the hover car dealership: buy · hire · charge · **VTOL-only**, and only hover cars (`flags.dealer_stock`, [vtol-dealership.md](proposals/vtol-dealership.md)) |
 
 **Fuels (2026-11-01).** The fleet is 2070s equipment (docs/story.md), so it runs on 2070s fuel. The
 ids and the words the pumps use are in `client/shared/fuels.js`, read by the server and the hangar.
