@@ -10,7 +10,8 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 let n = 0, bad = 0;
 const check = (name, ok, why = '') => { n++; if (!ok) { bad++; console.log(`  ✗ ${name}${why ? ' — ' + why : ''}`); } };
 const imp = (f) => import(pathToFileURL(join(ROOT, f)).href);
-const read = (f) => readFileSync(join(ROOT, f), 'utf8');
+// a CRLF checkout (core.autocrlf) must slice the same as LF: the source patterns below match on a bare newline
+const read = (f) => readFileSync(join(ROOT, f), 'utf8').replace(/\r\n/g, '\n');
 
 const { roomToGlass, roomOrigin, eyeBase, viewOf } = await imp('client/game/js/panels/room-view.js');
 const { roomLayout } = await imp('client/shared/room-layout.js');
