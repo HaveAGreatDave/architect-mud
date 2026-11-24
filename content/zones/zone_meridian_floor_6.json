@@ -2,21 +2,19 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#8f9a7e",
-  "description": "The top landing, right under the roof. Concrete has been poured where the terrazzo broke up, in grey patches with boot prints set in them. The ceiling is stained black in one corner. Doors 601 to 604. The fire door to the stairs carries on up to the roof hatch.",
+  "description": "The top of the shaft. Concrete poured where the terrazzo broke up, with boot prints set in it. 601 north, 603 south. The stairs climb past the cornice to the setbacks.",
   "exits": {
     "down": "zone_meridian_floor_5",
-    "east": "zone_meridian_unit_602",
     "north": "zone_meridian_unit_601",
     "south": "zone_meridian_unit_603",
-    "up": "zone_meridian_roof",
-    "west": "zone_meridian_unit_604"
+    "up": "zone_meridian_floor_7"
   },
   "flags": {
     "floor": "concrete",
     "is_interior": true,
     "room": {
       "balcony": false,
-      "d": 3.2,
+      "d": 3,
       "decor": {
         "ceiling": {
           "band": 0.35,
@@ -27,29 +25,20 @@
         },
         "doors": [
           {
-            "at": -5,
+            "at": 1.5,
             "finish": "steel",
             "label": "Stairs",
             "w": 1,
-            "wall": "front"
+            "wall": "right"
           },
           {
-            "at": 3,
+            "at": 1.5,
             "dial": 60,
             "finish": "bronze",
             "pair": true,
             "trim": "#6f8064",
             "w": 1,
-            "wall": "back"
-          },
-          {
-            "at": 5.4,
-            "dial": 0,
-            "finish": "bronze",
-            "pair": true,
-            "trim": "#6f8064",
-            "w": 1,
-            "wall": "back"
+            "wall": "left"
           }
         ],
         "downlights": false,
@@ -59,43 +48,21 @@
           "line": "#6f8064",
           "y": 2.8
         },
-        "pilasters": {
-          "hex": "#cfc6b4",
-          "points": [
-            [
-              "back",
-              2.26
-            ],
-            [
-              "back",
-              4.2
-            ],
-            [
-              "back",
-              6.7
-            ]
-          ],
-          "trim": "#6f8064",
-          "w": 0.3,
-          "y1": 3.04
-        },
         "plaques": {
           "zone_meridian_unit_601": "601",
-          "zone_meridian_unit_602": "602",
-          "zone_meridian_unit_603": "603",
-          "zone_meridian_unit_604": "604"
+          "zone_meridian_unit_603": "603"
         },
         "rug": false,
         "sconces": {
           "kind": "fan",
           "points": [
             [
-              "front",
-              -6.8
+              "left",
+              1.5
             ],
             [
-              "back",
-              1.8
+              "right",
+              0.6
             ]
           ],
           "y": 1.9
@@ -108,10 +75,14 @@
           "y1": 1
         }
       },
+      "doors": {
+        "north": -1,
+        "south": -1
+      },
       "face": 0,
       "finish": "plain",
       "ground": "concrete",
-      "h": 3.2,
+      "h": 5.46,
       "studio": false,
       "tone": {
         "accent": "#6f8064",
@@ -119,7 +90,7 @@
         "trim": "#2a2622",
         "wall": "#c9bea6"
       },
-      "w": 16,
+      "w": 5,
       "windowless": true
     },
     "terrain": "grass"
@@ -129,6 +100,6 @@
   "grid_z": 6,
   "id": "zone_meridian_floor_6",
   "map_id": "map_int_meridian",
-  "name": "The Meridian - Floor 6 Hallway",
+  "name": "The Meridian - Floor 6 Landing",
   "parent_zone": "zone_district_918_908"
 }

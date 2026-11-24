@@ -43,6 +43,14 @@ changes were needed for either.
   "Widow Maker") — identical config (`slot_min 5`, `slot_max 100`,
   `slot_default 10`), interaction `spin`.
 
+
+## The bookie ([plugins/bookie/](../plugins/bookie/README.md))
+
+- **Who:** `npc_neonvig_bookie`, **Sal Brennock**, at a chalkboard by the cage. Any NPC with `flags.bookie` runs a book; nothing names him.
+- **Verbs:** `odds` (the board), `punt <amount> <team>` (₵5 to ₵2000, win or lose only), `slips` (your open bets, anywhere).
+- **Odds:** decimal, off the league table: records smoothed toward .500, log5, +0.04 to the home side, then a 7% margin. A ₵100 punt at 2.40 returns ₵240.
+- **When:** the first four minutes of an airing, since the broadcast decides the game when it starts. Paid at the final by a one-minute sweep over `bookie_bets`; a tie refunds.
+
 ## Poker table (the old-school called-aloud felt)
 
 One poker table, in the main casino room, run entirely by the

@@ -812,9 +812,18 @@ async function doUseTeleporter(args, raw, player, broadcast) {
   }
   const dest = flags.teleport_target;
   if (!getZone(dest)) return { type: 'error', message: 'The closet hums, but the far end is dark. Nothing happens.' };
+  // ⚠ THE SUITE'S MIRROR OPENS ONLY IN THE DARK (flags.opens_dark). Its glass is two-way and the boudoir's lamp behind
+  // it never goes right down, so with the suite's own lights on it's a mirror like any other. Put them all out and a
+  // thin pink line shows round one panel, and that panel gives under your hand. Lit means any of the room's own
+  // fixtures burning (RAM, the furniture Map), never the room's `always_lit`, which is about seeing, not switches.
+  if (flags.opens_dark && getZoneFurniture(player.current_zone).some((f) => f.object_type === 'light' && Number(f.light_on) === 1)) {
+    return { type: 'emote', message: 'You press the mirror. It\'s cool, solid glass, and the suite behind you is lit up in it, every lamp twice. Near one edge the glass looks very slightly warmer than the rest, the way it would with something lit behind it.' };
+  }
 
   const bc = broadcast || getBroadcast();
-  sendToPlayer(player.id, { type: 'output', message: 'You press the false back of the closet. It swings inward onto a lit alcove, and the world folds sideways around you.' });
+  sendToPlayer(player.id, { type: 'output', message: flags.opens_dark
+    ? 'In the dark the pink line round the third panel is plain. You lay your palm on it and the glass gives a centimetre, unlatches, and swings inward on a warm red room.'
+    : 'You press the false back of the closet. It swings inward onto a lit alcove, and the world folds sideways around you.' });
   await dispatchAction({ type: 'TELEPORT', actor: player, params: { zone_id: dest }, context: { broadcast: bc } });
   const zone = getZone(dest);
   return zone

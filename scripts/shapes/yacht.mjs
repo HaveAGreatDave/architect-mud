@@ -169,13 +169,12 @@ if (on.ship.length && turned.ship.length) {
 }
 
 // ── AND THE WAY OUT STILL WORKS ─────────────────────────────────────────────
-// ⚠ THE CONTROL IS THE CANVAS COUNT, NOT THE SINK. An empty sink is also what comes back from a
-// scene with no yacht in it, so GLASS 1 has to PAINT one: `drawYacht` is queued through `emitFace`,
-// and with the hull left to the canvas that closure is the only face in an empty-water frame.
+// The control: an empty sink is also what a scene with no yacht in it returns, so glShip 0 has to
+// hand her hull back to the canvas queue. A canvas face there proves the scene holds the Echelon.
+// (This was a GLASS 1 frame; with no 2-D city painter, glShip 0 on the GL path is the same proof.)
 const off = collect({ ...BASE }, 0);
-if (off.ship.length) problems.push(`glShip 0 still collected ${off.ship.length} faces — the switch does not reach this path`);
-const flat = collect({ ...BASE }, 1, 0);
-if (flat.canvas < 1) problems.push('the GLASS 1 control queued nothing at all — the scene contains no Echelon, so every answer above is vacuous');
+if (off.ship.length) problems.push(`glShip 0 still collected ${off.ship.length} faces, so the switch does not reach this path`);
+if (off.canvas < 1) problems.push('the glShip 0 control queued nothing at all: the scene contains no Echelon, so every answer above is vacuous');
 
 ws.installGLWorld(null);
 ws.RENDER_TUNE.gl = glWas; ws.RENDER_TUNE.glFloor = floorWas; ws.RENDER_TUNE.glShip = shipWas;
@@ -187,7 +186,6 @@ if (REPORT) {
   row('GLASS 2, glShip 1', on);
   row('GLASS 2, external chase', turned);
   row('GLASS 2, glShip 0', off);
-  row('GLASS 1 (control)', flat);
   if (on.ship.length) console.log(`\n  the hull spans ${span(on.ship, 0).toFixed(2)} x ${span(on.ship, 1).toFixed(2)} tiles and stands ${span(on.ship, 2).toFixed(3)} tall.`);
   console.log('');
 }
@@ -199,4 +197,4 @@ if (problems.length) {
   process.exit(1);
 }
 console.log(`✓ yacht: the Echelon's hull reaches the GPU as ${on.ship.length} faces spanning ${span(on.ship, 0).toFixed(2)}x${span(on.ship, 1).toFixed(2)} tiles`
-  + `, the shape is identical from a second seat, glShip 0 collects none, and the GLASS 1 control still paints her.`);
+  + `, the shape is identical from a second seat, glShip 0 collects none, and the glShip 0 control still paints her.`);

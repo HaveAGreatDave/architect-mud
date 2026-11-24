@@ -57,23 +57,8 @@ async function start(m) {
   self.postMessage({ type: 'ready', eye: base.z, eyeX: base.x, eyeY: base.y, paint: paintOf(), fxK: G.viewLatFocal(1000, null) / 500, vfK: G.viewFocal(1000, 1) / 1000 });
 }
 
-// ⚠ GLASS 2 COMES BACK HERE ON ITS OWN. A lost context (a GPU reset, the machine waking from sleep) makes GLASS switch
-// itself to GLASS 1 basic, and on a page `visibilitychange` revives it. This page's `document` is a stub that never
-// fires, so the view out of the window stayed flat boxes for as long as the building's view lived. So a frame finds
-// GL off, says so once, and turns it back on after a wait that doubles each time, a few times at most.
-const REVIVE_MS = 1500, REVIVE_MAX = 6;
-let glWas = true, revives = 0, reviveAt = 0;
-function keepGlass() {
-  const on = !!G.RENDER_TUNE.gl, now = performance.now();
-  if (on !== glWas) { glWas = on; self.postMessage({ type: 'gl', on, why: on ? null : G.glLastError?.()?.message || null, revives }); }
-  if (on) return;
-  if (!reviveAt) { reviveAt = now + REVIVE_MS * 2 ** revives; return; }
-  if (now >= reviveAt && revives < REVIVE_MAX) { revives++; reviveAt = 0; G.setGlass(true); }
-}
-
 async function frame(m) {
   if (main.width !== m.W || main.height !== m.H) { main.width = m.W; main.height = m.H; }
-  keepGlass();
   G.paintWindshield(ID, viewOf(msg, base, { ...m, gl: !!G.RENDER_TUNE.gl }));
   const bitmap = await createImageBitmap(main);
   self.postMessage({ type: 'painted', bitmap }, [bitmap]);

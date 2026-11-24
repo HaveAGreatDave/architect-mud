@@ -338,7 +338,7 @@ rationed to about one line in five and lives in the PA's quoted copy or a bark. 
 - Sight: "Strike two, swinging. The catcher throws it back."
 - Sight: "A foul comes back high over the screen, toward you."
 - Crowd: "A man two rows down, into his phone: 'No, I'm at the game. The game.'"
-- Once a game, at the stretch: "Sir Charles's seat stays folded up." Nothing after it.
+- Once a game, at the stretch, on a night he's in: "Sir Charles stands for the stretch, hand on the rail." Nothing after it.
 
 ### The video board in the room
 
@@ -363,7 +363,7 @@ players in the Stands still hear each other, and the map gains no rooms.
 | Left-field bleachers | Bleachers | 5₵ |
 | Right-field bleachers | Bleachers | 5₵ |
 
-A Widowmaker is 7₵, for scale. Sir Charles's seat stays a decoration nobody can sit in.
+A Widowmaker is 7₵, for scale. Sir Charles's seat isn't sold: it's his, and nobody else can sit in it.
 
 ### The view
 

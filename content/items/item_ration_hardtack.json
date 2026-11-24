@@ -10,20 +10,21 @@
     "food_profile": "bread",
     "matter": {
       "form": {
-        "kind": "slab",
-        "w": 9,
         "d": 9,
         "h": 1.2,
-        "round": 0.1
-      },
-      "ramp": {
-        "raw": "#c9c4b4"
+        "kind": "slab",
+        "round": 0.1,
+        "w": 9
       },
       "look": {
         "spots": "#a29c8a"
+      },
+      "ramp": {
+        "raw": "#c9c4b4"
       }
     },
     "restore_hunger": 11,
+    "shelved": true,
     "stackable": true
   },
   "type": "consumable",

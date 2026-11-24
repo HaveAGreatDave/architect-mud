@@ -32,7 +32,7 @@ const PHONE = {
   AWC: ['oh', 'oo'], AYC: ['ah', 'ee'], OWC: 'oh', EYC: 'ih',
   M: 'mbp', B: 'mbp', P: 'mbp', F: 'fv', V: 'fv', TH: 'th', DH: 'th',
   T: 'ss', TQ: 'ss', D: 'ss', DX: 'ss', S: 'ss', Z: 'ss', N: 'ss', SH: 'sh', ZH: 'sh', CH: 'sh', JH: 'sh',
-  K: 'kg', G: 'kg', NG: 'kg', HH: 'ah', L: 'll', R: 'er', W: 'oo', Y: 'ee',
+  K: 'kg', G: 'kg', NG: 'kg', HH: 'ah', HA: 'aa', HE: 'ih', L: 'll', R: 'er', W: 'oo', Y: 'ee',
 };
 // The mouth moves a shade before the sound, as a real one has to, and takes this long between shapes.
 const LEAD = 0.04, EASE = 0.085;

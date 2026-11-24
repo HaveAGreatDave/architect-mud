@@ -7,9 +7,9 @@
   "ambient_theme": "indoors",
   "bg_color": "#100a14",
   "color": "#e6c8ff",
-  "description": "A compact television studio and, behind armoured glass, the Emergency Broadcast Room. A production console faces monitors that mirror every tuned screen in the city. Two studio cameras on the floor, one on the rostrum, one pulled wide. A gallery monitor on a swing arm shows what's going out. An ON AIR lamp hangs dark over the booth. The engineering corridor lies to the NORTH.",
+  "description": "A compact television studio in her bow, and behind armoured glass the Emergency Broadcast Room. A production console faces monitors that mirror every tuned screen in the city. Two studio cameras, one on the rostrum, one pulled wide. A red lamp over the booth reads ON AIR when it's lit; it isn't. The engineering corridor is AFT (SOUTH).",
   "exits": {
-    "north": "zone_echelon_engineering"
+    "south": "zone_echelon_engineering"
   },
   "flags": {
     "always_lit": true,
@@ -24,9 +24,33 @@
       "decor": {
         "rug": false
       },
-      "face": 180,
+      "face": 0,
       "finish": "plain",
-      "h": 2.6,
+      "h": 3,
+      "hull": {
+        "sides": [
+          [
+            0,
+            4.26,
+            4.41
+          ],
+          [
+            2,
+            4.48,
+            4.63
+          ],
+          [
+            4,
+            4.7,
+            4.85
+          ],
+          [
+            6,
+            4.92,
+            5.07
+          ]
+        ]
+      },
       "studio": false,
       "tone": {
         "accent": "#c8302a",
@@ -34,14 +58,14 @@
         "trim": "#0d0d0d",
         "wall": "#222426"
       },
-      "w": 9,
+      "w": 10.14,
       "windowless": true
     },
     "world_exit_zone": "zone_echelon_exterior",
     "yacht": true
   },
   "grid_x": 0,
-  "grid_y": 1,
+  "grid_y": -1,
   "grid_z": 0,
   "id": "zone_echelon_broadcast",
   "map_id": "map_echelon",

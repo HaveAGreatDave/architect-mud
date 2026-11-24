@@ -264,7 +264,6 @@ export const GROUPS = [
       'scripts/shapes/masscull.mjs',
       'scripts/shapes/duskbuild.mjs',
       'scripts/shapes/dprsize.mjs',
-      'scripts/shapes/floorfallback.mjs',
       'scripts/shapes/floorcam.mjs',
       'scripts/shapes/nearfit.mjs',
       'scripts/shapes/ownship.mjs',
@@ -328,6 +327,7 @@ export const GROUPS = [
       'scripts/perf/retain-world-check.mjs', // a recentre leaves the solids' retained groups and the kept casters where their records are (retainWorld)
       'scripts/shapes/anim-smoke.mjs',       // Deadball's players skinned: the rig's frames, four weights a vertex, every pose on the posed build's surface, the hands on the bat
       'scripts/shapes/figure-rig.mjs',       // Deadball's players as the close-up figure: every clip's joints and head land where the rig put them, no row mirrored, the budget, hair under the cap
+      'scripts/shapes/glove-flex.mjs',       // a fielder's glove opens before a catch and shuts on it (diamond/glove-flex.js): at rest exactly as built, the heel on the hand
       // Deadball staged in 3-D: each pitch at its spot, every clip on the ball, every ball in play's gloves, throws and call at first, the line held to the landing (one game each, side by side)
       { run: 'scripts/shapes/diamond-smoke.mjs 16', budget: 90, why: '33 s of main-thread CPU alone (2026-11-05), past the 30 s that survives the slowest runner seen. The time is the animation solver (diamond/anim.js, rig.js) posing every body at each of 476,000 checks, which is what the gate tests, and the poses read world state that moves between checks, so they cannot be shared' },
       { run: 'scripts/shapes/diamond-smoke.mjs 41', budget: 90, why: 'The same animation solver cost as seed 16, a little more: 36 s of CPU alone (2026-10-19). Dropping the long-hold pass to every fourth at-bat saved 8%' },
@@ -350,8 +350,6 @@ export const GROUPS = [
       'scripts/shapes/lockwall.mjs',
       'scripts/shapes/chaseclip.mjs',
       'scripts/shapes/dials.mjs',
-      'scripts/shapes/cabtrinkets.mjs',
-      'scripts/shapes/cabgps.mjs',
       'scripts/shapes/glshadow.mjs',
       'scripts/shapes/textui-smoke.mjs',
     ],
@@ -381,11 +379,13 @@ export const GROUPS = [
     // ORACLE.
     gates: [
       'scripts/voice/smoke.mjs',
+      'scripts/voice/lts-smoke.mjs',      // the letter-to-sound trees load and say unknown words right
       'scripts/voice/accent-smoke.mjs',    // where the accents go: nucleus, given/new, minor breaks, compounds
       'scripts/voice/contour-smoke.mjs',   // what the accents sound like: nuclear fall, downstep, minor-break reset
       'scripts/voice/timing-smoke.mjs',    // segment durations against Klatt's rules; estimateDuration matches the schedule
       'scripts/voice/fm-smoke.mjs',
       'scripts/voice/worklet-smoke.mjs',   // the worklet back end: track list, fallback, stability, formants; synthiness; tension and creak
+      'scripts/voice/fitted-smoke.mjs',    // the fitted voice (data/voice/fitted-voice.json) still sounds like its speaker
     ],
   },
   {

@@ -27,6 +27,7 @@
 import { schedule } from './scheduler.js';
 import { fallRates, stepGround, freshGround } from '../../client/shared/ground-accum.js';
 import { moonPhaseOf } from '../../client/shared/moon.js';
+import { setOutdoorTemp } from '../../client/shared/summer-wear.js';
 import { setTimeScale, getTimeScale } from './gametime.js';
 import { logActivity } from '../models/db.js';
 import { packedRows } from '../models/boot-pack.js';
@@ -471,7 +472,10 @@ function scheduleTicks() {
   // boundaries — not on fixed real intervals — so the date, day-phase and
   // streetlights stay in lockstep with the sped-up day. (tick30m/tick24h are no
   // longer registered on the real '30m'/'24h' cadences.)
-  schedule('1m',  () => { if (!state.frozen) tick1m().catch(logError); });
+  schedule('1m',  () => {
+    if (!state.frozen) tick1m().catch(logError);
+    setOutdoorTemp(outdoorTempC()); // warm enough for NPCs to leave the coat at home (summer-wear.js)
+  });
 
   // 5-minute brownout rotation: only runs the full power redistribution when
   // at least one zone is overloaded, so there's zero cost on a healthy grid.

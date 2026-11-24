@@ -89,7 +89,7 @@
           "h": 0.24,
           "hex": "#1e1c1a",
           "line": "#c49a52",
-          "y": 3.6
+          "y": 5.2
         },
         "lights": [
           {
@@ -97,7 +97,7 @@
               0,
               4.5
             ],
-            "drop": 1.5,
+            "drop": 2.6,
             "k": 1.7,
             "kind": "tiers",
             "r": 0.6,
@@ -130,7 +130,7 @@
           ],
           "trim": "#c49a52",
           "w": 0.34,
-          "y1": 4.05
+          "y1": 5.65
         },
         "rug": false,
         "sconces": {
@@ -186,7 +186,7 @@
       "face": 0,
       "finish": "fine",
       "ground": "terrazzo",
-      "h": 4.4,
+      "h": 6,
       "street_door": {
         "glass": "#7f97a0",
         "kind": "swing",

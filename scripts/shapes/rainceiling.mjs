@@ -106,8 +106,17 @@ for (const weather of WET) {
     const base = { cls: 'prop', phase: 'cruise', worldBlend: 1, map: SCENE, heading: 0, speed: 0.4, hour: 13,
       weather, wxField: OVERCAST, acX: ax, acY: ay };
     const low = run(`${weather} ${where} on the deck`, { ...base, height: 0.06 }, 1);
+    // ⚠ A STEEPER CLIMB, OR THERE IS NO "ABOVE". Since 2026-11-22 the deck never sits lower than the
+    // Solenne's crown (48 or 54 storeys, about 10 tiles), and the eye at height 1.0 (3,000 ft) is
+    // eh + climbLift = 7.24, so the game can't put an eye over it and the gate rightly rains there.
+    // The ceiling term is still the code that stops the curtain at the base, so it's asked with
+    // climbLift raised for these frames: the base rises with it (sqrt(ft/3000) of the climb) but the
+    // eye rises faster, and at 20 it is clear of the base and its fade band in every weather here.
+    const liftWas = ws.RENDER_TUNE.climbLift;
+    ws.RENDER_TUNE.climbLift = 20;
     const high = run(`${weather} ${where} at altitude`, { ...base, height: 1.0 }, 1);
     const highOff = run(`${weather} ${where} at altitude`, { ...base, height: 1.0 }, 0);
+    ws.RENDER_TUNE.climbLift = liftWas;
     if (low === null || high === null || highOff === null) continue;
     if (!(low > 0)) problems.push(`${weather}: nothing fell at the bottom of an overcast that is raining — the instrument is not seeing the curtain`);
     if (high > 0) problems.push(`${weather}: ${high} of curtain drawn in clear air ABOVE the cloud base`);

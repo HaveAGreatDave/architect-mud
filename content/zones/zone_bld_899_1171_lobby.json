@@ -12,11 +12,11 @@
     "Dust comes off the ceiling when the wind gets under the roof."
   ],
   "ambient_theme": "indoors",
-  "description": "Sticky boards underfoot, a long bar down one wall, and light the colour of weak whiskey. Somewhere a speaker coughs out a song older than everyone in the room. Nobody looks up when the door goes, but everybody clocks you.",
+  "description": "Sticky boards underfoot, a long bar down one wall, and light the colour of weak whiskey. Somewhere a speaker coughs out a song older than everyone in the room. A stair climbs the east wall to the Gallery, and behind the bar a trapdoor drops to the cellar. Nobody looks up when the door goes, but everybody clocks you.",
   "exits": {
-    "down": "zone_util_zone_bld_899_1171_lobby",
-    "north": "zone_bld_899_1171_store",
-    "south": "zone_the_reach_872_1954"
+    "down": "zone_bld_899_1171_store",
+    "south": "zone_the_reach_872_1954",
+    "up": "zone_bld_899_1171_gallery"
   },
   "flags": {
     "floor": "boards",
@@ -24,11 +24,270 @@
     "is_interior": true,
     "lawless": true,
     "room": {
-      "w": 12,
-      "d": 9,
-      "h": 3.4,
+      "balcony": false,
+      "d": 10.8,
+      "decor": {
+        "chalk": [
+          {
+            "at": 7.3,
+            "h": 1,
+            "title": "Tonight",
+            "w": 0.8,
+            "wall": "right",
+            "y": 1.8
+          }
+        ],
+        "darts": [
+          {
+            "at": -6.1,
+            "wall": "back",
+            "y": 1.73
+          }
+        ],
+        "fans": [
+          [
+            -1.5,
+            3.4,
+            0.7
+          ],
+          [
+            1.6,
+            7.6,
+            0.7
+          ]
+        ],
+        "hatstand": [
+          [
+            1.45,
+            0.55
+          ]
+        ],
+        "litter": [
+          {
+            "at": [
+              3.5,
+              3.6
+            ],
+            "n": 70,
+            "r": [
+              0.5,
+              2
+            ],
+            "seed": 3
+          },
+          {
+            "at": [
+              -2.6,
+              7
+            ],
+            "n": 30,
+            "r": [
+              1.6,
+              1.2
+            ],
+            "seed": 5
+          }
+        ],
+        "neon": [
+          {
+            "at": 3.6,
+            "h": 0.3,
+            "hex": "#ff9526",
+            "lamp": 0.2,
+            "text": "WHISKEY",
+            "wall": "right",
+            "y": 3.2
+          },
+          {
+            "at": -1.6,
+            "h": 0.26,
+            "hex": "#38e4ff",
+            "lamp": 0.15,
+            "text": "COLD BEER",
+            "wall": "back",
+            "y": 3.05
+          }
+        ],
+        "payphone": [
+          {
+            "at": -1.4,
+            "note": true,
+            "wall": "front",
+            "y": 1.45
+          }
+        ],
+        "pendants": [
+          {
+            "at": [
+              -2.6,
+              7
+            ],
+            "k": 0.8,
+            "kind": "card",
+            "len": 1.4,
+            "tint": [
+              0.95,
+              1.12,
+              0.85
+            ],
+            "y": 1.75
+          },
+          {
+            "at": [
+              4.4,
+              2
+            ],
+            "k": 0.45,
+            "kind": "school",
+            "tint": [
+              1.15,
+              0.92,
+              0.7
+            ],
+            "y": 2.7
+          },
+          {
+            "at": [
+              4.4,
+              3.6
+            ],
+            "k": 0.45,
+            "kind": "school",
+            "tint": [
+              1.15,
+              0.92,
+              0.7
+            ],
+            "y": 2.7
+          },
+          {
+            "at": [
+              4.4,
+              5.2
+            ],
+            "k": 0.45,
+            "kind": "school",
+            "tint": [
+              1.15,
+              0.92,
+              0.7
+            ],
+            "y": 2.7
+          }
+        ],
+        "salon": [
+          {
+            "at": -4.2,
+            "h": 1.1,
+            "seed": 7,
+            "w": 1.8,
+            "wall": "back",
+            "y": 2.45
+          }
+        ],
+        "trophy": [
+          {
+            "at": 2.6,
+            "wall": "back",
+            "y": 2.9
+          }
+        ],
+        "walls": {
+          "hex": "#5e432c",
+          "kind": "walnut",
+          "rail": 1,
+          "trim": "#2a1e14",
+          "y1": 3.75
+        }
+      },
+      "doors": {
+        "down": [
+          5.4,
+          9.6
+        ]
+      },
+      "face": 180,
+      "h": 3.75,
+      "panes": [
+        {
+          "a": 1.91,
+          "b": 3.99,
+          "kind": "sash",
+          "wall": "front",
+          "y0": 0.71,
+          "y1": 3
+        },
+        {
+          "a": -3.99,
+          "b": -1.91,
+          "kind": "sash",
+          "wall": "front",
+          "y0": 0.71,
+          "y1": 3
+        },
+        {
+          "a": 4.96,
+          "b": 6.46,
+          "kind": "sash",
+          "wall": "front",
+          "y0": 0.89,
+          "y1": 2.64
+        },
+        {
+          "a": -6.46,
+          "b": -4.96,
+          "kind": "sash",
+          "wall": "front",
+          "y0": 0.89,
+          "y1": 2.64
+        },
+        {
+          "a": 8.29,
+          "b": 9.57,
+          "kind": "sash",
+          "wall": "right",
+          "y0": 1.07,
+          "y1": 2.64
+        },
+        {
+          "a": 2.22,
+          "b": 3.5,
+          "kind": "sash",
+          "wall": "right",
+          "y0": 1.07,
+          "y1": 2.64
+        },
+        {
+          "a": 8.29,
+          "b": 9.57,
+          "kind": "sash",
+          "wall": "left",
+          "y0": 1.07,
+          "y1": 2.64
+        }
+      ],
+      "stair": {
+        "at": [
+          -5.7,
+          2.6
+        ],
+        "climb": "back",
+        "w": 1.1
+      },
+      "street_door": {
+        "fanlight": true,
+        "glass": "#a08a5a",
+        "kind": "swing",
+        "trim": "#5a3a22",
+        "w": 1.8
+      },
       "studio": false,
-      "balcony": false
+      "tone": {
+        "ceiling": "#4c3e32",
+        "trim": "#3a2a1c",
+        "wall": "#8a7258"
+      },
+      "w": 13.6
     },
     "window": {
       "description": "A full-height pane onto the street, kept just clean enough to trade through. Whatever the weather is doing out there, it's doing it in plain view.",

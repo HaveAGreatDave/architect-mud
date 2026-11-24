@@ -1965,14 +1965,17 @@ Every aircraft's stick or yoke is dead ahead of the pilot, and a stick's grip go
 Free public VTOL parking at 913,908 on Marrow Street (`af_stackeddeck`, building type `vtol_park`, model
 `stackeddeck.json`, black and cyan). Land on the roof pad (`zone_sdeck_pad`), climb out and `garage park`. The server sends
 `carousel_ride` and the client plays the ride (`panels/carousel-ride.js`: the pad sinks, the drum turns, the craft goes into its
-slot) for exactly `ms`; when it ends the server moves you into that slot's bay (`zone_sdeck_s1` to `s12`, three off each
-level landing) and raises the `sdeck` vehicle stand there, so in ROOM the cradle draws your aircraft in beside you. You get an
+slot) for exactly `ms`; when it ends the server moves you into the carousel room (`zone_sdeck_l2`, the terminals'
+`bay_zone`) and raises the `sdeck` vehicle stand there, so in ROOM the cradle draws your aircraft in beside you. You get an
 `item_skypark_ticket` naming craft, slot and level. The stand is the bay's Board key: `garage pull` at your slot plays the ride up
 and sets you on the pad. At the lobby pay station `garage pull` just sends the craft up. A lost ticket costs nothing while
 parking is free.
 
 It's the sky garage's code with `flags.public` on the terminals (`publicGarage` in hangars.js): a rent-0 `hangars` row per
-player, the slot on `custom_data.garage_slot`, three a level from `flags.levels`, bays named `flags.slot_prefix` + slot.
-Terminals name their field in `flags.field_zone`, because `fieldFor` only knows the ramp and the pad. A bay is `flags.sdeck_slot`;
-entering one raises your craft's stand if it's parked there (one query). Only `ultralight` and `heli` fit. Outside, GLASS
+player, the slot on `custom_data.garage_slot`, three a level from `flags.levels`. The slots are inside the drum, not rooms:
+since 2026-11-23 each car park is four rooms, the lobby, the core lift, the carousel and the roof pad
+(scripts/content/carpark-carousel.mjs), and the terminals' `flags.bay_zone` names the carousel. (`flags.slot_prefix` + slot,
+a room per slot, still works for a garage that has them.) Terminals name their field in `flags.field_zone`, because
+`fieldFor` only knows the ramp and the pad. The carousel is `flags.sdeck_bay` with its own `field_zone`: one cradle, which
+runs your craft out when you come in unless somebody still in the room has theirs out (one query). Only `ultralight` and `heli` fit. Outside, GLASS
 doesn't animate the pad: the ride is the overlay only.

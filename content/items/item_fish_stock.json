@@ -9,17 +9,18 @@
     "food_noun": "fish",
     "food_profile": "liquid",
     "matter": {
+      "look": {
+        "label": "#8a9a8a",
+        "pack": "pouch"
+      },
       "ramp": {
         "raw": "#9a9e7e"
-      },
-      "look": {
-        "pack": "pouch",
-        "label": "#8a9a8a"
       }
     },
     "needs_cooking": true,
     "perishable": true,
     "restore_hunger": 10,
+    "shelved": true,
     "spoil_rate": "fast",
     "stackable": true,
     "status_chance": {

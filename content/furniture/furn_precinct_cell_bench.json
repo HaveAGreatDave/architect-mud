@@ -1,0 +1,28 @@
+{
+  "description": "A steel bench bolted along the cage wall, worn shiny where people sat waiting.",
+  "flags": {
+    "aliases": "bench,cell bench",
+    "interactions": [
+      "sit"
+    ],
+    "look": {
+      "arche": "bench",
+      "form": "slab",
+      "wear": 0.9
+    },
+    "spot": {
+      "along": 4,
+      "wall": "right"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_precinct_cell_bench",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "cell bench",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_mq_precinct_holding"
+}

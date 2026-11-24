@@ -111,8 +111,13 @@ export default async function regress({ run, check, getPlayer }) {
     p.current_zone = FLAT;
     const sent = [];
     on('room.glassChanged', (e) => sent.push(e));
+    const fp = _test.panelFor(FLAT);
+    if (fp && !_test.owned(fp)) check('glass nobody has set starts covered', _test.shutOf(fp).down === true, JSON.stringify(_test.shutOf(fp)));
+    if (emb && !_test.owned(emb)) check('a curtained window starts with its curtains drawn', _test.shutOf(emb).down === true && _test.shutOf(emb).scene === 'drapes', JSON.stringify(_test.shutOf(emb)));
     r = await run('shutters up');
-    check('`shutters up` leaves the glass clear', r?.type === 'envctl' && r.shutters && r.shutters.down === false, JSON.stringify(r?.shutters));
+    // coverings start closed, and a motorised one won't open with the flat's power off (regress boots no environment)
+    if (/greyed out/.test(r?.message || '')) check('`shutters up` with no power leaves the blinds where they are', r?.type === 'envctl' && r.shutters?.down === true, JSON.stringify(r?.shutters));
+    else check('`shutters up` leaves the glass clear', r?.type === 'envctl' && r.shutters && r.shutters.down === false, JSON.stringify(r?.shutters));
     check('the panel lists its scenes with swatches', r.shutters.scenes.length > 1 && r.shutters.scenes.every((x) => x.name && Array.isArray(x.swatch)), JSON.stringify(r.shutters.scenes?.[0]));
     r = await run('shutters lava');
     check('a scene the panel hasn\'t got is a usage error', r?.type === 'error' && /Deep space/.test(r.message), r?.message);

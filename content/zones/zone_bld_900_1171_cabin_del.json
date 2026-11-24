@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "description": "A cheerful disaster: cards scattered on every surface, IOUs pinned to the wall like trophies, a bottle on its side, and a derringer-shaped lump under the pillow.",
+  "description": "A motel cabin: a sagging bed, a lamp on a chair, a fan that rattles, and a window onto the walk. Nobody lives in it right now, and it shows.",
   "exits": {
     "west": "zone_bld_900_1171_walk2"
   },
@@ -18,6 +18,6 @@
   "grid_z": 0,
   "id": "zone_bld_900_1171_cabin_del",
   "map_id": "map_int_bld_900_1171",
-  "name": "Del's Cabin",
+  "name": "Cabin 5",
   "parent_zone": "zone_the_reach_873_1954"
 }

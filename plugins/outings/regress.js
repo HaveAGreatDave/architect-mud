@@ -2,6 +2,7 @@
 // night out holds its members, walks them in, and lets them go when it ends.
 import { world } from '../../server/engine/world.js';
 import { buildNetwork, buildVenues, friendsOf, callOuting, isSocialNpc, planEvening, _test } from './index.js';
+import { rollScene, sceneTick, sceneStage, clipFor, SCENES } from './scenes.js';
 
 export default async function ({ check }) {
   const venues = buildVenues();
@@ -78,4 +79,35 @@ export default async function ({ check }) {
     }
     _test.reset();
   }
+
+  // What a party does (scenes.js): a scene for the group, a clip each, and a place each in the room.
+  const ids = ['p_a', 'p_b', 'p_c', 'p_d'];
+  const fake = { kind: 'bar', caller: 'p_a', venue: 'z_party', arrived: new Set(ids), startedAt: Date.now() - 1, endsAt: Date.now() + 3_600_000, scene: null };
+  const kinds = new Set();
+  for (let i = 0; i < 400; i++) { fake.startedAt = Date.now() - (i % 3) * 1_400_000; fake.scene = rollScene(fake); if (fake.scene) kinds.add(fake.scene.kind); }
+  check('outings: every party scene comes up', Object.keys(SCENES).every((k) => kinds.has(k)), [...kinds].join(', '));
+  const two = { ...fake, arrived: new Set(['p_a', 'p_b']), scene: null };
+  let small = true;
+  for (let i = 0; i < 100; i++) { const sc = rollScene(two); if (sc && SCENES[sc.kind].min > 2) small = false; }
+  check('outings: two people never get a scene that needs three', small, '');
+  const said = [], left = [];
+  fake.startedAt = Date.now() - 2_000_000; fake.scene = null;
+  const sc = sceneTick(fake, Date.now(), { names: (x) => x.join(', '), nameOf: (x) => x, say: (l) => said.push(l), changed: () => {}, leave: (x) => left.push(...x) });
+  check('outings: a scene starts with a line', !!sc && said.length === 1 && !/{/.test(said[0]), said[0] || 'none');
+  const spec = { w: 6, d: 7, h: 2.8, door: [0.7, 1.6] };
+  for (const kind of Object.keys(SCENES)) {
+    fake.scene = { kind, a: 'p_b', b: kind === 'slipOff' ? 'p_c' : null, t0: Date.now(), ends: Date.now() + 60_000, cast: ids, spots: null };
+    const st = ids.map((id) => sceneStage(fake, { id, posture: 'standing' }, 'z_party', [], spec));
+    const placed = st.filter((x) => Array.isArray(x?.at));
+    check(`outings: ${kind} stands everybody somewhere with a clip`, placed.length === ids.length && st.every((x) => typeof x.clip === 'string'), st.map((x) => x?.clip).join(','));
+    const apart = placed.every((x, i) => placed.every((y, j) => i === j || Math.hypot(x.at[0] - y.at[0], x.at[1] - y.at[1]) >= 0.4));
+    check(`outings: ${kind} keeps them out of each other`, apart, '');
+  }
+  fake.scene = { kind: 'drinking', a: 'p_b', b: null, t0: Date.now(), ends: Date.now() + 60_000, cast: ids, spots: null };
+  check('outings: the drinker chugs and the rest chant', clipFor(fake.scene, 'p_b') === 'chug' && clipFor(fake.scene, 'p_a') === 'chant', '');
+  check('outings: somebody sat down is left to the engine', sceneStage(fake, { id: 'p_a', sittingOn: 'sofa' }, 'z_party', [], spec) === null, '');
+  fake.scene = { kind: 'slipOff', a: 'p_b', b: 'p_c', t0: Date.now() - 90_000, ends: Date.now() - 1, cast: ids, spots: null };
+  said.length = 0;
+  sceneTick(fake, Date.now(), { names: (x) => x.join(', '), nameOf: (x) => x, say: (l) => said.push(l), changed: () => {}, leave: (x) => left.push(...x) });
+  check('outings: a couple who slipped off leave together', left.includes('p_b') && left.includes('p_c'), left.join(','));
 }

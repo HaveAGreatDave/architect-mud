@@ -62,9 +62,23 @@ see. A character knife board is a possible follow-up.
   toon bands and halftone went with the old renderer. Picking is unchanged:
   the panel still picks with the kitchen-frame matrices, which match ROOM's
   camera exactly, roll and shake included.
+- **On the hob's own rings (as built).** A hob's kitchen stands on one of the
+  rings its model draws (client/game/js/panels/room-cook.js `hobRings`, the
+  table gl/room-mesh.js draws them from), never the middle of its top: the
+  biggest ring at the front unless you've chosen. Drag a pan, the one you're
+  working with or any other, onto a ring and it goes there; whoever was on it
+  takes the ring it left. The pan you're working with is on the burner, so the
+  knob, the flame and the shots go with it (kitchen-stage.js `ringTo`,
+  `carryTo`, the host's `setRing`). The server knows one heat a cooker however
+  many rings it has, so which ring is the picture's, nothing is sent, and the
+  burner's ring is kept for the hob (`architect_cook_ring:<piece>`).
+- **In GLASS.** A room walked in GLASS hosts the kitchen as the Room Stage does
+  (freelook-view.js `owCookOpen`), with its picks through the matrix GLASS drew
+  the room with (`host.matrices`, `pickPlane` taking its `ray`); see
+  [one-world-interiors.md](one-world-interiors.md).
 - **In the apartment.** Cooking in a Room Stage never leaves the room. The
   room hands the kitchen a host (`kitchen:open` `detail.host`, from `cookFrame`
-  in room-stage.js) and keeps drawing the whole flat, with the board, the slate,
+  in room-cook.js) and keeps drawing the whole flat, with the board, the slate,
   the hob and the food as its props (`buildSet` with `bare`, since the worktop,
   wall and units are the room's). The kitchen stands at the piece you clicked to
   cook at (`S.cookAt`, kept 20 seconds for the server's answer), so the

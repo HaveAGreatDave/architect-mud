@@ -10,22 +10,23 @@
     "food_profile": "aromatic",
     "matter": {
       "form": {
-        "kind": "cluster",
-        "w": 6,
         "d": 6,
-        "h": 5
+        "h": 5,
+        "kind": "cluster",
+        "w": 6
+      },
+      "look": {
+        "flesh": "#f6f1e2",
+        "skin": "#efe7d6",
+        "stem": "#cbbd9a"
       },
       "ramp": {
         "raw": "#f6f1e2"
-      },
-      "look": {
-        "skin": "#efe7d6",
-        "stem": "#cbbd9a",
-        "flesh": "#f6f1e2"
       }
     },
     "perishable": true,
     "restore_hunger": 2,
+    "shelved": true,
     "spoil_rate": "slow",
     "stackable": true,
     "status_chance": {

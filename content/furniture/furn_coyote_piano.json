@@ -1,0 +1,23 @@
+{
+  "description": "An upright with its front off and a punched roll in it. It plays the same four songs, and the regulars sing the wrong words to all of them.",
+  "flags": {
+    "look": {
+      "arche": "prop",
+      "form": "piano"
+    },
+    "spot": {
+      "along": -4.2,
+      "wall": "back"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_coyote_piano",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "a player piano",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_bld_899_1171_lobby"
+}

@@ -10,23 +10,24 @@
     "food_profile": "soft_vegetable",
     "matter": {
       "form": {
-        "kind": "cluster",
-        "w": 6,
         "d": 6,
         "h": 2,
-        "round": 0.9
-      },
-      "ramp": {
-        "raw": "#f2eedc",
-        "cook": "#e8e2c8",
-        "peak": "#d8d0a8"
+        "kind": "cluster",
+        "round": 0.9,
+        "w": 6
       },
       "look": {
         "spots": "#d8d070"
+      },
+      "ramp": {
+        "cook": "#e8e2c8",
+        "peak": "#d8d0a8",
+        "raw": "#f2eedc"
       }
     },
     "perishable": true,
     "restore_hunger": 5,
+    "shelved": true,
     "spoil_rate": "fast",
     "stackable": true,
     "status_chance": {

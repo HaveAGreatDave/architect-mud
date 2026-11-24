@@ -172,7 +172,7 @@
           "next": "root"
         }
       ],
-      "text": "She squares the knife to the block. \"Raw meat, sausage and meatballs can make you ill uncooked. The tinned meat you can eat as it comes.\"\n\n\"One piece in a pan on a stove, and <b>fry</b> it hard. Meat, potatoes and stock in a pot is a stew, and you <b>cook</b> the pot. <b>cook</b> works out the method from the pan if you don't want to name one.\""
+      "text": "She squares the knife to the block. \"Raw meat can make you ill uncooked. Cook it through.\"\n\n\"One piece in a pan on a stove, and <b>fry</b> it hard. Meat and potatoes in a pot is a stew, and you <b>cook</b> the pot. <b>cook</b> works out the method from the pan if you don't want to name one.\""
     },
     "root": {
       "options": [
@@ -243,18 +243,6 @@
     {
       "item_id": "item_raw_meat",
       "price": 4
-    },
-    {
-      "item_id": "item_sausage",
-      "price": 21
-    },
-    {
-      "item_id": "item_meatballs",
-      "price": 26
-    },
-    {
-      "item_id": "item_tinned_meat",
-      "price": 9
     }
   ],
   "vendor_restock_rate": 2,

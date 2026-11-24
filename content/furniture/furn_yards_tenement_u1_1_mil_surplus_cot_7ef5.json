@@ -1,0 +1,24 @@
+{
+  "description": "Military-issue folding cot from a conflict that ended badly. Smells like three previous people.",
+  "flags": {
+    "interactions": [
+      "sit",
+      "lie"
+    ],
+    "item_id": "item_furn_mil_surplus_cot",
+    "spot": {
+      "along": 1.05,
+      "wall": "left"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_yards_tenement_u1_1_mil_surplus_cot_7ef5",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "surplus cot",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 95,
+  "zone_id": "zone_yards_tenement_u1_1"
+}

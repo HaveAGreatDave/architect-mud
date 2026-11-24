@@ -181,7 +181,7 @@ So two things carry the caveat:
   the same function the swing uses — so the number on screen is the number in the maths, and the
   trainer and the tool cannot drift. It reports one of three bands: *a gamble, not a tactic* /
   *already bought back N* / *as cheap as it ever gets*.
-- **Grady teaches the verb** (`TEACH_AIM`, a dialogue action returning a `dialogue_line`, which is
+- **Rusty teaches the verb** (`TEACH_AIM`, a dialogue action returning a `dialogue_line`, which is
   the seam that lets an NPC's spoken line carry a live `teachVerb` shimmer).
 
 It used to be an ambient one-shot on your first durable wound, keyed on `player_flags.taught_aim`.

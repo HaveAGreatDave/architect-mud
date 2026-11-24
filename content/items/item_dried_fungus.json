@@ -10,22 +10,23 @@
     "food_profile": "aromatic",
     "matter": {
       "form": {
-        "kind": "cluster",
-        "w": 5,
         "d": 5,
-        "h": 2.5
-      },
-      "ramp": {
-        "raw": "#2a2420",
-        "cook": "#2e2620",
-        "peak": "#3a2e24"
+        "h": 2.5,
+        "kind": "cluster",
+        "w": 5
       },
       "look": {
         "pack": "sack",
         "size": 0.7
+      },
+      "ramp": {
+        "cook": "#2e2620",
+        "peak": "#3a2e24",
+        "raw": "#2a2420"
       }
     },
     "restore_hunger": 3,
+    "shelved": true,
     "stackable": true,
     "status_chance": {
       "food_poisoning": 0.2

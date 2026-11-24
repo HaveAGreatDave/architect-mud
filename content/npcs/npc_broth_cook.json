@@ -227,40 +227,8 @@
       "price": 12
     },
     {
-      "item_id": "item_ramen_noodles",
-      "price": 6
-    },
-    {
-      "item_id": "item_ersatz_noodle",
-      "price": 4
-    },
-    {
       "item_id": "item_soup_bowl",
       "price": 10
-    },
-    {
-      "item_id": "item_bone_broth",
-      "price": 9
-    },
-    {
-      "item_id": "item_steam_bun",
-      "price": 5
-    },
-    {
-      "item_id": "item_bean_sprout",
-      "price": 3
-    },
-    {
-      "item_id": "item_pickled_veg",
-      "price": 5
-    },
-    {
-      "item_id": "item_chili_flake",
-      "price": 3
-    },
-    {
-      "item_id": "item_soup_base",
-      "price": 7
     },
     {
       "item_id": "item_tea_leaves_black",
@@ -283,32 +251,8 @@
       "price": 14
     },
     {
-      "item_id": "item_okonomi_sauce",
-      "price": 20
-    },
-    {
-      "item_id": "item_bonito_flakes",
-      "price": 24
-    },
-    {
       "item_id": "item_horchata",
       "price": 13
-    },
-    {
-      "item_id": "item_vat_mushroom",
-      "price": 10
-    },
-    {
-      "item_id": "item_lamp_greens",
-      "price": 4
-    },
-    {
-      "item_id": "item_fresh_catch",
-      "price": 9
-    },
-    {
-      "item_id": "item_hydro_pepper",
-      "price": 8
     }
   ],
   "vendor_restock_rate": 3,

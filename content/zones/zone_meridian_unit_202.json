@@ -2,15 +2,55 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#8f9a7e",
-  "description": "Unit 202, second floor of The Meridian. A concrete studio with a drop ceiling, a water stain spreading in one corner, and bare cable hookups. The single window faces the airshaft and another wall close enough to touch. Old picture hooks on the walls.",
+  "description": "Unit 801. Four tall windows on the west face, high enough to see the Basin past the roofs. Boards, a kitchen along the inside wall, a bed under the last window.",
   "exits": {
-    "west": "zone_meridian_floor_2"
+    "east": "zone_meridian_floor_8"
   },
   "flags": {
     "floor": "boards",
     "is_apartment": true,
     "is_interior": true,
     "rent_cost": 200,
+    "room": {
+      "balcony": false,
+      "d": 6.05,
+      "doors": {
+        "east": 0
+      },
+      "face": 270,
+      "h": 3.4,
+      "panes": [
+        {
+          "a": -4.49,
+          "b": -3.49,
+          "wall": "front",
+          "y0": 0.85,
+          "y1": 3.3
+        },
+        {
+          "a": -1.83,
+          "b": -0.83,
+          "wall": "front",
+          "y0": 0.85,
+          "y1": 3.3
+        },
+        {
+          "a": 0.83,
+          "b": 1.83,
+          "wall": "front",
+          "y0": 0.85,
+          "y1": 3.3
+        },
+        {
+          "a": 3.49,
+          "b": 4.49,
+          "wall": "front",
+          "y0": 0.85,
+          "y1": 3.3
+        }
+      ],
+      "w": 11.6
+    },
     "terrain": "grass",
     "window": {
       "description": "A plain sash window, painted shut some years ago, with a view of the block opposite.",
@@ -19,12 +59,12 @@
       "visibility": 0.75
     }
   },
-  "grid_x": 1,
+  "grid_x": -1,
   "grid_y": 0,
-  "grid_z": 2,
+  "grid_z": 8,
   "id": "zone_meridian_unit_202",
   "map_id": "map_int_meridian",
-  "marker": "2",
-  "name": "Unit 202",
+  "marker": "8",
+  "name": "Unit 801",
   "parent_zone": "zone_district_918_908"
 }

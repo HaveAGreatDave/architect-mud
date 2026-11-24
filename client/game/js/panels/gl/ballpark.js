@@ -44,6 +44,7 @@ import { createPlayerSet, buildBody, POSES, mirrorPose, lookOf, faceFor, kitCell
 import { gen1Of, GEN1_ORDERS } from '../../../../shared/deadball-gen1.js';
 import { solvePose, boneFrames, bindFrames, skinRows, BONES, FRAME_FLOATS, scalePose } from '../diamond/rig.js';
 import { BALL_R } from '../diamond/flight.js';
+import { flexGloveRows, GLOVE_REST } from '../diamond/glove-flex.js';
 import { ballGlowOn } from '../../../../shared/settings.js';
 import { SKIN_GLSL, createBonePalette } from './skin.js';
 import { CEL, CEL_TUNE, CEL_GLSL } from './cel-figure.js';
@@ -1642,13 +1643,16 @@ export function createBallparkRenderer(canvas, opts = {}) {
     // solved in the build of whoever's in the slot (`builds`, from the cast), so his shoulders and
     // the hull his arms keep off are his body's. Its joints are kept by slot for a drag mat's ropes
     // (setMats).
-    const joints = new Map(), builds = new Map();
+    const joints = new Map(), builds = new Map(), gloves = new Map();
     function setPose(slot, pose) {
       const build = pose.build || builds.get(slot) || null;
       const sol = solvePose(build ? { ...pose, build } : pose);
       joints.set(slot, sol.J);
-      palette.write(slot, skinRows(boneFrames(sol, frames), bindOf(pose.scale || 1, build), skinBuf));
-      figs.pose(slot, sol, frames, pose.hands || null);
+      const bind = bindOf(pose.scale || 1, build), rows = skinRows(boneFrames(sol, frames), bind, skinBuf), gs = gloves.get(slot);
+      // his glove's top on the fist bone, turned open or shut (diamond/glove-flex.js), unless that hand is on a bat
+      if (gs && !sol.J['grip' + gs]) flexGloveRows(rows, bind, gs, pose.glove ?? GLOVE_REST, pose.scale || 1);
+      palette.write(slot, rows);
+      figs.pose(slot, sol, frames, gs && pose.glove != null ? { ...(pose.hands || {}), gloveOpen: pose.glove } : pose.hands || null);
     }
     // where the cast stands each man, by slot, for `idle`
     const rests = new Map();
@@ -1706,6 +1710,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
       HA.fill(0); HB.fill(0); HC.fill(0); HD.fill(0);
       for (const c of cast) {
         const look = lookOf({ ...c.look });
+        gloves.set(c.look.slot, look.glove && !look.helmet ? look.glove : null);
         const f = faceFor(look), i = c.look.slot * 4;
         HA.set([...f.skin, f.facial], i); HB.set([...f.hair, f.style], i); HC.set([...f.iris, f.eyeBlack], i); HD.set([...f.lip, f.seed], i);
         // each where the cast stands him, until something moves him

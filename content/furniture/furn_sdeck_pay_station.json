@@ -13,7 +13,7 @@
       5
     ],
     "roof_level": 6,
-    "slot_prefix": "zone_sdeck_s"
+    "bay_zone": "zone_sdeck_l2"
   },
   "hp": null,
   "hp_max": null,

@@ -1,0 +1,358 @@
+# ORACLE recording script
+#
+# Read by one speaker, for fitting ORACLE's formant and timing tables to a real voice
+# (the step after docs/proposals/oracle-naturalness.md: targets fitted from recordings).
+# 286 lines, about 15 minutes with pauses. Part 3's sentences are written for this
+# script, not the Harvard lists; they cover the same ground (every sound, questions,
+# lists, commas, short fillers).
+#
+# HOW TO RECORD
+# - A quiet room with soft things in it (a closet of clothes is good, a bare kitchen bad).
+# - The same mic at the same distance, a hand's width or two, the whole way through.
+# - WAV, 44.1 or 48 kHz, 16-bit or better. Turn OFF noise suppression, auto gain and
+#   any "voice enhancement"; phone and call apps add them by default.
+# - Plain voice, normal steady pace, not acting. Leave about a second between lines.
+# - One file per part is ideal: part1.wav, part2.wav, part3.wav, part4.wav. You don't
+#   split anything; the pauses between lines do that, and the fitting tool matches each
+#   piece to its line. Stopping partway is fine: start a new file and name it by the
+#   line it begins at (part1.wav, then 071.wav if you stopped after line 070). Use the
+#   same room, mic and distance each time, and warm your voice up for a minute first.
+#   WAV or FLAC; never MP3, M4A or a voice-memo app's own format.
+# - Read the lines in order with a clear pause, about a second, between them. Stumbled?
+#   Pause, and read that line again from the start: the last reading is the one kept.
+# - Read every numbered line out loud exactly as written, the whole line: for
+#   "Say heed aloud." you say all three words. Don't read the numbers, anything in
+#   [brackets] (a rhyme to help with a made-up word), or the lines starting with #.
+#
+# PART 1: VOWELS IN A FRAME
+# Each vowel in "h_d", then after a b/p, d/t and g/k sound, in "Say ___ aloud."
+# ("aloud" starts with a vowel, so the word's last sound releases cleanly into it,
+# and every word sits mid-sentence at the same pace).
+# Lines repeat on purpose: two or three readings of a word average out the wobble in
+# any one. Read each the same way, not more carefully each time.
+# Say every word as you normally would. Some people say "hod" and "hawed" alike,
+# or "cot" and "caught" alike: that's fine, don't force a difference.
+# The h_d words that aren't real words rhyme with the word in brackets.
+
+001	Say heed aloud.
+002	Say heed aloud.
+003	Say heed aloud.
+004	Say hid aloud.
+005	Say hid aloud.
+006	Say hid aloud.
+007	Say head aloud.
+008	Say head aloud.
+009	Say head aloud.
+010	Say had aloud.
+011	Say had aloud.
+012	Say had aloud.
+013	Say hod aloud. [rod]
+014	Say hod aloud. [rod]
+015	Say hod aloud. [rod]
+016	Say hawed aloud. [sawed]
+017	Say hawed aloud. [sawed]
+018	Say hawed aloud. [sawed]
+019	Say hood aloud.
+020	Say hood aloud.
+021	Say hood aloud.
+022	Say who'd aloud.
+023	Say who'd aloud.
+024	Say who'd aloud.
+025	Say hud aloud. [mud]
+026	Say hud aloud. [mud]
+027	Say hud aloud. [mud]
+028	Say heard aloud.
+029	Say heard aloud.
+030	Say heard aloud.
+031	Say hayed aloud. [made]
+032	Say hayed aloud. [made]
+033	Say hayed aloud. [made]
+034	Say hide aloud.
+035	Say hide aloud.
+036	Say hide aloud.
+037	Say hoed aloud. [road]
+038	Say hoed aloud. [road]
+039	Say hoed aloud. [road]
+040	Say how'd aloud. [loud]
+041	Say how'd aloud. [loud]
+042	Say how'd aloud. [loud]
+043	Say hoyed aloud. [void]
+044	Say hoyed aloud. [void]
+045	Say hoyed aloud. [void]
+046	Say beat aloud.
+047	Say beat aloud.
+048	Say deep aloud.
+049	Say deep aloud.
+050	Say keen aloud.
+051	Say keen aloud.
+052	Say bit aloud.
+053	Say bit aloud.
+054	Say dip aloud.
+055	Say dip aloud.
+056	Say kid aloud.
+057	Say kid aloud.
+058	Say bet aloud.
+059	Say bet aloud.
+060	Say deck aloud.
+061	Say deck aloud.
+062	Say get aloud.
+063	Say get aloud.
+064	Say bat aloud.
+065	Say bat aloud.
+066	Say dad aloud.
+067	Say dad aloud.
+068	Say gap aloud.
+069	Say gap aloud.
+070	Say pot aloud.
+071	Say pot aloud.
+072	Say dock aloud.
+073	Say dock aloud.
+074	Say got aloud.
+075	Say got aloud.
+076	Say bought aloud.
+077	Say bought aloud.
+078	Say dawn aloud.
+079	Say dawn aloud.
+080	Say caught aloud.
+081	Say caught aloud.
+082	Say book aloud.
+083	Say book aloud.
+084	Say took aloud.
+085	Say took aloud.
+086	Say good aloud.
+087	Say good aloud.
+088	Say boot aloud.
+089	Say boot aloud.
+090	Say dune aloud.
+091	Say dune aloud.
+092	Say cool aloud.
+093	Say cool aloud.
+094	Say but aloud.
+095	Say but aloud.
+096	Say dug aloud.
+097	Say dug aloud.
+098	Say gut aloud.
+099	Say gut aloud.
+100	Say bird aloud.
+101	Say bird aloud.
+102	Say dirt aloud.
+103	Say dirt aloud.
+104	Say curt aloud.
+105	Say curt aloud.
+106	Say bait aloud.
+107	Say bait aloud.
+108	Say date aloud.
+109	Say date aloud.
+110	Say gate aloud.
+111	Say gate aloud.
+112	Say bite aloud.
+113	Say bite aloud.
+114	Say dine aloud.
+115	Say dine aloud.
+116	Say kite aloud.
+117	Say kite aloud.
+118	Say boat aloud.
+119	Say boat aloud.
+120	Say dote aloud. [note]
+121	Say dote aloud. [note]
+122	Say goat aloud.
+123	Say goat aloud.
+124	Say bout aloud.
+125	Say bout aloud.
+126	Say doubt aloud.
+127	Say doubt aloud.
+128	Say gown aloud.
+129	Say gown aloud.
+130	Say boy aloud.
+131	Say boy aloud.
+132	Say toy aloud.
+133	Say toy aloud.
+134	Say coin aloud.
+135	Say coin aloud.
+
+# PART 2: VOWELS BEFORE R AND L
+# Where rule-based voices sound worst. Same frame.
+
+136	Say fire aloud.
+137	Say fire aloud.
+138	Say hour aloud.
+139	Say hour aloud.
+140	Say here aloud.
+141	Say here aloud.
+142	Say care aloud.
+143	Say care aloud.
+144	Say pure aloud.
+145	Say pure aloud.
+146	Say more aloud.
+147	Say more aloud.
+148	Say car aloud.
+149	Say car aloud.
+150	Say war aloud.
+151	Say war aloud.
+152	Say feel aloud.
+153	Say feel aloud.
+154	Say fail aloud.
+155	Say fail aloud.
+156	Say pool aloud.
+157	Say pool aloud.
+158	Say pole aloud.
+159	Say pole aloud.
+160	Say pull aloud.
+161	Say pull aloud.
+162	Say wall aloud.
+163	Say wall aloud.
+164	Say girl aloud.
+165	Say girl aloud.
+166	Say file aloud.
+167	Say file aloud.
+168	Say owl aloud.
+169	Say owl aloud.
+170	Say oil aloud.
+171	Say oil aloud.
+172	Say real aloud.
+173	Say real aloud.
+174	Say tower aloud.
+175	Say tower aloud.
+
+# PART 3: ORDINARY SENTENCES
+# Read them as you'd say them to someone across a table. Questions as questions.
+
+176	The kettle boiled while we argued about the rent.
+177	She left her keys on the back seat of the cab.
+178	Put the big box down by the garage door.
+179	A thick fog rolled in off the water before dawn.
+180	The dog chewed through the cable in under a minute.
+181	Nobody knew who had locked the shed.
+182	He paid for the coffee with a crumpled five.
+183	The paint on the fence was still wet at noon.
+184	We drove north until the road turned to gravel.
+185	Two of the windows had been broken from inside.
+186	Could you pass me the salt and the pepper?
+187	Where did you park the truck last night?
+188	Is the shop on the corner open on Sundays?
+189	Why would anyone buy a boat in winter?
+190	Have you ever seen the river this high?
+191	The judge read the verdict in a flat voice.
+192	A jar of honey fell and cracked on the tiles.
+193	Thick smoke poured from the chimney of the mill.
+194	The children chased the geese across the yard.
+195	Measure twice and cut once, my father used to say.
+196	The vision in her left eye was fuzzy for a week.
+197	They shared a sandwich on the steps of the church.
+198	Yellow leaves drifted down into the pool.
+199	The thief climbed the wall and dropped into the lane.
+200	We heard the thunder long before we saw the rain.
+201	His shoes squeaked on the polished floor of the hall.
+202	The bus was late, so we walked the last mile.
+203	A cheap watch is still right twice a day.
+204	The garden needs weeding after all this rain.
+205	She bought apples, pears, plums and a bag of grapes.
+206	Turn left at the lights, then right at the bakery.
+207	The engine coughed, sputtered and finally caught.
+208	Every bottle on the top shelf was empty.
+209	The ice on the pond was too thin to stand on.
+210	I'd rather walk than wait an hour for a train.
+211	The old man fed the pigeons every morning at eight.
+212	Bring a coat, because it gets cold after dark.
+213	The movie was good, but the ending was a letdown.
+214	A pair of boots stood drying by the stove.
+215	We counted the money twice and it was still short.
+216	The nurse checked his pulse and wrote something down.
+217	Fresh bread smells better than almost anything.
+218	The phone rang just as I got into the bath.
+219	Grab the ladder from the barn and bring it round.
+220	The bridge was closed for repairs until June.
+221	Her voice was hoarse from shouting at the game.
+222	A truck full of chickens tipped over on the highway.
+223	He looked at the map and then at the sky.
+224	The soup needs more salt and a little less pepper.
+225	The guard waved us through without looking up.
+226	It took three of us to lift the piano.
+227	My brother owes me twenty dollars and a jacket.
+228	The cat sat on the windowsill and watched the rain.
+229	The lake froze early this year, in late October.
+230	Nobody answered, so I left a note under the door.
+231	The pilot said we'd be landing in ten minutes.
+232	She whistled a tune I hadn't heard in years.
+233	The boat drifted slowly towards the rocks.
+234	A loud bang came from somewhere down the street.
+235	He couldn't find a pen, so he used a pencil.
+236	We'll need rope, a torch and plenty of water.
+237	The wheel came off the cart halfway up the hill.
+238	Our neighbour grows tomatoes on her balcony.
+239	The report was due on Friday, and it's Monday now.
+240	The wind blew the hat clean off his head.
+241	Is this the right way to the station?
+242	Do you want tea or coffee?
+243	How much did you pay for that?
+244	Are you coming with us or not?
+245	What time does the last bus leave?
+246	The stew had beef, carrots, onions and potatoes in it.
+247	The clock in the hall stopped at a quarter past four.
+248	A mouse ran along the skirting board and vanished.
+249	Keep the receipt in case it breaks.
+250	The orchestra tuned up while the hall filled.
+251	He tapped the glass twice and the fish swam away.
+252	The postman left a parcel with the neighbours.
+253	There's a crack in the ceiling above the bed.
+254	I'm not angry, I'm just tired.
+255	The doctor told him to rest and drink plenty of fluids.
+256	Five cars were stuck in the snow at the junction.
+257	The shop sold everything from nails to wedding cakes.
+258	We watched the sun go down behind the hills.
+259	The water in the bay was colder than we expected.
+260	He hung his jacket on the back of the chair.
+261	A gull stole a chip right out of her hand.
+262	The library closes at six on weekdays.
+263	She tied the boat to the post with a double knot.
+264	The heater rattles, but it still works.
+265	Long ago, this whole valley was under the sea.
+266	The fridge hummed in the dark kitchen.
+267	The soldiers marched past without a word.
+268	It's cheaper to fix the roof now than later.
+269	The rope was frayed where it rubbed on the rock.
+270	A van pulled up outside and two men got out.
+271	Well, I suppose that's one way of doing it.
+272	Honestly, I've no idea where he went.
+273	Look, just tell me what happened.
+274	Right, let's get this over with.
+275	Oh, you're back early.
+
+# PART 4: ONE PASSAGE
+# Read straight through, as one piece. Line breaks are only for the numbering.
+
+276	The storm came in the afternoon.
+277	At first it was only a darker strip of cloud over the hills,
+278	and nobody on the dock paid it much attention.
+279	By three o'clock the wind had turned,
+280	and the boats were knocking against each other in the harbour.
+281	Old Martha closed the shutters on the café,
+282	brought in the chairs from the terrace,
+283	and put a pot of coffee on for whoever turned up.
+284	Four fishermen came in, soaked through and laughing,
+285	and sat by the window to watch the waves.
+286	Nobody went home until the rain eased, well after dark.
+
+# PART 5: VELARS
+# K and G before front and back vowels, for the split velar locus. Same pace as Part 1.
+
+287	Say keen again.
+288	Say kit again.
+289	Say cake again.
+290	Say kettle again.
+291	Say cat again.
+292	Say geese again.
+293	Say give again.
+294	Say gate again.
+295	Say get again.
+296	Say gap again.
+297	Say cool again.
+298	Say coat again.
+299	Say caught again.
+300	Say car again.
+301	Say goose again.
+302	Say goat again.
+303	Say gone again.
+304	The kid kept the keys in the kitchen.
+305	Get the cat a cup of cold coffee.
+306	Gail gave the goat a good kick.

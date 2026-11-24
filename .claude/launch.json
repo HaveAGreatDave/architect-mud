@@ -39,6 +39,15 @@
       "port": 5190
     },
     {
+      "name": "modelshop-routebench",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "tools/modelshop/serve.mjs",
+        "5271"
+      ],
+      "port": 5271
+    },
+    {
       "name": "modelshop-wt-shots",
       "runtimeExecutable": "node",
       "runtimeArgs": [
@@ -344,6 +353,24 @@
         "5244"
       ],
       "port": 5244
+    },
+    {
+      "name": "modelshop-echelon",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "tools/modelshop/serve.mjs",
+        "5293"
+      ],
+      "port": 5293
+    },
+    {
+      "name": "modelshop-precinct",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "tools/modelshop/serve.mjs",
+        "5293"
+      ],
+      "port": 5293
     }
   ]
 }

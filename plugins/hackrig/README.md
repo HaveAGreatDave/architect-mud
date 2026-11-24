@@ -56,7 +56,7 @@ Any furniture row with `flags.hack_rig` is a rig. Optional
 starter deck reads a difficulty-2 rig as a 4.
 
 ```json
-{ "id": "furn_twocell_rig", "zone_id": "zone_twocell_interior",
+{ "id": "furn_otoole_rig", "zone_id": "zone_otoole_interior",
   "name": "practice lock rig", "object_type": "fixture",
   "flags": { "hack_rig": true, "hack_difficulty": 2 } }
 ```

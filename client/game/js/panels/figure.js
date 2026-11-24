@@ -133,7 +133,9 @@ export const FIG_PIECE = { torso: 0, sleeve: 1, boot: 2, belt: 3, strap: 4, pouc
   // a cap's peak, its top and its underside (FIGURE_HATS bill)
   bill: 34, billUnder: 35,
   // a chain round the neck
-  chain: 36 };
+  chain: 36,
+  // a work apron (apronParts): the bib, the skirt that hangs from the waist, the ties
+  apron: 37 };
 // The gear a person can wear, each optional (figureGear picks it off the outfit's rand).
 export const FIGURE_GEAR = ['belt', 'strap', 'pouch', 'pads', 'gloves'];
 
@@ -227,6 +229,9 @@ export const FIGURE_LEVELS = {
 // `ease` is how far the cloth stands off what's under it; `hug` how much of the body's own shape
 // a fitted cloth keeps (0 is the hull); `drape` how fast it may follow the body in, in metres a
 // metre fallen; `flare` the extra ease at the hem. The crowd always wears the coat: it's one bake.
+// the cuts that are dresses (a long coat's hem is as low, so the hem can't say): what a dress sandal goes with
+const DRESS_CUTS = new Set(['dress', 'shift', 'maxi', 'knitdress', 'gown', 'slip', 'cutout', 'wrap', 'stagelace', 'stagehex']);
+export const cutIsDress = (cut) => DRESS_CUTS.has(cut);
 export const FIGURE_CUTS = {
   coat: {
     top: { hem: 0.62, neck: 1.455, ease: 0.016, hug: 0, drape: 0.22, flare: 0.024 },
@@ -487,7 +492,7 @@ export const FIGURE_CUTS = {
   },
   // a dress to the knee with short sleeves, fitted at the body and full at the hem
   dress: {
-    top: { hem: 0.54, neck: 1.45, ease: 0.006, hug: 0.4, drape: 0.24, flare: 0.06 },
+    top: { hem: 0.54, neck: 1.45, ease: 0.006, hug: 0.55, drape: 0.45, flare: 0.06 },
     sleeve: { cuff: 1.3, ease: 0.006, drape: 0.4, open: 0.008 },
     collar: { y0: 1.445, y1: 1.455, ease: 0.003, flare: 0, open: 0 },
     shoulder: 0.006,
@@ -504,7 +509,7 @@ export const FIGURE_CUTS = {
   },
   // a knitted dress with long sleeves, to mid-calf
   knitdress: {
-    top: { hem: 0.32, neck: 1.452, ease: 0.008, hug: 0.4, drape: 0.18, flare: 0.05 },
+    top: { hem: 0.32, neck: 1.452, ease: 0.008, hug: 0.65, drape: 0.5, flare: 0.05 },
     sleeve: { cuff: 0.88, ease: 0.007, drape: 0.25, open: 0.002 },
     collar: { y0: 1.444, y1: 1.47, ease: 0.006, flare: 0, open: 0 },
     shoulder: 0.006, rib: 0.02,
@@ -588,7 +593,9 @@ export const FIGURE_HATS = {
   beanie: { crown: [[0, 1.705, -0.008], [0.1, 0.075, 0.11], 2.2], band: [[0, 1.672, -0.006], [0.104, 0.016, 0.114], 2.4] },
   // a cap's peak is a `bill`: a two-sided slab out from the crown's front, `span` radians round it, `out` metres
   // past it at the middle, curved down at the sides by `bend` and tipped down by `tilt` (hatBill)
-  cap: { crown: [[0, 1.71, -0.01], [0.097, 0.062, 0.106], 2.2], bill: { y: 1.692, span: 1.25, out: 0.092, bend: 0.017, tilt: 0.004, th: 0.004 } },
+  // the cap's crown is `fit`: a shell `off` out from the skull (actor-head.js skullPoint) from the ballpark's band
+  // (capBandY) to the top, so it sits on the head as a fitted cap does; the hair is cut back under it (hatShell)
+  cap: { fit: { off: 0.0095 }, crown: [[0, 1.71, -0.01], [0.097, 0.062, 0.106], 2.2], bill: { y: 1.684, span: 1.18, out: 0.074, bend: 0.013, tilt: 0.011, th: 0.0035 } },
   fedora: { crown: [[0, 1.735, -0.008], [0.088, 0.062, 0.098], 3], brim: [[0, 1.686, -0.006], [0.17, 0.007, 0.175], 2.2] },
   bucket: { crown: [[0, 1.72, -0.008], [0.096, 0.062, 0.104], 3], brim: [[0, 1.666, -0.006], [0.13, 0.012, 0.136], 2.4] },
   hardhat: { crown: [[0, 1.722, -0.006], [0.106, 0.072, 0.116], 2.2], brim: [[0, 1.682, 0.004], [0.124, 0.006, 0.142], 2.2] },
@@ -597,16 +604,19 @@ export const FIGURE_HATS = {
   // cap, helmet): nothing of its own here, only the hair cut back under its band, so only what hangs below shows.
   // Never rolled (gl/room-people.js HATS)
   ballcap: { under: true },
+  // a catcher's hockey-style helmet, the same: the hair cut back under a shell that covers the forehead to the brow
+  // and comes down over the ears, so no fringe hangs out over the face inside the cage
+  skullhelm: { under: true, cut: (a) => (Math.abs(a) < 1.2 ? 1.655 : 1.6) },
 };
 // The ballpark's cap band round the head (gl/ballplayer-mesh.js capBand: `a` 0 in front, pi behind), in the head's
 // rest space, and the locks cut back under it: a triangle with any corner over the band goes, or that corner comes
 // out through the cap's edge.
 const capBandY = (a) => 1.684 - 0.03 * (1 - Math.cos(a)) / 2;
-function underCap(M) {
+function underCap(M, band = capBandY) {
   const P = M.P, keep = [];
   for (let t = 0; t < M.I.length; t += 3) {
     let over = false;
-    for (let k = 0; k < 3; k++) { const i = M.I[t + k] * 3; if (P[i + 1] > capBandY(Math.atan2(P[i], P[i + 2] - ZC)) - 0.002) over = true; }
+    for (let k = 0; k < 3; k++) { const i = M.I[t + k] * 3; if (P[i + 1] > band(Math.atan2(P[i], P[i + 2] - ZC)) - 0.002) over = true; }
     if (!over) keep.push(M.I[t], M.I[t + 1], M.I[t + 2]);
   }
   M.I = keep;
@@ -724,6 +734,15 @@ Object.assign(FIGURE_CUTS, {
     collar: { y0: 1.444, y1: 1.46, ease: 0.006, flare: 0.002, open: 0.024 },
     shoulder: 0.02,
   },
+  // a sport coat over a V-neck sweater, a shirt and tie in the sweater's V: put together without being a suit.
+  // The sweater is the trim's colour (flags.figure.trim) and the tie its own (flags.figure.tie); the paint's
+  // (gl/figure-hd.js, front 'sportcoat'). Nobody rolls it
+  sportcoat: {
+    top: { hem: 0.86, neck: 1.455, ease: 0.011, hug: 0.12, drape: 0.3, flare: 0.004 },
+    sleeve: { cuff: 0.878, ease: 0.009, drape: 0.15, open: 0.003 },
+    collar: { y0: 1.444, y1: 1.475, ease: 0.006, flare: 0.006, open: 0.03, slot: 'shirt' },
+    shoulder: 0.012, front: 'sportcoat',
+  },
 });
 export const FIGURE_UNDER_CUTS = ['briefs', 'boyshorts', 'bodysuit', 'baselayer', 'strapwrap', 'boxers', 'bikini', 'longline', 'slip', 'cutout', 'hexsuit', 'stagelace', 'stagehex'];
 // The cuts anybody might wear; the tunic is the Wildblood's dress, not a pick.
@@ -734,10 +753,15 @@ export const FIGURE_CUT_NAMES = Object.keys(FIGURE_CUTS);
 // the leg's shape kept through the cloth (hug) and let in toward the knee and ankle (drape), so the
 // thigh and the calf read in silhouette
 const TROUSERS = { waist: 1.005, hem: 0.068, ease: 0.008, hug: 0.38, drape: 0.06, seatDrape: 0.3 };
-const SHOE = { ease: 0.01, sole: 0.011, toe: 0.002, heel: 0.006 };
+// (a work boot: fuller all round and longer in the toe than the foot in it. SOLE is the line the walk pivots on,
+// which stays where the clips were tuned)
+const SHOE = { ease: 0.017, sole: 0.011, toe: 0.01, heel: 0.01 }, SOLE = { toe: 0.002, heel: 0.006 };
 // A boot's shaft over the trousers' foot, so they read as tucked in, and the belt over the outermost
 // layer at the waist, which a coat or a jacket is cinched to.
-const BOOT = { top: 0.235, foot: 0.078, ease: 0.011 };
+// The sculpted man's boot stops above the ankle with the trousers bloused on top of it; a woman's (a soft head)
+// and every other figure's goes to mid calf (`tall`). gl/figure-hd.js paints the collar, the laces and the trousers' cuff against the same two
+// heights (bootTop there), so change them together.
+const BOOT = { top: 0.235, tall: 0.3, foot: 0.078, ease: 0.009 };
 const BELT = { top: 1.028, foot: 0.982, ease: 0.0045, cinch: 0.007 };
 // Hands a little big, as a comic draws them.
 const HAND_K = 1.18;
@@ -749,7 +773,7 @@ const HAND_K = 1.18;
 const shoeSole = (z) => Math.max(0.004, z > 0.045 ? 0.052 - 0.052 * Math.sqrt(Math.max(0, 1 - ((z - 0.045) / 0.122) ** 2)) : 0.004 + 0.014 * smooth(-0.004, -0.076, z) ** 1.6);
 // The sole's line, heel to toe, as [z, y] in bind space down the middle of the shoe.
 export function figureSole(n = 17) {
-  const z0 = FOOT[0][0] - SHOE.heel + 0.004, z1 = FOOT[FOOT.length - 1][0] + SHOE.toe - 0.004, out = [];
+  const z0 = FOOT[0][0] - SOLE.heel + 0.004, z1 = FOOT[FOOT.length - 1][0] + SOLE.toe - 0.004, out = [];
   for (let i = 0; i < n; i++) { const z = z0 + ((z1 - z0) * i) / (n - 1); out.push([z, shoeSole(z)]); }
   return out;
 }
@@ -835,9 +859,9 @@ const FOOT = [
   [-0.058, 0.026, 0.040, 0.030, 0.030, 0.000],
   [-0.040, 0.031, 0.048, 0.042, 0.040, 0.000],
   [-0.015, 0.032, 0.054, 0.040, 0.046, 0.002],
-  [0.015, 0.034, 0.050, 0.034, 0.042, 0.004],
-  [0.050, 0.038, 0.040, 0.028, 0.032, 0.006],
-  [0.085, 0.043, 0.032, 0.022, 0.024, 0.008],
+  [0.015, 0.034, 0.050, 0.041, 0.042, 0.004],
+  [0.050, 0.038, 0.040, 0.035, 0.032, 0.006],
+  [0.085, 0.043, 0.032, 0.026, 0.024, 0.008],
   [0.115, 0.044, 0.026, 0.018, 0.018, 0.008],
   [0.140, 0.040, 0.022, 0.014, 0.014, 0.006],
   [0.155, 0.031, 0.020, 0.011, 0.010, 0.004],
@@ -887,8 +911,11 @@ function torsoRelief(x, y, c, s) {
   { const side = smooth(0.45, 0.85, Math.abs(c));
     d += 0.003 * side * smooth(-0.1, 0.5, s) * gx(y - 1.25, 0.04);                          // the serratus, one band under the armpit
     d += 0.006 * side * smooth(-0.3, 0.4, s) * gx(y - 1.035, 0.04); }                       // the obliques, rolled over the hip bone
-  d += K * 0.016 * gx(ax - 0.068, 0.058) * gx(y - 0.885, 0.05);                           // the glutes
-  d -= K * 0.011 * gx(x, 0.009) * (1 - smooth(0.93, 0.97, y));
+  // the glutes: a round each, fullest at the middle of the seat and tucked in under, so the seat curves back to the
+  // thigh. (Fullest at 0.885 and full all the way down to where the leg starts, it hung: a teardrop over a shelf.)
+  d += K * 0.02 * gx(ax - 0.07, 0.055) * gx(y - 0.925, 0.05);
+  d -= K * 0.03 * gx(ax - 0.07, 0.075) * smooth(0.895, 0.835, y);
+  d -= K * 0.014 * gx(x, 0.011) * (1 - smooth(0.95, 1.0, y));
   return d;
 }
 function armRelief(y, c, s) {
@@ -1007,7 +1034,7 @@ const SOMA_T = Object.fromEntries(['ecto', 'meso', 'endo'].map((k) => [k, { tors
 // the legs' tops, not the torso, are what the hips' width is; `abduct` holds the arms off the body.
 const SOMA = {
   ecto: { muscle: 0.55, fat: 0, ribs: 1, neck: 0.86, hand: 0.92, bust: 0.55, sh: -0.012, waist: 0.15, round: 2.3, thigh: -0.018, abduct: 0.02 },
-  meso: { muscle: 1.7, fat: 0, ribs: 0, neck: 1.16, hand: 1.06, bust: 0.85, sh: 0.006, waist: 0.25, round: 2.35, thigh: -0.012, abduct: 0.1 },
+  meso: { muscle: 1.7, fat: 0, ribs: 0, neck: 1.16, hand: 1.06, bust: 0.85, sh: 0.006, waist: 0.25, round: 2.35, thigh: -0.012, abduct: 0.065 },
   endo: { muscle: 0.15, fat: 1, ribs: 0, neck: 1.22, hand: 1.1, bust: 1.5, sh: -0.004, waist: 0.45, round: 2.05, thigh: 0.012, abduct: 0.19 },
 };
 // The numbers for a weight, 0 to 1: ectomorph to mesomorph over the first half, on to endomorph over the second.
@@ -1125,6 +1152,15 @@ const girdleOf = (L) => (GIRDLE ? B['clav' + L] : B.chest);
 function torsoW(x, y) {
   let w = TORSO_CHAIN(y);
   const ax = Math.abs(x), L = x >= 0;
+  // only the collar's ring rides the neck: out past the neck's own width the top of the torso is shoulder,
+  // and a tilted head swung it up as a bulge from the jaw to the shoulder on the stretched side
+  {
+    const off = smooth(0.05, 0.09, ax), nk = w.find(([b]) => b === B.neck)?.[1] || 0;
+    if (off > 0 && nk > 0) {
+      const ch = (w.find(([b]) => b === B.chest)?.[1] || 0) + nk * off;
+      w = [[B.neck, nk * (1 - off)], [B.chest, ch], ...w.filter(([b]) => b !== B.neck && b !== B.chest)].filter(([, k]) => k > 0);
+    }
+  }
   // the collarbone and the trapezius over it, front and back, out from beside the neck to the shoulder
   if (GIRDLE) w = mixW(w, girdleOf(L ? 'L' : 'R'), 0.9 * smooth(0.035, 0.115, ax) * smooth(1.3, 1.4, y));
   w = mixW(w, L ? B.uarmL : B.uarmR, 0.34 * smooth(0.135, 0.195, ax) * smooth(1.33, 1.42, y));
@@ -1133,15 +1169,18 @@ function torsoW(x, y) {
 }
 // Below the hips a skirt is split front and back, so each side follows its own thigh; the centre
 // line stays with the pelvis, which keeps the two halves joined (actor3d.js's coat).
-function skirtW(x, y) {
+// A fitted dress (`tight` 1) goes with the thigh from just under the hip: let go as gradually as a coat's skirt,
+// it was a third on the thigh at hip height, and a thigh that swung out came through it.
+const skirtWOf = (tight) => (x, y) => {
   if (y > 0.93) return torsoW(x, y);
-  const k = smooth(0.93, 0.62, y) * 0.92 * Math.min(1, Math.abs(x) / 0.03), L = x >= 0;
+  const k = smooth(0.93, 0.62 + 0.2 * tight, y) * 0.92 * Math.min(1, Math.abs(x) / 0.03), L = x >= 0;
   // below the knee a long skirt (a duster, a cassock) goes with the shin, so sitting it hangs from the
   // knee instead of carrying on out level with the thigh
   const s = smooth(0.54, 0.42, y);
   if (s <= 0) return [[B.pelvis, 1 - k], [L ? B.thighL : B.thighR, k]];
   return [[B.pelvis, 1 - k], [L ? B.thighL : B.thighR, k * (1 - s)], [L ? B.shinL : B.shinR, k * s]];
-}
+};
+const skirtW = skirtWOf(0), skirtFitted = skirtWOf(1);
 const armW = (L) => chain([
   { y: 1.39, a: girdleOf(L), b: B['uarm' + L], h: 0.03 },
   { y: 1.10, a: B['uarm' + L], b: B['farm' + L], h: 0.045 },
@@ -1157,7 +1196,10 @@ const armWS = (L) => {
     if (y < 1.3) return below(y);
     // the shoulder's share: at the top of the round, nearly half on the outer side and four fifths on the inner;
     // all on the arm, the round swung down under the armpit of a raised arm
-    const u = side * x - ARM_X, k = smooth(1.3, 1.45, y) * (0.45 + 0.35 * (1 - smooth(-0.035, 0.02, u)));
+    // (the outer side is all the arm's, to the top: sharing it, a raised arm's deltoid lagged behind the arm and sank
+    // toward the joint, which left a dip between the shoulder and a hump further out. All the arm's, it swings up
+    // over the top of the shoulder as the muscle does, and the line from the neck runs into it.)
+    const u = side * x - ARM_X, inn = 1 - smooth(-0.035, 0.02, u), k = Math.max(smooth(1.3, 1.45, y) * 0.8 * inn, smooth(1.408, 1.424, y) * Math.min(1, 1.3 * inn));
     return k > 0 ? [[girdleOf(L), k], [B['uarm' + L], 1 - k]] : [[B['uarm' + L], 1]];
   };
 };
@@ -1182,7 +1224,9 @@ function ys(top, bot, dy, keys = []) {
 const SHOULDER_KEYS = { torso: [1.432, 1.414, 1.392], arm: [1.41, 1.396, 1.375, 1.35] };
 // the sculpted arm's deltoid closes as a dome over its last few centimetres (partsFor), which needs rings there,
 // so only the hd level has it: a lite figure keeps its budget and the old cap
-const DOME_KEYS = [1.428, 1.42, 1.41, 1.396, 1.375, 1.35];
+// (1.4365 is the ring that rounds the top of the dome; it took the place of one at 1.35, on the plain upper arm, so
+// the sculpted figure stays under the triangles of the one it replaces)
+const DOME_KEYS = [1.4365, 1.428, 1.42, 1.41, 1.396, 1.375];
 const _phis = new Map();
 function phisFor(kind, n) {
   const key = kind + n;
@@ -1358,20 +1402,33 @@ function footRings(side, cols, dz, grow = 0, sole = () => FOOT_SOLE, ext = [0, 0
 // A bare foot, close up: the foot as footMesh lofts it, cut off across the ball, and five toes forward of that, the
 // big toe on the inside, each a short tube on the toe bone with its tip curled down onto the sole and the outer ones
 // set back and smaller. Only the levels with fingers; the rest keep the shoe's last in skin.
+// The five toes, big toe first: how far each starts behind its neighbour, its length, its radius. Where each sits
+// across the foot isn't here: bareFootMesh lays them side by side over the foot's whole width, so the big toe's
+// inner edge carries on the inside of the foot and the little toe's outer edge the outside. (They were bunched in
+// the middle three quarters of it, with a shoulder of foot left over each side.)
 const BARE_TOES = [
-  // across the ball (-1 the inside edge, 1 the outside), set back, length, radius
-  [-0.62, 0.0, 0.046, 0.0108], [-0.2, 0.004, 0.038, 0.0074], [0.12, 0.009, 0.034, 0.0068], [0.42, 0.015, 0.029, 0.0062], [0.7, 0.023, 0.023, 0.0056],
+  [0.0, 0.049, 0.0112], [0.002, 0.042, 0.0078], [0.004, 0.04, 0.0072], [0.006, 0.039, 0.0066], [0.008, 0.037, 0.0061],
 ];
+const TOE_FLAT = 1.25, TOE_SLANT = 0.02;
+// The bare foot's section at `z`, and how far its top drops toward the little toe. FOOT is a shoe's last, whose
+// toe box stands 4 cm high to the end: cut off across the ball it was a wall, with the toes coming out from under
+// it. So from the ball forward the top comes down to the toes' own height, lower on the outside where the toes
+// are smaller, and the foot runs into them.
+// (`full` leaves out the last centimetre's tuck, where the foot's own end ducks under the toes' roots: it's the
+// height those roots start at)
+const bareSection = (z, full = false) => { const [rx, cy, up, dn, cx] = T_FOOT.at(z), t = smooth(0.078, 0.124, z), tuck = full ? 0 : smooth(0.112, 0.124, z); return [rx, cy - 0.003 * t - 0.004 * tuck, up * (1 - 0.42 * t) * (1 - 0.4 * tuck), dn, cx, 0.006 * t]; };
 function bareFootMesh(side, level) {
   const L = side > 0 ? 'L' : 'R', w = toeW(L), M = newPart('foot' + L, FIG_SLOT.skin), cols = level.cols.foot;
   const z0 = FOOT[0][0], z1 = 0.124, n = Math.max(3, Math.round((z1 - z0) / level.dy.foot)), rings = [];
   for (let i = 0; i <= n; i++) {
-    const z = z0 + ((z1 - z0) * i) / n, [rx, cy, up, dn, cx] = T_FOOT.at(z), ring = [];
+    const z = z0 + ((z1 - z0) * i) / n, [rx, cy, up, dn, cx, out] = bareSection(z), ring = [];
     for (let j = 0; j < cols; j++) {
       const a = (j / cols) * TAU, c = Math.cos(a), s = Math.sin(a);
       // the arch: the inside of the sole lifted off the floor through the middle of the foot
       const arch = side * c < 0 && s < 0 ? 0.006 * Math.sin(Math.PI * Math.max(0, Math.min(1, (z + 0.03) / 0.12))) * -c * side : 0;
-      ring.push([side * (LEG_X + cx) + side * rx * se(c, 2.3), Math.max(cy + (s >= 0 ? up : dn) * se(s, s >= 0 ? 2.2 : 3.2), FOOT_SOLE) + arch, z]);
+      ring.push([side * (LEG_X + cx) + side * rx * se(c, 2.3), Math.max(cy + (s >= 0 ? up : dn) * se(s, s >= 0 ? 2.2 : 3.2) - (s > 0 ? out * Math.max(0, c) * s : 0), FOOT_SOLE) + arch,
+        // and its front edge runs back toward the little toe, as the toes' roots do, so the outer toes aren't inside it
+        z - TOE_SLANT * Math.max(0, c) * smooth(0.085, 0.124, z)]);
     }
     rings.push(ring);
   }
@@ -1380,17 +1437,30 @@ function bareFootMesh(side, level) {
   capFan(M, R[0], addV(M, mid(rings[0]), w(rings[0][0][2])), true);
   stitchRings(M, R);
   capFan(M, R[R.length - 1], addV(M, mid(rings[n]), w(z1)), false);
-  // the toes, from just inside the cut, flattened a little, bending down at the tip
-  const [bx, bcy, , bdn, bcx] = T_FOOT.at(z1 - 0.004), wt = [[B['toe' + L], 1]];
-  for (const [across, back, len, r] of BARE_TOES) {
-    const x = side * (LEG_X + bcx) + side * bx * 0.8 * across, y0 = Math.max(FOOT_SOLE + r * 0.95, bcy - bdn * 0.25), zb = z1 - 0.012 - back;
-    const path = [], radii = [];
-    for (let k = 0; k <= 5; k++) {
-      const t = k / 5;
-      path.push([x + side * across * 0.004 * t, y0 - 0.006 * t * t, zb + len * t]);
-      radii.push(r * (1 - 0.18 * t) * (k === 5 ? 0.85 : 1));
-    }
-    tubeAlong(M, path, radii, level.name === 'hd' ? 10 : 7, wt, [0, 1, 0], 1.25);
+  // THE TOES. Each grows out of the foot, not out of a hole in its end: its root starts two centimetres back inside
+  // the forefoot, as tall as the foot is there and wide enough to run into its neighbours (the web between toes),
+  // so over the join the top of the foot carries on as the top of the toe. From there it narrows to its own size,
+  // waists at the joint, swells to the pad and rounds off. Side by side from the foot's inside edge to its outside:
+  // edge to edge they're a little wider than the foot, so they close up by the difference.
+  const [bx, bcy, bup, , bcx, bout] = bareSection(z1 - 0.002, true), cols2 = level.name === 'hd' ? 10 : 7;
+  const topAt = (at) => { const c = Math.sign(at) * Math.min(1, Math.abs(at / bx)) ** 1.15, sn = Math.sqrt(Math.max(0, 1 - c * c)); return bcy + bup * se(sn, 2.2) - bout * Math.max(0, c) * sn; };
+  const hw = BARE_TOES.map((t) => t[2] * TOE_FLAT), W = bx * 0.99, gap = [0];
+  for (let i = 1; i < hw.length; i++) gap.push(gap[i - 1] + hw[i - 1] + hw[i]);
+  for (let i = 0; i < BARE_TOES.length; i++) {
+    const [stagger, len, r] = BARE_TOES[i], at = -W + hw[0] + (2 * W - hw[0] - hw[hw.length - 1]) * (gap[i] / gap[gap.length - 1]), across = at / W;
+    const x = side * (LEG_X + bcx) + side * at, ze = z1 - TOE_SLANT * Math.max(0, across) - stagger, Lv = len - 0.012, H = Math.max(r, (topAt(at) - FOOT_SOLE) / 2);
+    // along the toe from its root: [how far past the foot's edge, half its height, half its width]
+    const st = [[-0.022, H * 0.94, hw[i] * 1.5], [-0.008, H, hw[i] * 1.4], [0.004, Math.max(r, H * 0.92), hw[i] * 1.18], [0.3 * Lv, r, hw[i] * 0.98], [0.58 * Lv, r * 0.9, hw[i] * 0.9], [0.84 * Lv, r * 0.97, hw[i]], [Lv, r * 0.72, hw[i] * 0.74]];
+    const R = st.map(([dz, rv, rh]) => {
+      // (a root wider than its toe would stand out past the foot's edge on the two outside toes: it moves in instead)
+      const f = Math.max(0, dz / Lv), over = Math.max(0, Math.abs(at) + rh - W - 0.0008), cx = x + side * across * 0.004 * f - side * Math.sign(at) * over, cy = FOOT_SOLE + rv - 0.002 * f * f, cz = ze + dz, ring = [];
+      for (let j = 0; j < cols2; j++) { const a = (j / cols2) * TAU; ring.push(addV(M, [cx - rh * Math.cos(a), cy + rv * Math.sin(a), cz], w(cz))); }
+      return ring;
+    });
+    stitchRings(M, R);
+    const [dzT, rvT] = st[st.length - 1], [dz0, rv0] = st[0];
+    capFan(M, R[R.length - 1], addV(M, [x + side * across * 0.004, FOOT_SOLE + rvT - 0.002, ze + dzT + rvT * 0.6], w(ze + dzT)), false);
+    capFan(M, R[0], addV(M, [x, FOOT_SOLE + rv0, ze + dz0], w(ze + dz0)), true);
   }
   return M;
 }
@@ -1398,11 +1468,159 @@ function footMesh(side, level, slot, grow, sole, ext) {
   const L = side > 0 ? 'L' : 'R', w = toeW(L);
   const M = newPart('foot' + L, slot);
   const rings = footRings(side, level.cols.foot, level.dy.foot, grow, sole, ext);
-  const R = rings.map(({ ring }) => ring.map((p) => addV(M, p, w(p[2]))));
-  const tip = (r) => { const c = r.ring.reduce((a, p) => [a[0] + p[0], a[1] + p[1], a[2] + p[2]], [0, 0, 0]).map((v) => v / r.ring.length); return addV(M, c, w(c[2])); };
+  // a boot's toe as a shoe's, one smooth line across (toeArc); a bare foot keeps its toes
+  const arc = slot === FIG_SLOT.shoes ? toeArc(rings, 0.016, 0.02) : (p) => p;
+  const R = rings.map(({ ring }) => ring.map((p) => addV(M, arc(p), w(p[2]))));
+  const tip = (r) => { const c = r.ring.reduce((a, p) => [a[0] + p[0], a[1] + p[1], a[2] + p[2]], [0, 0, 0]).map((v) => v / r.ring.length); return addV(M, arc(c), w(c[2])); };
   capFan(M, R[0], tip(rings[0]), true);
   stitchRings(M, R);
   capFan(M, R[R.length - 1], tip(rings[rings.length - 1]), false);
+  return M;
+}
+
+// A dress sandal (`boots: 'sandal'`), open at the toe: the bare foot (bareFootMesh, which the caller adds) on a
+// thin sole cut to its outline, a band across the roots of the toes, a narrower one over the instep, a strap round
+// the ankle and one down the back of the heel. All of it in the shoes' slot, so it takes their colour and leather.
+//
+// THE HEEL. A heel pitches the foot and would lift the whole body, and no clip allows for either. So it's done in
+// the mesh alone, on the same bones: everything behind the ball of the foot is turned up about the ball (heelPose),
+// which raises the ankle about 2 cm, and the shin's skin is drawn up by as much from mid calf down (ankleLift), so the
+// leg is that much shorter below the knee and nobody stands any taller. The foot and the shoe still ride the foot
+// bone, whose joint is now a little under the ankle that shows; over the few degrees a foot turns in a walk that
+// doesn't read. The whole foot is set back so the ankle stays over the heel.
+// (Turned up as one stiff board the foot was a ramp: no arch, the heel's seat as steep as the shank, and the
+// ankle end of the foot tipped forward into the shin, which stood out behind it as a lump. So the turn varies along
+// the foot, as a shoe's last does: none under the ball, steepest through the arch, easing to a nearly level seat
+// under the heel. The ankle end of the foot goes straight up with the shin instead of tipping, and the heel is
+// a little shorter and narrower than the flat foot's, which is a shoe's last and has a boot's heel.)
+const HEEL = (() => {
+  const zb = 0.1, th = (u) => 0.4 * smooth(0, 0.05, u) * (1 - 0.65 * smooth(0.07, 0.13, u)), N = 240, du = 0.001, Y = [0], Z = [0];
+  for (let i = 1; i <= N; i++) { const t = th((i - 0.5) * du); Y.push(Y[i - 1] + Math.sin(t) * du); Z.push(Z[i - 1] + Math.cos(t) * du); }
+  const along = (u) => { const f = Math.max(0, Math.min(N - 1e-6, u / du)), i = Math.floor(f), k = f - i; return [Y[i] + (Y[i + 1] - Y[i]) * k, Z[i] + (Z[i + 1] - Z[i]) * k, th(u)]; };
+  const ha = 0.095 - FOOT_SOLE, [ya, za, ta] = along(zb), lift = ya + ha * (Math.cos(ta) - 1), back = ha * Math.sin(ta) - (zb - za);
+  // a point of the flat foot, [y, z], where the heeled one has it
+  const pt = (y0, z0) => {
+    let u = zb - z0;
+    if (u <= 0) return [y0, z0 - back];
+    if (u > 0.11) u = 0.11 + (u - 0.11) * 0.7;
+    const [Yc, Zc, t] = along(u), h = y0 - FOOT_SOLE, a = smooth(0.06, 0.098, y0) * smooth(0.07, 0.03, Math.abs(z0));
+    const y = FOOT_SOLE + Yc + h * Math.cos(t), z = zb - Zc + h * Math.sin(t) - back;
+    // and the back of the heel leans in to the tendon as it climbs, instead of standing square behind it
+    return [y + a * (y0 + lift - y), z + a * (z0 - z) + 0.014 * smooth(0.035, 0.09, y0) * smooth(-0.02, -0.06, z0)];
+  };
+  return { lift, pt };
+})();
+// where the shin comes down into the foot: a little inboard of the foot's own middle
+const ANKLE_X = 0.0885;
+function heelPose(M) {
+  for (let i = 0; i < M.P.length; i += 3) {
+    let x = M.P[i], z0 = M.P[i + 2];
+    const y0 = M.P[i + 1], cx = Math.sign(x) * LEG_X;
+    // the top of the foot is a shoe's last, a block wider than the shin over it: toward the ankle its back and
+    // sides close in to the shin's own round, so the ankle is one column and the heel runs up into the tendon
+    // (and it leans in under the shin, which comes down 8 mm inboard of the foot's middle: square under it, the
+    // shin overhung the foot on the inside as a flap below the strap)
+    x += Math.sign(x) * (ANKLE_X - LEG_X - 0.002) * smooth(0.04, 0.09, y0) * smooth(0.075, 0.02, Math.abs(z0));
+    const ax = Math.sign(x) * ANKLE_X, r = Math.hypot(x - ax, z0 + 0.002), R = 0.0335;
+    // the instep is a ridge running up to the ankle, not the flat top of a shoe: its sides draw in as it climbs
+    x = ax + (x - ax) * (1 - 0.3 * smooth(0.04, 0.085, y0) * smooth(0.1, 0.05, z0) * smooth(-0.01, 0.02, z0));
+    if (r > R) { const k = 1 + smooth(0.05, 0.098, y0) * smooth(0.03, 0, z0) * (R / r - 1); x = ax + (x - ax) * k; z0 = -0.002 + (z0 + 0.002) * k; }
+    const [y, z] = HEEL.pt(y0, z0);
+    M.P[i] = cx + (x - cx) * (1 - 0.2 * smooth(-0.005, -0.055, z0));
+    M.P[i + 1] = y; M.P[i + 2] = z;
+  }
+  return M;
+}
+// (the shin's skin swells 8 mm a side at the ankle bones, which a boot hides and a strap shows as a lump over the
+// foot: below 0.17 it's held to the round the foot's top closes to)
+function ankleLift(M) {
+  for (let i = 0; i < M.P.length; i += 3) {
+    const x = M.P[i], y0 = M.P[i + 1], z = M.P[i + 2], cx = Math.sign(x) * ANKLE_X, r = Math.hypot(x - cx, z + 0.002), R = 0.0335;
+    if (r > R && y0 < 0.17) { const k = 1 + smooth(0.17, 0.135, y0) * (R / r - 1); M.P[i] = cx + (x - cx) * k; M.P[i + 2] = -0.002 + (z + 0.002) * k; }
+    M.P[i + 1] = y0 + HEEL.lift * smooth(0.34, 0.105, y0);
+  }
+  return M;
+}
+// A low shoe (`boots: 'dress'` or `'trainer'`): the upper on the shoe's last, and a sole of its own under it, a slab
+// cut to the outline a little wider than the upper so its edge shows (in the pad's piece, which the paint reads as the
+// sole: a dark welt for an oxford, white foam for a trainer). An oxford's toe box is pressed lower and longer, as a
+// last for a dress shoe is; a trainer's is fuller and its sole thicker. (toeArc, next, is every shoe's toe.)
+//
+// Every shoe and boot ends in one smooth line across its front, rounding only at the corners, whatever the foot's
+// outline under it: anything ahead of the line is drawn back onto it, so the big toe never shows through the leather.
+// `cut` is how far behind the foot's furthest point the line runs, `round` how far its corners fall back.
+function toeArc(rings, cut, round) {
+  const all = rings.flatMap((g) => g.ring), zmax = Math.max(...all.map((p) => p[2])), front = all.filter((p) => p[2] > zmax - 0.04);
+  const xs = front.map((p) => p[0]), xc = (Math.min(...xs) + Math.max(...xs)) / 2, hw = (Math.max(...xs) - Math.min(...xs)) / 2 + 0.004, toeZ = zmax - cut;
+  return (p) => { if (p[2] < toeZ - 0.06) return p; const u = Math.min(1, Math.abs(p[0] - xc) / hw), zf = toeZ - round * u ** 2.6; return p[2] > zf ? [p[0], p[1], zf] : p; };
+}
+function lowShoe(side, level, kind) {
+  const dress = kind === 'dress', L = side > 0 ? 'L' : 'R', w = toeW(L), M = newPart('foot' + L, FIG_SLOT.shoes);
+  // (the toe springs up a third as far as a boot's: a low shoe's toe sits nearly on the floor)
+  const spring = (z) => (z > 0.045 ? 0.004 + (shoeSole(z) - 0.004) * 0.35 : shoeSole(z));
+  const lift = dress ? 0.008 : 0.02, floor = (z) => spring(z) + lift * (dress ? 0.4 + 0.6 * gx(z - 0.014, 0.027) : 1);
+  const ext = dress ? [SHOE.heel - 0.002, SHOE.toe + 0.014] : [SHOE.heel + 0.004, SHOE.toe + 0.006];
+  const up = footRings(side, level.cols.foot, level.dy.foot, dress ? SHOE.ease - 0.005 : SHOE.ease + 0.002, floor, ext);
+  const zt = up[up.length - 1].ring[0][2];
+  const arc = toeArc(up, dress ? 0.016 : 0.018, dress ? 0.016 : 0.02);
+  // the upper, its toe pressed down toward the sole (an oxford's last is low and long in front)
+  const press = (p0) => { const p = arc(p0); if (!dress) return p; const f = smooth(0.06, zt, p[2]), fl = floor(p[2]); return [p[0], fl + (p[1] - fl) * (1 - 0.32 * f), p[2]]; };
+  const R = up.map(({ ring }) => ring.map((p) => addV(M, press(p), w(p[2]))));
+  const tip = (rg) => { const c = rg.ring.reduce((a, p) => [a[0] + p[0], a[1] + p[1], a[2] + p[2]], [0, 0, 0]).map((v) => v / rg.ring.length); return addV(M, press(c), w(c[2])); };
+  capFan(M, R[0], tip(up[0]), true);
+  stitchRings(M, R);
+  capFan(M, R[R.length - 1], tip(up[up.length - 1]), false);
+  // the sole: the outline grown a little, flattened between the floor and the sole's top edge
+  const so = footRings(side, level.cols.foot, level.dy.foot, (dress ? SHOE.ease - 0.005 : SHOE.ease + 0.002) + (dress ? 0.0035 : 0.005), floor, [ext[0] + 0.003, ext[1] + 0.003]);
+  const thick = dress ? 0.009 : 0.022;
+  const S = so.map(({ ring }) => ring.map((q, j) => { const fl = floor(q[2]), top = Math.sin((j / ring.length) * TAU) >= 0; const a = arc([q[0], 0, q[2] - 0.003]); return addV(M, [q[0], top ? fl + thick - lift : Math.max(0.0008, fl - lift), a[2] + 0.003], w(q[2]), FIG_PIECE.pad); }));
+  const mid = (rg, i) => { const c = rg.ring.reduce((a, q) => [a[0] + q[0], a[1] + q[2]], [0, 0]).map((v) => v / rg.ring.length); const z = Math.min(c[1], arc([c[0], 0, c[1] - 0.003])[2] + 0.003); return addV(M, [c[0], Math.max(0.0008, floor(z) - lift) + thick * 0.5, z], w(z), FIG_PIECE.pad); };
+  capFan(M, S[0], mid(so[0]), true);
+  stitchRings(M, S);
+  capFan(M, S[S.length - 1], mid(so[so.length - 1]), false);
+  return M;
+}
+function sandalMesh(side, level, leg, heeled = true) {
+  // (every point carries the strap's piece code: in the shoes' slot the paint reads that as a dress shoe, with no
+  // tread, sole line or scuffed toe)
+  const L = side > 0 ? 'L' : 'R', w = toeW(L), M = newPart('foot' + L, FIG_SLOT.shoes), TOP = FOOT_SOLE + 0.0012, BOT = 0.001, AX = FIG_PIECE.strap;
+  const rings = footRings(side, level.cols.foot, level.dy.foot, 0.003, () => 0, [0.003, 0.004]);
+  const R = rings.map(({ ring }) => ring.map((q, j) => addV(M, [q[0], Math.sin((j / ring.length) * TAU) >= 0 ? TOP : BOT, q[2]], w(q[2]), AX)));
+  const mid = (r) => { const c = r.ring.reduce((a, q) => [a[0] + q[0], a[1] + q[2]], [0, 0]).map((v) => v / r.ring.length); return addV(M, [c[0], (TOP + BOT) / 2, c[1]], w(c[1]), AX); };
+  capFan(M, R[0], mid(rings[0]), true);
+  stitchRings(M, R);
+  capFan(M, R[R.length - 1], mid(rings[rings.length - 1]), false);
+  // a band over the foot at `z`, from the sole's edge on one side to the other
+  const band = (z, half) => {
+    const [rx, cy, up, , cx, out] = bareSection(z), path = [], radii = [], n = 10, lift = 0.0024;
+    for (let i = 0; i <= n; i++) {
+      const a = (i / n) * Math.PI, c = Math.cos(a), sn = Math.sin(a);
+      path.push([side * (LEG_X + cx) + side * (rx + lift) * se(c, 2.3), Math.max(TOP - 0.002, cy + (up + lift) * se(sn, 2.2) - out * Math.max(0, c) * sn), z]);
+      radii.push(half);
+    }
+    tubeAlong(M, path, radii, 6, w(z), [0, 0, 1], 0.3, AX);
+  };
+  band(0.112, heeled ? 0.0085 : 0.011);
+  band(0.066, heeled ? 0.0042 : 0.0075);
+  // down the back of the heel to the sole
+  const ya = 0.112, S = leg.at(ya), lift = 0.003, hx = side * LEG_X;
+  const back = [[hx, ya, S.cz - S.zb - lift], [hx, 0.088, -0.047], [hx, 0.066, -0.063], [hx, 0.04, -0.0725], [hx, TOP, -0.069]];
+  tubeAlong(M, back, back.map(() => 0.0046), 6, w(-0.06), [1, 0, 0], 0.3, AX);
+  if (!heeled) {
+    // flat: a thicker sole and the strap round the ankle where it stands
+    const ring = [], rr = [];
+    for (let i = 0; i <= 16; i++) { const a = (i / 16) * TAU, c = Math.cos(a), sn = Math.sin(a); ring.push([S.cx + (Math.min(S.rx, 0.0335) + lift) * c, ya, S.cz + (Math.min(sn >= 0 ? S.zf : S.zb, 0.0335) + lift) * sn]); rr.push(0.005); }
+    tubeAlong(M, ring, rr, 6, legW(L)(ya), [0, 1, 0], 0.3, AX);
+    return M;
+  }
+  heelPose(M);
+  // the heel under it, tapering to the floor (placed after the pose: it stands straight)
+  const [hy, hz] = HEEL.pt(BOT, -0.05);
+  tubeAlong(M, [[hx, hy + 0.003, hz + 0.003], [hx, hy * 0.6, hz], [hx, hy * 0.25, hz - 0.002], [hx, 0.004, hz - 0.003], [hx, 0.0018, hz - 0.003]], [0.0165, 0.012, 0.0095, 0.0085, 0.0016], 8, w(-0.06), [1, 0, 0], 1, AX);
+  // and the strap round the ankle, where the ankle now is
+  const yr = ya + HEEL.lift, ring = [], rr = [];
+  for (let i = 0; i <= 16; i++) { const a = (i / 16) * TAU, c = Math.cos(a), sn = Math.sin(a); ring.push([S.cx + (Math.min(S.rx, 0.0335) + lift) * c, yr, S.cz + (Math.min(sn >= 0 ? S.zf : S.zb, 0.0335) + lift) * sn]); rr.push(0.0042); }
+  tubeAlong(M, ring, rr, 6, legW(L)(ya), [0, 1, 0], 0.3, AX);
   return M;
 }
 
@@ -1491,7 +1709,7 @@ function handBuild(side, level) {
 // spent at the joints.
 function handSculpt(side, level) {
   const L = side > 0 ? 'L' : 'R', wt = [[B['hand' + L], 1]], M = newPart('hand' + L, FIG_SLOT.skin), x = side * ARM_X;
-  const cols = level.name === 'hd' ? 7 : 5, pc = level.name === 'hd' ? 14 : 10;
+  const fine = level.name === 'hd', cols = fine ? 9 : 5, pc = fine ? 20 : 10;
   const F = [
     { z: 0.0255, ph: [0.035, 0.023, 0.018], r: 0.0088, bend: [0.1, 0.34, 0.26] },
     { z: 0.0085, ph: [0.038, 0.026, 0.019], r: 0.0093, bend: [0.14, 0.4, 0.3] },
@@ -1501,18 +1719,23 @@ function handSculpt(side, level) {
   const knuckleY = (z) => 0.786 + 0.1 * Math.max(0, -z) - 0.05 * Math.max(0, z);
   // the palm, wrist to knuckles: thick at the heel, broad at the knuckles, each knuckle a bump on the back
   const palm = [];
-  for (const t of [0, 0.25, 0.5, 0.75, 0.92, 1]) {
-    const y0 = 0.868 - 0.082 * t, rz = 0.0265 + 0.0165 * smooth(0, 0.65, t), rx = 0.0155 - 0.003 * t, cz = -0.004 + 0.005 * t, ring = [];
+  // (its first ring is the forearm's last: as thick, and centred where the forearm is, so the wrist is one line. It
+  // started 8 mm inboard of the forearm and 9 mm thinner, a step all the way round the inside of the wrist. From there
+  // it thins to a palm and its back rounds over: a hand's back is a low arch from the index knuckle to the little one)
+  for (const t of fine ? [0, 0.1, 0.22, 0.36, 0.5, 0.64, 0.78, 0.92, 1] : [0, 0.25, 0.5, 0.75, 0.92, 1]) {
+    const wr = 1 - smooth(0, 0.4, t), y0 = 0.868 - 0.082 * t + (t === 0 ? 0.0085 : 0), rz = 0.0265 - 0.0015 * wr + 0.0165 * smooth(0, 0.65, t), rx = 0.0155 - 0.003 * t + 0.0033 * wr, cz = -0.004 + 0.005 * t, ring = [];
     for (let j = 0; j < pc; j++) {
-      const a = (j / pc) * TAU, c = Math.cos(a), s = Math.sin(a), z = cz + rz * se(s, 2.5);
-      let px = rx * se(c, 2.5);
+      const a = (j / pc) * TAU, c = Math.cos(a), s = Math.sin(a), z = cz + rz * se(s, 2.5 - 0.4 * wr);
+      let px = rx * se(c, 2.5 - 0.4 * wr) - 0.0028 * wr;
+      if (c > 0) px += 0.0022 * smooth(0.15, 0.6, t) * (1 - ((z - cz) / rz) ** 2) * c;             // the back's arch
+      if (c < 0) px += 0.002 * gx(t - 0.5, 0.22) * (1 - ((z - cz) / rz) ** 2) * c * -1;              // and the palm's hollow
       if (c > 0) for (const f of F) px += 0.0026 * smooth(0.7, 1, t) * gx(z - f.z, 0.0065) * c;   // the knuckles
       const y = t > 0.5 ? y0 + (knuckleY(z) - 0.786) * smooth(0.5, 1, t) : y0;
       ring.push(addV(M, [x + side * px, y, z], wt));
     }
     palm.push(ring);
   }
-  capFan(M, palm[0], addV(M, [x, 0.873, -0.004], wt), true);
+  capFan(M, palm[0], addV(M, [x, fine ? 0.879 : 0.873, -0.004], wt), true);
   stitchRings(M, palm);
   capFan(M, palm[palm.length - 1], addV(M, [x, 0.776, 0.002], wt), false);
   // the fingers: down from their knuckles, each bone bent further toward the palm. Each finger's vertices carry
@@ -1600,9 +1823,10 @@ export function thumbJointsOf(k = 1) {
   return { j: j.map(sc), t: [1, 2].map((i) => Math.min(0.999, Math.hypot(j[i][0] - root[0], j[i][1] - root[1], j[i][2] - root[2]) / len)) };
 }
 // the hand's scale (buildFigure's hk) for a key, so room-people.js can find the prop on it
-export function handScaleOf({ build = 'average', weight = null, body = null } = {}, side = 1) {
+// 0.97 at an average build (1.1 read as mitts); a figure with a bust takes 0.9 of that
+export function handScaleOf({ build = 'average', weight = null, body = null, bust = null } = {}, side = 1) {
   const BK = buildOf(build), SW = weight !== null && weight !== undefined ? somaOf(weight) : null;
-  return 1.1 * Math.sqrt(BK.arm) * (SW ? SW.hand : 1) * (body?.mighty === (side > 0 ? 'L' : 'R') ? 1.12 : 1);
+  return 0.97 * (bust > 0 ? 0.9 : 1) * Math.sqrt(BK.arm) * (SW ? SW.hand : 1) * (body?.mighty === (side > 0 ? 'L' : 'R') ? 1.12 : 1);
 }
 export const propUpright = (name) => !!UPRIGHT[name];
 function propMesh(name, side, level, k) {
@@ -2071,7 +2295,7 @@ function cutLocks(M, style, r, hd, rows, cols, wt) {
 // counts too, a long one most. The street's six by index, then the cuts.
 const HAIR_LOOSE = [0, 0.2, 0.35, 1, 0.3, 0.8, 0.6, 1, 0.2, 0.15, 0.15, 1, 0.05, 0.4, 0.2, 0.25, 1, 0.2, 0.9, 0.7, 0.2,
   0.65, 0.08, 0.25, 0.55, 0.12, 0.85, 1, 0.1, 0.2, 1, 1, 0.04];
-const BEARD_LOOSE = { full: 0.3, long: 0.6, handlebar: 0.1, walrus: 0.25, fumanchu: 0.9, forked: 0.6, braided: 0.7, bushy: 0.35 };
+const BEARD_LOOSE = { short: 0, goatee: 0, full: 0.3, long: 0.6, handlebar: 0.1, walrus: 0.25, fumanchu: 0.9, forked: 0.6, braided: 0.7, bushy: 0.35 };
 export const hairLoose = (style, beard) => Math.max(HAIR_LOOSE[style | 0] ?? 0.3, BEARD_LOOSE[beard] ?? 0);
 function hairLocks(level, style, fs, spikes = 0, fan = 0) {
   const M = newPart('locks', FIG_SLOT.hair), r = rng(0x10c5 + style), LS = LOCK_STYLE[style], hd = level.name === 'hd', rows = hd ? 6 : 3, cols = hd ? 6 : 3, wt = [[B.head, 1]];
@@ -2106,6 +2330,23 @@ function hairLocks(level, style, fs, spikes = 0, fan = 0) {
     for (let i = 0; i <= rows; i++) { const t = i / rows; sp.push(lockPoint(a0 + (a1 - a0) * t, b0 + (b1 - b0) * t, 1.022 + 0.02 * Math.sin(Math.PI * t) * LS[0] + 0.012 * t)); }
     blade(sp, 0.0125 * (0.8 + 0.5 * r()) * (hd ? 1 : 1.3), r());
   }
+  // THE UNDER LAYERS at the back, close up: two rows of short locks lying down the skull behind the ears and across
+  // the nape, the lower ending just above the hairline and the upper overlapping it, under the rows above. A cut
+  // is longest on top and shortest at its edge, in steps; without them the top rows ended in mid air over a bare
+  // shell. Rooted on the skull itself (skullPoint), so they lie on it. Not under long hair, which covers the nape.
+  if (hd && style !== 3) for (const [rise, drop, w, lay] of [[0.03, 0.005, 0.0085, 0.0028], [0.052, 0.02, 0.0105, 0.0046]]) {
+    for (const sd of [1, -1]) for (let a = -30 - (rise > 0.04 ? 4 : 0); a >= -90; a -= 16) {
+      if (sd < 0 && a <= -89) continue;   // the middle of the back once
+      const phi = (a + (r() - 0.5) * 5) * D2R, e0 = skullPoint(1.6, phi, fs), hl = hairlineAt(e0[0], e0[2], HAIRLINE_SCULPT);
+      const y0 = hl + rise + (r() - 0.5) * 0.008, y1 = hl + drop + (r() - 0.5) * 0.005, sweep = (r() - 0.5) * 9 * D2R, sp = [];
+      for (let i = 0; i <= 3; i++) {
+        const t = i / 3, q = skullPoint(y0 + (y1 - y0) * t, phi + sweep * t, fs), k = lay * (0.35 + Math.sin(Math.PI * Math.min(1, t * 1.2)) * 0.65) * (1 - 0.55 * t * t);
+        const dx = q[0], dz = q[2] - ZC, L = Math.hypot(dx, dz) || 1;
+        sp.push([(q[0] + (dx / L) * k) * sd, q[1], q[2] + (dz / L) * k]);
+      }
+      lockBlade(M, sp, w * 1.35 * (0.85 + 0.35 * r()), r(), 3, wt, 0.5);
+    }
+  }
   // long hair: each blade rises from its own root on the crown, runs back over the skull and only then
   // falls to the shoulders, so there's no line where the hanging hair starts; shorter at the face
   if (style === 3) for (let a = -104; a <= 104; a += hd ? 17.33 : 34.67) {
@@ -2126,17 +2367,18 @@ function hairLocks(level, style, fs, spikes = 0, fan = 0) {
     blade(spine, 0.031 * (1 + 0.55 * fan) * (0.9 + 0.3 * r()), r());
   }
   return M;
-  function blade(spine, w0, seed) { lockBlade(M, spine, w0, seed, cols, wt); }
+  // (hair that lies flat, neat or long, is in thin blades close up: at full thickness each lock was a plank)
+  function blade(spine, w0, seed) { lockBlade(M, spine, w0, seed, cols, wt, hd && LS[1] < 0.5 ? 0.42 : 1); }
 }
 // One lock: a flat blade down its spine, fullest a third of the way along, a point at the end.
-function lockBlade(M, spine, w0, seed, cols, wt) {
+function lockBlade(M, spine, w0, seed, cols, wt, thick = 1) {
   const rows = spine.length - 1, R = [];
   for (let i = 0; i <= rows; i++) {
     const t = i / rows, p = spine[i], q = spine[Math.min(rows, i + 1)], o = spine[Math.max(0, i - 1)];
     const T = norm3([q[0] - o[0], q[1] - o[1], q[2] - o[2]]), out = norm3([p[0] - LOCK_C[0], p[1] - LOCK_C[1], p[2] - LOCK_C[2]]);
     const U = norm3(cross(T, out)), V = cross(U, T);
     // fullest a third of the way along, a point at the end
-    const w = w0 * (t < 0.3 ? 0.62 + 0.38 * smooth(0, 0.3, t) : Math.max(0.03, (1 - (t - 0.3) / 0.7) ** 0.75)), h = 0.34 * w + 0.0012, ring = [];
+    const w = w0 * (t < 0.3 ? 0.62 + 0.38 * smooth(0, 0.3, t) : Math.max(0.03, (1 - (t - 0.3) / 0.7) ** 0.75)), h = 0.34 * w * thick + 0.0012, ring = [];
     for (let j = 0; j < cols; j++) {
       const a = (j / cols) * TAU, c = Math.cos(a), sn = Math.sin(a);
       ring.push(addV(M, [p[0] + U[0] * c * w + V[0] * sn * h, p[1] + U[1] * c * w + V[1] * sn * h, p[2] + U[2] * c * w + V[2] * sn * h], wt, 1 + seed * 0.9, [Math.abs(c), t]));
@@ -2157,14 +2399,17 @@ function beardLocks(level, kind, fs) {
   if (kind === 'walrus') return walrusLocks(M, hd, fs, wt);
   if (kind === 'fumanchu') return fuManchuLocks(M, hd, fs, wt);
   // forked and braided are long beards; bushy is a full one grown out wide
-  const forked = kind === 'forked', braided = kind === 'braided', bushy = kind === 'bushy', lng = long || forked;
-  for (let a = hd ? 30 : 58; a <= (hd ? 150 : 122); a += hd ? 6.5 : 32) {
+  // short is a full beard kept close: short locks lying on the jaw, a little body at the chin
+  const forked = kind === 'forked', braided = kind === 'braided', bushy = kind === 'bushy', goat = kind === 'goatee', short = kind === 'short' || goat, lng = long || forked;
+  // a goatee is the short beard on the chin alone, the cheeks bare
+  const a0 = goat ? (hd ? 66 : 70) : hd ? 30 : 58, a1 = goat ? (hd ? 114 : 110) : hd ? 150 : 122, da = goat ? (hd ? 6 : 20) : hd ? 6.5 : 32;
+  for (let a = a0; a <= a1; a += da) {
     const phi = (a + (r() - 0.5) * 4) * D2R, s = Math.sin(phi), c = Math.cos(phi), y0 = 1.562 - 0.03 * s * s + (r() - 0.5) * 0.008, p = skullPoint(y0, phi, fs);
-    const L = (lng ? 0.06 + 0.11 * s ** 3 : bushy ? 0.045 + 0.05 * s * s : 0.03 + 0.028 * s * s) * (0.8 + 0.4 * r()), spine = [];
+    const L = (lng ? 0.06 + 0.11 * s ** 3 : bushy ? 0.045 + 0.05 * s * s : goat ? 0.004 + 0.004 * s * s : short ? 0.009 + 0.009 * s * s : 0.03 + 0.028 * s * s) * (0.8 + 0.4 * r()), spine = [];
     // a fork's two points, either side of the chin
     const fx = forked ? (p[0] >= 0 ? 1 : -1) * 0.024 : 0;
     for (let i = 0; i <= rows; i++) {
-      const t = i / rows, inn = 1 - (lng ? 0.42 : bushy ? 0.08 : 0.24) * t, puff = bushy ? 0.014 * Math.sin(Math.PI * Math.min(1, t * 1.2)) : 0;
+      const t = i / rows, inn = 1 - (lng ? 0.42 : bushy ? 0.08 : short ? 0.05 : 0.24) * t, puff = bushy ? 0.014 * Math.sin(Math.PI * Math.min(1, t * 1.2)) : 0;
       const x = forked ? p[0] + (fx - p[0]) * Math.min(1, t * 1.1) * 0.85 : p[0] * inn * (1 + puff * 12);
       spine.push([x, p[1] - L * t, p[2] + s * (0.006 * Math.sin(Math.PI * Math.min(1, t * 1.4)) + 0.01 * t + puff) + 0.002]);
     }
@@ -2252,6 +2497,9 @@ function eyeParts(fs) {
       const ex = (i / 8) * rx, ey = (j / 6) * ry, q = 1 - (ex / rx) ** 2 - (ey / ry) ** 2;
       if (q > 0) zc = Math.min(zc, facePoint(cx + ex, cy + ey, fs)[2] - rz * Math.sqrt(q) - 0.0007);
     }
+    // (2 mm further forward than that: set fully behind the skin all round, the ball sat so deep that from the side
+    // nothing of its white showed in the opening)
+    zc += 0.002;
     // the ball carries the depth of the skin over its middle in its aux: gl/figure-hd.js traces the line of sight out to it
     const R = [], rings = 7, cols = 14, zs = facePoint(cx, cy, fs)[2];
     for (let i = 1; i <= rings; i++) {
@@ -2280,7 +2528,7 @@ function eyeParts(fs) {
     for (const up of [true, false]) {
       const n = 12, cols2 = 6, L = [], yOf = (ex, K) => cy + E.tilt * ex + (up ? E.t : -E.b) * K;
       for (let i = 0; i <= n; i++) {
-        const t = (i / n) * 2 - 1, ex = t * E.w, K = 1 - t * t, y = yOf(ex, K), p = facePoint(side * (E.x + ex), y, fs), tp = Math.sqrt(K) * 0.85 + 0.15, thick = (up ? 0.0034 : 0.0013) * tp, tall = (up ? 0.0024 : 0.0011) * tp, ring = [];
+        const t = (i / n) * 2 - 1, ex = t * E.w, K = 1 - t * t, y = yOf(ex, K), p = facePoint(side * (E.x + ex), y, fs), tp = Math.sqrt(K) * 0.85 + 0.15, thick = (up ? 0.0034 : 0.0013) * tp, tall = (up ? 0.0031 : 0.0011) * tp, ring = [];
         const travel = cy + E.tilt * ex - E.b * K + 0.0003 - y;
         for (let k = 0; k < cols2; k++) { const a = (k / cols2) * TAU; ring.push(addV(lids, [side * (E.x + ex), y + tall * Math.sin(a) + (up ? 0.0006 * tp : -0.0003 * tp), p[2] + (up ? 0.0009 : 0.0003) + thick * Math.cos(a)], wt, 0.5 + 0.5 * Math.sin(a), [up ? 1 : 0, travel])); }
         L.push(ring);
@@ -2351,13 +2599,22 @@ const MIGHTY_K = 1.28;
 // The standing figure's height to the crown of its skull, in metres: what flags.figure.height is measured against.
 export const FIGURE_CROWN = FACE.top;
 export const SCULPT_BUILDS = {
-  average: { chest: 1, waist: 1, hips: 1, arm: 1, leg: 1, neck: 1 },
+  // (a man's: the chest a little fuller over a narrower waist and hips, so the shoulders are the widest
+  // thing on him. `thigh` moves the tops of the legs in or out, which is what the hips' width is)
+  average: { chest: 1.05, waist: 0.95, hips: 0.95, arm: 1, upper: 0.15, fore: 0.08, leg: 1, neck: 1, sh: 0.008, thigh: -0.008 },
   older: { chest: 0.94, waist: 1.02, hips: 0.98, belly: 0.02, arm: 0.86, leg: 0.88, neck: 0.92, hunch: 0.14 },
+  // a man in his eighties who was never big: the shoulders narrow and sloping, a smaller deltoid on thin arms,
+  // a soft belly over the belt, the chest gone in a little
+  elder: { chest: 0.9, waist: 1.04, hips: 0.98, belly: 0.03, arm: 0.84, upper: -0.04, delt: 0.75, yoke: 0.92, leg: 0.9, neck: 0.92, sh: -0.012, hunch: 0.1 },
   hunched: { chest: 0.97, waist: 1, hips: 1, arm: 0.96, leg: 0.97, neck: 0.98, hunch: 0.24 },
   // a beer gut on a man who used to play some sport: the chest and arms still there, the belly well
   // out past them, the neck thick, standing a touch back to carry it
   dadbod: { chest: 1.02, waist: 1.12, hips: 1.04, belly: 0.05, arm: 1.0, leg: 1.0, neck: 1.2, sh: 0.004, hunch: 0.05, abduct: 0.04 },
-  woman: { chest: 0.87, waist: 0.8, hips: 1.14, bust: 0.026, arm: 0.88, leg: 0.97, neck: 0.82, sh: -0.02 },
+  // (an hourglass: the waist well in under the ribs, the hips and the tops of the thighs out past the shoulders'
+  // line, and the top of the shoulder left sloping, `yoke`, where a man's is built out square, under a smaller deltoid, `delt`, on a slimmer upper arm)
+  woman: { chest: 0.86, waist: 0.71, hips: 1.22, bust: 0.026, arm: 0.88, upper: -0.08, delt: 0.55, shFill: 0.016, yokeW: 1.3, leg: 0.99, neck: 0.82, sh: -0.02, thigh: 0.008, yoke: 0.85 },
+  // an exaggerated hourglass: the woman's shape pushed, the waist pinched right in, the hips and seat wide, the chest fuller
+  hourglass: { chest: 0.9, waist: 0.6, hips: 1.36, bust: 0.03, arm: 0.88, upper: -0.08, delt: 0.55, shFill: 0.016, yokeW: 1.3, leg: 1.0, neck: 0.82, sh: -0.02, thigh: 0.014, yoke: 0.85 },
   // a big man built big all over rather than round in the middle: broad through the chest and hips, a modest belly,
   // heavy thighs and calves, a thick neck (Angus Malcolm at Screw It)
   stocky: { chest: 1.05, waist: 1.03, hips: 1.07, belly: 0.012, arm: 1.04, leg: 1.13, neck: 1.18, sh: 0.004, hunch: 0.03 },
@@ -2378,6 +2635,8 @@ export const FIGURE_FACIAL = {
   sideburns: { stubble: 0.2, shape: [0, 0, 0, 1] },
   trimmed: { stubble: 0.5, shape: [1, 1, 1, 1], more: [0, 0, 1] },
   full: { stubble: 0.5, shape: [1, 1, 1, 1], more: [0, 0, 1], mesh: 'full' },
+  short: { stubble: 0.6, shape: [1, 1, 1, 1], more: [0, 0, 1], mesh: 'short' },
+  goatee_short: { stubble: 0.9, shape: [0, 1, 1, 0], more: [0, 0, 1], mesh: 'goatee' },
   long: { stubble: 0.5, shape: [1, 1, 1, 1], more: [0, 0, 1], mesh: 'long' },
   handlebar: { stubble: 1.1, shape: [0, 0, 1, 0], mesh: 'handlebar' },
   handlebar_patch: { stubble: 1.3, shape: [0, 0, 1, 0], more: [1, 0, 0], mesh: 'handlebar' },
@@ -2421,9 +2680,11 @@ const bustDome = (ax, y, d, g = 1) => { const B = bustGeo(d, g), up = y > B.cy, 
 // under it, not a teardrop hanging to the fold; and the small of the back curved in over it, so the curve reads from
 // the side. Heavy (`g` past 1) it widens and sits a little lower, and stays round.
 const seatDome = (ax, y, g = 1) => {
-  const sc = Math.sqrt(g), sag = Math.max(0, g - 1), cy = 0.905 - 0.04 * sag;
-  const u = (ax - 0.07 - 0.01 * sag) / (0.09 * sc), v = (y - cy) / ((y < cy ? 0.082 + 0.02 * sag : 0.098 + 0.03 * sag) * sc), q = 1 - u * u - v * v;
-  const dome = q > 0 ? Math.pow(q, y < cy ? 0.42 : 0.5) * smooth(0.798 - 0.04 * sag, 0.832 - 0.035 * sag, y) * smooth(0.008, 0.042, ax) : 0;
+  // (a round, not a drop: its middle at the middle of the seat, as far down as up, the same curve under as over.
+  // Only a heavy body's sags, `sag`)
+  const sc = Math.sqrt(g), sag = Math.max(0, g - 1), cy = 0.928 - 0.04 * sag;
+  const u = (ax - 0.07 - 0.01 * sag) / (0.086 * sc), v = (y - cy) / ((y < cy ? 0.08 + 0.02 * sag : 0.09 + 0.03 * sag) * sc), q = 1 - u * u - v * v;
+  const dome = q > 0 ? Math.pow(q, 0.5) * smooth(0.815 - 0.04 * sag, 0.856 - 0.035 * sag, y) * smooth(0.008, 0.042, ax) : 0;
   return dome - 0.2 * gx(y - 1.035, 0.035) * gx(ax, 0.075);
 };
 // `bust` and `butt` (0 to 1, null for the build's own) size the chest's two lobes and the seat's, on the sculpted body.
@@ -2440,20 +2701,36 @@ function partsFor(body, sculpt = false, build = 'average', weight = null, bust =
     // the sculpted figure's proportions, on the same joints: the upper arm slimmed, but not the deltoid
     // over it, which comes back to full size above the armpit so it caps the torso's shoulder corner
     // and is the shoulder's outline, instead of a knob hung under a square shoulder
-    const arm = (P) => ({ ...P, at: (y) => { const S = P.at(y), up = smooth(1.16, 1.34, y) * (1 - 0.85 * smooth(1.33, 1.385, y)), k = 1 - 0.17 * up, kz = 1 - 0.08 * up + 0.06 * gx(y - 1.385, 0.025), dk = gx(y - 1.385, 0.035) * (W ? Math.min(1, 0.35 + 0.4 * W.S.muscle) : 1); return { ...S, cz: S.cz + 0.008 * dk, rx: S.rx * k * Bd.arm, zf: S.zf * (kz + 0.28 * dk) * Bd.arm, zb: S.zb * (kz + 0.14 * dk) * Bd.arm, cx: S.cx - P.side * ((0.012 - (Bd.sh || 0) - (W?.S.sh || 0)) * smooth(1.2, 1.38, y) ) }; } });
+    // (2026-11-21: the deltoid was a pad. The upper arm was slimmed 17% under a deltoid at full size with 14 mm of
+    // relief on it, so the shoulder stood 3 cm proud of the arm over 7 cm of its length: a knob hanging, and a lump
+    // pointing up on a raised arm. Now the upper arm keeps nearly its size (`upper` on a build thickens it without
+    // the hands), the deltoid is a little narrower with half the relief, and the two run into each other over about
+    // 12 cm, as the muscle does down to where it ties in.)
+    const ARM_SHAPE = { slim: 0.05, fill: 0.1, delt: 0.045, relief: 0.3, zf: 0.06, zb: 0.03 };
+    const arm = (P) => ({ ...P, relief: (x, y, c, s) => P.relief(x, y, c, s) * (1 - ARM_SHAPE.relief * gx(y - 1.37, 0.05) * smooth(-0.5, 0.2, c)), at: (y) => { const S = P.at(y), up = smooth(1.16, 1.34, y) * (1 - 0.85 * smooth(1.3, 1.385, y)), ku = (1 + (Bd.upper || 0) * smooth(1.12, 1.18, y) * smooth(1.35, 1.3, y)) * (1 + (Bd.fore || 0) * gx(y - 1.03, 0.07)), k = (1 - ARM_SHAPE.slim * up) * (1 + ARM_SHAPE.fill * gx(y - 1.3, 0.055)) * (1 - 0.14 * (1 - (Bd.delt ?? 1)) * gx(y - 1.36, 0.06)) * (1 - ARM_SHAPE.delt * gx(y - 1.372, 0.03)) * ku, kz = (1 - 0.03 * up + 0.015 * gx(y - 1.385, 0.03)) * ku, dk = gx(y - 1.375, 0.05) * (W ? Math.min(1, 0.35 + 0.4 * W.S.muscle) : 1) * (Bd.delt ?? 1); return { ...S, cz: S.cz + 0.006 * dk, rx: S.rx * k * Bd.arm, zf: S.zf * (kz + ARM_SHAPE.zf * dk) * Bd.arm, zb: S.zb * (kz + ARM_SHAPE.zb * dk) * Bd.arm, cx: S.cx - P.side * ((0.012 - (Bd.sh || 0) - (W?.S.sh || 0)) * smooth(1.2, 1.38, y) ) }; } });
     // the deltoid's round: above the armpit the arm closes as a dome, leaning in over the shoulder joint,
     // so it caps the torso's corner instead of standing beside it on a flat ring
-    const DELT = 1.388, DTOP = PARTS.armL.hi + 0.016;
+    const DELT = 1.366, DTOP = PARTS.armL.hi + 0.028;
     const dome = (P) => ({ ...P, hi: DELT + (DTOP - DELT) * 0.97, cap: DTOP, at: (y) => {
       if (y <= DELT) return P.at(y);
-      const S = P.at(DELT), t = (y - DELT) / (DTOP - DELT), f = Math.sqrt(Math.max(0, 1 - t * t));
-      return { ...S, rx: S.rx * f, zf: S.zf * f, zb: S.zb * f, cx: S.cx - P.side * 0.022 * t * t };
+      const S = P.at(DELT), t = (y - DELT) / (DTOP - DELT), // (over a sloping yoke the round closes sooner, or its top stands up off the shoulder as a knob. Its height can't
+      // change by build: every build keeps the same rings, which the street's body offsets pair vertex for vertex)
+      f = Math.max(0, 1 - t * t) ** (0.6 + 0.5 * (1 - (Bd.yoke ?? 1)));
+      return { ...S, rx: S.rx * f, zf: S.zf * f, zb: S.zb * f, cx: S.cx - P.side * 0.03 * t * t };
     } });
-    const leg = (P) => ({ ...P, at: (y) => { const S = P.at(y), k = 1 + 0.05 * gx(y - 0.37, 0.07) - 0.05 * gx(y - 0.49, 0.03) - 0.04 * gx(y - 0.17, 0.05), q = k * (1 + (Bd.leg - 1) * smooth(0.12, 0.42, y)); return { ...S, rx: S.rx * q, zf: S.zf * q, zb: S.zb * q, cx: S.cx + P.side * (W?.S.thigh || 0) * smooth(0.45, 0.85, y) }; } });
+    const leg = (P) => ({ ...P, at: (y) => { const S = P.at(y), k = 1 + 0.05 * gx(y - 0.37, 0.07) - 0.05 * gx(y - 0.49, 0.03) - 0.04 * gx(y - 0.17, 0.05), q = k * (1 + (Bd.leg - 1) * smooth(0.12, 0.42, y)); return { ...S, rx: S.rx * q, zf: S.zf * q, zb: S.zb * q, cx: S.cx + P.side * ((W?.S.thigh || 0) + (Bd.thigh || 0)) * smooth(0.45, 0.85, y) }; } });
+    // (2026-11-21: the torso's own shoulder ended at 15 cm and fell away steeply, leaving the deltoid's round to be
+    // the shoulder. Arms down that held; an arm raised took the round with it and left a notch between the neck's
+    // slope and the deltoid. So the top rings are wider: the slope from the neck runs out to the joint under the
+    // round, and a raised deltoid runs into it.)
+    // (A narrow build needs more of the same. The woman's torso sloped away from the neck and stopped 3 cm short of
+    // her arm, front and back, so the arm's round sat on the slope as a lobe with a dip beside it. `yokeW` widens her
+    // top rings on its own (her `yoke` still shapes the round), and `shFill` fills the torso's outer corners at the
+    // shoulder, more behind than in front, out to where the arm's surface is.)
     const torso = { ...PS.torso,
       // only the chest is held in under the arms: an endomorph's belly goes out past them
-      at: (y) => { const S = PS.torso.at(y), k = widthK(y), d = Math.sqrt(k), rx = S.rx * (1 - 0.055 * gx(y - 1.4, 0.05)) * (1 - 0.2 * smooth(1.385, 1.435, y)) * (1 - 0.09 * gx(y - 1.375, 0.04)) * k; return { ...S, rx: y > 1.3 || !W ? Math.min(rx, 0.205) : rx, zf: S.zf * d, zb: S.zb * d, nf: S.nf - 0.3 * gx(y - 1.39, 0.04), nb: S.nb - 0.25 * gx(y - 1.39, 0.04) }; },
-      relief: (x, y, c, s) => { const F = smooth(0.12, 0.6, s), K = smooth(0.12, 0.6, -s), ax = Math.abs(x); return torsoRelief(x, y, c, s) * (S ? S.muscle : 1) + (S ? somaRelief(S, x, y, c, s) : 0) + F * ((Bd.belly || 0) * gx(x, 0.13) * gx(y - 1.09, 0.1) + (Bd.bust || 0) * Math.max(1, bustK) * bustDome(ax, y, Bd.bust || 0, bustK)) + K * seatK * bustK * seatDome(ax, y, bustK) + (groin === 'm' ? F * groinForm(x, y) : 0); } };
+      at: (y) => { const S = PS.torso.at(y), k = widthK(y), d = Math.sqrt(k), rx = S.rx * (1 - 0.055 * gx(y - 1.4, 0.05)) * (1 - 0.02 * smooth(1.385, 1.435, y)) * (1 + (Bd.yokeW ?? Bd.yoke ?? 1) * (0.32 * smooth(1.4, 1.432, y) + 0.3 * smooth(1.45, 1.462, y))) * (1 - 0.09 * gx(y - 1.375, 0.04)) * k; return { ...S, rx: y > 1.3 || !W ? Math.min(rx, 0.205) : rx, zf: S.zf * d, zb: S.zb * d, nf: S.nf - 0.3 * gx(y - 1.39, 0.04), nb: S.nb - 0.25 * gx(y - 1.39, 0.04) }; },
+      relief: (x, y, c, s) => { const F = smooth(0.12, 0.6, s), K = smooth(0.12, 0.6, -s), ax = Math.abs(x); return torsoRelief(x, y, c, s) * (S ? S.muscle : 1) + (S ? somaRelief(S, x, y, c, s) : 0) + (Bd.shFill ?? 0) * gx(y - 1.385, 0.045) * smooth(0.55, 0.9, Math.abs(c)) * (0.55 + 0.45 * smooth(0, 0.5, -s)) + F * ((Bd.belly || 0) * gx(x, 0.13) * gx(y - 1.09, 0.1) + (Bd.bust || 0) * Math.max(1, bustK) * bustDome(ax, y, Bd.bust || 0, bustK)) + K * seatK * bustK * seatDome(ax, y, bustK) + (groin === 'm' ? F * groinForm(x, y) : 0); } };
     out = { ...PARTS, torso, armL: domed ? dome(arm(PS.armL)) : arm(PS.armL), armR: domed ? dome(arm(PS.armR)) : arm(PS.armR), legL: leg(PS.legL), legR: leg(PS.legR) };
   }
   if (!body?.mighty) return out;
@@ -2756,10 +3033,16 @@ function specsMesh(Lv, fs) {
 function hatBill(HT, Lv) {
   const BL = HT.bill, [, cyc, czc] = HT.crown[0], [rx, ry, rz] = HT.crown[1], hd = Lv.name === 'hd';
   const ns = hd ? 16 : 8, nt = hd ? 5 : 3, k = Math.sqrt(Math.max(0, 1 - ((BL.y - cyc) / ry) ** 2)), wt = [[B.head, 1]];
+  // where the peak is rooted: on a fitted shell, the shell's own surface at the bill's height; else the crown's ellipse
+  const root = (ph, n) => {
+    if (!HT.fit) return [rx * k * n[0], czc + rz * k * n[1]];
+    const p = skullPoint(BL.y, Math.PI / 2 - ph), d = [p[0], p[2] - ZC], r = Math.hypot(d[0], d[1]) || 1, e = (r + HT.fit.off * 1.15) / r;
+    return [d[0] * e, ZC + d[1] * e];
+  };
   const at = (s, t, low) => {
-    const ph = s * BL.span, n = [Math.sin(ph), Math.cos(ph)], o = BL.out * Math.sqrt(Math.max(0, 1 - s * s)) * t;
+    const ph = s * BL.span, n = [Math.sin(ph), Math.cos(ph)], o = BL.out * Math.sqrt(Math.max(0, 1 - s * s)) * t, q = root(ph, n);
     const y = BL.y - BL.bend * s * s * t ** 0.85 - BL.tilt * t - (low ? BL.th * (1 - 0.4 * t) : 0);
-    return [rx * k * n[0] + n[0] * o, y, czc + rz * k * n[1] + n[1] * o];
+    return [q[0] + n[0] * o, y, q[1] + n[1] * o];
   };
   const M = newPart('bill', FIG_SLOT.hat), R = [];
   for (let j = 0; j <= nt; j++) {
@@ -2771,6 +3054,29 @@ function hatBill(HT, Lv) {
   stitchRings(M, R);
   const e = at(0, 1, false);
   capFan(M, R[nt], addV(M, [e[0], e[1] - BL.th * 0.3, e[2]], wt, FIG_PIECE.bill), false);
+  orient(M);
+  return M;
+}
+// A fitted cap's crown (FIGURE_HATS `fit`): rings from the band (capBandY, low at the back) up to the crown, each
+// point the skull's own pushed `off` out round the skull's axis, the front panels standing a touch prouder, closed
+// by a fan at the top where the button is. FIG_PIECE.hat, so the shader paints it as it did the old crown.
+function hatShell(HT, Lv) {
+  const off = HT.fit.off, hd = Lv.name === 'hd', nu = hd ? 36 : 16, nv = hd ? 10 : 5, wt = [[B.head, 1]], top = FACE.top;
+  const M = newPart('hat', FIG_SLOT.hat), R = [];
+  for (let j = 0; j <= nv; j++) {
+    const t = j / nv, ring = [];
+    for (let i = 0; i <= nu; i++) {
+      const ph = (i % nu) / nu * TAU, a = Math.atan2(Math.cos(ph), Math.sin(ph) - 0), yb = capBandY(a) - 0.003 * (1 - t);
+      const y = yb + (top - 0.0015 - yb) * t ** 0.85, p = skullPoint(Math.min(top - 0.0015, y), ph);
+      const d = [p[0], p[2] - ZC], r = Math.hypot(d[0], d[1]) || 1e-4;
+      // the front panels are built up, so they stand off the forehead more toward the top
+      const o = off * (1 + 1.1 * Math.max(0, Math.sin(ph)) ** 1.5 * Math.sin(Math.PI * Math.min(1, t * 1.15)));
+      ring.push(addV(M, [d[0] * (r + o) / r, y + off * 0.85 * t * t, ZC + d[1] * (r + o) / r], wt, FIG_PIECE.hat));
+    }
+    R.push(ring);
+  }
+  stitchRings(M, R);
+  capFan(M, R[nv], addV(M, [0, top + off * 0.9, ZC], wt, FIG_PIECE.hat), false);
   orient(M);
   return M;
 }
@@ -2796,6 +3102,45 @@ function torsoBox(name, slot, ringAt, a0, a1, y0, y1, e0, e1, bulge, aux) {
   capFan(M, R1, addV(M, onTorso(ringAt, am, ym, e1 + bulge), TORSO_CHAIN(ym), aux), false);
   orient(M);
   return M;
+}
+// A work apron (`apron: 'bib'` or `'waist'`), in the gear's leather: a panel down the front from the waist to the
+// knee, hung off whatever is under it (the top, the trousers, a skirt) and skinned as a skirt is, so a stride carries
+// it on the thighs; a bib over the chest on the top's layer for 'bib'; and the ties round the back at the waist.
+// The panel is the front columns of a skirt's rings, so its two sides run straight down a column each.
+function apronParts(layers, ringAt, Lv, kind, waist) {
+  const out = [], H = Math.PI / 2, wy = waist + 0.012;
+  const wraps = (y) => (y >= T_TORSO.lo + 0.005 ? (y < 0.95 ? ['torso', 'legL', 'legR'] : ['torso']) : ['legL', 'legR']);
+  const centre = (y) => [0, torsoSection(Math.max(T_TORSO.lo, Math.min(T_TORSO.hi, y))).cz];
+  // a sheet over the front: the columns of a cloth's rings whose ray is within `arc` of straight ahead
+  const panel = (name, y0, y1, arc, ease, W) => {
+    const rings = clothRings(layers, { name, kind: 'torso', y0, y1, aux: FIG_PIECE.apron, wraps, centre, ease, hug: 0, drape: 0.5 }, Lv);
+    if (rings.length < 2) return;
+    const front = rings[0].dirs.map((d, k) => [k, Math.atan2(d[0], d[1])]).filter(([, a]) => Math.abs(a) < arc).sort((p, q) => p[1] - q[1]).map(([k]) => k);
+    const M = newPart(name, FIG_SLOT.gear), idx = rings.map((r) => front.map((k) => addV(M, r.pts[k], W(r.pts[k][0], r.y), FIG_PIECE.apron)));
+    for (let i = 0; i + 1 < idx.length; i++) for (let j = 0; j + 1 < front.length; j++) {
+      const a = idx[i][j], b = idx[i][j + 1], c = idx[i + 1][j], d = idx[i + 1][j + 1];
+      M.I.push(a, c, b, b, c, d);
+    }
+    orient(M);
+    out.push(M);
+  };
+  // the skirt, from the waist to the knee (to above it, tied at the waist), a little fuller toward its hem
+  panel('apron', wy, kind === 'bib' ? 0.5 : 0.6, 0.95, (y) => 0.006 + 0.01 * smooth(wy, 0.7, y), skirtW);
+  // the bib, over the chest and up to under the collarbones: over the bust as the top is, not across it
+  if (kind === 'bib') {
+    panel('apronBib', 1.3, wy - 0.004, 0.62, () => 0.005, torsoW);
+    // and its strap: from each top corner up over the chest to the side of the neck and round the back of it
+    const S = newPart('apronStrap', FIG_SLOT.gear), N = neckAt(1.45);
+    for (const sd of [1, -1]) {
+      const path = [onTorso(ringAt, H - sd * 0.55, 1.292, 0.006), onTorso(ringAt, H - sd * 0.8, 1.39, 0.006),
+        [sd * (N.rx + 0.007), 1.45, N.cz], [sd * N.rx * 0.6, 1.455, N.cz - N.rz - 0.004], [0, 1.455, N.cz - N.rz - 0.007]];
+      tubeAlong(S, path, [0.0035, 0.0035], 6, TORSO_CHAIN(1.4), [0, 1, 0], 2.2, FIG_PIECE.apron);
+    }
+    out.push(S);
+  }
+  // the ties: a band round the back at the waist, from one side of the panel to the other
+  out.push(torsoBox('apronTie', FIG_SLOT.gear, ringAt, H + 0.9, H + 2 * Math.PI - 0.9, wy - 0.006, wy + 0.012, 0.0008, 0.003, 0, FIG_PIECE.apron));
+  return out;
 }
 // The vest's pockets: two on the chest and two lower, each a box with a flap over its mouth and a snap on the flap,
 // and a pen in the left chest pocket. `ringAt` is the vest's layer.
@@ -2926,10 +3271,10 @@ export function figureForget(k) { _cache.delete(figureKey(k)); }
 const GEAR_LETTER = { belt: 'b', strap: 's', pouch: 'p', pads: 'k' };
 const gearCode = (g) => Object.entries(GEAR_LETTER).map(([k, c]) => ((k === 'belt' ? g?.belt !== false : !!g?.[k]) ? c : '')).join('');
 // `sculpt` is the revised figure (docs/proposals/sculpted-figure.md), on the close-up levels only.
-export const figureKey = ({ cut = 'coat', style = 0, level = 'hd', wear = null, gear = null, body = null, sculpt = false, head = 0, build = 'average', weight = null, beard = '', prop = '', bust = null, butt = null, groin = '', bottoms = '', hat = '', scarf = '', spikes = 0, specs = 0, chain = 0, fan = 0, boots = '', faceHd = false, tune = '' } = {}) => `${cut}|${style}|${level}|${wear ? JSON.stringify(wear) : ''}|${gearCode(gear)}|${bodyCode(body)}${sculpt ? '|s' + head + build + (weight === null ? '' : '|w' + weight) + (beard ? '|b' + beard : '') + (prop ? '|p' + prop : '') + (bust === null ? '' : '|B' + bust) + (butt === null ? '' : '|T' + butt) + (groin ? '|g' + groin : '') + (spikes ? '|k' + spikes : '') : ''}${bottoms ? '|o' + bottoms : ''}${hat ? '|h' + hat : ''}${scarf ? '|f' + scarf : ''}${specs ? '|e' : ''}${chain ? '|c' : ''}${fan ? '|n' + fan : ''}${boots ? '|t' + boots : ''}${faceHd ? '|F' : ''}${sculpt && tune ? '|u' + tune : ''}`;
+export const figureKey = ({ cut = 'coat', style = 0, level = 'hd', wear = null, gear = null, body = null, sculpt = false, head = 0, build = 'average', weight = null, beard = '', prop = '', bust = null, butt = null, groin = '', bottoms = '', hat = '', scarf = '', spikes = 0, specs = 0, chain = 0, fan = 0, boots = '', apron = '', faceHd = false, tune = '' } = {}) => `${cut}|${style}|${level}|${wear ? JSON.stringify(wear) : ''}|${gearCode(gear)}|${bodyCode(body)}${sculpt ? '|s' + head + build + (weight === null ? '' : '|w' + weight) + (beard ? '|b' + beard : '') + (prop ? '|p' + prop : '') + (bust === null ? '' : '|B' + bust) + (butt === null ? '' : '|T' + butt) + (groin ? '|g' + groin : '') + (spikes ? '|k' + spikes : '') : ''}${bottoms ? '|o' + bottoms : ''}${hat ? '|h' + hat : ''}${scarf ? '|f' + scarf : ''}${specs ? '|e' : ''}${chain ? '|c' : ''}${fan ? '|n' + fan : ''}${boots ? '|t' + boots : ''}${apron ? '|a' + apron : ''}${faceHd ? '|F' : ''}${sculpt && tune ? '|u' + tune : ''}`;
 const SCULPT_DY = { hd: { torso: 0.018, arm: 0.02, leg: 0.024, foot: 0.016 }, lite: { torso: 0.023, arm: 0.025, leg: 0.03, foot: 0.024 } };
-export function buildFigure({ cut = 'coat', style = 0, level = 'hd', wear = null, gear = null, body = null, sculpt: sculptAsked = false, head = 0, build = 'average', weight = null, beard = '', prop = '', bust = null, butt = null, groin = '', bottoms = '', hat = '', scarf = '', spikes = 0, specs = 0, chain = 0, fan = 0, boots = '', faceHd = false, tune = '' } = {}) {
-  const key = figureKey({ cut, style, level, wear, gear, body, sculpt: sculptAsked, head, build, weight, beard, prop, bust, butt, groin, bottoms, hat, scarf, spikes, specs, chain, fan, boots, faceHd, tune });
+export function buildFigure({ cut = 'coat', style = 0, level = 'hd', wear = null, gear = null, body = null, sculpt: sculptAsked = false, head = 0, build = 'average', weight = null, beard = '', prop = '', bust = null, butt = null, groin = '', bottoms = '', hat = '', scarf = '', spikes = 0, specs = 0, chain = 0, fan = 0, boots = '', apron = '', faceHd = false, tune = '' } = {}) {
+  const key = figureKey({ cut, style, level, wear, gear, body, sculpt: sculptAsked, head, build, weight, beard, prop, bust, butt, groin, bottoms, hat, scarf, spikes, specs, chain, fan, boots, apron, faceHd, tune });
   if (_cache.has(key)) return _cache.get(key);
   // a MORPHEX cut is drawn by the sculpted figure only; any other level draws the street style it's nearest
   if (HAIR_CUTS[style] && !(sculptAsked && FIGURE_LEVELS[level].skin)) style = cutBase(style);
@@ -2939,13 +3284,19 @@ export function buildFigure({ cut = 'coat', style = 0, level = 'hd', wear = null
   const C0 = FIGURE_CUTS[cut] || FIGURE_CUTS.coat, C = sculpt ? sculptCut(C0, SW ? SW.fat : 0) : C0, code = gearCode(gear);
   const G = { belt: code.includes('b'), strap: code.includes('s') && Lv.skin, pouch: code.includes('p') && Lv.skin, pads: code.includes('k') && Lv.skin };
   const on = { top: true, legs: true, shoes: true, ...(wear || {}) };
-  const TR0 = sculpt ? { ...TROUSERS, hug: 0.6, ease: 0.006, seatDrape: 3, seatFoot: 0.85 } : TROUSERS;
+  const TR0 = sculpt ? { ...TROUSERS, hug: 0.5, ease: 0.011, seatDrape: 3, seatFoot: 0.85 } : TROUSERS;
   // underwear cuts its trousers short (a cut's `legs`)
   const BT = !C.legs && C.top.hem >= 0.81 ? FIGURE_BOTTOMS[bottoms] || null : null;
   // steel-toe work boots (`boots: 'steeltoe'`): built before the trousers, which hang straight over the shaft to the
   // instep with no cuff; the foot chunkier, its sole thicker, its toe longer and boxed
-  const over = boots === 'steeltoe' && !C.legs && !BT;
-  const TR = C.legs ? { ...TR0, ...C.legs } : BT ? { ...TR0, ...BT.legs } : TR0, legHem = over ? 0.085 : TR.hem, legWaist = TR.waist;
+  // low shoes (`boots: 'dress'`, an oxford; `'trainer'`, a running shoe): no shaft, so they're built first too and the
+  // trousers fall straight onto the instep
+  const low = boots === 'dress' || boots === 'trainer';
+  const over = (boots === 'steeltoe' || low) && !C.legs && !BT;
+  // a dress sandal needs the bare foot's toes, which only the close-up levels have; the rest keep the shoe
+  // (`sandal_flat`: a man's flat sandal, the same straps with no heel)
+  const flat = boots === 'sandal_flat' && sculpt && !!Lv.fingers, sandal = (boots === 'sandal' && sculpt && !!Lv.fingers) || flat;
+  const TR = C.legs ? { ...TR0, ...C.legs } : BT ? { ...TR0, ...BT.legs } : TR0, legHem = over ? (low ? 0.072 : 0.085) : TR.hem, legWaist = TR.waist;
   // the street's levels have no sculpted head or paint, but they can take its body, for actor3d.js's body offsets
   const shaped = sculptAsked && !sculpt && weight !== null, PT = partsFor(body, sculpt || shaped, build, weight, sculpt ? bust : null, sculpt ? butt : null, sculpt ? groin : '', sculpt && level === 'hd'), BD = Lv.skin ? body || {} : {};
   const slotOf = (name, dflt) => (name === 'shirt' ? FIG_SLOT.shirt : name === 'cloak' ? FIG_SLOT.cloak : dflt);
@@ -2982,21 +3333,24 @@ export function buildFigure({ cut = 'coat', style = 0, level = 'hd', wear = null
     }
   } };
   const shoes = () => { if (on.shoes) {
+    const bootTop = sculpt && !softFace(FS0) ? BOOT.top : BOOT.tall;
     for (const s of [1, -1]) {
       const L = s > 0 ? 'L' : 'R', P = PT['leg' + L];
-      parts.push(over ? footMesh(s, Lv, FIG_SLOT.shoes, SHOE.ease + 0.007, (z) => shoeSole(z) + 0.008, [SHOE.heel + 0.007, SHOE.toe + 0.014]) : footMesh(s, Lv, FIG_SLOT.shoes, SHOE.ease, shoeSole, [SHOE.heel, SHOE.toe]));
+      if (sandal) { parts.push(sandalMesh(s, Lv, P, !flat)); continue; }
+      if (low) { parts.push(lowShoe(s, Lv, boots)); cov('foot' + L, -1, 2); continue; }
+      parts.push(over ? footMesh(s, Lv, FIG_SLOT.shoes, SHOE.ease + 0.007, (z) => shoeSole(z) + 0.008, [SHOE.heel + 0.007, SHOE.toe + 0.014]) : footMesh(s, Lv, FIG_SLOT.shoes, SHOE.ease, (z) => shoeSole(z) + 0.011 * gx(z - 0.014, 0.027), [SHOE.heel, SHOE.toe]));
       cov('foot' + L, -1, 2);
       // the boot's shaft, over whatever the leg wears there, a little fuller at its top
-      const sp = { name: 'boot' + L, kind: 'leg', aux: FIG_PIECE.boot, y0: BOOT.top, y1: BOOT.foot, wraps: () => ['leg' + L], centre: (y) => { const S = P.at(y); return [S.cx, S.cz]; },
-        ease: (y) => BOOT.ease + 0.004 * smooth(BOOT.top - 0.05, BOOT.top, y), hug: 0, drape: 0.25 };
+      const sp = { name: 'boot' + L, kind: 'leg', aux: FIG_PIECE.boot, y0: bootTop, y1: BOOT.foot, wraps: () => ['leg' + L], centre: (y) => { const S = P.at(y); return [S.cx, S.cz]; },
+        ease: (y) => BOOT.ease + 0.004 * smooth(bootTop - 0.05, bootTop, y), hug: 0.55, drape: 0.25 };
       const rings = clothRings(layers, sp, Lv);
       parts.push(clothMesh(rings, sp, { ...Lv, hem: false }, (x, y) => legW(L)(y), FIG_SLOT.shoes));
       layers['leg' + L].push(clothLayer(rings));
-      cov('leg' + L, -1, BOOT.top - 0.012);
+      cov('leg' + L, -1, bootTop - 0.012);
       // the trousers' cuff rolled up and resting on the boot's top, over the trouser above and the
       // shaft below
-      if (!over && on.legs && legHem < BOOT.top && !(skirt && C.top.hem < BOOT.top + 0.06)) {
-        const cs = { name: 'cuff' + L, kind: 'leg', aux: FIG_PIECE.cuff, y0: BOOT.top + 0.032, y1: BOOT.top - 0.01, wraps: () => ['leg' + L], centre: (y) => { const S = P.at(y); return [S.cx, S.cz]; }, ease: () => 0.007, hug: 0, drape: 9 };
+      if (!over && on.legs && legHem < bootTop && !(skirt && C.top.hem < bootTop + 0.06)) {
+        const cs = { name: 'cuff' + L, kind: 'leg', aux: FIG_PIECE.cuff, y0: bootTop + 0.032, y1: bootTop - 0.01, wraps: () => ['leg' + L], centre: (y) => { const S = P.at(y); return [S.cx, S.cz]; }, ease: () => 0.007, hug: 0, drape: 9 };
         parts.push(clothMesh(clothRings(layers, cs, Lv), cs, Lv, (x, y) => legW(L)(y), FIG_SLOT.legs));
       }
     }
@@ -3042,7 +3396,7 @@ export function buildFigure({ cut = 'coat', style = 0, level = 'hd', wear = null
     }
     const T = C.top, spec = topSpec(T, 'top');
     // below the torso's foot the legs' layer is the trousers'
-    const rings = clothRings(layers, spec, Lv), topPart = clothMesh(rings, spec, T.jag ? { ...Lv, hem: false } : Lv, skirt ? skirtW : torsoW, FIG_SLOT.top);
+    const rings = clothRings(layers, spec, Lv), topPart = clothMesh(rings, spec, T.jag ? { ...Lv, hem: false } : Lv, skirt ? (sculpt && cutIsDress(cut) && T.hug >= 0.4 ? skirtFitted : skirtW) : torsoW, FIG_SLOT.top);
     // an open front (`openFront`, half-widths at the neck and the hem): the top's cloth cut away in a V down the front,
     // so what's under it shows, and its two edges bound
     const half = C.openFront ? (y) => C.openFront[0] + (C.openFront[1] - C.openFront[0]) * Math.max(0, Math.min(1, (T.neck - y) / (T.neck - T.hem))) : null;
@@ -3069,6 +3423,7 @@ export function buildFigure({ cut = 'coat', style = 0, level = 'hd', wear = null
     cov('torso', T.hem + 0.012, T.neck - 0.006);
     if (half && Lv.skin) parts.push(...frontBinding(topLayer.ringAt, half, T.neck - 0.012, T.hem + 0.012, FIG_SLOT.top));
     if (C.pockets && Lv.skin) parts.push(...vestPockets(topLayer.ringAt, Lv));
+    if ((apron === 'bib' || apron === 'waist') && Lv.skin) parts.push(...apronParts(layers, topLayer.ringAt, Lv, apron, legWaist));
     // the sleeves: a long sleeve under the cut's own first, where it has one (`undersleeve`, in the shirt's slot:
     // a ballplayer's undershirt under his jersey's short sleeve), so the sleeve over it hulls it
     const sleeveSets = [];
@@ -3078,10 +3433,10 @@ export function buildFigure({ cut = 'coat', style = 0, level = 'hd', wear = null
       const L = s > 0 ? 'L' : 'R', P = PT['arm' + L];
       const lean = deltoidLean(P, sculpt ? 0.25 : 0.5);
       const sp = {
-        name: prefix + L, kind: 'arm', y0: P.hi - (sculpt ? 0.012 : 0.004), y1: Sl.cuff,
+        name: prefix + L, kind: 'arm', y0: P.hi - (sculpt ? 0.003 : 0.004), y1: Sl.cuff,
         wraps: () => ['arm' + L], centre: (y) => { const S = P.at(y); return [S.cx, S.cz]; },
         ease: (y) => Sl.ease + Sl.open * smooth(Sl.cuff + 0.06, Sl.cuff, y) + 0.6 * (C.shoulder || 0) * smooth(1.33, 1.4, y), hug: sculpt ? 0.6 : 0.3, drape: Sl.drape, aux: FIG_PIECE.sleeve,
-        capTop: (R0) => { const c = armCapPoint(s, P); return [c[0], c[1] + Sl.ease - (sculpt ? 0.016 : 0), c[2]]; },
+        capTop: (R0) => { const c = armCapPoint(s, P); return [c[0], c[1] + Sl.ease - (sculpt ? 0.004 : 0), c[2]]; },
         cinch: C.rib ? { top: Sl.cuff + 0.035, foot: Sl.cuff - 0.001, ease: 0.004 } : null,
       };
       const rings = clothRings(layers, sp, Lv);
@@ -3134,7 +3489,10 @@ export function buildFigure({ cut = 'coat', style = 0, level = 'hd', wear = null
     // a hood down, bunched behind the neck, and its drawstrings down the front
     // a hat: its crown and brim on the head bone, in its own slot (the shoes' colour unless the look names one)
     const HT = Lv.skin && FIGURE_HATS[hat];
-    if (HT && (HT.crown || HT.band || HT.brim)) {
+    if (HT && HT.fit) {
+      parts.push(hatShell(HT, Lv));
+      if (HT.bill) parts.push(hatBill(HT, Lv));
+    } else if (HT && (HT.crown || HT.band || HT.brim)) {
       const M = newPart('hat', FIG_SLOT.hat), nu = Lv.name === 'hd' ? 24 : 12, nv = Lv.name === 'hd' ? 12 : 6;
       for (const k of ['crown', 'band', 'brim']) if (HT[k]) blobInto(M, HT[k][0], [1, 0, 0], [0, 1, 0], [0, 0, 1], HT[k][1], nu, nv, HT[k][2], [[B.head, 1]], FIG_PIECE.hat);
       if (HT.bill && HT.crown) parts.push(hatBill(HT, Lv));
@@ -3213,7 +3571,7 @@ export function buildFigure({ cut = 'coat', style = 0, level = 'hd', wear = null
   }
   // the hands, always skin; the mighty arm's bigger, and clawed if they're clawed
   for (const s of [1, -1]) {
-    const hk = (sculpt ? 1.1 * Math.sqrt(BK.arm) * (SW ? SW.hand : 1) : HAND_K) * (BD.mighty === (s > 0 ? 'L' : 'R') ? 1.12 : 1);
+    const hk = sculpt ? handScaleOf({ build, weight, body, bust }, s) : HAND_K * (BD.mighty === (s > 0 ? 'L' : 'R') ? 1.12 : 1);
     const hand = handMesh(s, Lv, hk, sculpt);
     parts.push(hand);
     // what this hand holds (prop is 'L:cigarette;R:scotch'), close up only
@@ -3248,9 +3606,11 @@ export function buildFigure({ cut = 'coat', style = 0, level = 'hd', wear = null
         keep.push(a, b, c);
       }
       M.I = keep;
+      if (sandal && !flat && M.name.startsWith('leg')) ankleLift(M);
       if (keep.length) parts.push(compact(M));
     }
-    for (const s of [1, -1]) if (!on.shoes) parts.push(sculpt && Lv.fingers ? bareFootMesh(s, Lv) : footMesh(s, Lv, FIG_SLOT.skin, 0, undefined, [0, 0]));
+    for (const s of [1, -1]) if (sandal) parts.push(flat ? bareFootMesh(s, Lv) : heelPose(bareFootMesh(s, Lv)));
+    else if (!on.shoes) parts.push(sculpt && Lv.fingers ? bareFootMesh(s, Lv) : footMesh(s, Lv, FIG_SLOT.skin, 0, undefined, [0, 0]));
   }
   // a second pair of arms: the bare arm and hand again, as modelled, moved onto the grown arm bones
   // (FIGURE_XBONES arm2*), which carry them down the ribs and copy the real arms' motion
@@ -3265,7 +3625,7 @@ export function buildFigure({ cut = 'coat', style = 0, level = 'hd', wear = null
   const headLv = faceHd && sculpt && Lv.name === 'hd' ? 'hd' : Lv.head;
   if (Lv.head >= 0) {
     parts.push(...headParts(style, headLv, sculpt, FS, NKb));
-    if (sculpt) { const l0 = hairLocks(Lv, style, FS, spikes, fan), l = FIGURE_HATS[hat]?.under ? compact(underCap(l0)) : l0; if (l.I.length) { orient(l); parts.push(l); } }
+    if (sculpt) { const l0 = hairLocks(Lv, style, FS, spikes, fan), l = FIGURE_HATS[hat]?.under || FIGURE_HATS[hat]?.fit ? compact(underCap(l0, FIGURE_HATS[hat].cut)) : l0; if (l.I.length) { orient(l); parts.push(l); } }
     if (sculpt && beard) { const l = beardLocks(Lv, beard, FS); orient(l); parts.push(l); }
     if (sculpt && Lv.name === 'hd') for (const l of eyeParts(FS)) { orient(l); parts.push(l); }
     if (BD.horns) { const h = hornMesh(Lv); orient(h); parts.push(h); }
@@ -3285,6 +3645,25 @@ export function buildFigure({ cut = 'coat', style = 0, level = 'hd', wear = null
   // the close-up levels light their forms off smoothed normals (formNormals); the crowd's bake doesn't
   // (the face, its ears and neck keep theirs from a quarter of the way, so the face holds its planes)
   if (Lv.skin) out.NF = formNormals(out, Lv.name === 'hd' ? 40 : 16, { at: Lv.name === 'hd' ? 10 : 5, mask: (v) => out.S[v] === FIG_SLOT.face || out.S[v] === FIG_SLOT.ear || out.S[v] === FIG_SLOT.neck });
+  // a hand's wrist lights as the forearm's: the hand is a part of its own with a cap at its top, so its first rings'
+  // form normals pointed up the arm, and the comic light drew a hard edge of shadow round every wrist. Each takes
+  // the normal of the forearm's last ring nearest it, easing to the hand's own by the middle of the palm
+  if (sculpt && out.NF) for (const L of ['L', 'R']) {
+    const h = out.parts.find((p) => p.name === 'hand' + L), a = out.parts.find((p) => p.name === 'arm' + L);
+    if (!h || !a) continue;
+    let ylo = Infinity;
+    for (let v = a.v0; v < a.v0 + a.nv; v++) if (out.NF[v * 3 + 1] > -0.6) ylo = Math.min(ylo, out.P[v * 3 + 1]);
+    const ring = [];
+    for (let v = a.v0; v < a.v0 + a.nv; v++) if (out.NF[v * 3 + 1] > -0.6 && out.P[v * 3 + 1] < ylo + 0.004) ring.push(v);
+    if (!ring.length) continue;
+    for (let v = h.v0; v < h.v0 + h.nv; v++) {
+      const y = out.P[v * 3 + 1], w = out.A[v] < -0.5 ? 0 : smooth(0.822, 0.864, y);
+      if (w <= 0) continue;
+      let best = ring[0], bd = Infinity;
+      for (const u of ring) { const d = (out.P[u * 3] - out.P[v * 3]) ** 2 + (out.P[u * 3 + 2] - out.P[v * 3 + 2]) ** 2; if (d < bd) { bd = d; best = u; } }
+      out.NF.set(norm3([0, 1, 2].map((j) => out.NF[v * 3 + j] * (1 - w) + out.NF[best * 3 + j] * w)), v * 3);
+    }
+  }
   // the face lights on its designed planes (form-normals.js faceDesigned), not its smoothed form
   const hp = out.parts.find((p) => p.name === 'head');
   // on the fine head the field diffuses for longer, so its planes come out about as broad

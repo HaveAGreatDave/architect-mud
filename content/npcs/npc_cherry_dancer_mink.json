@@ -191,7 +191,88 @@
     "mis_requires_zone_flag": "mis_ok",
     "mis_willing": true,
     "personality": "stripper",
-    "stripper": true
+    "stripper": true,
+    "parley": {
+      "topics": {
+        "club": [
+          "club",
+          "this place",
+          "cherry pit",
+          "the pit",
+          "the cherry"
+        ],
+        "closing": [
+          "closing",
+          "close",
+          "last",
+          "end of night"
+        ],
+        "home": [
+          "bus",
+          "home",
+          "trainers",
+          "heels"
+        ]
+      },
+      "react": {
+        "greet": {
+          "stranger": [
+            "Mm. Hey."
+          ],
+          "familiar": [
+            "{name}! Hey."
+          ],
+          "hostile": [
+            "*turns away.* Not you."
+          ]
+        },
+        "farewell": {
+          "stranger": [
+            "See you, then."
+          ],
+          "familiar": [
+            "Night, {name}. Come back."
+          ]
+        },
+        "thank": [
+          "Course."
+        ],
+        "ask_about:club": [
+          "It's all right. Money's decent, Deacon keeps it safe, Rudi pours a fair drink."
+        ],
+        "flirt": [
+          "*smiles.* That's sweet. It still costs.",
+          "Tip first, then flirt."
+        ],
+        "insult": [
+          "Wow. Deacon's right there, you know."
+        ],
+        "ask_feeling": [
+          "Sleepy. I'm always sleepy."
+        ],
+        "ask_about:closing": [
+          "I close most nights. Somebody has to be last on."
+        ],
+        "ask_about:home": [
+          "Last bus home. Heels in a carrier bag, trainers on. Glamorous."
+        ]
+      },
+      "deflect": [
+        "*leans in.* Sorry, the music. Say again?"
+      ],
+      "circle": [
+        "npc_cherry_bartender",
+        "npc_cherry_bouncer",
+        "npc_cherry_dancer_coco",
+        "npc_cherry_dancer_echo",
+        "npc_cherry_dancer_glory",
+        "npc_cherry_dancer_lux",
+        "npc_cherry_dancer_margaux",
+        "npc_cherry_dancer_nova",
+        "npc_cherry_dancer_opal",
+        "npc_cherry_dancer_peaches"
+      ]
+    }
   },
   "home_activities": [],
   "home_zone": "zone_yards_tenement_u6_4",

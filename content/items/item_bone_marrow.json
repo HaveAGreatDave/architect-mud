@@ -10,24 +10,25 @@
     "food_profile": "fat_or_oil",
     "matter": {
       "form": {
-        "kind": "log",
-        "w": 12,
         "d": 4,
         "h": 4,
-        "round": 0.9
-      },
-      "ramp": {
-        "raw": "#d89a8a",
-        "cook": "#c8885a",
-        "peak": "#a86a3a"
+        "kind": "log",
+        "round": 0.9,
+        "w": 12
       },
       "look": {
-        "skin": "#e8dcc8",
-        "flesh": "#d89a8a"
+        "flesh": "#d89a8a",
+        "skin": "#e8dcc8"
+      },
+      "ramp": {
+        "cook": "#c8885a",
+        "peak": "#a86a3a",
+        "raw": "#d89a8a"
       }
     },
     "perishable": true,
     "restore_hunger": 12,
+    "shelved": true,
     "spoil_rate": "fast",
     "stackable": true,
     "status_chance": {

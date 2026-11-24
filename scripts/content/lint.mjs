@@ -497,6 +497,18 @@ export function lintContentTree(baseDir, { tree: preRead = null } = {}) {
     }
   }
 
+  // A shelved item (tags.shelved, docs/proposals/cooking-basics.md) is out of the
+  // game for now, so no vendor may stock it.
+  {
+    const itemFiles = entries.find(e => e.entry.table === 'items')?.files || [];
+    const shelved = new Set(itemFiles.filter(f => f.data?.tags?.shelved).map(f => f.data.id));
+    for (const f of entries.find(e => e.entry.table === 'npcs')?.files || []) {
+      for (const e of f.data.vendor_inventory || []) {
+        if (shelved.has(e?.item_id)) errors.push(`npcs/${f.name}: sells ${e.item_id}, which is shelved (tags.shelved). Take it off the stock, or take the tag off the item.`);
+      }
+    }
+  }
+
   // Facade invariants: a `facade`-tagged zone must have an interior map
   // parented on it with a real entry zone, plus a real world_exit_zone — the
   // auto-forward seam's dependencies.

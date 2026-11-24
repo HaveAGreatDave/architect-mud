@@ -265,4 +265,30 @@ async function stadiumKit({ run, check, getPlayer }) {
   check('stands: a break too short to do the ice in, he stays put', crew.state.get(ken.id)?.phase === 'post');
   crew.reset();
   if (was && was !== ken.zone_id) put(was);
+
+  // A REGULAR IN HIS OWN SEAT (regulars.js): Sir Charles at a staged game, and home again after it
+  {
+    const { _test: rg } = await import('./regulars.js');
+    const { moveNpcToZone } = await import('../../server/engine/world.js');
+    const sc = world.npcs.get('npc_charles_hughson'), R = sc?.flags?.regular;
+    check('stands: Sir Charles is a Coliseum regular in his own seat', R?.stands === 'zone_hughson_stands' && R.seat === 'furn_hughson_charlesseat' && R.club === 'Basin Blue Birds', JSON.stringify(R));
+    if (sc && R) {
+      const g = (slot, o = {}) => ({ slot, away: 'Coldwater Crows', home: 'Yards Yellowjackets', final: false, now: true, ...o });
+      check('stands: a regular never misses the opener', rg.attends(R, sc.id, g(7), true));
+      check('stands: a final the Blue Birds are in, he goes', rg.attends(R, sc.id, g(7, { final: true, home: 'Basin Blue Birds' })));
+      check('stands: a final without them, he stays home', !rg.attends(R, sc.id, g(7, { final: true }), true));
+      let n = 0; for (let slot = 0; slot < 400; slot++) n += rg.attends(R, sc.id, g(slot)) ? 1 : 0;
+      check('stands: about one ordinary game in four', n > 70 && n < 130, String(n));
+      const home = sc.zone_id;
+      rg.reset();
+      rg.regularsTick(() => g(1), () => true);
+      check('stands: on a night he comes, he is in the stands', sc.zone_id === 'zone_hughson_stands', sc.zone_id);
+      const st = rg.regularStage(sc, 'zone_hughson_stands');
+      check('stands: and sitting in his own seat', st?.posture === 'sitting' && st.on === 'furn_hughson_charlesseat', JSON.stringify(st));
+      rg.regularsTick(() => null, () => false);
+      check('stands: when the game goes off, he goes home', sc.zone_id === sc.home_zone, sc.zone_id);
+      rg.reset();
+      if (home && home !== sc.zone_id) moveNpcToZone(sc.id, home);
+    }
+  }
 }

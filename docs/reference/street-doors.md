@@ -72,7 +72,7 @@ seen through the door and not beside it.
 | `hand` | A hinged glass door that stays shut from inside until F opens it |
 | `glass`, `trim` | The glass's tint and the metal round each leaf, `#rrggbb` |
 | `monogram`, `handle` | One or two letters on the pull plates; `handle: 's'` a cast S pull on a sliding pair |
-| `leaf`, `bars` | A plain door's colour; `bars` makes it a grille |
+| `leaf`, `bars`, `lite` | A plain door's colour; `bars` makes it a grille; `lite` is the glazed light in the leaf the room shows through: `porthole` (Voltage), `half` (the Shed) or `slot`, the default |
 | `fanlight` | A glazed fan with bars over a hinged pair |
 | `runner` | A carpet's colour, out across the pavement with a gilt edge |
 | `dark` | Black behind the doors instead of the lobby, so the step in is a step into the dark the loading veil comes up out of |
@@ -100,7 +100,7 @@ the model's doorway. Then run `node scripts/shapes/street-doors.mjs`.
 | `swing` | a glass pair in metal frames, hinged at the jambs, turning in | as you come up (`hand`: F from inside) | the Embassy, the Meridian, Screw It |
 | `single` | one glass leaf across the opening | as you come up | |
 | `revolving` | four glass wings on a post in a drum of curved glass under a round canopy, turning while you're at it | always passable while near | |
-| `plain` | one painted leaf | F | |
+| `plain` | one painted leaf with a light in it | F | Voltage, the Shed |
 | `grille` | a steel cage that is the door | F | the Cherry Pit |
 
 **A new kind** is a row in `DOOR_KINDS` (`leaves`, `glass`, `auto`, `move`) and, if its `move` is new, a function in
@@ -112,6 +112,10 @@ shut, half and fully open, day and night, with and without the room behind it.
 
 - ROOM's side of the door is still the plan's: a `single` or `revolving` street door is drawn inside as the plan's
   hinged pair or sliding pair.
-- The airport's arrivals arm draws a revolving drum as solid mass, so its Stage door can't use it yet; the door is a
-  sliding pair on the glass front (`fit: 'room'`).
+- The Solenne's 2x2 model draws its doors 1.4 m high, under the 1.7 m a doorway needs, so its door is fitted to the
+  room (`fit: 'room'`). It's the one door `street-doors.mjs` lets through on `room` (`ROOM_FIT_OK`); every other
+  Stage door fails the gate on it.
+- The open fronts (the truck yards, the Threshold and Outskirts hangars, the Reach hangar and the Long Stay pound) have
+  no street door: there's no wall to hang one in. The Echelon has none either; you board it by swimming to the stern
+  or by helicopter, and boarding from land is still to come.
 - From a vehicle the model's own still door is what you see; the moving door is drawn only on foot.

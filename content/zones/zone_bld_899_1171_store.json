@@ -8,20 +8,51 @@
     "Chalk marks on the crate ends: tallies, initials, one that's been scrubbed at."
   ],
   "ambient_theme": "indoors",
-  "description": "Below the floor, past the kegs: crates that never had a manifest, stacked in the cool dark and smelling of yeast, gun-oil, and other people's secrets. What the Reach runs, it runs through rooms like this.",
+  "description": "Down the trapdoor and past the kegs: crates that never had a manifest, stacked in the cool dark and smelling of yeast, gun oil and other people's secrets. What the Reach runs, it runs through rooms like this.",
   "exits": {
-    "south": "zone_bld_899_1171_lobby"
+    "north": "zone_util_zone_bld_899_1171_lobby",
+    "up": "zone_bld_899_1171_lobby"
   },
   "flags": {
     "floor": "boards",
     "is_building": true,
     "is_interior": true,
     "lawless": true,
+    "room": {
+      "balcony": false,
+      "d": 5,
+      "decor": {
+        "walls": {
+          "hex": "#6a5446",
+          "kind": "brick",
+          "y1": 2.6
+        }
+      },
+      "face": 180,
+      "ground": "concrete",
+      "h": 2.6,
+      "stair": {
+        "at": [
+          1.5,
+          0.7
+        ],
+        "climb": "back",
+        "w": 1
+      },
+      "studio": false,
+      "tone": {
+        "ceiling": "#4c3e32",
+        "trim": "#3a2a1c",
+        "wall": "#8a7258"
+      },
+      "w": 6,
+      "windowless": true
+    },
     "world_exit_zone": "zone_the_reach_872_1954"
   },
   "grid_x": 0,
-  "grid_y": -1,
-  "grid_z": 0,
+  "grid_y": 0,
+  "grid_z": -1,
   "id": "zone_bld_899_1171_store",
   "map_id": "map_int_bld_899_1171",
   "name": "The Stash",

@@ -1,3 +1,7 @@
+// ⚠ SUPERSEDED 2026-11-23: don't re-run. The first floor is now the mess (kitchen and dining), the room off the
+// desk that was the kitchen is the toilets, and the rooms carry `torn`, `kit` and `bags`. The content files are
+// the truth; re-running this puts the cots and the old kitchen back.
+//
 // ROOM interiors for Hostel Takeover (917,903), the free hostel beside the clone facility
 // (docs/proposals/building-stage.md). Every room gets its `flags.room`, every drawn row a `flags.look` and
 // `flags.spot`, and the rows the rooms need are added: cots by the dozen, the communal kitchen off the desk,

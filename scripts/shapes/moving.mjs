@@ -25,7 +25,7 @@
 // of quads at every bearing — what changes is where they are — so anything counting parts would
 // pass a jib that had been nailed to one heading, which is the exact failure the motion layer's own
 // ⚠ is written about.
-import { loadWindshield, stubCanvas } from './dom-stub.mjs';
+import { loadWindshield, stubCanvas, glStub } from './dom-stub.mjs';
 
 const REPORT = process.argv.includes('--report');
 
@@ -117,6 +117,22 @@ const UNSEEN = new Map([
 ]);
 
 const ws = await loadWindshield();
+// What a frame drew, read off what the world sweep handed the GL hook (there is no 2-D city
+// painter to count calls on). Each sink is serialised with numbers to 3 places and the texture
+// canvases dropped. Fauna and clouds are left out because the birds and the sky drift on their own
+// clocks and are not what any check below is about. The ownship sink carries the berth's freighter
+// as well as the viewer's own cockpit; the cockpit faces (interior or cab) move with the frame and
+// are dropped, which leaves the freighter.
+const GL_SINKS = ['sprites', 'strokes', 'decals', 'scatter', 'curtain', 'bay', 'ship'];
+const glDigest = (sinks = GL_SINKS) => {
+  const L = glStub.last;
+  if (!L) return [];
+  const rnd = (_k, v) => (typeof v === 'number' ? Math.round(v * 1000) / 1000 : (v && v.tagName ? undefined : v));
+  const out = [JSON.stringify(L.cells || [], rnd)];
+  for (const k of sinks) for (const it of (L.opts[k] || [])) if (k !== 'ship' || !(it.interior || it.cab)) out.push(k + ':' + JSON.stringify(it, rnd));
+  return out;
+};
+const glShot = (id, v, sinks) => { ws.paintWindshield(id, v); glStub.last = null; ws.paintWindshield(id, v); return glDigest(sinks); };
 // A coarse floor for every frame this file paints. Under the stub the Mode-7 ground is a per-texel
 // JS raster, and over open water every texel also samples the swell: together about 70% of this
 // gate's time. The floor is the same in every pair of frames compared below, so none of them can
@@ -230,14 +246,8 @@ for (const [key, why] of MUST_MOVE) {
 // both, "the wind changed the picture" is a statement about the weather rather than the flags.
 // The identity check at one bearing is what proves the pinning took.
 {
-  const el = stubCanvas('__moving', 900, 500);
-  const real = el.getContext('2d');
-  let ops = [];
-  el.getContext = () => new Proxy(real, {
-    get(o, k) { const v = o[k]; if (typeof v !== 'function') return v;
-      return (...a) => { if (k === 'drawImage') ops.push(a.slice(1).map((x) => typeof x === 'number' ? x.toFixed(3) : '').join(',')); return v.apply(o, a); }; },
-    set(o, k, v) { o[k] = v; return true; },
-  });
+  // The flags are arcflag decals, so the decal sink is what is compared.
+  stubCanvas('__moving', 900, 500);
   const clock = globalThis.performance; globalThis.performance = { ...clock, now: () => 1e6 };
   const rnd = Math.random; Math.random = () => 0.42;
   const RR = 8, N2 = RR * 2 + 1;
@@ -246,16 +256,27 @@ for (const [key, why] of MUST_MOVE) {
   const field = (dir) => ({ tick: 1, bounds: { minX: 0, maxX: 200, minY: 0, maxY: 200 }, wind: { dir, kph: 34 }, baseCloud: 0.2, cells: [] });
   const shot = (dir) => {
     const v = { cls: 'prop', phase: 'cruise', worldBlend: 1, map: sea, heading: 0, speed: 0, hour: 13, height: 0.02, weather: 'clear', wxField: field(dir), acX: 100, acY: 100 };
-    ws.paintWindshield('__moving', v); ops = []; ws.paintWindshield('__moving', v); return ops.join('|');
+    // Only the decal corners: where the flags are, not their shade.
+    return glShot('__moving', v, ['decals']).slice(1).map((x) => JSON.stringify(JSON.parse(x.slice(7)).p)).join('|');
   };
+  const DETAIL_WIND = process.argv.includes('--wind');
   shot(90);                       // warm every lazy cache and bake
   const w90 = shot(90), w90b = shot(90), w180 = shot(180), w270 = shot(270);
   globalThis.performance = clock; Math.random = rnd;
-  if (!w90.length) problems.push('the wind scene drew no textured quads at all — the pier is not reaching the frame, so nothing below means anything');
-  else if (w90 !== w90b) problems.push('the same wind twice drew two different frames — the clock or the dice are not pinned, so a difference between bearings proves nothing');
+  // The decal corners are compared as numbers, not strings. The wind eases between frames, so the
+  // same bearing twice can differ in the third decimal; a real change of bearing moves a flag by
+  // far more. SAME is the most two frames of one wind may differ by, MOVED the least a new bearing
+  // must move something.
+  const nums = (t) => (t.match(/-?\d+(\.\d+)?(e-?\d+)?/g) || []).map(Number);
+  // NaN counts as a full difference, so a bad parse can never read as "identical".
+  const gap = (a, b) => { const x = nums(a), y = nums(b); if (x.length !== y.length) return Infinity; let g = 0; for (let i = 0; i < x.length; i++) { const d = Math.abs(x[i] - y[i]); g = Number.isNaN(d) ? Infinity : Math.max(g, d); } return g; };
+  const SAME = 0.01, MOVED = 0.03;
+  if (DETAIL_WIND) console.log(`  wind gaps: same ${gap(w90, w90b)}, 180 ${gap(w90, w180)}, 270 ${gap(w90, w270)}`);
+  if (!w90.length) problems.push('the wind scene handed the GL pass no decals at all — the pier is not reaching the frame, so nothing below means anything');
+  else if (gap(w90, w90b) > SAME) problems.push('the same wind twice drew two different frames — the clock or the dice are not pinned, so a difference between bearings proves nothing');
   else {
-    if (w90 === w180) problems.push('the flags draw identically at 90° and 180° of wind — they are not following it');
-    if (w90 === w270) problems.push('the flags draw identically at 90° and 270° of wind — they are not following it');
+    if (gap(w90, w180) < MOVED) problems.push('the flags draw identically at 90° and 180° of wind — they are not following it');
+    if (gap(w90, w270) < MOVED) problems.push('the flags draw identically at 90° and 270° of wind — they are not following it');
   }
   rows.push({ key: 'wind', on: 3, off: 1, why: 'the flags point downwind and re-point when it shifts' });
 }
@@ -279,26 +300,9 @@ for (const [key, why] of MUST_MOVE) {
 // of "park it" DELETES the ship — the worse half of the bug `RENDER_TUNE.motion` exists to prevent,
 // and the one this file refuses for every other arm three checks up.
 {
-  const el = stubCanvas('__berth', 900, 500);
-  const real2 = el.getContext('2d');
-  // ⚠ FILLED PATHS ONLY, AND THAT IS NOT A TIDY-UP. GLASS flies a flock of six birds across the
-  // mid-sky whose positions are INTEGRATED PER FRAME (`st.birds`, stepped by `dt`) rather than
-  // read off the clock, so pinning `performance.now` does not hold them still and two renders of
-  // one empty sea differ by six drifting chevrons. They are STROKED; a hull, a container and a
-  // wake are FILLED. Collecting a path only when something fills it drops the birds and keeps
-  // every part of the ship that carries a position.
-  let ops2 = [], pend = [];
-  const N = (x) => typeof x === 'number' ? x.toFixed(2) : String(x);
-  el.getContext = () => new Proxy(real2, {
-    get(o, k) { const v = o[k]; if (typeof v !== 'function') return v;
-      return (...a) => {
-        if (k === 'beginPath') pend = [];
-        else if (k === 'moveTo' || k === 'lineTo') pend.push(k + a.map(N).join(','));
-        else if (k === 'fill') { ops2.push(...pend, 'fill'); pend = []; }
-        return v.apply(o, a);
-      }; },
-    set(o, k, v) { o[k] = v; return true; },
-  });
+  // The fauna sink is left out of the digest: GLASS's birds are integrated per frame, not read off
+  // the clock, so two renders of one empty sea differ by them whatever the ship did.
+  stubCanvas('__berth', 900, 500);
   // ⚠ BOTH CLOCKS, AND THE SECOND ONE IS THE POINT. Pinning `performance.now` alone leaves the
   // goose flocks drifting, because the flock clock is deliberately WALL TIME — see the ⚠ over
   // `flockAt`: a page-relative clock resets on every reload and would put the picture and the text
@@ -325,8 +329,7 @@ for (const [key, why] of MUST_MOVE) {
   const shot = (map, u) => {
     ws.RENDER_TUNE.shipForce = u;
     const v = { cls: 'prop', phase: 'cruise', worldBlend: 1, map, heading: 0, speed: 0, hour: 13, height: 0.02, weather: 'clear', acX: 100, acY: 100 };
-    ws.paintWindshield('__berth', v); ops2 = []; ws.paintWindshield('__berth', v);
-    return ops2.join('|');
+    return glShot('__berth', v).join('|');
   };
   shot(sea, 0.5);   // warm every lazy cache and bake before anything is compared
 
@@ -370,7 +373,7 @@ for (const [key, why] of MUST_MOVE) {
   if (water !== twice) problems.push('the same empty sea drew two different frames — the clock or the dice are not pinned, so nothing below is a statement about the ship');
   else if (alongside <= 0) problems.push('the berth draws nothing at all with a ship alongside — the `berth` mark is not reaching the world sweep, and nothing below means anything');
   else {
-    if (gone !== 0) problems.push(`the berth still draws ${gone} characters of geometry at the empty point of the cycle — she never sails, so there is no "until the next ship arrives"`);
+    if (gone !== 0) problems.push(`the berth still draws ${gone} characters of GL geometry at the empty point of the cycle — she never sails, so there is no "until the next ship arrives"`);
     if (!(arriving > 0)) problems.push('nothing is drawn while she backs in — she appears at the berth rather than coming up the fairway');
     if (!(swinging > 0)) problems.push('nothing is drawn halfway round her swing — she turns off the edge of the world');
     if (!(leaving > 0)) problems.push('nothing is drawn on the outbound leg — she vanishes off the berth rather than steaming out of it');
@@ -448,22 +451,8 @@ for (const [key, why] of MUST_MOVE) {
 // and what is only in the first is the machine.
 {
   const { berthPhase, berthBoxColour, berthRow, motionTopCss, BERTH_LIFTS, BERTH_SLOTS, BERTH_SETDOWN } = ws;
-  const el = stubCanvas('__lift', 900, 500);
-  const real3 = el.getContext('2d');
-  // The same filled-paths-only recorder check 4 uses, and for the same reason — plus the FILL
-  // STYLE, which is the whole question here.
-  let ops3 = [], pend3 = [];
-  const N3 = (x) => typeof x === 'number' ? x.toFixed(2) : String(x);
-  el.getContext = () => new Proxy(real3, {
-    get(o, k) { const v = o[k]; if (typeof v !== 'function') return v;
-      return (...a) => {
-        if (k === 'beginPath') pend3 = [];
-        else if (k === 'moveTo' || k === 'lineTo') pend3.push(k + a.map(N3).join(','));
-        else if (k === 'fill') { ops3.push(String(o.fillStyle) + '@' + pend3.join('|')); pend3 = []; }
-        return v.apply(o, a);
-      }; },
-    set(o, k, v) { o[k] = v; return true; },
-  });
+  // Each GL item is recorded with its colour, which is the whole question here.
+  stubCanvas('__lift', 900, 500);
   ws.RENDER_TUNE.motion = 1;
   const clock3 = globalThis.performance, rnd3 = Math.random, date3 = Date.now;
   globalThis.performance = { ...clock3, now: () => 1e6 };
@@ -480,8 +469,7 @@ for (const [key, why] of MUST_MOVE) {
   const shot3 = (map, u) => {
     ws.RENDER_TUNE.shipForce = u;
     const v = { cls: 'prop', phase: 'cruise', worldBlend: 1, map, heading: 0, speed: 0, hour: 13, height: 0.02, weather: 'clear', acX: 100, acY: 100 };
-    ws.paintWindshield('__lift', v); ops3 = []; ws.paintWindshield('__lift', v);
-    return ops3.slice();
+    return glShot('__lift', v);
   };
   shot3(quay, 0.5);   // warm every lazy cache and bake before anything is compared
   // ⚠ WHERE A LIFT STARTS IS BISECTED OUT OF THE RENDERER, not written down here. The working
@@ -527,10 +515,17 @@ for (const [key, why] of MUST_MOVE) {
     // what this line used to be, named a string that appears in no frame. It went red on a picture
     // that was correct, which is the failure a gate holding its own copy of somebody else's
     // arithmetic always has. See the ⚠ on `motionTopCss`.
-    const P = at(u), css = motionTopCss(berthBoxColour(P.box, P.ship), 0);
-    const withC = shot3(quay, u), without = new Set(shot3(open, u));
-    const crane = withC.filter((x) => !without.has(x));
-    if (crane.some((x) => x.startsWith(css + '@'))) worked.push({ L, row: berthRow(P.box), crane: crane.join('|') });
+    // The arm is run outside a world pass, where no light is set, so the colour is asked for with
+    // no light too (null), or it would take the last world frame's light and name another shade.
+    const P = at(u), css = motionTopCss(berthBoxColour(P.box, P.ship), 0, null);
+    // The gantry is a building arm, and in a world frame the GL pass builds it from its cell, so
+    // none of its parts reach the sinks the stub hook keeps. The arm is run on its own instead
+    // (canvasResidue, collecting its decals): only the machine is drawn, so the hull's boxes of the
+    // same six colours cannot answer for it.
+    const crm = byKey.get('type:quay_crane');
+    const r = crm ? ws.canvasResidue(crm, { cam, night: 0, bn: 'THE EXAMPLE', dy: -2, now: 1e6, collect: true, who: false }) : null;
+    const crane = r && !r.threw ? r.sink.decals.map((d) => d.key + '@' + JSON.stringify(d.p, (_k, x) => typeof x === 'number' ? Math.round(x * 1000) / 1000 : x)) : [];
+    if (crane.some((x) => x.startsWith('moving|solid|' + css + '@'))) worked.push({ L, row: berthRow(P.box), crane: crane.join('|') });
   }
   // ⚠ ONE COUNT, TWO CAUSES, AND FROM OUTSIDE THEY CANNOT BE TOLD APART. "The spreader was carrying
   // this lift's colour" goes wrong both when the gantry works the wrong lifts and when it paints the

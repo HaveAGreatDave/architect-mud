@@ -2,12 +2,12 @@
   "enabled": true,
   "id": "bt_sport_deadball_2",
   "lines": [
-    "\"You catch the Slaggers game?\"",
-    "\"I watched a foundry crew swing at air for nine innings.\"",
-    "\"They were down three men. Two got pulled onto a shift they couldn't skip.\"",
-    "\"That's the whole league. You turn up or the foundry docks you.\"",
-    "\"Counted all the same.\"",
-    "\"Everything counts. That's the tragedy of it.\""
+    "\"You catch the game? {deadball_winner} beat {deadball_loser} {deadball_score}.\"",
+    "\"I caught the end of it. {deadball_loser} swung at air for three innings.\"",
+    "\"They had two men out hurt. Nobody on the bench could hit.\"",
+    "\"That's the whole league. Thirteen men and you play whoever's standing.\"",
+    "\"Still counts.\"",
+    "\"Everything counts. That's what's wrong with it.\""
   ],
   "personality": null,
   "sort_order": 41

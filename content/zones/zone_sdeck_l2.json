@@ -7,20 +7,17 @@
   "ambient_theme": "indoors",
   "bg_color": "#1a2228",
   "color": "#cfe4ea",
-  "description": "A concrete landing round the carousel drum, painted black, with a cyan strip along the floor's edge. The drum fills the middle, a steel wall with three slot doors in it: slot 1 <b>west</b>, slot 2 <b>north</b> and slot 3 <b>east</b>. Wind comes through the mesh. The lift is <b>in</b>.",
+  "description": "A strip of black concrete along the carousel drum, with a cyan line at the edge and one cradle bay where the drum opens. Feed the terminal your ticket and whatever you parked comes out of the wall on rails. The lift is <b>in</b>.",
   "exits": {
-    "in": "zone_sdeck_lift",
-    "west": "zone_sdeck_s1",
-    "north": "zone_sdeck_s2",
-    "east": "zone_sdeck_s3"
+    "in": "zone_sdeck_lift"
   },
   "flags": {
-    "building_name": "Stacked Deck",
+    "building_name": "Marrow Street Parking",
     "is_interior": true,
     "floor": "concrete",
     "room": {
       "w": 12,
-      "d": 9,
+      "d": 5.5,
       "h": 3.4,
       "finish": "plain",
       "ground": "concrete",
@@ -33,11 +30,7 @@
         "trim": "#22262b",
         "accent": "#28c4e4"
       },
-      "doors": {
-        "west": 4.5,
-        "north": 0,
-        "east": 4.5
-      },
+      "doors": {},
       "decor": {
         "rug": false,
         "downlights": false,
@@ -45,26 +38,10 @@
           {
             "along": "u",
             "at": [
-              -3,
-              2
-            ],
-            "len": 3
-          },
-          {
-            "along": "u",
-            "at": [
-              3,
-              2
-            ],
-            "len": 3
-          },
-          {
-            "along": "u",
-            "at": [
               0,
-              6
+              4.9
             ],
-            "len": 4
+            "len": 8
           }
         ],
         "paint": [
@@ -84,10 +61,10 @@
           {
             "kind": "hazard",
             "rect": [
-              -1.5,
-              1.5,
-              7.6,
-              8.8
+              -0.8,
+              6,
+              0.6,
+              4.9
             ],
             "t": 0.2
           }
@@ -95,22 +72,36 @@
         "signs": [
           {
             "wall": "back",
-            "along": 0,
+            "along": -3,
             "y": 2.6,
             "h": 0.16,
-            "text": "LEVEL 2",
+            "text": "CAROUSEL",
             "hex": "#28c4e4",
             "plateHex": "#0d0f12"
           }
         ]
+      },
+      "face": 180,
+      "stand": {
+        "kind": "sdeck",
+        "at": [
+          2.6,
+          2.75
+        ],
+        "face": "right",
+        "from": "back",
+        "len": 6.4,
+        "wid": 4
       }
-    }
+    },
+    "sdeck_bay": true,
+    "field_zone": "zone_seam_914_908"
   },
   "grid_x": 0,
   "grid_y": 0,
   "grid_z": 1,
   "id": "zone_sdeck_l2",
   "map_id": "map_int_stackeddeck",
-  "name": "Stacked Deck, Level 2",
+  "name": "Marrow Street Parking, Carousel",
   "parent_zone": "zone_seam_914_908"
 }

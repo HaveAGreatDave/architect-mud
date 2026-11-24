@@ -91,7 +91,7 @@ on('zone.entered', onZoneEntered);
 // A zone can carry `flags.gps_suggest` = a destination zone id; the FIRST time a player
 // enters that zone we plot a one-off route to it and drop a short hint line, then stamp a
 // per-player seen-marker so it never nags again. This is the pre-quest nudge that steers a
-// fresh clone toward the NPC who hands out their first job (Grady at Two-Cell Supply) —
+// fresh clone toward the NPC who hands out their first job (Rusty at O'Toole's Surplus) —
 // prose alone said "start there", this actually draws the green line. `flags.gps_suggest_label`
 // overrides the hint text. Fires on ARRIVAL (the entered `zone`), unlike the lore's seen-stamp
 // which keys on the zone left; the two are independent markers.

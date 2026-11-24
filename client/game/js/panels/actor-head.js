@@ -108,7 +108,7 @@ export const FACE_STYLES = {
   real: { brow: 1, bridge: 1, socket: 1, ball: 1, cheek: 1, hollow: 1, nose: 1, tip: 1, wings: 1, folds: 1, lips: 1, chin: 1, jaw: 0, browEdge: 1, cheekHi: 0, chinW: 1, jawSq: 0 },
   // the revised close-up head (docs/proposals/sculpted-figure.md): the same mesh, the planes cut deeper,
   // and `asym` the small unevenness a real face has
-  sculpt: { brow: 3, browY: 1.659, bridge: 0.9, socket: 1.6, eyeX: 0.0292, ball: 0.45, cheek: 2.4, hollow: 1.7, nose: 1.28, noseNarrow: 0.3, tip: 1, wings: 1.25, folds: 0.5, lips: 0.42, chin: 2.3, jaw: 0.1, browEdge: 0.62, cheekHi: 0.004, chinW: 1.15, jawSq: 1, jawY: 1.574, jawR: 0.02, chinOut: 0.0035, chinUp: 0.007, asym: 1 },
+  sculpt: { brow: 3, browY: 1.659, bridge: 0.9, socket: 1.6, eyeX: 0.0318, ball: 0.45, cheek: 2.4, hollow: 1.7, nose: 1.28, noseNarrow: 0.3, tip: 1, wings: 1.25, folds: 0.5, lips: 0.42, chin: 2.3, jaw: 0.1, browEdge: 0.62, cheekHi: 0.004, chinW: 1.15, jawSq: 1, jawY: 1.574, jawR: 0.02, chinOut: 0.0035, chinUp: 0.007, asym: 1 },
   comic: { brow: 1.9, bridge: 0.9, socket: 0.65, ball: 0.4, cheek: 1.85, hollow: 1.1, nose: 1.05, tip: 1.1, wings: 0.8, folds: 0.3, lips: 0.55, chin: 1.6, jaw: -0.7, browEdge: 0.78, cheekHi: 0.004, chinW: 1.35, jawSq: 1 },
 };
 
@@ -200,9 +200,14 @@ export function tunedFace(style, tune) {
 // lips are put back toward the real head's, and the rest softened: flatter, broader cheekbones over a shallower hollow (they
 // stood out in profile as a triangle), a rounder brow and a gentler jaw. Not the folds: deeper, the philtrum shades
 // under the nose into a moustache.
+// The fine head's jaw (2026-11-21). In profile the chin was a wedge pointing forward and the jaw ran from it
+// straight up to the ear; from the front the face was an egg. `square` (from the head's own `jawSq`, so a soft
+// head has none) widens the jaw down to a corner level with the mouth, broadens the chin and flattens its front, and
+// brings the chin's underside forward, so in profile it ends in a corner. The chin's own bump is lower and taller.
+const squareJaw = (K) => { if (K.soft) return { jawSq: K.jawSq * 0.75, chinTall: 1.45, chinRound: 1 }; const q = Math.min(1.2, K.jawSq || 0); return { square: q, jawSq: K.jawSq * 1.1, jawY: K.jawSq ? 1.564 : K.jawY, chin: K.chin * (1 - 0.3 * Math.min(1, q)), chinTall: 1 + 0.4 * q, chinUp: (K.chinUp || 0) + 0.004 * Math.min(1, q), nose: K.nose * (1 - 0.36 * Math.min(1, q)), tip: K.tip * (1 - 0.1 * Math.min(1, q)), tipR: 1 + 0.4 * Math.min(1, q), lips: Math.max(K.lips, 0.95 - 0.25 * Math.min(1, q)) }; };
 export function hdFace(style) {
   const name = style + '+hd';
-  if (!FACE_STYLES[name]) { const K = FACE_STYLES[style]; FACE_STYLES[name] = { ...K, lips: Math.max(K.lips, 0.95), wings: K.wings * 1.1, cheek: K.cheek * 0.62, hollow: K.hollow * 0.55, cheekS: 1.35, brow: K.brow * 0.85, browEdge: K.browEdge * 1.25, socket: K.socket * 0.9, jawSq: K.jawSq * 0.75 }; }
+  if (!FACE_STYLES[name]) { const K = FACE_STYLES[style]; FACE_STYLES[name] = { ...K, lips: Math.max(K.lips, 0.95), wings: K.wings * 1.1, cheek: K.cheek * 0.14, hollow: K.hollow * 0.5, cheekS: 2.0, cheekX: 0.057, cheekDy: -0.009, brow: K.brow * 0.3, browEdge: K.browEdge * 2.1, socket: K.socket * 0.6, ...squareJaw(K) }; }
   return name;
 }
 // A sculpted head at a body's weight (figure.js SOMA), 0 to 1. What each body does to the face, added to
@@ -233,10 +238,10 @@ function faceDisp(x, y, K = FACE_STYLES.real) {
   d -= K.socket * 0.0095 * gauss(ax, y, K.eyeX || 0.031, 1.6415, 0.019, 0.012);     // sockets
   d += K.ball * 0.0052 * gauss(ax, y, K.eyeX || 0.0312, 1.6395, 0.0115, 0.0068);  // the eyeball in them
   const cS = K.cheekS || 1;
-  d += K.cheek * 0.006 * gauss(ax, y, 0.047, 1.6215 + K.cheekHi, 0.016 * cS, 0.012 * cS);      // cheekbones
+  d += K.cheek * 0.006 * gauss(ax, y, K.cheekX || 0.047, 1.6215 + K.cheekHi + (K.cheekDy || 0), 0.016 * cS, 0.012 * cS);      // cheekbones
   d -= K.hollow * 0.0035 * gauss(ax, y, 0.047, 1.59, 0.013 * cS, 0.014 * cS);       // and the hollow under them
   d += K.nose * NOSE_H(y) * Math.exp(-((x / (NOSE_W(y) * (1 - (K.noseNarrow || 0) * sstep(1.598, 1.625, y)))) ** 2));
-  d += K.tip * 0.0035 * gauss(x, y, 0, 1.5985, 0.0085, 0.0075);        // the tip
+  d += K.tip * 0.0035 * gauss(x, y, 0, 1.5985, 0.0085 * (K.tipR || 1), 0.0075 * (K.tipR || 1));        // the tip (`tipR` broadens it into a round)
   d += K.wings * 0.0075 * gauss(ax, y, 0.0155, 1.5925, 0.0066, 0.0064);  // the wings of the nostrils
   d -= K.folds * 0.0018 * gauss(ax, y, 0.0225, 1.5985, 0.004, 0.006);    // and the groove behind them
   { // nose to mouth corner
@@ -248,7 +253,7 @@ function faceDisp(x, y, K = FACE_STYLES.real) {
   d += K.lips * 0.0078 * gauss(x, y, 0, 1.559, 0.019, 0.005);           // lower lip
   d -= K.lips * 0.0032 * gauss(x, y, 0, FACE.mouthY, 0.026, 0.0011);    // where they meet
   d -= K.lips * 0.003 * gauss(x, y, 0, 1.5495, 0.017, 0.004);           // under the lower lip
-  d += K.chin * 0.009 * gauss(x, y, 0, FACE.chinY, 0.017 * K.chinW, 0.01);        // chin
+  d += K.chin * 0.009 * gauss(x, y, 0, FACE.chinY, 0.017 * K.chinW, 0.01 * (K.chinTall || 1));        // chin
   return d;
 }
 
@@ -308,9 +313,10 @@ export function skullPoint(y, phi, style = 'real') {
   const K = FACE_STYLES[style] || FACE_STYLES.real;
   const S = station(y), c = Math.cos(phi), s = Math.sin(phi);
   // `chinFlat` squares the front below the mouth, so the chin ends in a flat front with corners, not a point
-  const n = s > 0 ? S.nf * (1 + (K.chinFlat || 0) * sstep(1.585, 1.54, y)) : 2.1;
+  const sq = K.square || 0;
+  const n = s > 0 ? S.nf * (1 + ((K.chinFlat || 0) + 0.3 * sq) * sstep(1.585, 1.54, y)) : 2.1;
   // the jaw's width from the cheekbones down, most at the chin (the comic style's is a little wider)
-  let x = S.w * se(c, n) * (1 - K.jaw * 0.1 * sstep(1.615, 1.53, y) * (0.4 + 0.6 * Math.max(0, s)));
+  let x = (S.w + sq * 0.012 * sstep(1.562, 1.528, y) + sq * 0.012 * sstep(1.546, 1.524, y) + sq * 0.002 * sstep(1.622, 1.566, y) + (K.chinRound || 0) * 0.005 * sstep(1.552, 1.527, y)) * se(c, n) * (1 - K.jaw * 0.1 * sstep(1.615, 1.53, y) * (0.4 + 0.6 * Math.max(0, s)));
   // a full face: wider from the cheeks down, and under the chin the rings open into a second one
   if (K.fat) x *= 1 + K.fat * (0.15 * Math.exp(-(((y - 1.598) / 0.042) ** 2)) + 0.3 * sstep(1.542, 1.524, y));
   // and a lean one: drawn in below the cheekbones, so the bones stand out
@@ -322,6 +328,15 @@ export function skullPoint(y, phi, style = 'real') {
   if (s > 0) z += faceDisp(x, y, K) * sstep(0.1, 0.5, s);
   // the chin and the mouth over it brought forward, for a firm line in profile
   if (K.chinOut && s > 0) z += K.chinOut * sstep(1.585, 1.545, y) * s;
+  if (sq && s > 0) z += sq * 0.014 * clamp01((1.541 - y) / 0.0175) ** 1.6 * s;
+  // and the chin's front is a plane all the way down. It stood forward for a centimetre under the lip and then
+  // fell away to the neck, so in profile the chin was a small point; filled, it's flat to a low rounded turn
+  if (sq && s > 0) z += sq * 0.012 * sstep(1.532, 1.5235, y) * (1 - 0.25 * sstep(1.5225, 1.5195, y)) * s;
+  // a soft head's chin is a round: its front carried a little further down before it turns under, and that turn eased,
+  // where it ran forward to a point and then straight back along the jaw
+  if (K.chinRound && s > 0) z += K.chinRound * 0.012 * Math.exp(-(((y - 1.524) / 0.008) ** 2)) * s;
+  // and the jaw's underside carried back nearly level to its corner, instead of climbing straight to the ear
+  if (sq && s < 0) z += sq * 0.011 * sstep(1.562, 1.529, y) * s;
   if (K.fat && s > 0) z += K.fat * s * (0.018 * gauss(Math.abs(x), y, 0.052, 1.592, 0.032, 0.032) + 0.01 * sstep(1.54, 1.524, y));
   if (K.asym && s > 0) {
     z += K.asym * 0.0014 * gauss(x, y, 0.045, 1.62, 0.02, 0.02);   // the left cheekbone a little fuller
@@ -331,7 +346,7 @@ export function skullPoint(y, phi, style = 'real') {
 }
 // The sculpted eye's opening, by face: its centre's half-width, half its length, how far the lids stand above
 // and below the middle, and how much it tilts up to the outer corner. gl/figure-hd.js draws the same curve.
-export const EYE = { y: 1.6398, man: { x: 0.0292, w: 0.0158, t: 0.0051, b: 0.0034, tilt: 0.02 }, soft: { x: 0.0312, w: 0.0168, t: 0.0074, b: 0.0052, tilt: 0.07 } };
+export const EYE = { y: 1.6398, man: { x: 0.0328, w: 0.0195, t: 0.0056, b: 0.0034, tilt: 0.035 }, soft: { x: 0.0312, w: 0.0182, t: 0.0066, b: 0.0042, tilt: 0.12 } };
 // The point on the face at half-width `x` and height `y`, for what's fitted to the skin.
 export function facePoint(x, y, style) {
   let lo = 0.02, hi = Math.PI / 2;
@@ -364,7 +379,12 @@ function ringPhis(L, y) {
 export const HAIRLINE = [1.703, 1.7, 1.688, 1.662, 1.63, 1.648, 1.664, 1.666, 1.65, 1.612, 1.586, 1.574, 1.571];
 // The sculpted head's: a sideburn in front of the ear rather than at the eye's corner, and the hair
 // coming down round the ear.
-export const HAIRLINE_SCULPT = [1.697, 1.695, 1.687, 1.672, 1.651, 1.63, 1.598, 1.622, 1.64, 1.615, 1.585, 1.57, 1.565];
+// (2026-11-22: clear of the ear, which is 63 mm now and reaches 1.662: over it the line is above its top, in front of
+// it a short sideburn, and behind it the line comes down to half way down the ear before it runs to the nape)
+// (and the same day: down behind the ear to its lobe, then nearly level across the nape, where it was a V to a
+// point with bare skin either side of it)
+// (and a sideburn: in front of the ear the line comes down to the middle of it and stands close against it)
+export const HAIRLINE_SCULPT = [1.697, 1.695, 1.687, 1.672, 1.65, 1.606, 1.664, 1.669, 1.614, 1.592, 1.584, 1.581, 1.58];
 export function hairlineAt(x, z, line = HAIRLINE) {
   const psi = Math.atan2(Math.abs(x), z - ZC), u = (psi / Math.PI) * 12;
   const i = Math.floor(u), t = u - i, k = (j) => line[Math.max(0, Math.min(12, j))];
@@ -468,7 +488,7 @@ function grid(lv, style = 'real') {
   const L = levelOf(lv), ys = L.rings;
   const pts = ys.map((y) => ringPhis(L, y).map((phi) => skullPoint(y, phi, style)));
   const n = pts[0].length;
-  const top = [0, FACE.top, ZC], bot = [0, FACE.chin + (FACE_STYLES[style]?.chinUp || 0) - (FACE_STYLES[style]?.fat || 0) * 0.012, 0.05];
+  const top = [0, FACE.top, ZC], bot = [0, FACE.chin + (FACE_STYLES[style]?.chinUp || 0) - (FACE_STYLES[style]?.fat || 0) * 0.012, 0.05 - 0.018 * (FACE_STYLES[style]?.square || 0)];
   // Normals off a throwaway mesh of the whole closed skull.
   const M = builder();
   const ti = M.v(top, 7), rings = pts.map((r) => r.map((p) => M.v(p, 7))), bi = M.v(bot, 7);
@@ -527,12 +547,14 @@ function addEar(M, side, nu, nv, sculpt = false) {
 // only the bowl's shade.
 const g1 = (x, x0, s) => Math.exp(-(((x - x0) / s) ** 2));
 function addEarFine(M, side) {
-  const ry = 0.0255, rz = 0.0165, tilt = -0.2, flare = -0.34 * side, nu = 32;
+  // (63 mm tall, its top level with the brow and its lobe with the base of the nose, leaning back a little more: at
+  // 51 mm and centred lower it was a small ear set low, with a long bare stretch under it down to the jaw's corner)
+  const ry = 0.0315, rz = 0.0182, tilt = -0.26, flare = -0.34 * side, nu = 32;
   const place = (lx, ly, lz) => {
     const y = ly * Math.cos(tilt) - lz * Math.sin(tilt), z = ly * Math.sin(tilt) + lz * Math.cos(tilt);
     const x = lx * side, pz = rz * 0.75, dz = z - pz;
     const x2 = x * Math.cos(flare) + dz * Math.sin(flare), z2 = -x * Math.sin(flare) + dz * Math.cos(flare) + pz;
-    return [x2 + 0.0705 * side, y + 1.62, z2 - 0.014];
+    return [x2 + 0.0705 * side, y + 1.6305, z2 - 0.018];
   };
   // the outline, angle th round the middle (cos toward the face, sin up): an egg wider at the top, narrowing to the
   // lobe, a little flatter along the front where it joins the head
@@ -599,7 +621,7 @@ function scmRidge(ph, y) {
   }
   return best * env;
 }
-function addNeck(M, n, rows, k = 1, fineNeck = false) {
+function addNeck(M, n, rows, k = 1, fineNeck = false, adam = false) {
   // the extra rings and columns only at the close-up level (12 round), where the ridges can be seen
   const sculpt = k !== 1, fine = sculpt && fineNeck && n >= 12, N = fine ? n * 2 : n, R = fine ? Math.round(rows * 1.75) : rows;
   const rings = [], f = [1, 2, 3].map((k) => spline(NECK.map((r) => [r[0], r[k]])));
@@ -613,9 +635,18 @@ function addNeck(M, n, rows, k = 1, fineNeck = false) {
       if (sculpt) {
         // the back of the neck thicker than the front (the shoulders' slope is the torso's, under the collar)
         if (s < 0) pz *= 1.05;
+        // and its top wider at the sides and the back, up under the skull: the column was 3 cm narrower than the
+        // head behind the ears, which stood out over it as a ledge with nothing running down from it into the neck
+        // (a little, and only close under the skull: more of it stood out under the jaw as a ring round the neck)
+        { const fl = sstep(1.55, 1.6, y); px *= 1 + 0.13 * fl * Math.abs(c); if (s < 0) pz *= 1 + 0.12 * fl; }
         // drawn in a little at the middle of its height, and the ridges standing out of it
         const pinch = 1 - 0.035 * Math.exp(-(((y - 1.52) / 0.03) ** 2)), ridge = 1 + 0.085 * scmRidge(ph, y);
         px *= pinch * ridge; pz *= pinch * ridge;
+        // the floor of the mouth: under the chin the throat comes forward to meet the jaw's underside and slopes back
+        // down to the Adam's apple. A straight column met the jaw's underside at a right angle in profile
+        if (s > 0) pz += 0.034 * sstep(1.482, 1.532, y) * s ** 1.5;
+        // a man's Adam's apple: a small firm bump on the front of the throat, under the fold below the chin
+        if (adam && s > 0) pz += 0.0075 * Math.exp(-(((y - 1.494) / 0.0105) ** 2)) * s ** 10;
       }
       r.push(M.v([px, y, cz + pz], 12, w));
     }
@@ -638,7 +669,7 @@ export function headMesh(lv = 0, style = 'real', fineNeck = false) {
   for (let k = 0; k < n; k++) M.t(R[k], R[(k + 1) % n], bi);
   const sculpt = style.startsWith('sculpt');
   if (L === HEAD_HD && sculpt) { addEarFine(M, 1); addEarFine(M, -1); } else { addEar(M, 1, ...L.ear, sculpt); addEar(M, -1, ...L.ear, sculpt); }
-  addNeck(M, ...L.neck, sculpt ? NECK_SCULPT : 1, fineNeck);
+  addNeck(M, ...L.neck, sculpt ? NECK_SCULPT : 1, fineNeck, sculpt && !FACE_STYLES[style]?.soft);
   _head[hk] = done(M);
   return _head[hk];
 }

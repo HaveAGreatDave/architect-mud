@@ -44,6 +44,35 @@ export default async function regress({ run, check, getPlayer }) {
   standTaken('vs_one', 'regress_kind');
   check('boarded: the floor is empty at once', standAt(here.id) === null);
 
+  // `callup list`: fills the hangar display's hand, the kind's own shop with it, and calls nothing up
+  registerStandKind('regress_kind', {
+    isBay: (z) => z?.id === here.id, from: 'below', label: 'LIFT', moveMs: 50,
+    board: (id) => `examine ${id}`, list: async () => fleet,
+    shop: async () => [{ id: 't_one', name: 'Kite', price: 10, afford: true, cmd: 'buy t_one', look: { cls: 'prop' } }],
+    words: { noun: 'thing' },
+  });
+  r = await run('callup list');
+  const listed = standVehicles(here.id, p, 'regress_kind');
+  check('callup list: names what\'s kept here and brings nothing out', /Yours here/.test(r?.message || '') && standAt(here.id) === null, r?.message?.slice(0, 60));
+  check('…and the display gets both lists, a look on each', listed?.mine?.length === 2 && listed.mine[0].look?.cls === 'prop' && listed.shop?.[0]?.cmd === 'buy t_one' && listed.from === 'below', JSON.stringify(listed)?.slice(0, 120));
+
+  // a desk (a terminal's display): `callup list` still lists, before the kind's own call; anything else is its call
+  registerStandKind('regress_kind', {
+    isBay: (z) => z?.id === here.id, desk: true, label: 'DESK',
+    board: (id) => `examine ${id}`, list: async () => fleet, shop: async () => [],
+    call: () => ({ type: 'emote', message: 'Kept in the hangar.' }), words: { noun: 'thing' },
+  });
+  r = await run('callup list');
+  const desk = standVehicles(here.id, p, 'regress_kind');
+  check('a desk: callup list lists and says it\'s a desk', /Yours here/.test(r?.message || '') && desk?.desk === true && desk.mine.length === 2, JSON.stringify(desk)?.slice(0, 100));
+  r = await run('callup 1');
+  check('…and raises nothing: its own call answers', /Kept in the hangar/.test(r?.message || '') && standAt(here.id) === null, r?.message?.slice(0, 60));
+
+  // back to a floor bay: a desk answers every bare `callup` with its own call
+  registerStandKind('regress_kind', {
+    isBay: (z) => z?.id === here.id, from: 'below', label: 'LIFT', moveMs: 50,
+    board: (id) => `examine ${id}`, list: async () => fleet, shop: async () => [], words: { noun: 'thing' },
+  });
   fleet = [];
   r = await run('callup');
   check('callup: nothing kept here says so', /Nothing of yours/.test(r?.message || ''), r?.message?.slice(0, 60));

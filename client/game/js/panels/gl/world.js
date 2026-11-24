@@ -815,6 +815,24 @@ export function glCloudVolPass(id, cam, vol, opts = {}) {
 }
 
 // The cabin alone after the world composite (drawInteriorAlone), with the shifted camera.
+// Where a point of a room drawn in GLASS is on the scene's picture (gl/interiors.js `project`): frame tiles in, a share
+// of the picture out, or null. A page laid on a room's glass in the street view asks (freelook-view.js).
+export function glInteriorProject(id, x, y, z) {
+  const g = scenes.get(id);
+  return g && g.view && g.view.interiorProject ? g.view.interiorProject(x, y, z) : null;
+}
+// The matrix the rooms were last drawn with in a street view's context, and the window origin it's about ({ vp, o }), or
+// null: a picker over a room walked in GLASS (the kitchen at its hob, freelook-view.js owKitchenMatrices) asks it.
+export function glInteriorVP(id) {
+  const g = scenes.get(id);
+  return g && g.view && g.view.interiorVP ? g.view.interiorVP() : null;
+}
+// The cat layer of a street view's context (gl/cat-layer.js), or null until it's loaded: a room walked in GLASS draws
+// its cats into it (freelook-view.js owCatTick).
+export function glRoomCats(id) {
+  const g = scenes.get(id);
+  return g && g.view && g.view.roomCats ? g.view.roomCats() : null;
+}
 export function glInteriorPass(id, cam, opts = {}) {
   const g = scenes.get(id);
   if (!g || !g.view || !g.canvas || !g.view.drawInteriorAlone || !cam) return null;

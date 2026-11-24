@@ -43,6 +43,8 @@ const hash = (seed, k) => { const x = Math.sin((seed || 0) * 12.9898 + k * 78.23
 const newPoint = (x, y, z) => [x, y, z], newQuad = (a, b, c, d) => [a, b, c, d];
 const SIDES = Object.freeze([-1, 1]);
 const STREET_TREES = false;   // the planter trees down the walkways (see THE PLANTER TREES ARE OFF below)
+// Off 2026-11-22 (David): clutter on the walkways. The toll-gate posts at each end of a block, and the junk.
+const STREET_GATES = false, STREET_JUNK = false;
 
 // ── THE STREET, IN CONSTANTS ──
 // Across the street from the centreline (`v`), along it from the tile centre (`u`). The brief's
@@ -51,7 +53,7 @@ export const KIT_M = Object.freeze({
   LANE: 4.0, WALK: 5.6, KERB: 0.18, CAP_W: 0.25,
   PANEL_W: 1.4, PANEL_L: 2.0, PANEL_GAP: 0.07, PANEL_H: 0.02,
   STRIP_W: 1.8, STRIP_H: 0.04, STRIP_EDGE: 0.93, CHEVRON: 2.2,
-  BOLLARD_EVERY: 2.5, BOLLARD_H: 0.95, BOLLARD_IN: 0.5, CROSS_GAP: 2.6,
+  BOLLARD_EVERY: 10, BOLLARD_H: 0.95, BOLLARD_IN: 0.5, CROSS_GAP: 2.6,
   ZEBRA_L: 3.2, ZEBRA_BAR: 0.5, ZEBRA_PITCH: 0.8,
   POLE_H: 3.4, POLE_IN: 0.45,
   PLANT_EVERY: 15, PLANT_IN: 1.05, VENT_EVERY: 17,
@@ -233,6 +235,7 @@ function spanOn(at, rx, ry, axis, run, inner = 0) {
 // Whether a tile's dynamic pass has anything to draw at that distance. The renderer asks this before
 // it runs one, so it has to stay true of drawStreetKit's dynamic pass: the gate checks that a tile this
 // says no to draws nothing. A junction has no belts or vents, and the dirt has only what's overhead.
+const CROSS_POLES = false;   // the crossing's lamp poles; see THE CROSSING
 export function kitMoves(P, near) {
   if (P.span) return true;
   return !LEVEL[P.level].dirt && !!P.axis && (near || !!P.cross || !!P.bridge);
@@ -905,11 +908,11 @@ export function drawStreetKit(o) {
         }
       }
     };
-    if (first) gate(-0.5 + M(K.GATE_IN));
-    if (last) gate(0.5 - M(K.GATE_IN));
+    if (STREET_GATES && first) gate(-0.5 + M(K.GATE_IN));
+    if (STREET_GATES && last) gate(0.5 - M(K.GATE_IN));
 
     // ── BOLLARDS ──
-    // An octagonal post on a base plate every 2.5 m inside each kerb cap, a lit ring near the top
+    // An octagonal post on a base plate every 10 m (2.5 m until 2026-11-22) inside each kerb cap, a lit ring near the top
     // and a red sensor eye on the lane side, with a 5 m gap at the crossing.
     if (!far) for (const u of spaced(K.BOLLARD_EVERY, 1.5)) {
       if (nearCross(u, K.CROSS_GAP)) continue;
@@ -976,7 +979,7 @@ export function drawStreetKit(o) {
 
     // ── JUNK ──
     // Lying about on a street nobody clears, out of the strip and off the lane.
-    if (!far) for (let i = 0; i < LV.junk; i++) {
+    if (STREET_JUNK && !far) for (let i = 0; i < LV.junk; i++) {
       const s = P.inner ? -P.inner : hash(o.seed, i * 4 + 120) < 0.5 ? -1 : 1, u = (hash(o.seed, i * 4 + 121) - 0.5) * 0.9;
       const [x, y] = loc(u, s * (OUT - M(0.8 + hash(o.seed, i * 4 + 122) * 0.5)));
       junkAt(x, y, KERB_H, hash(o.seed, i * 4 + 123));
@@ -1001,13 +1004,15 @@ export function drawStreetKit(o) {
       for (let i = 0; i < 5; i++) box(CROSS_U, M(-1.6 + i * K.ZEBRA_PITCH), M(K.ZEBRA_L / 2), M(K.ZEBRA_BAR / 2), LANE_Z, zz, LV.zebra, LV.zebraMat);
       for (const s of [-1, 1]) {
         tactile(CROSS_U, s * (LANE_HW + M(0.6)), M(K.ZEBRA_L / 2), M(0.4));
-        crossPole(s, () => {
-          const u = CROSS_U - M(2), v = s * (LANE_HW + M(K.POLE_IN)), zt = KERB_H + M(K.POLE_H);
-          box(u, v, M(0.08), M(0.08), KERB_H, zt, PAL.post, 'metal');
-          box(u, v - s * M(0.6), M(0.07), M(0.7), zt - M(0.14), zt, PAL.post, 'metal', PAL.post, 'metal', true);
-          box(u, v - s * M(1.2), M(0.2), M(0.25), zt - M(0.9), zt - M(0.14), PAL.head, 'metal', PAL.head, 'metal', true);
-        });
       }
+      // The crossing poles (a post, an arm over the lane, a lamp head) are off, 2026-11-22 (David): leaning, they
+      // read as broken street furniture. crossPole and the blink below are kept for putting them back.
+      if (CROSS_POLES) for (const s of [-1, 1]) crossPole(s, () => {
+        const u = CROSS_U - M(2), v = s * (LANE_HW + M(K.POLE_IN)), zt = KERB_H + M(K.POLE_H);
+        box(u, v, M(0.08), M(0.08), KERB_H, zt, PAL.post, 'metal');
+        box(u, v - s * M(0.6), M(0.07), M(0.7), zt - M(0.14), zt, PAL.post, 'metal', PAL.post, 'metal', true);
+        box(u, v - s * M(1.2), M(0.2), M(0.25), zt - M(0.9), zt - M(0.14), PAL.head, 'metal', PAL.head, 'metal', true);
+      });
     }
 
     // ── THE FOOTBRIDGE ──
@@ -1109,7 +1114,7 @@ export function drawStreetKit(o) {
     const [x, y] = loc(u, vv);
     o.steam(dx + x, dy + y, Math.round(r * 1e4), LV.steam);
   }
-  if (doDynamic && crossHere) {
+  if (doDynamic && crossHere && CROSS_POLES) {
     // Each crossing blinks on its own phase off its seed: off the bare clock every crossing in the
     // city went amber and dark together.
     const on = LV.lamp === 'blink' ? Math.sin((o.now || 0) / 1000 * 3 + hash(o.seed, 7) * 6.2832) > 0 : LV.lamp === 'steady';

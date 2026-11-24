@@ -11,17 +11,18 @@
     "food_profile": "dry_starch",
     "matter": {
       "look": {
-        "pack": "pouch",
-        "label": "#d8382a"
+        "label": "#d8382a",
+        "pack": "pouch"
       },
       "ramp": {
-        "raw": "#f2d870",
         "cook": "#f0dc8a",
-        "peak": "#eed890"
+        "peak": "#eed890",
+        "raw": "#f2d870"
       }
     },
     "needs_cooking": true,
     "restore_hunger": 18,
+    "shelved": true,
     "stackable": true,
     "status_chance": {
       "food_poisoning": 0.1

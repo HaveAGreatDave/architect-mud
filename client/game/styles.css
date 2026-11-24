@@ -6583,6 +6583,30 @@ html[data-density="compact"] .confirm-x::after { content: ""; position: absolute
 	opacity: 1;
 }
 
+/* Answering in your own words (plugins/parley): a line under the options. */
+#dialogue-parley {
+	display: flex;
+	gap: 7px;
+	margin-top: 9px;
+	flex: 0 0 auto;
+}
+#dialogue-parley[hidden],
+#dialogue-box.shop-mode #dialogue-parley { display: none; }
+#dialogue-parley-input {
+	flex: 1 1 auto;
+	min-width: 0;
+	font: inherit;
+	color: inherit;
+	background: rgba(0, 0, 0, 0.35);
+	border: 1px solid rgba(255, 255, 255, 0.18);
+	border-radius: 4px;
+	padding: 7px 9px;
+}
+#dialogue-parley-input:focus { outline: none; border-color: rgba(255, 255, 255, 0.45); }
+#dialogue-parley .dialogue-opt { flex: 0 0 auto; width: auto; }
+#dialogue-parley-mic[hidden] { display: none; }
+#dialogue-parley-mic.listening { border-color: #e05a4f; color: #ffb3ab; box-shadow: 0 0 8px rgba(224, 90, 79, 0.55); }
+
 #dialogue-options {
 	display: flex;
 	flex-direction: column;
@@ -11778,7 +11802,8 @@ html[data-density="compact"] .corner-grip, html.tv-popped .corner-grip { display
    sports omit those and the bug shows just scores + status. Themed off the TV vars. */
 #tv-scorebug {
 	position: absolute;
-	bottom: 82px;
+	/* above the corner's mute and full screen */
+	bottom: 116px;
 	right: 10px;
 	z-index: 45;
 	display: none;
@@ -12769,6 +12794,18 @@ html[data-density="compact"] .corner-grip, html.tv-popped .corner-grip { display
 .gds-park:hover .view-fs, .gdr-rink:hover .view-fs, #tv-gameday:hover > .view-fs, #tv-gameday:hover > div > .view-fs, .view-fs:focus-visible { opacity: 1; }
 .view-fs:hover, .view-fs:focus-visible { border-color: rgba(159,228,255,0.8); color: #dff4ff; }
 @media (hover: none) { .view-fs { opacity: 0.8; } }
+/* Mute and full screen at the bottom right of every TV's picture (tv.js _mountCorner): the popup,
+   the tablet and the wall set. Faint until the set's hovered, and lit while muted so a silent set
+   says why. Over a sports view it steps up above the view's own row of buttons. */
+.tv-corner { position: absolute; right: 8px; bottom: 8px; z-index: 60; display: flex; gap: 4px; opacity: 0.4; transition: opacity 0.2s; }
+#tv-window > .tv-corner { bottom: calc(var(--tv-foot-h, 72px) + 8px); }
+[data-tv="gameday"].on ~ .tv-corner { transform: translateY(-34px); }
+.tv-corner button { width: 26px; height: 26px; padding: 0; display: flex; align-items: center; justify-content: center; cursor: pointer;
+	border-radius: 4px; border: 1px solid rgba(160,190,220,0.35); background: rgba(6,10,16,0.62); color: #9fb0c0; font: inherit; }
+.tv-corner button:hover, .tv-corner button:focus-visible { border-color: rgba(159,228,255,0.8); color: #dff4ff; }
+.tv-corner .tv-corner-mute.on { color: var(--tv-live-color, #ff4455); border-color: color-mix(in srgb, var(--tv-live-color, #ff4455) 55%, transparent); }
+[data-tv="window"]:hover .tv-corner, .tv-corner:focus-within, .tv-corner.muted { opacity: 1; }
+@media (hover: none) { .tv-corner { opacity: 0.8; } }
 /* The view's host while it's full screen. A 'display: contents' wrapper (inline) draws nothing full
    screen, so it's given a box for the view's absolute layout to fill. */
 .view-fs-host:fullscreen { display: block !important; position: relative; width: 100%; height: 100%; background: #000; }
@@ -20491,3 +20528,55 @@ input[aria-invalid="true"]::placeholder { color: var(--red); opacity: 0.8; }
 	.cred-shake { animation: none; }
 	@keyframes cred-float-fade { 0%, 75% { opacity: 1; } 100% { opacity: 0; } }
 }
+
+/* ── The sign on a shut shop door (dispatch.js showDoorSign) ── */
+.door-sign-veil {
+	position: fixed; inset: 0; z-index: 900;
+	display: flex; align-items: center; justify-content: center;
+	background: rgba(4, 6, 8, 0.55);
+	animation: door-sign-in 0.18s ease-out;
+}
+.door-sign {
+	position: relative;
+	width: min(320px, calc(100vw - 32px));
+	padding: 26px 22px 18px;
+	background: #efe6cf;
+	color: #2a231a;
+	border-radius: 4px;
+	box-shadow: 0 0 0 3px #2a231a, 0 0 0 5px #efe6cf, 0 18px 40px rgba(0,0,0,0.6);
+	text-align: center;
+	font-family: Georgia, 'Times New Roman', serif;
+	transform: rotate(-1.5deg);
+}
+.door-sign-string {
+	position: absolute; top: -30px; left: 50%; width: 90px; height: 34px;
+	transform: translateX(-50%);
+	border: 2px solid #8a7a5c; border-bottom: none;
+	border-radius: 45px 45px 0 0;
+}
+.door-sign-place {
+	font-size: 0.9375rem; letter-spacing: 0.12em; text-transform: uppercase;
+	border-bottom: 1px solid #2a231a; padding-bottom: 8px;
+}
+.door-sign-closed {
+	margin: 10px 0 12px;
+	font-size: 2.75rem; font-weight: bold; letter-spacing: 0.08em; text-transform: uppercase;
+	color: #a3241c;
+}
+.door-sign-hours {
+	list-style: none; margin: 0 0 14px; padding: 8px 0 0;
+	border-top: 1px dashed #8a7a5c;
+	font-family: var(--font-mono, monospace); font-size: 0.8125rem;
+}
+.door-sign-hours li { display: flex; justify-content: space-between; padding: 2px 4px; }
+.door-sign-actions { display: flex; gap: 8px; justify-content: center; }
+.door-sign-actions button {
+	font-family: var(--font-mono, monospace); font-size: 0.75rem;
+	padding: 6px 12px; cursor: pointer;
+	background: transparent; color: #2a231a;
+	border: 1px solid #2a231a; border-radius: 3px;
+}
+.door-sign-actions button:hover { background: #2a231a; color: #efe6cf; }
+.door-sign-hack { border-color: #3a8fa8 !important; color: #1f6a80 !important; }
+.door-sign-hack:hover { background: #1f6a80 !important; color: #efe6cf !important; }
+@keyframes door-sign-in { from { opacity: 0; } to { opacity: 1; } }

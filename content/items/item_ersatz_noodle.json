@@ -10,17 +10,18 @@
     "food_noun": "noodle",
     "food_profile": "dry_starch",
     "matter": {
+      "look": {
+        "label": "#9aa08a",
+        "pack": "box",
+        "size": 0.6
+      },
       "ramp": {
         "raw": "#d8cc9a"
-      },
-      "look": {
-        "pack": "box",
-        "label": "#9aa08a",
-        "size": 0.6
       }
     },
     "needs_cooking": true,
     "restore_hunger": 16,
+    "shelved": true,
     "stackable": true,
     "status_chance": {
       "food_poisoning": 0.1

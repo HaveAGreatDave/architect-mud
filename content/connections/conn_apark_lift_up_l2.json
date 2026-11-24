@@ -1,0 +1,9 @@
+{
+  "a": "zone_apark_lift",
+  "b": "zone_apark_l2",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_apark_lift_up_l2",
+  "lockable": false,
+  "one_way": true
+}

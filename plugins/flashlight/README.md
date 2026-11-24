@@ -36,7 +36,7 @@ Engine: `environment.js` (`floorVisibility`, `LIGHT_LADDER`), `scheduler.js`, `e
 
 - `BATTERY_MAX = 120` — charge units on a fresh cell (1 unit/minute ⇒ ~2 hours of light).
 - `LIT_FLOOR = 'clear'` — the light band a lit flashlight guarantees the holder.
-- `flags.flashlight_drain` (per **item**, optional) — a positive drain multiplier. Absent/invalid ⇒ 1.0 (normal). `0.5` halves the drain, so a cell lasts ~twice as long (e.g. `item_lucky_flashlight`, Grady's gift).
+- `flags.flashlight_drain` (per **item**, optional) — a positive drain multiplier. Absent/invalid ⇒ 1.0 (normal). `0.5` halves the drain, so a cell lasts ~twice as long (e.g. `item_lucky_flashlight`, Rusty's gift).
 
 ## Data schema
 

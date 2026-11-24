@@ -54,6 +54,7 @@ export function fakeEl(tag = 'DIV') {
   return {
     tagName: tag, style: {}, dataset: {}, children: [], innerHTML: '', textContent: '',
     clientWidth: 640, clientHeight: 360, width: 640, height: 360,
+    isConnected: true,   // a seat closes itself when its root leaves the page (freelook-view.js frame)
     classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
     getContext: () => makeCtx(),
     appendChild(c) { this.children.push(c); return c; },

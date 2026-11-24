@@ -72,9 +72,9 @@
       "constructed-irony": 7,
       "staged-reveal": 1,
       "aphoristic-closer": 2,
-      "caps-run": 132,
+      "caps-run": 134,
       "em-dash": 1,
-      "over-length": 400
+      "over-length": 392
     },
     "content/incidents": {
       "constructed-irony": 1,
@@ -85,9 +85,9 @@
       "vocab": 2,
       "constructed-irony": 6,
       "aphoristic-closer": 2,
-      "caps-run": 50,
+      "caps-run": 43,
       "em-dash": 9,
-      "over-length": 104
+      "over-length": 101
     },
     "content/job_boards": {
       "em-dash": 2
@@ -129,12 +129,12 @@
     },
     "content/zones": {
       "significance-frame": 1,
-      "constructed-irony": 53,
+      "constructed-irony": 52,
       "aphoristic-closer": 4,
       "fiction-cliche": 34,
       "caps-run": 115,
       "em-dash": 278,
-      "over-length": 711
+      "over-length": 708
     },
     "docs/adr/0001-action-canonical-mutation-path.md": {
       "em-dash": 4
@@ -500,7 +500,7 @@
       "jargon-metaphor": 3,
       "aphoristic-closer": 2,
       "caps-run": 9,
-      "em-dash": 104
+      "em-dash": 103
     },
     "docs/reference/building-styles.md": {
       "jargon-metaphor": 1,
@@ -1325,7 +1325,7 @@
       "constructed-irony": 5,
       "aphoristic-closer": 1,
       "caps-run": 43,
-      "em-dash": 330
+      "em-dash": 328
     },
     "tools/studio/README.md": {
       "jargon-metaphor": 1,

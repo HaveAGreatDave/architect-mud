@@ -4,6 +4,7 @@
   "id": "item_soylent_family",
   "name": "soylent pouch (family recipe)",
   "tags": {
+    "aisle": "staples",
     "consumable": true,
     "description": "An unbranded brown pouch, the printing slightly off-register, as though this batch was run on equipment set up for something else. FAMILY RECIPE. There's no cartoon on it. There's no slogan. There's a serving suggestion, and the serving suggestion is a photograph of a bowl.",
     "restore_hunger": 55,

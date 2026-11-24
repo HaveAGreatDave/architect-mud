@@ -12,6 +12,8 @@
 //   setPosition, isSailing, destroy }. opts: { gx, gy, hour, weather, onArrive(gx,gy) }.
 
 import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield, surfaceBreakup, normalizeWx, navMarks, seaRideAt, setYachtWay } from './windshield.js';
+import { YACHT_SCALE, YACHT_TIERS, M_Z } from '../../../shared/yacht-hull.js';
+import { TILE_M } from '../../../shared/world-scale.js';
 import { createFreeCam, freeCamHint, bindFreeCamPointer, bindFreeCamIdle } from './freecam.js';
 import { makeContactTrack } from './world-feed.js';
 
@@ -92,13 +94,14 @@ const FLAT_PITCH = 0.06;   // rad — camera almost level with the waterline: a 
 //
 // The eye sits at the wheelhouse — a little aft of amidships, about a deck and a half up. ⚠ IN
 // WORLD-Z TILES, measured off her DRAWN size (she is drawn at YACHT_SCALE), not off a real hull.
-const BRIDGE_EYE = 0.115, BRIDGE_OY = 0.34;
+// The bridge is the top tier's forward end (yacht-hull.js), the eye 1.65 m over its floor.
+const BRIDGE_EYE = (YACHT_TIERS[2].z0 * M_Z + 1.65) / TILE_M, BRIDGE_OY = -(YACHT_TIERS[2].fore + 0.06) * YACHT_SCALE;
 const HIGH_PITCH = 0.72;   // rad — the most top-down we lift to when the wheel dollies the camera all the way back
 // The chase distance was tuned before the Echelon was shrunk to 0.4 of her size (YACHT_SCALE in
 // windshield.js), and the camera never came in with her: at the resting distance she was a speck.
 // The helm's own zoom numbers (the dolly, the console's fit, the pitch curve) stay as they were, and
 // this brings the camera in by about her shrink when the view is painted.
-const CHASE_K = 0.42;
+const CHASE_K = 0.42 * YACHT_SCALE / 0.4;
 const ZOOM_MIN = 0.35, ZOOM_MAX = 2.4;   // matches the zoom() clamp — the dolly's near (close to water) / far bounds
 function pitchForZoom(z) {
   // Below the resting frame ⇒ dollying IN toward the water: ease pitch FLAT for the side view.

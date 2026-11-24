@@ -25,7 +25,8 @@
       "roomstage.indoors",
       "roomstage.onfoot",
       "graffiti.tagged",
-      "graffiti.removed"
+      "graffiti.removed",
+      "roomstage.worldin"
     ]
   },
   "dependencies": [

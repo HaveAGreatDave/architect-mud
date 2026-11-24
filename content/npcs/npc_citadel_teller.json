@@ -81,7 +81,7 @@
     },
     "bye": {
       "options": [],
-      "text": "\"Compound Interest thanks you for your custom.\" The faceplate dims to standby. \"Please don't linger in the hall.\""
+      "text": "\"Coldwater Financial thanks you for your custom.\" The faceplate dims to standby. \"Please don't linger in the hall.\""
     },
     "complaint": {
       "options": [
@@ -257,7 +257,7 @@
           "next": "account"
         }
       ],
-      "text": "\"Compound Interest holds deposits, issues bearer instruments and rents boxes to people who would rather not be asked what goes in them.\" The plinth hums. \"We're the last building in Coldwater that'll still give you a paper receipt, and the only one that'll still honour it.\""
+      "text": "\"Coldwater Financial holds deposits, issues bearer instruments and rents boxes to people who would rather not be asked what goes in them.\" The plinth hums. \"We're the last building in Coldwater that'll still give you a paper receipt, and the only one that'll still honour it.\""
     },
     "what2": {
       "options": [

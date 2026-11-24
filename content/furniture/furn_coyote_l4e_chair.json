@@ -1,0 +1,29 @@
+{
+  "description": "A kitchen chair with a cushion tied to it.",
+  "flags": {
+    "interactions": [
+      "sit"
+    ],
+    "look": {
+      "arche": "seat",
+      "form": "chair"
+    },
+    "spot": {
+      "at": [
+        -1.55,
+        7
+      ],
+      "turn": -90
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_coyote_l4e_chair",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "a chair",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_bld_899_1171_f4e"
+}

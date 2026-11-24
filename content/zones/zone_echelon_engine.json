@@ -7,9 +7,9 @@
   "ambient_theme": "indoors",
   "bg_color": "#0c0a08",
   "color": "#ffcf9a",
-  "description": "The engine room. The Echelon's propulsion core fills the space floor to ceiling: a seamless black cylinder ringed in cooling fins, generating both the thrust that moves the vessel and the power that feeds every screen and lock aboard. It runs so quietly that the silence itself is unnerving. The engineering corridor lies to the SOUTH.",
+  "description": "The engine room, low in her stern, its walls following the curve of the hull. A seamless black cylinder ringed in cooling fins fills it floor to ceiling, driving the ship and powering every screen and lock aboard. It runs so quietly the silence is unnerving. The engineering corridor is FORWARD (NORTH).",
   "exits": {
-    "south": "zone_echelon_engineering"
+    "north": "zone_echelon_engineering"
   },
   "flags": {
     "always_lit": true,
@@ -21,14 +21,38 @@
     "is_interior": true,
     "room": {
       "balcony": false,
-      "d": 7,
+      "d": 9,
       "decor": {
         "rug": false
       },
-      "face": 0,
+      "face": 180,
       "finish": "plain",
       "ground": "stone",
-      "h": 2.6,
+      "h": 3,
+      "hull": {
+        "sides": [
+          [
+            0,
+            4.9,
+            5.05
+          ],
+          [
+            3,
+            5.04,
+            5.19
+          ],
+          [
+            6,
+            5.18,
+            5.33
+          ],
+          [
+            9,
+            5.12,
+            5.27
+          ]
+        ]
+      },
       "studio": false,
       "tone": {
         "accent": "#d9a441",
@@ -36,14 +60,14 @@
         "trim": "#16191b",
         "wall": "#1c1f22"
       },
-      "w": 9,
+      "w": 10.66,
       "windowless": true
     },
     "world_exit_zone": "zone_echelon_exterior",
     "yacht": true
   },
   "grid_x": 0,
-  "grid_y": -1,
+  "grid_y": 1,
   "grid_z": 0,
   "id": "zone_echelon_engine",
   "map_id": "map_echelon",

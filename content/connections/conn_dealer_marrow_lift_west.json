@@ -1,0 +1,9 @@
+{
+  "a": "zone_dealer_marrow_lift",
+  "b": "zone_dealer_marrow_showroom",
+  "blocked": true,
+  "dir": "west",
+  "id": "conn_dealer_marrow_lift_west",
+  "lockable": false,
+  "one_way": false
+}

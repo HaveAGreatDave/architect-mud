@@ -1,23 +1,27 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "coast",
-  "color": "#7fd3ff",
-  "description": "The shoreline drops off fast. A step out and the water is cold around your legs, and the channel ahead is deep and dark.",
+  "ambient_events": [
+    "A taxi pulls up, lets somebody out with two bags and pulls away.",
+    "The canopy's speakers say the forecourt is for dropping off only.",
+    "Somebody runs for the doors with a boarding pass in their teeth."
+  ],
+  "ambient_theme": "city",
+  "description": "A drop-off lane under the terminal's glass canopy, with a taxi rank, a row of steel benches and a sign that says NO WAITING in four languages. Departures is <b>north</b>, the parking garage <b>west</b> and Airport Road <b>south</b>.",
   "exits": {
-    "east": "zone_district_925_904",
+    "north": "zone_district_924_903",
     "south": "zone_district_924_905",
     "west": "zone_district_923_904"
   },
   "flags": {
-    "district": "water",
+    "airfield_id": "af_regional",
+    "district": "docks",
     "region_id": "region_coldwater",
-    "terrain": "water"
+    "terrain": "concrete"
   },
   "grid_x": 925,
   "grid_y": 904,
   "grid_z": 0,
   "id": "zone_district_924_904",
   "map_id": "map_world",
-  "name": "Coldwater Basin",
+  "name": "Departures Forecourt",
   "parent_zone": null
 }

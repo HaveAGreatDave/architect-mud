@@ -1,7 +1,10 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "forest",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "ambient_events": [
+    "A gull walks along the waterline looking for something.",
+    "A wave comes in a little further than the others."
+  ],
+  "ambient_theme": "coast",
+  "description": "The far end of the beach, where the sand runs out against the jetty's concrete. The water is right there, flat and grey, and the Basin Jetty sticks out into it to the west.",
   "exits": {
     "east": "zone_district_899_901",
     "north": "zone_district_898_900",
@@ -9,6 +12,7 @@
     "west": "zone_district_897_901"
   },
   "flags": {
+    "beach": true,
     "district": "docks",
     "region_id": "region_coldwater",
     "terrain": "sand"
@@ -18,6 +22,6 @@
   "grid_z": 0,
   "id": "zone_district_898_901",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "The Shingle",
   "parent_zone": null
 }

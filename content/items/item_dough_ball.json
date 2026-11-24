@@ -10,24 +10,25 @@
     "food_profile": "batter",
     "matter": {
       "form": {
-        "kind": "sphere",
-        "w": 9,
         "d": 9,
         "h": 7,
-        "round": 1
-      },
-      "ramp": {
-        "raw": "#d8d2c4",
-        "cook": "#e4c690",
-        "peak": "#c8954c"
+        "kind": "sphere",
+        "round": 1,
+        "w": 9
       },
       "look": {
         "skin": "#d3cdbf"
+      },
+      "ramp": {
+        "cook": "#e4c690",
+        "peak": "#c8954c",
+        "raw": "#d8d2c4"
       }
     },
     "needs_cooking": true,
     "perishable": true,
     "restore_hunger": 15,
+    "shelved": true,
     "spoil_rate": "fast",
     "stackable": true,
     "status_chance": {

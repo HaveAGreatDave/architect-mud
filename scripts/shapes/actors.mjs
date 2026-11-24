@@ -22,7 +22,7 @@
 // leaves the pavement band, two on one stretch of kerb face each other and take turns to talk,
 // somebody on their own does more than one thing, a stroll moves the feet as far as the figure, and
 // on a road three tiles wide everybody stands on its outer pavement rather than in a lane.
-import { actorBake, actorOutfit, actorStrideM, actorSkinAt, ACTOR_OUTFITS, ACTOR_MATERIALS, ACTOR_MATERIAL, ACTOR_WALKS, ACTOR_SMOKES, ACTOR_BONE } from '../../client/game/js/panels/actor3d.js';
+import { actorBake, actorOutfitBody, ACTOR_MAT, actorOutfit, actorStrideM, actorSkinAt, ACTOR_OUTFITS, ACTOR_MATERIALS, ACTOR_MATERIAL, ACTOR_WALKS, ACTOR_SMOKES, ACTOR_BONE } from '../../client/game/js/panels/actor3d.js';
 import { smokeCigarette } from '../../client/game/js/panels/gl/actor-smoke.js';
 import { faceHair } from '../../client/game/js/panels/actor-faces.js';
 import { LIFE } from '../../client/game/js/panels/glass/street-life.js';
@@ -77,6 +77,29 @@ for (let F = 0; F < frames; F++) {
 }
 if (nan) problems.push(`${nan} baked positions are not finite`);
 if (worstGround > 1e-4) problems.push(`a frame's lowest point is ${worstGround.toFixed(4)} m off the ground; a foot should always be on it`);
+// An outfit body (actorOutfitBody) skins on the GPU from the bake's bone matrices (bk.skel). The coat's is the coat
+// silhouette's own mesh, so skinned the way gl/actors.js skinAt does it, it lands on the baked vertices; a skirt's
+// body keeps its skirt (more legs-slot points below the knee than the trousers' alone would leave as legs).
+{
+  const NB = bk.skel ? bk.skel.length / 12 / bk.frames : 0;
+  if (!bk.bones) { /* the far body: no bones, and no outfit bodies either */ } else if (!bk.skel || NB !== Math.round(NB)) problems.push('the bake has no bone matrices for the outfit bodies (bk.skel)');
+  else {
+    const half = (h) => { const s = h & 0x8000 ? -1 : 1, e = (h >> 10) & 31, m = h & 1023; return s * (e ? 2 ** (e - 15) * (1 + m / 1024) : 2 ** -14 * m / 1024); };
+    const ob = actorOutfitBody({ cut: 'coat' });
+    let worst = ob.nv === bk.nv ? 0 : Infinity;
+    for (const f of ob.nv === bk.nv ? [0, 41, bk.frames - 1] : []) for (let v = 0; v < ob.nv; v++) {
+      const q = [ob.p[v * 3], ob.p[v * 3 + 1], ob.p[v * 3 + 2]], P = [0, 0, 0], w = ob.mb[v * 4 + 3];
+      for (const [b, k] of [[ob.mb[v * 4 + 1], w], [ob.mb[v * 4 + 2], 1 - w]]) for (let r = 0; r < 3; r++) { const o = (f * NB + b) * 12 + r * 4; P[r] += k * (bk.skel[o] * q[0] + bk.skel[o + 1] * q[1] + bk.skel[o + 2] * q[2] + bk.skel[o + 3]); }
+      const o = ((f * bk.rows + Math.floor(v / bk.W)) * bk.W + (v % bk.W)) * 4;
+      worst = Math.max(worst, Math.hypot(P[0] - half(bk.pos[o]), P[1] - half(bk.pos[o + 1]), P[2] - half(bk.pos[o + 2])));
+    }
+    if (!(worst < 0.003)) problems.push(`the coat's outfit body skinned from bk.skel misses its baked vertices by ${worst} m`);
+    const sk = actorOutfitBody({ cut: 'tee', bottoms: 'midi' });
+    let low = 0;
+    for (let v = 0; v < sk.nv; v++) if (sk.mb[v * 4] === ACTOR_MAT.legs && sk.p[v * 3 + 1] < 0.5) low++;
+    if (!(low > 20)) problems.push(`a midi skirt's outfit body has ${low} legs-slot points below the knee; it lost the skirt`);
+  }
+}
 
 // Winding: the signed volume of the first idle frame is positive when the faces wind outward, which
 // is what the per-frame normals are averaged from.
@@ -273,8 +296,12 @@ if (tiny.recs.some((r) => r.lod)) problems.push('a far-body record for somebody 
 ws.RENDER_TUNE.actorFarPx = farWas;
 // The keys a record may carry. Since 2026-11-12 a figure is dressed as the person it is (the token is their
 // look's hash, server/engine/street-actors.js), so `o.hd` names the look the close-up level draws; `px` and
-// `s0` are for that level (gl/street-hd.js), which marks `close` on whoever it draws. Nothing else is new.
-const ALLOWED = new Set(['actor', 'lod', 'hl', 'px', 's0', 'close', 'x', 'y', 'z', 's', 'hd', 'o', 'clip', 'ph', 'clip2', 'ph2', 'mix', 'lum', 'a', 'lx', 'ly']);
+// `s0` are for that level (gl/street-hd.js), which marks `close` on whoever it draws. `tumble` and `rag` are
+// somebody knocked flying (windshield.js STREET_RAG): an axis, an angle and a pivot, and a flag. `hdClip` and `hdPh`
+// are a street dealer's clip and its phase for the close-up level, and `rg` how they take this viewer ('stare' or
+// 'nod', plugins/streetcred): a clip name and the viewer's own standing, nothing that names who they are. `nl` is
+// the night's light alone (lum without a parasol's shade), which gl/street-hd.js reads its night from: a number.
+const ALLOWED = new Set(['actor', 'lod', 'hl', 'px', 's0', 'close', 'x', 'y', 'z', 's', 'hd', 'o', 'clip', 'ph', 'clip2', 'ph2', 'mix', 'lum', 'nl', 'a', 'lx', 'ly', 'tumble', 'rag', 'limb', 'limbZ', 'hdClip', 'hdPh', 'rg']);
 for (const r of recs) {
   // The close-up body's head: a level, and a face off the outfit.
   if (!r.lod && !(Number.isInteger(r.hl) && r.hl >= 0 && r.hl <= 2)) problems.push(`a close-up record's head level is ${r.hl}`);

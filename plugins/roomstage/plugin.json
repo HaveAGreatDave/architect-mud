@@ -8,7 +8,8 @@
     "roompack"
   ],
   "hooks": [
-    "container.view"
+    "container.view",
+    "npc.dressedFor"
   ],
   "ticks": [
     "5s"
@@ -47,7 +48,8 @@
       "roomstage.street",
       "roomstage.indoors",
       "roomstage.streetwarm",
-      "roomstage.onfoot"
+      "roomstage.onfoot",
+      "roomstage.worldin"
     ]
   },
   "dependencies": [

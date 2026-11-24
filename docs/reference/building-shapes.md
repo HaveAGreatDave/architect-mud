@@ -407,9 +407,10 @@ Four things are load-bearing:
   `tradeOf(m)`, which reads `trade || replaces || portedFrom || type` — so a model file declaring
   `replaces: 'bank'` would exempt *every* bank in the city and the hand-written arm with them. A model
   sets `keepsReach: true` on itself instead. The bar is the one the list already applies: **the tile it
-  reaches over must not be a carriageway.** One model uses it — Compound Interest, whose porte-cochère
-  stands on its own forecourt (922,912), a dead-end concrete apron whose only two exits are the bank's
-  door and the road. Its piers and lintel reach **0.92** against a `TILE_REACH` of 0.5.
+  reaches over must not be a carriageway.** No model uses it since 2026-11-22. Compound Interest did
+  while it stood at 922,911: its porte-cochère reached **0.92**, against a `TILE_REACH` of 0.5, over
+  its own forecourt (922,912), a dead-end concrete apron. The bank faces Marrow Street now and keeps
+  to its plot.
 - **⚠ There is ONE predicate and four readers.** `keepsReach(m)` in windshield.js is asked by `segFit`,
   by both `MODEL_TILE` sites and by `scripts/shapes/tilefit.mjs`. All four used to spell
   `NO_TILE_FIT.has(tradeOf(m))` out for themselves, and the gate's copy was the dangerous one: it would

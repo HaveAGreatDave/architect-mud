@@ -55,20 +55,11 @@ export const DEALER_PLAN = {
 };
 
 // ── THE MAKERS' EMBLEMS ─────────────────────────────────────────────────────────────────────
-// Castellan's, Brakk's and Vex's are the cars' own (client/shared/hover-car-emblems.js, the drawing on
-// each car's nose and wheel): a tower on a shield, a beast's head with its jaw open, a V in a circle.
-// Corvane's isn't in that table, so its wings are here: an aerospace firm's, swept either side of a
-// kite. Every emblem is a list of convex pieces in a box from -1 to 1, back to front, each
-// { p, tone }: 'field' is the ground it sits on and 'mark' the device.
-const CORVANE_WINGS = [
-  [[0, 0.62], [0.17, 0.02], [0, -0.62], [-0.17, 0.02]],
-  ...[-1, 1].flatMap((side) => [0, 1, 2].map((i) => {
-    const y0 = 0.30 - i * 0.27, xt = 1.0 - i * 0.22, yt = 0.66 - i * 0.30;
-    return [[side * 0.24, y0], [side * xt, yt], [side * xt, yt - 0.11], [side * 0.24, y0 - 0.20]];
-  })),
-].map((q) => ({ p: q, tone: 'mark' }));
+// All four are the cars' own (client/shared/hover-car-emblems.js, the drawing on each car's nose and
+// wheel): Corvane's wings round a kite, Castellan's tower on a shield, Brakk's block B in a bolted
+// octagon, Vex's V in a studded ring.
 export const DEALER_EMBLEMS = {
-  Corvane: CORVANE_WINGS,
+  Corvane: HOVER_EMBLEMS.corvane,
   Castellan: HOVER_EMBLEMS.castellan,
   Brakk: HOVER_EMBLEMS.brakk,
   Vex: HOVER_EMBLEMS.vex,

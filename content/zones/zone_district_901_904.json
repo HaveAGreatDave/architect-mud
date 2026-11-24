@@ -1,22 +1,26 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "city",
-  "description": "A plot gone over to nettle and bramble, with a hand-painted sign still standing in the middle of it reading PLOT 6. DO NOT. Nobody remembers what the rest of the sentence was.",
+  "ambient_events": [
+    "A gull walks along the waterline looking for something.",
+    "A wave comes in a little further than the others."
+  ],
+  "ambient_theme": "coast",
+  "description": "The sand behind No Regerts, with the tattoo shop's back wall on the south side. A sun lounger is chained to the drainpipe.",
   "exits": {
     "east": "zone_district_902_904",
     "north": "zone_district_901_903",
     "west": "zone_district_900_904"
   },
   "flags": {
+    "beach": true,
     "district": "filaments",
     "region_id": "region_coldwater",
-    "terrain": "dirt"
+    "terrain": "sand"
   },
   "grid_x": 901,
   "grid_y": 904,
   "grid_z": 0,
   "id": "zone_district_901_904",
   "map_id": "map_world",
-  "name": "Filament Allotments",
+  "name": "The Shingle",
   "parent_zone": null
 }

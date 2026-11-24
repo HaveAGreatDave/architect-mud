@@ -2175,6 +2175,9 @@ check('look returns a result', r && r.type !== 'error', JSON.stringify(r)?.slice
   // second frame, which is a different check.
   const npc = [...world.npcs.values()].find(n =>
     n.zone_id && !(n.vendor_inventory || []).length
+    // A dealer away from their table only makes small talk (social.js), and where
+    // a dealer is depends on the clock, so a dealer is never a stable target.
+    && n.npc_type !== 'dealer'
     && (n.dialogue_tree?.root?.options || []).length >= 2
     && !n.dialogue_tree.root.options.some(o => o.conditions || o.condition || o.actions?.length)
     && n.dialogue_tree.root.options.every(o => n.dialogue_tree[o.next]));
@@ -5339,6 +5342,10 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
     'map_dream',                // entered by sleeping — plugins/dreams, never on foot
     'map_aircraft_leviathan',   // entered by boarding — the cabin has no ground seam
     'map_int_soak',             // Lather & Lye, stored with no world tile (docs/proposals/stored-buildings.md)
+    'map_int_negeq',            // Negative Equity, stored when Shingle Beach took 895,904 (docs/proposals/shingle-beach.md)
+    'map_int_mq_chrome',        // Chrome Court, stored with it (docs/proposals/shingle-beach.md)
+    'map_int_yard_container',   // Stack Overflow, stored for the airport landside (docs/proposals/airport-landside.md)
+    'map_int_sf_marrow4',       // Unit 4 on Marrow Street, stored when the bank took 916,910 (docs/proposals/compound-interest.md)
   ]);
   const withSeam = new Set();
   for (const z of world.zones.values()) {
@@ -6077,7 +6084,7 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
 
   const npc = world.npcs.get('npc_embassy_barkeep');
   const oldZone = 'zone_meridian_unit_301'; // real, normally-vacant Meridian apartment
-  const nearZone = 'zone_meridian_unit_302'; // its across-the-hall neighbour (2 hops)
+  const nearZone = 'zone_meridian_unit_303'; // its across-the-hall neighbour (2 hops)
   if (npc) {
     const savedHome = npc.home_zone, savedZone = npc.zone_id, savedRole = getPlayer().role;
     // Capture whoever currently lives next door so we can restore them — the dev DB
@@ -6556,8 +6563,9 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
       && ex('zone_reel_foyer').north === mid?.id && ex('zone_reel_foyer').south === 'zone_reel_house' && ex('zone_reel_house').north === 'zone_reel_foyer',
     JSON.stringify({ street: ex('zone_district_909_913').south, facade: ex(mid?.id), foyer: ex('zone_reel_foyer'), house: ex('zone_reel_house') }));
   check('Midway Parks: its way out is Meltwater Row', mid?.flags?.world_exit_zone === 'zone_district_909_913', mid?.flags?.world_exit_zone);
-  const plots = [[907, 914], [908, 914], [912, 913], [912, 914]].map(([x, y]) => zoneAtTile('map_world', x, y));
-  check('Meltwater set-aside: the four empty plots are waste ground', plots.every((z) => z?.id?.startsWith('zone_lot_') && z.flags?.terrain === 'grass'), plots.map((z) => z?.id).join());
+  // 912,913 was the fourth until Adequate! moved onto it (docs/proposals/vtol-dealership.md).
+  const plots = [[907, 914], [908, 914], [912, 914]].map(([x, y]) => zoneAtTile('map_world', x, y));
+  check('Meltwater set-aside: the three empty plots are waste ground', plots.every((z) => z?.id?.startsWith('zone_lot_') && z.flags?.terrain === 'grass'), plots.map((z) => z?.id).join());
   const held = ['zone_district_907_914', 'zone_district_908_914', 'zone_district_909_914', 'zone_district_912_913'].map((id) => world.zones.get(id));
   check('Meltwater set-aside: Loafing Around, Rod Almighty, Florist Gump and the Grind House are on the holding map', held.every((z) => z?.map_id === 'map_set_aside' && z.flags?.set_aside), held.map((z) => `${z?.id}:${z?.map_id}`).join());
   const keepers = ['npc_florist_fairweather', 'npc_rod_prendergast', 'npc_loafing_coyne'].map((id) => world.npcs.get(id));

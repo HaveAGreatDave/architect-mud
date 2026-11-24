@@ -6,9 +6,9 @@ An NPC can be in a mood: happy, sad, angry and so on. The server decides which, 
 
 ## Moods
 
-The list is fixed, in [client/shared/expressions.js](../client/shared/expressions.js) (`EXPRESSIONS`): `neutral`, `happy`, `amused`, `sad`, `angry`, `afraid`, `disgusted`, `surprised`, `tired`, `drunk`, `confused`, `annoyed`. It's engine vocabulary, like posture. Adding one means a row in `EXPRESSIONS` and two lines in `MOOD_TELL`.
+The list is fixed, in [client/shared/expressions.js](../client/shared/expressions.js) (`EXPRESSIONS`): `neutral`, `happy`, `amused`, `sad`, `angry`, `afraid`, `disgusted`, `surprised`, `tired`, `drunk`, `confused`, `annoyed`, and fourteen a show asks for by name that nothing in the world resolves to yet: `skeptical`, `smug`, `flirty`, `stern`, `laughing`, `crying`, `shocked`, `thinking`, `determined`, `bored`, `pouting`, `grimacing`, `kissing`, `smirking`. It's engine vocabulary, like posture. Adding one means a row in `EXPRESSIONS` and two lines in `MOOD_TELL`.
 
-Each mood is a few of seven face channels, scaled by an intensity from 0 to 1:
+Each mood is a few of twenty-eight channels, scaled by an intensity from 0 to 1:
 
 | channel | what it does |
 |---|---|
@@ -19,6 +19,24 @@ Each mood is a few of seven face channels, scaled by an intensity from 0 to 1:
 | `frown` | the mouth's corners down, with a short line off each |
 | `jaw` | the jaw dropped, added to whatever speech is doing |
 | `sneer` | lifts the upper lip by the eye-tooth, wrinkles the bridge of the nose and deepens nose to mouth |
+| `browL`, `browR` | raises the whole of one brow (below 0, lowers it), with two short creases over a raised one |
+| `squint` | raises the cheeks: the lower lids come up, with a crease under each eye |
+| `smirk` | one corner of the mouth up: above 0 their left, below 0 their right |
+| `cheek` | raises the cheeks under the eyes, on top of what a smile or a squint raises |
+| `puff` | puffs the cheeks out |
+| `pout` | pushes the lips out |
+| `flare` | flares the nostrils |
+| `jawSide`, `jawOut` | slides the jaw to their left (below 0, their right), pushes it forward |
+| `teeth`, `press`, `round`, `wide` | mouth shapes a mood holds when nobody is talking: bared teeth, pressed lips, a pucker, a stretch. Speech wins while there is any |
+| `headP`, `headY`, `headR` | how the head is carried: chin down (below 0, up), turned to their left, tipped to their left shoulder. 1 is about 17 degrees. Halved while they're looking at somebody |
+| `gazeX`, `gazeY` | where the eyes go: to their left, and up. The upper lids come down with eyes that look down |
+
+The close-up figure's face moves its surface as well as its paint (`faceRig` in gl/figure-hd.js, fed by `faceRigOf` in gl/room-people.js as `uRigA` to `uRigC`): each brow, the knit, the cheeks, each corner of the mouth, the pout, the nostrils, the upper lip and the jaw. The paint rides on top, so a brow's ridge, a cheek's shadow and the outline go with the expression. The pupil opens with wide eyes and closes with narrowed ones.
+
+A face at rest isn't still: every few seconds, on the person's own clock, something small crosses it (`faceLife`): both brows, one brow, the lips pressed, the nostrils, half a smirk, the eyes narrowing. Not asleep or out cold.
+| `winkL`, `winkR` | shuts one eye on its own |
+
+Left and right are the figure's own, so their left is on the viewer's right when they face you.
 
 `blink` scales how often they blink: afraid blinks nearly twice as often, angry and surprised hardly at all.
 
@@ -60,7 +78,8 @@ This is a different thing from the dialogue frame's `mood` (`speakerMood` in `di
 
 [gl/room-people.js](../client/game/js/panels/gl/room-people.js) `moodFace` eases each person's channels toward their mood (about 200 ms) and lets a transient one go when its `s` runs out, without waiting to be told. It hands [gl/figure-hd.js](../client/game/js/panels/gl/figure-hd.js):
 
-- `uExpr` = (browIn, browUp, lid, frown) and `uSneer`, painted in the face's own ink;
+- `uExpr` = (browIn, browUp, lid, frown), `uSneer` and `uExpr2` = (browL, browR, squint, smirk), painted in the face's own ink;
+- `uWink` = (winkL, winkR), which shuts one eye's opening in the paint and brings its lid down in the mesh;
 - `smile` as the larger of the settled look's and the mood's;
 - `jaw` added to the mouth's opening, so speech still works on top of it;
 - a narrowed lid as a partial blink, so the real eye's lid geometry follows it.

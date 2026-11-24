@@ -23,6 +23,7 @@ const HOLD = 2;         // paints skipped so the veil is composited before the f
 const FAST_MS = 45;     // a paint under this means the builds are done
 const SETTLE = 2;       // real paints required before a fast one counts
 const MAX_MS = 12000;   // give up and lift the veil regardless
+const READY_MAX_MS = 25000;   // the same, for a view that said it has more to load (veilReady)
 const FADE_MS = 600;    // the bar's fill to the end, then the fade (CSS below), then removal
 
 // The status line, by progress. Read as the bar's caption, so each one covers a stretch of it.
@@ -298,7 +299,9 @@ export function veilPainted(id, ms) {
   // Fast is relative too: a weak GPU never paints under FAST_MS, but its steady frame is still a
   // fraction of the first one, which carried every compile.
   if (ms > s.worst) s.worst = ms;
-  if ((s.paints > SETTLE && ms < Math.max(FAST_MS, s.worst * 0.25)) || performance.now() - s.t0 > MAX_MS) { s.done = true; lift(node); return; }
+  // a view with more to load than its first frames (veilReady) holds the veil until it says so
+  const rf = _ready.get(id), ready = !rf || !!rf(), cap = rf ? READY_MAX_MS : MAX_MS;
+  if ((s.paints > SETTLE && ms < Math.max(FAST_MS, s.worst * 0.25) && ready) || performance.now() - s.t0 > cap) { s.done = true; _ready.delete(id); lift(node); return; }
   s.p += (0.92 - s.p) * 0.5;
   setProgress(node, s.p);
 }
@@ -362,6 +365,11 @@ export function coverWithVeil(host, id, { ready = () => true, place = null } = {
 
 // Called when a seat closes, so the next entry shows the veil again (its GL context is rebuilt).
 export function veilReset(id) { _state.delete(id); }
+// A view with more to load before it's worth showing than its first frames take (the street view: the rooms and the
+// world round you), as ready(), asked after each paint; the veil lifts on the first fast paint once it's true, or at
+// READY_MAX_MS. Null clears it.
+const _ready = new Map();
+export function veilReady(id, ready) { if (ready) _ready.set(id, ready); else _ready.delete(id); }
 
 // ── THE VEIL BEFORE THE VIEW ─────────────────────────────────────────────────
 // A view that loads lazily (the Room Stage: the server's answer, then its module) showed nothing for the second or

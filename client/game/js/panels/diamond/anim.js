@@ -38,6 +38,7 @@
 
 import { solvePose, solveTorso, solveHips, mirrorPose, scalePose, shoulderBackOf } from './rig.js';
 import { handsAt, mixHands } from './hands.js';
+import { gloveOpenAt, GLOVE_REST } from './glove-flex.js';
 import { CLIPS } from './clips.js';
 
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
@@ -287,6 +288,9 @@ export function sampleClip(clip, t, opts = {}) {
   // the hand shapes the clip keys (hands.js), which the figure's hands take
   const hands = handsAt(clip, t, mirror);
   if (hands) out.hands = hands;
+  // how open his glove is (glove-flex.js), round the clip's catch
+  const glove = gloveOpenAt(clip, t);
+  if (glove != null) out.glove = glove;
   return out;
 }
 
@@ -537,6 +541,7 @@ export function mixPose(a, b, w, opts = {}) {
   else if ((w < 0.5 ? a : b).bat) P.bat = (w < 0.5 ? a : b).bat;
   const hands = mixHands(a.hands, b.hands, w);
   if (hands) P.hands = hands;
+  if (a.glove != null || b.glove != null) P.glove = lerp(a.glove ?? GLOVE_REST, b.glove ?? GLOVE_REST, w);
   return guardMix(P);
 }
 // A mix lerps the hand's way apart from the forearm, which only the solve settles, and a free foot's

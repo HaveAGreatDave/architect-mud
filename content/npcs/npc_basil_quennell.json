@@ -192,16 +192,8 @@
       "price": 5
     },
     {
-      "item_id": "item_grey_rice",
-      "price": 4
-    },
-    {
       "item_id": "item_battery_egg",
       "price": 6
-    },
-    {
-      "item_id": "item_ersatz_noodle",
-      "price": 5
     },
     {
       "item_id": "item_pain_pills",
@@ -218,10 +210,6 @@
     {
       "item_id": "item_barley_water",
       "price": 5
-    },
-    {
-      "item_id": "item_dripping_bread",
-      "price": 9
     }
   ],
   "vendor_restock_rate": 1,

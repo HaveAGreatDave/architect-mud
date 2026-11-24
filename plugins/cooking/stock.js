@@ -14,6 +14,7 @@ import { adjustCredits } from '../../server/engine/economy.js';
 import { giveItemById } from '../../server/engine/inventory.js';
 import { stockedItemIds } from './stockists.js';
 import { gearKeysOf, GEAR } from './gear.js';
+import { isShelved, aisleOf, AISLES } from './pantry.js';
 
 export const DELIVERY = 1.05;
 const MAX_QTY = 20;
@@ -22,11 +23,11 @@ const kitchenKit = (f) => f.flags?.stove_tier || f.flags?.microwave || f.flags?.
 const inKitchen = (player) =>
   getZoneFurniture(player.current_zone).some(kitchenKit) || !!getZone(player.current_zone)?.flags?.stove_tier;
 
-// 'food', 'kit' or null for an item the screen doesn't sell.
+// The food's aisle (pantry.js), 'kit', or null for an item the screen doesn't sell.
 function shelfOf(item) {
   const t = item?.tags || {};
-  if (t.quest_item) return null;
-  if (t.food_profile || t.needs_cooking) return 'food';
+  if (t.quest_item || isShelved(item)) return null;
+  if (t.food_profile || t.needs_cooking || t.aisle) return aisleOf(item);
   if (t.dishware || gearKeysOf(t).some(k => GEAR[k]?.shoppable)) return 'kit';
   return null;
 }
@@ -40,12 +41,13 @@ export async function catalogue() {
     if (!shelf) continue;
     out.push({ id, name: item.name, shelf, price: priceOf(item), note: item.tags?.description || null });
   }
-  return out.sort((a, b) => a.shelf.localeCompare(b.shelf) || a.name.localeCompare(b.name));
+  const order = [...AISLES.map(([k]) => k), 'kit'];
+  return out.sort((a, b) => order.indexOf(a.shelf) - order.indexOf(b.shelf) || a.name.localeCompare(b.name));
 }
 
 export async function cmdKitchenStock(args, raw, player) {
   if (!inKitchen(player)) return { type: 'error', message: `You need to be in a kitchen to have things delivered.` };
-  return { type: 'kitchen_stock', items: await catalogue(), credits: player.credits ?? 0, markup: Math.round((DELIVERY - 1) * 100) };
+  return { type: 'kitchen_stock', items: await catalogue(), shelves: [...AISLES, ['kit', 'Pans and kit']], credits: player.credits ?? 0, markup: Math.round((DELIVERY - 1) * 100) };
 }
 
 export async function cmdKitchenOrder(args, raw, player) {

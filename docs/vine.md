@@ -310,7 +310,7 @@ Plugins also register dialogue actions via `registerAction` that the editor cata
 An action that returns `{ type: 'dialogue_line', text }` has its text **appended to the node's authored
 text**, and the client sets that with `innerHTML` — so a plugin action is how an NPC's spoken line
 carries live markup (a `teachVerb` shimmer, a clickable listing) that authored prose can't. **`TEACH_AIM`**
-(from the **injury** plugin, no params) is the reference example: Grady teaches the `aim` verb, and the
+(from the **injury** plugin, no params) is the reference example: Rusty teaches the `aim` verb, and the
 action words the lesson against the player's *current* weapon skill so the same node reads "not yet" to a
 novice and "you have the hands for it now" when they come back. Prefer this over baking a verb name into
 the prose — a mentioned verb is a verb the player has to retype from memory.

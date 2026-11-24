@@ -81,7 +81,7 @@ export function drawStreetDoors(ctx, cam, v, now, night, portals = null) {
     // The room through the doorway where the GPU draws it; else the lobby as last seen from here (lobby-still.js),
     // the dark for a dark door (flags.room.street_door.dark: the Cherry Pit's, the Embassy's), or a lobby's dim.
     // ⚠ ALWAYS ONE OR THE OTHER: with neither, the model's own still door is what you see through the glass.
-    const portal = !!(portals && portals.has(d.x + ',' + d.y)) && !L?.dark;
+    const portal = !!(portals && portals.has(d.x + ',' + d.y));
     if (!portal) {
       const back = d.back ?? d.plane - 0.006, B = (lx, z) => at(lx, back, z);
       const quad = [B(-half, top), B(half, top), B(half, sill), B(-half, sill)];
@@ -112,7 +112,7 @@ export function drawStreetDoors(ctx, cam, v, now, night, portals = null) {
 
     // ── 3. THE LEAVES, BY KIND ────────────────────────────────────────────────────────────────
     // the glass's tint (flags.room.street_door.glass), darker with the dark behind it; the metal round each leaf
-    const dim = L?.dark ? 0.38 : 1, tint = L?.glass ? shade(L.glass, (night ? 1.25 : 1) * dim) : (L?.dark ? shade('#5a6e74', dim) : null);
+    const dark = L?.dark && !portal, dim = dark ? 0.38 : 1, tint = L?.glass ? shade(L.glass, (night ? 1.25 : 1) * dim) : (dark ? shade('#5a6e74', dim) : null);
     // the pane is clear: a tint keeps its brightness and loses its hue, so no door reads as painted blue
     // at night it takes the lobby's lamplight, the amber of the lit windows round it
     const pane = (tint ? [grey(tint, 1.35), grey(tint, 1)] : glass).map((c) => (night ? warm(c) : c)), trim = L?.trim ? shade(L.trim, night ? 0.85 : 1) : rail;
@@ -238,12 +238,55 @@ function hingedGlass({ d, Q, P, at, half, top, z0, z1: zHead, open, pane, trim, 
 // A painted leaf, or a steel grille for a door (`grille`, the Cherry Pit's), hinged at one jamb and swung in by up to
 // about 85 degrees when F opens it. The leaf's colour is the building's (flags.room.street_door.leaf).
 // ⚠ A GRILLE IS THE CAGE ALONE, NO LEAF: it swings open itself, the room (or the dark) showing between its bars.
-function paintedLeaf({ d, Q, at, half, top, sill, open, L, night }, grille) {
+// ⚠ A PAINTED LEAF HAS A LIGHT IN IT (flags.room.street_door.lite), so the room shows through every door as it does
+// through the Cherry Pit's bars. The leaf is drawn as the wood round a hole and the backing (or the room) shows in
+// the hole under a faint pane: 'porthole' a round window in a ring (a club's), 'half' the top half glazed in four
+// lights (a shed's or a back door's), 'slot' a tall narrow vision strip. No lite is a 'slot'.
+function paintedLeaf({ d, Q, at, half, top, sill, open, L, night, pane, trim, see }, grille) {
   const z0 = sill, z1 = sill + (top - sill) * HEAD, h = z1 - z0, t = open * 1.48, hx = half, len = 2 * half - GAP;
   const pt = (f, z) => at(hx - len * f * Math.cos(t), d.plane - len * f * Math.sin(t), z);
-  const quad = (f0, f1, za, zb, col, layer) => Q([pt(f0, zb), pt(f1, zb), pt(f1, za), pt(f0, za)], col, 1, layer);
+  const quad = (f0, f1, za, zb, col, layer, a = 1, ramp = null) => Q([pt(f0, zb), pt(f1, zb), pt(f1, za), pt(f0, za)], col, a, layer, ramp);
+  const poly = (fz, col, layer, a = 1, ramp = null) => Q(fz.map(([f, z]) => pt(f, z)), col, a, layer, ramp);
   const leaf = shade(L?.leaf || 'rgb(84,74,62)', night ? 0.8 : 1), steel = night ? 'rgb(70,70,74)' : 'rgb(96,96,100)';
-  if (!grille) { quad(0, 1, z0, z1, leaf, 0); quad(0.86, 0.9, z0 + h * 0.46, z0 + h * 0.54, steel, 1); return; }
+  if (!grille) {
+    const lite = L?.lite || 'slot', rim = L?.trim ? trim : shade(leaf, 1.6), glassA = Math.min(see, 0.45);
+    // the hole, as fractions across the leaf (f) and heights (z), by style
+    const [f0, f1, za, zb] = lite === 'porthole' ? [0.26, 0.74, z0 + h * 0.56, z0 + h * 0.56 + len * 0.48]
+      : lite === 'half' ? [0.12, 0.88, z0 + h * 0.52, z1 - h * 0.06] : [0.4, 0.6, z0 + h * 0.42, z1 - h * 0.1];
+    const zt = Math.min(zb, z1 - h * 0.05);
+    // the wood round the hole: below, above, either side
+    quad(0, 1, z0, za, leaf, 0); quad(0, 1, zt, z1, leaf, 0);
+    quad(0, f0, za, zt, leaf, 0); quad(f1, 1, za, zt, leaf, 0);
+    if (lite === 'porthole') {
+      // the hole's corners filled back in to an octagon, then a ring of trim round it
+      const cf = (f1 - f0) * 0.29, cz = (zt - za) * 0.29;
+      poly([[f0, zt], [f0 + cf, zt], [f0, zt - cz], [f0, zt - cz]], leaf, 0);
+      poly([[f1 - cf, zt], [f1, zt], [f1, zt - cz], [f1, zt - cz]], leaf, 0);
+      poly([[f0, za + cz], [f0, za + cz], [f0 + cf, za], [f0, za]], leaf, 0);
+      poly([[f1, za + cz], [f1, za + cz], [f1, za], [f1 - cf, za]], leaf, 0);
+      poly([[f0 + cf, zt], [f1 - cf, zt], [f1, zt - cz], [f1, za + cz], [f1 - cf, za], [f0 + cf, za], [f0, za + cz], [f0, zt - cz]], pane[1], 0, glassA, pane);
+      const r = 0.035, rz = (zt - za) * 0.07, ring = [[f0 + cf, zt], [f1 - cf, zt], [f1, zt - cz], [f1, za + cz], [f1 - cf, za], [f0 + cf, za], [f0, za + cz], [f0, zt - cz]];
+      for (let i = 0; i < 8; i++) {
+        const [a, b] = [ring[i], ring[(i + 1) % 8]], mid = [(f0 + f1) / 2, (za + zt) / 2];
+        const out = (p) => [p[0] + Math.sign(p[0] - mid[0]) * r * (Math.abs(p[0] - mid[0]) > 1e-4 ? 1 : 0), p[1] + Math.sign(p[1] - mid[1]) * rz * (Math.abs(p[1] - mid[1]) > 1e-4 ? 1 : 0)];
+        poly([a, b, out(b), out(a)], rim, 1);
+      }
+    } else {
+      quad(f0, f1, za, zt, pane[1], 0, glassA, pane);
+      // the beading round the glass, and for a half-glazed leaf the bars that make it four lights
+      const bw = 0.02, bz = h * 0.012;
+      quad(f0 - bw, f0, za, zt, rim, 1); quad(f1, f1 + bw, za, zt, rim, 1);
+      quad(f0, f1, za - bz, za, rim, 1); quad(f0, f1, zt, zt + bz, rim, 1);
+      if (lite === 'half') {
+        const fm = (f0 + f1) / 2, zm = (za + zt) / 2;
+        quad(fm - bw / 2, fm + bw / 2, za, zt, rim, 1); quad(f0, f1, zm - bz / 2, zm + bz / 2, rim, 1);
+        // a ledge rail across the boarded bottom half, so it reads as a ledged door
+        quad(0.04, 0.96, z0 + h * 0.2, z0 + h * 0.24, shade(leaf, 0.7), 1);
+      }
+    }
+    quad(0.86, 0.9, z0 + h * 0.4, z0 + h * 0.48, steel, 1);
+    return;
+  }
   // the grille: a frame, two rails and five bars
   quad(0, 0.07, z0, z1, steel, 1); quad(0.93, 1, z0, z1, steel, 1);
   quad(0, 1, z1 - h * 0.05, z1, steel, 1); quad(0, 1, z0, z0 + h * 0.05, steel, 1);

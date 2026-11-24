@@ -1,0 +1,9 @@
+{
+  "a": "zone_bld_899_1171_lobby",
+  "b": "zone_bld_899_1171_gallery",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_bld_899_1171_lobby_up_cy02",
+  "lockable": false,
+  "one_way": false
+}

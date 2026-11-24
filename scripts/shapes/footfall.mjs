@@ -63,6 +63,53 @@ ok(W(1, 6) <= 0.3, `bare ground on the shore turned to mud (wear ${W(1, 6).toFix
 ok(L(4, 8) === 0 && L(7, 0) === 0, 'rubbish lies on ground nobody lives on.');
 ok(!LUT[6][0][8], 'water got a path.');
 
+// ── 1b. ALLEY RUBBISH (alleyLitter) ───────────────────────────────────────────
+// A gap between two buildings on a street at condition `sc`, laid out once per level and on a
+// spread of world tiles so the swept-alley hash averages out: rubbish rises going east (sc 0 to 4),
+// and stays under the floor's camp threshold.
+{
+  const alleyAt = (sc) => {
+    let sum = 0;
+    for (let t = 0; t < 40; t++) {
+      const m = Array.from({ length: 5 }, () => Array.from({ length: 5 }, turf));
+      m[2][1] = { kind: 'land', biome: 'citycore', bt: 'shop' };
+      m[2][3] = { kind: 'land', biome: 'citycore', bt: 'shop' };
+      m[2][2] = bare();
+      for (let x = 0; x < 5; x++) m[4][x] = { kind: 'land', biome: 'citycore', road: 1, sc };
+      const lut = m.map((row) => row.map(() => [0, 0, 0, 0, 0, 1, 0]));
+      ws.footfallFill(m, lut, 300 + t * 13, 200 + t * 7);
+      const v = lut[2][2][9] || 0;
+      ok(v < 0.8, `alley rubbish of ${v.toFixed(2)} at sc ${sc} reads as a camp and grows a fire pit.`);
+      sum += v;
+    }
+    return sum / 40;
+  };
+  // The props in the same gap: more of them east, all inside the tile, none in the middle of it.
+  const propsAt = (sc) => {
+    let faces = 0;
+    for (let t = 0; t < 40; t++) {
+      const m = Array.from({ length: 5 }, () => Array.from({ length: 5 }, turf));
+      m[2][1] = { kind: 'land', biome: 'citycore', bt: 'shop' };
+      m[2][3] = { kind: 'land', biome: 'citycore', bt: 'shop' };
+      for (let x = 0; x < 5; x++) m[4][x] = { kind: 'land', biome: 'citycore', road: 1, sc };
+      const fs = ws.alleyPropsFor(m, 2, 2, 300 + t * 13, 200 + t * 7);
+      for (const f of fs) for (const [x, y, z] of f.p) {
+        if (!(Math.abs(x) <= 0.5 && Math.abs(y) <= 0.5 && z >= 0 && z < 0.2)) { ok(false, `an alley prop point ${x.toFixed(3)},${y.toFixed(3)},${z.toFixed(3)} is outside its tile.`); return faces; }
+        if (Math.abs(x) < 0.12 && Math.abs(y) > 0.3) { ok(false, 'an alley prop stands in the middle of an E-W alley\'s walkway.'); return faces; }
+      }
+      faces += fs.length;
+    }
+    return faces;
+  };
+  const pw = propsAt(0), pe = propsAt(4);
+  ok(pw > 0, 'core alleys get no props at all.');
+  ok(pe > pw * 1.5, `slum alleys (${pe} faces) don't carry markedly more props than core ones (${pw}).`);
+  ok(ws.alleyPropsFor([[{ kind: 'land', biome: 'citycore' }]], 0, 0, 5, 5).length === 0, 'a tile with no building beside it got alley props.');
+  const west = alleyAt(0), east = alleyAt(4);
+  ok(west > 0.05, `a core alley between two buildings carries no rubbish (${west.toFixed(3)}).`);
+  ok(east > west * 2, `slum alleys (${east.toFixed(3)}) are not markedly dirtier than core ones (${west.toFixed(3)}).`);
+}
+
 // ── 2. THE PLANE, PACKED AS THE SHADER UNPACKS IT ─────────────────────────────
 {
   const p = ws.floorLutBytes(LUT, N, 0, 0, null);

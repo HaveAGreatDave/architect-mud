@@ -242,7 +242,8 @@ export default async function regress({ run, check, getPlayer }) {
 
     const guns = rows.filter(r => r.tags?.ammo_capacity != null);
     const loads = rows.filter(r => r.tags?.ammo_load != null);
-    check('at least one weapon takes ammunition', guns.length > 0, `${rows.length} rows`);
+    // The item slim-down (2026-11) took out the only two guns; the checks below hold for whatever is authored.
+    check('every ammunition weapon names its ammo type', guns.every(g => g.tags?.ammo_type), guns.filter(g => !g.tags?.ammo_type).map(g => g.id).join(', '));
 
     for (const g of guns) {
       const t = g.tags;

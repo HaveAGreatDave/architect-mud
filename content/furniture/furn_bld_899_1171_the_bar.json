@@ -4,7 +4,20 @@
     "bar_counter": true,
     "look": {
       "arche": "surface",
+      "dims": [
+        4.4,
+        0.75,
+        1.1
+      ],
+      "dress": "saloon",
       "form": "bar"
+    },
+    "spot": {
+      "at": [
+        4.4,
+        3.6
+      ],
+      "turn": -90
     }
   },
   "hp": null,

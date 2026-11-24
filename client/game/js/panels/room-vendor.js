@@ -12,6 +12,7 @@
 //
 // ⚠ NOTHING HERE NAMES A BRAND. The words and colours come from the furniture row (`look.label`, `look.sub`,
 // `look.tint`, each menu entry's `label` and `tint`).
+import { vendorActs } from '../../../shared/room-acts.js';
 import { vtx, lin, MAT } from './gl/ballpark-mesh.js';
 import { facing } from '../../../shared/room-layout.js';
 import { loadFont } from './room-marks.js';
@@ -365,14 +366,8 @@ export function createRoomVendor({ project }) {
   }
 
   // ── what a player can do to it ──
-  function acts(p) {
-    const v = p.vend || {}, name = String(p.name || '').toLowerCase();
-    const flav = (v.menu || []).map((m) => ({ verb: 'vendpress', item: m.item, label: `${m.label}${m.price ? ` ₵${m.price}` : ''}`, cmd: `vend ${name} ${m.item}` }));
-    const nudge = { verb: 'nudge', label: v.out ? 'Push it back' : 'Pull it out from the wall', cmd: `nudge ${name} ${v.out ? 'back' : 'out'}` };
-    if (!v.out) return [...flav, nudge];
-    const plug = v.plugged === false ? { verb: 'plug', label: 'Plug it back in', cmd: `plug ${name}` } : { verb: 'unplug', label: 'Pull the plug', cmd: `unplug ${name}` };
-    return [plug, nudge, ...flav];
-  }
+  // (client/shared/room-acts.js vendorActs, which GLASS's card reads too)
+  const acts = vendorActs;
   function press(id, item) {
     const s = st.get(id);
     if (!s) return;

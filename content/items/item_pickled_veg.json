@@ -9,15 +9,16 @@
     "food_noun": "pickle",
     "food_profile": "preserved",
     "matter": {
+      "look": {
+        "label": "#6a8a3a",
+        "pack": "jar"
+      },
       "ramp": {
         "raw": "#a8b04a"
-      },
-      "look": {
-        "pack": "jar",
-        "label": "#6a8a3a"
       }
     },
     "restore_hunger": 8,
+    "shelved": true,
     "stackable": true,
     "status_chance": {
       "food_poisoning": 0.1

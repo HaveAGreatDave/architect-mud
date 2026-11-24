@@ -14,7 +14,67 @@
   },
   "flags": {
     "floor": "boards",
-    "is_interior": true
+    "is_interior": true,
+    "room": {
+      "balcony": false,
+      "d": 10.2,
+      "decor": {
+        "mags": [
+          {
+            "at": [
+              0.6,
+              4.4
+            ],
+            "n": 6,
+            "seed": 21
+          }
+        ],
+        "rug": false,
+        "strips": [
+          {
+            "along": "v",
+            "at": [
+              0,
+              2.5
+            ],
+            "len": 1.2
+          },
+          {
+            "along": "v",
+            "at": [
+              0,
+              5.2
+            ],
+            "len": 1.2
+          },
+          {
+            "along": "v",
+            "at": [
+              0,
+              7.9
+            ],
+            "len": 1.2
+          }
+        ]
+      },
+      "dim": 0.7,
+      "doors": {
+        "north": 2.5,
+        "south": 2.5
+      },
+      "face": 90,
+      "ground": "rubber",
+      "h": 3.3,
+      "studio": false,
+      "tone": {
+        "accent": "#36446a",
+        "ceiling": "#b4b8bc",
+        "trim": "#26304a",
+        "wall": "#9a9ea2"
+      },
+      "w": 4,
+      "windowless": true
+    }
   },
   "grid_x": 0,
   "grid_y": -1,

@@ -10,25 +10,26 @@
     "food_profile": "soft_vegetable",
     "matter": {
       "form": {
-        "kind": "sphere",
-        "w": 7.5,
         "d": 7.5,
         "h": 7,
-        "round": 1
-      },
-      "ramp": {
-        "raw": "#f2ece0",
-        "cook": "#e8d4a0",
-        "peak": "#c89a50"
+        "kind": "sphere",
+        "round": 1,
+        "w": 7.5
       },
       "look": {
+        "flesh": "#f2ece0",
         "skin": "#c88a3e",
-        "stem": "#8a6a3a",
-        "flesh": "#f2ece0"
+        "stem": "#8a6a3a"
+      },
+      "ramp": {
+        "cook": "#e8d4a0",
+        "peak": "#c89a50",
+        "raw": "#f2ece0"
       }
     },
     "perishable": true,
     "restore_hunger": 8,
+    "shelved": true,
     "spoil_rate": "slow",
     "stackable": true,
     "status_chance": {

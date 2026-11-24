@@ -1,0 +1,21 @@
+{
+  "name": "streetcred",
+  "version": "1.0.0",
+  "description": "Street cred: a hidden standing with the black market, raised by trust steps with contacts (NPCs with flags.street), seeding new contacts' trust, their reactions when you walk in, and vouches up the ladder. Never shown to the player.",
+  "after": [
+    "commerce",
+    "dealer"
+  ],
+  "events": {
+    "consumes": [
+      "vendor.purchase",
+      "zone.entered",
+      "player.logout"
+    ],
+    "emits": []
+  },
+  "hooks": [
+    "npc.streetPose",
+    "npc.streetRegard"
+  ]
+}

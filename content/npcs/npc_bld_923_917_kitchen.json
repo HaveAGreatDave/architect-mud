@@ -23,10 +23,6 @@
   "sex": "female",
   "vendor_inventory": [
     {
-      "item_id": "item_bone_broth",
-      "price": 0
-    },
-    {
       "item_id": "item_flat_bread",
       "price": 0
     }

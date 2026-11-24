@@ -124,8 +124,19 @@ const offeredOf = (panel) => {
   return [...blinds, ...(sashDrapes(panel) ? Object.keys(SCENES).filter(isDrapes) : [])];
 };
 const levelOf = (n) => Math.max(0, Math.min(100, Math.round(Number(n) / 5) * 5));
+// Coverings start closed, so the view out of the window loads behind them and a player opens it when they
+// choose. Only a flat with an owner keeps its setting on the panel row; anywhere else (a hotel room, a show
+// flat) the setting lives in RAM (`loose`) and goes back to closed on a restart.
+const loose = new Map();   // panel id -> { down, scene, level, colour }
+const owned = (panel) => zoneOwnerId(panel.zone_id) != null;
+function closedOf(offered) {
+  const scene = offered.find(isDrapes) || offered.find(isBlinds) || (offered.includes('matte') ? 'matte' : offered[0]);
+  return { down: true, scene, level: isBlinds(scene) ? 0 : DEFAULT_LEVEL };
+}
 function shutOf(panel) {
-  const s = cfg(panel).shutters || {}, offered = offeredOf(panel);
+  const offered = offeredOf(panel);
+  const stored = owned(panel) ? cfg(panel).shutters : loose.get(panel.id);
+  const s = stored && typeof stored.down === 'boolean' ? stored : { ...closedOf(offered), colour: stored?.colour };
   return { down: !!s.down, scene: offered.includes(s.scene) ? s.scene : offered[0], level: Number.isFinite(Number(s.level)) && s.level !== null ? levelOf(s.level) : DEFAULT_LEVEL, colour: hexOf(s.colour) };
 }
 // What the Room Stage draws: up or down, the scene and its painter, the blinds' level, and whether there's power to light it.
@@ -317,8 +328,11 @@ async function cmdShutters(args, raw, player, broadcast) {
     if (drapes) return reply(panel, 'The curtains are already drawn.');
     return reply(panel, blinds ? `The blinds are already drawn, letting in ${level}% of the light.` : `The shutters are already down, showing ${name}.`);
   }
-  if (!powered(panel.zone_id)) return reply(panel, 'The shutter controls are greyed out. No power reaches the flat.');
-  await updateFurniture(panel.id, { flags: JSON.stringify({ ...panel.flags, envctl: { ...cfg(panel), shutters: { down, scene, level, colour } } }) });
+  // drapes are pulled by hand, so they open and close with the power off
+  const byHand = drapes || (!down && was.down && isDrapes(was.scene));
+  if (!byHand && !powered(panel.zone_id)) return reply(panel, 'The shutter controls are greyed out. No power reaches the flat.');
+  if (owned(panel)) await updateFurniture(panel.id, { flags: JSON.stringify({ ...panel.flags, envctl: { ...cfg(panel), shutters: { down, scene, level, colour } } }) });
+  else loose.set(panel.id, { down, scene, level, colour });
   panel = panelFor(player.current_zone) || panel;
   emit('room.glassChanged', { zoneId: panel.zone_id, glass: glassOf(panel) });
   const wasBlinds = was.down && isBlinds(was.scene), wasDrapes = was.down && isDrapes(was.scene);
@@ -377,4 +391,4 @@ export const hooks = {
   'room.glass': (zoneId) => { const p = panelIn(zoneId); return p ? glassOf(p) ?? undefined : undefined; },
 };
 
-export const _test = { isPanel, panelFor, annexOf, lightsOf, heldAt, targetOf, limits, ramps, stateOf, RAMP_C_PER_MIN, hasGlass, sashBlinds, sashDrapes, offeredOf, shutOf, glassOf, levelOf };
+export const _test = { owned, isPanel, panelFor, annexOf, lightsOf, heldAt, targetOf, limits, ramps, stateOf, RAMP_C_PER_MIN, hasGlass, sashBlinds, sashDrapes, offeredOf, shutOf, glassOf, levelOf };

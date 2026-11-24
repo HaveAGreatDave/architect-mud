@@ -80,7 +80,7 @@ export default async function regress({ run, check, getPlayer }) {
 
   // ── THE ONBOARDING NUDGE IS NOT OPTIONAL ───────────────────────────────────
   // A fresh clone spawns in `zone_start` and its only way out is one tile east; that
-  // tile is where "where do I even go" gets answered, and the answer is Grady, two
+  // tile is where "where do I even go" gets answered, and the answer is Rusty, two
   // doors along. The nudge is content (`flags.gps_suggest`), so nothing in code
   // fails if nobody authors it — which is exactly how mastery shipped a `train` verb,
   // a rep gate and a purity gate with no teacher anywhere in the world.

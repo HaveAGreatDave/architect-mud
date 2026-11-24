@@ -4,6 +4,7 @@
   "id": "item_flat_bread",
   "name": "flatbread",
   "tags": {
+    "aisle": "bakery",
     "consumable": true,
     "container": 800,
     "description": "A blistered disc off a hot plate, folded once and gone slightly stiff. The cheapest way to make a meal into two meals.",
@@ -12,17 +13,17 @@
     "food_profile": "bread",
     "matter": {
       "form": {
-        "kind": "slab",
-        "w": 20,
         "d": 20,
         "h": 1,
-        "round": 1
-      },
-      "ramp": {
-        "raw": "#e8cf98"
+        "kind": "slab",
+        "round": 1,
+        "w": 20
       },
       "look": {
         "spots": "#8a5a2a"
+      },
+      "ramp": {
+        "raw": "#e8cf98"
       }
     },
     "perishable": true,

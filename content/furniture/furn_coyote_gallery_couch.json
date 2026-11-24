@@ -1,0 +1,26 @@
+{
+  "description": "A long couch gone flat in the middle. Nobody admits to sleeping on it.",
+  "flags": {
+    "interactions": [
+      "lie"
+    ],
+    "look": {
+      "arche": "sofa",
+      "form": "sofa"
+    },
+    "spot": {
+      "along": 4.2,
+      "wall": "right"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_coyote_gallery_couch",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "a couch",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_bld_899_1171_gallery"
+}

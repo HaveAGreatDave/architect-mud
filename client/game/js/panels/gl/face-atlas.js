@@ -29,26 +29,64 @@ export const faceAtlasPath = (half, ink) => (ink ? (half ? FACE_ATLAS.inkHalf : 
  * back, null before the first. `ink: true` asks for the inked atlas whatever the setting (the
  * close-up figure, gl/figure-hd.js, is always drawn in the comic manner).
  */
+// One decoded image per (Image constructor, path), shared by every feed, so a renderer made after
+// the first has its faces on its first frame instead of fetching them again. `preloadFaceAtlases`
+// starts them at page load, before anybody is on screen.
+const SHARED = new Map();   // Img -> Map(path -> { img, done, failed, waiters })
+function sharedImage(Img, path) {
+  let byPath = SHARED.get(Img);
+  if (!byPath) SHARED.set(Img, byPath = new Map());
+  let e = byPath.get(path);
+  if (e) return e;
+  const img = new Img();
+  e = { img, done: false, failed: false, waiters: new Set() };
+  try { img.decoding = 'async'; } catch { /* not every Image has it */ }
+  const settle = (failed) => {
+    if (e.done || e.settling) return;
+    e.settling = true; e.failed = failed;
+    const run = () => { e.done = true; for (const w of e.waiters) { try { w(); } catch { /* the next poll picks it up */ } } e.waiters.clear(); };
+    // decode() so the first upload isn't a stall on the main thread
+    if (!failed && typeof img.decode === 'function') img.decode().then(run, run); else run();
+  };
+  img.onload = () => settle(false);
+  img.onerror = () => settle(true);
+  img.src = urlOf(path);
+  byPath.set(path, e);
+  return e;
+}
+
+/** Start every face atlas a view might want, on the page's Image. Safe to call more than once. */
+export function preloadFaceAtlases(Img = globalThis.Image) {
+  if (typeof Img !== 'function') return;
+  for (const half of [false, true]) for (const ink of [false, true]) { try { sharedImage(Img, faceAtlasPath(half, ink)); } catch { /* no DOM */ } }
+}
+if (typeof document !== 'undefined' && typeof globalThis.Image === 'function') preloadFaceAtlases();
+
+/** How long a view holds its people back waiting for faces before it draws them without. */
+export const FACE_WAIT_MS = 8000;
+
 export function createFaceAtlasFeed({ half = false, Img = globalThis.Image, onReady = null, ink: always = null } = {}) {
   let want = null, loading = null, ready = null, given = null;
+  const born = Date.now();
   const feed = {
     ink: null,
+    /** true once this feed has handed an atlas over, or given up waiting: draw people then. */
+    get settled() { return given !== null || typeof Img !== 'function' || (loading && loading.e.failed) || Date.now() - born > FACE_WAIT_MS; },
     poll() {
       if (typeof Img !== 'function') return null;
       const ink = always ?? comicOn();
       if (want !== ink) {
         want = ink;
         if (given !== ink && (!loading || loading.ink !== ink)) {
-          const img = new Img();
-          loading = { ink, img };
-          try { img.decoding = 'async'; } catch { /* not every Image has it */ }
-          img.onload = () => { if (loading && loading.img === img) { ready = loading; loading = null; try { onReady?.(); } catch { /* the next frame picks it up anyway */ } } };
-          img.onerror = () => { if (loading && loading.img === img) loading = null; };
-          img.src = urlOf(faceAtlasPath(half, ink));
+          const e = sharedImage(Img, faceAtlasPath(half, ink));
+          const me = { ink, img: e.img, e };
+          loading = me;
+          const arrive = () => { if (loading === me) { if (!e.failed) ready = me; loading = e.failed ? me : null; try { onReady?.(); } catch { /* the next frame picks it up anyway */ } } };
+          if (e.done) arrive(); else e.waiters.add(arrive);
         }
       }
       // A cached image can be complete before onload has run.
-      if (!ready && loading && loading.img.complete && loading.img.naturalWidth > 0) { ready = loading; loading = null; }
+      if (!ready && loading && !loading.e.failed && loading.e.done) { ready = loading; loading = null; }
       if (!ready) return null;
       const r = ready;
       ready = null;

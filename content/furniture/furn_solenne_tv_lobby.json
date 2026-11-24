@@ -16,9 +16,8 @@
       "form": "flat"
     },
     "spot": {
-      "along": 5.8,
-      "wall": "left",
-      "y": 2.05
+      "along": 1,
+      "wall": "left"
     },
     "tv": true,
     "tv_dial_freq": 7,

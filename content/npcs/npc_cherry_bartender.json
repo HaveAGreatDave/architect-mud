@@ -181,10 +181,104 @@
     ],
     "mis_willing": false,
     "personality": "bartender",
-    "post": "furn_cherry_bar"
+    "post": "furn_cherry_bar",
+    "parley": {
+      "topics": {
+        "club": [
+          "club",
+          "this place",
+          "cherry pit",
+          "the pit",
+          "the cherry"
+        ],
+        "drinks": [
+          "drink",
+          "drinks",
+          "menu",
+          "beer",
+          "shot"
+        ],
+        "deacon": [
+          "deacon",
+          "bouncer",
+          "the door"
+        ],
+        "dancers": [
+          "dancers",
+          "girls",
+          "the girls",
+          "stage"
+        ]
+      },
+      "react": {
+        "greet": {
+          "stranger": [
+            "*glances at you, then the door.* What are you drinking?",
+            "Bar's open. What'll it be?"
+          ],
+          "familiar": [
+            "{name}. The usual?"
+          ],
+          "hostile": [
+            "*keeps pouring.* Make it quick."
+          ]
+        },
+        "farewell": {
+          "stranger": [
+            "Tip the girls on your way out."
+          ],
+          "familiar": [
+            "Night, {name}."
+          ]
+        },
+        "thank": [
+          "Yeah, no problem."
+        ],
+        "ask_about:club": [
+          "It's a strip club. Drinks are overpriced, the music's loud, nobody's complained yet."
+        ],
+        "ask_about:drinks": [
+          "Beer, spirits, whatever's in the well. Don't order anything with an umbrella."
+        ],
+        "ask_about:deacon": [
+          "Deacon does the door. If he walks you out, don't argue. I've seen people argue."
+        ],
+        "ask_about:dancers": [
+          "They work hard. Tip them, don't touch them, and we all get along."
+        ],
+        "flirt": [
+          "*slides you a napkin.* I'm working. So are they."
+        ],
+        "insult": [
+          "Say that again and you're talking to Deacon."
+        ],
+        "joke": [
+          "*doesn't quite smile.* Heard it."
+        ],
+        "ask_feeling": [
+          "Feet hurt. Same as every night."
+        ]
+      },
+      "deflect": [
+        "*can't hear you over the music.* What?",
+        "Sorry, I've got a queue."
+      ],
+      "circle": [
+        "npc_cherry_bouncer",
+        "npc_cherry_dancer_coco",
+        "npc_cherry_dancer_echo",
+        "npc_cherry_dancer_glory",
+        "npc_cherry_dancer_lux",
+        "npc_cherry_dancer_margaux",
+        "npc_cherry_dancer_mink",
+        "npc_cherry_dancer_nova",
+        "npc_cherry_dancer_opal",
+        "npc_cherry_dancer_peaches"
+      ]
+    }
   },
   "home_activities": [],
-  "home_zone": "zone_mq_chrome_102",
+  "home_zone": "zone_hf_chainfree_u1",
   "hp": 20,
   "hp_max": 20,
   "id": "npc_cherry_bartender",

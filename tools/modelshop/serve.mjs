@@ -52,10 +52,13 @@ import { floorsFor } from '../../client/shared/skyline-scale.js';
 // The Room Lab's building: the same plans and payload the roomstage plugin sends (docs/proposals/building-stage.md).
 import { walkPlans, buildingView, zoneSpecOf, placeFrom, streetDoorAt } from '../../client/shared/building-graph.js';
 import { roomSpecOf } from '../../client/shared/room-layout.js';
+import { npcFigure } from '../../client/shared/figure-text.js';
 import { labCatalog, labArrange, stampsOf } from './room-files.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..');
+// Where tools/mesh-gen writes its references: one folder each, a mesh, its source image and meta.json.
+const MESH_REF_DIR = join(ROOT, 'tools', 'mesh-gen', 'out');
 const MODEL_DIR = join(ROOT, 'content', 'building_models');
 const VEHICLE_DIR = join(ROOT, 'content', 'vehicle_models');
 const VEHICLE_BAKE_OUT = join(ROOT, 'client', 'shared', 'vehicle-models.js');
@@ -138,6 +141,9 @@ const MIME = {
   '.jpg': 'image/jpeg',
   '.webp': 'image/webp',
   '.woff2': 'font/woff2',
+  '.glb': 'model/gltf-binary',
+  '.obj': 'text/plain; charset=utf-8',
+  '.jpeg': 'image/jpeg',
 };
 const mimeOf = (p) => MIME[/\.[a-z0-9]+$/i.exec(p)?.[0]?.toLowerCase()] || 'application/octet-stream';
 
@@ -344,6 +350,36 @@ const server = createServer(async (req, res) => {
     // The cat kit's cats (cattery-recipes.js, gl/cat-kit.js), carved and posed, with the sliders that customise one
     if (req.method === 'GET' && path === '/cattery.html') {
       return send(res, 200, await readFile(join(HERE, 'cattery.html')), 'text/html; charset=utf-8');
+    }
+    // Image-to-mesh references (tools/mesh-gen): a generated or found mesh beside its source image,
+    // with a game model ghosted over it. A reference is never a game asset; see
+    // docs/proposals/mesh-reference-pipeline.md.
+    if (req.method === 'GET' && path === '/mesh-ref.html') {
+      return send(res, 200, await readFile(join(HERE, 'mesh-ref.html')), 'text/html; charset=utf-8');
+    }
+    if (req.method === 'GET' && path === '/api/mesh-refs') {
+      const out = [];
+      let names = [];
+      try { names = readdirSync(MESH_REF_DIR); } catch { /* no references yet */ }
+      for (const name of names) {
+        const dir = join(MESH_REF_DIR, name);
+        try { if (!statSync(dir).isDirectory()) continue; } catch { continue; }
+        const files = readdirSync(dir);
+        let meta = {};
+        try { meta = JSON.parse(readFileSync(join(dir, 'meta.json'), 'utf8')); } catch { /* meta is optional */ }
+        const mesh = files.find((f) => /\.(glb|obj)$/i.test(f));
+        if (!mesh) continue;
+        // The picture it came from, not cond.png (the matted copy the model saw).
+        const pics = files.filter((f) => /\.(png|jpe?g|webp)$/i.test(f));
+        const image = pics.find((f) => /^source\./i.test(f)) || pics.find((f) => f !== 'cond.png') || pics[0] || null;
+        out.push({ name, mesh, image, meta });
+      }
+      return json(res, 200, out.sort((a, b) => a.name.localeCompare(b.name)));
+    }
+    if (req.method === 'GET' && path.startsWith('/mesh-refs/')) {
+      const abs = normalize(join(MESH_REF_DIR, decodeURIComponent(path.slice('/mesh-refs/'.length))));
+      if (!abs.startsWith(MESH_REF_DIR + sep)) return send(res, 403, 'outside the references', 'text/plain; charset=utf-8');
+      try { return send(res, 200, await readFile(abs), mimeOf(abs)); } catch { return send(res, 404, 'no such file', 'text/plain; charset=utf-8'); }
     }
     if (req.method === 'GET' && path === '/api/enemies') {
       const dir = join(ROOT, 'content', 'enemies'), out = [];
@@ -606,8 +642,19 @@ const server = createServer(async (req, res) => {
       if (!/^[\w-]+$/.test(id)) return json(res, 400, { error: 'bad id' });
       try {
         const npc = JSON.parse(await readFile(join(ROOT, 'content', 'npcs', id + '.json'), 'utf8'));
-        return json(res, 200, { sex: npc.sex, figure: npc.flags?.figure });
+        // what the game draws: the settled look, or the one read off their words (figure-text.js)
+        return json(res, 200, { sex: npc.sex, figure: npcFigure(npc) || undefined });
       } catch { return json(res, 404, { error: 'no such npc' }); }
+    }
+    // A league's clubs (crests, kits) off the broadcast content, for the Figure Lab, which has no server to send
+    // them: a cap's `hat_badge` names a club, and without its crest the cap goes plain.
+    if (req.method === 'GET' && path === '/api/league-clubs') {
+      const sport = new URL(req.url, 'http://x').searchParams.get('sport') || 'baseball', dir = join(ROOT, 'content', 'media_broadcasts');
+      for (const f of readdirSync(dir)) {
+        if (!f.endsWith('.json')) continue;
+        try { const sp = JSON.parse(readFileSync(join(dir, f), 'utf8')).sports_pools; if (sp?.sport === sport && sp.clubs) return json(res, 200, { sport, clubs: sp.clubs }); } catch { /* not a league */ }
+      }
+      return json(res, 404, { error: 'no such league' });
     }
     // Every NPC with a settled figure, for the Figure Lab's `who` list. Read off the files each
     // time, so a look settled a minute ago is on it.

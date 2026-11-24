@@ -1,0 +1,25 @@
+{
+  "description": "A pay station with a ticket slot, a card reader nobody has needed and a screen that says PARKING FREE. Feed it your ticket and the carousel brings your aircraft up to the roof pad.",
+  "flags": {
+    "click_cmd": "garage",
+    "field_zone": "zone_district_923_904",
+    "levels": [
+      2,
+      3,
+      4,
+      5
+    ],
+    "public": true,
+    "roof_level": 6,
+    "sky_garage": 12,
+    "ticket": "item_skypark_ticket",
+    "bay_zone": "zone_apark_l2"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_apark_pay_station",
+  "name": "parking terminal",
+  "object_type": "terminal",
+  "price": 0,
+  "zone_id": "zone_apark_lobby"
+}

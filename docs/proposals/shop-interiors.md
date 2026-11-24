@@ -43,7 +43,7 @@ to copy from.
 | `ground`, `tone` | `concrete` and the trade's paint | |
 | `decor.rug` | `false` | Every room gets a rug otherwise |
 | `decor.strips` | the ceiling lights | Fluorescent battens light a shop, not a pendant |
-| `decor.signs` | the name behind the counter, then STAFF ONLY, NO NAKED FLAMES and the like | Lit lettering on a plate |
+| `decor.signs` | the name behind the counter, then STAFF ONLY, NO NAKED FLAMES and the like | Painted in a library face as a decal: plate, neon, badge and the rest ([wall-signs.md](../reference/wall-signs.md)) |
 | `decor.paint`, `pipes`, `doors`, `lamps`, `grates` | as the trade needs | A steel door to the back that doesn't open is `decor.doors` |
 
 **A one-room shop is planned like a building.** The building planner (`walkPlans` in

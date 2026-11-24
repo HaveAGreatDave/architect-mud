@@ -1,0 +1,8 @@
+{
+  "name": "parley",
+  "version": "1.0.0",
+  "description": "Talk to people in your own words. A typed line is read as an act (greet, insult, ask about the hotel) and the NPC answers from flags.parley, Façade-style.",
+  "commands": ["parley"],
+  "hooks": ["npc.heard", "player.say", "npc.talk"],
+  "ticks": []
+}

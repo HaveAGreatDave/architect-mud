@@ -113,6 +113,7 @@ Engineering notes for the GLASS renderer (`client/game/js/panels/windshield.js` 
 - [Hull inertia and roll response](#hull-inertia-and-roll-response)
 - [Shoaling refraction](#shoaling-refraction)
 - [Surf and breaking](#surf-and-breaking)
+- [Foam that stays](#foam-that-stays)
 - [Far swell](#far-swell)
 - [Displaced chop near the eye](#displaced-chop-near-the-eye)
 - [Foam keyed on steepness (not built)](#foam-keyed-on-steepness-not-built)
@@ -362,11 +363,9 @@ The texel loop was already a fragment shader in JS: it inverts the projection to
 - Four surfaces share the ground plane and are ordered by z lift: floor 0 < `SURF_EPS` < `ROAD_EPS` < `SHADOW_EPS`. `f` is ground distance with no height term, so a higher quad covers a screen row whose floor is further away.
 - A shader that fails to compile looks like one that draws badly: the pass catches the throw, sets the flag to 0 and finishes in 2-D. `npm run gl:glsl` ([scripts/shapes/glsl-smoke.mjs](../../scripts/shapes/glsl-smoke.mjs)) checks that every `uXxx` a shader uses is declared in it and every name the JS asks the linker for exists. A missing uniform location is `null`, `gl.uniform1f(null, x)` is a legal no-op, and the shader reads zero for ever.
 
-### Fallback condition
+### No software floor
 
-`drawMode7Floor` hands its LUT and camera over and returns without drawing, so it must test `TUNE.gl` as well as `TUNE.glFloor`. Every GLASS 2 failure ends at `RENDER_TUNE.gl = 0`, and this function runs before the pass each frame; without the `gl` term the early return keeps firing on a machine that can't draw the replacement, leaving no floor at all, permanently. It's hard to notice because the backstop gradient underneath is smooth and the right colour. At the switch, 69% of the ground differed from the software raster without the term and 0% with it.
-
-`npm run gl:floorfallback` ([scripts/shapes/floorfallback.mjs](../../scripts/shapes/floorfallback.mjs)) checks it headlessly against a hook that returns nothing, one that throws, and no hook. Its signal is `putImageData` on the Mode-7 scratch buffer, because the floor is one `drawImage` either way. Trap: the counter must go through a proxy, since the DOM stub's context is itself a proxy that synthesises methods on `get` and silently discards a wrapper written onto it, which looks like the floor never rastering.
+The Mode-7 software raster is gone (2026-11-23). `drawMode7Floor` only builds `FLOOR_STATE` for gl/floor.js; a frame whose GL pass fails has sky and HUD and no ground, and the next frame tries GL again.
 
 ## Clip plane fitting (`RENDER_TUNE.nearFit`)
 
@@ -505,7 +504,7 @@ GLASS 1 draws the world only when GLASS 2 can't: no WebGL2, a lost context past 
   - the draw distance stops at 16 tiles (`farMax`, read by `governedFar`), with the skyline backdrop past it.
 
   It's 43 ms in that cab, 66-70 ms from the air and 36-38 ms in a Marrow cab, against 95-135 for the full painter.
-- **Who gets the basic tier.** `glass1Basic` defaults to 0, so the Modelshop and every gate (shapes smoke, framecost, worldresidue) keep the full painter; framecost's 342,761-call baseline is that painter. The game turns it on at boot: main.js sets `window.__glass1BasicPending`, which windshield.js reads when it loads, as it does for cel shading. No seat passes `gl: 0` in its view tune, so in the game the tier applies only when GLASS 2 is off or has failed.
+- **Who gets the basic tier.** `glass1Basic` defaults to 0, so the Modelshop and every gate (shapes smoke, framecost, worldresidue) keep the full painter. framecost now measures a GL frame on the stub GL hook (the arm sweep that fills GL's sinks, plus sky, HUD and overlays), and its baseline is 734,699 canvas calls over 16 frames. The game turns it on at boot: main.js sets `window.__glass1BasicPending`, which windshield.js reads when it loads, as it does for cel shading. No seat passes `gl: 0` in its view tune, so in the game the tier applies only when GLASS 2 is off or has failed.
 - ⚠ **`decoFar` is read `|| Infinity`,** so 0 means no limit; the tier uses 0.001. `glowFar` 0 does mean none.
 
 ## GLASS Lite (`RENDER_TUNE.glassLite`, 2026-11-09)
@@ -1708,6 +1707,22 @@ Flag: `RENDER_TUNE.glSeaSurf` (0 is the sea as shipped, with the swell tapering 
 - Hulls ride it: `hullSurfGain` in windshield.js (from `surfHullGain` in sea-swell.js) scales the swell for `seaPoseAt` (the Echelon's ride) and the hydro in boat-view.js, from `floorZAt` under the hull. It's exactly 1 in open water and 0 on sand.
 - Trap: `floorZAt` returns 0 on land and before any seabed window is noted, which flattened the Echelon on headless runs and early frames. `seabedWindowReady()` guards it; unknown depth reads as open water.
 - Constants and a JS twin (`surfGain`/`surfBreaking`) live in `sea-swell.js`; the GLSL interpolates them. `sea.mjs` section 26 gates: flag 0 = `deep²`, zero at the waterline, one gain for mesh and lighting, depth from `seabedDepth`, the physics on the JS twin, `uSurf` set on both layers. Measured from a cab facing the beach: 6.8% of the frame against 0.01%.
+
+## Foam that stays
+
+Flags: `RENDER_TUNE.glSeaFoamSim` and `RENDER_TUNE.glSeaBore` (0 on both is the sea as it shipped).
+
+- The water shader's foam is worked out fresh each frame from the wave phase, so nothing was left behind a crest. `gl/sea-foam.js` keeps a 256² field over 36 tiles round the camera. Each step reads the last field a little upwave (it drifts shoreward with the broken wave and downwind), fades it (5 s half-life at sea, 11 s in the surf zone) and maxes in the foam being made now: the lip, the bore and the whitecaps.
+- The water shader shapes the field into lace off the chop's froth: dense where it's fresh, a torn net as it thins.
+- The bore puts a wide band of white water on the broken wave's front (water.js and the field). The floor's swash runs 60% further up the sand, its sheet is wider, and a torn foam line stays where the runs reached.
+- The field is RGBA16F where `EXT_color_buffer_float` exists. Otherwise it's RGBA8 stepped at 15 Hz, because a per-frame fade is smaller than one 8-bit step. It's on unit 9, and its origin snaps to whole texels so scrolling doesn't blur it.
+- `__glSeaShot` needs `sail` to show the field, since a settled shot pins the clock and the field gets no history. Its `shore` scene is a 12-tile channel with no shelving beach, so it hardly shows the surf: 4.8% of a boat frame and 5.7% of an air frame move.
+- The curling lip (`RENDER_TUNE.glSeaLip`, `gl/sea-lip.js`; off on phones): a grid of small curl pieces within 18/SEA_K tiles of the eye. Each piece finds the swell phase at its cell, and only the one the lip line crosses stays, sliding onto the line so neighbours join into a ribbon. The tune value is its size against life (2.4): a true 2 m lip is a few pixels from most seats.
+- Trap: SEA_K is 2.55, so a reach written as 10/SEA_K is 4 tiles, all under an aircraft seat's nose. The bench needs `extra: { bare: true }` and a low eye near a beach to see it.
+- Trap: a bench canvas read with drawImage straight after `__glSeaShot` comes back empty; await a `toBlob` first.
+- The breaker's face (`RENDER_TUNE.glSeaFace`, `seaSurfFace` in `gl/sea-glsl.js`): in the surf zone the crest stands up taller and sharper, a little ahead of its base, with a scooped hollow about a third of a wave in front of it. It has its own derivative for the light, and the lip's root rides it. Hulls don't: `surfHullGain` scales the swell, not the lean or the face.
+- The breaking sound (`field-audio.js`, `surfBreakFrame`): on the nearest open shore, a crash when the swell's phase there crosses the lip line (`seaSurfPhaseAt` in `sea-swell.js`, the JS twin of `seaSurfPhase`), then the wash hissing up the sand 0.7 s later. It's scaled by the wind, and there's none at a quay or in a calm. The long swell's period is 35 s, so that is how often a wave crashes; the recorded surf bed fills between.
+- Not built: spray off the lip.
 
 ## Far swell
 

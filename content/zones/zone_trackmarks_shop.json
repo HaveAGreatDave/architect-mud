@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#241f19",
-  "description": "The old locking room, with a counter where the lever rods came down through the ceiling. A sign-in ledger lies chained open on it beside a kettle that's never been switched off. Lockers stand along the back wall, half of them missing doors. A painted arrow points up the stairs: COTS, FIVE FLOORS, FIRST COME. The wash is north and the kitchen west.",
+  "description": "The old locking room, with a counter where the lever rods came down through the ceiling. A sign-in ledger lies chained open on it beside a kettle that's never been switched off. Lockers stand along the back wall, half of them missing doors, and the wall round them is flyers on flyers, torn back to the brick in places. A painted arrow points up the stairs: KITCHEN, THEN COTS, FIRST COME. The showers are north and the toilets west.",
   "exits": {
     "down": "zone_util_zone_trackmarks_shop",
     "north": "zone_trackmarks_back",
@@ -77,6 +77,32 @@
             "cage": true,
             "len": 1.2
           }
+        ],
+        "torn": [
+          {
+            "wall": "right",
+            "along": 3.2,
+            "y": 1.5,
+            "n": 8,
+            "seed": 61
+          },
+          {
+            "wall": "back",
+            "along": -1.2,
+            "y": 2.2,
+            "n": 4,
+            "seed": 62
+          }
+        ],
+        "bags": [
+          {
+            "at": [
+              2.3,
+              4.3
+            ],
+            "n": 4,
+            "seed": 63
+          }
         ]
       },
       "face": 180,
@@ -97,7 +123,12 @@
         "trim": "#3a3026",
         "wall": "#a89a78"
       },
-      "w": 5.6
+      "w": 5.6,
+      "street_door": {
+        "kind": "single",
+        "w": 1.2,
+        "trim": "#3c3c3c"
+      }
     },
     "sanctuary": true,
     "window": {

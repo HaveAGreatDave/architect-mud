@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "outdoors",
-  "description": "A low saloon of welded plate and salvaged neon, a coyote sign buzzing over the door with half its letters dead. Inside there's warmth, liquor, and company that won't ask where you've been: the Reach's parlour, where every deal in town eventually gets a drink poured on it.",
+  "description": "Four storeys of weathered board on Main Street, the tallest thing in the Reach that isn't a mast. A covered gallery runs across the front over the porch, every window has a different curtain, and there's a dish or an aerial on every ledge. Up on the false front a coyote howls in amber neon, the brightest light for fifty miles. The batwing doors are always open.",
   "exits": {
     "north": "zone_bld_899_1171_lobby",
     "south": "zone_the_reach_872_1955"

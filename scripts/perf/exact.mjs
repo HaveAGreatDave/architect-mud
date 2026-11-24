@@ -72,7 +72,15 @@ try {
   for (const place of places) for (const seat of ['cab', 'cockpit']) for (const hour of hours) for (const heading of headings) {
     const v = scene.view(place, seat, { hour, heading });
     if (without.size) v.map = v.map.map((row) => row.map((c) => (c && (without.has(c.mark) || (c.ml && without.has('lot'))) ? strip(c) : c)));
+    // ⚠ BOTH SIDES START FROM THE SAME CACHES. Every RENDER_TUNE value is in the key of the kept kit
+    // sets, arms and ground tiles (tuneSig), so the side whose switch just changed recorded them in
+    // this view while the other replayed what the previous view recorded: any switch, even one
+    // nothing reads, showed 13 of 60 views differing. A key nothing reads, bumped before each side,
+    // has both record afresh here. `--carry` leaves the bump out. A replay recorded from another
+    // heading differs then only in the CPU fallbacks (a stroke's pulled `a`/`b`, a light's `r`),
+    // which no layer reads with glSizeGPU on: `--carry --layers` is identical (2026-11-22).
     const side = (val) => {
+      if (!process.argv.includes('--carry')) scene.ws.RENDER_TUNE.__exactSide = (scene.ws.RENDER_TUNE.__exactSide || 0) + 1;
       scene.ws.RENDER_TUNE[key] = val;
       scene.paint(v); scene.paint(v); scene.takeLog();
       const sinks = snap(scene.paint(v));

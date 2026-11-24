@@ -251,6 +251,14 @@ export function setSeaHeading(rad) {
   ROT_ON = ROT_D !== 0 || SEA_K !== 1;
   ROT_C = SEA_K * Math.cos(ROT_D); ROT_S = SEA_K * Math.sin(ROT_D);
 }
+// Where (u, v) is on the long swell, in radians: 0 at the crest, negative on its front face, in
+// -pi..pi. The JS twin of seaSurfPhase in gl/sea-glsl.js, so the surf's sound breaks when the
+// picture's wave does. (u, v) in the map window's frame, as seaRoll takes them.
+export function seaSurfPhaseAt(u, v, t) {
+  if (ROT_ON) { const q = frameUV(u, v); u = q[0]; v = q[1]; }
+  const th = SEA_ROLL.ku * u + SEA_ROLL.kv * v + SEA_ROLL.w * t - Math.PI / 2;
+  return ((th + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI;
+}
 // The (cos, sin) pair the shaders take as uSeaRot. A pure turn: seaFrame adds SEA_K on its side.
 export function seaRotPair() { return [ROT_C / SEA_K, ROT_S / SEA_K]; }
 

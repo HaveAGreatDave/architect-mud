@@ -91,8 +91,8 @@ const marks = [
   // the back wall: the way out
   { kind: 'wayfinding', wall: 'back', at: -4.2, y: 3.15, w: 1.9, h: 0.5, text: 'Exit', sub: 'Street · Coldwater', arrow: 'down', tint: GREEN },
   { kind: 'readout', wall: 'back', at: 0, y: 4.75, w: 3.4, h: 1.35, text: 'Release queue|Bay 1 · ready|Bay 2 · ready|Bay 3 · cycling|Bay 4 · ready', sub: 'Next print --:--', tint: '#5affc8' },
-  // Two-Cell's advert: Grady himself, photographed from below (the picture is his figure, shot in the Figure Lab)
-  { kind: 'poster', wall: 'back', at: -1.5, y: 2.65, w: 1.2, h: 1.75, img: 'posters/grady-two-cell.webp', text: 'Two-Cell|Supply', sub: 'East along the street.|Honest prices. Honest work.', small: 'Gear for every career path.', tint: '#2a1a10', accent: '#ff8a2a', font: 'Tektur' },
+  // O'Toole's advert: Rusty himself, photographed from below (the picture is his figure, shot in the Figure Lab)
+  { kind: 'poster', wall: 'back', at: -1.5, y: 2.65, w: 1.2, h: 1.75, img: 'posters/grady-two-cell.webp', text: "O'Toole's|Surplus", sub: 'East along the street.|Family run since 1924.', small: 'Keep the rain off.', tint: '#2a1a10', accent: '#ff8a2a', font: 'Tektur' },
   { kind: 'scrawl', wall: 'back', at: -1.4, y: 1.15, w: 1.3, h: 0.3, text: 'they keep the first one' },
   { kind: 'stain', wall: 'back', at: 5.4, y: 3.8, w: 0.9, h: 2.4, drip: true, tint: '#4a3a24' },
   // the left wall: growth row A

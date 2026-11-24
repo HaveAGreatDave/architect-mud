@@ -3,7 +3,7 @@
   "battery_max": 1,
   "concealment": 3,
   "device_kind": "sticky_cam",
-  "direction": "south",
+  "direction": "north",
   "hack_difficulty": 6,
   "id": "secdev_citadel_facade",
   "is_damaged": 0,
@@ -17,5 +17,5 @@
   "storage_limit": 200,
   "tier": 3,
   "wired": 1,
-  "zone_id": "zone_district_921_911"
+  "zone_id": "zone_district_916_910"
 }

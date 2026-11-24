@@ -5,7 +5,7 @@
   ],
   "ambient_theme": "indoors",
   "bg_color": "#c9a884",
-  "description": "Pink marble underfoot, dulled to the colour of old soap. The reception desk faces the street door under five clocks stopped at the same minute, a key on every hook behind it, and EMBASSY glowing over the lot. The stairs climb inside a wall down the middle of the room. Past it, Lowry's bar runs along the east wall under COCKTAILS in pink neon, and a card table sits under a green lamp with a television high on the wall where every seat can see it. A leather sofa and two wing chairs sit on a worn rug by the door. The lamps are low. Everything is dusted. Nothing is fixed.",
+  "description": "Pink marble underfoot, dulled to the colour of old soap. The reception desk faces the street door under five clocks stopped at the same minute, a key on every hook behind it, and EMBASSY glowing over the lot. A spiral stair in walnut and brass turns up through the middle of the room and on through every floor. Past it, Lowry's bar runs along the east wall under COCKTAILS in pink neon, and a card table sits under a green lamp with a television high on the wall where every seat can see it. A leather sofa and two wing chairs sit on a worn rug by the door. The lamps are low. Everything is dusted. Nothing is fixed.",
   "exits": {
     "down": "zone_residential_lobby_z-1_1782105292491",
     "east": "zone_embassy_lobby_bathroom",
@@ -175,8 +175,8 @@
           },
           {
             "at": [
-              3.7,
-              5.7
+              5,
+              7.3
             ],
             "n": 20,
             "r": [
@@ -223,8 +223,8 @@
         "pendants": [
           {
             "at": [
-              3.7,
-              5.7
+              5,
+              7.3
             ],
             "k": 0.8,
             "kind": "card",
@@ -421,15 +421,17 @@
       "h": 5.37,
       "stair": {
         "at": [
-          0.84,
-          8.6
+          -0.06,
+          5
         ],
         "climb": "front",
         "going": 0.22,
+        "headroom": 3,
+        "r": 1.45,
+        "spiral": "left",
         "w": 1.1
       },
       "street_door": {
-        "dark": true,
         "fanlight": true,
         "glass": "#7f97a0",
         "hand": true,
@@ -446,15 +448,7 @@
         "trim": "#2a1a14",
         "wall": "#d39aa2"
       },
-      "w": 14,
-      "walls": [
-        [
-          1.39,
-          1.55,
-          0,
-          7.2
-        ]
-      ]
+      "w": 14
     },
     "window": {
       "description": "A window.",

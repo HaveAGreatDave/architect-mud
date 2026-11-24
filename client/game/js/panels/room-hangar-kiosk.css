@@ -1,0 +1,37 @@
+/* The hangar's display (room-hangar-kiosk.js): a 520 x 340 page laid over the pedestal's glass with matrix3d. */
+:is(#room-stage, .fl-root) .hk-page {
+	--hk: #29e6ff;
+	position: absolute; left: 0; top: 0; width: 520px; height: 340px; box-sizing: border-box; transform-origin: 0 0;
+	z-index: 3; pointer-events: auto; display: flex; flex-direction: column; gap: 6px; padding: 12px 16px;
+	font-family: 'K7 Bungee', Bungee, 'Arial Black', Impact, sans-serif; color: var(--hk);
+	background:
+		repeating-linear-gradient(0deg, color-mix(in srgb, var(--hk) 10%, transparent) 0 2px, transparent 2px 5px),
+		linear-gradient(180deg, rgba(4, 22, 30, 0.92), rgba(2, 10, 16, 0.94));
+	border: 2px solid color-mix(in srgb, var(--hk) 55%, transparent);
+	box-shadow: inset 0 0 28px color-mix(in srgb, var(--hk) 25%, transparent);
+	text-shadow: 0 0 6px color-mix(in srgb, var(--hk) 60%, transparent);
+}
+:is(#room-stage, .fl-root) .hk-page.hk-far { pointer-events: none; }
+:is(#room-stage, .fl-root) .hk-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 1.25rem; letter-spacing: 0.08em; }
+:is(#room-stage, .fl-root) .hk-head span { font-size: 0.75rem; opacity: 0.7; }
+:is(#room-stage, .fl-root) .hk-tabs { display: flex; gap: 8px; }
+:is(#room-stage, .fl-root) .hk-page button {
+	font: inherit; color: var(--hk); background: rgba(41, 230, 255, 0.08); cursor: pointer;
+	border: 1px solid color-mix(in srgb, var(--hk) 50%, transparent); border-radius: 3px; padding: 4px 10px; font-size: 0.8125rem; letter-spacing: 0.06em;
+}
+:is(#room-stage, .fl-root) .hk-page button:hover:not(:disabled) { background: rgba(41, 230, 255, 0.22); }
+:is(#room-stage, .fl-root) .hk-page button:disabled { opacity: 0.4; cursor: default; }
+:is(#room-stage, .fl-root) .hk-tabs button.on { background: var(--hk); color: #021016; text-shadow: none; }
+:is(#room-stage, .fl-root) .hk-tabs i { font-style: normal; opacity: 0.75; margin-left: 4px; }
+:is(#room-stage, .fl-root) .hk-stage { display: flex; align-items: center; justify-content: space-between; gap: 6px; flex: 1; min-height: 0; }
+:is(#room-stage, .fl-root) .hk-stage canvas { width: 300px; height: 170px; filter: drop-shadow(0 0 8px rgba(41, 230, 255, 0.5)); }
+:is(#room-stage, .fl-root) .hk-stage button { font-size: 1.25rem; padding: 18px 10px; }
+:is(#room-stage, .fl-root) .hk-name { font-size: 1.125rem; text-align: center; letter-spacing: 0.05em; }
+:is(#room-stage, .fl-root) .hk-sub { font-size: 0.75rem; text-align: center; opacity: 0.75; min-height: 1em; }
+:is(#room-stage, .fl-root) .hk-acts { display: flex; justify-content: center; gap: 8px; min-height: 30px; }
+:is(#room-stage, .fl-root) .hk-acts button { font-size: 0.9375rem; padding: 6px 18px; }
+:is(#room-stage, .fl-root) .hk-acts .hk-buy:not(:disabled), :is(#room-stage, .fl-root) .hk-acts .hk-call { background: var(--hk); color: #021016; text-shadow: none; }
+:is(#room-stage, .fl-root) .hk-acts .hk-rent { --hk: #b48cff; color: #b48cff; border-color: #b48cff; }
+:is(#room-stage, .fl-root) .hk-acts .hk-svc { font-size: 0.75rem; padding: 6px 10px; opacity: 0.85; }
+:is(#room-stage, .fl-root) .hk-acts .hk-down { --hk: #ffb030; color: #ffb030; border-color: #ffb030; }
+body:has(#dialogue-panel.active) :is(#room-stage, .fl-root) .hk-page { display: none !important; }

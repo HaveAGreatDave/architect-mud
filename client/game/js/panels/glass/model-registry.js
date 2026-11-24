@@ -51,7 +51,7 @@ export const NAMED_MODELS = {
   // Their words are here, so the arms carry none of Coldwater's. `dead` is the letter that's out.
   ksabtvstudiostage:              { type: 'lot_stage', pal: 'ty_dw_paint', neon: '#39d6ff', noKit: true, letters: 'KSAB', dead: 2, number: '7', lamp: 'ON AIR', card: 'TICKETS HERE' },
   ksab5:                          { type: 'lot_wing',  pal: 'ty_dw_paint', neon: '#39d6ff', noKit: true, nameplate: 'KSAB5', marquee: 'ALL GAMES LIVE' },
-  // One tile since 2026-11-16 (glass/models/solenne-profile.js); its crown and terrace stand out over the
+  // One tile since 2026-11-16, the original narrowing spire again since 2026-11-21; once its crown stood out over the
   // neighbours. `q` [0, 0] and `group` keep the wide frustum margin and the group collision on that overhang.
   solenneresidences:              { type: 'solenne',   pal: 'ty_solenne',   neon: '#ffce78', noKit: true, q: [0, 0], door: true, group: 'solenne' },
   coldwatersentinel:              { type: 'lot_paper', pal: 'ty_dw_paint', neon: '#dcb25e', noKit: true, masthead: 'COLDWATER SENTINEL', stencil: 'NO PARKING' },
@@ -76,7 +76,7 @@ export const NAMED_MODELS = {
   sump:                           { type: 'divebar',   pal: 'ty_bar_a',    neon: '#7dff6a' },
   thedeadpigeon:                  { type: 'divebar',   pal: 'ty_bar_b',    neon: '#5fd0ff', perch: true },
   thecherrypit:                   { type: 'strip',     pal: 'ty_club',     neon: '#ff4a9a' },
-  rationnine:                     { type: 'rationnine', pal: 'ty_ration',  neon: '#ffb43a' },
+  rationnine:                     { type: 'market',    pal: 'ty_r9_cream', neon: '#ffe6b0', trade: 'grocery', noKit: true, mark: ['Ration', '9'] },   // glass/models/ration.js; `mark` is the roundel's ribbon word and its numeral, both neon. 'Ration', not 'RATION': deadNeon rolls a dead letter on the capitals
   ohmsweetohm:           { type: 'techstall', pal: 'ty_tech',     neon: '#5fd0ff' },
   deadspaceinteriors:             { type: 'showroom',  pal: 'ty_showroom', neon: '#7dff6a' },
   secondskin:                     { type: 'boutique',  pal: 'ty_boutique', neon: '#ff4a9a' },
@@ -163,7 +163,7 @@ export const NAMED_MODELS = {
   // ⚠ `noKit`: the works carries no sign anywhere, and every kit section that letters a wall or
   // stands a hoarding would be one. Its arm draws all of its openings itself.
   thecodfather:                   { type: 'fishworks',   pal: 'ty_fw_tin', trade: 'fish_works', noKit: true },
-  twocellsupply:                  { type: 'twocell',     pal: 'ty_2cell',    neon: '#9fe8ff' },
+  otoolessurplus:                 { type: 'otoole',      pal: 'ty_otoole_brick', neon: '#ffce8c' },
   fallowprovisions:               { type: 'fallow',      pal: 'ty_fallow' },
   // The four numbered Units are all EMPTY EX-TENANT SHELLS, and looking alike is correct for
   // them — they are the same landlord's stock. One shared model, seeded so each one's dereliction
@@ -266,7 +266,7 @@ export const NAMED_MODELS = {
   // Promoted off the generic `casino` type model so a future casino still has one.
   theluckybastard:                { type: 'neonvig',    pal: 'ty_vig',        neon: '#ff3e8a' },
   buzzardfield:                   { type: 'buzzard',   pal: 'ty_reach_hangar', neon: '#ffb14a' },
-  thecoyotesrest:                 { type: 'saloon',    pal: 'ty_reach_saloon', neon: '#ff6a3a' },
+  thecoyotesrest:                 { type: 'saloon',    pal: 'ty_reach_saloon', neon: '#ff6a3a', noKit: true },   // ⚠ `noKit`: the arm draws every window, rail and light itself (reach-rebuild.md), and the kit's trim landed across its bays
   thedynamo:                      { type: 'dynamo',    pal: 'ty_reach_dynamo', neon: '#6cf0ff' },
   thelayover:                     { type: 'layover',   pal: 'ty_reach_motel',  neon: '#ff5a86' },
   // Main Street, second pass. Four false fronts in an unbroken row plus the freight shed at the
@@ -442,6 +442,8 @@ export const TYPE_MODEL = {
   staff_lot:        { type: 'car_park',  pal: 'ty_yard_tarmac' },   // the Codfather's staff car park, the same lot
   // An empty plot to let: a bare slab behind mesh fencing and a letting board (glass/models/greenside.js).
   vacant_plot:      { type: 'vacant_plot', pal: 'ty_quay_deck' },
+  // A small white bridge deck with one VTOL bay, the path under it (glass/models/greenside.js).
+  vtol_bridge:      { type: 'vtol_bridge', pal: 'ty_atc_white' },
   // A hover car dealership: a glass showroom under a roof pad, a car on a pylon (glass/models/dealership.js).
   vtol_dealer:      { type: 'vtol_dealer', pal: 'ty_marble_col', neon: '#e8f4ff' },
   chip_shop:        { type: 'shop',      pal: 'ty_unit_brick', neon: '#ffd27a' },

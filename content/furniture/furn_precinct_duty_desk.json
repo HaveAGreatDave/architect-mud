@@ -1,0 +1,30 @@
+{
+  "description": "The duty officer's desk behind a sheet of scratched bulletproof glass, with a steel tray under it you slide things through. The fees list is taped to the glass at eye level.",
+  "flags": {
+    "aliases": "desk,duty desk,glass,counter",
+    "look": {
+      "arche": "surface",
+      "dims": [
+        2.6,
+        0.7,
+        1.1
+      ],
+      "form": "counter",
+      "wear": 0.6
+    },
+    "spot": {
+      "along": 0.4,
+      "wall": "back"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_precinct_duty_desk",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "duty desk",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_mq_precinct_lobby"
+}

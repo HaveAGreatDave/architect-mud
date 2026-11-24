@@ -8,10 +8,10 @@
   "hp_max": 1000,
   "id": "door_meridian_stair_f6",
   "is_locked": 0,
-  "is_open": 0,
+  "is_open": 1,
   "lock_state": null,
-  "name": "Roof Access Hatch",
+  "name": "Stairwell Fire Door",
   "tags": {},
-  "target_zone": "zone_meridian_roof",
+  "target_zone": "zone_meridian_floor_7",
   "zone_id": "zone_meridian_floor_6"
 }

@@ -43,7 +43,8 @@ function latHash(i, j, k) {
 }
 // How much of a continuous sheet the floor is: nothing on a broken-cloud day, all of it under a storm.
 export function floorSheet(floor) {
-  const t = Math.min(1, Math.max(0, ((floor || 0) - 0.45) / 0.25));   // 0.4 cloudy: none; 0.7 overcast and up: all
+  // 0.55 and under: none; only 0.9 and up is a full lid. Was 0.45..0.7, and most days were a lid.
+  const t = Math.min(1, Math.max(0, ((floor || 0) - 0.55) / 0.35));
   return t * t * (3 - 2 * t);
 }
 export function stepFloorCells(st, field, ax, ay, dt) {

@@ -54,7 +54,7 @@ export function rainRGB(light, { acid = false } = {}) {
   return acid ? mix(c, ACID_RGB, 0.55) : c;
 }
 // How strongly rain shows: dim drops are harder to see, but never gone.
-export const rainLit = (light) => 0.7 + 0.3 * clamp01(light);
+export const rainLit = (light) => 0.85 + 0.15 * clamp01(light);   // floor was 0.7: rain vanished at night
 // How much of the lamp glint shows: none by day, all of it at night.
 export const glintAmount = (light) => 1 - clamp01(light);
 export const snowRGB = (light) => mix(SNOW_NIGHT, SNOW_RGB, clamp01(light));

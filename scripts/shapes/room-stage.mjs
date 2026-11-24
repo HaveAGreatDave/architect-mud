@@ -32,7 +32,7 @@ import { boothLayout } from '../../client/game/js/panels/gl/booth-mesh.js';
 import { buildRoom, withShells } from '../../client/game/js/panels/gl/room-mesh.js';
 import { STRIDE } from '../../client/game/js/panels/gl/ballpark-mesh.js';
 import { buildingGraph, buildingLayout, roomOpenings, placeFrom, ROOM_GAP } from '../../client/shared/building-graph.js';
-import { roomLayout, roomSpecOf, placeSpot, archetypeOf, dimsOf, formOf, ARCHETYPES, FORMS, withAnnex, annexFrame, roomFree, roomStep, inAnnex, onBalcony, layRows, pieceBoxes, rowDrawn, roomPath, roomNearFree, pathLength, withDoorways, doorwaysOf, openingCrossed, openingInside, decorSolids, screenView, mayFaceScreen } from '../../client/shared/room-layout.js';
+import { coverOf, roomLayout, roomSpecOf, placeSpot, archetypeOf, dimsOf, formOf, ARCHETYPES, FORMS, withAnnex, annexFrame, roomFree, roomStep, inAnnex, onBalcony, layRows, pieceBoxes, rowDrawn, roomPath, roomNearFree, pathLength, withDoorways, doorwaysOf, openingCrossed, openingInside, decorSolids, screenView, mayFaceScreen } from '../../client/shared/room-layout.js';
 
 const FIXTURE = new URL('./booth-layout.fixture.json', import.meta.url);
 const fails = [];
@@ -165,7 +165,11 @@ const flatLayouts = [];
     const pieces = layRows(here, spec, { finish: spec.finish }).pieces;
     if (annex) pieces.push(...layRows(there, annexFrame(spec).spec, { annex: true, finish: spec.annex.finish }).pieces);
     for (const r of [...here, ...there]) {
-      if ((r.flags?.concealed || r.flags?.compartment_of) && pieces.some((p) => p.id === r.id)) fail(`${z.id}: ${r.id} is concealed or a shelf, and it's in the payload`);
+      // a dead drop under its cover (room-layout.js coverOf) is drawn as the plain thing it's hidden in, on purpose; nothing
+      // in its piece may say it's a cache
+      const covered = coverOf(r), pc = pieces.find((p) => p.id === r.id);
+      if (covered && pc && (pc.name !== covered || pc.container || pc.verbs.length || pc.keypad)) fail(`${z.id}: ${r.id} is a covered dead drop, and its piece gives it away`);
+      if (!covered && (r.flags?.concealed || r.flags?.compartment_of) && pc) fail(`${z.id}: ${r.id} is concealed or a shelf, and it's in the payload`);
     }
     const L = roomLayout(spec, pieces), A = L.annex, floor = L.placed.filter((p) => !p.on && !(p.arche === 'screen' && !p.crt) && !(p.arche === 'cabinet' && p.form !== 'vitrine' && p.form !== 'humidor')), box = floor.map(fp);
     if (spec.plan) flatLayouts.push({ id: z.id, L });

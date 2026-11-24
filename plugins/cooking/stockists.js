@@ -27,6 +27,7 @@
 import { query } from '../../server/models/db.js';
 import { getItemCache } from '../../server/engine/items-cache.js';
 import { getRelation, relationAtLeast } from '../../server/engine/relations.js';
+import { isShelved } from './pantry.js';
 
 // Long, because the thing it caches is authored content. A vendor added by the
 // dev panel shows up within the hour and nobody is waiting on it.
@@ -75,6 +76,7 @@ function itemsAnswering({ itemId = null, profile = null }) {
   const out = [];
   for (const item of getItemCache().values()) {
     const tags = item?.tags || {};
+    if (isShelved(item)) continue;
     if (tags.food_profile === profile || tags.food_also === profile) out.push(item.id);
   }
   return out;

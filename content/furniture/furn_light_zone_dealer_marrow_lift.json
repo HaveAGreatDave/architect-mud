@@ -1,0 +1,11 @@
+{
+  "description": "A ring of white light round the ceiling of the car.",
+  "flags": {},
+  "id": "furn_light_zone_dealer_marrow_lift",
+  "light_type": "overhead",
+  "lumen_output": 400,
+  "name": "the lift light",
+  "object_type": "light",
+  "power_draw_kw": 0.01,
+  "zone_id": "zone_dealer_marrow_lift"
+}

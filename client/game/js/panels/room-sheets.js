@@ -386,9 +386,11 @@ function num(x, d, lo, hi) { const n = Number(x); return Number.isFinite(n) ? Ma
 // The pictures, loaded once a name; a set waits for its own and redraws when they're in (`onArt`)
 const ASSETS = new URL('../../assets/posters/', import.meta.url);
 const pics = new Map();
-let artHeard = null;
+// one listener a view, by `who`: the Room Stage's ('stage') and a room walked in GLASS ('glass', freelook-view.js),
+// so one taking it doesn't take it from the other. A view's own replaces its last; null lets it go.
+const artHeard = new Map();
 /** What to call when a set's pictures have loaded, so the room can hang it. */
-export function onArt(fn) { artHeard = typeof fn === 'function' ? fn : null; }
+export function onArt(fn, who = 'stage') { if (typeof fn === 'function') artHeard.set(who, fn); else artHeard.delete(who); }
 function picsOf(src) {
   if (!/^[a-z0-9_-]{1,40}$/i.test(src)) return null;
   let p = pics.get(src);
@@ -399,7 +401,7 @@ function picsOf(src) {
     Promise.all([load(`${src}.webp`), load(`${src}-letters.webp`)]).then(([plain, letters]) => {
       p.plain = plain; p.letters = letters; p.failed = !plain;
       if (!plain) console.warn(`[room] sheets: no picture at assets/posters/${src}.webp`);
-      artHeard?.();
+      for (const fn of artHeard.values()) { try { fn(); } catch { /* one view's trouble isn't the other's */ } }
     });
   }
   return p.plain ? p : null;

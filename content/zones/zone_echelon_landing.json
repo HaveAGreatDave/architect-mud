@@ -7,12 +7,10 @@
   "ambient_theme": "indoors",
   "bg_color": "#1a1620",
   "color": "#efe6ff",
-  "description": "The upper-deck landing, hushed and carpeted in something deep enough to lose a coin in. The staircase descends (DOWN) to the foyer, and a slimmer stair climbs (UP) to the open sun deck. Forward (NORTH) a single sealed hatch guards the owner's suite; aft (SOUTH) the deck opens to the helipad. You can LOOK EAST or WEST out across the Basin through the smoked glass.",
+  "description": "The landing on the owner's deck, hushed and carpeted in something deep enough to lose a coin in. Smoked glass runs down both sides. The staircase goes DOWN to the foyer and on UP to the bridge. You can LOOK EAST or WEST out across the Basin.",
   "exits": {
     "down": "zone_echelon_foyer",
-    "north": "zone_echelon_suite",
-    "south": "zone_echelon_helipad",
-    "up": "zone_echelon_sundeck"
+    "up": "zone_echelon_bridge"
   },
   "flags": {
     "always_lit": true,
@@ -34,11 +32,11 @@
       "doors": {
         "down": [
           0,
-          2
+          1.1
         ],
         "up": [
           0,
-          2
+          3
         ]
       },
       "face": 0,
@@ -48,6 +46,20 @@
         "right"
       ],
       "h": 3,
+      "hull": {
+        "sides": [
+          [
+            0,
+            3.9,
+            3.67
+          ],
+          [
+            4,
+            3.9,
+            3.67
+          ]
+        ]
+      },
       "studio": false,
       "tone": {
         "accent": "#b8913e",
@@ -55,7 +67,7 @@
         "trim": "#0b0b0b",
         "wall": "#1a1820"
       },
-      "w": 6
+      "w": 7.8
     },
     "world_exit_zone": "zone_echelon_exterior",
     "yacht": true

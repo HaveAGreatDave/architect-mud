@@ -16,6 +16,13 @@
     "room": {
       "balcony": false,
       "d": 12,
+      "kiosk": {
+        "at": [
+          7.5,
+          9
+        ],
+        "face": "front"
+      },
       "decor": {
         "doors": [
           {
@@ -165,8 +172,8 @@
         "y": 4.3
       },
       "street_door": {
-        "kind": "sliding",
-        "w": 2.4
+        "kind": "revolving",
+        "w": 1.2
       },
       "studio": false,
       "tone": {

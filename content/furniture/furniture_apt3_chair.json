@@ -11,11 +11,8 @@
       "wear": 0.08
     },
     "spot": {
-      "at": [
-        -2.4,
-        1
-      ],
-      "turn": -60
+      "along": -1.5,
+      "wall": "front"
     }
   },
   "hp": null,

@@ -9,17 +9,18 @@
     "food_noun": "broth",
     "food_profile": "liquid",
     "matter": {
+      "look": {
+        "label": "#c89a4a",
+        "pack": "pouch"
+      },
       "ramp": {
         "raw": "#c8964a"
-      },
-      "look": {
-        "pack": "pouch",
-        "label": "#c89a4a"
       }
     },
     "needs_cooking": true,
     "perishable": true,
     "restore_hunger": 12,
+    "shelved": true,
     "spoil_rate": "normal",
     "stackable": true,
     "status_chance": {

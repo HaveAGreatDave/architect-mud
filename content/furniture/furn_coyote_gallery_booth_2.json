@@ -1,0 +1,26 @@
+{
+  "description": "The other booth, with a better view of the stairs.",
+  "flags": {
+    "interactions": [
+      "sit"
+    ],
+    "look": {
+      "arche": "seat",
+      "form": "booth"
+    },
+    "spot": {
+      "along": 2,
+      "wall": "back"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_coyote_gallery_booth_2",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "a booth",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_bld_899_1171_gallery"
+}

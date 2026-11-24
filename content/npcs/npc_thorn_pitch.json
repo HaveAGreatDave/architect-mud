@@ -161,11 +161,6 @@
       "price": 4
     },
     {
-      "item_id": "item_herb_bundle",
-      "min_trust": 0,
-      "price": 10
-    },
-    {
       "item_id": "item_bar_jerky",
       "min_trust": 0,
       "price": 12

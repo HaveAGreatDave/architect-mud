@@ -1,7 +1,10 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "city",
-  "description": "The lane runs out onto the stones and stops. There is a bench here facing the water, its back slats gone, and the view is genuinely good, which nobody in the Filaments will admit to out loud.",
+  "ambient_events": [
+    "A gull walks along the waterline looking for something.",
+    "A wave comes in a little further than the others."
+  ],
+  "ambient_theme": "coast",
+  "description": "Shingle and sand where Kettle Lane runs out onto the beach. Somebody has stacked flat stones into a little tower.",
   "exits": {
     "east": "zone_district_900_903",
     "north": "zone_district_899_902",
@@ -9,9 +12,10 @@
     "west": "zone_district_898_903"
   },
   "flags": {
+    "beach": true,
     "district": "filaments",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "terrain": "sand"
   },
   "grid_x": 899,
   "grid_y": 903,

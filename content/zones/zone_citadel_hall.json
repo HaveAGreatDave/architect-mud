@@ -12,30 +12,30 @@
   "ambient_theme": "indoors",
   "bg_color": "#2f3034",
   "color": "#ede8dc",
-  "description": "A hall built to make people feel small, and it works. Veined white marble goes up the walls to a coffered ceiling four storeys overhead, and every sound you make comes back at you a half-second later, cleaner. There are no chairs. There's nowhere to wait, because the Compound doesn't want you to wait; it wants you to transact and leave. Two cash terminals sit recessed in stone alcoves, their orange fascias the only colour in the room. At the far end, behind a marble counter with no gap in it anywhere, a chest-high machine of enamel and brushed steel swivels to face whoever comes through the doors. A guard in a charcoal coat stands where the floor is worn faintly grey, which tells you how many years he has stood exactly there. Beyond him the marble stops and a slab of armoured steel begins.",
+  "description": "The banking hall takes the whole height of the building: cream marble walls between reeded piers, up to a coffered ceiling with a gilt sunburst in every coffer. Three tall windows in bronze frames face Marrow Street, and the terrazzo floor has the Compound crest set into it in brass. Two cash terminals stand in alcoves in the west wall, their orange fascias the only bright colour in the room. At the south end a chest-high machine of enamel and brushed steel swivels behind a marble counter with no gap in it, and a guard in a charcoal coat stands beside the armoured door behind that. There are no chairs.",
   "exits": {
-    "north": "zone_citadel_vestibule",
-    "south": "zone_district_921_911"
+    "north": "zone_district_916_910",
+    "south": "zone_citadel_vestibule"
   },
   "flags": {
-    "building_name": "Compound Interest",
+    "building_name": "Coldwater Financial",
     "citadel_public": true,
     "floor": "stone",
     "is_building": true,
     "is_interior": true,
     "window": {
-      "description": "A window set too high in the wall to see the ground through, so it offers the sky and nothing else. On a bad day that's more information than you want.",
-      "light": 0.7,
-      "name": "the high window",
-      "visibility": 0.75
+      "description": "Three windows four storeys tall in bronze frames, with Marrow Street going past the bottom of them. The glass is thick enough that the street makes no sound.",
+      "light": 0.85,
+      "name": "the tall windows",
+      "visibility": 0.85
     },
-    "world_exit_zone": "zone_district_921_911"
+    "world_exit_zone": "zone_district_916_910"
   },
   "grid_x": 0,
   "grid_y": 0,
   "grid_z": 0,
   "id": "zone_citadel_hall",
   "map_id": "map_int_citadel",
-  "name": "Compound Interest — The Marble Hall",
-  "parent_zone": "zone_district_921_911"
+  "name": "Coldwater Financial — The Marble Hall",
+  "parent_zone": "zone_district_916_910"
 }

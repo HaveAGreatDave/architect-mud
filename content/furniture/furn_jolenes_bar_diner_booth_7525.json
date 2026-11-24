@@ -1,0 +1,26 @@
+{
+  "description": "Vinyl bench seat and a laminate table in a faded checkerboard pattern. A design from 2019 preserved through sheer indifference.",
+  "flags": {
+    "interactions": [
+      "sit"
+    ],
+    "item_id": "item_furn_diner_booth",
+    "spot": {
+      "at": [
+        2.3,
+        7.75
+      ],
+      "turn": 270
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_jolenes_bar_diner_booth_7525",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "diner booth",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 650,
+  "zone_id": "zone_jolenes_bar"
+}

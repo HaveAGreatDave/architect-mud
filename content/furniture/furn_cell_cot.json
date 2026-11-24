@@ -4,7 +4,16 @@
     "interactions": [
       "sit",
       "lie"
-    ]
+    ],
+    "look": {
+      "arche": "bench",
+      "form": "slab",
+      "wear": 0.9
+    },
+    "spot": {
+      "along": 4,
+      "wall": "left"
+    }
   },
   "hp": null,
   "hp_max": null,

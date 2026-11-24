@@ -522,10 +522,129 @@
       "a shapeless municipal cardigan",
       "fingerless gloves worn through at the tips"
     ],
-    "job_board_dispatcher": true
+    "job_board_dispatcher": true,
+    "parley": {
+      "beats": [
+        {
+          "id": "war",
+          "steps": [
+            "*looks at the cigarette instead of you.* I ran dispatch in the war too. Different board. Same job.",
+            "I sent people out on tabs. Some came back. I stopped counting the ones that didn't.",
+            "Now the worst job on the board is a blocked drain. *a small exhale.* I like that a lot more than you'd think."
+          ],
+          "tier": "familiar",
+          "topic": "war",
+          "warmth": 6
+        }
+      ],
+      "deflect": [
+        "*doesn't look up.* Mm.",
+        "Board's on the wall.",
+        "Is that a question?"
+      ],
+      "react": {
+        "apologise": [
+          "Fine."
+        ],
+        "ask_about:cigarette": [
+          "It burns itself. I just keep it company."
+        ],
+        "ask_about:hope": [
+          "I stopped hoping on a schedule. It's restful. Try it."
+        ],
+        "ask_about:jobs": [
+          "Take a tab, do the thing, bring it back, get paid. That's the whole religion."
+        ],
+        "ask_about:war": [
+          "I was there. I'm still tired from it. Next question."
+        ],
+        "ask_advice": [
+          "Take the boring job. Boring pays and doesn't bite."
+        ],
+        "ask_feeling": [
+          "Tired. Same as always. It's restful."
+        ],
+        "ask_job": [
+          "I hand out jobs nobody wants and pay people who do them."
+        ],
+        "ask_name": [
+          "Kell. Delia, if you're going to be around."
+        ],
+        "ask_news": [
+          "Pipe job on the board pays double. Nobody's asked why."
+        ],
+        "ask_origin": [
+          "Before the war. That's all anyone needs."
+        ],
+        "complain": [
+          "Pay's the pay. Take a tab or don't."
+        ],
+        "farewell": [
+          "Bring it back done.",
+          "*doesn't look up.*"
+        ],
+        "flirt": [
+          "*exhales slowly.* No."
+        ],
+        "greet": {
+          "familiar": [
+            "*almost looks up.* You again. Good. You bring them back done."
+          ],
+          "stranger": [
+            "*slides the clipboard half an inch.* Board's on the wall.",
+            "Mm. Evening."
+          ]
+        },
+        "insult": [
+          "*takes a drag.* Heard it.",
+          "Board's still on the wall."
+        ],
+        "insult_last": [
+          "No jobs for you today. Try tomorrow, nicer."
+        ],
+        "joke": [
+          "*the corner of her mouth moves.* Ha."
+        ],
+        "order_drink": [
+          "Do I look like a bar?"
+        ],
+        "praise": [
+          "*looks at you for a while.* Odd thing to say through mesh."
+        ],
+        "thank": [
+          "Don't. Just bring it back."
+        ]
+      },
+      "topics": {
+        "cigarette": [
+          "cigarette",
+          "smoke",
+          "smoking"
+        ],
+        "hope": [
+          "hope",
+          "hoping",
+          "happy",
+          "better"
+        ],
+        "jobs": [
+          "jobs",
+          "job",
+          "board",
+          "work",
+          "tab",
+          "docket",
+          "clipboard"
+        ],
+        "war": [
+          "war",
+          "before"
+        ]
+      }
+    }
   },
   "home_activities": [],
-  "home_zone": "zone_meridian_unit_204",
+  "home_zone": "zone_mq_chrome_103",
   "hp": 20,
   "hp_max": 20,
   "id": "npc_fs_dispatcher",

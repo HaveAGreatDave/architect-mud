@@ -18,7 +18,7 @@
     "district": "marrow",
     "entrance": "south",
     "facade": true,
-    "floors": 45,
+    "floors": 17,
     "hangar_interior_zone": "zone_solenne_helipad",
     "is_building": true,
     "region_id": "region_coldwater",

@@ -2,15 +2,45 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#8f9a7e",
-  "description": "Unit 502, fifth floor of The Meridian. A concrete studio with a drop ceiling, a water stain spreading in one corner, and bare cable hookups. The single window faces the airshaft and another wall close enough to touch. Old picture hooks on the walls.",
+  "description": "The penthouse's upper floor, just under the crown. A bedroom with three windows west and the copper of the roof ticking as it cools. On the sill, a ticket stub from the Coliseum's opening day, in a frame.",
   "exits": {
-    "west": "zone_meridian_floor_5"
+    "down": "zone_meridian_unit_402"
   },
   "flags": {
     "floor": "boards",
     "is_apartment": true,
     "is_interior": true,
     "rent_cost": 200,
+    "room": {
+      "balcony": false,
+      "d": 4.65,
+      "face": 270,
+      "h": 3.4,
+      "panes": [
+        {
+          "a": -2.72,
+          "b": -1.72,
+          "wall": "front",
+          "y0": 0.85,
+          "y1": 3.3
+        },
+        {
+          "a": -0.5,
+          "b": 0.5,
+          "wall": "front",
+          "y0": 0.85,
+          "y1": 3.3
+        },
+        {
+          "a": 1.72,
+          "b": 2.72,
+          "wall": "front",
+          "y0": 0.85,
+          "y1": 3.3
+        }
+      ],
+      "w": 8
+    },
     "terrain": "grass",
     "window": {
       "description": "A plain sash window, painted shut some years ago, with a view of the block opposite.",
@@ -19,12 +49,12 @@
       "visibility": 0.75
     }
   },
-  "grid_x": 1,
+  "grid_x": -1,
   "grid_y": 0,
-  "grid_z": 5,
+  "grid_z": 11,
   "id": "zone_meridian_unit_502",
   "map_id": "map_int_meridian",
-  "marker": "5",
-  "name": "Unit 502",
+  "marker": "11",
+  "name": "The Penthouse, Upper Floor",
   "parent_zone": "zone_district_918_908"
 }

@@ -18,6 +18,7 @@ import { tagValue, hasTag } from '../../server/engine/tags.js';
 import { skillCheck, awardSkillUse, effectiveSkill } from '../../server/engine/skills.js';
 import { grantSkillIp } from '../../server/engine/ip.js';
 import { getItem } from '../../server/engine/items-cache.js';
+import { dishInPantry } from './pantry.js';
 import { isPluggedIn } from '../appliances/index.js';
 import {
   STOVE_SPEED, PORTABLE_OVEN_SPEED, PORTABLE_OVEN_CAPACITY_G, FLUID_MEASURE_G, FLUID_DREGS_G,
@@ -2082,7 +2083,10 @@ async function cmdCookbook(args, raw, player) {
   const { known } = await cookbookState(player.id);
 
   if (!q) {
-    const rows = Object.entries(DISHES).map(([key, t]) => {
+    // A dish nothing in the pantry can make (pantry.js) stays out of the untried
+    // list until its food is back; one you've already worked out stays in.
+    const book = Object.entries(DISHES).filter(([key, t]) => known.has(key) || dishInPantry(t));
+    const rows = book.map(([key, t]) => {
       const band = known.get(key);
       return band && band !== UNTRIED
         ? `  · ${t.noun} <span class="text-dim">best: ${band}</span>`
@@ -2093,8 +2097,8 @@ async function cmdCookbook(args, raw, player) {
       return {
         type: 'list_dialog',
         title: 'Cookbook',
-        subtitle: `${known.size} of ${Object.keys(DISHES).length} worked out`,
-        rows: Object.entries(DISHES).map(([key, t]) => ({
+        subtitle: `${known.size} of ${book.length} worked out`,
+        rows: book.map(([key, t]) => ({
           group: known.has(key) ? 'Known' : 'Not yet worked out',
           label: t.noun,
           detail: known.get(key) && known.get(key) !== UNTRIED ? `best: ${known.get(key)}` : '',
@@ -2104,7 +2108,7 @@ async function cmdCookbook(args, raw, player) {
       };
     }
     return { type: 'output', message: [
-      `<span class="text-accent">COOKBOOK</span> <span class="text-dim">(${known.size}/${Object.keys(DISHES).length} worked out)</span>`,
+      `<span class="text-accent">COOKBOOK</span> <span class="text-dim">(${known.size}/${book.length} worked out)</span>`,
       '',
       ...rows,
       '',

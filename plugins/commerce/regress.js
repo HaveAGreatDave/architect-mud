@@ -174,7 +174,7 @@ export default async function regress({ run, check, getPlayer }) {
   // hoursUntilOpen only counted blocks that START in the future, so a shop whose
   // block was ALREADY RUNNING — shut purely because the shopkeeper hadn't walked
   // in — was quoted tomorrow's opening. At five past six that reads "opens again
-  // in about 24 hours", and a player reported Two-Cell Supply as permanently shut
+  // in about 24 hours", and a player reported O'Toole's Surplus as permanently shut
   // on the strength of it. `onShift` runs 00:00–24:00, so it is always in progress.
   check('a block already in progress counts as zero, not tomorrow',
     hoursUntilOpen({ name: 'Walker', vendor_schedule: onShift }) === 0,

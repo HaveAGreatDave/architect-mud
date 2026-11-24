@@ -298,6 +298,33 @@ section 2 in four places, and the table wins:
 
 The Ascendant suits and lab coats match the brief as drawn.
 
+### NPC model target sheet
+
+[concept-art/npc-model-target.webp](concept-art/npc-model-target.webp) is the target for the next
+close-up figure ([hd-figure.md](../proposals/hd-figure.md)): a common citizen, male and female, in
+T-pose front, side and back, with a head close-up, detail crops and four outfit variations each.
+Nothing is built from it yet.
+
+It replaces the figure as rendered on 2026-11-18, kept in
+[concept-art/npc-model-current/](concept-art/npc-model-current/): the same two people (Figure Lab
+seeds 11 and 12, sculpted, close-up face and comic ink on), each in a T-pose and standing idle.
+Lay a new render beside those to see how far it has come.
+
+Where the sheet and the renders differ:
+
+- **Proportions.** The sheet's people are tall and long-legged, with broad shoulders and a narrow
+  waist. Ours are stockier, with shorter legs and a bigger head.
+- **Faces.** The sheet inks the features: brow, nose, jaw and lids, with hatching for shadow. Ours
+  are painted and soft.
+- **Interior lines.** The sheet inks the seams, folds, pockets and straps. Ours has only the outer
+  contour, at one weight.
+- **Clothing.** The sheet has cargo pockets, stitching, laced boots and fingerless gloves.
+- **Hair.** The sheet draws hair as inked clumps.
+- **Noise.** The sheet's style note says minimal noise. Ours has a grime speckle on the cloth.
+
+The sheet says "comic/anime influence". The house style is Borderlands, not anime: take its
+proportions and line work, not anime faces.
+
 ### Wildblood bestiary sheet
 
 [concept-art/wildblood-bestiary.webp](concept-art/wildblood-bestiary.webp) is fifteen Wildblood

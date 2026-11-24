@@ -1469,7 +1469,8 @@ export function passSign(player, rig) {
     sendToPlayer(player.id, {
       type: 'emote',
       message: '<span class="text-dim">A board goes by on the shoulder, green under the dust, still bolted to its legs:</span>\n  '
-        + ((lbl) => (lbl ? `<b>${lbl.toUpperCase()}</b>\n  ` : ''))(routeLabelAt(rig.route, g.s)) + rows,
+        + ((lbl) => (lbl ? `<b>${lbl.toUpperCase()}</b>\n  ` : ''))(routeLabelAt(rig.route, g.s))
+        + (g.ex && !rev ? `<b>EXIT ${g.ex}</b>\n  ` : '') + rows,
     });
   }
   return true;

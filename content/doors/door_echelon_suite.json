@@ -1,5 +1,5 @@
 {
-  "connection_id": "conn_echelon_landing_north_zvua",
+  "connection_id": "conn_echelon_foyer_north_cyd1",
   "door_type": "reinforced",
   "exit_dir": "north",
   "flags": {},
@@ -23,5 +23,5 @@
     "unbreakable": true
   },
   "target_zone": "zone_echelon_suite",
-  "zone_id": "zone_echelon_landing"
+  "zone_id": "zone_echelon_foyer"
 }

@@ -287,6 +287,38 @@ the return. It lands once, then clears; leaving re-arms it, so every return is i
 own reunion. Every archetype has a written line for each band, and they are
 markedly different conversations.
 
+## Life at home
+
+After the pets plugin's cat ([life.js](life.js)). Everything here is worked out
+when read, never ticked down, and the beats are RAM.
+
+- **Their day** is `consortDay` in [client/shared/consort-life.js](../../client/shared/consort-life.js),
+  from their id and the game clock: asleep, coffee, wash, tidy, a free hour (read,
+  exercise, a nap or the window, picked per person per day), lunch, cooking, dinner,
+  the screen, a bath, bed. Each runs early or late by up to 90 minutes. A one-minute
+  tick says it in their billet as it changes, while somebody's there.
+- **Needs** are `consortNeeds`, from two stamps: when they last ate and when their
+  keeper last had time with them (in the room, or a caress). Hungry from about ten
+  hours, starving by thirty; lonely from six hours, fully by three days. Ledger
+  consorts keep both stamps on their row (`last_fed_at`, `last_seen_at`, one
+  batched UPDATE every ten minutes).
+- **`takeout [name]`** has a meal sent up, 15₵ each, keeper only, bank first.
+- **Hungry** they go through the cupboards and say so at the door. **Starving**, and
+  **asleep**, the arousal tick leaves them alone (`lifeBlocksArousal`). **Lonely**,
+  the door greeting is cool and the first touch is "about time".
+- **At the door**: their keeper coming home gets met, at most once in five minutes.
+- **`caress <name> [on the <spot>]`**: hair, cheek, hand, shoulder, back, neck,
+  waist, thigh. Each touch adds its spot's weight to points that halve every 45 s;
+  past 3.2 they hold your hand still, past 4.6 they move it off and want a minute.
+  Neck, waist and thigh warm them (arousal). Asleep, a touch wakes them for 90
+  minutes. Anybody but their keeper is refused.
+- **In ROOM**, the keeper presses and drags on them with the mouse, as on Scrappy: the
+  spot is how far down them the pointer is, and they laugh and wriggle as if tickled
+  (`room-stage.js` `tickleAt`, `room-people.js` `tickle`). It's sent as `caress <name>
+  <spot>` about once a second; a repeat within nine seconds is silent in the text.
+  `room.npcTouch` names their keeper to the Stage and says `tickled` while a touch is
+  fresh, so everybody in the room sees it.
+
 ## Why a consort is not an `npcs` row
 
 She (or he) is a **live-only NPC**, spawned into `world.npcs` from a
@@ -383,6 +415,7 @@ keeper as well as a male one.
 
 - **`beckon [name]`** / **`dismiss [name]`** — keeper-only.
 - **`pour [name] [drink]`** — from any bar furniture in the room.
+- **`caress <name> [spot]`** / **`takeout [name]`**: life at home, above.
 - **Direct address** — `vesper suck me`, `calla ride me`, `sable handjob`,
   `wren pour me a whiskey`. A narrow name-prefixed input matcher that never
   shadows the other multi-word verbs (`eat out …`, `jerk off on …`).
@@ -402,6 +435,7 @@ keeper as well as a male one.
 | [questions.js](questions.js) | the questions they ask you, and how they take each answer |
 | [questions-extra.js](questions-extra.js) | more of the same, pushed onto both question arrays at load |
 | [bliss-app.js](bliss-app.js) | the MIS-gated tablet app |
+| [life.js](life.js) | their day, needs, `takeout`, the door, `caress` |
 
 Client rendering for the app lives in `client/game/js/panels/tablet-os.js`
 (`renderBlissListings` / `renderBlissDetail` / `renderBlissArrangement`).

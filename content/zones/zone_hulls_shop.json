@@ -146,7 +146,14 @@
         "wall": "#5e4a36"
       },
       "w": 12,
-      "windowless": true
+      "windowless": true,
+      "street_door": {
+        "lite": "half",
+        "kind": "plain",
+        "w": 1.2,
+        "leaf": "#40584a",
+        "trim": "#2c2a26"
+      }
     },
     "window": {
       "description": "Two doors the full height of the shed, propped open onto the slot and the Basin. Rain blows in when the wind is in the north.",

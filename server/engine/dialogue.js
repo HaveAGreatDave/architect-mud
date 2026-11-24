@@ -131,7 +131,7 @@ export function dialogueOptionKind(opt, tree) {
 //
 // ⚠ DELIBERATELY NOT A GENERAL LOOKAHEAD. Tagging any option whose target
 // eventually reaches a shop or a fight would light up half of every tree —
-// Grady's `regular` node leads to both his shop and his shooting lesson, and
+// Rusty's `regular` node leads to both his shop and his shooting lesson, and
 // marking it 🛒 would be a claim about a chat node. So the target must be a node
 // that does nothing BUT offer the job: at least one option starting a quest, and
 // every other option either starting one too or leading nowhere. An offer node
@@ -653,7 +653,7 @@ async function shownOptions(npc, nodeKey, player, context) {
 
   // ── BUSINESS DONE IS NOT THE CONVERSATION OVER ──────────────────────────────
   // A node that takes a job on or hands one in almost always offers `bye` and
-  // nothing else, so finishing Grady's first errand dropped you out of the
+  // nothing else, so finishing Rusty's first errand dropped you out of the
   // conversation while his second job was sitting one click away at root. You had
   // to walk off and talk to him again to find it, and nothing told you it was
   // there. A census on 2026-08-30 found this in 75 of the 102 quest nodes in the
@@ -674,7 +674,7 @@ async function shownOptions(npc, nodeKey, player, context) {
   // means it. Never talk a player back into the room they were just thrown out of.
   const closesDeliberately = (node.actions || []).some((a) =>
     a?.action === 'END_CONVERSATION' || HOSTILE_ACTIONS.includes(a?.action));
-  // Some trees already do this properly (Grady's own `lore` returns to root).
+  // Some trees already do this properly (Rusty's own `lore` returns to root).
   const alreadyReturns = (node.options || []).some((o) => o.next === 'root');
   if (firedBusiness && !closesDeliberately && !alreadyReturns && nodeKey !== 'root' && tree.root) {
     const rootOpts = await filterDialogueOptions(tree.root.options, tree, player, context);

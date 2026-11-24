@@ -4,24 +4,25 @@
   "id": "item_salt_ration",
   "name": "salt packet",
   "tags": {
+    "aisle": "seasoning",
     "consumable": true,
     "description": "A ration-issue sachet of coarse grey salt, printed with a serial and a daily allowance nobody observes. The oldest technology in the kitchen.",
     "food_noun": "salted",
     "food_profile": "aromatic",
     "matter": {
       "form": {
-        "kind": "grain",
-        "w": 3,
         "d": 3,
-        "h": 1
+        "h": 1,
+        "kind": "grain",
+        "w": 3
+      },
+      "look": {
+        "label": "#c8c6bd",
+        "pack": "pouch",
+        "size": 0.5
       },
       "ramp": {
         "raw": "#b9b6b0"
-      },
-      "look": {
-        "pack": "pouch",
-        "label": "#c8c6bd",
-        "size": 0.5
       }
     },
     "restore_hunger": 0,

@@ -20,6 +20,7 @@ function merlinEye(s) {
 }
 import { landformTile } from '../../../shared/wildlands.js';
 import { SEA_TILE_M } from '../../../shared/sea-swell.js';
+import { YACHT_SCALE, YACHT_PAD_OY } from '../../../shared/yacht-hull.js';
 import { tweenOrbit, BAY_PITCH } from './camera-tween.js';
 import { internMap } from './map-intern.js';
 import { seatSpot } from './seat-audio.js';
@@ -345,11 +346,6 @@ function hudFrameBody(t) {
   const engs = s.engines || [{ pct: 0 }];
   for (let i = 0; i < engs.length; i++) { a.eng[i] = (a.eng[i] ?? 0) + ((engs[i].pct || 0) - (a.eng[i] ?? 0)) * Math.min(1, dt * 3); }
 
-  paintADI(a, s);
-  paintRadar(a, s);
-  paintCompass(a, s);
-  paintEngines(a, s);
-  paintDials(a, s);
   paintWindow('ck-ws', a, s);
   _raf = requestAnimationFrame(hudFrame);
 }
@@ -401,42 +397,6 @@ function paintPaxControls(a) {
 const $ = (id) => document.getElementById(id);
 
 // ── Instruments ───────────────────────────────────────────────────────────────
-function paintADI(a, s) {
-  const g = $('ck-adi-h'); if (g) g.setAttribute('transform', `translate(0 ${a.pitch * 2.2}) rotate(${-a.roll} 100 100)`);
-  const bank = $('ck-adi-bank'); if (bank) bank.setAttribute('transform', `rotate(${-a.roll} 100 100)`);
-}
-function paintRadar(a, s) {
-  const world = $('ck-radar-world');
-  if (world) world.setAttribute('transform', `rotate(${-a.hdg} 130 130)`);
-  const sweep = $('ck-radar-sweep'); if (sweep) sweep.setAttribute('transform', `rotate(${a.sweep} 130 130)`);
-  // Bearing to the nearest field, heading-up.
-  const guide = $('ck-radar-guide');
-  if (guide) {
-    if (s.guide) { guide.style.display = ''; guide.setAttribute('transform', `rotate(${angDelta(a.hdg, s.guide.bearing)} 130 130)`); }
-    else guide.style.display = 'none';
-  }
-}
-function paintCompass(a, s) {
-  const card = $('ck-compass-card'); if (card) card.setAttribute('transform', `rotate(${-a.hdg} 60 60)`);
-}
-function paintEngines(a, s) {
-  const engs = s.engines || [];
-  for (let i = 0; i < engs.length; i++) {
-    const fill = $(`ck-eng-fill-${i}`); if (fill) { const h = (a.eng[i] ?? 0) / 100 * 96; fill.setAttribute('y', 118 - h); fill.setAttribute('height', h); fill.setAttribute('fill', engs[i].stable ? '#46e05a' : (a.eng[i] > 62 ? '#ff5b5b' : '#ffb23e')); }
-    const nd = $(`ck-eng-need-${i}`); if (nd) nd.setAttribute('y', 118 - (a.eng[i] ?? 0) / 100 * 96);
-  }
-}
-function paintDials(a, s) {
-  setSeven('ck-d-fuel', Math.round(a.fuel), s.fuelPct <= 20 ? 'r' : s.fuelPct <= 40 ? 'a' : 'g');
-  setSeven('ck-d-thr', Math.round(a.thr), 'c');
-  setSeven('ck-d-hull', Math.round(a.hull), s.hullPct <= 25 ? 'r' : s.hullPct <= 55 ? 'a' : 'g');
-  setSeven('ck-d-spd', Math.round(a.spd), 'c');
-}
-function setSeven(id, val, tone) {
-  const el = $(id); if (!el) return;
-  el.textContent = String(val).padStart(3, '0');
-  el.className = `ck-seg ck-seg-${tone}`;
-}
 
 // ── Text/structural updates (only on server push, not per-frame) ──────────────
 function applyText(s) {
@@ -461,7 +421,6 @@ function applyText(s) {
     : s.enginesStable === false && s.warn === 'FIRE' ? '<span class="ck-red">ENGINE FIRE</span>'
     : `AIRBORNE · ${s.bandLabel}`;
   html('ck-phase', phase);
-  html('ck-guide-label', s.guide ? `<span class="ck-amber">◈ ${esc(s.guide.name)} ${String(s.guide.bearing).padStart(3, '0')}° · ${fmtDistance('air', tripM('air', s.guide.dist))}</span>` : '');
   const warnEl = $('ck-warn');
   if (warnEl) {
     const W = { STARVATION: ['ENGINE OUT. DEAD STICK. LAND NOW', 'r'], BINGO: ['BINGO FUEL: DIVERT', 'a'],
@@ -471,124 +430,10 @@ function applyText(s) {
     warnEl.style.display = w ? '' : 'none';
     if (w) { warnEl.textContent = '⚠ ' + w[0]; warnEl.className = `ck-warn ck-warn-${w[1]}`; }
   }
-  const arm = $('ck-arm'); if (arm) { arm.style.display = s.hardpoints > 0 ? '' : 'none'; arm.textContent = s.armed ? '● ARMED' : '○ SAFE'; arm.className = s.armed ? 'ck-pip ck-red' : 'ck-pip ck-dim'; }
-  const cargo = $('ck-cargo'); if (cargo) { cargo.style.display = s.cargo > 0 ? '' : 'none'; cargo.textContent = `⬒ ${s.cargo}/${s.maxTOW}kg`; }
-  const wa = $('ck-wpn-arm'); if (wa) { wa.textContent = s.armed ? '● ARMED' : '○ SAFE'; wa.className = s.armed ? 'ck-wpn-arm ck-red' : 'ck-wpn-arm ck-dim'; }
-  const lf = $('ck-load-fill');
-  if (lf) {
-    const cap = s.cargoCap || 1, frac = (s.cargo || 0) / cap;
-    lf.style.width = `${Math.min(100, frac * 100)}%`;
-    lf.style.background = s.cargo > s.maxTOW ? '#ff5b5b' : frac > 1 ? '#ffb23e' : 'var(--acc)';
-    const lt = $('ck-load-txt'); if (lt) lt.innerHTML = `${s.cargo || 0} / ${cap} kg${s.cargo > s.maxTOW ? ' <span class="ck-red">⚠ OVER</span>' : ''}`;
-  }
-  const hl = $('ck-hover-lamp'); if (hl) { hl.classList.toggle('ck-lit', !!s.hover); hl.textContent = s.hover ? 'HOVER' : (s.airborne ? 'FWD' : 'GND'); }
-  const vn = $('ck-vsi-need'); if (vn) { const yy = 91 - (s.bandIndex || 0) * 27; vn.setAttribute('points', `14,${yy} 26,${yy - 5} 26,${yy + 5}`); }
-  renderMini(s.minimap);
-  paintRadarWorld(s);
-  (s.engines || []).forEach((e, i) => { const lbl = $(`ck-eng-lbl-${i}`); if (lbl) { lbl.textContent = e.stable ? 'OK' : (s.runup ? '···' : 'CHK'); lbl.setAttribute('fill', e.stable ? '#46e05a' : '#ffb23e'); } });
 }
 
-// Surrounding zones (getMinimapData) tinted by danger.
-function renderMini(nodes) {
-  const box = $('ck-mini'); if (!box) return;
-  if (!nodes || !nodes.length) { box.innerHTML = '<div class="ck-mini-empty">no ground contact</div>'; return; }
-  const cur = nodes.find(n => n.is_current) || nodes[0];
-  if (cur.grid_x == null) { box.innerHTML = '<div class="ck-mini-empty">—</div>'; return; }
-  let minx = 99, maxx = -99, miny = 99, maxy = -99;
-  for (const n of nodes) { if (n.grid_x == null) continue; minx = Math.min(minx, n.grid_x); maxx = Math.max(maxx, n.grid_x); miny = Math.min(miny, n.grid_y); maxy = Math.max(maxy, n.grid_y); }
-  const byXY = new Map(nodes.filter(n => n.grid_x != null).map(n => [`${n.grid_x},${n.grid_y}`, n]));
-  const DANGER_TINT = { lethal: '#ff5b5b', high: '#ff5b5b', medium: '#ffb23e', low: '#8fd0ff', safe: '#46e05a' };
-  const danger = (d) => DANGER_TINT[d] || '#46e05a';
-  let rows = '';
-  for (let y = miny; y <= maxy; y++) {
-    let cells = '';
-    for (let x = minx; x <= maxx; x++) {
-      const n = byXY.get(`${x},${y}`);
-      if (!n) { cells += '<span class="ck-mini-c"></span>'; continue; }
-      const isC = n.is_current;
-      cells += `<span class="ck-mini-c" style="color:${isC ? '#ffcf3e' : danger(n.danger)}" title="${esc(n.name)}">${isC ? '◉' : (n.marker || '▪')}</span>`;
-    }
-    rows += `<div class="ck-mini-row">${cells}</div>`;
-  }
-  box.innerHTML = rows;
-}
 
 // ── Instrument builders (composed per aircraft) ───────────────────────────────
-function adiInst() {
-  return `<div class="ck-inst ck-inst-adi"><div class="ck-inst-lbl">ATTITUDE</div>
-    <svg viewBox="0 0 200 200" class="ck-svg">
-      <defs>
-        <clipPath id="ck-adi-clip"><circle cx="100" cy="100" r="86"/></clipPath>
-        <linearGradient id="ck-adi-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0e4c78"/><stop offset="1" stop-color="#1a6fa8"/></linearGradient>
-        <linearGradient id="ck-adi-gnd" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5a3f18"/><stop offset="1" stop-color="#2a1d0a"/></linearGradient>
-        <radialGradient id="ck-glass" cx="34%" cy="24%" r="80%"><stop offset="0" stop-color="rgba(255,255,255,0.22)"/><stop offset="42%" stop-color="rgba(255,255,255,0.02)"/><stop offset="100%" stop-color="rgba(0,0,0,0.55)"/></radialGradient>
-      </defs>
-      <circle cx="100" cy="100" r="94" class="ck-bezel-ring"/>
-      <g clip-path="url(#ck-adi-clip)"><g id="ck-adi-h">
-        <rect x="-140" y="-160" width="480" height="260" fill="url(#ck-adi-sky)"/>
-        <rect x="-140" y="100" width="480" height="260" fill="url(#ck-adi-gnd)"/>
-        <line x1="-140" y1="100" x2="340" y2="100" stroke="#eaf6ff" stroke-width="2"/>
-        ${[-3, -2, -1, 1, 2, 3].map(k => `<line x1="${100 - (4 - Math.abs(k)) * 7}" y1="${100 + k * 17}" x2="${100 + (4 - Math.abs(k)) * 7}" y2="${100 + k * 17}" stroke="rgba(255,255,255,0.5)" stroke-width="1.3"/>`).join('')}
-      </g><rect x="6" y="6" width="188" height="188" fill="url(#ck-glass)"/></g>
-      <g id="ck-adi-bank">${[-60, -30, -20, -10, 10, 20, 30, 60].map(deg => { const r = deg * Math.PI / 180; const inner = Math.abs(deg) % 30 === 0 ? 74 : 80; return `<line x1="${100 + Math.sin(r) * inner}" y1="${100 - Math.cos(r) * inner}" x2="${100 + Math.sin(r) * 86}" y2="${100 - Math.cos(r) * 86}" stroke="#8fd0ff" stroke-width="${Math.abs(deg) % 30 === 0 ? 2 : 1}"/>`; }).join('')}<polygon points="100,12 94,24 106,24" fill="#ffcf3e"/></g>
-      <path d="M58,100 L86,100 M114,100 L142,100" stroke="#ffcf3e" stroke-width="4" stroke-linecap="round"/>
-      <rect x="94" y="94" width="12" height="12" fill="none" stroke="#ffcf3e" stroke-width="2.5"/>
-      <circle cx="100" cy="100" r="94" fill="none" class="ck-bezel-glass"/>
-    </svg></div>`;
-}
-function radarInst(size) {
-  return `<div class="ck-inst ck-inst-radar ck-radar-${size}"><div class="ck-inst-lbl">RADAR · HDG-UP</div>
-    <svg viewBox="0 0 260 260" class="ck-svg">
-      <circle cx="130" cy="130" r="126" class="ck-bezel-ring"/><circle cx="130" cy="130" r="118" fill="#03151b"/>
-      ${[30, 60, 90, 118].map(r => `<circle cx="130" cy="130" r="${r}" fill="none" stroke="#0e3a44" stroke-width="1"/>`).join('')}
-      <g id="ck-radar-world"></g>
-      <g id="ck-radar-sweep"><path d="M130,130 L130,12 A118,118 0 0,1 210,44 Z" fill="url(#ck-sweepgrad)" opacity="0.5"/></g>
-      <defs><linearGradient id="ck-sweepgrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="rgba(79,224,160,0.5)"/><stop offset="1" stop-color="rgba(79,224,160,0)"/></linearGradient></defs>
-      <polygon points="130,116 122,142 130,136 138,142" fill="#ffcf3e"/><polygon points="130,8 124,18 136,18" fill="#8fd0ff"/>
-      <g id="ck-radar-guide" style="display:none"><polygon points="130,26 122,44 130,38 138,44" fill="#ffb23e"><animate attributeName="opacity" values="1;0.35;1" dur="1s" repeatCount="indefinite"/></polygon></g>
-      <circle cx="130" cy="130" r="126" fill="none" class="ck-bezel-glass"/>
-    </svg><div class="ck-guide-label" id="ck-guide-label"></div></div>`;
-}
-function compassInst() {
-  return `<div class="ck-inst ck-inst-compass"><div class="ck-inst-lbl">HDG</div>
-    <svg viewBox="0 0 120 120" class="ck-svg">
-      <circle cx="60" cy="60" r="56" class="ck-bezel-ring"/><circle cx="60" cy="60" r="50" fill="#04121a"/>
-      <g id="ck-compass-card">${Array.from({ length: 12 }, (_, i) => { const deg = i * 30; const r = (deg - 90) * Math.PI / 180; const maj = deg % 90 === 0; const L = maj ? { 0: 'N', 90: 'E', 180: 'S', 270: 'W' }[deg] : (deg / 10); return `<line x1="${60 + Math.cos(r) * (maj ? 38 : 42)}" y1="${60 + Math.sin(r) * (maj ? 38 : 42)}" x2="${60 + Math.cos(r) * 48}" y2="${60 + Math.sin(r) * 48}" stroke="${maj ? '#8fd0ff' : '#3f6d8c'}" stroke-width="${maj ? 2 : 1}"/><text x="${60 + Math.cos(r) * 30}" y="${60 + Math.sin(r) * 30 + 3}" fill="${deg === 0 ? '#ff5b5b' : '#8fd0ff'}" font-size="${maj ? 10 : 7}" text-anchor="middle" font-family="monospace">${L}</text>`; }).join('')}</g>
-      <polygon points="60,6 55,16 65,16" fill="#ffcf3e"/><circle cx="60" cy="60" r="56" fill="none" class="ck-bezel-glass"/>
-    </svg><div class="ck-hdg-readout"><span id="ck-hdg-num" class="ck-seg ck-seg-c">000°</span><span id="ck-hdg-card" class="ck-hdg-card">N</span></div></div>`;
-}
-function engInst(n) {
-  const bars = Array.from({ length: n }, (_, i) => `<g transform="translate(${18 + i * 30} 0)">
-      <rect x="0" y="20" width="20" height="100" rx="3" class="ck-eng-tube"/><rect x="2" y="24" width="16" height="${96 * 0.72}" class="ck-eng-band"/>
-      <rect id="ck-eng-fill-${i}" x="2" y="118" width="16" height="0" fill="#ffb23e"/><line id="ck-eng-need-${i}" x1="0" y1="118" x2="20" y2="118" stroke="#fff" stroke-width="1.4"/>
-      <text x="10" y="134" id="ck-eng-lbl-${i}" fill="#ffb23e" font-size="9" text-anchor="middle" font-family="monospace">···</text>
-      <text x="10" y="15" fill="#5f8299" font-size="8" text-anchor="middle" font-family="monospace">${n > 1 ? i + 1 : 'ENG'}</text></g>`).join('');
-  return `<div class="ck-inst ck-inst-eng"><div class="ck-inst-lbl">${n > 1 ? n + '× ENGINE' : 'ENGINE'} TEMP</div><svg viewBox="0 0 ${18 + n * 30 + 6} 140" class="ck-svg">${bars}</svg></div>`;
-}
-function miniInst() {
-  return `<div class="ck-inst ck-inst-mini"><div class="ck-inst-lbl">MAP</div>
-    <div class="ck-mini" id="ck-mini"><div class="ck-mini-empty">—</div></div>
-    <div class="ck-surface-row">⌖ <b id="ck-surface">—</b> · <span id="ck-alt-band">GND</span></div></div>`;
-}
-function hoverInst() {   // VTOL: a vertical altitude tape + HOVER lamp
-  return `<div class="ck-inst ck-inst-hover"><div class="ck-inst-lbl">VERT</div>
-    <svg viewBox="0 0 64 130" class="ck-svg">
-      <rect x="26" y="10" width="12" height="108" rx="3" class="ck-eng-tube"/>
-      ${[10, 37, 64, 91, 118].map((y, i) => `<line x1="20" y1="${y}" x2="44" y2="${y}" stroke="#2b4a60" stroke-width="1"/><text x="48" y="${y + 3}" fill="#5f8299" font-size="7" font-family="monospace">${['HI', 'CR', 'LO', 'GND', ''][i] || ''}</text>`).join('')}
-      <polygon id="ck-vsi-need" points="14,118 26,113 26,123" fill="#4fe0a0"/>
-    </svg><div class="ck-hover-lamp" id="ck-hover-lamp">HOVER</div></div>`;
-}
-function wpnInst(hp) {
-  return `<div class="ck-inst ck-inst-wpn"><div class="ck-inst-lbl">ARMAMENT</div>
-    <div class="ck-wpn-arm ck-dim" id="ck-wpn-arm">○ SAFE</div>
-    <div class="ck-wpn-pips" id="ck-wpn-pips">${'◆'.repeat(hp)}</div>
-    <div class="ck-wpn-note">${hp} HARDPOINT${hp > 1 ? 'S' : ''}</div></div>`;
-}
-function cargoInst() {
-  return `<div class="ck-inst ck-inst-cargo"><div class="ck-inst-lbl">LOAD · W&amp;B</div>
-    <div class="ck-load"><div class="ck-load-fill" id="ck-load-fill"></div></div>
-    <div class="ck-load-txt" id="ck-load-txt">0 kg</div></div>`;
-}
 
 // ── The passenger cabin: a big window + a slim readout strip, nothing to fly ──
 function mountPassenger(s) {
@@ -635,59 +480,13 @@ function wirePaxChrome() {
   claimSeatKeyboard(root, { label: 'CABIN' });
 }
 
-// ── Compose the DOM from the aircraft's capabilities + size ───────────────────
+// Every seat that gets cockpit_update is a passenger (a pilot flies the continuous sim), so the
+// seat is always the cabin window view.
 function mountHud(s) {
   ensureWindshieldStyles();
-  if (s.seat === 'passenger') return mountPassenger(s);
-  const n = Math.max(1, s.engines?.length || 1);
-  const th = themeFor(s.class);
-  const acc = liveryAccent(s.livery, th.acc);
-  const hasWpn = (s.hardpoints || 0) > 0, hasCargo = (s.cargoCap || 0) > 0, isVtol = !!s.vtol;
-
-  const row2 = [compassInst(), engInst(n), isVtol ? hoverInst() : ''].filter(Boolean).join('');
-  const row3 = [miniInst(), hasCargo ? cargoInst() : '', hasWpn ? wpnInst(s.hardpoints) : ''].filter(Boolean).join('');
-
-  const html = `<div id="ck-hud-root" class="ck-hud ck-chrome-${th.chrome}" style="--acc:${acc}">
-    <div class="ck-titlebar">
-      <span class="ck-tmark">✈</span><span class="ck-t-name" id="ck-tail">CRAFT</span>
-      <span class="ck-t-class" id="ck-class"></span><span class="ck-cabin" id="ck-cabin" title="cabin"></span>
-      <span class="ck-phase" id="ck-phase"></span>
-      <span class="ck-pip ck-dim" id="ck-arm" style="display:none"></span>
-      <span class="ck-pip ck-dim" id="ck-cargo" style="display:none"></span>
-    </div>
-    <div class="ck-canopy">${windshieldHTML('ck-ws', 'FWD VIEW')}</div>
-    <div class="ck-grid">
-      <div class="ck-row ck-row-top">${adiInst()}${radarInst(th.radar)}</div>
-      <div class="ck-row">${row2}</div>
-      <div class="ck-row">${row3}</div>
-    </div>
-    <div class="ck-dials">
-      <div class="ck-dial"><div class="ck-dial-lbl">FUEL</div><div class="ck-seg ck-seg-g" id="ck-d-fuel">000</div><div class="ck-dial-u">%</div></div>
-      <div class="ck-dial"><div class="ck-dial-lbl">THR</div><div class="ck-seg ck-seg-c" id="ck-d-thr">000</div><div class="ck-dial-u">%</div></div>
-      <div class="ck-dial"><div class="ck-dial-lbl">HULL</div><div class="ck-seg ck-seg-g" id="ck-d-hull">100</div><div class="ck-dial-u">%</div></div>
-      <div class="ck-dial"><div class="ck-dial-lbl">ASPD</div><div class="ck-seg ck-seg-c" id="ck-d-spd">000</div><div class="ck-dial-u">kt</div></div>
-    </div>
-    <div class="ck-warn" id="ck-warn" style="display:none"></div>
-  </div>`;
-  setAreaPane(html);
-  paintRadarWorld(s);
+  return mountPassenger(s);
 }
 
-// Radar blips plotted north-up; the parent group is rotated each frame.
-function paintRadarWorld(s) {
-  const g = $('ck-radar-world'); if (!g) return;
-  if (!s.map) { g.innerHTML = ''; return; }
-  const R = (s.map.length - 1) / 2, step = 108 / (R + 0.5);
-  let out = '';
-  for (let ry = 0; ry < s.map.length; ry++) for (let rx = 0; rx < s.map[ry].length; rx++) {
-    const cell = s.map[ry][rx]; if (cell.kind === 'air' || cell.self) continue;
-    const cx = 130 + (rx - R) * step, cy = 130 + (ry - R) * step;
-    if (cell.kind === 'field') out += `<rect x="${cx - 4}" y="${cy - 4}" width="8" height="8" fill="none" stroke="#46e05a" stroke-width="1.5"/><circle cx="${cx}" cy="${cy}" r="1.5" fill="#46e05a"/>`;
-    else if (cell.kind === 'nofly') out += `<path d="M${cx - 4},${cy - 4} L${cx + 4},${cy + 4} M${cx + 4},${cy - 4} L${cx - 4},${cy + 4}" stroke="#ff5b5b" stroke-width="1.5"/>`;
-    else out += `<circle cx="${cx}" cy="${cy}" r="2.4" fill="#2f6d4a"/>`;
-  }
-  g.innerHTML = out;
-}
 
 function ensureHudStyles() {
   if (document.getElementById('cockpit-hud-styles')) return;
@@ -3185,8 +2984,7 @@ const DECK_LINGER = 2000;
 const DECK_HOLD = DECK_SPINDOWN + DECK_LINGER;
 const DECK_TOTAL = DECK_WIDE + DECK_DROP + DECK_HOLD;
 const DECK_HANDOFF_MS = 600;
-// ⚠ Keep in sync with YACHT_SCALE in windshield.js; every yacht-local constant here is scaled by it.
-const YACHT_SCALE = 0.4;
+// Every yacht-local constant here is scaled by YACHT_SCALE (client/shared/yacht-hull.js).
 // The deck heaves, so its height comes from yachtPadZ(), never a constant.
 const DECK_DROP_FT = 75;    // height the close-up shot picks her up at
 
@@ -3204,7 +3002,7 @@ function yachtProximity(F) {
       const sub = c.sub || { x: 0, y: 0 };
       const yx = F.mapCenter.x + (rx - R) + sub.x, yy = F.mapCenter.y + (ry - R) + sub.y;
       const hr = (c.heading || 0) * Math.PI / 180;
-      const PAD_OY = 0.28 * YACHT_SCALE;
+      const PAD_OY = YACHT_PAD_OY * YACHT_SCALE;
       const px = yx - PAD_OY * Math.sin(hr), py = yy + PAD_OY * Math.cos(hr);
       // tile: her committed grid tile, so surfaceAt resolves her zone. hull: for the deck-cam's start.
       return { dist: Math.hypot(px - F.pos.x, py - F.pos.y), hdg: c.heading || 0, tile: [Math.round(F.mapCenter.x + (rx - R)), Math.round(F.mapCenter.y + (ry - R))], hull: [yx, yy] };
@@ -3512,7 +3310,7 @@ function stepDeckLanding(F, now) {
   // Yacht-local (beam ox, fore-aft oy) to world, as drawYacht does.
   const loc = (ox, oy) => [-oy * sinh + ox * cosh, oy * cosh + ox * sinh];
   // ⚠ Work in her local frame and apply `loc` exactly once, or the touchdown slides off the pad.
-  const PAD = [0, 0.28 * YACHT_SCALE];
+  const PAD = [0, YACHT_PAD_OY * YACHT_SCALE];
   const START = C.start || [1.0 * YACHT_SCALE, 1.7 * YACHT_SCALE];   // captured position, or a canned pose
   const padWorld = loc(PAD[0], PAD[1]);
   // `lookAt` is the ground point the camera centres on (mapOffset).

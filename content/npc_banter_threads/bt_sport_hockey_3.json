@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_sport_hockey_3",
+  "lines": [
+    "\"{puck_winner} beat {puck_loser} {puck_score}. Did you see it?\"",
+    "\"I had money on {puck_loser}.\"",
+    "\"Why? They're {puck_loser_record}.\"",
+    "\"I know. My brother-in-law told me they were due.\"",
+    "\"Stop listening to your brother-in-law.\""
+  ],
+  "personality": null,
+  "sort_order": 44
+}

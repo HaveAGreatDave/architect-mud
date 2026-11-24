@@ -48,13 +48,15 @@ export function cameraMatrices(cam, aspect) {
 }
 // Where a screen point (0..1 across, 0..1 down) meets the plane z = h. Null when the ray runs away
 // from it.
+// A host whose picture isn't drawn by cameraMatrices (a room walked in GLASS, freelook-view.js) hands its own matrices
+// with `ray(sx, sy)` and `eye`, both in the kitchen's frame, so a pick lands where the picture shows it.
 export function pickPlane(cam, M, sx, sy, h = 0) {
-  const nx = (sx * 2 - 1) * M.aspect / M.t, ny = (1 - sy * 2) / M.t;
-  const d = norm(add(add(M.f, mul(M.r, nx)), mul(M.u, ny)));
-  if (Math.abs(d[2]) < 1e-5) return null;
-  const k = (h - cam.eye[2]) / d[2];
+  const d = M.ray ? M.ray(sx, sy) : norm(add(add(M.f, mul(M.r, (sx * 2 - 1) * M.aspect / M.t)), mul(M.u, (1 - sy * 2) / M.t)));
+  const e = M.eye || cam.eye;
+  if (!d || Math.abs(d[2]) < 1e-5) return null;
+  const k = (h - e[2]) / d[2];
   if (k <= 0) return null;
-  return add(cam.eye, mul(d, k));
+  return add(e, mul(d, k));
 }
 // A world point to screen fractions, for labels on the overlay.
 export function toScreen(M, p) {
@@ -155,21 +157,25 @@ export function createKitchenRenderer(canvas, { phone = false, host = null } = {
   };
 }
 
+// ⚠ THE FRAME CAN MOVE: the burner goes to another of the hob's rings when you put the pan on one (kitchen-stage.js
+// ringTo, the host's setRing), so the frame is read each frame and the still set laid into it again when it changes.
 function hosted(canvas, host) {
-  const F = host.frame, stat = createBatch(4), props = createBatch(1 << 15);
-  let lost = false;
+  const stat = createBatch(4), props = createBatch(1 << 15);
+  let lost = false, src = null, laidFor = null;
   return {
     get lost() { return lost; },
-    setStatic(batch) { toRoomBatch(batch, stat, F); },
+    setStatic(batch) { src = batch; laidFor = null; },
     // `fx.free`: you're on your own feet, so the room draws from your own eye (no camera handed over)
     // and `cam` is that eye already, for picking
     render(cam, batch, fx = {}) {
+      const F = host.frame;
+      if (src && laidFor !== F) { stat.n = 0; toRoomBatch(src, stat, F); laidFor = F; }
       copyInto(props, stat);
       toRoomBatch(batch, props, F, true);
       if (host.show({ cam: fx.free ? null : roomCamOf(cam, fx.shake, F), props }) === false) { lost = true; return null; }
       flashOn(host.canvas, fx.flash);
       const c = host.canvas;
-      return cameraMatrices(cam, (c.clientWidth || 1) / (c.clientHeight || 1));
+      return (host.matrices && host.matrices()) || cameraMatrices(cam, (c.clientWidth || 1) / (c.clientHeight || 1));
     },
     dispose() { flashOn(host.canvas, 0); host.show(null); },
   };

@@ -17,6 +17,9 @@ Enough sets grant a point, with a **rising rep cost per level**. But the point i
 - **The Sump's back room**: the rebound wall (`spar`) and the circuit (`drill`).
 - **Precinct 9's cells**: a bench (`lift`).
 
+## In 3D
+A player mid-set on a `lift` bench is drawn lying on it pressing (plugins/roomstage `pressOf`, the `liePress` clip, the bar in their hands from gl/room-held.js), and the bench is sent with its hooks empty while they do. Residents of a room with a press bench take sets on it too (npc-life.js `press`). Nothing here knows ROOM exists: roomstage reads the posture and `workoutState`.
+
 ## Extension points
 Stations are **data**, in `stations.js`. A fourth station is a table entry plus a furniture flag.
 

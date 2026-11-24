@@ -1,0 +1,210 @@
+{
+  "description": "The room over the saloon. Card tables, two booths against the back wall and a couch nobody admits to sleeping on. French doors open onto the gallery over Main Street, where you can watch the street without the street watching you. The noise from downstairs comes up through the boards.",
+  "exits": {
+    "down": "zone_bld_899_1171_lobby",
+    "up": "zone_bld_899_1171_f3"
+  },
+  "flags": {
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "lawless": true,
+    "room": {
+      "balcony": false,
+      "d": 10.8,
+      "decor": {
+        "fans": [
+          [
+            3,
+            7.6,
+            0.65
+          ]
+        ],
+        "litter": [
+          {
+            "at": [
+              3,
+              4
+            ],
+            "n": 20,
+            "r": [
+              1.2,
+              1
+            ],
+            "seed": 9
+          }
+        ],
+        "pendants": [
+          {
+            "at": [
+              3,
+              4
+            ],
+            "k": 0.7,
+            "kind": "card",
+            "len": 1.2,
+            "tint": [
+              0.95,
+              1.12,
+              0.85
+            ],
+            "y": 1.7
+          }
+        ],
+        "salon": [
+          {
+            "at": 6.5,
+            "h": 1,
+            "seed": 11,
+            "w": 1.6,
+            "wall": "right",
+            "y": 2.2
+          }
+        ],
+        "trophy": [
+          {
+            "at": -2.6,
+            "wall": "back",
+            "y": 2.5
+          }
+        ],
+        "walls": {
+          "hex": "#6a4c32",
+          "kind": "walnut",
+          "rail": 1,
+          "trim": "#2e2216",
+          "y1": 3.25
+        }
+      },
+      "doors": {
+        "down": [
+          -5.7,
+          7.73
+        ]
+      },
+      "face": 180,
+      "h": 3.25,
+      "panes": [
+        {
+          "a": -3.7,
+          "b": -2.2,
+          "kind": "sash",
+          "wall": "front",
+          "y0": 0.32,
+          "y1": 2.86
+        },
+        {
+          "a": -0.68,
+          "b": 0.68,
+          "kind": "sash",
+          "wall": "front",
+          "y0": 0.89,
+          "y1": 2.68
+        },
+        {
+          "a": 5.03,
+          "b": 6.39,
+          "kind": "sash",
+          "wall": "front",
+          "y0": 0.89,
+          "y1": 2.68
+        },
+        {
+          "a": -6.39,
+          "b": -5.03,
+          "kind": "sash",
+          "wall": "front",
+          "y0": 0.89,
+          "y1": 2.68
+        },
+        {
+          "a": 8.29,
+          "b": 9.57,
+          "kind": "sash",
+          "wall": "right",
+          "y0": 0.89,
+          "y1": 2.68
+        },
+        {
+          "a": 4.36,
+          "b": 5.64,
+          "kind": "sash",
+          "wall": "right",
+          "y0": 0.89,
+          "y1": 2.68
+        },
+        {
+          "a": 1.15,
+          "b": 2.43,
+          "kind": "sash",
+          "wall": "right",
+          "y0": 0.89,
+          "y1": 2.68
+        },
+        {
+          "a": 8.29,
+          "b": 9.57,
+          "kind": "sash",
+          "wall": "left",
+          "y0": 0.89,
+          "y1": 2.68
+        },
+        {
+          "a": 4.36,
+          "b": 5.64,
+          "kind": "sash",
+          "wall": "left",
+          "y0": 0.89,
+          "y1": 2.68
+        },
+        {
+          "a": 3.82,
+          "b": 5.1,
+          "kind": "sash",
+          "wall": "back",
+          "y0": 0.89,
+          "y1": 2.68
+        },
+        {
+          "a": -0.64,
+          "b": 0.64,
+          "kind": "sash",
+          "wall": "back",
+          "y0": 0.89,
+          "y1": 2.68
+        },
+        {
+          "a": -5.1,
+          "b": -3.82,
+          "kind": "sash",
+          "wall": "back",
+          "y0": 0.89,
+          "y1": 2.68
+        }
+      ],
+      "stair": {
+        "at": [
+          -1,
+          3.6
+        ],
+        "climb": "back",
+        "w": 0.9
+      },
+      "studio": false,
+      "tone": {
+        "ceiling": "#7a6c5a",
+        "trim": "#4a3624",
+        "wall": "#9a8a6e"
+      },
+      "w": 13.6
+    },
+    "world_exit_zone": "zone_the_reach_872_1954"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 1,
+  "id": "zone_bld_899_1171_gallery",
+  "map_id": "map_int_bld_899_1171",
+  "name": "The Gallery",
+  "parent_zone": "zone_the_reach_872_1954"
+}

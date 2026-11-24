@@ -1,30 +1,29 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "indoors",
-  "bg_color": "#3a3550",
-  "color": "#e8e0ff",
-  "description": "Grey stone in one slab with a single tall slot of window. Two piers carry a lintel over the apron, the name cut into it deep enough to fit your hand. Floodlights wash the stone day and night. The doors are always open. The way in is north. The forecourt runs south.",
+  "ambient_events": [
+    "The wind gets into the mesh panels and they rattle on their feet.",
+    "A casino doorman comes round the corner for a smoke, looks at the slab, and goes back.",
+    "Grit blows across the concrete and collects against the capped stair."
+  ],
+  "ambient_theme": "urban",
+  "color": "#8a8478",
+  "description": "The concrete slab where the old bank stood, fenced on three sides with mesh panels on concrete feet. The bank took its stone with it when it moved to Marrow Street. Four square footings show where the piers were, and a steel plate is bolted down over the stair to a vault that has been emptied and filled with rubble. A board on two posts says PLOT TO LET. The old forecourt runs south.",
   "exits": {
-    "north": "zone_citadel_hall",
     "south": "zone_district_921_912"
   },
   "flags": {
-    "building_name": "Compound Interest",
-    "building_type": "bank",
+    "building_name": "Vacant Plot",
+    "building_type": "vacant_plot",
     "district": "residential",
     "entrance": "south",
-    "facade": true,
-    "is_building": true,
+    "floors": 1,
     "region_id": "region_coldwater",
-    "sign_trade": "BANK",
-    "world_exit_zone": "zone_district_921_912"
+    "terrain": "concrete"
   },
   "grid_x": 922,
   "grid_y": 911,
   "grid_z": 0,
   "id": "zone_district_921_911",
   "map_id": "map_world",
-  "marker": "CI",
-  "name": "Compound Interest",
+  "name": "Vacant Plot",
   "parent_zone": null
 }

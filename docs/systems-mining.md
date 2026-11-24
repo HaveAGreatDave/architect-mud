@@ -88,7 +88,7 @@ opts in by carrying `flags.mining_table_id` in its own JSON.
 
 **The live deposit** is a four-tile gravel cut in the redrock wilds east of Coldwater
 — `zone_district_928_913`, `928_914`, `929_913`, `929_914` (~10 tiles out, radiation
-26, so bring pills). `item_mining_pick` is stocked by Grady at Two-Cell Supply for
+26, so bring pills). `item_mining_pick` is stocked by Rusty at O'Toole's Surplus for
 ₵55, mirroring the fishing-rod carry-gate.
 
 The pick, the ore items and the table are content files; edit the JSON to change them.

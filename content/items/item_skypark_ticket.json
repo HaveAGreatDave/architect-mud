@@ -2,11 +2,11 @@
   "description": null,
   "flags": {},
   "id": "item_skypark_ticket",
-  "name": "Stacked Deck parking ticket",
+  "name": "Marrow Street Parking ticket",
   "type": "misc",
   "value": 0,
   "weight": 1,
   "tags": {
-    "description": "A stiff blue card from the Stacked Deck, punched with a slot and a level and stamped FREE across the price. Feed it to any terminal in the garage and the carousel brings your aircraft back."
+    "description": "A stiff blue card from Marrow Street Parking, punched with a slot and a level and stamped FREE across the price. Feed it to any terminal in the garage and the carousel brings your aircraft back."
   }
 }

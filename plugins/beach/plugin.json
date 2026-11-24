@@ -1,0 +1,9 @@
+{
+  "name": "beach",
+  "version": "1.0.0",
+  "description": "Days at Marina Beach. On a warm, dry day, groups of friends from the west and middle of Coldwater (never the south-east slums) walk down to the flags.beach tiles, put up a parasol, lay out towels, sunbathe, wade out and swim for a while, and go home. Each day's plan is seeded from the game date. Says who's there in the room description and tells GLASS what each one is doing (npc.streetPose). RAM only, no queries.",
+  "commands": [],
+  "hooks": ["zone.describeRoom", "npc.streetPose"],
+  "ticks": ["1m"],
+  "extensionPoints": ["zones.flags.beach", "npcs.flags.no_outings"]
+}

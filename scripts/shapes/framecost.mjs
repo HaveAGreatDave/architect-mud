@@ -71,7 +71,7 @@
 //   of +0.45 ms there. Not separately timed: a 0.45 ms estimate sits well inside the 3.1-8.5 ms
 //   spread the first entry above records for this machine, so a fresh clock could not resolve it.
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
-import { loadWindshield, stubCanvas } from './dom-stub.mjs';
+import { loadWindshield, stubCanvas, glStub } from './dom-stub.mjs';
 import { CAB_VIEW_TUNE } from '../../client/shared/cab-render-tune.js';
 
 const ROOT = new URL('../../', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
@@ -83,10 +83,14 @@ const ROOT = new URL('../../', import.meta.url).pathname.replace(/^\/([A-Za-z]:)
 // are cockpit frames at altitude, where nothing draws; the cost lands almost entirely on the cab
 // seats at street level, which is exactly where the birds are meant to be.
 //
-// ⚠ AND THIS HARNESS MEASURES THE 2-D FALLBACK. GLASS 2 is the default renderer and uploads these
-// as mesh triangles, where they are close to free. The number above is what a machine with no
-// WebGL2 pays, which is the right thing to hold a budget against and the wrong thing to reason
-// about the shipping renderer from.
+// WHAT A FRAME COSTS NOW (2026-11-23). The 2-D city painter is retired, so there is no fallback
+// frame left to measure. Every frame is a GL frame: the CPU sweep runs the model arms to fill the
+// sinks GL draws from (arm recording still calls the canvas it records on), and the canvas still
+// takes the sky, the HUD and the overlays. That is what this counts. Under node there is no WebGL,
+// so the stub GL hook from dom-stub.mjs stands in for the GPU pass, and the run fails if the hook
+// wasn't called on every frame, since then the sweep that feeds it didn't run either. The older
+// entries above measured the retired painter and are kept as history. This re-cut went 348,777 to
+// 734,699: more calls, because the painter culled arms that a GL frame runs to fill its sinks.
 const BASELINE = ROOT + 'scripts/shapes/framecost.json';
 const TOL_TOTAL = 0.02;   // 2% on the grand total
 const TOL_CASE = 0.06;    // 6% on any single case — noise floor is zero, so this is real drift
@@ -174,8 +178,9 @@ const SEATS = [
 ];
 
 export async function measure({ width = 1280, height = 720 } = {}) {
-  const ws = await loadWindshield();
+  const ws = await loadWindshield({ gl: true });
   const el = stubCanvas('__framecost', width, height);
+  const hook0 = glStub.calls;
   const C = counted(el);
   const cases = {};
 
@@ -230,8 +235,11 @@ export async function measure({ width = 1280, height = 720 } = {}) {
     }
   }
 
+  // A frame that never reached the GL hook measured an empty world, not a GL frame.
+  const hooked = glStub.calls - hook0;
+  if (hooked < SEATS.length * HEADINGS.length * 4) throw new Error(`framecost: the GL hook ran ${hooked} times over the sweep; every frame should reach it`);
   globalThis.performance = clock;
-  Date.now = wall;      // both clocks go back, or anything sharing this process inherits a frozen one
+  Date.now = wall;     // both clocks go back, or anything sharing this process inherits a frozen one
   const total = Object.values(cases).reduce((a, c) => a + c.calls, 0);
   return { total, cases, scene: { w: width, h: height, tiles: N * N } };
 }

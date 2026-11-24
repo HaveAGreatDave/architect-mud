@@ -11,17 +11,18 @@
     "food_profile": "dry_starch",
     "matter": {
       "look": {
-        "pack": "box",
-        "label": "#b02a2a"
+        "label": "#b02a2a",
+        "pack": "box"
       },
       "ramp": {
-        "raw": "#edd27e",
         "cook": "#f0dc96",
-        "peak": "#f2e2a8"
+        "peak": "#f2e2a8",
+        "raw": "#edd27e"
       }
     },
     "needs_cooking": true,
     "restore_hunger": 20,
+    "shelved": true,
     "stackable": true
   },
   "type": "consumable",

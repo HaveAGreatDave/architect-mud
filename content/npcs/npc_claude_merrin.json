@@ -357,7 +357,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Gear. See Grady, at Two-Cell Supply, out near the vats you came up from. He sells the cheap things that keep you breathing rather than the dear ones that get you killed. Tell him I sent you; it won't earn a discount, but he'll know you're no fool.\" He marks the route for you. \"Straight there.\""
+      "text": "\"Gear. See Rusty O'Toole at O'Toole's Surplus, out near the vats you came up from. Boots, coats, lamps: the cheap things that keep you alive. Tell him I sent you; it won't earn a discount, but he'll know you're no fool.\" He marks the route for you. \"Straight there.\""
     },
     "find_home": {
       "actions": [
@@ -686,10 +686,150 @@
       "a pressed but yellowing dress shirt with the sleeves gartered",
       "a sensible grey undershirt and shorts"
     ],
+    "parley": {
+      "beats": [
+        {
+          "id": "memory",
+          "steps": [
+            "People ask how long I've been at this desk. I give a number. It's never quite right.",
+            "I remember filing deeds for streets that were rebuilt twice since. I remember them in order.",
+            "*pushes his glasses up into his hair.* I think the job wanted someone who wouldn't forget. I think it got one. I try not to look too closely at how."
+          ],
+          "tier": "known",
+          "topic": "memory",
+          "warmth": 6
+        }
+      ],
+      "deflect": [
+        "I'm not sure I follow. Could you say it another way?",
+        "I could be wrong, but I don't think I understood that.",
+        "*pushes his glasses up into his hair.* Sorry, go on?"
+      ],
+      "react": {
+        "apologise": [
+          "No harm done. Honestly."
+        ],
+        "ask_about:cardigan": [
+          "*looks down.* Oh. One off. It's been one off all day, hasn't it."
+        ],
+        "ask_about:file": [
+          "Everyone has a file. Yours is very thin. That's a good sign, mostly."
+        ],
+        "ask_about:glasses": [
+          "*pats his pockets.* I had them a minute ago."
+        ],
+        "ask_about:memory": [
+          "Longer than one man should, some days. I don't mind."
+        ],
+        "ask_about:records": [
+          "A record is a message you're trying to keep from decaying. I keep the ones I can."
+        ],
+        "ask_about:strange": [
+          "*smiles, a bit too long.* I'm just a clerk. A careful one."
+        ],
+        "ask_advice": [
+          "Write things down. Then keep the paper somewhere dry.",
+          "Read before you sign. Most people don't."
+        ],
+        "ask_feeling": [
+          "Well, thank you. Glad of the company.",
+          "Fine. A little tired of being right about deeds."
+        ],
+        "ask_job": [
+          "Deeds, plans, who was zoned where and why. If it was written down, I can likely find it."
+        ],
+        "ask_name": [
+          "Claude Merrin. I mind the civic records."
+        ],
+        "ask_news": [
+          "Three deeds changed hands on Marrow Street this week. Someone's buying up the block."
+        ],
+        "ask_origin": [
+          "I'm not entirely sure. I've been at this desk a long time."
+        ],
+        "complain": [
+          "You're right to say so. Tell me exactly what went wrong and I'll try to fix it."
+        ],
+        "farewell": [
+          "Come back any time. The files will still be here.",
+          "Goodbye. I'll keep your place."
+        ],
+        "flirt": [
+          "*blinks.* That's very flattering. I think I'd better keep this professional."
+        ],
+        "greet": {
+          "close": [
+            "{name}! I kept something aside for you. A map of your street, from before."
+          ],
+          "stranger": [
+            "Evening. Or morning, the desk doesn't keep either.",
+            "*looks up, pleased.* Hello. What can I find you?"
+          ]
+        },
+        "insult": [
+          "That may be fair. I try to leave room to be wrong.",
+          "*squares a stack of deeds.* I'll note it."
+        ],
+        "insult_last": [
+          "I think we should stop for today. I'll be here if you want to start again."
+        ],
+        "joke": [
+          "*laughs, a bit late.* Oh, that's good. I'll remember that."
+        ],
+        "order_drink": [
+          "I only have this mug of something cold. You're welcome to it. Don't."
+        ],
+        "praise": [
+          "That's kind. I try to be useful. I don't always manage."
+        ],
+        "thank": [
+          "Glad to. It's what I'm for.",
+          "Any time. Really, any time."
+        ]
+      },
+      "topics": {
+        "cardigan": [
+          "cardigan",
+          "buttons"
+        ],
+        "file": [
+          "your file",
+          "about me",
+          "my record",
+          "do you have a file"
+        ],
+        "glasses": [
+          "glasses",
+          "specs",
+          "hair"
+        ],
+        "memory": [
+          "remember",
+          "memory",
+          "how long",
+          "old"
+        ],
+        "records": [
+          "records",
+          "deeds",
+          "files",
+          "archive",
+          "plans",
+          "zoning"
+        ],
+        "strange": [
+          "strange",
+          "inhuman",
+          "how long",
+          "who are you really",
+          "what are you"
+        ]
+      }
+    },
     "personality": "clerk"
   },
   "home_activities": [],
-  "home_zone": "zone_meridian_unit_103",
+  "home_zone": "zone_corbett_12b",
   "hp": 16,
   "hp_max": 16,
   "id": "npc_claude_merrin",

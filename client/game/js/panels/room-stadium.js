@@ -15,6 +15,7 @@ import { createRoomMachine } from './room-machine.js';
 import { createRoomRink } from './room-rink.js';
 import { styleOf, facesOf, loadFace, paintSign } from './stadium-signs.js';
 import { roomMarks } from './room-marks.js';
+import { roomSigns } from './room-signs.js';
 import { trophyCup, bannerCloth } from './gl/room-stadium.js';
 import { CUP_FACE } from './gl/room-cup.js';
 
@@ -139,9 +140,13 @@ export function createRoomStadium({ R, host }) {
       put(`wsign:${i}`, { u, v, turn, y0: 0 }, -w / 2, w / 2, y - hh / 2, y + hh / 2, 0.02, { kind: s0.kind || 'gilt', text: s0.text, sub: s0.sub || '', tint: s0.tint || null });
     }
     // and the room's own marks (room-marks.js: labels, stencils, placards, tags, readouts, stains, flat on the floor too)
-    const marks = await roomMarks(L).catch((e) => { console.warn('[room] marks:', e?.message); return []; });
+    const [marks, wallSigns] = await Promise.all([
+      roomMarks(L).catch((e) => { console.warn('[room] marks:', e?.message); return []; }),
+      // and its wall signs (room-signs.js: lettering in the library's faces, on plates, in neon, as badges)
+      roomSigns(L).catch((e) => { console.warn('[room] wall signs:', e?.message); return []; }),
+    ]);
     if (gen !== signGen || !L) return;
-    decals = [...decals.filter((d) => !d.key.startsWith('sign:') && !d.key.startsWith('wsign:') && !d.key.startsWith('mark:')), ...out, ...marks];
+    decals = [...decals.filter((d) => !d.key.startsWith('sign:') && !d.key.startsWith('wsign:') && !d.key.startsWith('mark:') && !d.key.startsWith('rsign:')), ...out, ...marks, ...wallSigns];
     dirty = true;
   }
 

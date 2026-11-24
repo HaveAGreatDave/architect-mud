@@ -410,7 +410,163 @@
       "a thick jersey that predates the job",
       "work trousers with the knees gone pale",
       "boots, laced, on a shift where nobody would check"
-    ]
+    ],
+    "parley": {
+      "topics": {
+        "berths": [
+          "berth",
+          "berths",
+          "bay",
+          "mooring",
+          "dock"
+        ],
+        "boats": [
+          "boat",
+          "boats",
+          "hull",
+          "skiff",
+          "hire"
+        ],
+        "twin": [
+          "brother",
+          "sister",
+          "twin",
+          "sabbatini",
+          "ninian",
+          "odile"
+        ],
+        "water": [
+          "water",
+          "basin",
+          "sea",
+          "fairway"
+        ],
+        "book": [
+          "book",
+          "paperback",
+          "reading"
+        ],
+        "cranes": [
+          "crane",
+          "cranes",
+          "quay",
+          "arms",
+          "old job"
+        ]
+      },
+      "react": {
+        "greet": {
+          "stranger": [
+            "Evening. Buying, hiring, or looking for your own?",
+            "*marks her page.* Evening."
+          ],
+          "close": [
+            "*turns the lamp so you can see her face.* {name}. Sit if you want."
+          ]
+        },
+        "farewell": [
+          "Mind the steps. They're wet."
+        ],
+        "thank": [
+          "*nods.*"
+        ],
+        "praise": [
+          "*the lamp stays turned away.* Thanks."
+        ],
+        "insult": [
+          "*doesn't look up.* All right.",
+          "I used to do a heavier job than this. Think about that."
+        ],
+        "insult_last": [
+          "*stands up.* Time you went."
+        ],
+        "flirt": [
+          "*a short laugh in the dark.* Go to bed."
+        ],
+        "apologise": [
+          "Forget it."
+        ],
+        "joke": [
+          "*a quiet laugh behind the lamp.*"
+        ],
+        "complain": [
+          "Tell my brother. He's on at six."
+        ],
+        "ask_feeling": [
+          "Fine. Quiet night. I like them quiet."
+        ],
+        "order_drink": [
+          "There's a flask. It's mine."
+        ],
+        "ask_name": [
+          "Odile. Sabbatini. The night one."
+        ],
+        "ask_job": [
+          "Same as my brother's, with fewer people and better light."
+        ],
+        "ask_origin": [
+          "I worked the cranes on the east quay before this. Hence the arms."
+        ],
+        "ask_news": [
+          "Something knocked against the fenders at two and didn't stop. I didn't go and look."
+        ],
+        "ask_advice": [
+          "Don't go out on the water at night unless you're coming back."
+        ],
+        "ask_about:berths": [
+          "Number's on the card. Don't lose the card."
+        ],
+        "ask_about:boats": [
+          "Buy, hire or berth your own. My brother says it better."
+        ],
+        "ask_about:twin": [
+          "Ninian has days. He likes people. I like the dark."
+        ],
+        "ask_about:water": [
+          "*listens to something out there.* Nothing. Probably."
+        ],
+        "ask_about:book": [
+          "*keeps it face down.* It's good. I'll tell you when you've gone."
+        ],
+        "defer:boats": [
+          "*tilts the lamp toward the yard.* Keel knows boats. I know berths."
+        ],
+        "gossip_rude": [
+          "{other} says you were rude. That took work."
+        ],
+        "gossip_story": [
+          "{other} says you listened. Nobody listens."
+        ],
+        "overheard": [
+          "*from behind the lamp.* I heard."
+        ]
+      },
+      "deflect": [
+        "*turns the lamp a little further away.* Mm.",
+        "Say that again?",
+        "Buying, hiring, or looking for your own?"
+      ],
+      "beats": [
+        {
+          "id": "crane",
+          "topic": "cranes",
+          "tier": "known",
+          "warmth": 6,
+          "steps": [
+            "I drove the big crane on the east quay. Container work, twelve-hour shifts.",
+            "One night a load swung wrong and I held it with the brakes for forty minutes while they cleared the deck.",
+            "Nobody was hurt. I never went back up. *turns the lamp a little further away.* Night desk suits me."
+          ]
+        }
+      ],
+      "circle": [
+        "npc_marina_desk_day",
+        "npc_shipwright"
+      ],
+      "defer": {
+        "boats": "npc_shipwright"
+      }
+    }
   },
   "home_activities": [],
   "home_zone": "zone_apt_10",

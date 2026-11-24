@@ -29,3 +29,27 @@ export function pieceActs(piece, seats = []) {
   const first = piece.arche === 'bed' ? 'lie' : null;
   return [...acts.values()].sort((a, b) => (b.verb === first) - (a.verb === first) || rankOf(a.verb) - rankOf(b.verb));
 }
+
+// What a person offers you, in the same order the Room Stage's card lists it: Talk, and for a dancer on shift (`tip`
+// on her, plugins/roomstage) a tip of each size and a private dance. Sat, Get up last. The Stage (room-stage.js) and a
+// room walked in GLASS (panels/oneworld-card.js) both read it. Pure.
+export const PERSON_TIPS = [10, 50];
+export function personActs(p, { sat = false } = {}) {
+  const who = String(p.name || '').toLowerCase();
+  return [{ verb: 'talk', label: 'Talk', cmd: `talk ${who}` },
+    ...(p.tip ? PERSON_TIPS.map((n) => ({ verb: 'tip', label: `Tip ₵${n}`, cmd: `tip ${who} ${n}`, n })) : []),
+    ...(p.tip ? [{ verb: 'lapdance', label: 'Private dance ₵150', cmd: `lapdance ${who}` }] : []),
+    ...(sat ? [{ verb: 'stand', label: 'Get up', cmd: 'stand' }] : [])];
+}
+
+// What a vending machine offers (a piece of form `vendor` with `vend`, plugins/vending): a button for each flavour,
+// `vend <machine> <item>`, and pulling it out from the wall to get at its plug. Pulled out, the plug comes first. The
+// Room Stage's machine (panels/room-vendor.js) and GLASS's card both read it. Pure.
+export function vendorActs(p) {
+  const v = p.vend || {}, name = String(p.name || '').toLowerCase();
+  const flav = (v.menu || []).map((m) => ({ verb: 'vendpress', item: m.item, label: `${m.label}${m.price ? ` ₵${m.price}` : ''}`, cmd: `vend ${name} ${m.item}` }));
+  const nudge = { verb: 'nudge', label: v.out ? 'Push it back' : 'Pull it out from the wall', cmd: `nudge ${name} ${v.out ? 'back' : 'out'}` };
+  if (!v.out) return [...flav, nudge];
+  const plug = v.plugged === false ? { verb: 'plug', label: 'Plug it back in', cmd: `plug ${name}` } : { verb: 'unplug', label: 'Pull the plug', cmd: `unplug ${name}` };
+  return [plug, nudge, ...flav];
+}

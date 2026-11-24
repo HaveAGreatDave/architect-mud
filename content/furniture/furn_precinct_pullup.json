@@ -1,0 +1,25 @@
+{
+  "description": "A frame of welded square tube bolted through the floor: a bar across the top for pull-ups and two taped handles out front for dips. The bar is worn bright where the hands go.",
+  "flags": {
+    "aliases": "pull-up bar,pullup bar,dip bars,frame,bar",
+    "look": {
+      "arche": "prop",
+      "form": "pullup",
+      "wear": 0.9
+    },
+    "spot": {
+      "along": 3,
+      "wall": "left"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_precinct_pullup",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "pull-up frame",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_mq_precinct_gym"
+}

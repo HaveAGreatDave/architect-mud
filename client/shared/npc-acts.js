@@ -8,6 +8,8 @@
 
 const P = '(?:his|her|their|a|the)';
 const ACTS = [
+  // playing a guitar: first, since a song is sung over it and taking one down isn't rummaging
+  ['guitar', /\b(strums?|strumming|guitar|picks? out (a|the) (tune|chords?|melody))\b/],
   // at a card table (plugins/gametable GameTable._gesture): before 'tap', 'toss' and 'lean' can take them
   ['rap', /\b(raps?|knocks?) (on )?the (felt|table)\b/],
   ['muck', /\bmucks?\b/],
@@ -33,7 +35,9 @@ const ACTS = [
   ['cough', /\b(coughs?|hacks?|splutters?|wheezes?)\b/],
   // a dancer taking a layer off and putting it back on (plugins/strippers): before 'tug' ("peels") and 'adjust'
   ['redress', /\b(back on|back over|back together|pulls? (his|her|their) clothes back)\b/],
-  ['undress', /\b(slips? off|peels? .+ off|peels? off|steps? out of|unhooks?|unzips?|down to nothing)\b/],
+  ['strip', /\b(slips? off|peels? .+ off|peels? off|steps? out of|unhooks?|unzips?|down to nothing)\b/],
+  // anybody else getting changed (plugins/roomstage npc-life): plain, after the dancer's 'strip'
+  ['undress', new RegExp(`\\b(gets? changed|changes? (out of|into)|takes? ${P} clothes off|gets? undressed)\\b`)],
   // too hot and too cold, and the small things somebody does with nothing to do: all narrower than what follows
   // ("wipes their face" isn't cleaning, "blows on their hands" isn't smoke, "does a few squats, counting" isn't the till)
   ['swelter', /\bfans? (himself|herself|themselves|themself)\b/],
@@ -41,6 +45,8 @@ const ACTS = [
   ['tug', new RegExp(`\\b((tugs?|pulls?) at ${P} collar|peels? ${P} shirt)\\b`)],
   ['blow', new RegExp(`\\b(blows?|breathes?) (on|into) ${P} (cupped )?hands\\b`)],
   ['stoop', /\b(picks? (something|it|them|a \w+) up off|stoops?|bends? down)\b/],
+  // on a press bench (plugins/roomstage npc-life 'press', actor3d liePress): before 'reach' takes "presses the"
+  ['press', /\b(bench[- ]?press(es|ing)?|press(es|ing)? the bar|does a set on the bench|racks? the bar)\b/],
   ['exercise', /\b(does (a few |some )?(slow )?squats|press-ups|push-ups|sit-ups)\b/],
   ['rub', new RegExp(`\\brubs? ${P} (eyes|face)\\b`)],
   ['knuckles', new RegExp(`\\bcracks? ${P} knuckles\\b`)],
@@ -86,7 +92,7 @@ const ACTS = [
   ['count', /\b(counts?|tallies|the till|the cash|a roll of notes)\b/],
   ['phone', /\b(phones?|texts?|thumbs? through|messages?|calls? someone)\b/],
   ['read', new RegExp(`\\b(reads?|flicks? through|leafs? through|newspaper|tablet|scrolls?|checks? ${P} (screen|list|ledger))\\b`)],
-  ['dance', new RegExp(`\\b(danc(es?|ing)|sways?|bobs? ${P} head|taps? ${P} (foot|feet)|shimm(y|ies)|hums?)\\b`)],
+  ['dance', new RegExp(`\\b(danc(es?|ing)|sways?|bobs? ${P} head|taps? ${P} (foot|feet)|shimm(y|ies)|hums?|sings? [^.]{0,40}?\\b(to|under) (himself|herself|themselves|themself|${P} breath))\\b`)],
   ['shiver', new RegExp(`\\b(shivers?|shudders?|rubs? ${P} (hands|arms)|blows? on ${P} hands|stamps? ${P} feet)\\b`)],
   ['shrug', /\bshrugs?\b/],
   ['stretch', new RegExp(`\\b(stretch(es)?|cracks? ${P} (back|neck|knuckles)|rolls? ${P} shoulders)\\b`)],

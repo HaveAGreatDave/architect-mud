@@ -50,6 +50,7 @@ import { rehydrateConsorts, consortRowsOf, privateSpacesOf } from './hire.js';
 import './bliss-app.js';   // registers the B.L.I.S.S. tablet app (MIS-gated)
 import { cmdBliss } from './bliss-cmd.js';   // …and the same register, by typing
 import { pick, randInt } from '../../server/engine/util.js';
+import { bindLife, lifeBlocksArousal, cmdCaress, cmdTakeout, npcTouch } from './life.js';   // their day, needs, the door, touch
 
 // ── Tunables ────────────────────────────────────────────────────────────────
 // Deliberately unhurried: these beats are meant to land rarely and mean something,
@@ -92,6 +93,7 @@ const ABSENCE_LONG_MS  = 20 * 3_600_000;   // the better part of a day+ → it l
 
 // ── Runtime state (ephemeral) ─────────────────────────────────────────────────
 const arousal    = new Map(); // npcId  -> current arousal
+bindLife({ arousal });
 const moodCap    = new Map(); // npcId  -> arousal ceiling for the current warming session
 const lastSpoke  = new Map(); // npcId  -> ms of last spoken beat (any kind)
 const sceneAt    = new Map(); // zoneId -> ms the last two-hander began
@@ -1806,6 +1808,8 @@ function consortTick() {
         const keeperHere  = !!devoted && players.some(p => p.handle === devoted);
         const strangerHere = anyStranger(devoted);
         const keeper      = keeperHere ? players.find(p => p.handle === devoted) : null;
+        // Asleep, or starving, they're life.js's: no seduction, no shyness, no deck life.
+        if (lifeBlocksArousal(npc)) continue;
 
         // Beckoned out onto the ship (anywhere but the intimate cabins), she lives a
         // life keyed to that deck instead of the arousal/undress path.
@@ -2209,6 +2213,7 @@ function onFurnitureDescribe(f, viewer) {
 export const hooks = {
   'npc.talk': (payload) => onTalk(payload).catch(e => { console.error('[consort] onTalk:', e.message); return undefined; }),
   'furniture.describe': (f, viewer) => { try { return onFurnitureDescribe(f, viewer); } catch (e) { console.error('[consort] onFurnitureDescribe:', e.message); return undefined; } },
+  'room.npcTouch': (npc) => { try { return npcTouch(npc); } catch { return undefined; } },
   'player.say': (payload) => { try { onPlayerSay(payload); } catch (e) { console.error('[consort] onPlayerSay:', e.message); } return undefined; },
 };
 
@@ -2364,6 +2369,8 @@ export const commands = {
   // acquisition economy was behind three buttons. MIS-gated identically to the
   // app: unopted players get `Unknown command`, not a refusal.
   bliss:   cmdBliss,
+  caress:  cmdCaress,
+  takeout: cmdTakeout,
 };
 
 // ── Boot ────────────────────────────────────────────────────────────────────────

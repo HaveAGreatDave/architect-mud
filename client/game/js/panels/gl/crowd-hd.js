@@ -289,7 +289,7 @@ export function createCrowdHD(hostName, layer) {
     }
     const turn = (v) => (v ? [0, 1, 2].map((i) => B[0][i] * v[0] + B[1][i] * v[1] + B[2][i] * v[2]) : v);
     // (the coat's hem rests on a floor along Y; nobody here wears one long enough for it)
-    return { ...r, rows, sway: turn(r.sway), jiggle: turn(r.jiggle), seatJ: turn(r.seatJ), hairJ: turn(r.hairJ), floor: hostName === 'park' ? T[1] : -1e4 };
+    return { ...r, rows, sway: turn(r.sway), jiggle: turn(r.jiggle), seatJ: turn(r.seatJ), hairJ: turn(r.hairJ), hairJ2: turn(r.hairJ2), floor: hostName === 'park' ? T[1] : -1e4 };
   }
 
   return {

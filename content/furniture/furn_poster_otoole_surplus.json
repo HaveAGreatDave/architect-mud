@@ -1,0 +1,14 @@
+{
+  "description": "A hand-pasted advert in green and brass, hung crooked. Most of it is Rusty O'Toole in his apron, holding up a lamp like a trophy. O'TOOLE'S SURPLUS. EAST ALONG THE STREET. FAMILY RUN SINCE 1924.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_poster_otoole_surplus",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "an advert for O'Toole's Surplus",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_start"
+}

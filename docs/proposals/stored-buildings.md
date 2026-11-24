@@ -24,6 +24,10 @@ row whenever one comes off the map, and take it out when one goes back.
 | The Deadline | press bar | 912,910 Marrow Street | 2026-10-19 | holding map 5,9 | the Media Lot closed its block; the tile is the backlot |
 | Grind House | bladesmith | 912,913 Foundry Way | 2026-10-18 | holding map 7,7 | taken out for now; its film shows at Midway Parks |
 | 3, 5 and 7 Sorrel Way, and 19 Hughson Way | Halcyon glass and a sealed tower | 892, 893, 895 and 891,920 | 2026-11-09 | holding map 3, 5, 7 and 1,23 | Hughson Gardens ([hughson-gardens.md](hughson-gardens.md)) |
+| Unit 4, Marrow Street | empty shop, once a storefront to buy | 917,910 Marrow Street | 2026-11-22 | rooms only, no tile | Compound Interest took its tile ([compound-interest.md](compound-interest.md)) |
+| Stack Overflow | container yard | 925,907 | 2026-11-22 | rooms only, no tile | Airport Road ([airport-landside.md](airport-landside.md)) |
+| Negative Equity | photographer | 895,904 Halcyon Boulevard | 2026-11-23 | rooms only, no tile | Shingle Lane down to the beach ([shingle-beach.md](shingle-beach.md)) |
+| Chrome Court | flats, and The Crown on its roof | 895,905 Halcyon Boulevard | 2026-11-23 | rooms only, no tile; its residents moved to the Meridian and 8 Kettle Lane | the Shingle Pad ([shingle-beach.md](shingle-beach.md)) |
 | The Basin breakwaters | West and East Mole, 44 tiles | 878,897 to 900 and row 897 | 2026-11-04 | no tiles; the models and `scripts/content/breakwaters.mjs` are kept ([how to put them back](basin-breakwaters.md#off-the-map)) | taken out for now |
 
 ## Lather & Lye (stored 2026-10-08)

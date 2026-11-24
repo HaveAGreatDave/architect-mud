@@ -387,6 +387,15 @@ export default async function regress({ run, check }) {
     check('home talk: a grudge gets brought up', opened > 20, opened);
     check('home talk: the grudge topic is not re-picked fresh', !Array.from({ length: 200 }, () => _talk.pickTopic([a, b], {}, { ...m, joke: null, grudge: 'the rent' })).some((t) => t.label === 'the rent'));
     _talk.pairs.clear();
+    // interests: two or three each, the same every time, and an authored list wins
+    {
+      const i1 = _home.interestsOf({ id: 'npc_a1' }), i2 = _home.interestsOf({ id: 'npc_a1' });
+      check('interests: two or three, all real, stable per id', i1.length >= 2 && i1.length <= 3 && i1.every((k) => _home.INTERESTS[k]) && i1.join() === i2.join(), i1.join());
+      check('interests: flags.interests wins', _home.interestsOf({ id: 'x', flags: { interests: ['birds', 'nonsense'] } }).join() === 'birds');
+      const spread = new Set(Array.from({ length: 40 }, (_, k) => _home.interestsOf({ id: 'npc_' + k })[0]));
+      check('interests: spread over the list', spread.size >= 6, spread.size);
+      check('home life: teeth at night are brushed at a basin', _home.BATH_USE.teeth.w(null, 'night') > 1);
+    }
     const sc = _home.soloScene('night', true);
     check('home life: solo scenes come back with beats', Array.isArray(sc.beats) && sc.beats.length > 0 && !!sc.kind, sc.kind);
     // the body goes with the words: a raised line in a hot talk is 'hot', a storm-off is 'storm', a laugh a laugh

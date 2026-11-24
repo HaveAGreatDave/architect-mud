@@ -50,6 +50,12 @@ const BASE = {
   limp: 0,         // 0..1: the right leg hurts
   stagger: 0,      // 0..1: drunk
   phase: 0,        // the arms' lag behind the legs, as a share of the cycle
+  // What a walk has besides its steps. Without these every part moved on the one sine, in step: a metronome.
+  settle: 1.1,     // the trunk nods forward as each foot takes the weight, and comes back
+  tiltSwing: 0.9,  // the pelvis tips forward and back twice a stride, with the legs' reach
+  lag: 0.035,      // the chest turns after the hips, the head after the chest (a share of the cycle each)
+  whip: 0.14,      // the arm comes forward quicker than it goes back
+  wrist: 1,        // how loose the hands are: they trail the forearm's swing
 };
 
 // Each gait is the base with a few numbers changed. The names are the clips' ('walk' + the key).
@@ -78,6 +84,30 @@ export const GAITS = {
   Limp: { step: 0.49, duty: 0.62, limp: 1, list: 1.5, arm: 12, elbow: 20, lean: 3, strike: 6, push: 11 },
   // drunk: wide, uneven, swaying off line, arms out for balance, the head heavy
   Drunk: { step: 0.49, duty: 0.63, width: 0.11, stagger: 1, sway: 0.05, list: 3, bend: 4, give: 0.975, crouch: 0.02, lean: 4, roll: 6, head: 6, arm: 14, elbow: 26, abduct: 0.26, across: 0, toeOut: 10, strike: 5, push: 12 },
+  // nowhere to be: slow, long on each foot, the arms hanging and barely swinging, looking about
+  Stroll: { step: 0.54, duty: 0.62, lift: 0.04, strike: 6, push: 14, yaw: 5, sway: 0.028, lean: -0.5, roll: 3.5, arm: 11, elbow: 10, elbowSwing: 9, head: -3, settle: 1.4, wrist: 1.6, lag: 0.05 },
+  // drilled: upright, the knees up, the arms straight and swung high, nothing loose in it
+  March: { step: 0.66, duty: 0.58, lift: 0.1, strike: 14, push: 22, tilt: 1, yaw: 2.5, list: 1.2, sway: 0.014, lean: 0, roll: 2, bend: 0.5, head: -4, arm: 34, elbow: 4, elbowSwing: 3, abduct: 0.08, across: 0, toeOut: 3, settle: 0.4, tiltSwing: 0.3, lag: 0.01, whip: 0, wrist: 0.2 },
+  // chest out and pleased with it: long steps, the shoulders back, the arms swung wide, a spring in it
+  Strut: { step: 0.67, duty: 0.59, lift: 0.06, strike: 11, push: 25, yaw: 7, list: 2.6, lean: -4.5, roll: 7, bend: 2, head: -7, arm: 25, elbow: 12, elbowSwing: 14, abduct: 0.16, across: 6, toeOut: 10, bounce: 0.01, phase: 0.02 },
+  // late: short quick steps, leaning into it, the elbows bent and tucked, the head forward
+  Hurry: { step: 0.55, duty: 0.56, lift: 0.045, strike: 8, push: 22, tilt: 5, yaw: 4, lean: 8, roll: 5, head: 3, arm: 20, elbow: 62, elbowSwing: 14, abduct: 0.07, across: 6, settle: 0.6, wrist: 0.4 },
+  // the hips lead and swing, one foot placed in front of the other, the arms out a little from them
+  Sashay: { step: 0.56, duty: 0.61, width: 0.004, list: 6.2, yaw: 9.5, sway: 0.044, roll: 3.5, lean: -2, bend: 1.2, head: -4, arm: 15, elbow: 18, elbowSwing: 12, abduct: 0.13, across: 5, toeOut: 3, strike: 5, push: 22, wrist: 1.8, lag: 0.05 },
+  // angry: every foot put down hard, the trunk driving over it, fists low, the head down
+  Stomp: { step: 0.58, duty: 0.6, lift: 0.075, strike: 2, push: 16, give: 0.965, crouch: 0.012, tilt: 5, yaw: 5, list: 3, lean: 7, roll: 6, bend: 2.5, head: 7, arm: 22, elbow: 34, elbowSwing: 8, abduct: 0.15, across: 2, toeOut: 9, settle: 3, wrist: 0.2, whip: 0.05 },
+  // would rather not be seen: small steps, the arms held in, the shoulders round, the eyes on the floor
+  Timid: { step: 0.43, duty: 0.63, width: 0.035, lift: 0.03, strike: 5, push: 11, yaw: 2.5, list: 1.4, sway: 0.018, lean: 5, roll: 1.5, bend: 0.8, head: 11, arm: 5, elbow: 38, elbowSwing: 5, abduct: 0.03, across: 9, toeOut: 2, settle: 0.7, wrist: 0.5 },
+  // somebody who is looked at and knows it: slow and level, the back straight, the chin up, the hands quiet
+  Proud: { step: 0.6, duty: 0.61, lift: 0.045, strike: 8, push: 18, yaw: 3.5, list: 1.6, sway: 0.018, lean: -3, roll: 2, bend: 0.6, head: -7, arm: 9, elbow: 12, elbowSwing: 6, abduct: 0.09, across: 1, toeOut: 8, settle: 0.5, tiltSwing: 0.4, wrist: 0.5 },
+  // too much energy for a walk: up off every step, the arms swinging to the chest
+  Bouncy: { step: 0.63, duty: 0.55, lift: 0.085, bounce: 0.03, strike: 5, push: 32, yaw: 5.5, roll: 6, lean: 1.5, head: -4, arm: 29, elbow: 30, elbowSwing: 30, abduct: 0.12, across: 6, phase: 0.05, settle: 1.8, wrist: 1.8, whip: 0.2 },
+  // a few drinks in: the line wanders and the steps come a little uneven, but they're still walking
+  Tipsy: { step: 0.5, duty: 0.63, width: 0.085, stagger: 0.45, sway: 0.034, list: 2.6, bend: 2.5, lean: 2, roll: 5, head: 2, arm: 16, elbow: 20, abduct: 0.16, across: 1, toeOut: 9, strike: 7, push: 15, wrist: 1.8 },
+  // old and careful of one side: short flat steps, stooped, favouring the right leg a little
+  Hobble: { step: 0.36, duty: 0.66, lift: 0.02, limp: 0.4, give: 0.968, crouch: 0.03, strike: 4, push: 8, tilt: 6, yaw: 2.5, list: 1.3, sway: 0.03, lean: 9, roll: 2, bend: 2, head: 8, arm: 7, elbow: 26, elbowSwing: 8, abduct: 0.08, toeOut: 10, settle: 1.6 },
+  // short legs under a lot of body: quick little steps, toes well out, the whole trunk tipping side to side
+  Waddle: { step: 0.4, duty: 0.6, width: 0.11, lift: 0.035, sway: 0.06, list: 0.8, bend: 7, yaw: 5, roll: 2, lean: 0, head: -1, arm: 9, elbow: 24, elbowSwing: 6, abduct: 0.26, across: 0, toeOut: 17, strike: 4, push: 12, settle: 1.4 },
 };
 export const GAIT_NAMES = Object.keys(GAITS);
 
@@ -180,7 +210,7 @@ export function gaitClips(K) {
     let list = -G.list * (bump(pr, 0.11, 0.075) - bump(pl, 0.11, 0.075)) - 0.45 * G.list * s;
     list += G.limp * 5 * bump(pr, 0.8, 0.12);
     list += G.stagger * 3 * Math.sin(TAU * p + 0.9);
-    setR(P, 'pelvis', G.tilt * DEG, G.yaw * DEG * c, list * DEG);
+    setR(P, 'pelvis', (G.tilt + G.tiltSwing * Math.cos(2 * TAU * (p - 0.02))) * DEG, G.yaw * DEG * c, list * DEG);
     // the weight over the stance foot, late because the body lands before it moves across
     const swayX = -G.sway * Math.sin(TAU * (p - 0.04)) + G.stagger * 0.035 * Math.sin(TAU * p * 1 + 2.1);
     P.root[0] = swayX;
@@ -201,12 +231,15 @@ export function gaitClips(K) {
     // the trunk: leans in, the shoulders turn against the hips, bends back over the stance leg against the
     // pelvis's drop; a limp lurches it over the hurt leg while it's loaded
     const lurch = G.limp * 7 * bump(pr, 0.28, 0.14);
-    setR(P, 'spine', G.lean * 0.6 * DEG, -G.roll * 0.45 * DEG * c, (-0.6 * list + G.bend * s - lurch) * DEG);
-    setR(P, 'chest', G.lean * 0.4 * DEG, -G.roll * 0.55 * DEG * c, (-0.3 * list + G.bend * 0.4 * s - lurch * 0.4) * DEG);
+    // (the trunk gives a little as each foot takes the weight, and each part above the hips turns a moment after
+    // the one under it: the chest after the hips, the head after the chest)
+    const give = G.settle * (bump(pr, 0.075, 0.05) + bump(pl, 0.075, 0.05)), cT = Math.cos(TAU * (p - G.lag)), cH = Math.cos(TAU * (p - 2 * G.lag));
+    setR(P, 'spine', (G.lean * 0.6 + 0.6 * give) * DEG, -G.roll * 0.45 * DEG * cT, (-0.6 * list + G.bend * s - lurch) * DEG);
+    setR(P, 'chest', (G.lean * 0.4 + 0.4 * give) * DEG, -G.roll * 0.55 * DEG * cT, (-0.3 * list + G.bend * 0.4 * s - lurch * 0.4) * DEG);
     // the head holds level against the lean and the roll, and pitches where the gait looks
     const nod = 1.4 * Math.cos(2 * TAU * p) + G.stagger * 4 * Math.sin(TAU * p + 0.4);
-    setR(P, 'neck', (-G.lean * 0.5 + G.head * 0.4) * DEG, 0.35 * G.roll * DEG * c, 0.4 * list * DEG);
-    setR(P, 'head', (-G.tilt * 0.5 - G.lean * 0.3 + G.head * 0.6 + nod) * DEG, 0.3 * G.roll * DEG * c - 1 * DEG, (-1 + 0.5 * list + lurch * 0.6 + G.stagger * 5 * Math.sin(TAU * p + 1.3)) * DEG);
+    setR(P, 'neck', (-G.lean * 0.5 + G.head * 0.4 - 0.5 * give) * DEG, 0.35 * G.roll * DEG * cH, 0.4 * list * DEG);
+    setR(P, 'head', (-G.tilt * 0.5 - G.lean * 0.3 + G.head * 0.6 + nod - 0.5 * give) * DEG, 0.3 * G.roll * DEG * cH - 1 * DEG, (-1 + 0.5 * list + lurch * 0.6 + G.stagger * 5 * Math.sin(TAU * p + 1.3)) * DEG);
     // the legs, from where the feet are (the hip joints now that the pelvis and the root are set)
     const W = fk(P);
     // Solved twice: the first pass's feet are measured where they really landed (the pelvis's turn and drop
@@ -232,7 +265,10 @@ export function gaitClips(K) {
     }
     // the arms swing against the legs, the right forward with the left leg, lagging a little; forward they
     // come in across the body and bend at the elbow, back they hang straight. Drunk they go out for balance.
-    const q = p - 0.05 - G.phase, ca = Math.cos(TAU * q), ce = Math.cos(TAU * (q - 0.07)), sh = Math.sin(TAU * (q - 0.05));
+    // (each arm's swing has a second, faster part in it, so it comes forward quicker than it goes back, and the
+    // hand trails the forearm by how loose the wrist is)
+    const q = p - 0.05 - G.phase, ce = Math.cos(TAU * (q - 0.07)), sh = G.wrist * Math.sin(TAU * (q - 0.05));
+    const ca = Math.cos(TAU * q) + G.whip * Math.sin(2 * TAU * q);
     const fwdR = Math.max(0, -ca), fwdL = Math.max(0, ca), out = G.stagger * 0.12 * (1 + Math.sin(TAU * p + 0.3));
     const sR = G.limp ? 0.6 : 1;
     setR(P, 'uarmR', -(3 - G.arm * 1.1 * sR * ca) * DEG, (5 + G.across * fwdR) * DEG, -(G.abduct + out) + 0.05 * fwdR);
@@ -254,16 +290,19 @@ export function gaitClips(K) {
 // The gait a body walks with when nobody's said. `gait` (the server's, or flags.figure.gait) wins; then
 // how they are (drunk, tired, sad, angry, afraid, happy), their age and weight; then a habit off their id.
 // Returns a clip name.
-const HABITS = ['Easy', 'Easy', 'Easy', 'Brisk', 'Brisk', 'Swagger', 'Poise', 'Jaunty', 'Glum'];
+// (a habit is drawn from the list for their sex where one's known, so the walks in a street differ; the three
+// at the front of each are the ordinary ones, and they're still most of anybody's street)
+const HABITS = ['Easy', 'Easy', 'Easy', 'Brisk', 'Brisk', 'Stroll', 'Stroll', 'Jaunty', 'Glum', 'Proud', 'Hurry', 'Timid'];
+const HABITS_M = [...HABITS, 'Swagger', 'Swagger', 'Strut', 'March'], HABITS_F = [...HABITS, 'Poise', 'Poise', 'Sashay', 'Strut'];
+const MOOD_GAIT = { drunk: 'Drunk', tired: 'Shuffle', sad: 'Glum', crying: 'Glum', angry: 'Stomp', annoyed: 'Brisk', determined: 'Brisk', afraid: 'Hurry', happy: 'Jaunty', amused: 'Jaunty', laughing: 'Bouncy', bored: 'Stroll', thinking: 'Stroll', smug: 'Strut', flirty: 'Sashay', stern: 'March' };
 export function gaitFor(body, rnd) {
   const g = body.gait || body.figure?.gait;
   if (g) { const k = g[0].toUpperCase() + g.slice(1); return GAITS[k] ? 'walk' + k : 'walkEasy'; }
-  const m = body.mood;
-  if (m === 'drunk') return 'walkDrunk';
-  if (m === 'tired' || (body.age ?? 0) > 0.75) return 'walkShuffle';
-  if (m === 'sad') return 'walkGlum';
-  if (m === 'angry' || m === 'annoyed' || m === 'afraid' || (body.feel ?? 0) < 0) return 'walkBrisk';
-  if (m === 'happy' || m === 'amused') return 'walkJaunty';
-  if ((body.weight ?? 0) >= 0.85) return 'walkHeavy';
-  return 'walk' + HABITS[Math.floor(rnd * HABITS.length) % HABITS.length];
+  const m = body.mood, sex = body.sex || body.figure?.sex;
+  if (MOOD_GAIT[m]) return 'walk' + MOOD_GAIT[m];
+  if ((body.age ?? 0) > 0.75) return rnd < 0.5 ? 'walkShuffle' : 'walkHobble';
+  if ((body.feel ?? 0) < 0) return 'walkBrisk';
+  if ((body.weight ?? 0) >= 0.85) return rnd < 0.5 ? 'walkHeavy' : 'walkWaddle';
+  const H = sex === 'female' ? HABITS_F : sex === 'male' ? HABITS_M : HABITS;
+  return 'walk' + H[Math.floor(rnd * H.length) % H.length];
 }

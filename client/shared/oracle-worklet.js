@@ -195,6 +195,7 @@ class OracleVoice extends AudioWorkletProcessor {
     this.salt = (o.seed || 12345) | 0;
     this.R = [0, 1, 2, 3, 4].map(() => new Reson());       // cascade F1-F5
     this.np = new Reson(); this.nz = new AntiReson();      // the nasal pair
+    this.tp = [new Reson(), new Reson()]; this.tz = [new AntiReson(), new AntiReson()];   // the tracheal pairs
     this.fb1 = new BandPass(); this.fb2 = new BandPass();  // the frication band, twice
     this.fhp = new HighPass();                             // and its flat path
     this.lpf = 0; this.done = false; this.stopped = false; this.tilt = 0;
@@ -341,6 +342,17 @@ class OracleVoice extends AudioWorkletProcessor {
         // so 0 dB is a perfect cancel and -22 dB a deep zero, with no step between.
         this.np.set(nzf, 300, T);
         this.nz.set(nzf, Math.max(15, 300 * depth), T);
+        // TRACHEAL COUPLING (KLSYN88; Klatt & Klatt 1990). Through an open glottis the tract
+        // couples to the trachea below, which adds its resonances, near 600 and 1550 Hz, each
+        // with a zero just above. Closed, or pressed, pole and zero sit on one frequency and
+        // cancel. Lax and breathy folds stay apart, so the pairs part and a breathy voice
+        // gets the subglottal colour, not just modal voice with noise on it.
+        const tc = Math.min(1, gl * Math.max(0, Math.min(1, (this.rd - 0.8) / 1.2)) * (k.trach ?? 1));
+        for (let m = 0; m < 2; m++) {
+          const tf = (m ? 1550 : 600) * fs;
+          this.tp[m].set(tf, m ? 200 : 120, T);
+          this.tz[m].set(tf * (1 + 0.14 * tc), (m ? 200 : 120) * (1 + 0.5 * tc), T);
+        }
         const nf = Math.max(200, Math.min(sampleRate * 0.45, this.at(IX.nf, lt)));
         const nq = Math.max(0.5, this.at(IX.nq, lt));
         this.fb1.set(nf, nq, T); this.fb2.set(nf, nq, T);
@@ -370,6 +382,7 @@ class OracleVoice extends AudioWorkletProcessor {
       this.px = x; x = xe;
       // The cascade: nasal pair, then F1 and the rest.
       x = this.nz.run(this.np.run(x));
+      for (let m = 0; m < 2; m++) x = this.tz[m].run(this.tp[m].run(x));
       const r1 = R[0].run(x);
       let y = r1;
       for (let n = 1; n < 5; n++) y = R[n].run(y);

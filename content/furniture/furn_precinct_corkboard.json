@@ -1,0 +1,31 @@
+{
+  "description": "A corkboard mapping the district's gangs in pins and red string. The string has been added to so often it no longer matches the gangs.",
+  "flags": {
+    "aliases": "corkboard,board,string,map",
+    "look": {
+      "arche": "prop",
+      "dims": [
+        1.6,
+        0.05,
+        1
+      ],
+      "form": "cabinet",
+      "wear": 0.7
+    },
+    "spot": {
+      "along": 6.5,
+      "wall": "left",
+      "y": 1.2
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_precinct_corkboard",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "corkboard",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_mq_precinct_bullpen"
+}

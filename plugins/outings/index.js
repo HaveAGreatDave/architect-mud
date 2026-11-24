@@ -24,6 +24,12 @@ import { isNpcScheduledNow } from '../../server/engine/broadcast-bridge.js';
 import { getEnvironmentState } from '../../server/engine/environment.js';
 import { gameMsToReal } from '../../server/engine/gametime.js';
 import { linesFor } from './lines.js';
+import { emit } from '../../server/engine/events.js';
+import { sceneTick, sceneStage, clipFor } from './scenes.js';
+import { opposed } from '../parley/politics.js';
+// A housemate or workmate on the other side of the Ascendant / Long Watch line counts this
+// much as a tie: they share a stair, not a table.
+const OPPOSED_TIE = 0.15;
 
 // ── Tunables ────────────────────────────────────────────────────────────────
 export const MAX_FRIENDS      = 6;      // per NPC; the circle is trimmed by tie strength
@@ -106,6 +112,8 @@ export function buildNetwork(npcs = [...world.npcs.values()]) {
   const weight = new Map(); // "a|b" (a<b) -> score
   const tie = (a, b, w) => {
     if (a === b || !ids.has(a) || !ids.has(b)) return;
+    // Ascendants and the Long Watch don't drink together. A named friend is the exception.
+    if (w < 100 && opposed(world.npcs.get(a), world.npcs.get(b))) w *= OPPOSED_TIE;
     const k = a < b ? `${a}|${b}` : `${b}|${a}`;
     weight.set(k, (weight.get(k) || 0) + w);
   };
@@ -213,7 +221,7 @@ export function isFree(npc, env = getEnvironmentState()) {
   if (!isSocialNpc(npc) || memberOf.has(npc.id)) return false;
   const ai = npc._ai;
   if (!ai || ai.alarm || ai.dosedOut || ai.shopPaused) return false;
-  if (npc._aboard || npc._escorting || npc._charterHeld || npc._combatTargetId) return false;
+  if (npc._aboard || npc._escorting || npc._charterHeld || npc._combatTargetId || npc._beach) return false; // _beach: at the beach (plugins/beach)
   if (isNpcAsleep(npc)) return false;
   return !onShiftSoon(npc, env);
 }
@@ -389,6 +397,28 @@ function release(npc, o, { broadcast, ai, why } = {}) {
   }
 }
 
+// One of a couple leaving together (scenes.js slipOff): out of the night quietly, the line already said. A host
+// who slips off ends their own party.
+function slipAway(npc, o) {
+  if (o.kind === 'house' && npc.id === o.caller) return endParty(o, npc, {});
+  memberOf.delete(npc.id);
+  if (npc._ai) { npc._ai.patrolPath = []; npc._ai.patrolTarget = null; npc._ai._lifeActivity = null; }
+  o.members.delete(npc.id); o.arrived.delete(npc.id);
+  if (o.members.size < 2) { for (const id of o.members) memberOf.delete(id); outings.delete(o.id); }
+}
+
+// `room.npcStage`: a member of a party in its room, stood with the group and doing what it's doing (scenes.js).
+export function partyStage(n, zoneId, pieces, spec) {
+  const o = outings.get(memberOf.get(n?.id));
+  return o ? sceneStage(o, n, zoneId, pieces, spec) : null;
+}
+// What a party is up to now, for anything telling players: the scene and who's in it. Null when nothing is on.
+export function partyScene(npcId) {
+  const s = outings.get(memberOf.get(npcId))?.scene;
+  return s ? { kind: s.kind, a: s.a, b: s.b, cast: [...s.cast], ends: s.ends } : null;
+}
+export const hooks = { 'room.npcStage': partyStage };
+
 // The host has to go (work, a fight, asleep on the sofa): the guests are shown out.
 function endParty(o, host, { broadcast, ai, why }) {
   const guests = [...o.arrived].filter(id => id !== host.id);
@@ -438,6 +468,19 @@ function drive(npc, { broadcast, query, ai, zoneId }) {
     return true;
   }
 
+  // What the group is doing (scenes.js): a dance, a toast, a drinking game, somebody passed out. The Stage is told
+  // when it changes, and when each of them moves on to the next clip of it.
+  const sc = sceneTick(o, now, {
+    names, nameOf: (id) => world.npcs.get(id)?.name || '', say: (line) => { if (getZonePlayers(o.venue).length) say(o.venue, line, broadcast); },
+    changed: () => emit('room.peopleChanged', { zoneId: o.venue }),
+    leave: (ids) => { for (const id of ids) { const m = world.npcs.get(id); if (m && memberOf.get(id) === o.id) slipAway(m, o); } },
+  });
+  if (sc) {
+    const slot = sc.cast.map((id) => clipFor(sc, id, now)).join();
+    if (slot !== o.sceneSlot) { o.sceneSlot = slot; emit('room.peopleChanged', { zoneId: o.venue }); }
+  }
+  if (!outings.has(o.id) || memberOf.get(npc.id) !== o.id) return false;
+
   // At the table. A line now and then, only with an audience and more than one of them there.
   if (o.arrived.size >= 2 && now - o.lastSay > SAY_GAP_MS && Math.random() < 0.25 && getZonePlayers(o.venue).length) {
     o.lastSay = now;
@@ -483,7 +526,7 @@ schedule('1m', () => {
 
 export const commands = {};
 export const _test = {
-  drive, release, outings, memberOf, friends, launched,
+  drive, release, slipAway, outings, memberOf, friends, launched,
   get venues() { return venues; },
   reset() { outings.clear(); memberOf.clear(); launched.clear(); plan = null; },
 };

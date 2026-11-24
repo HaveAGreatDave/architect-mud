@@ -27,5 +27,5 @@
   "id": "zone_mq_chrome_f2",
   "map_id": "map_int_mq_chrome",
   "name": "Floor 2",
-  "parent_zone": "zone_district_895_905"
+  "parent_zone": null
 }

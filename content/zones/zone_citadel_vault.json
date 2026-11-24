@@ -15,17 +15,17 @@
     "up": "zone_citadel_gallery"
   },
   "flags": {
-    "building_name": "Compound Interest",
+    "building_name": "Coldwater Financial",
     "floor": "concrete",
     "is_building": true,
     "is_interior": true,
     "scavenging_table_id": "scav_citadel_vault"
   },
   "grid_x": 0,
-  "grid_y": -2,
+  "grid_y": 2,
   "grid_z": -1,
   "id": "zone_citadel_vault",
   "map_id": "map_int_citadel",
-  "name": "Compound Interest — The Vault",
-  "parent_zone": "zone_district_921_911"
+  "name": "Coldwater Financial — The Vault",
+  "parent_zone": "zone_district_916_910"
 }

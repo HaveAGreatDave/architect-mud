@@ -1,6 +1,6 @@
 import { state } from '../state.js';
 import { appendMsg, appendHtml } from '../render.js';
-import { sendDialogue, sendCmd, buyFromNpc, buyManyFromNpc, sellToNpc, sellAllToNpc, sendRaw } from '../net.js';
+import { sendDialogue, sendCmd, sendCmdQuiet, buyFromNpc, buyManyFromNpc, sellToNpc, sellAllToNpc, sendRaw } from '../net.js';
 import { noteAct, takeAct, tickCredits, celebrate } from './purchase-moment.js';
 
 let shopState = null; // { msg, mode, sort, sel, qty }
@@ -210,6 +210,11 @@ function renderDialogue(msg) {
   // and clear it when a NEW conversation opens without one.
   if (msg.mood) box.dataset.mood = msg.mood;
   else if (fresh) delete box.dataset.mood;
+  // Somebody you can answer in your own words keeps the box for the whole conversation;
+  // only the opening frame says so, so a later node of the same tree inherits it.
+  if (msg.parley) parleyNpcId = msg.npcId;
+  else if (msg.npcId !== parleyNpcId) parleyNpcId = null;
+  parleyBox(!!parleyNpcId);
 
   const stageEl = document.getElementById('dialogue-stage');
   stageEl.textContent = msg.stage || '';
@@ -291,6 +296,127 @@ function renderDialogue(msg) {
   }
 }
 
+// ── Talking in your own words (plugins/parley) ───────────────────────────────
+//
+// A line typed here goes up as `parley <npcId> <text>`; the answer comes back as a
+// `parley_line` and replaces the speech in place, voiced like any other line. The
+// options stay where they were: the tree is still there to fall back on.
+let parleyNpcId = null;
+
+function parleyBox(show) {
+  let form = document.getElementById('dialogue-parley');
+  if (!form && !show) return;
+  if (!form) {
+    form = document.createElement('form');
+    form.id = 'dialogue-parley';
+    form.autocomplete = 'off';
+    form.innerHTML = '<input id="dialogue-parley-input" type="text" maxlength="200" placeholder="Say something…" aria-label="Say something to them"><button type="button" id="dialogue-parley-mic" class="dialogue-opt" aria-pressed="false" title="Speak (tap, then talk)" aria-label="Speak instead of typing" hidden>🎤</button><button type="submit" class="dialogue-opt">Say</button>';
+    document.getElementById('dialogue-box').appendChild(form);
+    const input = form.querySelector('input');
+    parleyMic(form, input);
+    // The Room Stage and the smartbar listen for keys on the document; a line being
+    // typed here is nobody else's. Escape still leaves the conversation.
+    input.addEventListener('keydown', (e) => { if (e.key !== 'Escape') e.stopPropagation(); });
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const text = input.value.trim();
+      if (!text || !parleyNpcId) return;
+      input.value = '';
+      dsfx('opt');
+      beginThinking();
+      sendCmdQuiet(`parley ${parleyNpcId} ${text}`);
+    });
+  }
+  form.hidden = !show;
+  if (!show) parleyMicStop();
+}
+
+// Speaking instead of typing. This is the browser's own recognizer (Chrome, Edge,
+// Safari on desktop and phone), started only by a tap, so it needs no setting: the
+// button shows wherever the browser can listen. What you said goes up as heard,
+// with none of js/dictation.js's command repairs, because it's talk, not a verb.
+// The partial words show in the box as you speak; the final line is sent.
+const SR = typeof window !== 'undefined' ? (window.SpeechRecognition || window.webkitSpeechRecognition) : null;
+let micRecog = null, micOn = false;
+
+function parleyMicStop() {
+  if (micOn && micRecog) { try { micRecog.stop(); } catch { /* already stopped */ } }
+}
+
+function parleyMic(form, input) {
+  const btn = form.querySelector('#dialogue-parley-mic');
+  if (!SR || !btn) return;
+  btn.hidden = false;
+  const setOn = (on) => { micOn = on; btn.classList.toggle('listening', on); btn.setAttribute('aria-pressed', on ? 'true' : 'false'); btn.title = on ? 'Listening: tap to stop' : 'Speak (tap, then talk)'; };
+  btn.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (micOn) { parleyMicStop(); return; }
+    if (!micRecog) {
+      micRecog = new SR();
+      micRecog.continuous = false;
+      micRecog.interimResults = true;
+      micRecog.maxAlternatives = 1;
+      try { micRecog.lang = navigator.language || 'en-GB'; } catch { /* default */ }
+      micRecog.addEventListener('result', (ev) => {
+        let interim = '', final = '';
+        for (let i = ev.resultIndex; i < ev.results.length; i++) {
+          const r = ev.results[i];
+          if (r.isFinal) final += r[0].transcript; else interim += r[0].transcript;
+        }
+        if (!final) { input.value = interim; return; }
+        input.value = final.trim();
+        if (input.value) form.requestSubmit();
+      });
+      micRecog.addEventListener('error', (ev) => {
+        const why = {
+          'not-allowed': 'Microphone blocked. Allow microphone access for this site in your browser settings, then try again.',
+          'service-not-allowed': "Speech recognition isn't available in this browser session.",
+          'no-speech': "Didn't hear anything.",
+          'audio-capture': 'No microphone found.',
+          network: "Speech recognition couldn't reach its network service.",
+        }[ev.error];
+        if (why) appendMsg(why, 'system');
+        setOn(false);
+      });
+      micRecog.addEventListener('end', () => setOn(false));
+    }
+    try { micRecog.start(); setOn(true); } catch { setOn(true); }
+  });
+}
+
+export function showParleyLine(msg) {
+  const panel = document.getElementById('dialogue-panel');
+  const open = panel.classList.contains('active') && !panel.classList.contains('shop-mode') && state.currentNpcId === msg.npcId;
+  const said = msg.say ? `${msg.npcName} says, "${msg.say}"` : '';
+  // Into the log as well, so the conversation can be read back.
+  if (msg.stage) appendMsg(msg.stage, 'zone_event');
+  if (said) appendMsg(said, 'say');
+  if (!open) {
+    if (msg.say) import('./npc-bubbles.js').then((m) => m.voiceLine(msg.npcName, msg.say, state.player?.displayRung, msg.npcSex)).catch(() => {});
+    return;
+  }
+  const wait = Math.max(0, thinkingUntil - performance.now());
+  if (thinkTimer) clearTimeout(thinkTimer);
+  thinkTimer = setTimeout(() => {
+    thinkTimer = null;
+    const box = document.getElementById('dialogue-box');
+    if (msg.mood) box.dataset.mood = msg.mood;
+    const stageEl = document.getElementById('dialogue-stage');
+    stageEl.textContent = msg.stage || '';
+    stageEl.classList.toggle('on', !!msg.stage);
+    const textEl = document.getElementById('dialogue-text');
+    textEl.textContent = msg.say ? `"${msg.say}"` : '';
+    if (msg.say) import('./npc-bubbles.js').then((m) => m.voiceLine(msg.npcName, msg.say, state.player?.displayRung, msg.npcSex)).catch(() => {});
+    dsfx('line');
+    typeOut(textEl, () => {
+      document.getElementById('dialogue-options').classList.remove('veiled');
+      stageEl.classList.remove('veiled');
+      if (msg.ended) parleyBox(false);
+      else document.getElementById('dialogue-parley-input')?.focus();
+    });
+  }, wait);
+}
+
 // Start the NPC's thinking beat and show it: the speech goes to an ellipsis so the
 // panel visibly waits on them, rather than sitting on the line they already said.
 function beginThinking() {
@@ -323,6 +449,8 @@ function talkTo(name) {
 
 export function closeDialogue() {
   talkTo(null);
+  parleyNpcId = null;
+  parleyBox(false);
   cancelType();
   if (thinkTimer) { clearTimeout(thinkTimer); thinkTimer = null; }
   thinkingUntil = 0;
@@ -394,7 +522,7 @@ export function openShop(msg) {
   const resultText = msg.buyResult || msg.sellResult || null;
   for (const line of (msg.shopLog || [])) {
     // Named only when the line doesn't already name them — half the refusals are
-    // written as the vendor doing something ("Grady puts it back"), and the other
+    // written as the vendor doing something ("Rusty puts it back"), and the other
     // half are bare ("That item isn't on the shelf right now."). The bare ones
     // need the name once they're out of the panel and in a busy log.
     const named = msg.npcName && line.includes(msg.npcName);

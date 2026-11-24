@@ -4,6 +4,7 @@
   "id": "item_soylent_clinical",
   "name": "soylent pouch (unflavoured)",
   "tags": {
+    "aisle": "staples",
     "consumable": true,
     "description": "A plain grey foil pouch with no cartoon sun on it at all, just a lot-number and the word UNFLAVOURED. The absence of marketing is the most honest thing in the shop, and somehow the worst.",
     "restore_hunger": 40,

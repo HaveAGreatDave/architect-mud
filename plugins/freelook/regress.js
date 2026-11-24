@@ -8,7 +8,8 @@ import { getAllZones, getZone, getZoneFurniture, zoneAtTile, propsOf, world } fr
 import { getBroadcast, setBroadcast } from '../../server/engine/messaging.js';
 import { emit } from '../../server/engine/events.js';
 import { hasTag } from '../../server/engine/tags.js';
-import { commands, placedTile, tileUnder, _test } from './index.js';
+import { commands, placedTile, tileUnder, hereFor, _test } from './index.js';
+import { token } from '../../server/engine/street-actors.js';
 
 export default async function regress({ run, check, getPlayer }) {
   const { freelook } = commands;
@@ -193,6 +194,20 @@ export default async function regress({ run, check, getPlayer }) {
       }
     }
   }
+
+  // ── Who's here, by name ──
+  // The street view on foot names only the people on your own tile (hereFor), the ones `look` already lists, so a
+  // figure further off stays nameless. Read off the live world: an NPC standing on a street tile.
+  const npcOut = [...world.npcs.values()].find((n) => n.name && !n._aboard && placedTile(getZone(n.zone_id)) && (getZone(n.zone_id).grid_z ?? 0) === 0);
+  if (npcOut) {
+    const here = hereFor({ id: '__here_probe', current_zone: npcOut.zone_id });
+    const mine = here.find((q) => q.t === token(npcOut.id));
+    check('here: an NPC on your tile is named, by street token', mine?.n === npcOut.name && mine?.npc === 1, JSON.stringify(mine));
+    check('here: …and carries no id', here.every((q) => Object.keys(q).every((k) => k === 't' || k === 'n' || k === 'npc') && q.t !== npcOut.id), JSON.stringify(here[0]));
+    const other = [...world.npcs.values()].find((n) => n.zone_id !== npcOut.zone_id && placedTile(getZone(n.zone_id)));
+    if (other) check('here: somebody on another tile is not', !here.some((q) => q.t === token(other.id)), other.id);
+  }
+  check('here: indoors, nobody on the street is named', !interior || hereFor({ id: '__here_probe', current_zone: interior.id }).length === 0);
 
   // ── The Under ──
   // GLASS draws nothing below the street, so `freelook under` ships the tile graph instead. An

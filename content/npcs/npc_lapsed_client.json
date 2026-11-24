@@ -18,7 +18,7 @@
     "\"Six months I made the payment. Six. Ask them what six months buys you.\"",
     "\"You get used to it being there. That's the bit nobody warns you about.\""
   ],
-  "description": "A tired woman in a good coat gone shapeless, sitting on the step of a shopfront with the window whitewashed from the inside. Her left hand catches the light wrong at the knuckles, which is where the jack goes, and she keeps it in her pocket without seeming to decide to.",
+  "description": "A tired woman in a good coat gone shapeless, sitting on the step of a shuttered shop unit with a letting notice tied to its handle. Her left hand catches the light wrong at the knuckles, which is where the jack goes, and she keeps it in her pocket without seeming to decide to.",
   "dialogue_tree": {
     "bye": {
       "options": [],
@@ -62,7 +62,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"The shop happened. Or stopped happening.\" She nods at the whitewashed glass without looking at it. \"They were very good about it, you know. Nobody shouted. They just kept sending the same polite line until the line stopped being polite, and now here you are, and you're the line.\""
+      "text": "\"The shop happened. Or stopped happening.\" She nods at the shutter behind her without looking at it. \"They were very good about it, you know. Nobody shouted. They just kept sending the same polite line until the line stopped being polite, and now here you are, and you're the line.\""
     }
   },
   "faction": null,
@@ -76,7 +76,7 @@
     "personality": "unemployed"
   },
   "home_activities": [],
-  "home_zone": "zone_district_916_910",
+  "home_zone": "zone_district_917_910",
   "hp": 34,
   "hp_max": 34,
   "id": "npc_lapsed_client",
@@ -91,5 +91,5 @@
   "vendor_stock_size": 10,
   "wander_zones": [],
   "wanders": 0,
-  "work_zone_id": "zone_district_916_910"
+  "work_zone_id": "zone_district_917_910"
 }

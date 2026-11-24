@@ -51,7 +51,7 @@ Brakk sells it with the weld seams showing and charges nothing extra for them.
 - **House look:** black vinyl, bare steel, body-colour metal on the dash. The steel is brushed and
   everything else is matte.
 - **Light line:** arc white, `[214, 232, 255]`, the blue-white of a welding arc.
-- **Badge:** a beast's head in profile with its jaw open, on the grille and the wheel boss.
+- **Badge:** a block-cut B in a bolted octagon, cut through by a stencil line, on the grille and the wheel boss.
 
 ### Vex Motors
 

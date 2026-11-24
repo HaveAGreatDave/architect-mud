@@ -395,6 +395,163 @@
       ],
       "stage": "zone_stgarneau_basement",
       "zone": "zone_district_925_912"
+    },
+    "parley": {
+      "topics": {
+        "church": [
+          "church",
+          "building",
+          "st garneau",
+          "nave",
+          "chapel",
+          "here"
+        ],
+        "god": [
+          "god",
+          "faith",
+          "pray",
+          "prayer",
+          "believe",
+          "heaven",
+          "religion",
+          "soul"
+        ],
+        "pantry": [
+          "pantry",
+          "food",
+          "help",
+          "hungry",
+          "charity"
+        ],
+        "pendant": [
+          "pendant",
+          "guillotines",
+          "chain",
+          "collar"
+        ],
+        "architect": [
+          "architect",
+          "singularity",
+          "machine"
+        ],
+        "team": [
+          "team",
+          "hockey",
+          "guillotines",
+          "played"
+        ]
+      },
+      "react": {
+        "greet": {
+          "stranger": [
+            "You're welcome here.",
+            "*nods without stopping what he's doing.* Come in."
+          ],
+          "close": [
+            "{name}. Come, sit. There's tea."
+          ]
+        },
+        "farewell": [
+          "Go carefully.",
+          "The door's open tomorrow too."
+        ],
+        "thank": [
+          "Don't thank me. Thank whoever stocked the pantry."
+        ],
+        "praise": [
+          "It's the building that's beautiful. I just dust it."
+        ],
+        "insult": [
+          "*keeps polishing.* I've been called that by people I buried. Sit down if you like.",
+          "All right."
+        ],
+        "insult_last": [
+          "You can stay if you need to. I'd rather you didn't talk."
+        ],
+        "flirt": [
+          "*a long look.* I'm flattered, and I'm a priest."
+        ],
+        "apologise": [
+          "Already forgiven. That's the job."
+        ],
+        "joke": [
+          "*a dry smile.* I'll use that on Sunday."
+        ],
+        "complain": [
+          "Write it on the board by the door. I read it. I don't always do anything about it."
+        ],
+        "ask_feeling": [
+          "Old. Busy. Grateful, most days."
+        ],
+        "order_drink": [
+          "There's tea in the back. That's the strongest we keep."
+        ],
+        "ask_name": [
+          "Jerome. Father, if you like. Jerome if you don't."
+        ],
+        "ask_job": [
+          "I keep the doors open and the pantry full. The rest is between people and God."
+        ],
+        "ask_origin": [
+          "I came from the seminary on the hill. It isn't there now."
+        ],
+        "ask_news": [
+          "People tell me things. I don't repeat them. That's why they tell me."
+        ],
+        "ask_advice": [
+          "Eat. Sleep. Be kind to somebody who can't pay you back.",
+          "Watch the door. I always do."
+        ],
+        "ask_about:church": [
+          "Older than the congregation. The congregation's older than me."
+        ],
+        "ask_about:god": [
+          "I believe. I don't ask anyone else to. Sit for a while and see what you think.",
+          "Some days He's very quiet. I keep talking anyway."
+        ],
+        "ask_about:pantry": [
+          "Take what you need. Leave what you can. Nobody's counting."
+        ],
+        "ask_about:pendant": [
+          "*touches it.* An old team. Old friends. I'm the last one who wears it."
+        ],
+        "ask_about:architect": [
+          "People ask if it's God. I don't think God needs a power supply."
+        ],
+        "ask_about:team": [
+          "The Guillotines. Ask me about the pendant sometime."
+        ]
+      },
+      "deflect": [
+        "*squares a candle on the rail.* Mm.",
+        "I'm not sure I follow. Say it slower.",
+        "*listens politely and says nothing.*"
+      ],
+      "beats": [
+        {
+          "id": "pendant",
+          "topic": "pendant",
+          "tier": "known",
+          "warmth": 6,
+          "steps": [
+            "*touches the enamel.* The Guillotines. I played in goal, when I was young and stupid and had knees.",
+            "We lost a final in overtime. Our captain blamed me in the papers. I blamed myself for longer.",
+            "He came here, years later, sick, and asked me to hear his confession. I did. It was mostly about that game.",
+            "We buried him in his jersey. I wear the pendant so somebody still remembers we were a team."
+          ]
+        },
+        {
+          "id": "faith",
+          "topic": "god",
+          "tier": "familiar",
+          "warmth": 6,
+          "steps": [
+            "You want the honest answer? Some years I wasn't sure He was there at all.",
+            "I kept the doors open anyway. People came in out of the rain. Somebody fed them. That felt like an answer.",
+            "*squares a candle.* I think the doors were the prayer. I just said the words over them."
+          ]
+        }
+      ]
     }
   },
   "home_activities": [],

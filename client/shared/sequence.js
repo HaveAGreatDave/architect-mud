@@ -21,6 +21,7 @@
 // gate (scripts/shapes/sequence.mjs) all run it.
 
 import { actOfLine } from './npc-acts.js';
+import { MOODS } from './expressions.js';
 
 export const SEQ_FORMAT = 1;
 
@@ -70,6 +71,10 @@ export const ACTS = Object.freeze({
   stare: 'Stare', wink: 'Wink', leanin: 'Lean in', toss: 'Toss', adjust: 'Straighten up', stumble: 'Stumble', flex: 'Flex',
   smoke: 'Smoke', drink: 'Drink', laugh: 'Laugh', shrug: 'Shrug', nod: 'Nod',
 });
+
+// The face a person wears through a beat (`beat.face[role]`): a mood off client/shared/expressions.js, at full
+// strength. Nothing is their face as it is.
+export const FACES = Object.freeze({ '': 'As they are', ...Object.fromEntries(MOODS.filter((m) => m !== 'neutral').map((m) => [m, m[0].toUpperCase() + m.slice(1)])) });
 
 // Where a person looks: 'camera', a role, or nothing for their own idle glance.
 export const LOOKS = Object.freeze({ auto: 'Automatic', camera: 'To camera', screen: 'At the screen' });

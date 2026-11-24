@@ -289,7 +289,7 @@ rest of your life. Rank 1 is that, meant literally.
 | 16 | **Hold the Threshold** | `zone_under_watchthresh` is probed. Falling back is allowed and it costs. | **1 capstone** |
 | 17 | The List | Copy a list of names off a Halcyon terminal. You are not told what it is. | 2 |
 | 18 | Cold Chain | Take a shipment off a courier who is nobody and knows nothing. | 2 |
-| 19 | Two-Cell Supply | Lean on a supplier until they stop selling to Halcyon. They are not a villain. | 2 |
+| 19 | O'Toole's Surplus | Lean on a supplier until they stop selling to Halcyon. They are not a villain. | 2 |
 | 20 | The Wrong Door | A raid on an address that turns out to be wrong, and the Watch does not go back. | 2 |
 | 21 | Ledger | Plant evidence. The Watch calls it evidence and means it. | 2 |
 | 22 | **A Name Off the List** | One of slot 17's names is now a target. `subdue`, not kill, and you learn what the list was. | **2 capstone** |

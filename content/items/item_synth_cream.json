@@ -10,18 +10,19 @@
     "food_noun": "cream",
     "food_profile": "liquid",
     "matter": {
+      "look": {
+        "label": "#e8e8f0",
+        "pack": "carton",
+        "size": 0.6
+      },
       "ramp": {
         "raw": "#faf8f0"
-      },
-      "look": {
-        "pack": "carton",
-        "label": "#e8e8f0",
-        "size": 0.6
       }
     },
     "needs_cooking": true,
     "perishable": true,
     "restore_hunger": 14,
+    "shelved": true,
     "spoil_rate": "normal",
     "stackable": true,
     "status_chance": {

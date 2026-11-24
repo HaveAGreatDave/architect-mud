@@ -3,7 +3,14 @@
   "flags": {
     "interactions": [
       "sit"
-    ]
+    ],
+    "spot": {
+      "at": [
+        -5.2,
+        9.6
+      ],
+      "turn": 180
+    }
   },
   "hp": null,
   "hp_max": null,

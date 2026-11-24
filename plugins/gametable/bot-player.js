@@ -8,7 +8,7 @@
 // module's `bestHand`; decisions from pot odds + personality (tightness,
 // aggression, bluffFreq, semiBluffFreq, betSizing). Table talk & tilt come later.
 
-import { bestHand } from './games/holdem.js';
+import { bestHand, compareEval } from './games/holdem.js';
 import { clamp } from '../../server/engine/util.js';
 
 export function botId(npcId) { return `npc:${npcId}`; }
@@ -96,11 +96,47 @@ function drawEquity(hand, community) {
   return eq;
 }
 
-function evaluateStrength(game, gs) {
+// ── Equity ───────────────────────────────────────────────────────────────────
+// How often this hand wins against `nOpp` random hands, run out to the river `iters` times. Ties count as a share.
+// It sees draws, kickers and how many are in the pot, which the tiers above can't. It runs on the server's
+// thread, so the runs shrink as the field grows: about 10 ms a decision, and
+// a few points of noise in the read, which a person has too.
+const DECK = (() => {
+  const out = [];
+  for (const rank of Object.keys(RV)) for (const suit of ['s', 'h', 'd', 'c']) out.push({ rank, suit });
+  return out;
+})();
+export function equity(hand, community, nOpp, iters = 300) {
+  const used = new Set([...hand, ...community].map(c => c.rank + c.suit));
+  const rest = DECK.filter(c => !used.has(c.rank + c.suit));
+  const need = 5 - community.length, n = rest.length;
+  let won = 0;
+  for (let it = 0; it < iters; it++) {
+    // a partial shuffle: just the cards this run needs off the top
+    const take = need + nOpp * 2;
+    for (let i = 0; i < take; i++) { const j = i + Math.floor(Math.random() * (n - i)); const t = rest[i]; rest[i] = rest[j]; rest[j] = t; }
+    const board = community.concat(rest.slice(0, need));
+    const mine = bestHand([...hand, ...board]);
+    let best = 1, ties = 1;
+    for (let o = 0; o < nOpp && best > 0; o++) {
+      const k = need + o * 2, cmp = compareEval(mine, bestHand([rest[k], rest[k + 1], ...board]));
+      if (cmp < 0) best = 0; else if (cmp === 0) ties++;
+    }
+    if (best) won += 1 / ties;
+  }
+  return won / iters;
+}
+
+function evaluateStrength(game, gs, nOpp) {
   const community = game.community || [];
-  if (community.length === 0) return { strength: preflopStrength(gs.hand), draw: 0 };
+  const eq = equity(gs.hand, community, nOpp, Math.min(120, Math.round(360 / (nOpp + 1))));
+  // strength on the old 0..1 scale the persona thresholds were tuned on: an even share of the pot is 0.5
+  const fair = 1 / (nOpp + 1);
+  const fromEq = clamp(0.5 + (eq - fair) * (1.4 + nOpp * 0.3), 0, 1);
+  if (community.length === 0) return { strength: (fromEq + preflopStrength(gs.hand)) / 2, draw: 0, eq };
   const made = bestHand([...gs.hand, ...community]);
-  return { strength: madeStrength(made, gs.hand, community), draw: drawEquity(gs.hand, community) };
+  // the equity leads; the made-hand read keeps a bot from slow-rolling a monster it can see
+  return { strength: Math.max(fromEq, madeStrength(made, gs.hand, community) * 0.85), draw: drawEquity(gs.hand, community), eq };
 }
 
 // ── Bet sizing ─────────────────────────────────────────────────────────────
@@ -155,7 +191,9 @@ export function decideBotAction(table, seat) {
   const bluffFreq     = p.bluffFreq ?? 0.15;
   const semiBluffFreq = p.semiBluffFreq ?? 0.4;
 
-  const { strength, draw } = evaluateStrength(game, gs);
+  // everybody still in the hand but this bot
+  const nOpp = Math.max(1, (game.seats || []).filter(s => s && !s.folded && s.playerId !== seat.playerId).length);
+  const { strength, draw, eq } = evaluateStrength(game, gs, nOpp);
   const toCall = Math.max(0, game.currentBet - gs.bet);
   const tagged = (r, tag) => ({ ...r, tag });
 
@@ -173,7 +211,8 @@ export function decideBotAction(table, seat) {
 
   // Facing a bet — fold, call, or raise.
   const potOdds = toCall / (game.pot + toCall);
-  const callStrength = Math.max(strength, 0.5 * strength + draw);
+  // the price is paid in equity: the share of the pot it wins when it calls, which counts its draws already
+  const callStrength = Math.max(eq, Math.min(strength, eq + 0.08));
 
   const wantValueRaise     = strength >= 0.78 - aggression * 0.20 && Math.random() < 0.5 + aggression * 0.4;
   const wantSemiBluffRaise = draw >= 0.18 && strength < 0.5 && Math.random() < semiBluffFreq * 0.7;

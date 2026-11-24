@@ -1,0 +1,28 @@
+{
+  "description": "A 24-inch cathode-ray tube set from the 2010s. The picture is warm and slightly wrong in a way that feels human.",
+  "flags": {
+    "broadcast_device_type": "tv",
+    "broadcast_receiver": true,
+    "interactions": [
+      "watch"
+    ],
+    "item_id": "item_furn_crt_relic",
+    "spot": {
+      "along": 5.9,
+      "wall": "left"
+    },
+    "tv": true,
+    "tv_dial_freq": 7,
+    "tv_skin": "crt"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_yards_tenement_u1_1_crt_relic_2b02",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "cathode box TV",
+  "object_type": "furniture",
+  "power_draw_kw": 0.12,
+  "price": 280,
+  "zone_id": "zone_yards_tenement_u1_1"
+}

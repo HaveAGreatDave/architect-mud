@@ -216,7 +216,11 @@ const KNOWN = new Map([
   // `hf_skylink` a second time on the River Road, so its link rails count twice (since 2026-11-09
   // on `named:halcyonheights`, the same model moved up the ridge). Same strokes, same
   // reason, and the rest of the rise had already been paid down since 648 was set.
-  ['stroke', { budget: 658, why:
+  // 658 → 664 on 2026-11-23, measured per model against HEAD: named:thecoyotesrest went 20 → 4 when
+  // its barrel, keg and tank hoops stopped taking drawRing's DECO_PULL (wider than the drums), and
+  // new geometry took 22: named:rationnine 9 (new model), named:solenneresidences 2 → 8 (the 2x2
+  // Solenne), and the airport's type:control_tower, type:arrivals and type:departures +11 between them.
+  ['stroke', { budget: 664, why:
    'masts, fire stairs, catwalk rails and guy wires are authored INSIDE the host they hang off — a '
    + 'mast at its tile centre is 0.44 tiles behind its own front wall — so `emitWire` still spends '
    + 'the full DECO_LIFT and they are pulled clear on purpose. The Dynamo lost its entire external '
@@ -229,7 +233,8 @@ const KNOWN = new Map([
   // single face before, 24.5 each for the four now, because a face built in world units sits where
   // the building actually is instead of at a screen-space half-width. If this climbs again without
   // the part gaining geometry, that is the regression this budget is here to catch.
-  ['decal:blade', { budget: 43, why:
+  // 43 → 41 and gantry 7 → 5 on 2026-11-23: re-blessed down to what the tree measures.
+  ['decal:blade', { budget: 41, why:
    '`neonBlade` mounts its anchor INSIDE the facade — on type:bar, 0.16 of a tile forward against a '
    + 'front wall at 0.328 — because the painter\'s queue always sorted it clear and nobody ever had '
    + 'to place it properly. At a tie-breaker pull the wall wins and the only part of the sign that '
@@ -249,7 +254,7 @@ const KNOWN = new Map([
   // board and soffit are the two points, on type:bank, named:thechorusden and type:archive.
   // 9 → 7 on 2026-10-02, re-blessed to what HEAD already measured. The Ironside and Kiln Lane
   // authored models take those tiles out of the derived kit, and the kit's hoardings with them.
-  ['decal:gantry', { budget: 7, why:
+  ['decal:gantry', { budget: 5, why:
    'a rooftop hoarding stands at its own tile CENTRE on legs, so its back board, its soffit and the '
    + 'far edge return are inside the roof mass they are standing on — the same shape of reason as the '
    + 'mast in `stroke`, and the same fix: they have to come out or they are simply not drawn. It is '

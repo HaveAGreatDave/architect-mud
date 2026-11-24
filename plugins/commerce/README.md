@@ -11,7 +11,7 @@
 - `balance` — what you are carrying.
 
 ## Shop HOURS are a room rule
-A `commerce:shop-hours` **move gate** locks an interior shop while **every** vendor who works it is off the clock, and a **30s closing sweep** puts anyone still inside back out on the street. A shop is shut because nobody is working, not because a flag says so.
+A `commerce:shop-hours` **move gate** locks an interior shop while **every** vendor who works it is off the clock. It locks the way in only: anyone already inside the building walks between its rooms and out freely (the old closing sweep is retired). A shop is shut because nobody is working, not because a flag says so.
 
 The gate refuses the step; a `commerce:shop-hours` **shut provider** (`registerShutProvider`, [movement-gates.js](../../server/engine/movement-gates.js)) says the same thing *before* it, to every surface that draws a way in — the room description tags the exit `(closed)`, the dpad arrow turns red, the minimap paints the building red instead of accent. Until 2026-09-02 the gate was the whole implementation, and because most shop fronts have no `doors` row for a lock state to live on, a closed shop looked exactly like an open one until you walked into it. Both halves read the same predicate pair, so a surface can never disagree with the door; the gate keeps the reason, since a door tag has no room for a sentence.
 

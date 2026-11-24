@@ -1,0 +1,398 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": {
+        "next": "lit",
+        "type": "start"
+      },
+      "lit": {
+        "condition_type": "VENUE_LIT",
+        "ifFalse": "clear_decided",
+        "ifTrue": "decided",
+        "params": {
+          "x": 894,
+          "y": 918
+        },
+        "type": "condition"
+      },
+      "decided": {
+        "condition_type": "FLAG_SET",
+        "ifFalse": "set_decided",
+        "ifTrue": "going",
+        "params": {
+          "flag": "game_decided",
+          "scope": "self"
+        },
+        "type": "condition"
+      },
+      "set_decided": {
+        "action_type": "SET_FLAG",
+        "next": "roll_go",
+        "params": {
+          "flag": "game_decided",
+          "scope": "self",
+          "value": true
+        },
+        "type": "action"
+      },
+      "roll_go": {
+        "condition_type": "RANDOM_CHANCE",
+        "ifFalse": "going",
+        "ifTrue": "set_going",
+        "params": {
+          "chance": 0.75
+        },
+        "type": "condition"
+      },
+      "set_going": {
+        "action_type": "SET_FLAG",
+        "next": "going",
+        "params": {
+          "flag": "game_going",
+          "scope": "self",
+          "value": true
+        },
+        "type": "action"
+      },
+      "going": {
+        "condition_type": "FLAG_SET",
+        "ifFalse": "home_check_game",
+        "ifTrue": "at_park",
+        "params": {
+          "flag": "game_going",
+          "scope": "self"
+        },
+        "type": "condition"
+      },
+      "at_park": {
+        "condition_type": "IN_ZONE",
+        "ifFalse": "stand_leave",
+        "ifTrue": "sit_seat",
+        "params": {
+          "zone_id": "zone_hughson_stands"
+        },
+        "type": "condition"
+      },
+      "stand_leave": {
+        "action_type": "STAND",
+        "next": "go_park",
+        "type": "action"
+      },
+      "go_park": {
+        "action_type": "GO_TO_WORK",
+        "next": "start",
+        "params": {
+          "zone_id": "zone_hughson_stands"
+        },
+        "type": "action"
+      },
+      "sit_seat": {
+        "action_type": "SIT",
+        "next": "park_wait",
+        "params": {
+          "furniture": "sir charles's seat",
+          "message": "lowers himself into the seat with the brass plate and settles his cap."
+        },
+        "type": "action"
+      },
+      "park_wait": {
+        "jitter": 15,
+        "next": "start",
+        "seconds": 30,
+        "type": "wait"
+      },
+      "clear_decided": {
+        "action_type": "SET_FLAG",
+        "next": "clear_going",
+        "params": {
+          "flag": "game_decided",
+          "scope": "self",
+          "value": false
+        },
+        "type": "action"
+      },
+      "clear_going": {
+        "action_type": "SET_FLAG",
+        "next": "home_check",
+        "params": {
+          "flag": "game_going",
+          "scope": "self",
+          "value": false
+        },
+        "type": "action"
+      },
+      "home_check_game": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "stand_home",
+        "ifTrue": "sit_tv",
+        "type": "condition"
+      },
+      "sit_tv": {
+        "action_type": "SIT",
+        "next": "tv_wait",
+        "params": {
+          "furniture": "armchair",
+          "message": "eases into the armchair in front of the set and turns it up."
+        },
+        "type": "action"
+      },
+      "tv_wait": {
+        "jitter": 15,
+        "next": "start",
+        "seconds": 45,
+        "type": "wait"
+      },
+      "home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "stand_home",
+        "ifTrue": "home_random",
+        "type": "condition"
+      },
+      "stand_home": {
+        "action_type": "STAND",
+        "next": "go_home",
+        "type": "action"
+      },
+      "go_home": {
+        "action_type": "GO_HOME",
+        "next": "start",
+        "type": "action"
+      },
+      "home_random": {
+        "options": [
+          "home_life",
+          "home_life",
+          "sit_tv_off"
+        ],
+        "type": "random"
+      },
+      "home_life": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "home_wait",
+        "type": "action"
+      },
+      "sit_tv_off": {
+        "action_type": "SIT",
+        "next": "home_wait",
+        "params": {
+          "furniture": "armchair"
+        },
+        "type": "action"
+      },
+      "home_wait": {
+        "jitter": 30,
+        "next": "start",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Sir Charles straightens a framed scorecard on the sideboard by a quarter of an inch.",
+    "He reads the box scores in the paper with his glasses pushed up on his forehead.",
+    "He hums something old and stops when he notices he's doing it.",
+    "He waters the plant on the sill and tells it it's doing fine.",
+    "He checks his watch against the clock on the wall and sets the clock.",
+    "He looks out of the west window toward the Coliseum's towers for a while."
+  ],
+  "description": "A solid old man with white hair gone thin on top and a greying goatee, trimmed neat. Rectangular glasses, a Blue Birds cap, a navy blazer over a grey sweater, shirt and tie. He smiles at everybody like he's been expecting them.",
+  "dialogue_tree": {
+    "root": {
+      "text": "\"What can I do for you?\"",
+      "options": [
+        {
+          "label": "Why do people call you Sir?",
+          "next": "sir"
+        },
+        {
+          "label": "How are the Blue Birds doing?",
+          "next": "birds"
+        },
+        {
+          "label": "Why didn't you sell the ground?",
+          "next": "ground"
+        },
+        {
+          "label": "I'll let you get on.",
+          "next": "bye"
+        }
+      ],
+      "text_by_relation": {
+        "first": "The old man looks up and his face breaks into a grin.\n\n\"Charles Hughson. Come in, come in. Don't mind the papers.\"",
+        "known": "\"There you are.\" He waves you in. \"Sit down if you can find a chair.\"",
+        "familiar": "\"Good, you're here. Pull up a chair, we're on in a minute.\""
+      }
+    },
+    "sir": {
+      "text": "He laughs. \"No idea. Somebody started it at the gate one year and it stuck. I tried correcting people for a season or two. Then I gave up.\"",
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ]
+    },
+    "birds": {
+      "text": "\"Same as always. They'll break your heart by July and you'll be back in April.\" He taps the arm of his chair. \"Beat the Crows twice this year, so I'm not complaining.\"",
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ]
+    },
+    "ground": {
+      "text": "\"Halcyon wanted it for offices. What would I do with their money? I've got a ballpark.\" He shrugs. \"They built their estate round it in the end. Nice of them.\"",
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ]
+    },
+    "bye": {
+      "text": "\"Come to a game sometime. I'm in the front row, you can't miss me.\"",
+      "options": []
+    }
+  },
+  "faction": null,
+  "flags": {
+    "regular": {
+      "club": "Basin Blue Birds",
+      "seat": "furn_hughson_charlesseat",
+      "sport": "baseball",
+      "stands": "zone_hughson_stands"
+    },
+    "fav_team": "Basin Blue Birds",
+    "figure": {
+      "age": 0.85,
+      "beard": 0.9,
+      "bottoms": false,
+      "build": "elder",
+      "cut": "sportcoat",
+      "fabric_legs": "plain",
+      "fabric_shoes": "leather",
+      "boots": "dress",
+      "fabric_top": "plain",
+      "facial": "goatee_short",
+      "gear": false,
+      "glasses": [
+        150,
+        150,
+        156
+      ],
+      "hair": [
+        168,
+        164,
+        158
+      ],
+      "hair_style": 1,
+      "hat": "cap",
+      "hat_badge": "Basin Blue Birds",
+      "hat_badge_sport": "baseball",
+      "hat_col": [
+        34,
+        64,
+        176
+      ],
+      "hat_front": [
+        236,
+        236,
+        232
+      ],
+      "hat_under": [
+        30,
+        120,
+        60
+      ],
+      "head": 1,
+      "height": 1.72,
+      "iris": [
+        92,
+        74,
+        58
+      ],
+      "legs": [
+        98,
+        96,
+        94
+      ],
+      "mouth": 1.05,
+      "scarf": false,
+      "shirt": [
+        196,
+        212,
+        230
+      ],
+      "shoes": [
+        86,
+        56,
+        36
+      ],
+      "skin": [
+        228,
+        176,
+        150
+      ],
+      "smile": 0.85,
+      "top": [
+        30,
+        42,
+        82
+      ],
+      "weight": 0.6,
+      "trim": [
+        140,
+        136,
+        128
+      ],
+      "tie": [
+        112,
+        30,
+        42
+      ]
+    },
+    "tv_lines": {
+      "sports": [
+        "\"Go on. Go on! Oh, for crying out loud.\"",
+        "leans forward in the armchair with both hands on his knees.",
+        "\"That's a ball. That was a ball from here, and I'm four miles away.\"",
+        "\"Good. Now do it again.\"",
+        "\"If that's a Crow I don't want to hear it.\"",
+        "claps once, hard, and sits back grinning.",
+        "\"I've been watching this club longer than that boy's been alive.\""
+      ]
+    },
+    "alarm_lines": {
+      "wake": [
+        "sits up in bed and gropes on the side table for his glasses."
+      ],
+      "notice": [
+        "\"Who's that? I can hear you, you know.\""
+      ],
+      "door": [
+        "\"I'm calling the police. I'm doing it right now.\""
+      ],
+      "inside": [
+        "\"Take the telly if you want it. Leave the scorecards.\""
+      ],
+      "reported": [
+        "\"Yes, the Meridian, the top. Thank you, I'll wait.\""
+      ],
+      "gone": [
+        "stands in the middle of the room in his dressing gown, checking the sideboard."
+      ]
+    }
+  },
+  "home_activities": [],
+  "home_zone": "zone_meridian_unit_402",
+  "hp": 30,
+  "hp_max": 30,
+  "id": "npc_charles_hughson",
+  "name": "Sir Charles Hughson",
+  "npc_type": "civilian",
+  "sex": "male",
+  "studio_zone_id": null
+}

@@ -10,7 +10,7 @@
 import { faceAway,
   DECO_LIFT, DECO_PULL, DETAIL_LIFT, FACE_EPS, SHAPE_SINK, arcStrike, bakeSignText, emitSurfaceText, rgb, blinkLight, clamp, draw3DBoxAt, drawBarrelRoof,
   drawBrandBand, drawFacetDrum, drawPriceBoard, drawRing, drawSmoke, emitDecoFill, emitFlat,
-  emitWire, faceY, faceYaw, frac, glowPool, groundPaint, hoistLine, latticeBoom, marqueeBand,
+  emitWire, faceY, faceYaw, frac, glowPool, markDoorway, groundPaint, hoistLine, latticeBoom, marqueeBand,
   motionOn, motionPhase, moveSeg, movingBox, nearOrMesh, roofHatch,
 } from '../../windshield.js';
 import { FLOOR_Z } from '../../../../../shared/skyline-scale.js';
@@ -225,6 +225,8 @@ export const YARDS_ARMS = {
       }
       const [lx2, ly2] = F(0, hw - wt);
       draw3DBoxAt(ctx, cam, lx2, ly2, doorHW, lintel, wallTop, pal, seed + 16, night, alpha, true, 0, wt);  // over the door
+      // the doorway, which is also the way in on foot (the yards' rooms put their street door at 0, in it)
+      markDoorway(F, 0, hw - wt * 2, doorHW, 0, lintel, hw);
     }
     drawBarrelRoof(ctx, cam, F, 0, hw, hw * 0.94, wallTop, hw * 0.30, 12, alpha, [112, 118, 124]);       // shallow curved roof + gables
     if (frontVis) {

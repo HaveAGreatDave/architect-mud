@@ -2,15 +2,55 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#8f9a7e",
-  "description": "Unit 102, first floor of The Meridian. A concrete studio with a drop ceiling, a water stain spreading in one corner, and bare cable hookups. The single window faces the airshaft and another wall close enough to touch. Old picture hooks on the walls.",
+  "description": "Unit 701, on the first setback. A flat on the west face with four tall windows, the copper roof of the floor below just under the sills. Quieter than downstairs. The kitchen is new and the bath isn't.",
   "exits": {
-    "west": "zone_meridian_floor_1"
+    "east": "zone_meridian_floor_7"
   },
   "flags": {
     "floor": "boards",
     "is_apartment": true,
     "is_interior": true,
     "rent_cost": 200,
+    "room": {
+      "balcony": false,
+      "d": 6.05,
+      "doors": {
+        "east": 0
+      },
+      "face": 270,
+      "h": 3.4,
+      "panes": [
+        {
+          "a": -4.49,
+          "b": -3.49,
+          "wall": "front",
+          "y0": 0.85,
+          "y1": 3.3
+        },
+        {
+          "a": -1.83,
+          "b": -0.83,
+          "wall": "front",
+          "y0": 0.85,
+          "y1": 3.3
+        },
+        {
+          "a": 0.83,
+          "b": 1.83,
+          "wall": "front",
+          "y0": 0.85,
+          "y1": 3.3
+        },
+        {
+          "a": 3.49,
+          "b": 4.49,
+          "wall": "front",
+          "y0": 0.85,
+          "y1": 3.3
+        }
+      ],
+      "w": 11.6
+    },
     "terrain": "grass",
     "window": {
       "description": "A plain sash window, painted shut some years ago, with a view of the block opposite.",
@@ -19,12 +59,12 @@
       "visibility": 0.75
     }
   },
-  "grid_x": 1,
+  "grid_x": -1,
   "grid_y": 0,
-  "grid_z": 1,
+  "grid_z": 7,
   "id": "zone_meridian_unit_102",
   "map_id": "map_int_meridian",
-  "marker": "1",
-  "name": "Unit 102",
+  "marker": "7",
+  "name": "Unit 701",
   "parent_zone": "zone_district_918_908"
 }

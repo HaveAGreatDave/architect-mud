@@ -10,6 +10,7 @@
 // Pure, with the cache and the NPC lookup passed in, so regress runs it with object literals.
 
 import { parseDoc, timeline, slotFor, fill, castToken, resolveSet } from '../../client/shared/sequence.js';
+import { npcFigure } from '../../client/shared/figure-text.js';
 
 const parsed = new WeakMap();   // a row, as its document: rows are replaced whole when the cache reloads
 function docOf(row) {
@@ -76,7 +77,7 @@ export function deskSegment(graphics, { broadcast, when, data = {}, seed = '', n
     }
     const npc = npcOf(show.cast?.[role]);
     if (!npc) return null;
-    cast[role] = { id: npc.id, name: npc.name, sex: npc.sex, figure: npc.flags?.figure || null };
+    cast[role] = { id: npc.id, name: npc.name, sex: npc.sex, figure: npcFigure(npc) };
   }
   const full = { show: show.name, ...data };
   const lines = timeline(seq, full, { cast, seed }).filter((it) => it.spoken).map((it) => ({ i: it.i, npc: cast[it.role]?.id || '', name: cast[it.role]?.name || '', text: it.text }));
@@ -171,7 +172,7 @@ export function roomSet(graphics, zone) {
 // the same every time they're booked and two personas never share a face. `title` is their lower third.
 export function guestPerson(persona, real = null) {
   if (!persona?.name || persona.name === "Tonight's Guest") return null;
-  if (real) return { id: real.id, name: real.name, sex: real.sex, figure: real.flags?.figure || null, title: persona.title || '' };
+  if (real) return { id: real.id, name: real.name, sex: real.sex, figure: npcFigure(real), title: persona.title || '' };
   return { id: `guest:${persona.name}`, name: persona.name, sex: personaSex(persona), figure: null, title: persona.title || '' };
 }
 // A persona says what it is in its name or its title, when it does: an honorific, or a pronoun in the
@@ -209,7 +210,7 @@ export function breakStage(graphics, id, npcOf) {
   const people = (set.extras || []).map((x) => {
     const n = x.npc ? npcOf(x.npc) : null;
     // an NPC can be dressed for the advert: `figure` here is laid over his own
-    if (n) return { id: n.id, name: n.name, sex: n.sex, figure: x.figure ? { ...(n.flags?.figure || {}), ...x.figure } : n.flags?.figure || null };
+    if (n) return { id: n.id, name: n.name, sex: n.sex, figure: x.figure ? { ...(npcFigure(n) || {}), ...x.figure } : npcFigure(n) };
     return x.name ? { id: `extra:${set.id}:${x.name}`, name: x.name, sex: x.sex || '', figure: x.figure || null } : null;
   }).filter(Boolean);
   return { set, people, dissolve: set.dissolve || null };

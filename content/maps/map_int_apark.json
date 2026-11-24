@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_apark_lobby",
+  "id": "map_int_apark",
+  "name": "Airport Parking Plaza",
+  "parent_zone_id": "zone_district_923_904"
+}

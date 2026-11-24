@@ -5,7 +5,14 @@
     "interactions": [
       "sit",
       "lean"
-    ]
+    ],
+    "spot": {
+      "at": [
+        -1.4,
+        6.31
+      ],
+      "turn": 270
+    }
   },
   "hp": null,
   "hp_max": null,

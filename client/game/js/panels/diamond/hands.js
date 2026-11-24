@@ -19,10 +19,13 @@ export const HANDS = Object.freeze({
   // at the last joint, and the thumb swung across and round with its tip bent back; the skin that curls into the wood
   // presses flat onto it (figure-rig.js GRIP_HOLD), no more than 4 mm of it. Fitted 2026-11-15 for what a camera sees
   // of the handle through the hand: two 3 mm cells a row of 24, at the seam and where the hand ends
-  bat: P([1.35, 1.05, 1.05, 0, 1.4, 1.05, 1.05, 0, 1.15, 0.9, 0.75, 0, 0.9, 0.9, 1.05, 0, 1.0, 1.55, 0.2, -0.55]),
-  // the waggle's grip in the stance, eased 6° at every knuckle (three cells a row show); any looser and the seam
-  // opens down the hand; the grip closes for the load
-  batLoose: P([1.25, 1.05, 1.05, 0, 1.3, 1.05, 1.05, 0, 1.05, 0.9, 0.75, 0, 0.8, 0.9, 1.05, 0, 1.0, 1.55, 0.2, -0.55]),
+  // Refitted 2026-11-23 for the smaller hand (figure.js handScaleOf 0.97, was 1.1): the index folded further, the
+  // little finger's tip and the thumb brought round, and just over three cells a row show, which is as close as the
+  // shorter fingers get round the same handle
+  bat: P([1.6, 1.05, 1.05, 0.1, 1.4, 1.05, 0.75, -0.08, 1.35, 0.7, 0.19, 0, 1.1, 0.9, 1.25, 0, 0.71, 1.41, 0.37, -0.41]),
+  // the waggle's grip in the stance, eased 1° at every joint (3.2 cells a row show); any looser and the seam opens
+  // down the hand; the grip closes for the load
+  batLoose: P([1.58, 1.03, 1.03, 0.1, 1.38, 1.03, 0.73, -0.08, 1.33, 0.68, 0.17, 0, 1.08, 0.88, 1.23, 0, 0.71, 1.41, 0.37, -0.41]),
   // ── in the glove and free ──
   // a light curl, so nothing comes out through the leather
   glove: S([0.25, 0.25, 0.25, 0.25], 0.2, 0.15),
@@ -30,7 +33,8 @@ export const HANDS = Object.freeze({
   free: S([0.22, 0.27, 0.32, 0.36], 0.25, 0.1, 0.05),
   // a ball in the hand, as a pitcher holds a four-seamer: the index and middle fingers over the top of it and only
   // a little bent, the ring and little fingers tucked against its side, the thumb brought round under it
-  ball: S([0.42, 0.46, 0.85, 0.95], 0.55, 0.9, -0.15),
+  // (the index and thumb refitted to the smaller hand, 2026-11-23, figure-rig.js BALL_HOLD)
+  ball: S([0.44, 0.46, 0.85, 0.95], 0.7, 0.8, -0.15),
   // ── the calls and the gestures ──
   // a fist, the thumb across the fingers: the umpire's out and his strike, a fist pump
   fist: S([1.05, 1.05, 1.05, 1.05], 0, 0, 0, { tj: Object.freeze([0.3, 0.9, 0.5, 0.6]) }),
@@ -54,6 +58,9 @@ export const HANDS = Object.freeze({
   outs2: S([-0.2, 1.05, 1.05, -0.2], 0, 0, 0.3, { tj: Object.freeze([0.3, 0.9, 0.5, 0.6]) }),
 });
 export const HAND_NAMES = Object.freeze(Object.keys(HANDS));
+// the hand in a glove shut on a catch (glove-flex.js): the fingers folded with the stalls, so none comes out
+// through the back of the leather. Not a clip's to key, so it isn't in HANDS.
+export const GLOVE_SHUT = S([0.62, 0.62, 0.6, 0.58], 0.45, 0.4);
 // the shapes a hand round the bat may be keyed to (a gripping hand ignores any other)
 export const BAT_HANDS = Object.freeze(['bat', 'batLoose']);
 
@@ -61,7 +68,7 @@ export const BAT_HANDS = Object.freeze(['bat', 'batLoose']);
 // X, Y down the hand, Z), in feet a unit of scale: figure-rig.js BALL_HOLD, the spot on the figure's fingers where
 // the four-seamer's fingertips and thumb meet it, carried onto Deadball's hand, so the director needn't load the
 // figure to put the ball there. figure-rig.mjs holds the two together.
-export const BALL_IN_FINGERS = Object.freeze({ L: Object.freeze([-0.20341, 0.19029, 0.28543]), R: Object.freeze([0.20341, 0.19029, 0.28543]) });
+export const BALL_IN_FINGERS = Object.freeze({ L: Object.freeze([-0.16404, 0.22966, 0.27559]), R: Object.freeze([0.16404, 0.22966, 0.27559]) });
 
 // THE CATCHER'S SIGNS. The pitch he calls, by diamond/flight.js's pitch types, as the fingers he puts down: one the
 // fastball (and the sinker, its two-seam cousin), two the curve, three the slider (and the cutter), four the change

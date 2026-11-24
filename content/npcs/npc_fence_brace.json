@@ -162,33 +162,15 @@
       "stock": 2
     },
     {
-      "item_id": "item_rattlecan_smg",
-      "min_trust": 45,
-      "price": 3440,
-      "stock": 2
-    },
-    {
       "item_id": "item_nyra_tattoo_neural",
       "min_trust": 70,
       "price": 3080,
       "stock": 1
     },
     {
-      "item_id": "item_pyre_projector",
-      "min_trust": 70,
-      "price": 3360,
-      "stock": 1
-    },
-    {
       "item_id": "item_nyra_iris_implant",
       "min_trust": 90,
       "price": 4900,
-      "stock": 1
-    },
-    {
-      "item_id": "item_arc_lance",
-      "min_trust": 90,
-      "price": 4340,
       "stock": 1
     }
   ],

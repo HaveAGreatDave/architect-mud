@@ -216,10 +216,6 @@
       "price": 8
     },
     {
-      "item_id": "item_dripping_bread",
-      "price": 10
-    },
-    {
       "item_id": "item_drug_coffee",
       "price": 5
     }

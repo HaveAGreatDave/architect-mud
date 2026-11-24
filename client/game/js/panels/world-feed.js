@@ -211,14 +211,16 @@ export function padLiftAt(x, y, now = Date.now()) {
   if (!e) return undefined;
   const u = (now - e.t0) / e.ms;
   if (u >= 1) { PAD.delete(k); return undefined; }
+  // the guard glass (liftPad's `guard`): up in the first 4% before the pad moves, down in the last 4% once it's back
+  const g = Math.min(1, u / 0.04, (1 - u) / 0.04);
   if (e.dir === 'down') {
     // hold, sink with the craft on it, stay down while the drum works, come back up empty
     const s = u < 0.08 ? 0 : u < 0.4 ? ease((u - 0.08) / 0.32) : u < 0.82 ? 1 : 1 - ease((u - 0.82) / 0.18);
-    return { s, craft: u < 0.4, warn: u < 0.4 };
+    return { s, g, craft: u < 0.4, warn: u < 0.4 };
   }
   // up: the empty pad goes down for it, and rises with it on
   const s = u < 0.2 ? ease(u / 0.2) : u < 0.72 ? 1 : 1 - ease((u - 0.72) / 0.28);
-  return { s, craft: u >= 0.72, warn: u < 0.72 };
+  return { s, g, craft: u >= 0.72, warn: u < 0.72 };
 }
 // Bumped whenever a venue's lights or roof change state, including a roof arriving where it was
 // going, which no message announces. The GL pass keys its window on it.

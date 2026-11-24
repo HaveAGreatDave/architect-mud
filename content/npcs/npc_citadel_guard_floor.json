@@ -214,7 +214,7 @@
   "faction": null,
   "flags": {
     "bouncer": true,
-    "bouncer_eject_zone": "zone_district_921_911",
+    "bouncer_eject_zone": "zone_district_916_910",
     "clothing_layers": [
       "a long charcoal coat cut generously through the chest",
       "a pressed white shirt and a Compound-orange tie clip",
@@ -225,7 +225,7 @@
     "personality": "guard"
   },
   "home_activities": [],
-  "home_zone": "zone_meridian_unit_101",
+  "home_zone": "zone_mq_chrome_101",
   "hp": 70,
   "hp_max": 70,
   "id": "npc_citadel_guard_floor",

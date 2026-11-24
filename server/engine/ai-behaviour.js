@@ -526,6 +526,9 @@ export function wakeNpc(entity, { mood = null } = {}) {
   ai.disturbCount = 0;
   ai.sleepStartedAt = 0;
   ai.homeAwakeSince = now;
+  ai.bedtimeAt = null;
+  // dressed again (the bedtime undress in AT_HOME_LIFE)
+  entity._undressed = false;
   ai.wokenUntil = now + gameMsToReal(WOKEN_GRACE_MINS * 60_000);
   if (mood) ai.wokeMood = { mood, until: ai.wokenUntil };
   // and their face shows it while it lasts (server/engine/npc-mood.js)
@@ -1882,7 +1885,23 @@ async function execAction(node, entity, ctx) {
 
       // A stimulant comedown (npc-drugs sets ai.crashSleepy) overrides that pacing.
       const crashing = ai.crashSleepy && now < ai.crashSleepy;
-      if (Math.random() < (crashing ? 0.5 : 0.15)) {
+      // Getting ready first: undressed down to the last layer (the Room Stage dresses them for bed off `_undressed`,
+      // the examine line reads it too), teeth (plugins/ambient-life on `npc.bedtime`), and a minute later, bed.
+      // Somebody crashing out skips all of it.
+      if (!crashing && !ai.bedtimeAt && Math.random() < 0.15) {
+        ai.bedtimeAt = now + 45_000 + Math.floor(Math.random() * 30_000);
+        entity._undressed = true;
+        const layers = Array.isArray(entity.flags?.clothing_layers) ? entity.flags.clothing_layers : [];
+        const outer = layers.length > 1 ? layers[Math.min(layers.length - 2, entity._clothingPeeled || 0)] : null;
+        broadcast(zoneId, { type: 'zone_event', message: outer
+          ? `${entity.name} gets undressed for bed and leaves ${outer.replace(/^(?:a|an|the|his|her|their)\s+/i, 'the ')} over the back of a chair.`
+          : `${entity.name} gets undressed for bed.` });
+        emit('npc.bedtime', { npc: entity, zoneId });
+        break;
+      }
+      if (ai.bedtimeAt && now < ai.bedtimeAt) break;
+      if (crashing ? Math.random() < 0.5 : !!ai.bedtimeAt) {
+        ai.bedtimeAt = null;
         // Find something to sleep on in the zone (prefer furniture, floor fallback)
         let bedName = null;
         try {

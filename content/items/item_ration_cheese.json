@@ -10,22 +10,23 @@
     "food_profile": "dairy",
     "matter": {
       "form": {
-        "kind": "slab",
-        "w": 8,
         "d": 8,
         "h": 0.4,
-        "round": 0.05
+        "kind": "slab",
+        "round": 0.05,
+        "w": 8
+      },
+      "look": {
+        "label": "#e6e1d4",
+        "pack": "wrap"
       },
       "ramp": {
         "raw": "#f2a21e"
-      },
-      "look": {
-        "pack": "wrap",
-        "label": "#e6e1d4"
       }
     },
     "perishable": true,
     "restore_hunger": 9,
+    "shelved": true,
     "spoil_rate": "slow",
     "stackable": true,
     "status_chance": {

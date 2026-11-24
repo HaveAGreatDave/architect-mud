@@ -202,6 +202,7 @@ import { routeOnGrid, cumLengths, polyLength, pointAtLength, progressOn } from '
 import { halfWidthAt, typeAt, segmentAt } from '../../client/shared/highways.js';
 const typeNameAt = (route, s) => segmentAt(route, s)?.type || 'branch';
 import { roadKm } from '../../client/shared/road-units.js';
+import { tripM } from '../../client/shared/world-scale.js';
 import { highTerrainAt, hnoise2 } from '../../client/shared/landform.js';   // the same field the floor shades off — see HIGH_OFF below
 import { plazaOn, plazaCell, plazaRoadFlags } from './plaza.js';
 import { hashSeed, mulberry32 } from '../../server/engine/rng.js';
@@ -855,18 +856,18 @@ function signsFor(route, dests) {
   const k = route.bendK || 1;
   const apart = SIGN_APART * k, lead = SIGN_LEAD * k;
   const head = Math.max(2, 6 * k), tail = Math.max(4, 12 * k);   // clear of both ends of the road
-  const push = (s, kind) => {
+  const push = (s, kind, exS = null) => {
     const cs = Math.round(Math.max(head, Math.min(route.L - tail, s)));
     if (cs < head || cs > route.L - tail) return;
     if (at.some((p) => Math.abs(p.s - cs) < apart)) return;
-    at.push({ s: cs, kind });
+    at.push({ s: cs, kind, exS });
   };
   // The gate board comes first so the collapse below can never drop it: a road that names its
   // destinations at the very moment you join it is the difference between a highway and a track.
   push(Math.max(2, 8 * k), 'gate');
   // The junction board, on the trunk, in advance of the fork — a sign AT a junction is a sign you
   // read as you take the wrong one.
-  if (route.trunkL > apart) push(route.trunkL - lead, 'fork');
+  if (route.trunkL > apart) push(route.trunkL - lead, 'fork', route.trunkL);
   // A board just past every point where another route comes in alongside (the route numbers on the
   // road change), so the driver reads the new numbers as the two roads become one. Before the bend
   // boards: a join is a seam, a seam is a bend, and the bend board would otherwise take the spot.
@@ -875,7 +876,7 @@ function signsFor(route, dests) {
     const p = (segs[i - 1].nums || []).join('/'), q = (segs[i].nums || []).join('/');
     if (p && q && p !== q && segs[i].s0 != null) push(segs[i].s0 + 3, 'merge');
   }
-  for (const bd of route.bends) push(bd.s - lead, bd.fork ? 'fork' : 'bend');
+  for (const bd of route.bends) push(bd.s - lead, bd.fork ? 'fork' : 'bend', bd.fork ? bd.s : null);
   return at
     .sort((a, b) => a.s - b.s)
     .map((p) => {
@@ -893,12 +894,42 @@ function signsFor(route, dests) {
       // The back is the same places at the same distances (a distance along the road does not care
       // which way you face) with the arrows re-measured against the reversed heading, which is the
       // only part of a row that is about the DRIVER rather than about the road.
-      return { s: p.s, kind: p.kind, x: Math.round(at2.x), y: Math.round(at2.y), deg: at2.heading,
+      // An exit is numbered by the kilometre it leaves at, counted from the gate, the way a real
+      // highway numbers its exits by milepost, so the number on the board agrees with the posts.
+      const ex = p.exS != null ? roadKm(p.exS) : undefined;
+      return { s: p.s, kind: p.kind, ex, x: Math.round(at2.x), y: Math.round(at2.y), deg: at2.heading,
         rows: rowsAt(route, p.s, dests, p.kind),
         back: rowsAt(route, p.s, dests, p.kind, (at2.heading + 180) % 360) };
     })
     .filter((p) => p.rows.length);
 }
+// ── KILOMETRE POSTS ─────────────────────────────────────────────────────────
+// A small green post every MARKER_KM, counted from the start of the road, on the same verge as the
+// boards. Built lazily per route object (a WeakMap, so a reversed or sliced copy of a route gets its
+// own posts rather than inheriting the original's) and snapped to one tile like a board. A post
+// that would land beside a board, a junction or a plaza is left out.
+export const MARKER_KM = 5;
+const TILES_PER_KM = 1000 / tripM('corridor', 1);
+const markerCache = new WeakMap();
+export function markersOf(route) {
+  if (!route?.legs?.length) return [];
+  let out = markerCache.get(route);
+  if (out) return out;
+  out = [];
+  const step = MARKER_KM * TILES_PER_KM;
+  const busy = [...(route.signs || []), ...(route.junctions || [])];
+  for (let km = MARKER_KM, s = step; s < route.L - 4; km += MARKER_KM, s += step) {
+    if (s < 4) continue;
+    const p = corridorPos(route, s, SIGN_OFF);
+    const x = Math.round(p.x), y = Math.round(p.y);
+    if (busy.some((g) => Math.abs(g.x - x) <= 1 && Math.abs(g.y - y) <= 1)) continue;
+    if (plazaOn(route, s)) continue;
+    out.push({ s, km, x, y, deg: p.heading });
+  }
+  markerCache.set(route, out);
+  return out;
+}
+
 // Every board between two odometer readings, for anything that wants to READ one rather than
 // render it (the text rung has no windscreen, and a board only a 3-D client can see is a board half
 // the players in the game do not have).
@@ -1364,13 +1395,18 @@ function corridorCell(route, x, y) {
     flags.junction_pylons = 1;
     return { id, name: 'Dead Pylons', danger, flags };
   }
+  const mk = markersOf(route).find((k) => k.x === x && k.y === y);
+  if (mk) {
+    flags.road_sign = { kind: 'post', km: mk.km, face: mk.deg, num: segmentAt(route, mk.s)?.nums?.[0] };
+    return { id, name: 'A Kilometre Post', danger, flags };
+  }
   const g = (route.signs || []).find(k => k.x === x && k.y === y);
   if (g) {
     // `face` is the road's own heading at the post; the renderer turns the panel 180° from it,
     // because the front of a sign is read by somebody coming the other way. `back` is the same
     // board seen from the far side — the renderer picks between the two off which side of the panel
     // the camera is on, and works out neither of them.
-    flags.road_sign = { rows: g.rows, back: g.back, face: g.deg, kind: g.kind };
+    flags.road_sign = { rows: g.rows, back: g.back, face: g.deg, kind: g.kind, ex: g.ex };
     return { id, name: 'A Roadside Sign', danger, flags };
   }
   const wreck = wrecksOn(route).find(w => Math.abs(w.s - s) < 1.6 && Math.abs(t - w.side * w.off) < 0.7);

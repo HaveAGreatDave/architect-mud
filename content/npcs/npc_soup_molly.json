@@ -117,7 +117,7 @@
       },
       "n_late": {
         "condition_type": "HOUR_RANGE",
-        "ifFalse": "n_atwork",
+        "ifFalse": "n_idle",
         "ifTrue": "n_room",
         "params": {
           "from": 21,
@@ -207,7 +207,7 @@
         "action_type": "EMOTE",
         "next": "n_atwork",
         "params": {
-          "message": "gets down off the stage grinning, ties the apron back on, and has checked the oven before the knot is finished."
+          "message": "lets the last chord ring out, hangs it on its hook again, ties her apron, and has checked the oven before the knot is done."
         },
         "type": "action"
       },
@@ -215,25 +215,25 @@
         "action_type": "EMOTE",
         "next": "n_wait1",
         "params": {
-          "message": "steps up onto two feet of decking, moves the microphone half an inch, and moves it back."
+          "message": "takes the old acoustic guitar down off its hook, steps up onto two feet of decking, and strums it once to see if it is still in tune."
         },
         "type": "action"
       },
       "n_wait1": {
         "jitter": 4,
-        "next": "n_song1",
+        "next": "n_strum1",
         "seconds": 8,
         "type": "wait"
       },
       "n_wait2": {
         "jitter": 6,
-        "next": "n_song2",
+        "next": "n_strum2",
         "seconds": 16,
         "type": "wait"
       },
       "n_wait3": {
         "jitter": 6,
-        "next": "n_song3",
+        "next": "n_strum3",
         "seconds": 16,
         "type": "wait"
       },
@@ -250,6 +250,87 @@
           "zone_id": "zone_jolenes_bar"
         },
         "type": "action"
+      },
+      "n_idle": {
+        "type": "random",
+        "branches": [
+          {
+            "weight": 8
+          },
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          }
+        ],
+        "branch_0": "n_atwork",
+        "branch_1": "n_clean1",
+        "branch_2": "n_clean2",
+        "branch_3": "n_hum1",
+        "branch_4": "n_hum2"
+      },
+      "n_clean1": {
+        "action_type": "EMOTE",
+        "next": "n_atwork",
+        "params": {
+          "message": "wipes down the bar end to end with a damp cloth, then goes back over a ring nobody else could see."
+        },
+        "type": "action"
+      },
+      "n_clean2": {
+        "action_type": "EMOTE",
+        "next": "n_atwork",
+        "params": {
+          "message": "scrubs at the pass with the cloth folded small, singing a line under her breath and losing the next one."
+        },
+        "type": "action"
+      },
+      "n_hum1": {
+        "action_type": "EMOTE",
+        "next": "n_atwork",
+        "params": {
+          "message": "hums a slow one to herself over the soup and sways with the ladle."
+        },
+        "type": "action"
+      },
+      "n_hum2": {
+        "action_type": "EMOTE",
+        "next": "n_atwork",
+        "params": {
+          "message": "sings two lines of something sad to herself over the soup pot, quite well, and then stops as if she has been caught."
+        },
+        "type": "action"
+      },
+      "n_strum1": {
+        "action_type": "EMOTE",
+        "next": "n_song1",
+        "params": {
+          "message": "strums the opening chords slowly, eyes on the frets."
+        },
+        "type": "action"
+      },
+      "n_strum2": {
+        "action_type": "EMOTE",
+        "next": "n_song2",
+        "params": {
+          "message": "strums through the next verse and taps a heel on the decking."
+        },
+        "type": "action"
+      },
+      "n_strum3": {
+        "action_type": "EMOTE",
+        "next": "n_song3",
+        "params": {
+          "message": "slows the strumming right down for the last verse."
+        },
+        "type": "action"
       }
     }
   },
@@ -264,7 +345,7 @@
     "stops with a tray on her hip and watches the set behind the bar for about eight seconds, then carries on.",
     "checks the oven, shuts the door, and shuts it again properly."
   ],
-  "description": "A short, wide, entirely deliberate woman working the pass in a platinum wig tall enough to have its own weather. There are rhinestones sewn along the bib of her apron in the shape of a treble clef, most of them still on. Her lashes are false, her nails are short and scrubbed to the quick, and both forearms carry the same shiny old oven-rail burns in the same place.",
+  "description": "A short, entirely deliberate woman with an hourglass figure pinched in hard at the waist, working the pass in a platinum wig piled high enough to have its own weather, and a chest she says the Lord gave her and a surgeon in Halcyon improved on. There are rhinestones sewn along the bib of her apron in the shape of a treble clef, most of them still on. Her lashes are false, her lipstick is fire-engine red, her nails are short and scrubbed to the quick, and both forearms carry the same shiny old oven-rail burns in the same place.",
   "dialogue_tree": {
     "bye": {
       "_vine": {
@@ -812,7 +893,190 @@
       "a fringed denim shirt gone soft at the elbows, cuffs turned back twice",
       "a white lace bra and panties, which she would tell you about unprompted"
     ],
-    "personality": "bartender"
+    "personality": "bartender",
+    "parley": {
+      "topics": {
+        "food": [
+          "food",
+          "soup",
+          "tray",
+          "kitchen",
+          "cooking",
+          "corner piece",
+          "eat",
+          "hungry"
+        ],
+        "wig": [
+          "wig",
+          "hair",
+          "rhinestones",
+          "lashes",
+          "treble clef"
+        ],
+        "burns": [
+          "burns",
+          "arms",
+          "scars",
+          "oven"
+        ],
+        "jolene": [
+          "jolene",
+          "the bar",
+          "stage",
+          "singing"
+        ],
+        "singing": [
+          "sing",
+          "singer",
+          "singing",
+          "stage",
+          "voice",
+          "music",
+          "song"
+        ]
+      },
+      "react": {
+        "greet": {
+          "stranger": [
+            "Have you eaten today? Don't lie.",
+            "*doesn't look up from the pass.* Hands washed?"
+          ],
+          "familiar": [
+            "{name}. Sit. There's a plate."
+          ],
+          "close": [
+            "{name}! *already plating.* Sit. You look thin."
+          ]
+        },
+        "farewell": [
+          "Take something for later.",
+          "Go on. Eat properly."
+        ],
+        "thank": [
+          "Don't thank me. Finish it.",
+          "*nods at the plate.* Thank me by eating that."
+        ],
+        "praise": [
+          "*doesn't smile, quite.* It's soup. It's supposed to be good."
+        ],
+        "praise:wig": [
+          "Thank you. She has her own postcode."
+        ],
+        "praise:food": [
+          "It's the time it takes. Nobody gives anything time any more."
+        ],
+        "insult": [
+          "Say that again and you eat outside.",
+          "*keeps scraping.* I've had worse said by better cooks."
+        ],
+        "insult_last": [
+          "*puts the spoon down.* Out of my kitchen. Come back hungry and polite."
+        ],
+        "flirt": [
+          "Feed yourself first, then we'll see.",
+          "*pats her wig.* Get in line, love."
+        ],
+        "apologise": [
+          "Fine. Eat something. You're cranky."
+        ],
+        "joke": [
+          "*a snort from somewhere under the wig.*"
+        ],
+        "complain": [
+          "Then cook it yourself. I'll watch.",
+          "It's hot and it's free. Pick one to complain about."
+        ],
+        "ask_feeling": {
+          "stranger": [
+            "Busy. Ask me after the tray.",
+            "Feet hurt. Food's good. Average day."
+          ],
+          "familiar": [
+            "Feet are bad. Heart's fine. Eat."
+          ]
+        },
+        "order_drink": [
+          "I do food. The bar's for the rest of it."
+        ],
+        "ask_name": [
+          "Molly. Darton. Nobody calls me Darton."
+        ],
+        "ask_job": [
+          "I feed people. Nobody else seems to want to."
+        ],
+        "ask_origin": [
+          "Here. I was born hungry and I've been fixing that for everybody since."
+        ],
+        "ask_news": [
+          "Somebody's been nicking bread rolls. I know who. They're hungry, so I'm letting it go."
+        ],
+        "ask_advice": [
+          "Eat before you go anywhere. Hungry people make bad decisions.",
+          "Wash your hands. Everything else follows."
+        ],
+        "ask_about:food": [
+          "Whatever came in the door today, cooked slow.",
+          "Corner piece goes to whoever's waited longest. That's just correct."
+        ],
+        "ask_about:wig": [
+          "She's for the stage. I just never take her off."
+        ],
+        "ask_about:burns": [
+          "Oven rail. Both arms, same place, years apart. I don't learn."
+        ],
+        "ask_about:jolene": [
+          "Jolene's is the bar. I'm the kitchen. We get along because we don't share a room."
+        ],
+        "ask_about:singing": {
+          "stranger": [
+            "*hums one bar and stops.* Not today."
+          ]
+        }
+      },
+      "deflect": [
+        "*lifts a foil sheet, looks under it, puts it back.* Mm.",
+        "Eat first. Then make sense.",
+        "Have you eaten? You sound like you haven't."
+      ],
+      "beats": [
+        {
+          "id": "singer",
+          "topic": "singing",
+          "tier": "known",
+          "warmth": 6,
+          "steps": [
+            "*pats the wig.* I sang, once. Supper clubs. The wig's from then.",
+            "Twelve songs a night, two sets, and they fed the band after. That's where I learned to cook. Watching the chef feed people who'd stopped noticing they were hungry.",
+            "The voice went. The cooking didn't. *goes back to scraping.* Feeding people's just singing that lasts longer."
+          ]
+        },
+        {
+          "id": "burns",
+          "topic": "burns",
+          "tier": "familiar",
+          "warmth": 6,
+          "steps": [
+            "First one was the night I fed forty people off one oven after the market fire.",
+            "Second was ten years later, same rail, same night of the year. I don't believe in signs. I believe in oven rails."
+          ]
+        }
+      ]
+    },
+    "figure": {
+      "text": 1,
+      "hair_style": 28,
+      "hair": [
+        236,
+        226,
+        190
+      ],
+      "bust": 1,
+      "weight": 0.45,
+      "height": 1.55,
+      "smile": 0.6,
+      "build": "hourglass",
+      "butt": 0.85
+    }
   },
   "home_activities": [],
   "home_zone": "zone_jolenes_loft",
@@ -825,19 +1089,11 @@
   "studio_zone_id": null,
   "vendor_inventory": [
     {
-      "item_id": "item_salt_ration",
-      "price": 3
-    },
-    {
       "item_id": "item_drink_basin_swill",
       "price": 4
     },
     {
       "item_id": "item_drug_coffee",
-      "price": 5
-    },
-    {
-      "item_id": "item_ration_cheese",
       "price": 5
     },
     {
@@ -849,15 +1105,7 @@
       "price": 6
     },
     {
-      "item_id": "item_macaroni",
-      "price": 6
-    },
-    {
       "item_id": "item_battery_egg",
-      "price": 6
-    },
-    {
-      "item_id": "item_ration_milk",
       "price": 6
     },
     {
@@ -873,20 +1121,12 @@
       "price": 9
     },
     {
-      "item_id": "item_mustard",
-      "price": 9
-    },
-    {
       "item_id": "item_mac_plate",
       "price": 12
     },
     {
       "item_id": "item_vat_cheese",
       "price": 12
-    },
-    {
-      "item_id": "item_butter_analog",
-      "price": 13
     }
   ],
   "vendor_restock_rate": 1,

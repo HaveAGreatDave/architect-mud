@@ -4,7 +4,17 @@
     "aliases": "mailbox, box, mail, dead mailbox, brass box",
     "concealed": true,
     "container": 2000,
-    "dead_drop": true
+    "dead_drop": true,
+    "look": {
+      "arche": "store",
+      "cover": "mailboxes",
+      "form": "locker",
+      "wear": 0.7
+    },
+    "spot": {
+      "along": 2.2,
+      "wall": "left"
+    }
   },
   "hp": null,
   "hp_max": null,

@@ -24,7 +24,15 @@
       "d": 9,
       "h": 3.4,
       "studio": false,
-      "balcony": false
+      "balcony": false,
+      "street_door": {
+        "lite": "porthole",
+        "kind": "plain",
+        "w": 1.4,
+        "leaf": "#14161c",
+        "trim": "#5cd6ff",
+        "dark": true
+      }
     },
     "window": {
       "description": "A full-height pane onto the street, kept just clean enough to trade through. Whatever the weather is doing out there, it's doing it in plain view.",

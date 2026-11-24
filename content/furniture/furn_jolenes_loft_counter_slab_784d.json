@@ -1,0 +1,23 @@
+{
+  "description": "A poured-concrete service counter, surface scarred with knife gouges and ring stains.",
+  "flags": {
+    "interactions": [
+      "lean"
+    ],
+    "item_id": "item_furn_counter_slab",
+    "spot": {
+      "along": 1.59,
+      "wall": "front"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_jolenes_loft_counter_slab_784d",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "concrete counter",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 780,
+  "zone_id": "zone_jolenes_loft"
+}

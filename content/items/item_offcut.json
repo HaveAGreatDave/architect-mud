@@ -10,22 +10,23 @@
     "food_profile": "dense_meat",
     "matter": {
       "form": {
-        "kind": "slab",
-        "w": 10,
         "d": 7,
         "h": 3,
-        "round": 0.4
-      },
-      "ramp": {
-        "raw": "#a83a40"
+        "kind": "slab",
+        "round": 0.4,
+        "w": 10
       },
       "look": {
         "spots": "#f0e0d0"
+      },
+      "ramp": {
+        "raw": "#a83a40"
       }
     },
     "needs_cooking": true,
     "perishable": true,
     "restore_hunger": 16,
+    "shelved": true,
     "spoil_rate": "fast",
     "stackable": true,
     "status_chance": {

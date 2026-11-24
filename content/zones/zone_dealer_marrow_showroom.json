@@ -7,10 +7,11 @@
   "ambient_theme": "indoors",
   "bg_color": "#161a20",
   "color": "#d6e8ff",
-  "description": "A white floor under a high ceiling, with glass on two sides. Four hover cars stand on low turntables, one from each maker, each ringed in its maker's colour. The sales desk is at the back, beside the lift up to the roof pad. Marrow Street is <b>south</b> through the glass doors.",
+  "description": "A white floor under a high ceiling, with glass on two sides. Four hover cars stand on low turntables, one from each maker, each ringed in its maker's colour. The sales desk is at the back, beside the glass lift, <b>in</b>, which goes up to the roof of Marrow Street Parking next door, where the cars wait. Marrow Street is <b>south</b> through the glass doors.",
   "exits": {
     "down": "zone_util_zone_dealer_marrow_showroom",
-    "south": "zone_district_912_908"
+    "south": "zone_district_912_908",
+    "in": "zone_dealer_marrow_lift"
   },
   "flags": {
     "building_name": "Higher Purchase",
@@ -36,44 +37,55 @@
         "signs": [
           {
             "along": 0,
-            "h": 0.34,
-            "hex": "#e8f4ff",
-            "lit": true,
-            "plate": true,
-            "plateHex": "#14161a",
+            "font": "Syncopate",
+            "h": 0.3,
+            "hex": "#a8dcff",
+            "icon": "chevron",
+            "style": "halo",
+            "sub": "HOVER CARS",
             "text": "HIGHER PURCHASE",
+            "track": 0.1,
             "wall": "back",
-            "y": 4.25
+            "y": 4.2
           },
           {
             "along": -4.23,
-            "h": 0.26,
+            "emblem": "brakk",
+            "font": "Black Ops One",
+            "h": 0.24,
             "hex": "#d6e8ff",
             "lit": true,
-            "plate": true,
-            "plateHex": "#14161a",
+            "plateHex": "#1a1d22",
+            "shape": "chamfer",
+            "style": "badge",
+            "sub": "WOLVERINE",
             "text": "BRAKK",
             "wall": "back",
             "y": 2.9
           },
           {
             "along": 4.5,
-            "h": 0.26,
+            "case": "none",
+            "emblem": "vex",
+            "font": "Tilt Neon",
+            "frame": "tube",
+            "h": 0.3,
             "hex": "#ff6ed6",
-            "lit": true,
-            "plate": true,
-            "plateHex": "#14161a",
-            "text": "VEX",
+            "style": "neon",
+            "sub": "Hornet",
+            "text": "Vex",
             "wall": "back",
             "y": 2.9
           },
           {
             "along": 8.9,
-            "h": 0.12,
+            "font": "Overpass",
+            "h": 0.1,
             "hex": "#f2efe4",
-            "plate": true,
-            "plateHex": "#3a3f46",
+            "plateHex": "#7a1e1e",
+            "style": "plate",
             "text": "STAFF ONLY",
+            "track": 0.08,
             "wall": "left",
             "y": 2.3
           }
@@ -178,6 +190,15 @@
       "finish": "fine",
       "ground": "stone",
       "h": 5,
+      "kiosk": {
+        "at": [
+          -1.9,
+          9.2
+        ],
+        "face": "front",
+        "kept": "On the roof pad",
+        "label": "SHOWROOM"
+      },
       "panes": [
         {
           "a": -4.38,

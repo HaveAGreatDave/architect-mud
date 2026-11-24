@@ -15,6 +15,8 @@
 // (`uSim` 0) and there are no particles. The march has ONE call site (the D3D inline crash: a big function inlined
 // several times killed the GPU process).
 import { layerProgram } from './programs.js';
+import { drawsFloat } from './core/texture.js';
+import { linRgb } from './colour.js';
 
 const NX = 20, NY = 48, NZ = 20, TX = 8, TY = NY / TX;
 const AW = NX * TX, AH = NZ * TY;
@@ -768,9 +770,11 @@ export function createVatLayer(gl, { phone = false } = {}) {
   function copyRect(w, h, x0, y0, x1, y1) {
     // a new copy (the first frame, or the window resized) takes the whole picture once: it starts black, and a ray the
     // fluid bends out past this vat's box read that black for a frame
-    const anew = !copy || copy.w !== w || copy.h !== h;
-    if (anew) { free(copy); copy = target(w, h, gl.RGBA8, gl.UNSIGNED_BYTE, true); x0 = 0; y0 = 0; x1 = w; y1 = h; }
-    const from = gl.getParameter(gl.DRAW_FRAMEBUFFER_BINDING);
+    // ⚠ AS FLOAT AS WHAT IT COPIES: in GLASS (one-world) the picture is an RGBA16F target, and a blit from it into an
+    // 8-bit copy is refused (core/texture.js drawsFloat)
+    const from = gl.getParameter(gl.DRAW_FRAMEBUFFER_BINDING), fl = drawsFloat(gl, from);
+    const anew = !copy || copy.w !== w || copy.h !== h || copy.fl !== fl;
+    if (anew) { free(copy); copy = target(w, h, fl ? gl.RGBA16F : gl.RGBA8, fl ? gl.HALF_FLOAT : gl.UNSIGNED_BYTE, true); copy.fl = fl; x0 = 0; y0 = 0; x1 = w; y1 = h; }
     gl.bindFramebuffer(gl.READ_FRAMEBUFFER, from);
     gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, copy.fb);
     gl.blitFramebuffer(x0, y0, x1, y1, x0, y0, x1, y1, gl.COLOR_BUFFER_BIT, gl.NEAREST);
@@ -792,8 +796,10 @@ export function createVatLayer(gl, { phone = false } = {}) {
   }
 
   // in the scene, after everything opaque and before the room's glass: each vat's fluid, furthest first, then its bubbles
-  function draw(vp, eye, w, h, { now = performance.now(), amb = [0.1, 0.1, 0.1] } = {}) {
+  // `lin`: the picture is linear light (GLASS's float target, gl/colour.js), so every colour this layer sends is too
+  function draw(vp, eye, w, h, { now = performance.now(), amb = [0.1, 0.1, 0.1], lin: linear = false } = {}) {
     if (!vats.length) return;
+    lin = !!linear;
     drawn++;
     const t = now / 1000;
     const order = vats.filter((v) => v.H * v.level > 0.01).map((v) => ({ v, d: dist2(v.c, eye), in: inBox(v, eye) })).filter((o) => o.in || onScreen(o.v, vp)).sort((a, b) => b.d - a.d);
@@ -820,7 +826,7 @@ export function createVatLayer(gl, { phone = false } = {}) {
       gl.uniformMatrix4fv(VOL.u('uVP'), false, vp);
       gl.uniform3fv(VOL.u('uEye'), eye); gl.uniform3fv(VOL.u('uC'), v.c); gl.uniform3fv(VOL.u('uCell'), v.cell);
       gl.uniform1f(VOL.u('uR'), v.R); gl.uniform1f(VOL.u('uH'), Math.max(0.002, v.H * v.level));
-      gl.uniform3fv(VOL.u('uCol'), v.col); gl.uniform3fv(VOL.u('uBio'), bioOf(v.col)); gl.uniform3fv(VOL.u('uAmb'), amb);
+      gl.uniform3fv(VOL.u('uCol'), C(v.col)); gl.uniform3fv(VOL.u('uBio'), C(bioOf(v.col))); gl.uniform3fv(VOL.u('uAmb'), amb);
       gl.uniform1f(VOL.u('uTime'), t); gl.uniform1f(VOL.u('uSim'), v.slot ? 1 : 0); gl.uniform1f(VOL.u('uLamp'), 1.0);
       gl.uniform1f(VOL.u('uInside'), inside ? 1 : 0); gl.uniform1f(VOL.u('uSteps'), phone ? 14 : v.slot ? 36 : 24); gl.uniform1f(VOL.u('uSeed'), v.seed * 10);
       gl.uniform2f(VOL.u('uRes'), w, h);
@@ -838,7 +844,7 @@ export function createVatLayer(gl, { phone = false } = {}) {
         gl.uniformMatrix4fv(S.draw.u('uVP'), false, vp);
         gl.uniform3fv(S.draw.u('uEye'), eye); gl.uniform3fv(S.draw.u('uC'), v.c); gl.uniform3fv(S.draw.u('uCell'), v.cell);
         gl.uniform1f(S.draw.u('uR'), v.R); gl.uniform1f(S.draw.u('uSig'), 0.9);
-        gl.uniform3fv(S.draw.u('uCol'), v.col); gl.uniform3fv(S.draw.u('uBio'), bioOf(v.col));
+        gl.uniform3fv(S.draw.u('uCol'), C(v.col)); gl.uniform3fv(S.draw.u('uBio'), C(bioOf(v.col)));
         bindTex(S.draw, 'uPart', 7, v.slot.part[0].t);
         gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, NP);
         gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ZERO, gl.ONE);
@@ -858,7 +864,7 @@ export function createVatLayer(gl, { phone = false } = {}) {
     const h3 = [v.c[0] + fh[0] * v.R * 0.3, v.c[1] + v.H + 0.06, v.c[2] + fh[2] * v.R * 0.3];
     const h1 = [h0[0] + f[0] * 0.1 - u[0] * 0.05, h0[1] + f[1] * 0.1 - u[1] * 0.05, h0[2] + f[2] * 0.1 - u[2] * 0.05];
     const h2 = [h3[0] + fh[0] * 0.06, h3[1] - 0.28, h3[2] + fh[2] * 0.06];
-    gl.uniform3fv(GEAR.u('uCol'), v.col);
+    gl.uniform3fv(GEAR.u('uCol'), C(v.col));
     ell(mp, f, u, r, [0.042, 0.034, 0.028], [0.09, 0.11, 0.11], { half: true });
     tubeC(h0, h1, h2, h3, 0.011, [0.05, 0.06, 0.065], { rib: true });
   }
@@ -866,7 +872,7 @@ export function createVatLayer(gl, { phone = false } = {}) {
   function ell(p, f, u, r, radii, base, { half = false, emit = 0 } = {}) {
     gl.uniform1i(GEAR.u('uMode'), 0); gl.uniform1i(GEAR.u('uHalf'), half ? 1 : 2);
     gl.uniform3fv(GEAR.u('uMP'), p); gl.uniform3fv(GEAR.u('uMF'), f); gl.uniform3fv(GEAR.u('uMU'), u); gl.uniform3fv(GEAR.u('uMR'), r);
-    gl.uniform3fv(GEAR.u('uRadii'), radii); gl.uniform3fv(GEAR.u('uBase'), base); gl.uniform1f(GEAR.u('uEmit'), emit);
+    gl.uniform3fv(GEAR.u('uRadii'), radii); gl.uniform3fv(GEAR.u('uBase'), C(base)); gl.uniform1f(GEAR.u('uEmit'), emit);
     gl.drawArrays(gl.TRIANGLES, 0, 12 * 8 * 6);
   }
   const ball = (p, rad, base, emit = 0) => ell(p, [0, 0, 1], [0, 1, 0], [1, 0, 0], [rad, rad, rad], base, { emit });
@@ -874,7 +880,7 @@ export function createVatLayer(gl, { phone = false } = {}) {
     gl.uniform1i(GEAR.u('uMode'), 1);
     gl.uniform2f(GEAR.u('uBulge'), bulge ? bulge[0] : 0, bulge ? bulge[1] : 1);
     gl.uniform3fv(GEAR.u('uH0'), a); gl.uniform3fv(GEAR.u('uH1'), b); gl.uniform3fv(GEAR.u('uH2'), c); gl.uniform3fv(GEAR.u('uH3'), d);
-    gl.uniform1f(GEAR.u('uRad'), rad); gl.uniform1f(GEAR.u('uRib'), rib ? 1 : 0); gl.uniform3fv(GEAR.u('uBase'), base); gl.uniform1f(GEAR.u('uEmit'), emit);
+    gl.uniform1f(GEAR.u('uRad'), rad); gl.uniform1f(GEAR.u('uRib'), rib ? 1 : 0); gl.uniform3fv(GEAR.u('uBase'), C(base)); gl.uniform1f(GEAR.u('uEmit'), emit);
     gl.drawArrays(gl.TRIANGLES, 0, 8 * 28 * 6);
   }
   const lerp3 = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
@@ -883,7 +889,7 @@ export function createVatLayer(gl, { phone = false } = {}) {
   function sheet(a, b, bulge, sway, len, base, t) {
     gl.uniform1i(GEAR.u('uMode'), 3);
     gl.uniform3fv(GEAR.u('uH0'), a); gl.uniform3fv(GEAR.u('uH1'), b); gl.uniform3fv(GEAR.u('uH2'), bulge); gl.uniform3fv(GEAR.u('uH3'), sway);
-    gl.uniform1f(GEAR.u('uRad'), len); gl.uniform1f(GEAR.u('uRib'), t); gl.uniform3fv(GEAR.u('uBase'), base); gl.uniform1f(GEAR.u('uEmit'), 0);
+    gl.uniform1f(GEAR.u('uRad'), len); gl.uniform1f(GEAR.u('uRib'), t); gl.uniform3fv(GEAR.u('uBase'), C(base)); gl.uniform1f(GEAR.u('uEmit'), 0);
     gl.drawArrays(gl.TRIANGLES, 0, 16 * 12 * 6);
   }
   // a ring round axis `ax` at c, radius r: four quarter cubics
@@ -940,6 +946,9 @@ export function createVatLayer(gl, { phone = false } = {}) {
 
   // ── the vat cycle's scene (panels/room-vatcycle.js): the gantries' arms, a body coming down a tube, release glass
   let gantries = [], scene = null;
+  // the colours as the picture holds them: as they are on the Stage, decoded to linear in GLASS's float target (draw's `lin`)
+  let lin = false;
+  const C = (c) => (lin ? linRgb(c) : c);
   function setGantries(list) { gantries = (list || []).filter((g) => g?.c); }
   function setScene(sc) { scene = sc || null; }
   const STEEL = [0.36, 0.39, 0.42], JOINT = [0.06, 0.07, 0.08], CHROME = [0.62, 0.66, 0.7], AMBERG = [1.0, 0.62, 0.2];
@@ -965,7 +974,7 @@ export function createVatLayer(gl, { phone = false } = {}) {
     gl.disable(gl.BLEND); gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.depthFunc(gl.LEQUAL);
     gl.useProgram(GEAR.p);
     gl.uniformMatrix4fv(GEAR.u('uVP'), false, vp); gl.uniform3fv(GEAR.u('uEye'), eye); gl.uniform1f(GEAR.u('uLamp'), 1.0);
-    gl.uniform3fv(GEAR.u('uCol'), [0.85, 0.88, 0.9]);
+    gl.uniform3fv(GEAR.u('uCol'), C([0.85, 0.88, 0.9]));
     drawTrunk();
     drawTubes();
     if (!scene) return;
@@ -1141,7 +1150,7 @@ export function createVatLayer(gl, { phone = false } = {}) {
     gl.uniformMatrix4fv(GEAR.u('uVP'), false, vp); gl.uniform3fv(GEAR.u('uEye'), eye); gl.uniform1f(GEAR.u('uLamp'), 1.0); gl.uniform1i(GEAR.u('uMode'), 2);
     for (const v of rel) {
       const fr = v.rec.front ? norm3(v.rec.front) : [0, 0, 1], rt = norm3(cross3([0, 1, 0], fr)), open = Math.max(0, Math.min(1, scene?.release?.[v.rec.id]?.open || 0));
-      gl.uniform3fv(GEAR.u('uCol'), v.col);
+      gl.uniform3fv(GEAR.u('uCol'), C(v.col));
       gl.uniform3fv(GEAR.u('uMP'), v.c); gl.uniform3fv(GEAR.u('uMR'), rt); gl.uniform3fv(GEAR.u('uMF'), fr);
       gl.uniform3fv(GEAR.u('uRadii'), [v.R + 0.012, v.rec.crown || v.H, 0]);
       grab(v); gl.uniform2f(GEAR.u('uArc'), Math.PI * 0.5, Math.PI * 1.5); gl.drawArrays(gl.TRIANGLES, 0, 32 * 6);

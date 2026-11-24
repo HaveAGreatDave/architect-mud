@@ -10,22 +10,23 @@
     "food_profile": "aromatic",
     "matter": {
       "form": {
-        "kind": "grain",
-        "w": 6,
         "d": 6,
-        "h": 1.5
+        "h": 1.5,
+        "kind": "grain",
+        "w": 6
+      },
+      "look": {
+        "label": "#e8dcc0",
+        "pack": "sack",
+        "size": 0.7
       },
       "ramp": {
         "raw": "#d9a58a"
-      },
-      "look": {
-        "pack": "sack",
-        "label": "#e8dcc0",
-        "size": 0.7
       }
     },
     "perishable": true,
     "restore_hunger": 3,
+    "shelved": true,
     "spoil_rate": "slow",
     "stackable": true,
     "status_chance": {

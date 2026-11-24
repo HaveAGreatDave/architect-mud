@@ -1,22 +1,27 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "city",
-  "description": "A plot gone over to nettle and bramble, with a hand-painted sign still standing in the middle of it reading PLOT 6. DO NOT. Nobody remembers what the rest of the sentence was.",
+  "ambient_events": [
+    "A gull walks along the waterline looking for something.",
+    "A wave comes in a little further than the others."
+  ],
+  "ambient_theme": "coast",
+  "description": "The top of the beach off Shingle Lane, where the tarmac gives out to sand. A tap on a post is there for washing feet.",
   "exits": {
     "east": "zone_district_897_904",
     "north": "zone_district_896_903",
-    "south": "zone_district_896_905"
+    "south": "zone_district_896_905",
+    "west": "zone_district_895_904"
   },
   "flags": {
+    "beach": true,
     "district": "filaments",
     "region_id": "region_coldwater",
-    "terrain": "dirt"
+    "terrain": "sand"
   },
   "grid_x": 896,
   "grid_y": 904,
   "grid_z": 0,
   "id": "zone_district_896_904",
   "map_id": "map_world",
-  "name": "Filament Allotments",
+  "name": "The Shingle",
   "parent_zone": null
 }

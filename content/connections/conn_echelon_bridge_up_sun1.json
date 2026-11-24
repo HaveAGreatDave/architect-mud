@@ -1,0 +1,9 @@
+{
+  "a": "zone_echelon_bridge",
+  "b": "zone_echelon_sundeck",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_echelon_bridge_up_sun1",
+  "lockable": false,
+  "one_way": false
+}

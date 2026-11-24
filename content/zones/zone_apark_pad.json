@@ -1,0 +1,29 @@
+{
+  "ambient_events": [
+    "The pad's light ring pulses blue.",
+    "A windsock on the lift tower snaps round and goes slack."
+  ],
+  "ambient_theme": "indoors",
+  "bg_color": "#1a2228",
+  "color": "#cfe4ea",
+  "description": "The roof of the garage: a square landing pad marked in white with a blue light ring, set into a turntable the carousel lifts and lowers. A steel terminal on a post at the edge takes your aircraft down and gives you a ticket. The lift is <b>in</b>.",
+  "exits": {
+    "in": "zone_apark_lift"
+  },
+  "flags": {
+    "always_lit": true,
+    "building_name": "Airport Parking Plaza",
+    "floor": "concrete",
+    "hangar_interior": true,
+    "hangar_ramp": "zone_district_923_904",
+    "is_interior": true,
+    "open_sky": true
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 5,
+  "id": "zone_apark_pad",
+  "map_id": "map_int_apark",
+  "name": "Airport Parking Plaza, Roof Pad",
+  "parent_zone": "zone_district_923_904"
+}

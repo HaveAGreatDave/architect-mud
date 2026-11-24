@@ -208,6 +208,8 @@ The `type` field controls how the content is rendered. `ascii` content is displa
 
 A wall set in the Room Stage is a third client surface beside the CRT popup and the tablet: `panels/room-tv.js` runs `createTvView` on a page bent onto the set, and `setWallTv` routes the panel calls to it while a flat is open (see [room-stage.md](proposals/room-stage.md#television-on-the-wall)). Its page is off the side of the window, so `room-stage.js` works out where a click lands on the picture (`tvPoint`) and presses the button there (`buttonAt`), which is how full screen and the camera buttons work on a wall set.
 
+Every set, on all three surfaces, has a mute and a full-screen button at the bottom right of its picture (`_mountCorner` in tv.js). Full screen takes the whole set, header and buttons with it; a sports view on a set draws no full-screen button of its own (`fullscreen: false`). Mute is `AudioEngine.setTvMuted`: one switch for every set on the page, never saved. It stops the TV speech channels (`tv` and `scene`, not `npc`), tv-category effects and loops, a TV-owned song, and anything tagged `{ tv: true }` (`playSfx`, `loopSound`, `engineNodes`), which is how the rink's effects and crowd, on the sfx and ambient buses, follow it. A new sound a TV plays on a non-TV bus needs that tag.
+
 ### `broadcastTick()`
 
 Every tick (1 s):

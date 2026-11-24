@@ -140,7 +140,7 @@
     </fieldset>
     <fieldset><legend>View</legend>
       <label>level <select id="level"><option>hd</option><option>lite</option></select></label>
-      <label class="tick" title="the sculpted head about three times as fine through the face (actor-head.js HEAD_HD), hd level only"><input type="checkbox" id="faceHd"> face: hd</label>
+      <label class="tick" title="the sculpted head about three times as fine through the face (actor-head.js HEAD_HD), hd level only. It's what the game draws; off is the old head, to compare"><input type="checkbox" id="faceHd" checked> face: hd</label>
       <label>people <input type="number" id="n" value="4" min="1" max="8" style="width:4em"></label>
       <label>seed <input type="number" id="seed" value="7" style="width:5em"></label>
       <label class="tick" title="The street's bake (the same clothes sampled coarsely) beside each person, to judge that the two read as one figure"><input type="checkbox" id="crowd"> crowd body beside</label>
@@ -238,6 +238,9 @@ import { MOUTHS, mouthTrack, textTrack, mouthAt } from '/client/shared/lip-sync.
 import { ACTOR_CLIPS, ACTOR_ROOM_CLIPS } from '/client/game/js/panels/actor3d.js';
 import { MOODS } from '/client/shared/expressions.js';
 import { FIGURE_CUT_NAMES, FIGURE_BOTTOMS, FIGURE_HATS, FIGURE_SCARVES } from '/client/game/js/panels/figure.js';
+import { setClubs } from '/client/game/js/panels/club-crest.js';
+// the leagues' clubs, which the game gets from the server, so a cap's club badge draws its crest here too
+for (const sport of ['baseball', 'hockey']) fetch('/api/league-clubs?sport=' + sport).then((r) => (r.ok ? r.json() : null)).then((b) => b && setClubs(sport, 'lab', b.clubs)).catch(() => {});
 for (const [id, T] of [['bottoms', FIGURE_BOTTOMS], ['hat', FIGURE_HATS], ['scarf', FIGURE_SCARVES]]) for (const n of Object.keys(T)) document.getElementById(id).add(new Option(n));
 // every cut by name, in the wardrobe's order
 for (const n of FIGURE_CUT_NAMES) { const o = document.createElement('option'); o.textContent = n; document.getElementById('cut').append(o); }
@@ -334,7 +337,7 @@ function draw(now) {
   recs = recs.map((r, i) => {
     const g = $('gear').value, gear = g === 'none' ? { belt: false } : g === 'all' ? { belt: true, strap: true, pouch: true, pads: true, gloves: true } : r.key.gear;
     const mu = $('muts').value, body = mu === 'all' ? { mighty: 'R', thorn: true, horns: true, claws: true, teeth: true, goggles: true } : mu === 'none' ? null : r.key.body;
-    const key = { ...r.key, gear, body, ...($('faceHd').checked ? { faceHd: true } : {}), ...(cut ? { cut: cut === 'each' ? EACH[(i + (+$('seed').value || 0)) % EACH.length] : cut } : {}), ...(hair !== '' ? { style: +hair } : {}), ...(wear ? { wear } : {}) };
+    const key = { ...r.key, gear, body, faceHd: $('faceHd').checked && r.key.level === 'hd', ...(cut ? { cut: cut === 'each' ? EACH[(i + (+$('seed').value || 0)) % EACH.length] : cut } : {}), ...(hair !== '' ? { style: +hair } : {}), ...(wear ? { wear } : {}) };
     if (g) r = { ...r, gloves: g === 'all' };
     const face = r.face.slice(); face[2] = key.style;
     return { ...r, key, face };

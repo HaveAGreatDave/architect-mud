@@ -7,9 +7,10 @@
   "ambient_theme": "indoors",
   "bg_color": "#0d1420",
   "color": "#bfe0ff",
-  "description": "The bridge. A single curved window of smoked glass wraps the bow, the Basin beyond rendered in cold navigational overlays. The helm console sits at the center: a slab of dark glass and one worn brass throttle, the only analogue thing aboard. From here the Echelon is steered, one deliberate move at a time. The foyer lies to the SOUTH.",
+  "description": "The bridge, on her top deck, its windscreen raked back over the bow in one sweep of smoked glass. The helm is a slab of dark glass with one worn brass throttle, the only analogue thing aboard. Aft is a lounge round a chart table. A stair goes DOWN to the landing and a companionway UP to the sun deck.",
   "exits": {
-    "south": "zone_echelon_foyer"
+    "down": "zone_echelon_landing",
+    "up": "zone_echelon_sundeck"
   },
   "flags": {
     "always_lit": true,
@@ -21,7 +22,7 @@
     "is_interior": true,
     "room": {
       "balcony": false,
-      "d": 7,
+      "d": 9.23,
       "decor": {
         "ceiling": {
           "hex": "#101214",
@@ -29,6 +30,16 @@
           "trim": "#4fb3c9"
         },
         "rug": false
+      },
+      "doors": {
+        "down": [
+          0,
+          5.47
+        ],
+        "up": [
+          0,
+          8.63
+        ]
       },
       "face": 0,
       "finish": "fine",
@@ -38,7 +49,22 @@
         "right"
       ],
       "ground": "stone",
-      "h": 3.2,
+      "h": 3,
+      "hull": {
+        "rake": 1.34,
+        "sides": [
+          [
+            0,
+            3.08,
+            2.89
+          ],
+          [
+            9.23,
+            3.08,
+            2.89
+          ]
+        ]
+      },
       "studio": false,
       "tone": {
         "accent": "#4fb3c9",
@@ -46,14 +72,14 @@
         "trim": "#0b0b0b",
         "wall": "#1d1d1f"
       },
-      "w": 9
+      "w": 6.16
     },
     "world_exit_zone": "zone_echelon_exterior",
     "yacht": true
   },
   "grid_x": 0,
-  "grid_y": -1,
-  "grid_z": 1,
+  "grid_y": 0,
+  "grid_z": 3,
   "id": "zone_echelon_bridge",
   "map_id": "map_echelon",
   "name": "Echelon — Bridge",

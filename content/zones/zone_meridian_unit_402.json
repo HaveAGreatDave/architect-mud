@@ -2,15 +2,49 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#8f9a7e",
-  "description": "Unit 402, fourth floor of The Meridian. A concrete studio with a drop ceiling, a water stain spreading in one corner, and bare cable hookups. The single window faces the airshaft and another wall close enough to touch. Old picture hooks on the walls.",
+  "description": "The penthouse, the lower floor: one high room on the last setback, three windows west over the city and a stair up in the corner. Polished boards, a deco sideboard, a kitchen in green tile. Sir Charles lives here.",
   "exits": {
-    "west": "zone_meridian_floor_4"
+    "east": "zone_meridian_floor_10",
+    "up": "zone_meridian_unit_502"
   },
   "flags": {
     "floor": "boards",
     "is_apartment": true,
     "is_interior": true,
     "rent_cost": 200,
+    "room": {
+      "balcony": false,
+      "d": 4.65,
+      "doors": {
+        "east": 0
+      },
+      "face": 270,
+      "h": 3.76,
+      "panes": [
+        {
+          "a": -2.72,
+          "b": -1.72,
+          "wall": "front",
+          "y0": 0.85,
+          "y1": 3.36
+        },
+        {
+          "a": -0.5,
+          "b": 0.5,
+          "wall": "front",
+          "y0": 0.85,
+          "y1": 3.36
+        },
+        {
+          "a": 1.72,
+          "b": 2.72,
+          "wall": "front",
+          "y0": 0.85,
+          "y1": 3.36
+        }
+      ],
+      "w": 8
+    },
     "terrain": "grass",
     "window": {
       "description": "A plain sash window, painted shut some years ago, with a view of the block opposite.",
@@ -19,12 +53,12 @@
       "visibility": 0.75
     }
   },
-  "grid_x": 1,
+  "grid_x": -1,
   "grid_y": 0,
-  "grid_z": 4,
+  "grid_z": 10,
   "id": "zone_meridian_unit_402",
   "map_id": "map_int_meridian",
-  "marker": "4",
-  "name": "Unit 402",
+  "marker": "10",
+  "name": "The Penthouse",
   "parent_zone": "zone_district_918_908"
 }

@@ -9,16 +9,17 @@
     "food_noun": "smoky",
     "food_profile": "aromatic",
     "matter": {
+      "look": {
+        "label": "#b0281a",
+        "pack": "tin",
+        "size": 0.7
+      },
       "ramp": {
         "raw": "#b8381e"
-      },
-      "look": {
-        "pack": "tin",
-        "label": "#b0281a",
-        "size": 0.7
       }
     },
     "restore_hunger": 1,
+    "shelved": true,
     "stackable": true,
     "status_chance": {
       "food_poisoning": 0.05

@@ -13,8 +13,8 @@
     },
     "preserves": "refrigerated",
     "spot": {
-      "along": -0.9,
-      "wall": "back"
+      "wall": "back",
+      "along": 1.5
     }
   },
   "hp": null,
@@ -26,5 +26,5 @@
   "object_type": "container",
   "power_draw_kw": 0.1,
   "price": 20,
-  "zone_id": "zone_hostel_kitchen"
+  "zone_id": "zone_hostel_dorm"
 }

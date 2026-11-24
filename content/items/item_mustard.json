@@ -10,18 +10,19 @@
     "food_noun": "mustard",
     "food_profile": "aromatic",
     "matter": {
-      "ramp": {
-        "raw": "#e0b21c",
-        "cook": "#d8a818",
-        "peak": "#c99414"
-      },
       "look": {
-        "pack": "jar",
-        "label": "#f2f0ea"
+        "label": "#f2f0ea",
+        "pack": "jar"
+      },
+      "ramp": {
+        "cook": "#d8a818",
+        "peak": "#c99414",
+        "raw": "#e0b21c"
       }
     },
     "perishable": true,
     "restore_hunger": 2,
+    "shelved": true,
     "spoil_rate": "slow",
     "stackable": true,
     "status_chance": {

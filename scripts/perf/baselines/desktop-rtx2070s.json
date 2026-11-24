@@ -1,0 +1,74 @@
+{
+  "at": "2026-11-23T01:50:32.397Z",
+  "note": "__benchRoutes() on the Modelshop (port 5271), 640x360, best of 3 per route. GLASS LITE WAS OFF (glassLite 0, the Modelshop's own default): this is full GLASS 2 with every arm live, not what a player runs. Measured in the Claude desktop app's Browser pane while it was hidden, with another session working on the same machine, so CPU numbers run high and wide; GPU time comes from timer queries and isn't affected by the hidden pane. allocPool 63 (the allocation cuts of 2026-11-22) was on. `tune` lists the switches that matter for reading this, not the whole RENDER_TUNE.",
+  "device": {
+    "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 2070 SUPER (0x00001E84) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "vendor": "Google Inc. (NVIDIA)",
+    "timerQuery": true,
+    "dpr": 1,
+    "cores": 12,
+    "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Claude/5.1231.2 Chrome/156.0.8078.75 Safari/537.36 MSIX"
+  },
+  "tune": {
+    "glassLite": 0,
+    "gl": 1,
+    "glMirror": 32,
+    "glMirrorMass": 1,
+    "glMirrorRes": 0.5,
+    "glShadow": 0.55,
+    "glShadowNear": 5,
+    "glPropShadow": 1,
+    "glLampShadow": 1,
+    "glSsao": 0.5,
+    "glHdr": 1,
+    "glBloom": 1.6,
+    "glMsaa": 1,
+    "glTaa": 0,
+    "glRetain": 1,
+    "glSizeGPU": 1,
+    "dprMax": 2
+  },
+  "reps": 3,
+  "routes": {
+    "halcyon-cab": {
+      "route": "halcyon-cab", "seat": "cab", "hour": 13, "weather": "clear", "frames": 200, "windows": 11, "W": 640, "H": 360,
+      "cpu": { "p50": 33.3, "p95": 57.7, "p99": 440.7, "max": 606.2 },
+      "gpu": { "p50": 11.75, "p95": 22.74, "p99": 26.54 },
+      "passes": { "mirror": 4.317, "solids": 2.384, "mass": 1.831, "hdr": 0.67, "fade": 0.551, "ground": 0.36, "propshadow": 0.33, "billboards": 0.284, "ssao": 0.281, "floor": 0.239, "decals": 0.149, "water": 0.116, "sprites": 0.062, "shadow": 0.022, "shadownear": 0.012, "strokes": 0.01, "curtain": 0.001, "actors": 0 },
+      "phases": { "build": 18.451, "arms": 11.607, "sweep": 1.506, "occlude": 0.726, "gl": 19.875, "ground": 0.248 },
+      "heapMB": 2331.4
+    },
+    "halcyon-cab-night": {
+      "route": "halcyon-cab-night", "seat": "cab", "hour": 23, "weather": "clear", "frames": 200, "windows": 11, "W": 640, "H": 360,
+      "cpu": { "p50": 36.8, "p95": 84.6, "p99": 776.2, "max": 856.5 },
+      "gpu": { "p50": 11, "p95": 32.27, "p99": 61.89 },
+      "passes": { "mirror": 4.937, "solids": 2.573, "mass": 2.333, "hdr": 0.844, "ground": 0.646, "fade": 0.585, "billboards": 0.343, "propshadow": 0.331, "floor": 0.321, "ssao": 0.293, "decals": 0.275, "water": 0.167, "sprites": 0.088, "strokes": 0.077, "shadow": 0.025, "shadownear": 0.011, "curtain": 0.009, "actors": 0 },
+      "phases": { "build": 25.18, "arms": 12.109, "sweep": 1.883, "occlude": 1.041, "gl": 25.675, "ground": 0.425 },
+      "heapMB": 2003.7
+    },
+    "marrow-cab": {
+      "route": "marrow-cab", "seat": "cab", "hour": 13, "weather": "clear", "frames": 200, "windows": 11, "W": 640, "H": 360,
+      "cpu": { "p50": 25, "p95": 54.9, "p99": 85.2, "max": 88.6 },
+      "gpu": { "p50": 6.98, "p95": 17.68, "p99": 28.71 },
+      "passes": { "mirror": 3.256, "solids": 2.1, "hdr": 0.803, "mass": 0.631, "ground": 0.295, "floor": 0.269, "fade": 0.204, "propshadow": 0.181, "water": 0.144, "sprites": 0.143, "billboards": 0.134, "ssao": 0.116, "decals": 0.111, "strokes": 0.016, "shadow": 0.012, "shadownear": 0.01, "actors": 0, "curtain": 0 },
+      "phases": { "build": 11.253, "arms": 5.024, "sweep": 1.515, "occlude": 0.79, "gl": 13.821, "ground": 0.247 },
+      "heapMB": 1582.9
+    },
+    "glasshouse-cab-rain": {
+      "route": "glasshouse-cab-rain", "seat": "cab", "hour": 21, "weather": "rain", "frames": 161, "windows": 9, "W": 640, "H": 360,
+      "cpu": { "p50": 15.8, "p95": 27.8, "p99": 40.7, "max": 85.2 },
+      "gpu": { "p50": 4.77, "p95": 12.73, "p99": 21.49 },
+      "passes": { "hdr": 2.363, "mirror": 1.402, "mass": 1.096, "solids": 0.645, "ground": 0.549, "floor": 0.194, "water": 0.123, "ssao": 0.117, "propshadow": 0.069, "decals": 0.067, "sprites": 0.065, "shadow": 0.021, "shadownear": 0.019, "strokes": 0.015, "fade": 0.009, "billboards": 0.003, "actors": 0, "curtain": 0 },
+      "phases": { "build": 6.56, "arms": 3.317, "sweep": 1.689, "occlude": 0.238, "gl": 7.126, "ground": 0.237 },
+      "heapMB": 2040.3
+    },
+    "halcyon-air": {
+      "route": "halcyon-air", "seat": "air", "hour": 13, "weather": "clear", "frames": 161, "windows": 25, "W": 640, "H": 360,
+      "cpu": { "p50": 75.3, "p95": 267.3, "p99": 1096.6, "max": 1985.5 },
+      "gpu": { "p50": 21.6, "p95": 67.02, "p99": 146.24 },
+      "passes": { "mirror": 12.512, "mass": 6.185, "solids": 5.167, "billboards": 1.465, "hdr": 1.377, "propshadow": 0.856, "ssao": 0.764, "decals": 0.611, "fade": 0.609, "ground": 0.462, "floor": 0.337, "water": 0.19, "shadow": 0.17, "sprites": 0.13, "strokes": 0.089, "shadownear": 0.054, "curtain": 0.008, "actors": 0 },
+      "phases": { "build": 65.062, "arms": 40.362, "sweep": 8.622, "occlude": 3.52, "gl": 47.522, "ground": 1.805 },
+      "heapMB": 2486.2
+    }
+  }
+}

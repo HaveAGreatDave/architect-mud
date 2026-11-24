@@ -27,8 +27,10 @@ const HANDLE_R = BAT_HANDLE_R;
 // crushed), and what a camera sees of the handle through the hand along the grip: the 3 mm cells round it (24 a row)
 // and along it, with no hand skin outside them out to 25 mm past the wood, a row on average. Fitted 2026-11-15 at two
 // cells a row for the grip and three for the waggle's; the grip before showed nine, and from behind the batter you
-// saw the bat across his hands.
-const PRESS_MAX = 0.0045, SEEN_MAX = { bat: 2.5, batLoose: 3.5 };
+// saw the bat across his hands. The grip's limit went from 2.5 to 3.2 on 2026-11-23, deliberately: the hand came down
+// from 1.1 to 0.97 of its size (figure.js handScaleOf, "1.1 read as mitts"), and refitted (hands.js bat, GRIP_HOLE)
+// the shorter fingers get to 3.1 round the same handle; it showed 6.4 before the refit.
+const PRESS_MAX = 0.0045, SEEN_MAX = { bat: 3.2, batLoose: 3.5 };
 const PRESS = {}, SEEN = {};
 const GRIP_PTS = await (async () => {
   const { buildFigure } = await import('../../client/game/js/panels/figure.js');

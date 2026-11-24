@@ -238,10 +238,6 @@
   "studio_zone_id": null,
   "vendor_inventory": [
     {
-      "item_id": "item_salt_ration",
-      "price": 3
-    },
-    {
       "item_id": "item_pocket_chalk",
       "price": 3
     },

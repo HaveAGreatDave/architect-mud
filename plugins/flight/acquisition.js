@@ -14,7 +14,7 @@ import { refillChampagne, pushChampagne } from './champagne.js';
 import { allExits } from '../../server/engine/exits.js';
 import { getMinimapData, addPlayerToZone, removePlayerFromZone } from '../../server/engine/world.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
-import { emit } from '../../server/engine/events.js';
+import { emit, on } from '../../server/engine/events.js';
 import { sendToZone } from '../../server/engine/messaging.js';
 // `buy` belongs to commerce (shopping); flight wins it by load order (manifest
 // `after`) and delegates back unless you're buying an aircraft at a dealer field.
@@ -138,13 +138,19 @@ async function acquire(args, raw, player, kind) {
   // A rental remembers the hangar/operator it came from so the cockpit registration certificate
   // can name it as the registered operator, even after the plane's flown off to another field.
   const customData = kind === 'rent' ? { operator: fieldName(field) } : {};
+  // A dealer with no pad of its own (`flags.delivers_to`, another field's ramp) has her parked there: the car is
+  // waiting on that roof, and you take the lift up to it, where she's offered on arrival (noteDelivery below).
+  const park = getZone(field.flags?.delivers_to) || field;
+  const away = park.id !== field.id;
   await query(
     `INSERT INTO aircraft (id,type_id,name,owner_id,map_id,grid_x,grid_y,altitude_band,heading,parked_zone_id,fuel,engine_temp,rental,custom_data)
      VALUES ($1,$2,$3,$4,'map_world',$5,$6,'ground','n',$7,$8,20,$9,$10)`,
-    [id, t.id, tailNum, player.id, field.grid_x, field.grid_y, field.id, Math.round((await typeCap(t.id)) * 0.5), kind === 'buy' ? 0 : 1, JSON.stringify(customData)]
+    [id, t.id, tailNum, player.id, park.grid_x, park.grid_y, park.id, Math.round((await typeCap(t.id)) * 0.5), kind === 'buy' ? 0 : 1, JSON.stringify(customData)]
   );
   // The hangar's next push offers her as the way out (hangar-bay.js, the ready key over the floor).
   noteFreshVehicle(player.id, id);
+  if (away) noteDelivery(player.id, { id, name: t.name, field: park.id });
+  const where = away ? ` She's waiting on the roof of <b>${fieldName(park)}</b>. Take the lift up to her and call her up.` : '';
   if (kind === 'buy') {
     // Point-of-sale insurance offer as an in-browser accept/decline popup (server
     // { type:'confirm' } → showConfirmDialog): confirm binds cover via `insurebind`,
@@ -158,10 +164,25 @@ async function acquire(args, raw, player, kind) {
       confirmLabel: `Insure (${premium}₵)`,
       command: `insurebind ${id}`,
     });
-    return { type: 'output', message: `<span class="item-grant">Sold. A brand-new <b>${t.name}</b> (${tailNum}) is towed onto the ramp. It's yours. <b>embark</b> her. <span class="text-dim">You own her now: you buy your own fuel and pay for your own <b>repair</b>s (DIY, or the hangar does it right for more).</span></span>\n<span class="msg-system">📄 <b>HALCYON ASSURANCE</b> is offering cover. Accept it in the popup, or <span class="action-link" data-action="cmd" data-cmd="insurebind ${id}">insure her now</span> later. <span class="text-dim">An uninsured write-off is a total loss.</span></span>` };
+    return { type: 'output', message: `<span class="item-grant">Sold. A brand-new <b>${t.name}</b> (${tailNum}) ${away ? 'is yours.' + where : "is towed onto the ramp. It's yours. <b>embark</b> her."} <span class="text-dim">You own her now: you buy your own fuel and pay for your own <b>repair</b>s (DIY, or the hangar does it right for more).</span></span>\n<span class="msg-system">📄 <b>HALCYON ASSURANCE</b> is offering cover. Accept it in the popup, or <span class="action-link" data-action="cmd" data-cmd="insurebind ${id}">insure her now</span> later. <span class="text-dim">An uninsured write-off is a total loss.</span></span>` };
   }
-  return { type: 'output', message: `<span class="item-grant">Rented a <b>${t.name}</b> (${tailNum}), half a tank, parked and ready. <b>embark</b> her and fly it yourself. <span class="text-dim">Flat desk fee ${price}₵ paid; the meter then runs while you're airborne: ~${rentalOpFee(t)}₵ per 30 min for gas &amp; upkeep. Maintenance is on the desk, so just bring her back.</span></span>` };
+  return { type: 'output', message: `<span class="item-grant">Rented a <b>${t.name}</b> (${tailNum}), half a tank.${away ? where : ' Parked and ready. <b>embark</b> her and fly it yourself.'} <span class="text-dim">Flat desk fee ${price}₵ paid; the meter then runs while you're airborne: ~${rentalOpFee(t)}₵ per 30 min for gas &amp; upkeep. Maintenance is on the desk, so just bring her back.</span></span>` };
 }
+
+// A car delivered to another field's roof: offered when its buyer steps out onto that field's pad (zone.entered
+// below). RAM only; it lapses after an hour, and the car is still parked there for `embark` either way.
+const deliveries = new Map();   // playerId -> { id, name, field, at }
+const DELIVERY_MS = 60 * 60_000;
+export function noteDelivery(playerId, d) { deliveries.set(playerId, { ...d, at: Date.now() }); }
+on('zone.entered', ({ actor, zone }) => {
+  const d = actor && deliveries.get(actor.id);
+  if (!d) return;
+  if (Date.now() - d.at > DELIVERY_MS) { deliveries.delete(actor.id); return; }
+  const z = getZone(zone);
+  if (!z || (z.flags?.hangar_ramp !== d.field && zone !== d.field)) return;
+  deliveries.delete(actor.id);
+  sendToPlayer(actor.id, { type: 'output', message: `<span class="item-grant">Your new <b>${d.name}</b> is on the pad, charged and waiting.</span> <span class="action-link" data-action="cmd" data-cmd="embark ${d.id}">Call her up</span>` });
+});
 
 async function typeCap(typeId) {
   const { rows } = await query('SELECT fuel_capacity FROM aircraft_types WHERE id=$1', [typeId]);

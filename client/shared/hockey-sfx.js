@@ -518,7 +518,7 @@
     const AE = global.AudioEngine; if (!AE?.playSfx) return null;
     const o = a && typeof a === 'object' ? a : { seed: a, amount: b };
     const take = variant(d, o.seed == null ? nextSeed() : o.seed, o.amount, o.intensity);
-    return AE.playSfx(take, o.gain ?? 1, o.pan ? { pan: o.pan } : {});
+    return AE.playSfx(take, o.gain ?? 1, { ...(o.pan ? { pan: o.pan } : {}), ...(o.tv ? { tv: true } : {}) });
   }
 
   // ── the rink's events ────────────────────────────────────────────────────────
@@ -607,7 +607,7 @@
   const REC_TOP = (CROWD_STATES.goal.voices / CROWD_STATES.active.voices) * 1.5;   // a goal, cheered
   function crowdBed(opts = {}) {
     const AE = global.AudioEngine;
-    const eng = opts.ctx ? opts : (AE?.engineNodes ? AE.engineNodes() : null);
+    const eng = opts.ctx ? opts : (AE?.engineNodes ? AE.engineNodes('ambient', opts.tv ? { tv: true } : undefined) : null);   // tv: on a TV set, its mute
     if (!eng || !eng.ctx) return null;
     const c = eng.ctx, nbuf = eng.noise || null, t0 = c.currentTime;
     const out = c.createGain(); out.gain.value = 0;
@@ -674,7 +674,7 @@
       const calls = ['crowd_goal', 'crowd_cheer', 'crowd_boo'].map((k) => field.fieldCall(k)?.sample).filter(Boolean);
       AE.preloadSamples([layer.sample, ...calls]).then(() => {
         if (stopped || !AE.sampleReady?.(layer.sample)) return;
-        AE.loopSound({ id: REC_ID, name: REC_ID, category: 'ambient', priority: 9, config: { layers: [layer] } }, { whole: true, gain: 0 });
+        AE.loopSound({ id: REC_ID, name: REC_ID, category: 'ambient', priority: 9, config: { layers: [layer] } }, { whole: true, gain: 0, tv: opts.tv });
         rec = true;
         apply(c.currentTime, 0.8);
       });
@@ -689,14 +689,14 @@
       gasp(at) {
         const t = now(at);
         apply(t, 0.03, 0.55); apply(t + 0.12, 0.25, 1);
-        if (!opts.ctx && AE?.playSfx) play('hk-crowd-gasp', { seed: (t * 1000) | 0 });
+        if (!opts.ctx && AE?.playSfx) play('hk-crowd-gasp', { seed: (t * 1000) | 0, tv: opts.tv });
         return api;
       },
       // a cheer: the bed lifts with a denser middle and comes back down to the state
       cheer(at, big) {
         const t = now(at), hold = big ? 2.2 : 0.8;
         apply(t, big ? 0.12 : 0.15, big ? 1.5 : 1.3); apply(t + hold, 0.6, 1);
-        if (!opts.ctx && AE?.playSfx) play(big ? 'hk-crowd-goal' : 'hk-crowd-cheer', { seed: (t * 1000) | 0 });
+        if (!opts.ctx && AE?.playSfx) play(big ? 'hk-crowd-goal' : 'hk-crowd-cheer', { seed: (t * 1000) | 0, tv: opts.tv });
         return api;
       },
       celebrate(at) { return api.cheer(at, true); },

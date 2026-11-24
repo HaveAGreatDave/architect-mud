@@ -36,7 +36,8 @@
 // not walked to, and in a game where finding a place IS the content, that is a spoiler with a verb
 // attached.
 
-import { getZone, getLivePlayer, getZoneFurniture, getAllZones } from '../../server/engine/world.js';
+import { getZone, getLivePlayer, getZoneFurniture, getAllZones, getZoneNpcs, getZonePlayers } from '../../server/engine/world.js';
+import { isHiddenFrom } from '../../server/engine/stealth.js';
 import { sendToPlayer, getBroadcast } from '../../server/engine/messaging.js';
 import { cmdMove } from '../../server/engine/commands/movement.js';
 import { zoneAtTile } from '../../server/engine/world.js';
@@ -44,7 +45,7 @@ import { hasTag } from '../../server/engine/tags.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { on } from '../../server/engine/events.js';
 import { mapWindow, skyState, FLIGHT_RADIUS, skylineNear, nearbyRegions, farRoadsNear, FAR_ROAD_R, worldContactsNear } from '../flight/state.js';
-import { streetActors } from '../../server/engine/street-actors.js';
+import { streetActors, token } from '../../server/engine/street-actors.js';
 import { streetDoorsNear, buildingRoomsNear } from '../roomstage/index.js';
 
 // The same roster the fireworks command takes, and deliberately not the narrower `role === 'admin'`
@@ -120,7 +121,19 @@ function viewPayload(gx, gy, stand, pid = null) {
     roads: farRoadsNear(gx, gy, FAR_ROAD_R), regions: nearbyRegions(gx, gy), contacts: worldContactsNear(gx, gy, RADIUS),
     // on foot: the street door of each building you can walk into (plugins/roomstage), which the client makes
     // solid everywhere else
-    ...(stand?.foot ? { doors: streetDoorsNear(gx, gy, RADIUS), ...interiorsFor(gx, gy, pid) } : {}) };
+    ...(stand?.foot ? { doors: streetDoorsNear(gx, gy, RADIUS), here: hereFor(getLivePlayer(pid)), ...interiorsFor(gx, gy, pid) } : {}) };
+}
+// WHO'S HERE, BY NAME: the people on the tile you're standing on, keyed by their street token, so the view on foot can put
+// up a card to talk to one you walk up to (freelook-view.js streetCardTick). Only your own tile, which `look` already
+// lists by name, with the same sneakers left out; everybody further off stays a nameless figure
+// (docs/reference/world-rendering.md, street actors). RAM only.
+export function hereFor(player) {
+  const z = player ? getZone(player.current_zone) : null;
+  if (!placedTile(z) || (z.grid_z ?? 0) !== 0) return [];
+  const out = [];
+  for (const n of getZoneNpcs(z.id)) if (n.name && !n._aboard && !n._charterHeld) out.push({ t: token(n.id), n: n.name, npc: 1 });
+  for (const p of getZonePlayers(z.id)) if (p.id !== player.id && p.handle && p.posture !== 'flying' && !isHiddenFrom(p, player.id)) out.push({ t: token(p.id), n: p.handle });
+  return out;
 }
 // On foot: the rooms of each building with a Stage within INTERIOR_R tiles, not sent to this player yet, for the client to
 // draw inside the city (docs/proposals/one-world-interiors.md). From the roomstage plugin's cache, never a query.
@@ -332,7 +345,7 @@ function pushLive() {
   for (const [pid, at] of [...viewers]) {
     if (!getLivePlayer(pid)) { viewers.delete(pid); continue; }
     // The people ride the sky's clock: an NPC steps a tile every 15 s, and the client walks them between.
-    sendToPlayer(pid, { type: 'freelook_sky', sky: skyState(at.gx, at.gy), actors: streetActors(at.gx, at.gy, RADIUS) });
+    sendToPlayer(pid, { type: 'freelook_sky', sky: skyState(at.gx, at.gy), actors: streetActors(at.gx, at.gy, RADIUS), ...(at.foot ? { here: hereFor(getLivePlayer(pid)) } : {}) });
   }
 }
 schedule('15s', pushLive);
@@ -356,7 +369,9 @@ schedule('1s', pushContacts);
 
 // A pane cannot survive its owner leaving. The client's own teardown covers a reload; a disconnect
 // that never reaches it would leave a row in here being pushed sky at nobody until the next prune.
-on('player.logout', ({ id }) => { if (id) viewers.delete(id); });
+// ⚠ AND WHICH BUILDINGS' ROOMS IT WAS SENT GOES WITH IT. The page that had them is gone, so a reconnect has none; kept,
+// the street after a reload had no rooms in it until the server restarted, and every lobby opened the Stage.
+on('player.logout', ({ id }) => { if (id) { viewers.delete(id); roomsSent.delete(id); } });
 
 // ── ON FOOT: OUT OF A BUILDING'S STREET DOOR ─────────────────────────────────
 //
@@ -407,6 +422,18 @@ on('roomstage.street', ({ player, zone, facade }) => {
   const p = player?.id ? getLivePlayer(player.id) : null;
   if (!p || !openOnFoot(p, zone, facade)) sendToPlayer(player?.id, { type: 'room_close' });
 });
+// The room button in a building, on a desktop (plugins/roomstage `room world`): the street view at the building's door,
+// with its rooms, for the room's own view to be taken into it as walking in takes it. Nobody's put on foot and no
+// viewer is kept, which is how walking in leaves it (roomstage.indoors); the rooms are sent again in case the page
+// lost them.
+on('roomstage.worldin', ({ player, zone, facade }) => {
+  const p = player?.id ? getLivePlayer(player.id) : null, z = getZone(zone), step = footStep(z), out = getZone(facade)?.flags?.entrance;
+  if (!p || !step) return;
+  roomsSent.delete(p.id);
+  const [ox, oy] = STEP_OF[out] || [0, 0];
+  // `worldin`: only the room's backdrop, so the client keeps the room's loading veil over it (dispatch.js freelook_open)
+  sendToPlayer(p.id, { ...viewPayload(step.gx, step.gy, { foot: true, x: -ox * 0.36, y: -oy * 0.36, yaw: YAW_OF[out] ?? 0, leash: 0, label: z.name || 'STREET', step }, p.id), worldin: true });
+});
 // The Stage opened on the building you walked into: the street view goes, and the Stage takes the pane.
 on('roomstage.indoors', ({ player }) => {
   if (!player?.id || !viewers.get(player.id)?.foot) return;
@@ -432,7 +459,7 @@ on('zone.entered', ({ actor, zone, opts }) => {
       sendToPlayer(p.id, { ...viewPayload(step.gx, step.gy, { foot: true }, p.id), recentre: true });
       v.gx = step.gx; v.gy = step.gy;
     }
-    sendToPlayer(p.id, { type: 'freelook_step', ...step, ...(opts?.footTo ? {} : { moved: true }) });
+    sendToPlayer(p.id, { type: 'freelook_step', ...step, here: hereFor(p), ...(opts?.footTo ? {} : { moved: true }) });
     return;
   }
   setImmediate(() => {
@@ -484,7 +511,7 @@ async function cmdFootstep(args, raw, player) {
   if (!v) { v = { gx: at.gx, gy: at.gy, foot: true }; viewers.set(player.id, v); player._onFoot = true; }
   if (!v.foot) return null;
   const dx = gx - at.gx, dy = gy - at.gy;
-  if (!dx && !dy) { sendToPlayer(player.id, { type: 'freelook_step', gx: at.gx, gy: at.gy, zone: here.id }); return null; }
+  if (!dx && !dy) { sendToPlayer(player.id, { type: 'freelook_step', gx: at.gx, gy: at.gy, zone: here.id, here: hereFor(player) }); return null; }
   // the gate's own words go with the refusal, so the view can say why rather than just putting you back
   const back = (message) => sendToPlayer(player.id, { type: 'freelook_step', gx: at.gx, gy: at.gy, zone: here.id, refused: true, ...(message ? { message } : {}) });
   const reach = Math.max(Math.abs(dx), Math.abs(dy));

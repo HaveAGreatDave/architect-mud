@@ -17,7 +17,12 @@
       "d": 9,
       "h": 3.4,
       "studio": false,
-      "balcony": false
+      "balcony": false,
+      "street_door": {
+        "kind": "swing",
+        "w": 1.4
+      },
+      "face": 0
     },
     "window": {
       "description": "Green-painted windows with MULCAHY'S in gold leaf, backwards from in here. Halcyon Boulevard is outside, and the top of Hughson Way round the corner.",

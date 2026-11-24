@@ -1,0 +1,7 @@
+{
+  "capacity_kw": 2000,
+  "generator_id": "gen_zone_powerplantnew_1782069598190",
+  "id": "zone_apark_pad",
+  "name": "Airport Parking Plaza, Roof Pad",
+  "source_type": "city_grid"
+}

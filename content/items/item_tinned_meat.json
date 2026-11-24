@@ -9,15 +9,16 @@
     "food_noun": "tinned meat",
     "food_profile": "preserved",
     "matter": {
+      "look": {
+        "label": "#8a3a2a",
+        "pack": "tin"
+      },
       "ramp": {
         "raw": "#c87a6a"
-      },
-      "look": {
-        "pack": "tin",
-        "label": "#8a3a2a"
       }
     },
     "restore_hunger": 22,
+    "shelved": true,
     "stackable": true,
     "status_chance": {
       "food_poisoning": 0.15

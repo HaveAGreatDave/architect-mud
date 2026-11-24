@@ -127,15 +127,14 @@ Its two lists are read from the schema, never from a list of names in the panel 
 tools grey out on a hand-written arm, and the tooltip says why. A piece added here and a piece
 added from the rail share one `defaultPart()`, so both arrive the same size.
 
-## GLASS 2 in the viewport
+## GLASS in the viewport
 
-Press **GLASS 2** (or <kbd>2</kbd>) and the subject is drawn by the game's own frame: `paintWindshield` with
-GLASS 2 installed, the path the sim draws the world and your own craft by. So the viewport shows the
-material table, the sun shadow map, SSAO, the env reflections, a vehicle's clear coat and metals,
-bloom and the lights at night, which the 2-D viewport has none of. It's on by default, since it's what
-the game draws with; switch it off and that's remembered per browser.
+The subject is always drawn by the game's own frame: `paintWindshield` with GLASS installed, the path
+the sim draws the world and your own craft by, with the material table, shadows, SSAO, reflections,
+clear coat, bloom and the lights at night. There is no 2-D view to switch to (GLASS 1 was retired on
+2026-11-23); a browser with no WebGL2 gets a blank viewport and a note in the HUD.
 
-- **It is an overlay.** The 2-D pass still runs underneath, because the cage, the selection, the pick
+- **It is an overlay.** A 2-D pass still runs underneath, covered, because the cage, the selection, the pick
   test and the HUD read its camera. The GLASS 2 canvas lies exactly over the viewport canvas, takes no
   pointer events and sits before the toolbar in the page, so every click and drag works as before.
 - **A building** is put on the centre tile of a small flat map under a name bound in `NAMED_MODELS` to
@@ -228,32 +227,19 @@ stalls properly. Tiling the city outward put the extra geometry outside the frus
 measured against an empty scene and subtracted. The first run of a session is still noisy; take the
 second.
 
-## GLASS 2 in the game
+## GLASS in the game
 
-### Turning it on
+GLASS is the only renderer. With no GL pass installed, or `__wsTune.gl = 0`, the world pass draws no
+city at all: there is no 2-D painter behind it.
 
-In the sim, click **⚙** at the top right of the flight view and find **GLASS 2 (WebGL)** under
-**▦ WORLD RENDER** (that section is open by default). It is a 0/1 slider and takes effect on the
-next frame.
-
-From a console, `__wsTune.gl = 1` — `__wsTune` IS `RENDER_TUNE`, so the write lands immediately.
-`__wsTune.gl = 0` puts it back.
-
-The flag is shared by every seat that has not overridden it, so **the truck cab picks it up from the
-same switch** — the cab has no ⚙ panel of its own. A view can pin its own answer with
-`tune: { gl: 1 }`, since `gl` is in `VIEW_TUNABLE`.
-
-⚠ **`__glass2()` in the GAME console says why it went quiet.** GLASS 2 switches ITSELF off on any
-failure and the very next frame looks entirely normal, so "I turned it on and the view went" always
-arrives with the console line long scrolled away. One call reports what the machine can do, whether
+⚠ **`__glass2()` in the GAME console says why a frame drew nothing.** A failing pass is logged and the
+next frame tries again. One call reports what the machine can do, whether
 the pass is installed, what the flag is now, what the last frame drew, and what it last died of.
 
 ⚠ **And a throw can no longer take the sim with it.** `paintWindshield` is called from the flight
 loop, so an exception in the world pass does not merely spoil a frame — it kills the loop, and the
 pane stops painting, stops resizing and stops responding, which is what "the 3-D window will not
-load" looks like from outside. With the flag on, a throw switches the pass off and finishes the
-frame in 2-D. With the flag OFF it still rethrows, deliberately: swallowing there would hide a real
-bug in the renderer that ships.
+load" looks like from outside. A throw is logged and that frame has sky and HUD and no city.
 
 In the Modelshop (`npm run modelshop`, :5181) the console carries the measurements: `__glCaps()`
 for what the machine can do, `__glPhases()` for where the frame goes with the flag off and on,

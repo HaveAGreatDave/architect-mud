@@ -8,7 +8,62 @@
   },
   "flags": {
     "floor": "boards",
-    "is_interior": true
+    "is_interior": true,
+    "room": {
+      "balcony": false,
+      "d": 4.2,
+      "decor": {
+        "drops": [
+          {
+            "along": 1.2,
+            "n": 4,
+            "wall": "left"
+          },
+          {
+            "along": 3,
+            "n": 3,
+            "wall": "left"
+          }
+        ],
+        "rug": false,
+        "signs": [
+          {
+            "along": 0,
+            "h": 0.1,
+            "style": "plate",
+            "text": "DANGER 400V",
+            "wall": "back",
+            "y": 2.2
+          }
+        ],
+        "strips": [
+          {
+            "along": "v",
+            "at": [
+              0,
+              2.1
+            ],
+            "cage": true,
+            "len": 1.2
+          }
+        ]
+      },
+      "doors": {
+        "south": -0.5
+      },
+      "face": 90,
+      "ground": "concrete",
+      "h": 3.3,
+      "studio": false,
+      "tone": {
+        "accent": "#4a4e52",
+        "ceiling": "#6a6c6e",
+        "trim": "#2e3032",
+        "wall": "#7c7e80"
+      },
+      "w": 2.2,
+      "windowless": true
+    }
   },
   "grid_x": 0,
   "grid_y": -2,

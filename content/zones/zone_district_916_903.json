@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "forest",
   "color": "#b8a880",
-  "description": "A shelf of pale sand and shingle, ridged where the water works it and works it again. Bootprints fill and blur behind you almost politely. Further out the basin lies flat and lightless, and nothing crossing it moves in a way you'd care to name.",
+  "description": "Pale sand, raked clear of glass once a week by somebody the marina pays. It slopes gently into the basin, which gets warm enough by July to swim in, as long as you don't think about what used to be in it.",
   "exits": {
     "north": "zone_district_916_902",
     "south": "zone_district_916_904",
@@ -11,13 +11,14 @@
   "flags": {
     "district": "wasteland",
     "region_id": "region_coldwater",
-    "terrain": "sand"
+    "terrain": "sand",
+    "beach": true
   },
   "grid_x": 917,
   "grid_y": 903,
   "grid_z": 0,
   "id": "zone_district_916_903",
   "map_id": "map_world",
-  "name": "The Strand",
+  "name": "Marina Beach",
   "parent_zone": null
 }

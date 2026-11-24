@@ -91,7 +91,7 @@ window.FRAME_PAYLOADS = {
         "id": "zone_district_919_903",
         "name": "Ironside Street",
         "buildings": [
-         "Two-Cell Supply",
+         "O'Toole's Surplus",
          "Coldwater Clone Facility"
         ],
         "danger": "safe",
@@ -318,18 +318,18 @@ window.FRAME_PAYLOADS = {
        },
        {
         "id": "zone_district_920_903",
-        "name": "Two-Cell Supply",
+        "name": "O'Toole's Surplus",
         "buildings": [
-         "Two-Cell Supply"
+         "O'Toole's Surplus"
         ],
         "danger": "safe",
         "sanctuary": false,
         "radiation": 0,
         "enterable": true,
         "shut": true,
-        "building_name": "Two-Cell Supply",
+        "building_name": "O'Toole's Surplus",
         "exits": {
-         "east": "zone_twocell_interior",
+         "east": "zone_otoole_interior",
          "west": "zone_district_919_903"
         },
         "map_id": "map_world",

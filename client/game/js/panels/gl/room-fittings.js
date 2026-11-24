@@ -49,6 +49,15 @@ export function fireDial(K, F, id, x, y, z, s = 1) {
 // the stone a fine flat's worktops and bathrooms are cut from
 export const STONE = { t: 'roomStone', c: '#9a9c9e' };
 const BLACK = '#17181b';
+// A bar of soap where it was left: a rounded slab, worn down from new by `i` (each one used a different amount), a
+// thin glaze of wet on top, and a smear of scum under it. Its colour off `i`: carbolic red, plain white, cheap green.
+function soapBar(c, x, y, z, i = 0) {
+  const { pbox } = c.F, wear = [1, 0.8, 0.62, 0.9, 0.7, 0.55][i % 6], w = 0.09 * wear, d = 0.055 * Math.sqrt(wear), h = 0.026 * wear;
+  const hex = ['#b8463a', '#e8e4d8', '#9ab08a', '#e8e4d8', '#c8bc9a', '#b8463a'][i % 6];
+  pbox(x - w / 2 - 0.01, x + w / 2 + 0.01, y + 0.0005, y + 0.0015, z - d / 2 - 0.008, z + d / 2 + 0.008, '#d8d2bc', 0.85, null, SATIN);
+  pbox(x - w / 2, x + w / 2, y + 0.0015, y + h * 0.75, z - d / 2, z + d / 2, hex, 0.95, null, SATIN);
+  pbox(x - w / 2 + 0.006, x + w / 2 - 0.006, y + h * 0.75, y + h, z - d / 2 + 0.006, z + d / 2 - 0.006, hex, 1.05, null, GLOSS);
+}
 // the brass of a spa en-suite's fittings (room-layout.js ANNEX_DRESSES), the Solenne's gold
 const BRASS = '#b8913e';
 // A MIRROR: a face gl/room.js draws the room into, through the glass, from wherever you're standing (its mirror
@@ -1371,6 +1380,42 @@ const FORMS = {
     c.rod(P(0, 2.0, -hd + 0.04), P(0, 2.05, -hd + 0.2), 0.01, '#c8ccd0', 1.05);
     c.lat(0, -hd + 0.22, [[0.02, 2.06], [0.09, 2.03], [0.09, 2.02], [0, 2.02]], '#c8ccd0', 1.05, 16, METAL);
     pbox(-0.1, 0.1, 1.0, 1.08, -hd + 0.02, -hd + 0.07, '#c8ccd0', 1.05, null, METAL);
+    // a wire soap dish on the tiles beside the mixer, and the soap in it
+    pbox(0.16, 0.3, 1.0, 1.006, -hd + 0.02, -hd + 0.1, '#c8ccd0', 1.05, null, METAL);
+    for (const x of [0.16, 0.3]) pbox(x - 0.003, x + 0.003, 1.0, 1.03, -hd + 0.02, -hd + 0.1, '#c8ccd0', 1.05, null, METAL);
+    soapBar(c, 0.23, 1.006, -hd + 0.06, 1);
+  },
+  gang(c) {
+    // a prison's wash: six heads on one exposed pipe along the wall, each under its own push button on the one timer,
+    // a steel ledge for the soap below them, and a trench drain along the foot. Two of the heads are dead (no rose
+    // left, a stub of pipe), the pipe weeps rust, and the soap is what's left of the issue bars
+    const { F, p } = c, { pbox, P } = F, hw = p.w / 2, hd = p.d / 2, back = -hd, n = 6, PIPE = '#8a8e90', RUST = '#6a4632';
+    const hy = Math.min(2.15, p.h - 0.08);
+    c.rod(P(-hw + 0.05, hy, back + 0.07), P(hw - 0.05, hy, back + 0.07), 0.024, PIPE, 1, METAL, 12);
+    c.rod(P(hw - 0.05, hy, back + 0.07), P(hw - 0.05, c.L.h || 3, back + 0.07), 0.024, PIPE, 1, METAL, 12);
+    for (let i = 0; i < n; i++) {
+      const x = -hw + (i + 0.5) * p.w / n, dead = i === 1 || i === 4;
+      // a bracket to the wall, the arm out, and the rose (or its stub)
+      pbox(x - 0.03, x + 0.03, hy - 0.04, hy + 0.04, back, back + 0.05, '#4a4e52', 1, null, METAL);
+      c.rod(P(x, hy, back + 0.07), P(x, hy + 0.02, back + 0.26), 0.012, PIPE, 1, METAL, 10);
+      if (dead) c.lat(x, back + 0.27, [[0.014, hy + 0.0], [0.016, hy + 0.03], [0, hy + 0.03]], RUST, 0.9, 8, SATIN);
+      else c.lat(x, back + 0.28, [[0.016, hy + 0.04], [0.06, hy - 0.01], [0.06, hy - 0.02], [0, hy - 0.02]], '#a4a8ac', 1.02, 16, METAL);
+      // rust weeping down the wall under each joint
+      pbox(x - 0.012, x + 0.012, hy - 0.32, hy - 0.04, back + 0.0005, back + 0.001, '#8a7458', 0.75, null, MATTE);
+      pbox(x - 0.006, x + 0.006, hy - 0.5, hy - 0.32, back + 0.0005, back + 0.001, '#9a8a6e', 0.75, null, MATTE);
+      // the push button on its plate at shoulder height
+      pbox(x - 0.05, x + 0.05, 1.38, 1.5, back, back + 0.012, '#7a7e82', 1, null, METAL);
+      c.lat(x, back + 0.012, [[0.022, 1.44], [0.022, 1.44], [0, 1.44]], '#2a2c2e', 1, 10, SATIN);
+      pbox(x - 0.02, x + 0.02, 1.42, 1.46, back + 0.012, back + 0.03, '#c8ccd0', 1.05, null, METAL);
+    }
+    // the soap ledge: a steel channel along the wall at hip height, with the soap on it
+    pbox(-hw + 0.1, hw - 0.1, 0.98, 1.0, back, back + 0.11, '#9a9ea2', 1.02, null, METAL);
+    pbox(-hw + 0.1, hw - 0.1, 1.0, 1.03, back + 0.1, back + 0.11, '#9a9ea2', 1.02, null, METAL);
+    for (let i = 0; i < n; i++) if (i % 2 === 0 || i === 5) soapBar(c, -hw + (i + 0.5) * p.w / n + 0.12, 1.0, back + 0.055, i);
+    // the trench drain along the foot of the wall, its grating, and the scum line beside it
+    pbox(-hw, hw, 0.0005, 0.003, back + 0.1, back + 0.28, '#1a1b1c', 1, null, METAL);
+    for (let x = -hw + 0.02; x < hw - 0.02; x += 0.05) pbox(x, x + 0.03, 0.003, 0.006, back + 0.11, back + 0.27, '#6a6e72', 1, null, METAL);
+    pbox(-hw, hw, 0.0004, 0.0012, back + 0.28, back + 0.34, '#b8b098', 0.85, null, SATIN);
   },
   wetroom(c) {
     // a shower with no tray: a fall to a slot drain, one frameless pane, a head let into the ceiling
@@ -1395,6 +1440,8 @@ const FORMS = {
     pbox(-hw + 0.14, -hw + 0.6, 1.438, 1.44, back + 0.03, back + 0.09, '#ffe9c4', 1.6);
     for (const [x, t] of [[-hw + 0.22, 0.2], [-hw + 0.33, 0.17], [-hw + 0.46, 0.15]]) c.lat(x, back + 0.06, [[0, 1.12], [0.03, 1.12], [0.03, 1.12 + t * 0.8], [0.012, 1.12 + t], [0, 1.12 + t]], c.pick(['#d8d4c8', '#2a2c30', '#8a7a64']), 0.97, 10, GLOSS);
     pbox(-0.1, 0.1, 1.05, 1.1, back, back + 0.03, chrome, 1.05, null, METAL);
+    // a bar of soap on the lower shelf, past the bottles
+    soapBar(c, -hw + 0.56, 1.12, back + 0.06, 3);
     // and a hand shower on its rail beside the mixer
     if (spa) {
       c.rod(P(0.24, 0.95, back + 0.025), P(0.24, 1.75, back + 0.025), 0.01, BRASS, 1.08, METAL, 8);

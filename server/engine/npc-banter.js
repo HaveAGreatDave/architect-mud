@@ -29,6 +29,7 @@ import { getEnvironmentState, getZoneWeatherType, isIndoorZone } from './environ
 import { dispatchAction } from './actions.js';
 import { randInt } from './util.js';
 import { emit } from './events.js';
+import { getRelation } from './relations.js';
 
 // ── Tunables ──────────────────────────────────────────────────────────────────
 const START_CHANCE    = 0.33;          // per eligible zone, per initiation tick
@@ -157,6 +158,14 @@ async function getTopicContext(zoneId) {
       if (rows.length >= 2) tokens.sports_cellar = rows[rows.length - 1].team;
     }
   } catch { /* sportsleague plugin absent — sports tokens stay unset */ }
+  // Both leagues' own clubs and a score drawn from their real records:
+  // {deadball_winner} beat {deadball_loser} {deadball_score}, and the puck_ set alike.
+  for (const [sport, pre] of [['baseball', 'deadball'], ['hockey', 'puck']]) {
+    try {
+      const res = await dispatchAction({ type: 'sportsleague.getStandings', params: { sport } });
+      Object.assign(tokens, drawnGame(Array.isArray(res?.rows) ? res.rows : [], sport, pre));
+    } catch { /* no league — that sport's tokens stay unset */ }
+  }
   try {
     // What's on the screen in THIS room. Via the action registry rather than an
     // import: broadcast is a plugin and the engine must not reach into one.
@@ -170,11 +179,47 @@ async function getTopicContext(zoneId) {
   return tokens;
 }
 
+// A game between two of a league's clubs, its score drawn from their records: each side
+// scores around the mean of its own scoring rate and the other's conceding rate. Unset
+// until both clubs have played. Deadball can't tie; a tied puck game goes to overtime.
+function poisson(mean) {
+  const L = Math.exp(-Math.max(0.2, mean));
+  let k = 0, p = Math.random();
+  while (p > L && k < 20) { k++; p *= Math.random(); }
+  return k;
+}
+function drawnGame(rows, sport, pre) {
+  const played = rows.filter(r => (r.wins || 0) + (r.losses || 0) + (r.otl || 0) > 0);
+  if (played.length < 2) return {};
+  const a = rand(played);
+  const b = rand(played.filter(r => r !== a));
+  const hockey = sport === 'hockey';
+  const rate = (r, k) => (r[hockey ? `goals_${k}` : `runs_${k}`] || 0) / ((r.wins || 0) + (r.losses || 0) + (r.otl || 0));
+  let sa = poisson((rate(a, 'for') + rate(b, 'against')) / 2);
+  let sb = poisson((rate(b, 'for') + rate(a, 'against')) / 2);
+  let ot = false;
+  if (sa === sb) {
+    ot = hockey;
+    // the better record takes the extra run, or the overtime winner
+    if ((a.wins || 0) - (a.losses || 0) >= (b.wins || 0) - (b.losses || 0)) sa++; else sb++;
+  }
+  const [w, l, ws, ls] = sa > sb ? [a, b, sa, sb] : [b, a, sb, sa];
+  const rec = r => hockey ? `${r.wins}-${r.losses}-${r.otl || 0}` : `${r.wins}-${r.losses}`;
+  return {
+    [`${pre}_team`]: a.team, [`${pre}_team_record`]: rec(a),
+    [`${pre}_rival`]: b.team, [`${pre}_rival_record`]: rec(b),
+    [`${pre}_winner`]: w.team, [`${pre}_loser`]: l.team,
+    [`${pre}_winner_record`]: rec(w), [`${pre}_loser_record`]: rec(l),
+    [`${pre}_score`]: `${ws}-${ls}${ot ? ' in overtime' : ''}`,
+  };
+}
+
 // Substitute a thread's tokens against the snapshot. Returns the resolved lines, or
 // null if the thread references a token with no current value (caller picks another).
 function resolveThread(thread, tokens) {
   let ok = true;
   const out = thread.map(line => line.replace(TOKEN_RE, (m, key) => {
+    if (PER_TURN.has(key)) return m;
     const v = tokens[key];
     if (v == null) { ok = false; return m; }
     return v;
@@ -183,18 +228,73 @@ function resolveThread(thread, tokens) {
 }
 const threadHasTokens = (thread) => thread.some(line => HAS_TOKEN.test(line));
 
+// ── Frames (registered by content) ────────────────────────────────────────────
+// The lines round a thread: openers by how well the pair knows each other, callbacks
+// to their last talk, closers, a third person's interjection, and asides about a
+// stranger in the room. The engine knows the shape; a game registers the words
+// (Architect's are plugins/ambient-life/banter-frames.js). Empty = threads play bare.
+let frames = { openers: {}, callbacks: [], closers: [], interjections: [], asides: [] };
+export function registerBanterFrames(f) { frames = { ...frames, ...(f || {}) }; }
+
+const OPENER_CHANCE   = 0.6;
+const CALLBACK_CHANCE = 0.35;   // of opening on the last talk, for a pair that's had one
+const CLOSER_CHANCE   = 0.5;
+const INTERJECT_CHANCE = 0.25;  // a third idle NPC in the room says something after
+const ASIDE_CHANCE    = 0.15;   // a witness neither of them knows gets looked at first
+const RECENT_PER_PAIR = 8;      // threads a pair won't repeat
+const PAIR_MEMORY_MS  = 12 * 3600_000;
+
+// ── Pair memory (RAM only) ────────────────────────────────────────────────────
+// pairKey → { talks, recent:[thread], at }. Forgotten on restart, like home-talk's.
+const pairs = new Map();
+const pairKey = (a, b) => [a, b].sort().join(':');
+function pairMemory(a, b) {
+  const k = pairKey(a, b);
+  let m = pairs.get(k);
+  if (m && Date.now() - m.at > PAIR_MEMORY_MS) m = null;
+  if (!m) pairs.set(k, m = { talks: 0, recent: [], at: Date.now() });
+  return m;
+}
+const acquaintance = (talks) => talks === 0 ? 'stranger' : talks < 4 ? 'known' : 'regular';
+
 // Pick a thread for a scene the initiator starts. Biased toward the initiator's
 // own scripts + its personality's flavour threads; falls back to the generic pool.
-function pickThread(initiator) {
+// A pair doesn't repeat a thread it has had recently, while there's anything else.
+function pickThread(initiator, avoid = []) {
   const own = Array.isArray(initiator.banter) ? initiator.banter.filter(t => Array.isArray(t) && t.length) : [];
   const persona = initiator.flags?.personality;
   const flavour = persona ? (library.byPersonality[persona] || []) : [];
-  const ownPool = [...own, ...flavour];
-  const generic = library.generic;
+  const fresh = (pool) => { const f = pool.filter(t => !avoid.includes(t)); return f.length ? f : pool; };
+  const ownPool = fresh([...own, ...flavour]);
+  const generic = fresh(library.generic);
 
   if (ownPool.length && (!generic.length || Math.random() < OWN_POOL_BIAS)) return rand(ownPool);
   if (generic.length) return rand(generic);
   return ownPool.length ? rand(ownPool) : null;
+}
+
+// A frame's lines with the topical tokens filled; {me}/{you}/{third} wait for the turn.
+const PER_TURN = new Set(['me', 'you', 'third']);
+function resolveFrame(lines, tokens) {
+  let ok = true;
+  const out = lines.map(line => line.replace(TOKEN_RE, (m, key) => {
+    if (PER_TURN.has(key)) return m;
+    const v = tokens?.[key];
+    if (v == null) { ok = false; return m; }
+    return v;
+  }));
+  return ok ? out : null;
+}
+function pickFrame(pool, tokens) {
+  if (!Array.isArray(pool) || !pool.length) return null;
+  const order = [...pool].sort(() => Math.random() - 0.5);
+  for (const f of order) { const r = resolveFrame(Array.isArray(f) ? f : [f], tokens); if (r) return r; }
+  return null;
+}
+const firstName = (npc) => String(npc?.name || 'someone').split(' ')[0];
+function personalise(line, speaker, other, third) {
+  return line.replace(/\{(me|you|third)\}/g, (m, k) =>
+    k === 'me' ? firstName(speaker) : k === 'you' ? firstName(other) : firstName(third || other));
 }
 
 function endScene(zoneId) {
@@ -202,6 +302,20 @@ function endScene(zoneId) {
   if (scene?.timer) clearTimeout(scene.timer);
   activeScenes.delete(zoneId);
   if (scene?.participants?.length) emit('npc.banter.end', { zoneId, participants: scene.participants });
+  // A finished scene can draw a remark from somebody else in the room who heard it.
+  if (scene?.finished && scene.broadcast && Math.random() < INTERJECT_CHANCE && hasWitness(zoneId)) {
+    const others = eligibleNpcs(zoneId).filter(n => !scene.participants.includes(n.id));
+    const line = others.length ? pickFrame(frames.interjections, scene.tokens) : null;
+    if (line) {
+      const who = rand(others);
+      const target = world.npcs.get(rand(scene.participants));
+      setTimeout(() => {
+        if (!isEligible(who, zoneId) || !hasWitness(zoneId)) return;
+        scene.broadcast(zoneId, formatChitchat(who.name, personalise(line[0], who, target, target)));
+        if (who._ai) who._ai.lastSay = Date.now();
+      }, randInt(TURN_GAP_MS[0], TURN_GAP_MS[1]));
+    }
+  }
   zoneCooldown.set(zoneId, Date.now() + randInt(ZONE_COOLDOWN_MS[0], ZONE_COOLDOWN_MS[1]) * 60_000);
 }
 
@@ -217,11 +331,12 @@ function runTurn(zoneId, broadcast) {
   // Abort if the speaker wandered off, clocked in, died, or entered combat.
   if (!isEligible(speaker, zoneId)) return endScene(zoneId);
 
-  broadcast(zoneId, formatChitchat(speaker.name, scene.turns[scene.index]));
+  const other = world.npcs.get(scene.participants[(scene.index + 1) % scene.participants.length]);
+  broadcast(zoneId, formatChitchat(speaker.name, personalise(scene.turns[scene.index], speaker, other)));
   if (speaker._ai) speaker._ai.lastSay = Date.now(); // share chitchat cooldown so they don't double-talk
   scene.index++;
 
-  if (scene.index >= scene.turns.length) return endScene(zoneId);
+  if (scene.index >= scene.turns.length) { scene.finished = true; return endScene(zoneId); }
   scene.timer = setTimeout(() => runTurn(zoneId, broadcast), randInt(TURN_GAP_MS[0], TURN_GAP_MS[1]));
 }
 
@@ -229,16 +344,35 @@ async function startScene(zoneId, npcs, broadcast) {
   // Two speakers keeps the exchange coherent; alternate A/B/A/B.
   const shuffled = [...npcs].sort(() => Math.random() - 0.5);
   const initiator = shuffled[0];
+  const partner = shuffled[1];
+  const memory = pairMemory(initiator.id, partner.id);
 
   // Pick a thread. Topical threads resolve their {tokens} against a one-time weather/
   // sports snapshot; if the data isn't there right now, try again for a plain thread.
-  let turns = null, tokens = null;
+  let turns = null, tokens = null, chosen = null;
   for (let attempt = 0; attempt < 5 && !turns; attempt++) {
-    const thread = pickThread(initiator);
+    const thread = pickThread(initiator, memory.recent);
     if (!thread) break;                                   // nothing authored yet
+    chosen = thread;
     if (!threadHasTokens(thread)) { turns = thread; break; }
     if (!tokens) tokens = await getTopicContext(zoneId);   // fetch once, lazily
     turns = resolveThread(thread, tokens);                // null → unresolvable, loop
+  }
+
+  // Frame it by how well these two know each other. Every frame piece is two lines,
+  // so the thread still opens on the initiator. Frames read the snapshot if there is one.
+  if (turns) {
+    const head = [];
+    const strangerHere = [...(world.zones.get(zoneId)?.players || [])].some(pid => {
+      const p = world.players.get(pid);
+      return p && !getRelation(p, initiator.id).met_at && !getRelation(p, partner.id).met_at;
+    });
+    if (strangerHere && Math.random() < ASIDE_CHANCE) head.push(...(pickFrame(frames.asides, tokens) || []));
+    if (memory.talks > 0 && Math.random() < CALLBACK_CHANCE) head.push(...(pickFrame(frames.callbacks, tokens) || []));
+    else if (Math.random() < OPENER_CHANCE) head.push(...(pickFrame(frames.openers?.[acquaintance(memory.talks)], tokens) || []));
+    const tail = Math.random() < CLOSER_CHANCE ? (pickFrame(frames.closers, tokens) || []) : [];
+    const body = turns.slice(0, MAX_TURNS);
+    turns = [...head, ...body, ...tail];
   }
 
   // The reservation may have been cleared while we awaited (zone emptied, etc.).
@@ -246,8 +380,10 @@ async function startScene(zoneId, npcs, broadcast) {
   if (!turns) { endScene(zoneId); return; }
   if (eligibleNpcs(zoneId).length < 2 || !hasWitness(zoneId)) { endScene(zoneId); return; }
 
-  const participants = shuffled.slice(0, 2).map(n => n.id);
-  activeScenes.set(zoneId, { participants, turns: turns.slice(0, MAX_TURNS), index: 0, timer: null });
+  const participants = [initiator.id, partner.id];
+  memory.talks++; memory.at = Date.now();
+  if (chosen) { memory.recent.push(chosen); if (memory.recent.length > RECENT_PER_PAIR) memory.recent.shift(); }
+  activeScenes.set(zoneId, { participants, turns, index: 0, timer: null, broadcast, tokens });
   // the Room Stage turns them to face each other (plugins/roomstage/npc-life.js)
   emit('npc.banter.start', { zoneId, participants });
   runTurn(zoneId, broadcast);

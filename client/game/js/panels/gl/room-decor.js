@@ -21,7 +21,7 @@ import { readerAlong, CARD_TOP } from './room-lock.js';
 import { fireDial } from './room-fittings.js';
 import { drawChessBoard } from './room-chess.js';
 import { legend, legendWidth } from '../../../../shared/legend-font.js';
-import { balconyDressOf } from '../../../../shared/room-layout.js';
+import { balconyDressOf, stairsOf, wellBoxes, cutRects, cellsOf, CELL_BAR } from '../../../../shared/room-layout.js';
 import { glassLathe, liquidLathe } from './lab-mesh.js';
 import { drawCatStatue } from './cat-statue.js';
 import { drawSaloonDecor, dressCardTable, saloonCtx } from './room-saloon.js';
@@ -79,6 +79,9 @@ function clad(K, L, runs, c, { H, accent }) {
   // concourse, a warehouse); one face, so the bricks' own texture does the work
   // 'tile': glazed square tile to y1 under a bullnose cap in the trim colour (a restroom, a kitchen's back wall)
   if (kind === 'brick' || kind === 'tile') { brick(K, L, runs, c, { hex, top, H, accent, tex: kind === 'tile' ? 'roomTile' : 'roomBrick', surf: kind === 'tile' ? GLOSS : MATTE }); return; }
+  // 'sheet': ribbed steel cladding, the inside of a GLASS shed's `ty_hangarmetal` walls: a flat sheet with a raised
+  // rib every `pitch` metres, a darker girt across it at `girt` heights, and a kerb along the floor
+  if (kind === 'sheet') { sheet(K, L, runs, c, { top }); return; }
   const gold = hex6(c.trim, accent || GOLD), pitch = num(c.pitch, kind === 'walnut' ? 0.9 : 1.2, 0.3, 4);
   const mat = kind === 'walnut' ? { t: 'roomOak', c: hex } : kind === 'bronze' ? null : kind === 'limestone' ? { t: 'roomStone', c: hex } : { t: 'roomMarble', c: hex };
   const surf = kind === 'walnut' || kind === 'limestone' ? SATIN : kind === 'bronze' ? METAL : GLOSS;
@@ -100,6 +103,47 @@ function clad(K, L, runs, c, { H, accent }) {
       // a rail: on walnut at dado height and at the top; on stone a cap under the ceiling
       if (kind === 'walnut') { for (const y of [num(c.rail, 0.95, 0.4, 2), top - 0.06]) onWall(K, L, wall, a, b, 0, 0.034, y, y + 0.035, gold, 1.08, null, METAL); }
       else if (top < H - 0.02) onWall(K, L, wall, a, b, 0, 0.032, top, top + 0.04, gold, 1.08, null, METAL);
+    }
+  }
+}
+
+function sheet(K, L, runs, c, { top }) {
+  const hex = hex6(c.hex, '#78808a'), rib = hex6(c.rib, '#8a929c'), girt = hex6(c.trim, '#4a5056'), pitch = num(c.pitch, 0.5, 0.2, 2);
+  const girts = Array.isArray(c.girts) ? c.girts.filter(Number.isFinite) : [top * 0.33, top * 0.66];
+  for (const [wall, rs] of Object.entries(runs)) {
+    if (c.on && !c.on.includes(wall)) continue;
+    for (let [a, b] of rs) {
+      if (wall === 'left' || wall === 'right') { a = Math.max(a, 0); b = Math.min(b, L.d); }
+      if (b - a < 0.15) continue;
+      onWall(K, L, wall, a, b, 0, 0.06, 0, 0.2, '#3a3d40', 1, null, MATTE);
+      onWall(K, L, wall, a, b, 0, 0.012, 0.2, top, hex, 1, null, METAL);
+      const n = Math.max(1, Math.round((b - a) / pitch));
+      for (let i = 1; i < n; i++) { const p = a + i * (b - a) / n; onWall(K, L, wall, p - 0.03, p + 0.03, 0, 0.03, 0.2, top, rib, 1.06, null, METAL); }
+      for (const y of girts) if (y > 0.3 && y < top - 0.1) onWall(K, L, wall, a, b, 0, 0.09, y - 0.06, y + 0.06, girt, 1, null, METAL);
+    }
+  }
+}
+
+// 'barrel': the underside of a GLASS shed's corrugated barrel roof (drawBarrelRoof). The vault springs from the side
+// walls at `spring` and rises to just under H across the room's width; the room's own flat ceiling stays above it,
+// out of sight. Corrugation is alternate strips a shade apart, an arched steel rib every `bay` metres, and the
+// gable ends between the arch and H are closed in the wall sheet.
+function barrel(K, L, c, { H }) {
+  const hu = L.w / 2, D = L.d, S = num(c.spring, H * 0.6, 0.5, H - 0.5), R = H - 0.02 - S;
+  const hex = hex6(c.hex, '#8a929c'), rib = hex6(c.trim, '#4a5056'), wall = hex6(c.gable, '#78808a'), bay = num(c.bay, 4, 1, 12), N = 48;
+  const at = (i) => { const t = Math.PI * i / N, x = Math.cos(t), z = Math.sin(t); return { u: hu * x, y: S + R * z, nu: -x, ny: -z }; };
+  for (let i = 0; i < N; i++) {
+    const p = at(i), q = at(i + 1), m = Math.hypot(p.nu + q.nu, p.ny + q.ny) || 1;
+    const n = K.nrmOf((p.nu + q.nu) / m, (p.ny + q.ny) / m, 0);
+    K.quad(K.solid, [[p.u, 0, p.y], [p.u, D, p.y], [q.u, D, q.y], [q.u, 0, q.y]], n, K.C(hex, i % 2 ? 0.9 : 1.04), METAL, null, false);
+    for (const [v, nz] of [[0.015, 1], [D - 0.015, -1]]) K.quad(K.solid, [[p.u, v, p.y], [q.u, v, q.y], [q.u, v, H], [p.u, v, H]], K.nrmOf(0, 0, nz), K.C(wall, 1), METAL, null, false);
+  }
+  const nb = Math.max(1, Math.round(D / bay));
+  for (let j = 0; j <= nb; j++) {
+    const v = Math.min(D - 0.1, Math.max(0.1, j * D / nb));
+    for (let i = 0; i < N; i += 2) {
+      const p = at(i), q = at(Math.min(N, i + 2));
+      K.box(Math.min(p.u, q.u), Math.max(p.u, q.u), v - 0.07, v + 0.07, Math.min(p.y, q.y) - 0.18, Math.max(p.y, q.y) - 0.01, rib, 1, null, METAL);
     }
   }
 }
@@ -126,6 +170,7 @@ function brick(K, L, runs, c, { hex, top, H, accent, tex = 'roomBrick', surf = M
 // 'coffer': a lit cove round the edge and a grid of beams over the rest, each with a gold fillet;
 // 'slot': a long light let into the ceiling down the room's length, the cove too; 'cove': the cove alone.
 function ceiling(K, L, c, { H, accent, lampOn }) {
+  if (c.kind === 'barrel') return barrel(K, L, c, { H });
   const hu = L.w / 2, D = L.d, hex = hex6(c.hex, '#2a2522'), gold = hex6(c.trim, accent || GOLD), band = num(c.band, 0.55, 0.2, 1.5), drop = num(c.drop, 0.3, 0.1, 0.8);
   const glow = lampOn ? '#ffe2b0' : '#8a7a60', gk = lampOn ? 1.7 : 0.9;
   // the cove: a soffit round the edge, its inner lip gold, a warm light washing up out of the gap behind it
@@ -141,8 +186,11 @@ function ceiling(K, L, c, { H, accent, lampOn }) {
   if (kind === 'coffer') {
     const cell = num(c.cell, 2.0, 0.8, 5), iu0 = -hu + band, iu1 = hu - band, iv0 = band, iv1 = D - band;
     const nu = Math.max(1, Math.round((iu1 - iu0) / cell)), nv = Math.max(1, Math.round((iv1 - iv0) / cell)), bw = 0.09, bd = 0.2;
-    for (let i = 1; i < nu; i++) { const u = iu0 + i * (iu1 - iu0) / nu; K.box(u - bw, u + bw, iv0, iv1, H - bd, H - 0.001, hex, 1, null, MATTE); K.box(u - bw - 0.008, u + bw + 0.008, iv0, iv1, H - bd - 0.012, H - bd, gold, 1.05, null, METAL); }
-    for (let j = 1; j < nv; j++) { const v = iv0 + j * (iv1 - iv0) / nv; K.box(iu0, iu1, v - bw, v + bw, H - bd, H - 0.001, hex, 1, null, MATTE); K.box(iu0, iu1, v - bw - 0.008, v + bw + 0.008, H - bd - 0.012, H - bd, gold, 1.05, null, METAL); }
+    // a beam stops at the well of a flight going up through the ceiling, as the ceiling itself does (room-mesh.js)
+    const wells = stairsOf(L.spec || {}).filter((o) => o.wall === 'ceiling').flatMap(wellBoxes);
+    const beam = (u0, u1, v0, v1) => { for (const q of cutRects([u0 - 0.008, u1 + 0.008, v0 - 0.008, v1 + 0.008], wells)) { const r = [Math.max(q[0], u0), Math.min(q[1], u1), Math.max(q[2], v0), Math.min(q[3], v1)]; if (r[1] > r[0] && r[3] > r[2]) K.box(...r, H - bd, H - 0.001, hex, 1, null, MATTE); K.box(...q, H - bd - 0.012, H - bd, gold, 1.05, null, METAL); } };
+    for (let i = 1; i < nu; i++) { const u = iu0 + i * (iu1 - iu0) / nu; beam(u - bw, u + bw, iv0, iv1); }
+    for (let j = 1; j < nv; j++) { const v = iv0 + j * (iv1 - iv0) / nv; beam(iu0, iu1, v - bw, v + bw); }
   } else if (kind === 'slot') {
     const long = L.w >= L.d, half = 0.05;
     if (long) { K.box(-hu + band, hu - band, D / 2 - half - 0.03, D / 2 + half + 0.03, H - 0.012, H - 0.001, '#0c0a08', 1); K.box(-hu + band + 0.05, hu - band - 0.05, D / 2 - half, D / 2 + half, H - 0.016, H - 0.012, glow, gk + 0.2, null, lampOn ? LAMP : undefined); }
@@ -216,6 +264,78 @@ function rod(K, a, b, r, hex, k = 1, surf = METAL) {
   for (let i = 0; i < 6; i++) {
     const g = (i + 0.5) / 6 * Math.PI * 2, n = [e1[0] * Math.cos(g) + e2[0] * Math.sin(g), e1[1] * Math.cos(g) + e2[1] * Math.sin(g), e1[2] * Math.cos(g) + e2[2] * Math.sin(g)];
     K.quad(K.solid, [P(a, i), P(a, i + 1), P(b, i + 1), P(b, i)], K.nrmOf(n[0], n[2], n[1]), K.C(hex, k), surf);
+  }
+}
+// A round bar from a to b ([u, v, y] each), `n` sides, capped at both ends unless `caps` is false: a barbell's sleeve,
+// a plate on its side, a tube of the frame. `rod` is the six-sided one for runs of pipe nobody looks at up close.
+function cyl(K, a, b, r, hex, k = 1, surf = METAL, n = 16, caps = true) {
+  const d = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], l = Math.hypot(...d) || 1, t = d.map((x) => x / l);
+  const up = Math.abs(t[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0];
+  const s = [t[1] * up[2] - t[2] * up[1], t[2] * up[0] - t[0] * up[2], t[0] * up[1] - t[1] * up[0]], sl = Math.hypot(...s);
+  const e1 = s.map((x) => x / sl), e2 = [t[1] * e1[2] - t[2] * e1[1], t[2] * e1[0] - t[0] * e1[2], t[0] * e1[1] - t[1] * e1[0]];
+  const P = (o, i) => { const g = i / n * Math.PI * 2, c = Math.cos(g) * r, q = Math.sin(g) * r; return [o[0] + e1[0] * c + e2[0] * q, o[1] + e1[1] * c + e2[1] * q, o[2] + e1[2] * c + e2[2] * q]; };
+  const col = K.C(hex, k);
+  for (let i = 0; i < n; i++) {
+    const g = (i + 0.5) / n * Math.PI * 2, m = [e1[0] * Math.cos(g) + e2[0] * Math.sin(g), e1[1] * Math.cos(g) + e2[1] * Math.sin(g), e1[2] * Math.cos(g) + e2[2] * Math.sin(g)];
+    K.quad(K.solid, [P(a, i), P(a, i + 1), P(b, i + 1), P(b, i)], K.nrmOf(m[0], m[2], m[1]), col, surf);
+    if (!caps) continue;
+    K.quad(K.solid, [a, P(a, i + 1), P(a, i), a], K.nrmOf(-t[0], -t[2], -t[1]), col, surf, null, true);
+    K.quad(K.solid, [b, P(b, i), P(b, i + 1), b], K.nrmOf(t[0], t[2], t[1]), col, surf, null, true);
+  }
+}
+// A cell's bars (room-layout.js cellsOf): round uprights floor to ceiling, painted and chipped to bare steel where hands
+// go, flat bands across them, and a door of the same bars with its lock box. Grime collects at the foot of each.
+function cells(K, L, { H }) {
+  const PAINT = '#353d46', RAW = '#5e6368', RUST = '#3a2a20', top = H - 0.01;
+  for (const c of cellsOf(L.spec)) {
+    for (const [u, v] of c.bars) {
+      K.lathe(u, v, [[0, 0], [CELL_BAR.r + 0.006, 0], [CELL_BAR.r + 0.006, 0.05], [CELL_BAR.r, 0.06], [CELL_BAR.r, 0.3]], RUST, 0.85, 12, SATIN);
+      K.lathe(u, v, [[CELL_BAR.r, 0.3], [CELL_BAR.r, 1.02]], PAINT, 0.9, 12, SATIN);
+      K.lathe(u, v, [[CELL_BAR.r, 1.02], [CELL_BAR.r * 0.96, 1.08], [CELL_BAR.r * 0.96, 1.28], [CELL_BAR.r, 1.34]], RAW, 0.95, 12, METAL);
+      K.lathe(u, v, [[CELL_BAR.r, 1.34], [CELL_BAR.r, top - 0.06], [CELL_BAR.r + 0.008, top - 0.04], [CELL_BAR.r + 0.008, top], [0, top]], PAINT, 0.95, 12, SATIN);
+    }
+    for (const [p0, p1] of c.rails) {
+      const alongU = Math.abs(p1[0] - p0[0]) > Math.abs(p1[1] - p0[1]), w = CELL_BAR.r + 0.012;
+      for (const y of CELL_BAR.band) {
+        if (alongU) K.box(Math.min(p0[0], p1[0]), Math.max(p0[0], p1[0]), p0[1] - w, p0[1] + w, y, y + 0.05, PAINT, 0.9, null, SATIN);
+        else K.box(p0[0] - w, p0[0] + w, Math.min(p0[1], p1[1]), Math.max(p0[1], p1[1]), y, y + 0.05, PAINT, 0.9, null, SATIN);
+      }
+      // the floor's filth banked against the foot of the bars
+      if (alongU) K.box(Math.min(p0[0], p1[0]), Math.max(p0[0], p1[0]), p0[1] - 0.09, p0[1] + 0.09, 0, 0.006, '#2a241c', 0.7, null, MATTE);
+      else K.box(p0[0] - 0.09, p0[0] + 0.09, Math.min(p0[1], p1[1]), Math.max(p0[1], p1[1]), 0, 0.006, '#2a241c', 0.7, null, MATTE);
+    }
+    if (c.door) {
+      const e = { front: 'u', back: 'u' }[c.door.side] || 'v', hw = (c.door.w || 0.8) / 2, at = c.door.at || 0;
+      const line = c.rails.find(([p0, p1]) => (e === 'u' ? Math.abs(p1[0] - p0[0]) > 0.01 : Math.abs(p1[1] - p0[1]) > 0.01));
+      if (line) {
+        const fix = e === 'u' ? line[0][1] : line[0][0], pt = (s) => (e === 'u' ? [at + s, fix] : [fix, at + s]);
+        for (const s of [-hw, hw]) { const [u, v] = pt(s); K.box(u - 0.03, u + 0.03, v - 0.03, v + 0.03, 0, top, PAINT, 0.85, null, SATIN); }
+        const [lu, lv] = pt(hw - 0.09);
+        K.box(lu - (e === 'u' ? 0.07 : 0.05), lu + (e === 'u' ? 0.07 : 0.05), lv - (e === 'u' ? 0.05 : 0.07), lv + (e === 'u' ? 0.05 : 0.07), 0.95, 1.2, '#2a2e33', 1, null, METAL);
+        const [ku, kv] = pt(hw - 0.09);
+        K.box(ku - 0.012, ku + 0.012, kv - 0.012, kv + 0.012, 1.04, 1.1, '#b89a4a', 1.1, null, METAL);
+      }
+    }
+  }
+}
+// Standing water on a floor (`decor.puddles`: [{ at: [u, v], r: [ru, rv], seed }]): a dark glaze the room's lights slide
+// on (the see-through layer only adds reflection here, so it can't darken the floor under the water). Its edge is a soft wobble off its seed (smoothed, so it rounds rather than spikes), and round it a wider, fainter
+// film where the floor's still damp from it.
+function puddles(K, list) {
+  const n = 32;
+  for (const c of list) {
+    if (!Array.isArray(c?.at) || !c.at.every(Number.isFinite)) continue;
+    const [u, v] = c.at, [ru, rv] = Array.isArray(c.r) ? c.r : [c.r || 0.4, c.r || 0.4], rr = mulberry(c.seed || Math.round(u * 97 + v * 31));
+    const raw = Array.from({ length: n }, () => 0.86 + rr() * 0.22);
+    const wob = raw.map((_, i) => (raw[(i + n - 2) % n] + 2 * raw[(i + n - 1) % n] + 3 * raw[i] + 2 * raw[(i + 1) % n] + raw[(i + 2) % n]) / 9);
+    const ring = (k, y, tint) => {
+      for (let i = 0; i < n; i++) {
+        const a0 = i / n * Math.PI * 2, a1 = (i + 1) / n * Math.PI * 2, w0 = wob[i] * k, w1 = wob[(i + 1) % n] * k;
+        K.quad(K.solid, [[u, v, y], [u + Math.cos(a0) * ru * w0, v + Math.sin(a0) * rv * w0, y], [u + Math.cos(a1) * ru * w1, v + Math.sin(a1) * rv * w1, y], [u, v, y]], K.nrmOf(0, 1, 0), K.C(tint, 1), GLOSS, null, true);
+      }
+    };
+    ring(1.15, 0.0015, '#a6a294');
+    ring(1, 0.0025, '#86837a');
   }
 }
 // A ring of bronze round an upright axis: a torus, as a turned piece.
@@ -666,6 +786,8 @@ export function drawDecor(K, L, ctx) {
   for (const c of dc.doors || []) if (c && typeof c === 'object') shutDoor(K, L, c, ctx);
   if (dc.plaques && typeof dc.plaques === 'object') plaques(K, L, dc.plaques);
   facility(K, L, dc, ctx);
+  if (dc.cells) cells(K, L, ctx);
+  if (dc.puddles) puddles(K, dc.puddles);
   // an old bar's: neon, pendants, fans, photographs, darts, a payphone, what's on the floor (gl/room-saloon.js)
   drawSaloonDecor(K, L, dc, ctx);
   // an old hotel's: raised letters, clocks, a directory board, standard lamps, picture lights (gl/room-hotel.js)
@@ -676,13 +798,13 @@ export function drawDecor(K, L, ctx) {
 
 // ── A working building's dressing (a clone facility, a plant room) ───────────────────────────────────
 // All of it is placed by the room's content file (flags.room.decor), none of it knows whose building it is:
-//   strips  [{ at: [u, v], len, along: 'u'|'v', cage? }]     ceiling lights: a lit tube in a housing, or a caged bulkhead
-//   pipes   [{ from: [u, v, y], to: [u, v, y], r, hex? }]     a straight run of pipe, flanged at each end
+//   strips  [{ at: [u, v], len, along: 'u'|'v', cage?, y? }] ceiling lights: a lit tube in a housing, or a caged bulkhead; y hangs it under a vault
+//   pipes   [{ from, to, r, hex?, brackets? }]               a straight run of pipe [u, v, y] to [u, v, y], flanged; brackets: false hangs none to the ceiling
 //   drops   [{ wall, along, n, r?, into? }]                   a bundle of cables down a wall from the ceiling, into the slab if `into`
 //   paint   [{ kind: 'hazard'|'line'|'arrow'|'box', ... }]    floor markings: a striped band round a rect, a line, an arrow, an outline
 //   grates  [[u, v, w, d]]                                    a drain or a walkway grating let into the floor
 //   screens [{ wall, along, y, w, h, show }]                  a lit wall screen: 'vitals', 'ad' (with `text`), 'gauges' or 'status'
-//   signs   [{ wall, along, y, text, h?, hex?, lit?, plate? }]  lettering on a wall, on its own plate or straight on the paint
+//   signs   [{ wall, along, y, text, ... }]                  lettering on a wall: painted by panels/room-signs.js as a decal, not drawn here
 //   pumps   [[u, v, turn?]]                                   a pump on a plinth, motor and volute
 //   lamps   [{ wall, along, y, hex? }]                        a small warning lamp in a cage on a wall
 const HAZ_A = '#e8b818', HAZ_B = '#1a1a1a';
@@ -738,9 +860,12 @@ function screenOn(K, L, s, lampOn) {
   }
 }
 function facility(K, L, dc, { H, lampOn }) {
+  const H0 = H;
   for (const s of dc.strips || []) {
     if (!Array.isArray(s?.at)) continue;
     const [u, v] = s.at, len = s.len || 1.2, U = s.along === 'u', hu = U ? len / 2 : 0.09, hv = U ? 0.09 : len / 2;
+    // `y` hangs it lower than the flat ceiling: under a barrel vault, at the arch's own height there
+    const H = Number.isFinite(s.y) ? s.y : H0;
     if (s.cage) {
       // a bulkhead: a cast body on the ceiling, a lit lens, a wire cage over it
       K.box(u - 0.14, u + 0.14, v - 0.09, v + 0.09, H - 0.08, H, '#3a3f44', 1, null, METAL);
@@ -757,7 +882,7 @@ function facility(K, L, dc, { H, lampOn }) {
     rod(K, p.from, p.to, r, hex, 1.02, METAL);
     for (const e of [p.from, p.to]) K.lathe(e[0], e[1], [[0, e[2] - 0.02], [r + 0.03, e[2] - 0.02], [r + 0.03, e[2] + 0.02], [0, e[2] + 0.02]], '#5a6268', 1, 14, METAL);
     // brackets to the ceiling every two metres along a level run
-    if (Math.abs(p.from[2] - p.to[2]) < 0.01 && p.from[2] < H - 0.05) {
+    if (p.brackets !== false && Math.abs(p.from[2] - p.to[2]) < 0.01 && p.from[2] < H - 0.05) {
       const len = Math.hypot(p.to[0] - p.from[0], p.to[1] - p.from[1]), n = Math.floor(len / 2);
       for (let i = 1; i <= n; i++) { const t = i / (n + 1), u = p.from[0] + (p.to[0] - p.from[0]) * t, v = p.from[1] + (p.to[1] - p.from[1]) * t; K.box(u - 0.015, u + 0.015, v - 0.015, v + 0.015, p.from[2] + r, H, '#3a3f44', 1, null, METAL); }
     }
@@ -804,12 +929,7 @@ function facility(K, L, dc, { H, lampOn }) {
     K.box(u - w / 2 - 0.02, u + w / 2 + 0.02, v + d / 2, v + d / 2 + 0.02, 0, 0.006, '#6d7276', 1, null, METAL);
   }
   for (const s of dc.screens || []) if (s?.wall) screenOn(K, L, s, lampOn);
-  for (const s of dc.signs || []) {
-    if (!s?.wall || !s.text) continue;
-    const h = s.h || 0.12, t = String(s.text).toUpperCase(), wd = legendWidth(t, h);
-    if (s.plate !== false) onWall(K, L, s.wall, s.along - wd / 2 - h * 0.6, s.along + wd / 2 + h * 0.6, 0.005, 0.03, s.y - h * 0.9, s.y + h * 0.9, s.plateHex || '#1b1e22', 1, null, SATIN);
-    letter(K, L, s.wall, t, s.along, s.y, h, s.plate !== false ? 0.031 : 0.006, s.hex || '#e8eef2', s.lit ? 1 : 0);
-  }
+  // signs aren't geometry: panels/room-signs.js paints them in the library's faces and lays them on as decals
   for (const p of dc.pumps || []) {
     if (!Array.isArray(p)) continue;
     const [u, v] = p;
@@ -1226,6 +1346,39 @@ export function drawDecorForm(K, F, p) {
       pbox(-hw + 0.2, hw - 0.2, h - 0.18, h - 0.04, hd - 0.166, hd - 0.16, '#37d6ff', 1.5, null, GLOW);
       return true;
     }
+    case 'pullup': {
+      // a pull-up and dip frame, welded from square tube and bolted through the slab: two uprights at the back carrying
+      // the pull-up bar across the top (knurled where the hands go, worn bright), braced back to the wall; out front a
+      // pair of dip handles on a lower frame, their grips taped. Everything that could come off is welded on
+      const FR = '#2a2d31', BOLT = '#8a8f94', top = Math.min(h - 0.04, 2.35), zb = -hd + 0.12, zf = hd - 0.18, dy = 1.22, gap = 0.27;
+      const tube = (x0, x1, y0, y1, z0, z1) => pbox(x0, x1, y0, y1, z0, z1, FR, 1.02, null, SATIN);
+      for (const s of [-1, 1]) {
+        const x = s * (hw - 0.06);
+        // the base plate and its bolts, the upright, and the brace back to the wall
+        pbox(x - 0.08, x + 0.08, 0, 0.012, zb - 0.1, zb + 0.1, FR, 0.95, null, SATIN);
+        for (const [dx, dz] of [[-0.05, -0.06], [0.05, -0.06], [-0.05, 0.06], [0.05, 0.06]]) cyl(K, P(x + dx, 0.012, zb + dz), P(x + dx, 0.024, zb + dz), 0.01, BOLT, 1, METAL, 6);
+        tube(x - 0.035, x + 0.035, 0.012, top, zb - 0.035, zb + 0.035);
+        pbox(x - 0.03, x + 0.03, top - 0.05, top, -hd, zb, FR, 1, null, SATIN);
+        // the floor rail out to the dip frame, and the dip frame's upright
+        tube(x - 0.03, x + 0.03, 0.012, 0.07, zb, zf);
+        const xd = s * gap;
+        pbox(xd - 0.07, xd + 0.07, 0, 0.012, zf - 0.08, zf + 0.08, FR, 0.95, null, SATIN);
+        tube(xd - 0.03, xd + 0.03, 0.012, dy, zf - 0.03, zf + 0.03);
+        tube(Math.min(x, xd) - 0.025, Math.max(x, xd) + 0.025, 0.04, 0.09, zf - 0.025, zf + 0.025);
+        // the dip handle: a round bar from the upright back toward the frame, its grip wrapped in tape
+        cyl(K, P(xd, dy, zf + 0.02), P(xd, dy, zb + 0.38), 0.019, '#b8bcc0', 1.05, METAL, 12);
+        cyl(K, P(xd, dy, zf - 0.08), P(xd, dy, zb + 0.5), 0.022, '#3a3a38', 0.95, SATIN, 12);
+        // a gusset at each weld that takes the load
+        pbox(xd - 0.005, xd + 0.005, dy - 0.12, dy, zf - 0.1, zf, FR, 1, null, SATIN);
+      }
+      // the pull-up bar between the uprights, over the front of them, and its worn grips
+      const yb = top - 0.03, zbar = zb + 0.06;
+      cyl(K, P(-hw + 0.06, yb, zbar), P(hw - 0.06, yb, zbar), 0.016, '#b8bcc0', 1.05, METAL, 14);
+      for (const s of [-1, 1]) for (let x = 0.18; x < 0.42; x += 0.03) cyl(K, P(s * x, yb, zbar), P(s * (x + 0.012), yb, zbar), 0.0166, '#d8dce0', 1.1, METAL, 14, false);
+      // a cross tube at the top behind the bar, holding the uprights square
+      tube(-hw + 0.06, hw - 0.06, top - 0.07, top - 0.02, zb - 0.06, zb - 0.02);
+      return true;
+    }
     case 'weights': {
       // a three-tier rack of chromed dumbbells, the heavy ones at the bottom
       const CH = '#d6dade', FR = '#1c1e22';
@@ -1242,19 +1395,78 @@ export function drawDecorForm(K, F, p) {
       return true;
     }
     case 'pressbench': {
-      // a padded bench with its head between two uprights, and a loaded bar racked over where your eyes go
-      const FR = '#2a2d31', zr = -hd + 0.38, by = Math.min(h - 0.2, 1.02), px = hw - 0.3;
-      pbox(-0.16, 0.16, 0.34, 0.42, -hd + 0.08, hd - 0.15, '#17181b', 1, null, LEATHER);
-      pbox(-0.04, 0.04, 0.06, 0.34, -hd + 0.14, hd - 0.2, FR, 1, null, SATIN);
-      for (const z of [-hd + 0.2, hd - 0.3]) pbox(-0.26, 0.26, 0, 0.06, z - 0.04, z + 0.04, FR, 1, null, SATIN);
-      for (const s of [-1, 1]) {
-        pbox(s * px - 0.03, s * px + 0.03, 0, by + 0.12, zr - 0.03, zr + 0.03, FR, 1.05, null, SATIN);
-        pbox(s * px - 0.03, s * px + 0.03, by - 0.04, by - 0.01, zr + 0.03, zr + 0.11, FR, 1.05, null, SATIN);
-        pbox(s * px - 0.05, s * px + 0.05, 0, 0.04, zr - 0.3, zr + 0.3, FR, 1, null, SATIN);
-        // the plates: two a side, the big one inside
-        for (const [x0, r0] of [[px + 0.08, 0.2], [px + 0.13, 0.15]]) pbox(s * x0 - 0.02, s * x0 + 0.02, by + 0.012 - r0, by + 0.012 + r0, zr + 0.07 - r0, zr + 0.07 + r0, '#111214', 1, null, SATIN);
+      // A flat bench press, welded and bolted down. The frame is square tube on two splayed feet with rubber caps,
+      // the pad a crowned slab of cracked vinyl patched with tape, and the head end between two uprights drilled for
+      // the J-hooks and the safety pins. The bar is racked on the hooks over where the eyes go, knurled where the hands
+      // take it, with sleeves, collars and two plates a side: `look.dress` 'concrete' (the precinct's, poured from the
+      // walls' own mix) or iron. While somebody is pressing (`racked: false`, plugins/roomstage) the hooks are empty and
+      // the bar is drawn in their hands (gl/room-held.js).
+      const FR = '#2a2d31', CAP = '#141416', BOLT = '#8a8f94', pad = 0.45, zr = -hd + 0.36, by = Math.min(h - 0.12, 1.08), px = Math.min(hw - 0.22, 0.56);
+      const concrete = p.dress === 'concrete';
+      const tube = (x0, x1, y0, y1, z0, z1) => pbox(x0, x1, y0, y1, z0, z1, FR, 1.02, null, SATIN);
+      // the spine and its feet: a long tube under the pad, a post down at each end to a cross foot
+      tube(-0.03, 0.03, 0.2, 0.26, -hd + 0.12, hd - 0.18);
+      for (const z of [-hd + 0.2, hd - 0.26]) {
+        tube(-0.025, 0.025, 0.04, 0.2, z - 0.025, z + 0.025);
+        tube(-0.24, 0.24, 0, 0.05, z - 0.03, z + 0.03);
+        for (const s of [-1, 1]) cyl(K, P(s * 0.24, 0.025, z), P(s * 0.27, 0.025, z), 0.032, CAP, 0.9, SATIN, 10);
       }
-      rod(K, P(-hw + 0.01, by + 0.012, zr + 0.07), P(hw - 0.01, by + 0.012, zr + 0.07), 0.014, '#d6dade', 1.1, METAL);
+      // a gusset where each post meets the spine, and the bolts through the pad's board
+      for (const z of [-hd + 0.2, hd - 0.26]) pbox(-0.006, 0.006, 0.14, 0.2, z - 0.07, z + 0.07, FR, 1, null, SATIN);
+      tube(-0.12, 0.12, 0.26, 0.28, -hd + 0.1, hd - 0.16);
+      // the pad: a board, the foam slab and its crown, piping down each side, a split patched with grey tape
+      const z0 = -hd + 0.08, z1 = hd - 0.14, VIN = '#1b1c1f';
+      pbox(-0.15, 0.15, 0.28, pad - 0.04, z0, z1, VIN, 0.95, null, LEATHER);
+      pbox(-0.135, 0.135, pad - 0.04, pad - 0.012, z0 + 0.015, z1 - 0.015, VIN, 1, null, LEATHER);
+      pbox(-0.11, 0.11, pad - 0.012, pad, z0 + 0.03, z1 - 0.03, '#222327', 1.02, null, LEATHER);
+      for (const s of [-1, 1]) cyl(K, P(s * 0.15, pad - 0.04, z0), P(s * 0.15, pad - 0.04, z1), 0.008, '#0e0f11', 1, LEATHER, 6);
+      // worn pale where shoulders and backsides go, and the tape over the split
+      pbox(-0.08, 0.08, pad + 0.0005, pad + 0.001, z0 + 0.08, z0 + 0.38, '#3a3a3c', 1, null, LEATHER);
+      pbox(-0.09, 0.09, pad + 0.0005, pad + 0.001, z1 - 0.4, z1 - 0.14, '#38383a', 1, null, LEATHER);
+      pbox(-0.04, 0.06, pad + 0.001, pad + 0.002, z0 + 0.6, z0 + 0.72, '#8a8a84', 1.05, null, SATIN);
+      pbox(0.02, 0.1, pad + 0.001, pad + 0.002, z0 + 0.66, z0 + 0.7, '#7a7a74', 1.05, null, SATIN);
+      // the uprights: square tube on a base plate bolted through the slab, a row of holes, a J-hook and a safety pin
+      for (const s of [-1, 1]) {
+        const x = s * px;
+        pbox(x - 0.09, x + 0.09, 0, 0.012, zr - 0.22, zr + 0.22, FR, 0.95, null, SATIN);
+        for (const [dx, dz] of [[-0.06, -0.17], [0.06, -0.17], [-0.06, 0.17], [0.06, 0.17]]) cyl(K, P(x + dx, 0.012, zr + dz), P(x + dx, 0.024, zr + dz), 0.011, BOLT, 1, METAL, 6);
+        tube(x - 0.035, x + 0.035, 0.012, by + 0.18, zr - 0.035, zr + 0.035);
+        cyl(K, P(x, by + 0.18, zr), P(x, by + 0.19, zr), 0.02, CAP, 1, SATIN, 4);
+        for (let y = 0.5; y < by + 0.14; y += 0.06) pbox(x - 0.012, x + 0.012, y, y + 0.022, zr + 0.0355, zr + 0.036, '#0a0b0c', 1, null, MATTE);
+        // the J-hook: a back plate, the cup the bar sits in and its lip, lined with nylon
+        pbox(x - 0.04, x + 0.04, by - 0.08, by + 0.03, zr + 0.035, zr + 0.05, FR, 1.05, null, SATIN);
+        pbox(x - 0.04, x + 0.04, by - 0.08, by - 0.06, zr + 0.05, zr + 0.13, FR, 1.05, null, SATIN);
+        pbox(x - 0.04, x + 0.04, by - 0.06, by - 0.01, zr + 0.12, zr + 0.135, FR, 1.05, null, SATIN);
+        pbox(x - 0.036, x + 0.036, by - 0.061, by - 0.058, zr + 0.05, zr + 0.12, '#d8d2c0', 1, null, SATIN);
+        // the safety pin, a hand lower, through the upright and out the front
+        cyl(K, P(x, 0.62, zr - 0.05), P(x, 0.62, zr + 0.34), 0.013, '#b8bcc0', 1.08, METAL, 8);
+        cyl(K, P(x, 0.62, zr + 0.34), P(x, 0.62, zr + 0.36), 0.022, CAP, 1, SATIN, 8);
+      }
+      // the bar on the hooks, unless somebody's got it
+      if (p.racked !== false) {
+        const yb = by - 0.06 + 0.014, zb = zr + 0.09, half = Math.max(hw + 0.18, px + 0.42), CHROME = '#d6dade';
+        // the shaft: smooth in the middle, knurled where the hands go (darker rings), a sleeve stop, then the sleeve
+        cyl(K, P(-px + 0.1, yb, zb), P(px - 0.1, yb, zb), 0.014, CHROME, 1.08, METAL, 12, false);
+        for (const s of [-1, 1]) {
+          for (let x = 0.12; x < px - 0.12; x += 0.03) cyl(K, P(s * x, yb, zb), P(s * (x + 0.012), yb, zb), 0.0146, '#8e9298', 1, METAL, 12, false);
+          cyl(K, P(s * (px - 0.1), yb, zb), P(s * (px + 0.06), yb, zb), 0.014, CHROME, 1.08, METAL, 12, false);
+          cyl(K, P(s * (px + 0.06), yb, zb), P(s * (px + 0.085), yb, zb), 0.03, CHROME, 1.08, METAL, 14);
+          cyl(K, P(s * (px + 0.085), yb, zb), P(s * half, yb, zb), 0.025, '#c4c8cc', 1.05, METAL, 14);
+          // two plates a side, the big one inside, and the spring collar holding them
+          const PL = concrete ? '#8a8578' : '#1a1b1d', plate = (x0, x1, r) => {
+            cyl(K, P(s * x0, yb, zb), P(s * x1, yb, zb), r, PL, concrete ? 0.95 : 1, concrete ? MATTE : SATIN, 20);
+            cyl(K, P(s * (x0 - 0.002), yb, zb), P(s * (x1 + 0.002), yb, zb), 0.045, concrete ? '#6a665c' : '#2a2b2e', 1, SATIN, 12);
+          };
+          plate(px + 0.1, px + 0.16, 0.225);
+          plate(px + 0.165, px + 0.21, 0.17);
+          cyl(K, P(s * (px + 0.215), yb, zb), P(s * (px + 0.24), yb, zb), 0.034, '#9aa0a6', 1.1, METAL, 10);
+          // a chip out of a concrete plate's rim, showing the rebar ring
+          if (concrete) cyl(K, P(s * (px + 0.12), yb + 0.2, zb + 0.05), P(s * (px + 0.14), yb + 0.2, zb + 0.05), 0.02, '#6a4a32', 1, METAL, 6);
+        }
+      }
+      // chalk on the floor under the hands, and a towel over the foot of the bench
+      pbox(-0.5, 0.5, 0.001, 0.002, zr - 0.2, zr + 0.25, '#4a4844', 1, null, MATTE);
+      pbox(-0.17, 0.17, pad - 0.06, pad + 0.012, z1 - 0.12, z1 + 0.01, '#8a8270', 0.9, null, CLOTH);
       return true;
     }
     case 'pool': {
@@ -1653,6 +1865,21 @@ export function drawDecorForm(K, F, p) {
       pbox(-tw, tw, 0.5, top, zr + 0.015, zr + 0.05, '#f2efe8', 1, weave, CLOTH);
       pbox(-tw, tw, 0.66, top, zr - 0.05, zr - 0.015, '#e6e2da', 0.95, weave, CLOTH);
       pbox(-tw, tw, 0.54, 0.57, zr + 0.05, zr + 0.052, '#c9b78e', 1, null, CLOTH);
+      return true;
+    }
+    case 'decor': case 'walldecor': {
+      // one of the room's decor objects, sent as a piece so its owner can move it (plugins/roomstage/decor-pieces.js):
+      // its own entry drawn by drawDecor, moved to where the piece stands. Wall kinds keep their own height.
+      const k = p.decor?.key, c = p.decor?.entry;
+      if (!k || c == null) return true;
+      const L = K.L, wall = p.wall, along = wall === 'left' || wall === 'right' ? p.v : p.u;
+      const ALONG = new Set(['screens', 'signs', 'lamps']);
+      let e = c;
+      if (p.form === 'walldecor') { if (wall) e = { ...c, wall, [ALONG.has(k) ? 'along' : 'at']: along }; }
+      else if (Array.isArray(c)) { e = c.slice(); e[0] = p.u; e[1] = p.v; }
+      else e = { ...c, at: [p.u, p.v] };
+      const H = L.h || 2.6;
+      drawDecor(K, { ...L, spec: { ...L.spec, decor: { [k]: [e] } } }, { H, D: L.d, hu: L.w / 2, T: 0.14, DH: 2.05, lampOn: K.lampOn !== false, lamps: K.lamps || [], runs: [], fine: !!K.fine, accent: null, TEX: {} });
       return true;
     }
     case 'planter': {

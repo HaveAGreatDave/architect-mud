@@ -54,9 +54,10 @@ function figureOf(look0) {
   return {
     head: Math.max(0, mods.head.SCULPT_HEADS.indexOf(face.shape)),
     build: fit.build, weight: fit.weight, age: 0,
-    // his own cut, worn under the park's cap or helmet: `ballcap` cuts the figure's locks back under the band
+    // his own cut, worn under the park's cap or helmet: `ballcap` cuts the figure's locks back under the band, `skullhelm`
+    // under a catcher's hockey-style shell
     // (figure.js FIGURE_HATS), so only what hangs below it shows
-    hair_style: face.style ?? 0, hat: 'ballcap', facial: face.facialName || 'clean', layout: face.layout,
+    hair_style: face.style ?? 0, hat: look.role === 'catcher' && mesh.catcherMaskOf(look) === 'hockey' ? 'skullhelm' : 'ballcap', facial: face.facialName || 'clean', layout: face.layout,
     skin: rgb255(face.skin), hair: rgb255(face.hair), iris: rgb255(face.iris),
     cut: plain ? plain.cut : 'jersey',
     top: hex255(plain ? plain.top : kit.base), legs: hex255(plain ? plain.legs : kit.pants || kit.base), shoes: [22, 22, 24],

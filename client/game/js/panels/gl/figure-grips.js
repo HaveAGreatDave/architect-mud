@@ -258,6 +258,10 @@ export const GRIPS = {
   deck: flatIn([0.044, 0.0075, 0.032], 0.064, { thumb: 'close' }),
   // A notepad flat on the palm to write on, the fingers under it, the thumb on its edge.
   pad: flatIn([0.075, 0.004, 0.052], 0.085, { thumb: 'close', open: [-0.45, -0.25, -0.1] }),
+  // A paperback open on the palm, a TV remote along it, a game controller across it (the home acts).
+  book: flatIn([0.09, 0.008, 0.11], 0.09, { thumb: 'close', open: [-0.5, -0.3, -0.1] }),
+  remote: flatIn([0.085, 0.009, 0.022], 0.07, { thumb: 'close' }),
+  controller: flatIn([0.06, 0.014, 0.06], 0.075, { thumb: 'close' }),
   // A wad of notes, folded, pinched up to count from.
   wad: null,
   // A mug by its handle: the index and middle through it, the thumb pressed on top, the mug's body out past the

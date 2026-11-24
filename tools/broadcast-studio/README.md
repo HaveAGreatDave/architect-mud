@@ -19,6 +19,8 @@ Each is one `media_graphics` row, with `type` set to the kind and the JSON as `c
 - A **sequence** is a set, its roles and its beats. A beat is one shot. A spoken beat lasts as long as its line, so it's a shot list and there's no timeline in seconds to keep in step.
 - A **show** is a broadcast's entry.
 
+Each person on a beat has an act (what the body does) and a Face, a mood off [client/shared/expressions.js](../../client/shared/expressions.js) held at full strength for the beat (`beat.face[role]`).
+
 Text in a line or a graphic takes `{tokens}` from the data. `{a.name}` is role `a`, `{speaker.name}` is whoever has the line, and everything else is what the broadcast sends. A beat can hold several lines and the broadcast picks one. A line with a token the data can't fill is never picked, and a beat left with no line drops out, so a missing fact loses a beat and never airs a hole.
 
 ## Templates and skins

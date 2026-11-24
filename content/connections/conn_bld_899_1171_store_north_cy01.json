@@ -1,0 +1,9 @@
+{
+  "a": "zone_bld_899_1171_store",
+  "b": "zone_util_zone_bld_899_1171_lobby",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_bld_899_1171_store_north_cy01",
+  "lockable": false,
+  "one_way": false
+}

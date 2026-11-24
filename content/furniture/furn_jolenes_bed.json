@@ -9,6 +9,10 @@
     "look": {
       "arche": "bed",
       "form": "bed"
+    },
+    "spot": {
+      "along": -2.58,
+      "wall": "back"
     }
   },
   "hp": null,

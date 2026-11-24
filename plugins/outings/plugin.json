@@ -3,7 +3,15 @@
   "version": "1.0.0",
   "description": "NPC friend networks, nights out and house parties. Each NPC with a home gets up to six friends, derived at boot from authored flags.friends, housemates, workmates and neighbours. Each evening's plan (who goes to which bar or club, who throws a house party at their flat) is seeded from the game date, so it's the same after any restart; tonight() lists it. Anyone due on shift drops out. RAM only, no queries.",
   "commands": [],
-  "hooks": [],
+  "hooks": [
+    "room.npcStage"
+  ],
+  "events": {
+    "emits": [
+      "room.peopleChanged"
+    ],
+    "consumes": []
+  },
   "ticks": [
     "1m"
   ],

@@ -623,7 +623,7 @@ export function lotSides(flag, exits, mapOf) {
 // renders something rather than nothing.
 export const BUILDING_TYPE_ICON = Object.freeze({
   residential: 'bldg_residential', apartment: 'bldg_apartment',
-  shop: 'bldg_shop', store: 'bldg_shop', grocery: 'bldg_shop',
+  shop: 'bldg_shop', store: 'bldg_shop', grocery: 'bldg_grocery',
   bar: 'bldg_bar', club: 'bldg_club', nightclub: 'bldg_club', boutique: 'bldg_shop', police: 'bldg_police',
   corporate_office: 'bldg_office', hotel: 'bldg_hotel', power: 'bldg_power',
   hangar: 'bldg_hangar', control_tower: 'bldg_control_tower', arrivals: 'bldg_arrivals', departures: 'bldg_departures', studio: 'bldg_studio', clinic: 'bldg_clinic', diner: 'bldg_diner',

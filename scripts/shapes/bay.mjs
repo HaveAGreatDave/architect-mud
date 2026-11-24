@@ -34,6 +34,9 @@ const ws = await loadWindshield();
 const REPORT = process.argv.includes('--report');
 const W = 640, H = 360;
 stubCanvas('__bay', W, H);
+// What the hook hands back. A pass that returns no canvas is a pass that drew nothing (GL_FAILS, and a
+// console error per frame), and since GLASS 1 went (2026-11-23) there is no 2-D city to fall back to.
+const GL_OUT = (() => { const c = globalThis.document.createElement('canvas'); c.width = W; c.height = H; return { faces: 1, canvas: c }; })();
 
 // A depot ahead with frontage either side of the approach — the scene the report is about.
 const N = 41, R = 20, DEPOT = R - 5;
@@ -77,17 +80,37 @@ ws.RENDER_TUNE.glSteam = 0;
 const glWas = ws.RENDER_TUNE.gl, floorWas = ws.RENDER_TUNE.glFloor, bayWas = ws.RENDER_TUNE.glBay;
 const problems = [];
 
+// ⚠ THE SHED'S OWN TILE, NOT THE WHOLE SOLIDS LIST. BAY_SINK is every solid the frame hands the GPU,
+// and the warehouses either side of the road put camera-culled faces in it too (the tiles three
+// columns out, which turned with the orbit: 1153 against 1493). Those are not the shed, and this file
+// is about the shed, so only records whose centre is on the depot's tile are counted. The depot is
+// the cell marked 'bay'; the window is centred on (R, R), so its tile is (x - R, y - R).
+function depotTile(view) {
+  const m = view.map, r = (m.length - 1) / 2;
+  for (let y = 0; y < m.length; y++) for (let x = 0; x < m[y].length; x++) if (m[y][x] && m[y][x].mark === 'bay') return [x - r, y - r];
+  return null;
+}
+function onTile(list, t) {
+  if (!t) return list;
+  return list.filter((q) => {
+    let cx = 0, cy = 0;
+    for (const v of q.p) { cx += v[0]; cy += v[1]; }
+    return Math.abs(cx / q.p.length - t[0]) <= 0.75 && Math.abs(cy / q.p.length - t[1]) <= 0.75;
+  });
+}
+
 // The hook is where the frame hands its sinks over, so it is where "did it arrive" is answerable.
 function collect(view, tune) {
+  const tile = depotTile(view);
   let seen = null;
   ws.RENDER_TUNE.gl = 1; ws.RENDER_TUNE.glFloor = 1; ws.RENDER_TUNE.glBay = tune;
   ws.installGLWorld((cells, cam, o) => {
-    seen = { bay: (o.bay || []).slice(),
+    seen = { bay: onTile(o.bay || [], tile),
              // ⚠ THE QUADS, NOT A COUNT. The legends drift in the WRONG FRAME, and a frame error
              // does not change how many of them there are — see the depot-decal check below.
              decals: (o.decals || []).map((q) => ({ key: q.key, p: q.p.map((v) => v.slice()) })),
              sprites: (o.sprites || []).map((q) => [q.x, q.y, q.z]), ox: cam.ox, oy: cam.oy };
-    return null;
+    return GL_OUT;
   });
   ws.paintWindshield('__bay', view);
   ws.installGLWorld(null);
@@ -398,7 +421,7 @@ if (berthLines.length !== 2) problems.push(`found ${berthLines.length} of the tw
 // tally beside an empty canvas tally is a scene with no depot in it, not a clean frame.
 let offBay = 0;
 ws.RENDER_TUNE.gl = 1; ws.RENDER_TUNE.glFloor = 1; ws.RENDER_TUNE.glBay = 0;
-ws.installGLWorld((cells, cam, o) => { offBay = (o.bay || []).length; return null; });
+ws.installGLWorld((cells, cam, o) => { offBay = onTile(o.bay || [], depotTile(BASE)).length; return GL_OUT; });
 ws.paintWindshield('__bay', BASE);
 globalThis.window.__emitWhoStart();
 ws.paintWindshield('__bay', BASE);

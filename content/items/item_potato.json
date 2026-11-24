@@ -9,24 +9,25 @@
     "food_profile": "starchy_vegetable",
     "matter": {
       "form": {
-        "kind": "log",
-        "w": 9,
         "d": 6.5,
         "h": 5.5,
-        "round": 0.9
+        "kind": "log",
+        "round": 0.9,
+        "w": 9
+      },
+      "look": {
+        "flesh": "#f0e2b0",
+        "skin": "#9a8e78",
+        "spots": "#5e5444"
       },
       "ramp": {
         "raw": "#f0e2b0"
-      },
-      "look": {
-        "skin": "#9a8e78",
-        "spots": "#5e5444",
-        "flesh": "#f0e2b0"
       }
     },
     "needs_cooking": true,
     "perishable": true,
     "restore_hunger": 18,
+    "shelved": true,
     "spoil_rate": "slow",
     "stackable": true,
     "status_chance": {

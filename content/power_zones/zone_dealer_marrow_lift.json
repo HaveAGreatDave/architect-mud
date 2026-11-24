@@ -1,0 +1,7 @@
+{
+  "capacity_kw": 500,
+  "generator_id": "gen_zone_util_zone_dealer_marrow_showroom",
+  "id": "zone_dealer_marrow_lift",
+  "name": "Higher Purchase — Lift",
+  "source_type": "junction_box"
+}

@@ -46,7 +46,7 @@ const SPEED = 1.1;                         // metres a second, an unhurried walk
 const FIRST_MS = [20_000, 90_000];         // from the room opening to the first time they move
 const REST_MS = [60_000, 170_000];         // between one thing and the next, on top of how long it took
 const STAY = { watch: [120_000, 300_000], sit: [60_000, 180_000], lie: [60_000, 150_000], use: [10_000, 30_000], window: [15_000, 45_000], pace: [5_000, 15_000], phone: [20_000, 60_000], smoke: [45_000, 90_000], wait: [15_000, 40_000],
-  stretch: [8_000, 16_000], exercise: [20_000, 45_000], tidy: [6_000, 14_000], dance: [15_000, 40_000], think: [8_000, 18_000], fidget: [10_000, 25_000],
+  stretch: [8_000, 16_000], exercise: [20_000, 45_000], press: [40_000, 90_000], tidy: [6_000, 14_000], dance: [15_000, 40_000], think: [8_000, 18_000], fidget: [10_000, 25_000],
   warm: [15_000, 40_000], heater: [40_000, 120_000], cool: [15_000, 40_000], air: [30_000, 80_000], together: [90_000, 240_000] };
 // Somebody else home and on their feet or sat down: most of the time they go and do something with them (sit with
 // them, a chat, a pair act below), and only now and then something on their own. Eating and sleeping aside, a flat
@@ -144,8 +144,8 @@ const USE_STEPS = {
     { steps: [S_('fridgeOpen', [1600, 1600], { open: 1 }), S_('fridgeLook', [3000, 4500], { open: 1 }), S_('eat', [4000, 7000], { open: 1 })], say: ['eats something out of the {piece} without closing the door.', 'picks at something in the {piece} with the door wide open.'] },
   ],
   wardrobe: [
-    { steps: [S_('rummage', [4000, 7000]), S_('undress', [3500, 5000]), S_('redress', [4000, 6000], { outfit: 1 }), S_('adjust', [2500, 4000])], say: ['changes into something else at the {piece}.', 'tries a different top on and keeps it.'] },
-    { steps: [S_('rummage', [4000, 6000]), S_('undress', [3000, 4500]), S_('redress', [3500, 5000], { outfit: 1 }), S_('shrug', [2000, 3000])], say: ['changes, looks down at it, and shrugs.'] },
+    { steps: [S_('rummage', [4000, 7000]), S_('undress', [8500, 9500]), S_('redress', [4000, 6000], { outfit: 1 }), S_('adjust', [2500, 4000])], say: ['changes into something else at the {piece}.', 'tries a different top on and keeps it.'] },
+    { steps: [S_('rummage', [4000, 6000]), S_('undress', [8500, 9500]), S_('redress', [3500, 5000], { outfit: 1 }), S_('shrug', [2000, 3000])], say: ['changes, looks down at it, and shrugs.'] },
     { steps: [S_('rummage', [5000, 8000]), S_('adjust', [2500, 4000])], say: ['goes through the {piece} and takes nothing out.', 'holds a shirt up against themselves at the {piece} and puts it back.'] },
   ],
   sink: [
@@ -167,8 +167,9 @@ const USE_STEPS = {
 };
 // Two at once. One walks over to the other, they stand `gap` metres apart face to face, and each beat plays a
 // clip on each of them for the same time: [clip for whoever came over, clip for the other, ms]. `say` is said
-// by whoever came over, {you} the other's first name. The paired clips are actor3d.js's highFive, hug, shake
-// and toast; the rest are anybody's.
+// by whoever came over, {you} the other's first name. The paired clips are actor3d.js's highFive and fistBump (the right hand,
+// for whoever came over) and highFiveL and fistBumpL (the left, for the other, so the hands meet), hug and toast; the rest are anybody's. No
+// handshake: these people live together, and a handshake is for being introduced.
 const PAIR_CHANCE = 0.16;
 // Who's up for what. `ok(c)` reads c = { moods: [theirs, the other's], tipsy (the drunker of the two), temper
 // (home-talk.js's, for this pair) }, and `w(c)` weighs it: drink makes rows, dances and toasts likelier, a sad
@@ -178,8 +179,8 @@ const ANGRY = new Set(['angry', 'annoyed', 'disgusted']);
 const cross = (c) => c.moods.some((m) => ANGRY.has(m));
 const PAIR_RULES = {
   highfive: { ok: (c) => !cross(c) && c.temper < 2, w: (c) => 1 + (c.moods.includes('happy') ? 1 : 0), after: { mood: 'happy' } },
+  fistbump: { ok: (c) => !cross(c) && c.temper < 2, w: () => 1 },
   hug: { ok: (c) => !cross(c) && c.temper < 2, w: (c) => 0.6 + (c.moods.includes('sad') ? 3 : 0) + c.tipsy * 0.5, after: { mood: 'happy', temper: -1 } },
-  shake: { ok: (c) => c.temper < 3, w: (c) => 0.5 + (c.temper ? 1 : 0), after: { temper: -1 } },
   toast: { ok: (c) => !cross(c) && c.temper < 2, w: (c) => 0.5 + c.tipsy, after: { drink: 1, mood: 'happy' } },
   dance: { ok: (c) => !cross(c) && (c.tipsy >= 1 || c.moods.includes('happy') || Math.random() < 0.3), w: (c) => 0.6 + c.tipsy, after: { mood: 'happy' } },
   joke: { ok: (c) => c.temper < 2 && !c.moods.includes('sad'), w: () => 1.2, after: { mood: 'amused' } },
@@ -201,12 +202,12 @@ const TALK_CLIPS = {
 const SIT_TWIN = { point: 'sitPoint', slam: 'sitSlam', spread: 'sitSpread', holdup: 'sitHoldup', stare: 'sitStare', clap: 'sitClap', idleSigh: 'sitYawn' };
 const TALK_CLIP_MS = 4500;
 const PAIRS = [
-  { id: 'highfive', gap: 0.6, beats: [['highFive', 'highFive', [2400, 2400]], ['laugh', 'laugh', [2500, 4000]]],
+  { id: 'highfive', gap: 0.6, beats: [['highFive', 'highFiveL', [2400, 2400]], ['laugh', 'laugh', [2500, 4000]]],
     say: ['high-fives {you}.', 'holds a hand up, and {you} slaps it.', 'goes for a high five. {you} nearly misses it.'] },
+  { id: 'fistbump', gap: 0.6, beats: [['fistBump', 'fistBumpL', [2200, 2200]], ['talk', 'listen', [2500, 4000]]],
+    say: ['bumps fists with {you}.', 'holds a fist out, and {you} bumps it.'] },
   { id: 'hug', gap: 0.45, beats: [['hug', 'hug', [5500, 9000]], ['idleSigh', 'wait', [2000, 3000]]],
     say: ['gives {you} a long hug.', 'hugs {you} and doesn\'t say anything.', 'pulls {you} into a hug. {you} goes along with it.'] },
-  { id: 'shake', gap: 0.8, beats: [['shake', 'shake', [3000, 3000]], ['laugh', 'shrug', [2000, 3000]]],
-    say: ['shakes {you}\'s hand on something, very formally.', 'and {you} shake on it. Whatever it is, it\'s a deal.'] },
   { id: 'toast', gap: 0.85, beats: [['toast', 'toast', [5000, 5000]], ['drink', 'drink', [5000, 8000]]],
     say: ['clinks bottles with {you}.', 'raises a bottle to {you}. "Cheers."', 'and {you} drink to nothing in particular.'] },
   { id: 'dance', gap: 1.0, beats: [['dance', 'dance', [12000, 24000]], ['laugh', 'laugh', [2500, 4000]]],
@@ -221,7 +222,7 @@ const PAIRS = [
     say: ['stops to talk to {you} for a bit.', 'asks {you} how their day went.', 'tells {you} about somebody they ran into.', 'catches {you} up on the building gossip.'] },
   { id: 'smoke', gap: 0.8, beats: [['smoke', 'smoke', [15000, 25000]]],
     say: ['shares a smoke with {you}.', 'lights two cigarettes and hands one to {you}.'] },
-  { id: 'cheer', gap: 0.9, beats: [['clap', 'clap', [3000, 3000]], ['cheer', 'cheer', [3000, 4000]], ['highFive', 'highFive', [2400, 2400]]],
+  { id: 'cheer', gap: 0.9, beats: [['clap', 'clap', [3000, 3000]], ['cheer', 'cheer', [3000, 4000]], ['highFive', 'highFiveL', [2400, 2400]]],
     say: ['and {you} cheer about something on the tablet.', 'shows {you} the score and they both cheer.'] },
 ];
 const MUTTERS = ['"Where did I put that?"', '"Right. What was I doing?"', '"I should eat something."', '"Is it that late already?"', '"I need to clean this place."',
@@ -273,6 +274,8 @@ export function createNpcLife({ viewers, annexOf, mainOf, specOf, roomPieces, se
     const add = (weight, job) => { if (job.stand) out.push({ weight, ...job }); };
     L.seats.forEach((s, i) => {
       if (inAnnex(L, s.v) || s.v < 0 || !seatFree(L, i, taken)) return;
+      // a press bench is for pressing on (actor3d.js liePress), and somebody who trains goes to it more
+      if (s.lie && named.get(s.piece)?.form === 'pressbench') { add(who.athlete ? 5 : 2.5, { kind: 'press', seat: i, on: s.piece, pose: 'lying', arche: 'bed', name: named.get(s.piece)?.name, clip: 'liePress', stand: seatApproach(L, s, 1.8, main) }); return; }
       add(s.lie ? 1 : 3, { kind: s.lie ? 'lie' : 'sit', seat: i, on: s.piece, pose: s.lie ? 'lying' : 'sitting', arche: named.get(s.piece)?.arche, name: named.get(s.piece)?.name, stand: seatApproach(L, s, 1.8, main) });
     });
     for (const st of L.stations) {
@@ -914,7 +917,7 @@ export function createNpcLife({ viewers, annexOf, mainOf, specOf, roomPieces, se
       case 'use': {
         // sat on the bowl already; under the water or at the basin, the clip that goes with it
         // (still on the way, it's the job's, or arriving would wipe it)
-        const clip = b.intent === 'shower' ? 'shower' : b.intent === 'wash' ? 'wash' : b.intent === 'poop' ? 'sitPhone' : null;
+        const clip = b.intent === 'shower' ? 'shower' : b.intent === 'wash' || b.intent === 'teeth' ? 'wash' : b.intent === 'poop' ? 'sitPhone' : null;
         if (life.route && life.job) life.job.clip = clip;
         else if (clip) life.clip = clip;
         break;
@@ -1006,7 +1009,7 @@ export function createNpcLife({ viewers, annexOf, mainOf, specOf, roomPieces, se
         sendPeople(main).catch(() => {});
         return;
       }
-      const want = outcome === 'made-up' ? (Math.random() < 0.6 ? 'hug' : 'shake') : outcome === 'joke' ? 'highfive' : null;
+      const want = outcome === 'made-up' ? 'hug' : outcome === 'joke' ? (Math.random() < 0.5 ? 'highfive' : 'fistbump') : null;
       if (!want || Math.random() < 0.3) return;
       const act = PAIRS.find((x) => x.id === want), L = al.L;
       if (!act || !L || al.seat !== null || bl.seat !== null || al.route || bl.route) return;

@@ -690,6 +690,11 @@ async function regressBody({ run, check, getPlayer }) {
   // The Stacked Deck: park on the roof pad, ride the carousel down, get a ticket; pull it back up.
   {
     const acId = 'aircraft_regress_sdeck', fac = 'zone_seam_914_908', savedZ = p.current_zone;
+    // A craft somebody left on the pad (any played DB has one) reads PAD OCCUPIED on the pull,
+    // so it's lifted off the pad for the test and put back after.
+    const { rows: onPad } = await query('SELECT id FROM aircraft WHERE parked_zone_id=$1 AND hangar_id IS NULL AND is_wreck=0 AND id<>$2', [fac, acId]);
+    const padIds = onPad.map((r) => r.id);
+    if (padIds.length) await query('UPDATE aircraft SET parked_zone_id=NULL WHERE id = ANY($1)', [padIds]);
     const cleanup = async () => {
       await query('DELETE FROM aircraft WHERE id=$1', [acId]);
       await query("DELETE FROM hangars WHERE field_zone=$1 AND owner_id=$2", [fac, p.id]);
@@ -704,8 +709,8 @@ async function regressBody({ run, check, getPlayer }) {
       const park = await run('garage park');
       check('stacked deck: park starts the ride and leaves you on the pad until it ends', /PARK/.test(park?.message || '') && p.current_zone === 'zone_sdeck_pad', `${p.current_zone} ${park?.message?.slice?.(0, 120)}`);
       await wait();
-      check('…then sets you down in the slot bay', p.current_zone === 'zone_sdeck_s1', p.current_zone);
-      check('…with the craft standing in its cradle', standAt('zone_sdeck_s1')?.id === acId, JSON.stringify(standAt('zone_sdeck_s1')));
+      check('…then sets you down in the carousel, by its one cradle', p.current_zone === 'zone_sdeck_l2', p.current_zone);
+      check('…with the craft standing in its cradle', standAt('zone_sdeck_l2')?.id === acId, JSON.stringify(standAt('zone_sdeck_l2')));
       const { rows: tk } = await query("SELECT custom_data FROM player_inventory WHERE player_id=$1 AND item_id='item_skypark_ticket'", [p.id]);
       const tcd = tk[0] && (typeof tk[0].custom_data === 'string' ? JSON.parse(tk[0].custom_data) : tk[0].custom_data);
       check('…and hands over a ticket for that craft and slot', tcd?.aircraft_id === acId && tcd?.slot === 1, JSON.stringify(tcd));
@@ -715,11 +720,12 @@ async function regressBody({ run, check, getPlayer }) {
       await wait();
       const { rows: [up] } = await query('SELECT hangar_id, parked_zone_id FROM aircraft WHERE id=$1', [acId]);
       check('stacked deck: the ticket brings it up to the pad, rider and all', !up?.hangar_id && up?.parked_zone_id === fac && p.current_zone === 'zone_sdeck_pad', `${p.current_zone} ${pull?.message?.slice?.(0, 120)}`);
-      check('…and the cradle is empty', !standAt('zone_sdeck_s1'));
+      check('…and the cradle is empty', !standAt('zone_sdeck_l2'));
       const { rows: gone } = await query("SELECT 1 FROM player_inventory WHERE player_id=$1 AND item_id='item_skypark_ticket'", [p.id]);
       check('…and keeps the ticket', gone.length === 0);
     } finally {
       await cleanup();
+      if (padIds.length) await query('UPDATE aircraft SET parked_zone_id=$1 WHERE id = ANY($2)', [fac, padIds]);
       _setRideMs(11000);
       p.current_zone = savedZ;
     }

@@ -28,25 +28,25 @@
    "file": "c_27_28.bin",
    "cx": 27,
    "cy": 28,
-   "tiles": 78,
-   "bytes": 2343576,
-   "hash": "f82a40e6aeb3baf3"
+   "tiles": 77,
+   "bytes": 2323680,
+   "hash": "f3e6fece77514bd9"
   },
   {
    "file": "c_28_28.bin",
    "cx": 28,
    "cy": 28,
-   "tiles": 197,
-   "bytes": 5284552,
-   "hash": "88f9cb8b36186d61"
+   "tiles": 199,
+   "bytes": 5668036,
+   "hash": "e19a68e97e49e1f3"
   },
   {
    "file": "c_28_32.bin",
    "cx": 28,
    "cy": 32,
    "tiles": 8,
-   "bytes": 313272,
-   "hash": "3636ffe490378f4f"
+   "bytes": 412900,
+   "hash": "c8ee4b7b56d42377"
   },
   {
    "file": "c_32_30.bin",

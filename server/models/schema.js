@@ -762,6 +762,11 @@ export const SCHEMA_SQL = `
     last_seen_at BIGINT,                       -- ms the keeper was last in the room with her
     next_due DATE                              -- GAME calendar, like apartments.rent_due_date
   );
+  -- sex arrived after the table did; the table's create-if-missing never adds it,
+  -- and without it every B.L.I.S.S. order's INSERT failed.
+  ALTER TABLE player_consorts ADD COLUMN IF NOT EXISTS sex TEXT NOT NULL DEFAULT 'female';
+  -- when they last ate (plugins/consort/life.js, the takeout verb); null = fed at boot
+  ALTER TABLE player_consorts ADD COLUMN IF NOT EXISTS last_fed_at BIGINT;
   CREATE INDEX IF NOT EXISTS idx_player_consorts_owner ON player_consorts(owner_id);
   CREATE INDEX IF NOT EXISTS idx_player_consorts_pairing ON player_consorts(pairing_id);
 
@@ -811,6 +816,8 @@ export const SCHEMA_SQL = `
   );
   -- the room's rug as its owner moved it, [u, v, turn], over flags.room.decor.rug's at (plants.js rugOf)
   ALTER TABLE room_plants ADD COLUMN IF NOT EXISTS rug JSONB;
+  -- the room's other decor objects as its owner moved them, { "<key>:<i>": spot } over flags.room.decor (decor-pieces.js)
+  ALTER TABLE room_plants ADD COLUMN IF NOT EXISTS decor JSONB;
   CREATE TABLE IF NOT EXISTS pet_trays (
     furniture_id TEXT PRIMARY KEY,
     scooped_at   TIMESTAMPTZ
@@ -2771,6 +2778,28 @@ export const SCHEMA_SQL = `
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
   CREATE INDEX IF NOT EXISTS idx_sports_bets_open ON sports_bets(resolve_at) WHERE status = 'locked';
+
+  -- RUNTIME state: one slip per house bet with the bookie plugin. The game's
+  -- result is copied on when the slip is written; the sweep pays at resolve_at.
+  CREATE TABLE IF NOT EXISTS bookie_bets (
+    id            TEXT PRIMARY KEY,
+    game_id       TEXT NOT NULL,
+    player_id     TEXT NOT NULL,
+    player_handle TEXT NOT NULL,
+    team          TEXT NOT NULL,
+    stake         INTEGER NOT NULL,
+    odds          NUMERIC(6,2) NOT NULL,
+    away_team     TEXT NOT NULL,
+    home_team     TEXT NOT NULL,
+    away_score    INTEGER NOT NULL,
+    home_score    INTEGER NOT NULL,
+    winner_team   TEXT,
+    resolve_at    TIMESTAMPTZ NOT NULL,
+    status        TEXT NOT NULL DEFAULT 'open',
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  CREATE INDEX IF NOT EXISTS idx_bookie_bets_open ON bookie_bets(resolve_at) WHERE status = 'open';
+  CREATE INDEX IF NOT EXISTS idx_bookie_bets_player ON bookie_bets(player_id) WHERE status = 'open';
 
   -- ── Player-funded bounties (bounty plugin, docs/systems-bounties.md) ────────
   -- RUNTIME state: one row per contract taken out on a player's head. Escrow is

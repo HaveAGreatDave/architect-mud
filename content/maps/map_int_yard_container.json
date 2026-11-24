@@ -2,5 +2,5 @@
   "entry_zone_id": "zone_yard_container",
   "id": "map_int_yard_container",
   "name": "Stack Overflow",
-  "parent_zone_id": "zone_district_924_907"
+  "parent_zone_id": null
 }

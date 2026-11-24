@@ -264,8 +264,6 @@ ok(ws.includes('pushInteriorShell(cam, v);'), 'nothing calls pushInteriorShell �
 // the scatter each hit once.
 ok(ws.indexOf('OWNSHIP_SINK = glOn ? [] : null;') < ws.indexOf('pushInteriorShell(cam, v);'),
    'pushInteriorShell runs before OWNSHIP_SINK is armed — every face goes in the bin');
-ok(/const lookOff = /.test(ws) && /cabForward[\s\S]{0,120}!lookOff/.test(ws),
-   'the painted forward dash is not dropped when the head turns — it will sit over the side window');
 ok(/if \(!ext && !fcam && v\.lookPitch\)/.test(ws), 'nothing moves the horizon, so the head cannot tip');
 ok(/lookPitch[\s\S]{0,300}fovMul/.test(ws),
    "the horizon shift leaves out the seat's own lens — the sky/ground split will not agree with the world");
@@ -343,12 +341,10 @@ const ALL = shellFaces(SHELL_PROFILES.truck, null, { rich: false });
 const APERTURE = ALL.filter((f) => f.fwd).length;
 const inSeat = frame({ ...BASE, external: false }, 1);
 ok(inSeat.length > 0, 'the seat collected NO interior at all — the shell reaches the GPU never');
-ok(inSeat.length === ALL.length - APERTURE,
-   'looking forward the seat collected ' + inSeat.length + ', expected ' + (ALL.length - APERTURE)
-   + ' — the shell and the painted cab are both drawing the windscreen surround');
-ok(!inSeat.some((f) => f.fwd), 'a forward-aperture face was collected while the painted cab is up');
+// There is no painted cab any more, so the shell is the whole interior looking forward too.
+ok(inSeat.length === ALL.length,
+   'looking forward the seat collected ' + inSeat.length + ' of ' + ALL.length + ' — part of the cab is missing');
 
-// And with the head turned, where the painted cab is gone and the shell is the whole interior.
 const turned = frame({ ...BASE, external: false, lookYaw: 90 }, 1);
 ok(turned.length === ALL.length,
    'with the head turned the seat collected ' + turned.length + ' of ' + ALL.length

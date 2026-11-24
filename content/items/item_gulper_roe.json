@@ -10,20 +10,21 @@
     "food_profile": "egg",
     "matter": {
       "form": {
-        "kind": "grain",
-        "w": 6,
         "d": 6,
-        "h": 2
+        "h": 2,
+        "kind": "grain",
+        "w": 6
       },
       "ramp": {
-        "raw": "#7a8a6a",
         "cook": "#9aa088",
-        "peak": "#a8a890"
+        "peak": "#a8a890",
+        "raw": "#7a8a6a"
       }
     },
     "needs_cooking": true,
     "perishable": true,
     "restore_hunger": 10,
+    "shelved": true,
     "spoil_rate": "fast",
     "stackable": true,
     "status_chance": {

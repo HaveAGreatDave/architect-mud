@@ -11,24 +11,25 @@
     "food_profile": "fruit",
     "matter": {
       "form": {
-        "kind": "liquid",
-        "w": 8,
         "d": 8,
         "h": 1,
-        "round": 1
-      },
-      "ramp": {
-        "raw": "#6e2a1a",
-        "cook": "#5e2416",
-        "peak": "#4e1e12"
+        "kind": "liquid",
+        "round": 1,
+        "w": 8
       },
       "look": {
-        "pack": "jar",
-        "label": "#8a2a1a"
+        "label": "#8a2a1a",
+        "pack": "jar"
+      },
+      "ramp": {
+        "cook": "#5e2416",
+        "peak": "#4e1e12",
+        "raw": "#6e2a1a"
       }
     },
     "perishable": true,
     "restore_hunger": 8,
+    "shelved": true,
     "spoil_rate": "slow",
     "stackable": true,
     "status_chance": {

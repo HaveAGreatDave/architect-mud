@@ -4,7 +4,17 @@
     "aliases": "bench, waiting bench, seat, panel",
     "concealed": true,
     "container": 3000,
-    "dead_drop": true
+    "dead_drop": true,
+    "look": {
+      "arche": "bench",
+      "cover": "waiting bench",
+      "form": "bench",
+      "wear": 0.7
+    },
+    "spot": {
+      "along": 1.4,
+      "wall": "right"
+    }
   },
   "hp": null,
   "hp_max": null,

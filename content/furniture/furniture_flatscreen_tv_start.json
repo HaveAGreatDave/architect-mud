@@ -4,9 +4,10 @@
     "broadcast_device_type": "tv",
     "broadcast_receiver": true,
     "spot": {
-      "along": 1,
-      "wall": "right"
+      "along": 1.75,
+      "wall": "back"
     },
+    "tuned_channel": 7,
     "tv": true,
     "tv_dial_freq": 7,
     "tv_skin": "flatscreen"

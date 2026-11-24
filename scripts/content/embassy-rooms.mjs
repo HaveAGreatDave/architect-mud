@@ -39,7 +39,7 @@ const plaques = (n, first) => Object.fromEntries(['A', 'B', 'C', 'D'].map((x, i)
 const ZONE = {
   [LOBBY]: {
     floor: 'stone',
-    description: "Pink marble underfoot, dulled to the colour of old soap. Lowry's bar runs along the north wall under COCKTAILS in pink neon, peanut shells round its stools. A card table sits under a green lamp by the jukebox. Behind the reception desk, a key on every hook and five clocks stopped at the same minute. The stairs start at the back of the room, beside a lift that has said OUT OF ORDER since the Handoff, and climb toward the bar. A leather sofa and two wing chairs sit on a worn rug in the far corner. Everything is dusted. Nothing is fixed.",
+    description: "Pink marble underfoot, dulled to the colour of old soap. Lowry's bar runs along the north wall under COCKTAILS in pink neon, peanut shells round its stools. A card table sits under a green lamp by the jukebox. Behind the reception desk, a key on every hook and five clocks stopped at the same minute. A spiral stair in walnut and brass turns up through the middle of the room and on through every floor, past a lift that has said OUT OF ORDER since the Handoff. A leather sofa and two wing chairs sit on a worn rug in the far corner. Everything is dusted. Nothing is fixed.",
     intro_lore: 'The Embassy was a hotel before the Handoff, and the staff never got the memo. Lowry still sets out the good glasses, still says "sir", still keeps a key for every room in the pigeonholes, though half the doors upstairs have been rekeyed by tenants. The basin\'s most sought-after slum keeps hotel hours.',
     room: {
       ...base, w: 14, d: 10, h: 5.37, finish: 'fine', ground: 'marble',
@@ -50,7 +50,11 @@ const ZONE = {
       // the bar. They rise 5.37 m, so the steepest going (0.22) keeps the flight to 6.2 m, and they run up the middle
       // of the plate because the landing above is there. The landing stands over the top with its `doors.down`
       // (building-stage.md, Stairs)
-      stair: { at: [0.84, 8.6], climb: 'front', w: 1.1, going: 0.22 },
+      // ONE SPIRAL UP ALL FOUR FLOORS: each flight turns round the same newel, centred at (1.39, 5.0) here and (0, 4) on
+      // every landing, and the next leaves a quarter on from where the last arrived, so it never stands over the well
+      // below it. Its foot is on the circle's north side climbing east; it turns clockwise. 'headroom' 2.4 opens the
+      // well early so nobody climbing hits the landing's floor. Change r or a centre and every 'doors.down' moves
+      stair: { at: [1.39, 3.55], climb: 'right', w: 1.1, going: 0.22, spiral: 'left', r: 1.45, headroom: 2.4 },
       decor: {
         walls: { kind: 'walnut', hex: '#5a3a26', y1: 1.25, rail: 1.0 },
         ceiling: { kind: 'coffer', hex: '#e9d6cf', trim: GOLD, band: 0.6, drop: 0.32, cell: 2.3 },
@@ -82,7 +86,7 @@ const ZONE = {
         // a coat stand by the street door, and what the night left on the floor
         neon: [{ wall: 'front', at: -3.9, y: 3.6, text: 'COCKTAILS', h: 0.34, hex: '#ff4f8a', lamp: 0.35 }],
         pendants: [
-          { at: [3.7, 5.7], y: 1.72, kind: 'card', len: 1.4, k: 1.1, tint: [0.95, 1.12, 0.85] },
+          { at: [5.0, 7.3], y: 1.72, kind: 'card', len: 1.4, k: 1.1, tint: [0.95, 1.12, 0.85] },
           { at: [-5.7, 1.6], y: 2.35, kind: 'school' }, { at: [-3.9, 1.6], y: 2.35, kind: 'school', k: 0.9, tint: [1.12, 0.96, 0.78] }, { at: [-2.1, 1.6], y: 2.35, kind: 'school' },
         ],
         fans: [[3.4, 2.9, 0.7], [-3.9, 6.2, 0.7]],
@@ -91,7 +95,7 @@ const ZONE = {
         chalk: [{ wall: 'left', at: 2.2, y: 1.75, w: 0.8, h: 1, title: 'Tonight' }],
         payphone: [{ wall: 'back', at: 6.8, y: 1.4 }],
         hatstand: [[-6.6, 6.5]],
-        litter: [{ at: [-3.9, 2.75], r: [2.7, 0.45], n: 80, seed: 3 }, { at: [3.7, 5.7], r: [1.6, 1.1], n: 20, seed: 5 }],
+        litter: [{ at: [-3.9, 2.75], r: [2.7, 0.45], n: 80, seed: 3 }, { at: [5.0, 7.3], r: [1.6, 1.1], n: 20, seed: 5 }],
         // one in the far corner past the sofa, one at the north end of the desk
         plants: [[-6.5, 9.4, 1.15], [6.3, 0.6, 1.05]],
         doors: [{ wall: 'back', at: 3.2, w: 1.1, label: 'Out of order' }],
@@ -100,15 +104,14 @@ const ZONE = {
   },
   [L2]: {
     floor: 'carpet',
-    description: "The landing still behaves like a hotel. Rose wallpaper with a little gold crest, lifting at the seams, and two flights side by side down the middle, one up from the lobby and one on up. Four doors, 2A to 2D, brass numbers square, brass paper slots that haven't seen a paper since the Handoff. A sconce by every door. Every second sconce works.",
+    description: "The landing still behaves like a hotel. Rose wallpaper with a little gold crest, lifting at the seams, and the spiral stair turning up through the middle of it, on toward the floors above. Four doors, 2A to 2D, brass numbers square, brass paper slots that haven't seen a paper since the Handoff. A sconce by every door. Every second sconce works.",
     intro_lore: "One flight up from Lowry's, the Embassy still pretends to be a hotel: numbers square in their screws, a landing that hasn't quite given up. Four doors, four locks, four small holdouts against the basin outside.",
     room: {
       ...base, w: 4.4, d: 8, h: 4.13, finish: 'fine', windowless: true,
-      // the lobby's flight arrives up the west half of the middle, climbing north; the next leaves up the east half,
-      // climbing south, so a walkway runs down each side to the doors. The offsets stand 2A and 2B along the north
-      // and south walls and 2C and 2D across the back and the street front (fitted with building-graph.js's layout)
-      doors: { down: [-0.55, 1.44], north: -1.47, south: 1.47, east: -3.15, west: 3.15 },
-      stair: { at: [0.55, 1.0], climb: 'back', w: 1.1, going: 0.22 },
+      // the spiral arrives on the west side and leaves a quarter on, heading north; it fills the middle, so the
+      // doors stand in the clear ends
+      doors: { down: [-1.297, 4.649], north: -1.47, south: 1.47, east: -3.15, west: 3.15 },
+      stair: { at: [-1.45, 4], climb: 'front', w: 1.1, going: 0.22, spiral: 'left', r: 1.45, headroom: 2.25 },
       tone: { accent: GOLD, ceiling: '#ead9cf', trim: '#2a1a14', wall: ROSE },
       decor: {
         walls: { kind: 'walnut', hex: '#5a3a26', y1: 1.0, rail: 0.85 },
@@ -127,9 +130,9 @@ const ZONE = {
     intro_lore: 'Two flights up from Lowry\'s bar, the hotel starts telling the truth about itself: the paper painted over, a vending machine that died guarding snacks nobody will ever eat. Four doors, four locks, four small victories against everything on the other side of them.',
     room: {
       ...base, w: 4.4, d: 8, h: 3.93, windowless: true,
-      // up from the second floor in the east half, climbing south; on up to the fourth in the west half, climbing north
-      doors: { down: [0.55, 5.62], north: -1.47, south: 1.47, east: -3.15, west: 3.15 },
-      stair: { at: [-0.55, 7.0], climb: 'front', w: 1.1, going: 0.22 },
+      // the spiral arrives on the east side and leaves from the south side, heading west
+      doors: { down: [1.449, 4.065], north: -1.47, south: 1.47, east: -3.15, west: 3.15 },
+      stair: { at: [0, 5.45], climb: 'left', w: 1.1, going: 0.22, spiral: 'left', r: 1.45, headroom: 2.25 },
       tone: { accent: '#8a6a44', ceiling: '#d9c9bd', trim: '#2a1e18', wall: '#c99aa0' },
       decor: {
         ceiling: { kind: 'cove', hex: '#d9c9bd', trim: '#8a6a44', band: 0.3, drop: 0.12 },
@@ -147,8 +150,8 @@ const ZONE = {
     intro_lore: 'One more flight and the building gives up pretending it was ever nice. The people up here climbed past two landings to get further from the noise, the smell and each other. The one working light burns red, which some call thematic and others call the bulb they had.',
     room: {
       ...base, w: 4.4, d: 8, h: 3.96, windowless: true, ground: 'concrete',
-      // the last flight comes up the west half, climbing north
-      doors: { down: [-0.55, 2.6], north: -1.47, south: 1.47, east: -3.15, west: 3.15 },
+      // the spiral's last turn arrives on the north side
+      doors: { down: [-0.155, 2.558], north: -1.47, south: 1.47, east: -3.15, west: 3.15 },
       tone: { accent: '#5a4a3a', ceiling: '#a89a8a', trim: '#1e1814', wall: '#8a6a66' },
       decor: { rug: false, plaques: plaques(4, 9), leaves: LEAVES[L4] },
     },
@@ -163,11 +166,11 @@ const PLACE = {
   furniture_1783065860962: { spot: { wall: 'front', along: 1.6 } },
   // the card table: a racetrack for six, the dealer's end to the north, four chairs round the other three sides,
   // a little north of the room's middle so there's room to walk between it and the desk, and east of the stairs
-  furn_embassy_poker_table: { look: { arche: 'table', form: 'poker', dims: [2.3, 1.25, 0.78], dress: 'saloon' }, spot: { at: [3.7, 5.7], turn: 180 } },
-  furn_embassy_chair_1: { spot: { at: [2.0, 5.7], turn: 90 } },
-  furn_embassy_chair_2: { spot: { at: [3.15, 6.65], turn: 0 } },
-  furn_embassy_chair_3: { spot: { at: [4.25, 6.65], turn: 0 } },
-  furn_embassy_chair_4: { spot: { at: [5.4, 5.7], turn: -90 } },
+  furn_embassy_poker_table: { look: { arche: 'table', form: 'poker', dims: [2.3, 1.25, 0.78], dress: 'saloon' }, spot: { at: [5.0, 7.3], turn: 180 } },
+  furn_embassy_chair_1: { spot: { at: [3.85, 7.3], turn: 90 } },
+  furn_embassy_chair_2: { spot: { at: [4.45, 8.25], turn: 0 } },
+  furn_embassy_chair_3: { spot: { at: [5.55, 8.25], turn: 0 } },
+  furn_embassy_chair_4: { spot: { at: [6.15, 7.3], turn: -90 } },
   furniture_1783470518660: { spot: { wall: 'back', along: 4.9 } },
   furniture_1783521389502: { spot: { wall: 'back', along: 5.9 } },
   furniture_embassy_corkboard: { spot: { wall: 'left', along: 7.4 } },

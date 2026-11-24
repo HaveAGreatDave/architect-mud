@@ -1,0 +1,53 @@
+{
+  "ambient_events": [
+    "The car hums between floors."
+  ],
+  "ambient_theme": "indoors",
+  "bg_color": "#1a2228",
+  "color": "#cfe4ea",
+  "description": "A steel car with a rubber floor and a dent in the back wall at aircraft-part height. The buttons go G, 2, 3, 4, 5 and R for the roof pad. Step <b>out</b> when the doors open.",
+  "exits": {
+    "out": "zone_apark_lobby",
+    "up": [
+      "zone_apark_l2",
+      "zone_apark_pad"
+    ]
+  },
+  "flags": {
+    "building_name": "Airport Parking Plaza",
+    "elevator": true,
+    "elevator_floors": [
+      {
+        "label": "Carousel",
+        "n": 2,
+        "zone": "zone_apark_l2"
+      },
+      {
+        "label": "Roof pad",
+        "n": 6,
+        "zone": "zone_apark_pad"
+      }
+    ],
+    "floor": "metal",
+    "hide_exits": true,
+    "is_interior": true,
+    "room": {
+      "balcony": false,
+      "car": true,
+      "d": 2.2,
+      "face": 90,
+      "finish": "plain",
+      "h": 2.7,
+      "studio": false,
+      "w": 2.2,
+      "windowless": true
+    }
+  },
+  "grid_x": 0,
+  "grid_y": -1,
+  "grid_z": 0,
+  "id": "zone_apark_lift",
+  "map_id": "map_int_apark",
+  "name": "Lift",
+  "parent_zone": "zone_district_923_904"
+}

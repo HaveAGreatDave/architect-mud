@@ -1,8 +1,8 @@
 {
   "a": "zone_meridian_unit_102",
-  "b": "zone_meridian_floor_1",
+  "b": "zone_meridian_floor_7",
   "blocked": false,
-  "dir": "west",
+  "dir": "east",
   "id": "conn_meridian_unit_102_west_cypx",
   "lockable": true,
   "one_way": false

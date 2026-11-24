@@ -10,23 +10,24 @@
     "food_profile": "aromatic",
     "matter": {
       "form": {
-        "kind": "grain",
-        "w": 3,
         "d": 3,
-        "h": 1
-      },
-      "ramp": {
-        "raw": "#b8321e",
-        "cook": "#a02a18",
-        "peak": "#8a2414"
+        "h": 1,
+        "kind": "grain",
+        "w": 3
       },
       "look": {
-        "pack": "pouch",
         "label": "#e9e2cf",
+        "pack": "pouch",
         "size": 0.5
+      },
+      "ramp": {
+        "cook": "#a02a18",
+        "peak": "#8a2414",
+        "raw": "#b8321e"
       }
     },
     "restore_hunger": 0,
+    "shelved": true,
     "stackable": true,
     "status_chance": {
       "food_poisoning": 0.1

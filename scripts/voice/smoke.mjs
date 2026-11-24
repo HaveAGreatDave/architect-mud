@@ -154,7 +154,7 @@ lacks('nor a long acronym that is a word (SPECTER)', 'SPECTER', 'EH S P IY');
 // hundred", no unit. Money is quoted in every shop, job, bounty and rent line in
 // the game, which made it the most-repeated omission in the voice.
 has('the credit symbol is spoken, and postfixed', '₵900', 'K R * EH DX IH T S');
-has('…after the number, never before',            '₵900', 'N * AY N _ HH * AH N D R AX D _ K R');
+has('…after the number, never before',            '₵900', 'N * AY N _ HH * AH N D R AX G _ K R');
 has('& is a word, not silence',                   'nuts & bolts', 'AX N D');
 has('#4 is "number four"',                        '#4', 'N * AH M B ER');
 has('x2 is "times two"',                          'x2', 'T * AY M Z');

@@ -25,7 +25,7 @@
 // downloads and parses the whole 3-D stack before they can type `look`. The facade has the same
 // export names, so nothing below this line changed; what changed is that the bytes arrive when the
 // seat is opened. See scripts/client/bake-lazy-view.mjs.
-import { loadWindshield, isLoaded as windshieldLoaded, paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield, normalizeWx, navMarks, raptorsNow, yachtScopeMount, yachtDeckEye, modelTopZAt, curtainTopZAt, groundObstructionAt, doorBayAt, parkTopAt, streetKitFootAt, streetKitDeckAt, streetKitLiftPress, streetKitLiftBoard, bayFootSolid, bayDims, ROAD_RIG_MUL, viewFocal, viewLatFocal } from './windshield-lazy.js';
+import { loadWindshield, isLoaded as windshieldLoaded, paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield, normalizeWx, navMarks, raptorsNow, yachtScopeMount, yachtDeckEye, seaRideAt, modelTopZAt, curtainTopZAt, groundObstructionAt, doorBayAt, parkTopAt, streetKitFootAt, streetKitDeckAt, streetKitLiftPress, streetKitLiftBoard, bayFootSolid, bayDims, ROAD_RIG_MUL, viewFocal, viewLatFocal, GL_TIER, streetActorSpots } from './windshield-lazy.js';
 export { loadWindshield };
 import { createFreeCam, freeCamHint, freeCamTouchUI, bindFreeCamPointer, bindFreeCamIdle } from './freecam.js';
 import { makeContactTrack } from './world-feed.js';
@@ -35,25 +35,84 @@ import { claimSeatKeyboard, endSeatKeyboard } from './seat-keys.js';
 import { setSprayStage, clearSprayStage } from './spray-aim.js';
 import { footDockHTML, bindFootDock } from './foot-dock.js';
 import { floorZAt } from './seabed-scene.js';
-import { interiorRoomsOf } from './room-interiors.js';
+import { interiorRoomsOf, placeOnVessel } from './room-interiors.js';
+import { setVesselCut } from './gl/solids.js';   // her storey cut out of her hull while you stand in it (owVesselTick)
+import { YACHT_SCALE, YACHT_SB, YACHT_BOW, YACHT_LEN } from '../../../shared/yacht-hull.js';
 import { noteDoor, noteCarry } from './lobby-still.js';
-import { preVeil } from './glass-veil.js';
-import { roomFree, openingCrossed, openingInside } from '../../../shared/room-layout.js';   // a building's rooms, drawn in the city (docs/proposals/one-world-interiors.md)
+import { preVeil, veilReady } from './glass-veil.js';
+import { roomFree, openingCrossed, openingInside, roomNearFree, FT_PER_M, stairsOf, wellBoxes } from '../../../shared/room-layout.js';   // a building's rooms, drawn in the city (docs/proposals/one-world-interiors.md)
 import { FT_M, m2t as m2tf } from '../../../shared/world-scale.js';
 import { measureDoorway } from './glass/doorway-measure.js';   // a street door's opening, read off its building's mass
+import { oneWorldTakes, sameStorey, RINK_IN_GLASS } from './glass/interiors-near.js';   // which rooms leave the Stage, and which share a storey
+import { createOneWorldCard, facedPiece, seatFor, sitCmd, facedLock } from './oneworld-card.js';
+import { lockActs, lockLetsThrough, doorName } from '../../../shared/room-locks.js';
+import { createBatch } from './gl/ballpark-mesh.js';
+import { roomKitchenKit } from './gl/room-mesh.js';   // what a room cooks with, for the kitchen at its hob (phase F)
+import { cookFrame, cookersIn, coldIn } from './room-cook.js';   // where the kitchen stands in the room, shared with the Stage
+import { multiply as mat4Mul, invert as mat4Inv } from './gl/core/mat4.js';   // a depot's vehicle, written for the interiors layer
+import { createOneWorldSound } from './oneworld-sound.js';   // inside, the outside through the windows (phase D)
+import { state } from '../state.js';   // the room the server last said you're in (owGoingTick)
+import { roomPeopleRecords, lyingBodies, placePeople, facedPerson, noteMoves, routesOf, walking as walkingNow } from './oneworld-people.js';
+import { personActs } from '../../../shared/room-acts.js';
+import { token as personToken } from '../../../shared/person-token.js';   // inside, what somebody you face offers
+import { litOf, switchOf, saveSwitch } from '../../../shared/room-lights.js';   // inside, each room's lamps (phase D)   // inside, the room's people (phase C)   // a locked doorway inside   // inside, what the piece you face offers
 // The rooms the server sent for the buildings near you on foot, kept for the view (each building once, by its tile)
 function keepInteriors(s, list) {
   const by = new Map((s.interiors || []).map((r) => [r.key, r]));
   let unplaced = false;
   for (const b of list) {
     const shift = doorShift(s, b.tile);
-    if (!shift) unplaced = true;
-    for (const r of interiorRoomsOf(b, { shift })) by.set(r.key, r);
+    if (!shift && !b.vessel) unplaced = true;   // (a vessel has no door to measure: owVesselTick places her rooms)
+    for (const r of interiorRoomsOf(b, { shift, lampOn: owLit, lampLevel: owLevel, was: by })) by.set(r.key, r);
   }
   s.interiors = [...by.values()];
+  // the room you're in, made again (a piece moved, a lamp switched): you stay in its new entry
+  if (s.inside?.room) { const now = by.get(s.inside.room.key); if (now && now !== s.inside.room) { s.inside.room = now; s.owVend && (s.owVend.room = null); } }
   // a building whose doorway couldn't be measured yet is placed again when it can (doorLeaves)
   s.interiorsLater = unplaced ? list : null;
 }
+// A ROOM'S LAMPS (phase D): lit when its switch, this viewer's own and the Stage's too (client/shared/room-lights.js), is
+// on and its mains aren't off. The mains of a room are known once its `room_view` or a `room_power` has said; until
+// then they're taken as on, as the Stage takes them.
+const roomPower = new Map();   // zone -> 'on' | 'low' | 'off'
+const owLit = (zone) => litOf(zone, roomPower.get(zone));
+// how far up its dimmer is, and on low mains the emergency lighting's share of it (room-stage.js EMERGENCY_K)
+const OW_EMERGENCY_K = 0.3;
+const owLevel = (zone) => switchOf(zone).level * (roomPower.get(zone) === 'low' ? OW_EMERGENCY_K : 1);
+// the rooms made again with their lamps as they stand now, after a switch or the mains changed
+function owRelight(s) { if (s?.foot && sentInteriors.size) keepInteriors(s, allSentInteriors()); }
+// A flat's control panel (envctl.js, opened as its window from the card's `panel`) dims a room's lights: the rooms
+// drawn in GLASS follow, live as its bar is dragged, as the Stage's do (room-stage.js onPanelLight). One listener for the
+// page, which does nothing with no street view up.
+if (typeof window !== 'undefined') window.addEventListener('envctl:light', (e) => {
+  const d = e.detail;
+  if (!d?.zone || !st?.interiors?.some((r) => r.zone === d.zone)) return;
+  const sw = switchOf(d.zone);
+  saveSwitch(d.zone, !!d.on, d.on ? Math.max(0.1, Math.min(1, Number(d.level) || 1)) : sw.level);
+  owRelight(st);
+});
+// `room_power`: the mains in a room changed. The Stage hears it too; this relights the rooms drawn in GLASS.
+export function freelookPower(msg) {
+  if (!msg?.zone) return false;
+  const was = roomPower.get(msg.zone);
+  roomPower.set(msg.zone, msg.power || 'on');
+  if (was !== (msg.power || 'on') && st?.interiors?.some((r) => r.zone === msg.zone)) owRelight(st);
+  return !!st?.inside && st.inside.zone === msg.zone;
+}
+// ⚠ THE SERVER SENDS A BUILDING'S ROOMS ONCE A SESSION (plugins/freelook interiorsFor, `roomsSent`), but the open that
+// carries them can land where the view drops it: a prewarm while an older view is still up returns early, and a view
+// closed and opened again starts empty. Either way the street had no rooms in it for the rest of the session, so a
+// lobby opened the Stage. So every building sent is kept here, for the page, and each view on foot starts with them.
+const sentInteriors = new Map();   // "x,y" -> the building as the server sent it
+const SENT_INTERIORS_KEEP = 48;
+function noteInteriors(list) {
+  for (const b of list || []) {
+    const k = b.tile.x + ',' + b.tile.y;
+    sentInteriors.delete(k); sentInteriors.set(k, b);
+    if (sentInteriors.size > SENT_INTERIORS_KEEP) sentInteriors.delete(sentInteriors.keys().next().value);
+  }
+}
+const allSentInteriors = () => [...sentInteriors.values()];
 // From where the plan stands a building's street door (the middle of its tile's street edge, room-view.js anchorOf)
 // to the doorway its model drew, in tiles: along the front to the doorway's middle, and in to the plane behind its
 // leaves. Null until the doorway can be measured (the renderer and the map window are in).
@@ -235,14 +294,14 @@ function reseat(s, ctx) {
   if (ctx.skyline) s.skyline = ctx.skyline;
   if (ctx.roads !== undefined) s.roads = ctx.roads || null;
   if (ctx.regions) s.regions = ctx.regions;
-  freelookSetSky(ctx.sky); freelookSetActors(ctx.actors); freelookSetContacts(ctx.contacts);
+  freelookSetSky(ctx.sky); freelookSetActors(ctx.actors); freelookSetHere(ctx.here); freelookSetContacts(ctx.contacts);
   if (ctx.stand?.foot) s.stand = ctx.stand;
   if (s.foot) {
     s.foot.tile = { gx: ctx.stand?.step?.gx ?? gx, gy: ctx.stand?.step?.gy ?? gy };
     s.foot.server = { ...s.foot.tile }; s.foot.sent = null;
     s.foot.pending = null; s.foot.crouched = false; s.foot.eyeK = 1; s.foot.lift = 0; s.foot.spin.clear();
     s.foot.doors = ctx.doors || s.foot.doors || [];
-    if (ctx.interiors) keepInteriors(s, ctx.interiors);
+    if (sentInteriors.size) keepInteriors(s, allSentInteriors());
   }
   s.seat();
 }
@@ -255,6 +314,13 @@ const COVER_MS = 420, FADE_MS = 260, DOOR_FADE_MS = 520;
 export function parkFreelook() {
   const s = st;
   if (!s || s.warm || !s.foot || !s.woke) { closeFreelook(); return; }
+  // parked, its frame loop stops: the rain through a room's windows mustn't go on under the Stage's own
+  if (s.owSound) { s.owSound.stop(); s.owSound = null; }
+  // and the set: the Stage makes its own and claims tv.js's panel, which this one letting go later would take from it
+  if (s.owTv) { s.owTv.stop(); s.owTv = null; }
+  owLockStop(s);   // and a locked doorway's hologram
+  if (s.owEnv) { s.owEnv.ui.stop(); s.owEnv.host.remove(); s.owEnv = null; }   // and a control panel's page, likewise
+  if (s.owHoist) { s.owHoist.ui.dispose(); if (s.owHoist.room) s.owHoist.room.extra = null; s.owHoist = null; }   // and a depot's vehicle
   // the keys held go through the door with you (room-stage.js takes them for its walker)
   noteCarry(s.freeCam.heldKeys?.(), false);
   // the cover went up at the door (enterCover); a frame taken now would be from inside the model's shell
@@ -354,6 +420,11 @@ if (typeof window !== 'undefined') window.__freeLook = () => st;
 export function freelookSetActors(actors) {
   if (st && actors !== undefined) st.actors = actors || [];
 }
+// On foot: who's on the tile you're standing on, by name, keyed by street token (plugins/freelook hereFor). Only these
+// figures can be walked up to and talked to (streetCardTick).
+export function freelookSetHere(list) {
+  if (st && list !== undefined) { st.here = new Map((list || []).map((q) => [q.t, q])); st.owCardAt = 0; }
+}
 
 // Everything moving in the window (aircraft, boats, trucks), absolute tiles, once a second from
 // plugins/freelook. Dead-reckoned between pushes by the track (world-feed.js). An empty list clears.
@@ -367,11 +438,14 @@ export function freelookSetSky(sky) {
   st.ground = sky.ground || st.ground;
   if (typeof sky.hour === 'number') st.hour = sky.hour;
   if (sky.weather) st.weather = String(sky.weather).toLowerCase();
+  // and the weather the windows of a room walked in GLASS let in (oneworld-sound.js)
+  st.owSky = sky; st.owSound?.sky(sky);
   if (sky.moon != null) st.moon = sky.moon;
   st.event = sky.event || null;
 }
 
 export function openFreelook(ctx = {}) {
+  if (ctx.interiors) noteInteriors(ctx.interiors);   // before any branch below can drop this open
   const mount = ctx.mount || document.getElementById('area-content');
   // (a warm view is built in a holder of its own, so it needs no pane)
   if (!mount && !ctx.prewarm) return null;
@@ -416,6 +490,7 @@ export function openFreelook(ctx = {}) {
     st.want = null;
     freelookSetSky(ctx.sky);
     freelookSetActors(ctx.actors);
+    freelookSetHere(ctx.here);
     if (ctx.roads !== undefined) st.roads = ctx.roads || null;
     if (ctx.regions) st.regions = ctx.regions;
     if (st.foot && ctx.doors) st.foot.doors = ctx.doors;
@@ -469,6 +544,7 @@ export function openFreelook(ctx = {}) {
     map: ctx.map || null,
     skyline: ctx.skyline || null,     // the tall towers outside the window (windshield.js noteSkyline)
     actors: ctx.actors || [],
+    here: new Map((ctx.here || []).map((q) => [q.t, q])),   // who's on your tile, by name (freelookSetHere)
     // What a cockpit is sent and this camera now is too: the highway past the window, the region's
     // colour grade, and everything moving.
     roads: ctx.roads || null, regions: ctx.regions || null, contacts: makeContactTrack(),
@@ -493,6 +569,8 @@ export function openFreelook(ctx = {}) {
   if (st.foot) freeCam.setWalkBlock((x0, y0, x1, y1) => footBlock(st, x0, y0, x1, y1));
   if (st.foot) {
     const s = st;
+    // the rooms of every building the server has sent this session, this open's among them (noteInteriors)
+    if (sentInteriors.size) keepInteriors(s, allSentInteriors());
     root.classList.add('rp-host');
     s.dock = bindFootDock(root, { pack: (tab) => footPack(s, tab), tablet: () => s.foot.onMove('tablet') });
   }
@@ -536,7 +614,7 @@ export function openFreelook(ctx = {}) {
     // A phone gets the touch line, which has no keys in it to replace.
     if (freeCamTouchUI()) { hintEl.textContent = freeCamHint(freeCam.standing); return; }
     // on foot out of a building, the room's own line (room-stage.js), less what the street doesn't have
-    if (stand?.foot) { hintEl.textContent = 'WASD to walk, Shift to run, C to crouch · drag to look, Q and E to turn · wheel zooms · F at a door goes in · G tags the wall you face · I for your pack, P for what you can eat and drink · T for your tablet · O or ✕ steps back'; return; }
+    if (stand?.foot) { hintEl.textContent = 'WASD to walk, Shift to run, C to crouch · drag to look, Q and E to turn · wheel zooms · F at a door goes in · G tags the wall you face · I for your pack, P for what you can eat and drink · V looks from behind you · T for your tablet · O or ✕ steps back'; return; }
     hintEl.textContent = (freeCam.standing
       ? freeCamHint(true).replace('O steps back', stand ? 'O or ✕ steps back' : 'O or ✕ closes')
       : freeCamHint(false).replace('O exit', 'H follow raptor · O close'));
@@ -548,6 +626,10 @@ export function openFreelook(ctx = {}) {
 
   function frame(now) {
     if (!st || !st.alive) return;
+    // ⚠ A VIEW TORN OUT OF THE PAGE CLOSES ITSELF. Anything that rewrites #area-content without asking (the marina's
+    // counter did) left this loop painting a detached canvas at full rate: a blank pane, its GL context and a city's
+    // worth of garbage a second held until the tab ran out of memory. A parked view is warm and lives in its holder.
+    if (!st.warm && st.root && !st.root.isConnected) { const exit = st.onExit; closeFreelook(); try { exit?.(); } catch { /* the socket may be gone */ } return; }
     paint(now);
     // warm, it rests as soon as its loading veil has gone (the builds are done) or after 15 s, until it's woken. Every
     // paint here is main-thread GLASS under somebody's room: it used to keep going for 1.5 s, a dozen paints of 70 to 150 ms.
@@ -563,6 +645,7 @@ export function openFreelook(ctx = {}) {
       if (follow) followStep();
       if (st.foot) footTurn(st, dt);
       freeCam.step(dt);
+      owVesselTick(st, now);   // a vessel's rooms on her hull as she sits this frame, and you carried with the deck
       if (st.foot) footBelt(st, dt);
       const env = liveEnv();
       const hour = env ? env.hour : st.hour;
@@ -574,8 +657,32 @@ export function openFreelook(ctx = {}) {
       // frame — and a camera pinned to a number taken when the view opened would hang in the air
       // while the ship rose and fell under it. One call, every frame, to the function that puts
       // her own geometry there.
-      if (st.stand) { const s = standSpot(st, now); if (s) freeCam.setEye(s.z * footEye(st, dt) + footLift(st, dt)); }
+      if (st.stand) { const s = standSpot(st, now); if (s) freeCam.setEye(st.inside?.talkCam ? st.inside.talkCam.z : st.inside?.vatCam ? st.inside.vatCam.z : st.inside?.joinCam ? st.inside.joinCam.z : st.inside?.cookCam ? st.inside.cookCam.z : st.inside?.morphCam ? st.inside.morphCam.z : st.inside?.arrangeCam ? st.inside.arrangeCam.z : st.inside?.cupCam ? st.inside.cupCam.z : st.inside?.sat ? st.inside.sat.z : s.z * footEye(st, dt) + (st.inside ? owFloorZ(st) : footLift(st, dt))); }   // sat inside (owSit): the seat's eye; inside, off the floor under you (owFloorZ)
       if (st.foot) watchFoot(st, now, flash);
+      if (st.foot) owStairTick(st);   // up or down a flight inside: stood off its far end in the next room
+      if (st.foot) owGoingTick(st, flash);   // a step through a doorway the server never answered: put back
+      if (st.foot) owSoundTick(st);   // inside, the outside heard through the room's windows (oneworld-sound.js)
+      if (st.foot) owTvTick(st, now);   // inside, the set on the wall showing what's on (room-tv.js)
+      if (st.foot) owTalkTick(st, now);   // inside, talking to somebody: the camera on their face (room-talk.js's shot)
+      st.owLate = null;   // (a frame that threw before laying them mustn't pile them up)
+      if (st.foot) owEnvctlTick(st);   // inside, a flat's control panel: its page on its own glass (room-envctl.js)
+      if (st.foot) owLockTick(st, now);   // inside, a locked doorway's leaves and the hologram off its reader (room-lock.js)
+      if (st.foot) owVendTick(st, now);   // inside, a vending machine sliding out, its plug and its buttons (room-vendor.js)
+      if (st.foot) owHoistTick(st, now);   // inside a depot, the vehicle on its stand and its panel (room-hoist.js)
+      if (st.foot) owVatTick(st, now);   // inside the clone hall, its vats, sleepers, machines and monitors (gl/room-vat.js)
+      if (st.foot) owFigTick(st, now);   // inside, whoever the crowd's body can't draw (lying down, in a vat), close up
+      if (st.foot) owCatTick(st, now, hour);
+      if (st.foot) owBeastTick(st);
+      if (st.foot) owMorphTick(st, now);
+      if (st.foot) owArrangeTick(st, now);
+      if (st.foot) owStadiumTick(st);
+      if (st.foot) owCupTick(st, now);   // inside, a Cup close up (room-closeup.js)
+      if (st.foot) owRinkTick(st, now);   // inside at a rink, the live ice through its openings (room-rink.js)   // inside, a stadium's boards, banners and signs (room-stadium.js)
+      if (st.owStudio && st.owStudio.zone !== st.inside?.zone) owStudioStop(st);   // out of the studio's room   // inside, the arrange mode's camera over the room (room-arrange.js)   // inside, a MORPHEX pod's sequence (room-morphex.js)
+      if (st.foot) owCookTick(st);   // inside, cooking at the room's hob: walk off and the kitchen shuts   // inside, a pet cat, his day, his voice (gl/room-beasts.js, gl/cat-layer.js)
+      if (st.foot) owDecals(st);   // inside, the posters and the tags on the walls (room-sheets.js, room-tags.js)
+      owSpeechTick(st, now);   // inside, what people say over their heads, and their voices from where they stand (oneworld-speech.js)
+      if (st.foot) owCardTick(st, now);   // inside a building in GLASS, the card for the piece you face (oneworld-card.js)
       // A camera put on its feet with FPS has no mount, but on the Echelon the floor is her deck,
       // not the sea — at the default eye it stood inside her hull and the deck vanished. Asked every
       // frame, because she rides the swell and you walk between her decks.
@@ -607,8 +714,8 @@ export function openFreelook(ctx = {}) {
         acX: st.gx, acY: st.gy, airport: 'default',
         tune: st.foot ? FOOT_TUNE : (st.stand || freeCam.standing) ? STAND_TUNE : undefined,   // see STAND_TUNE — a seat that cannot move can afford to draw more
         // the Pack open: the camera stands back round you, and you're drawn (packViewNow, packSelf)
-        freeCam: (st.packCam && packViewNow(st, now)) || freeCam.view(),
-        self: st.packCam ? packSelf(st) : null,
+        freeCam: (st.packCam && packViewNow(st, now)) || (st.extView && extViewNow(st, now)) || freeCam.view(),
+        self: st.packCam ? packSelf(st) : st.extView ? extSelf(st, now) : null,
         actors: st.actors,   // pavement people; meshes up close (gl/actors.js)
         // ⚠ THE OWN SHIP IS THE WINDOW CENTRE, hidden, so a contact's offset is from there; the camera
         // flying away from it is the renderer's business (freeCam), exactly as for the helm.
@@ -620,8 +727,18 @@ export function openFreelook(ctx = {}) {
         interiorRooms: st.foot && st.interiors?.length ? st.interiors : null,
         // inside a building (ONE_WORLD), its rooms are drawn whole; outside, a street door's rooms only through it
         interiorInside: !!st.inside,
+        // the floor of the room you're in (its matrix's height, tiles): a room below it loses its ceiling (interiorsFrame)
+        interiorFloorZ: st.inside?.room?.M ? st.inside.room.M[14] : null,
+        // and under its ceiling no rain falls on you (windshield.js `roofed`); a roof deck or a balcony is out in it
+        roofed: st.inside ? owRoofed(st) : false,
+        // which building that is, so a weak PC spends its interiors on it (interiors-near.js interiorTuneFor)
+        interiorHome: st.inside ? st.inside.gx + ',' + st.inside.gy : null,
         // and the storey you're on is cut out of its building's model, which otherwise stays (insideCut)
         roomCut: st.inside ? insideCut(st) : null,
+        // and a sunken floor's hole in the street's ground, or the ground lies over the pit (insidePitHole)
+        groundHoles: st.inside ? insidePitHole(st) : null,
+        // and its people, stood where the Stage would stand them (oneworld-people.js, phase C)
+        roomPeople: st.inside ? owPeople(st) : null,
         // on foot the near plane comes in to a third of a metre, so people stay whole as you walk up to them
         nearMax: st.foot ? FOOT_NEAR : 0,
       });
@@ -631,12 +748,17 @@ export function openFreelook(ctx = {}) {
       // hour spent working out where the missing wall was went past a chip that could have said.
       if (atEl) atEl.textContent = fc ? `${Math.round(st.gx + fc.x)},${Math.round(st.gy + fc.y)}` : `${st.gx},${st.gy}`;
       if (wxEl) wxEl.textContent = `${String(weather || 'clear').toUpperCase()} · ${String(Math.floor(hour)).padStart(2, '0')}:${String(Math.floor((hour % 1) * 60)).padStart(2, '0')}`;
+      // the pages laid on a room's glass (the control panel, a door's hologram), by the matrix this frame was drawn with
+      if (st.owLate) { const late = st.owLate; st.owLate = null; for (const fn of late) fn(); }
     } catch (e) {
       if (!st._errLogged) { console.error('[freelook] frame render error (view kept alive — report this stack):', e); st._errLogged = true; }
     }
   }
   st.frame = frame; st.paint = paint;
   st.raf = requestAnimationFrame(frame);
+  // the loading screen stays up until the world round you is in and the rooms near you are built (worldReady), so
+  // nothing is still loading in while you stand there
+  veilReady(id, () => worldReady(st));
 
   let freeIdle = null, unbindPointer = null;
 
@@ -660,7 +782,17 @@ export function openFreelook(ctx = {}) {
     // are the dock's (foot-dock.js)
     if (down && st.foot) {
       if (document.getElementById('tablet-os-overlay')) return;
+      // the kitchen over a room walked in GLASS (kitchen-stage.js) has the keys while it's up, but for walking and turning
+      // when it's drawn into the room at its hob (`ks-hosted`) and not showing you something close up, as on the Stage
+      const ks = document.getElementById('ks-root');
+      if (ks && !(ks.classList.contains('ks-hosted') && !st.inside?.cookCam && !e.ctrlKey && !e.metaKey && !e.altKey && (/^[wasd]$/i.test(e.key) || e.key === 'Shift' || /^Arrow/.test(e.key)))) return;
       if (st.pack?.key(e) || st.dock?.key(e)) { e.preventDefault(); return; }
+      // the arrange mode has the keys while it's up (room-arrange.js); B opens it in a room that's yours
+      if (st.owArrange) return;
+      // a Cup close up has the keys while it's open, Escape steps back (room-closeup.js key)
+      if (st.owCup?.ui?.key(e)) { e.preventDefault(); return; }
+      if (st.owCup?.ui?.on) return;
+      if (k === 'b' && !e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey && st.inside && (st.inside.mine || st.inside.admin)) { e.preventDefault(); owArrangeStart(st); return; }
     }
     // ⚠ O CLOSES THE VIEW, NOT THE CAMERA. In a seat the camera goes back on its mount and the
     // vehicle is still there; here there is nothing to go back to, so the same key has to mean the
@@ -821,7 +953,7 @@ export function openFreelook(ctx = {}) {
     freeIdle.wake();
     // on foot with a mouse it's the room's drag, not the camera's held pointer; a phone keeps the camera's touch layer
     const glass = root.querySelector('.ws-wrap') || root;
-    unbindPointer = self.foot && !freeCamTouchUI() ? bindFootPointer(glass, freeCam) : bindFreeCamPointer(glass, freeCam);
+    unbindPointer = self.foot && !freeCamTouchUI() ? bindFootPointer(glass, freeCam, (e) => owClick(self, e, glass), (e) => owTvHover(self, e, glass), (e) => owTvWheel(self, e, glass), (e) => owCatPress(self, e, glass)) : bindFreeCamPointer(glass, freeCam);
     window.addEventListener('keydown', onKey);
     window.addEventListener('keyup', onKey);
     window.addEventListener('blur', onLetGo);
@@ -868,8 +1000,14 @@ export function openFreelook(ctx = {}) {
 
 export function closeFreelook() {
   if (!st) return;
+  setVesselCut(null);   // (module state in gl/solids.js: another view mustn't draw a ship with our storey out of her)
   const s = st; st = null;
   s.alive = false;
+  if (s.owSound) { s.owSound.stop(); s.owSound = null; }
+  if (s.owTv) { s.owTv.stop(); s.owTv = null; }   // and the set, which hands tv.js's panel back
+  if (s.owHoist) { s.owHoist.ui.dispose(); s.owHoist = null; }   // and a depot's vehicle panel
+  owLockStop(s);   // and a locked doorway's hologram
+  if (s.owEnv) { s.owEnv.ui.stop(); s.owEnv.host.remove(); s.owEnv = null; }   // and a control panel's page   // the rain through a room's windows goes with the view
   if (s.woke) suppressWeatherFx(false, 'freelook');
   cancelAnimationFrame(s.raf);
   try { s.teardown?.(); } catch { /* a half-built view still has to come down */ }
@@ -961,7 +1099,9 @@ function watchFoot(s, now, flash) {
     if (off < mark) s.freeCam.rebase(E[0] * (mark - off), E[1] * (mark - off));
     f.back = inside(T.gx, T.gy);
     f.pending = { t: now, back: f.back };
-    noteDoor(d); enterCover(s, d);
+    // a room GLASS will take, its mesh built: no cover, no fade; you walk on in and are stood inside its door when the
+    // server answers (freelookTakeRoom). Anything else still goes to the Stage behind the cover.
+    noteDoor(d); if (!owSeamless(s, d)) enterCover(s, d);
     f.onMove(`footstep ${d.gx} ${d.gy}`);
     return;
   }
@@ -1046,11 +1186,27 @@ function footKey(s, e, k, down) {
     if (down && !e.repeat) { f.crouched = !f.crouched; cam.setPace(f.crouched ? { walk: FOOT_PACE.walk * 0.5, run: 1 } : FOOT_PACE); }
     return true;
   }
+  // the set's dial while it's on, as on the Stage: [ and ] step down and up it
+  if (s.inside && s.owTv?.on && (k === '[' || k === ']') && !e.ctrlKey && !e.metaKey && !e.altKey) { if (down && !e.repeat) s.owTv.step(k === ']' ? 1 : -1); return true; }
+  // inside a building in GLASS, L is the room's light switch, as on the Stage (client/shared/room-lights.js)
+  // and - and = its dimmer, a tenth at a time; turning it up from off switches it on
+  if (s.inside && (k === '-' || k === '_' || k === '=' || k === '+') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    if (down) { const z = s.inside.zone, sw = switchOf(z), up = k === '=' || k === '+'; saveSwitch(z, sw.on || up, Math.max(0.1, Math.min(1, sw.level + (up ? 0.1 : -0.1)))); owRelight(s); }
+    return true;
+  }
+  if (s.inside && k === 'l' && !e.ctrlKey && !e.metaKey && !e.altKey) { if (down && !e.repeat) { const z = s.inside.zone, sw = switchOf(z); saveSwitch(z, !sw.on, sw.level); owRelight(s); } return true; }
+  // inside a building in GLASS, F and 2 to 9 are the card's lines while it's up (oneworld-card.js); on the street, the
+  // card of somebody you've walked up to (streetCardTick)
+  if (s.owCard?.up() && (k === 'f' || /^[2-9]$/.test(k)) && !e.ctrlKey && !e.metaKey && !e.altKey) { if (down && !e.repeat) s.owCard.key(k); return true; }
   if (k === 'f' && !e.ctrlKey && !e.metaKey) { if (down && !e.repeat && !footCallLift(s)) footDoor(s); return true; }
   // G opens the can on the building you're facing (plugins/graffiti `spraycan <dir>`; the server says what's there and
   // whether you've a can), and the dialog's SPRAY IT then runs the spray session over the street (spray-aim.js)
   if (k === 'g' && !e.ctrlKey && !e.metaKey && !e.altKey) { if (down && !e.repeat) footCan(s); return true; }
+  // V: the camera behind you and you drawn walking (extViewNow), or back to your eyes; on the street only
+  if (k === 'v' && !e.ctrlKey && !e.metaKey && !e.altKey) { if (down && !e.repeat) footExtView(s); return true; }
   if ((k === 'q' || k === 'e') && !e.ctrlKey && !e.metaKey) { if (down) f.spin.add(k); else f.spin.delete(k); return true; }
+  // sat inside (owSit): a step gets you up first, as it does on the Stage
+  if (s.inside?.sat && down && !e.repeat && FOOT_KEYS.has(k)) owStand(s);
   if (FOOT_KEYS.has(k)) return cam.onKey(k, down);
   return false;
 }
@@ -1078,8 +1234,9 @@ function footCan(s) {
 // it in. Your body stays where you are, facing where you looked, and the camera goes back to your eyes when it shuts.
 const PACK_FOV = 38, PACK_PITCH = -0.28;
 let packMods = null;
-function footPack(s, tab) {
-  if (s.pack) { s.pack.toggle(tab); return; }
+function footPack(s, tab, opts = null) {
+  // `opts` ({ wardrobe }) opens it on a wardrobe's outfits (oneworld-card.js Change clothes) rather than toggling it
+  if (s.pack) { if (opts) s.pack.open(tab, opts); else s.pack.toggle(tab); return; }
   if (s.packing) return;
   s.packing = true;
   Promise.all([import('./room-pack.js'), import('./gl/room-people.js'), import('../../../shared/player-figure.js'), import('../../../shared/paper-doll.js')]).then(([rp, people, pf, pd]) => {
@@ -1092,7 +1249,7 @@ function footPack(s, tab) {
       onToggle: (open) => { s.dock?.setPack(open); if (open) { s.freeCam.releaseAll(); s.foot.spin.clear(); } packView(s, open); },
       turn: (dYaw, dPitch, zoom) => packTurn(s, dYaw, dPitch, zoom),
     });
-    s.pack.open(tab);
+    s.pack.open(tab, opts || undefined);
   }).catch(() => { s.packing = false; });
 }
 function packView(s, open) {
@@ -1146,8 +1303,60 @@ function packSelf(s) {
   return { x: s.gx + pc.x, y: s.gy + pc.y, z: pc.ground, hd: Math.atan2(-Math.cos(F), Math.sin(F)), o: s.packLook.o, k: s.packLook.k };
 }
 // what plugins/roomstage pack.js answers, and a nudge when the inventory changed some other way (dispatch.js)
-export function freelookPack(msg) { if (!st?.pack) return; st.packMsg = msg; st.pack.data(msg); }
+export function freelookPack(msg) { if (!st) return; st.packMsg = msg; st.pack?.data(msg); }
 export function freelookPackDirty() { st?.pack?.dirty(); }
+// THE VIEW FROM BEHIND YOU (V), on the street only. The camera stands EXT_BACK behind your eyes and EXT_UP over your
+// head, turning as you turn and tilting with your look, and GLASS draws your body where your eyes are (drawSelfFigure,
+// `v.self`), walking as far as you've walked. Everything else (where you are, what you face, the door you'd go in
+// by) is still your eyes: only the picture moves. Dressed as the Pack dresses you, from the `roompack` answer it asks
+// for once (freelookPack keeps it even with the Pack shut). Going inside drops it: a room is too small for it.
+const EXT_BACK = 3.4, EXT_UP = 0.55, EXT_AIM = 1.45, EXT_NEAR = 0.6;   // metres behind you, over your head, the height it looks at, and the closest a wall brings it
+function footExtView(s) {
+  if (s.extView) { s.extView = null; return; }
+  if (s.inside) return;
+  s.extView = { gd: 0, lx: null, ly: null, mv: 0, t: 0 };
+  if (!s.packMsg) s.foot.onMove('roompack');
+  if (!packMods) Promise.all([import('./gl/room-people.js'), import('../../../shared/player-figure.js'), import('../../../shared/paper-doll.js')]).then(([people, pf, pd]) => {
+    packMods = packMods || { streetLook: people.streetLook, playerFigure: pf.playerFigure, figureWorn: pd.figureWorn };
+  }).catch(() => {});
+}
+function extViewNow(s, now) {
+  const E = s.extView, v = s.freeCam.view();
+  if (!E || !v) return null;
+  if (s.inside) { s.extView = null; return null; }
+  const ground = Math.max(0, v.z - FPS_EYE * (s.foot.eyeK ?? 1));
+  // how far you've walked drives the gait, as the crowd's does; a jump (a recentre) isn't walking
+  const dt = E.t ? Math.min(0.1, (now - E.t) / 1000) : 0;
+  E.t = now;
+  if (E.lx != null) { const d = Math.hypot(v.x - E.lx, v.y - E.ly); if (d < 0.5) { E.gd += d; E.mv = dt > 0 ? d / dt : E.mv; } }
+  E.lx = v.x; E.ly = v.y; E.ground = ground; E.yaw = v.yaw;
+  const Y = v.yaw * Math.PI / 180, pitch = Math.max(-1.0, Math.min(0.35, (v.pitch || 0) - 0.22)), d = m2tf(EXT_BACK);
+  const cz = ground + m2tf(EXT_AIM), cp = Math.cos(pitch);
+  // ⚠ NEVER INSIDE A WALL. A ray from your head back to where the camera wants to be (reachFrom, the same march the
+  // reach uses against the models, the curtain and the ground); a hit brings the camera in front of it at once, and
+  // it eases back out when the wall's gone, so walking past a corner doesn't make it jump in and out.
+  const ux = -Math.sin(Y) * cp, uy = Math.cos(Y) * cp, uz = -Math.sin(pitch) + m2tf(EXT_UP) / d, n = Math.hypot(ux, uy, uz);
+  const hit = reachFrom(s, v.x, v.y, cz, ux / n, uy / n, uz / n, d * n);
+  const want = Number.isFinite(hit) ? Math.max(m2tf(EXT_NEAR), hit - m2tf(0.25)) / n : d;
+  E.d = E.d == null || want < E.d ? want : E.d + (want - E.d) * (1 - Math.exp(-dt * 3));
+  const r = E.d;
+  return { ...v, x: v.x + ux * r, y: v.y + uy * r, z: Math.max(ground + m2tf(0.3), cz + uz * r), pitch, roll: 0 };
+}
+function extSelf(s, now) {
+  const E = s.extView, M = packMods;
+  if (!E || E.ground == null || !M) return null;
+  const m = s.packMsg || {}, items = m.items || [], sex = m.sex === 'female' ? 'female' : 'male';
+  const sig = items.filter((x) => x.worn && x.slot).map((x) => x.id).join(',') + '|' + JSON.stringify(m.look || null) + '|' + sex;
+  if (s.packLook?.sig !== sig) {
+    const base = M.playerFigure(m.look || {}) || {};
+    const fig = { ...base, ...M.figureWorn(items, { sex, skin: base.skin || null }) };
+    const o = M.streetLook(String(m.you || 'you'), sex === 'female', fig);
+    s.packLook = { sig, o: { ...o, hd: { ...o.hd, id: m.you || o.hd.id } }, k: fig.height > 1 ? fig.height / 1.776 : 1 };
+  }
+  const F = E.yaw * Math.PI / 180, walking = E.mv > 0.05;
+  return { x: s.gx + E.lx, y: s.gy + E.ly, z: E.ground, hd: Math.atan2(-Math.cos(F), Math.sin(F)), o: s.packLook.o, k: s.packLook.k,
+    clip: walking ? 'walk' : 'idle', gd: E.gd };
+}
 // What the spray session needs of the street: a name for the wall, and brick for its close-up. Where on the facade the
 // paint goes is GLASS's to solve (windshield.js drawWallTags), so there's no aim and no live paint: the window is sent
 // again when the tag's up (plugins/freelook), and the wall has it.
@@ -1186,27 +1395,38 @@ function footLift(s, dt) {
   return f.lift;
 }
 // A drag looks and the wheel zooms, as in the room. The cursor stays a cursor, so the buttons in the corner are
-// one click away and nothing has to be pressed to free the mouse.
-function bindFootPointer(el, cam) {
-  let drag = null;
+// one click away and nothing has to be pressed to free the mouse. A press that doesn't drag is a click (`onClick`):
+// inside a building, it holds the card on the piece under it (owClick).
+const CLICK_PX = 5;
+function bindFootPointer(el, cam, onClick = null, onHover = null, onWheel = null, onPress = null) {
+  let drag = null, grab = null;
   const down = (e) => {
     if (e.target.closest?.('button')) return;
+    // a press that something takes (a cat being stroked, owCatPress) owns the drag till it lets go
+    if (e.button === 0 && onPress && (grab = onPress(e))) { try { el.setPointerCapture(e.pointerId); } catch { /* not capturable */ } e.preventDefault(); return; }
     // a click on the world takes the keyboard back from the command line
     if (!e.target.closest?.('input, textarea, select, [contenteditable]')) {
       const f = document.activeElement; if (f?.matches?.('input, textarea, [contenteditable]')) f.blur();
     }
     if (e.button === 1) e.preventDefault();
-    drag = { x: e.clientX, y: e.clientY, id: e.pointerId };
+    drag = { x: e.clientX, y: e.clientY, id: e.pointerId, x0: e.clientX, y0: e.clientY, button: e.button };
     try { el.setPointerCapture(e.pointerId); } catch { /* not capturable */ }
   };
   const move = (e) => {
-    if (!drag || e.pointerId !== drag.id) return;
+    if (grab) { grab.move(e); return; }
+    if (!drag) { onHover?.(e); return; }
+    if (e.pointerId !== drag.id) return;
     const dx = e.clientX - drag.x, dy = e.clientY - drag.y, v = cam.view();
     drag.x = e.clientX; drag.y = e.clientY;
     if (v && (dx || dy)) cam.aimAt(v.yaw + dx * FOOT_DRAG * 180 / Math.PI, v.pitch - dy * FOOT_DRAG);
   };
-  const up = () => { drag = null; };
-  const wheel = (e) => { e.preventDefault(); cam.zoomBy(e.deltaY > 0 ? 1 / 1.06 : 1.06); };
+  const up = (e) => {
+    if (grab) { const g = grab; grab = null; g.up(e); return; }
+    const d = drag;
+    drag = null;
+    if (onClick && d && e?.type === 'pointerup' && d.button === 0 && Math.hypot(e.clientX - d.x0, e.clientY - d.y0) < CLICK_PX) onClick(e);
+  };
+  const wheel = (e) => { e.preventDefault(); if (onWheel?.(e)) return; cam.zoomBy(e.deltaY > 0 ? 1 / 1.06 : 1.06); };
   el.addEventListener('pointerdown', down);
   el.addEventListener('pointermove', move);
   el.addEventListener('pointerup', up);
@@ -1265,7 +1485,9 @@ function solidAt(s, ax, ay, z) {
 function footBelt(s, dt) {
   const fv = s.freeCam.view();
   if (!fv || s.inside || !s.map || !windshieldLoaded()) return;
-  if ((s.foot?.lift || 0) > 0.002) return;   // up on a footbridge, over the strip
+  // up on a footbridge, over the strip. Not a hair over the ground: the walkway's own kerb lifts you 0.01 of a tile,
+  // and the old 0.002 here meant nobody standing on a walkway was ever carried. The deck is 0.4 up.
+  if ((s.foot?.lift || 0) > 0.1) return;
   const b = streetKitFootAt(s.map, s.gx, s.gy, s.gx + fv.x, s.gy + fv.y)?.belt;
   if (b) s.freeCam.carry(b[0] * dt, b[1] * dt);
 }
@@ -1291,35 +1513,131 @@ function doorway(s, d) {
 // city (gl/interiors.js), so the server's `room_view` is taken here (freelookTakeRoom) instead of opening the Room
 // Stage. Its own model comes off the map, the rooms' walls and furniture hold you (room-layout.js roomFree, the
 // Stage's own rule), and walking through a doorway sends that doorway's move, as the Stage does.
-// ⚠ ON FOR ENTRY ROOMS ONLY (`entry`): a room with a street door and nothing that needs the Stage (oneWorldRoom).
-// Everywhere else the Stage opens as before. `__oneWorld(true)` takes every drawn room, `__oneWorld(false)` none.
+// ⚠ ON FOR THE ROOMS ONLY THE STAGE DOESN'T NEED (`entry`, the desktop default): an entry room off the street, and
+// once you're inside a building in GLASS, any room of it on your floor a doorway takes you to, as long as it has
+// nothing only the Stage draws or works (glass/interiors-near.js oneWorldBlocker). Everywhere else the Stage opens as
+// before. A phone always opens the Stage (one-world-interiors.md, "The conversion"). `__oneWorld(true)` takes every
+// drawn room, phone or not; `__oneWorld(false)` none.
 export const ONE_WORLD = { on: false, entry: true };
 if (typeof window !== 'undefined') window.__oneWorld = (on = true) => { ONE_WORLD.on = !!on; ONE_WORLD.entry = !!on; return on; };
-// Whether one-world takes this room: every drawn room with `on`; with `entry`, a room you come into off the street
-// that has none of what only the Stage draws or works (a lift car or landing, the rink, a roof deck, a balcony).
-function oneWorldRoom(s, r) {
-  if (ONE_WORLD.on) return true;
-  if (!ONE_WORLD.entry || !r) return false;
-  const sp = r.L.spec || {}, ops = sp.openings || [];
-  if (sp.car || sp.lift || sp.rink || sp.open || sp.balcony) return false;
-  if (ops.some((o) => o.lift)) return false;
-  // a shop: its counter or shelves are worked on the Stage (docs/proposals/shop-interiors.md)
-  const shopFlag = (f) => f && (f.serves || f.checkout || f.vendor_stock);
-  if ((r.L.placed || []).some((p) => shopFlag(p.flags) || shopFlag(p.row?.flags) || p.look?.stock)) return false;
-  return ops.some((o) => o.dir && o.kind === 'front' && !(s.interiors || []).some((q) => q.zone === o.to));
+// Whether the step through this street door goes on in GLASS (one-world): the building's room behind it is one GLASS
+// takes from the street, and its whole mesh is built, so no box or still stands in the doorway as you go through.
+function owSeamless(s, d) {
+  if (GL_TIER === 'phone' || !(ONE_WORLD.on || ONE_WORLD.entry)) return false;
+  const r = (s.interiors || []).find((q) => q.gx === d.gx && q.gy === d.gy && (q.L.spec.openings || []).some((o) => o.dir && o.kind === 'front'));
+  return !!r && oneWorldRoom(s, r) && !!r.meshReady?.();
 }
+function oneWorldRoom(s, r, fromLift = null) {
+  if (ONE_WORLD.on) return true;
+  if (!ONE_WORLD.entry) return false;
+  return oneWorldTakes(r, s.inside, (zone) => (s.interiors || []).some((q) => q.zone === zone), GL_TIER === 'phone', { fromLift });
+}
+// The last `room_view` this page was sent, whoever took it: a lift car's (`lift` on it) is how a landing you step out
+// onto from the Stage's ride knows where you came from (phase E).
+let lastView = null;
+const OW_WINDOW_MARGIN = 2;   // tiles: a building taken in GLASS is at least this far inside the view's window
 // ⚠ THE BUILDING STAYS ON THE MAP, LESS THE STOREY YOU'RE ON (gl/context.js uCutA, the balcony's cut). Taking the
 // whole model off left you in a lobby with no building over it, and the eye placed off the room's own sums, not the
 // model's. Now the facade, the storeys over you and the doorway are the model's, and the rooms on this floor (drawn
 // whole, gl/interiors.js) stand in the band the cut takes out of it: the building's tile, floor slab to ceiling.
-// ⚠ ONE TILE ONLY: a building on several tiles (the Solenne's 2 by 2) keeps its other tiles whole for now.
+// ⚠ A BUILDING ON SEVERAL TILES IS CUT ACROSS ALL OF THEM (phase E): the Solenne's 2 by 2 kept three tiles whole, so
+// its lobby's far half stood inside its own model. The cut is the square round the building's footprint as the map
+// records it (cutFootprint), which for a one-tile building is that tile, as it always was.
+// ⚠ NOT FROM THE ROOMS' BOXES: rooms overhang their tiles all over the city (the hostel, Jolene's, Screw It), and a cut
+// sized off them took the next building's storey too.
 const CUT_SLAB_M = 0.15, CUT_TILE_REACH = 0.52;
+// while the arrange mode looks down on the room from above, every storey over it goes too, not only its own
+const CUT_ALL_ABOVE_M = 400;
 function insideCut(s) {
   const I = s.inside, r = I?.room;
-  if (!r) return null;
+  if (!r || r.vessel) return null;   // a vessel's storey is cut out of her hull instead (owVesselTick)
   const M = r.M, k = M[6] || METRE, floorM = M[14] / k + (r.L.floor || 0), h = Number(r.L.spec?.h) || 3;
-  const tx = r.gx - s.gx, ty = r.gy - s.gy;
-  return { x: tx, y: ty, rad: 0, half: 4, back: 4, z0: k * (floorM - CUT_SLAB_M), z1: k * (floorM + h + CUT_SLAB_M), tx, ty, reach: CUT_TILE_REACH };
+  const sunk = Number(r.L.spec?.pit?.depth) || 0;   // a pit's floor is below the room's, and the model's slab with it
+  const f = cutFootprint(s.map, s.gx, s.gy, r.gx, r.gy);
+  const tx = f.cx - s.gx, ty = f.cy - s.gy;
+  return { x: tx, y: ty, rad: 0, half: 4, back: 4, z0: k * (floorM - sunk - CUT_SLAB_M), z1: k * (floorM + (s.owArrange ? CUT_ALL_ABOVE_M : h) + CUT_SLAB_M), tx, ty, reach: f.reach };
+}
+// A SUNKEN FLOOR, INSIDE: GLASS's ground is drawn at street level under every building, so a pit in the room you're
+// in (spec.pit, the Cherry Pit's round one) was covered by it. The pit's square comes out of the ground as a hole
+// (gl/floor.js uHole), in world tiles; the room's own floor is laid round the circle inside that square
+// (gl/room-mesh.js), so the hole shows only the pit.
+// A ROOM AT STREET LEVEL, the same way: its floor (or, a storey down, its ceiling) is at the ground's height, so the
+// two fought for the picture, and from a few metres off the ground's shadows came up through the floor in patches and
+// over the stairwell down (Golden Goose Gardens' Stands, 2026-11-23). Every room of the building you're in whose box
+// touches street level comes out of the ground, yours first, then the nearest; then the wells in your room's floor and
+// ceiling (stairsOf, wellBoxes). The renderer takes six holes (gl/floor.js MAX_HOLE), the pit first.
+const GROUND_EPS = 0.02;   // tiles, about 36 cm: a room's floor or ceiling this near street level fights the ground
+function insidePitHole(s) {
+  const r = s.inside?.room;
+  if (!r?.M || r.vessel || !r.L?.world) return null;
+  const rect = ([u0, u1, v0, v1]) => {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const [u, v] of [[u0, v0], [u1, v0], [u0, v1], [u1, v1]]) {
+      const t = roomPt(r.M, r.L.world(u, v, 0)), x = r.gx + t[0], y = r.gy + t[1];
+      x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y);
+    }
+    return [x0, y0, x1, y1];
+  };
+  const q = r.L.spec?.pit, out = [];
+  if (q && [q.u0, q.u1, q.v0, q.v1].every(Number.isFinite)) out.push(rect([q.u0, q.u1, q.v0, q.v1]));
+  const atStreet = (x) => x?.box && x.gx === r.gx && x.gy === r.gy && x.box[4] <= GROUND_EPS && x.box[5] >= -GROUND_EPS;
+  const mid = (x) => [(x.box[0] + x.box[2]) / 2, (x.box[1] + x.box[3]) / 2], [mx, my] = r.box ? mid(r) : [r.gx, r.gy];
+  const street = (s.interiors || []).filter((x) => x !== r && atStreet(x)).sort((a, b) => Math.hypot(mid(a)[0] - mx, mid(a)[1] - my) - Math.hypot(mid(b)[0] - mx, mid(b)[1] - my));
+  for (const x of atStreet(r) ? [r, ...street] : street) out.push(x.box.slice(0, 4));
+  for (const o of stairsOf(r.L.spec)) if (o.wall === 'floor' || o.wall === 'ceiling') for (const b of wellBoxes(o)) out.push(rect(b));
+  return out.length ? out : null;
+}
+// A building's footprint from the window's map: its facade tile [fx, fy] and every cell marked part of it (`po`, the
+// facade's [x, y]; docs/proposals/multi-tile-buildings.md), as their middle and the half-width of the square round
+// them, in absolute tiles. Exported for the gate.
+export function cutFootprint(map, gx, gy, fx, fy) {
+  let x0 = fx, x1 = fx, y0 = fy, y1 = fy;
+  const R = map ? (map.length - 1) / 2 : 0;
+  for (let y = 0; y < (map?.length || 0); y++) for (let x = 0; x < (map[y]?.length || 0); x++) {
+    const po = map[y][x]?.po;
+    if (!Array.isArray(po) || po[0] !== fx || po[1] !== fy) continue;
+    const ax = gx + x - R, ay = gy + y - R;
+    x0 = Math.min(x0, ax); x1 = Math.max(x1, ax); y0 = Math.min(y0, ay); y1 = Math.max(y1, ay);
+  }
+  return { cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, reach: Math.max(x1 - x0, y1 - y0) / 2 + CUT_TILE_REACH };
+}
+// ── ON A VESSEL (docs/proposals/echelon-decks.md, phase 2) ─────────────────────────────────────────────────────────
+// Her rooms come with where each stands in her own frame (room-interiors.js placeOnVessel), and every frame they're put
+// on her hull as GLASS draws it: her cell's heading and `sub` (she swings at anchor and sails), and the ride the hull
+// is drawn with (seaRideAt), so they heave and pitch with her. Standing in one, you're carried with the floor: the spot
+// under you in the room's frame is where it was, wherever the room went. And her storey is cut out of her hull and
+// deckhouse (gl/solids.js setVesselCut), as a building's storey is cut out of its mass (insideCut).
+// ⚠ BEFORE ANYTHING READS A ROOM'S MATRIX THIS FRAME: the walk, the floor under you and the draw all read r.M.
+const VESSEL_CUT_SLAB_M = 0.15;
+function vesselPose(s, gx, gy, now) {
+  const c = cellOf(s, gx, gy);
+  if (!c || c.mark !== 'yacht') return null;
+  const sub = c.sub || { x: 0, y: 0 }, heading = c.heading || 0;
+  return { x: sub.x, y: sub.y, heading, ride: seaRideAt(gx - s.gx + sub.x, gy - s.gy + sub.y, heading, now) };
+}
+function owVesselTick(s, now) {
+  if (!s?.foot || !s.map || !s.interiors?.length || !windshieldLoaded()) { setVesselCut(null); return; }
+  const I = s.inside, fv = s.freeCam.view(), poses = new Map();
+  let cut = null;
+  for (const r of s.interiors) {
+    if (!r.vessel) continue;
+    const k = r.gx + ',' + r.gy;
+    if (!poses.has(k)) poses.set(k, vesselPose(s, r.gx, r.gy, now));
+    const P = poses.get(k);
+    if (!P) continue;
+    const mine = I?.room === r && fv, uv = mine ? roomUV(s, r, fv.x, fv.y) : null;
+    const was = uv ? roomPt(r.M, r.L.world(uv[0], uv[1], 0)) : null;
+    placeOnVessel(r, P);
+    if (was) { const now2 = roomPt(r.M, r.L.world(uv[0], uv[1], 0)); s.freeCam.carry(now2[0] - was[0], now2[1] - was[1]); }
+    if (mine) {
+      const D = Math.PI / 180, R = P.ride || { heave: 0, roll: 0, pitch: 0 }, V = r.vessel, k2 = m2tf(1);
+      const floor = ((Number(V.deck) || 0) + V.floor) * k2, h = Number(r.L.spec?.h) || 3;
+      cut = { x: r.gx - s.gx + P.x, y: r.gy - s.gy + P.y, rad: P.heading * D,
+        half: 0.13 * YACHT_SB * YACHT_SCALE, fore: -YACHT_BOW * YACHT_SCALE + 0.05, aft: -(YACHT_BOW + YACHT_LEN) * YACHT_SCALE - 0.05,
+        z0: floor - VESSEL_CUT_SLAB_M * k2, z1: floor + (h + VESSEL_CUT_SLAB_M) * k2, heave: R.heave, sinRoll: Math.sin(R.roll * D), sinPitch: Math.sin(R.pitch * D) };
+    }
+  }
+  setVesselCut(cut);
 }
 // Where a point (tiles about the window's centre) is in a room's own frame: [u, v], by its matrix's inverse.
 function roomUV(s, r, x, y) {
@@ -1329,11 +1647,329 @@ function roomUV(s, r, x, y) {
   const l = r.L.local([px, r.L.floor, pz]);
   return [l[0], l[1]];
 }
+// Whether there's a ceiling over you inside: yes in any room but a roof deck (`open`), and not out on its balcony, which
+// is in front of its front wall (v < 0). The renderer stops the rain on it as it does under a depot's roof.
+function owRoofed(s) {
+  const r = s.inside?.room;
+  if (!r?.M || !r.L || r.L.spec?.open) return false;
+  const v = s.freeCam.view(), at = v ? roomUV(s, r, v.x, v.y) : null;
+  return !(at && at[1] < 0);
+}
+// THE CARD, INSIDE (phase B, oneworld-card.js): the piece of the room you're in that you face and can reach, by the
+// Stage's own aim. Where you stand and a step ahead of you are taken into the room's frame (roomUV), so the room's
+// turn on the map doesn't matter. Asked a few times a second, not every frame; off the moment you're back outside.
+const OW_CARD_MS = 120, OW_AHEAD = 0.02;   // tiles: a step ahead, only its direction is used
+const OW_HOLD_M = 0.4;   // a click holds the card on its piece until you've walked this far from where you clicked
+const seatsOf = (r, piece) => (piece ? (r.L.seats || []).filter((q) => String(q.piece) === String(piece.id)) : []);
+// the piece you'd face looking along `bearing` (degrees, the camera's sense), from where you stand
+function facedAlong(s, r, v, bearing) {
+  const y = bearing * Math.PI / 180;   // 0 north, clockwise (freecam.js), +y south
+  const at = roomUV(s, r, v.x, v.y), ahead = roomUV(s, r, v.x + Math.sin(y) * OW_AHEAD, v.y - Math.cos(y) * OW_AHEAD);
+  return facedPiece(r.L, s.inside.pieces, at, ahead);
+}
+const pieceById = (s, id) => (s.inside?.pieces || []).find((p) => String(p.id) === String(id)) || null;
+function owCardTick(s, now) {
+  if (!s.inside) { streetCardTick(s, now); return; }
+  const c = s.owCard;
+  if (!c) return;
+  if (now - (s.owCardAt || 0) < OW_CARD_MS) return;
+  s.owCardAt = now;
+  const v = s.freeCam.view(), I = s.inside, r = I.room;
+  if (!v || !r || s.packCam) { c.show(null); return; }
+  // sat: the card is the seat's piece, Get up first, as on the Stage
+  if (I.sat) { const p = pieceById(s, I.sat.piece); c.show(p, seatsOf(r, p), { sat: true }); return; }
+  // held by a click until you walk off from where you clicked
+  if (I.held && Math.hypot(s.gx + v.x - I.held.at[0], s.gy + v.y - I.held.at[1]) > m2tf(OW_HOLD_M)) I.held = null;
+  // in a lift car: its panel, a button for every floor it stops at, each the elevator's typed `floor <n>`
+  if (r.L.spec?.car && I.lift?.floors?.length) {
+    c.show({ id: 'lift:' + r.zone, name: I.lift.brand || 'Lift' }, [], { acts: I.lift.floors.map((f) => ({ verb: 'floor', label: f.n === I.lift.at ? `${f.label || 'Floor ' + f.n} (here)` : f.label || 'Floor ' + f.n, cmd: `floor ${f.n}` })) });
+    return;
+  }
+  // somebody you face wins over the furniture round them, as on the Stage (oneworld-people.js facedPerson)
+  if (!I.held) {
+    const yw = (v.yaw || 0) * Math.PI / 180, a0 = roomUV(s, r, v.x, v.y), a1 = roomUV(s, r, v.x + Math.sin(yw) * OW_AHEAD, v.y - Math.cos(yw) * OW_AHEAD);
+    const who = facedPerson(r.L, I.people, I.you, a0, a1);
+    if (who) { c.show({ id: 'person:' + who.id, name: who.name, person: who }, [], { acts: personActs(who) }); return; }
+  }
+  const piece = I.held ? pieceById(s, I.held.piece) : facedAlong(s, r, v, v.yaw || 0);
+  if (piece) { c.show(piece, seatsOf(r, piece), { tvOn: piece.arche === 'screen' ? !!s.owTv?.on : null, keypad: I.keypad }); return; }
+  // nothing to hand: the door you're stood at and facing, or the one you just walked into (owDoorLets)
+  const y = (v.yaw || 0) * Math.PI / 180, at = roomUV(s, r, v.x, v.y), ahead = roomUV(s, r, v.x + Math.sin(y) * OW_AHEAD, v.y - Math.cos(y) * OW_AHEAD);
+  const bump = I.bumped && now - I.bumped.t < OW_BUMP_MS ? I.locks.find((q) => q.to === I.bumped.to) : null;
+  const k = bump || facedLock(r.L, I.locks, at, ahead);
+  c.show(k ? { id: 'lock:' + k.to, name: doorName(k), lock: k } : null, [], k ? { acts: lockActs(k) } : {});
+}
+const OW_BUMP_MS = 2500;
+// THE CARD, OUTSIDE: somebody on the street you're facing and close to, by name, with the lines a person has indoors
+// (room-acts.js personActs). The figure is where GLASS drew them (streetActorSpots); the name is the server's `here`,
+// which covers only the tile you're on, so a figure further off never gets one. A click holds it on them (streetClick).
+const STREET_REACH_M = 3.5, STREET_FACING = 0.8;
+const streetActs = (who) => (who.npc ? personActs({ name: who.n }) : [{ verb: 'look', label: 'Look', cmd: `look ${String(who.n).toLowerCase()}` }]);
+// who's at a drawn spot, within reach of the eye, or null
+function streetWho(s, v, q) {
+  const who = q && s.here?.get(q.t);
+  if (!who || Math.hypot(q.x - (s.gx + v.x), q.y - (s.gy + v.y)) > m2tf(STREET_REACH_M)) return null;
+  return { ...who, x: q.x, y: q.y };
+}
+// the named person you'd face looking along `bearing` (degrees, the camera's sense)
+function streetFaced(s, v, bearing) {
+  if (!s.here?.size) return null;
+  const y = bearing * Math.PI / 180, fx = Math.sin(y), fy = -Math.cos(y), ex = s.gx + v.x, ey = s.gy + v.y;
+  let best = null, score = Infinity;
+  for (const q of streetActorSpots()) {
+    const who = streetWho(s, v, q);
+    if (!who) continue;
+    const dx = q.x - ex, dy = q.y - ey, d = Math.hypot(dx, dy), facing = d ? (dx * fx + dy * fy) / d : 1;
+    if (facing < STREET_FACING) continue;
+    const sc = d * (2 - facing);
+    if (sc < score) { score = sc; best = who; }
+  }
+  return best;
+}
+function streetCardTick(s, now) {
+  if (!s.owCard && !s.here?.size) return;
+  if (now - (s.owCardAt || 0) < OW_CARD_MS) return;
+  s.owCardAt = now;
+  const v = s.freeCam.view();
+  // held by a click until you walk off from where you clicked, or they walk out of reach
+  if (s.streetHeld && (!v || Math.hypot(s.gx + v.x - s.streetHeld.at[0], s.gy + v.y - s.streetHeld.at[1]) > m2tf(OW_HOLD_M))) s.streetHeld = null;
+  let who = null;
+  if (v && !s.packCam) {
+    if (s.streetHeld) who = streetWho(s, v, streetActorSpots().find((q) => q.t === s.streetHeld.t)) || (s.streetHeld = null);
+    if (!who) who = streetFaced(s, v, v.yaw || 0);
+  }
+  if (!who) { s.owCard?.show(null); return; }
+  if (!s.owCard) s.owCard = createOneWorldCard(s.root, (a, piece) => owAct(s, a, piece));
+  // a studio set may claim this room (room-studio.js): ask, as the Stage asks, and freelookSet draws it
+  if (from?.zone !== msg.zone) { owStudioStop(s); owRaw({ type: 'room_set', zone: msg.zone }); }
+  s.owCard.show({ id: 'street:' + who.t, name: who.n, street: who }, [], { acts: streetActs(who) });
+}
+// A click on the street: the named person nearest the bearing under the pointer holds the card; a click on nothing lets
+// it go.
+function streetClick(s, e, el) {
+  const v = s.freeCam.view(), box = el.getBoundingClientRect();
+  if (!v || !box.width) return;
+  const nx = (e.clientX - box.left - box.width / 2) / (box.width / 2), tanH = (box.width / 2) / viewLatFocal(box.width, { fovMul: v.fov || 1 });
+  const who = streetFaced(s, v, (v.yaw || 0) + Math.atan(nx * tanH) * 180 / Math.PI);
+  s.streetHeld = who ? { t: who.t, at: [s.gx + v.x, s.gy + v.y] } : null;
+  s.owCardAt = 0;
+}
+// A line on the street card: Talk turns you to face them first, as it does indoors (owFace).
+function streetAct(s, a, who) {
+  s.streetHeld = null;
+  const v = s.freeCam.view();
+  if (a.verb === 'talk' && who && v) {
+    const dx = who.x - (s.gx + v.x), dy = who.y - (s.gy + v.y);
+    if (dx || dy) s.freeCam.aimAt(Math.atan2(dx, -dy) * 180 / Math.PI, v.pitch);
+  }
+  s.foot.onMove(a.cmd);
+}
+// THE ROOM'S PEOPLE (phase C, oneworld-people.js): worked out again only when who's there or the room you're in changes.
+function owPeople(s) {
+  const I = s.inside;
+  if (!I) return null;
+  // (every frame while somebody's walking in or out, oneworld-people.js noteMoves)
+  const now = performance.now(), going = (I.walks?.size && walkingNow(I.walks, now)) || (I.routes?.size && walkingNow(I.routes, now));
+  if (going || I.walkedLast || I.peopleFor !== I.people || I.peopleRoom !== I.room) {
+    I.peopleFor = I.people; I.peopleRoom = I.room; I.walkedLast = going;
+    I.peopleRec = roomPeopleRecords(I.room, I.people, I.you, I.walks, now, I.routes);
+  }
+  // (whoever the vat cycle has coming down a tube is drawn by the vat hall instead, owVatTick)
+  const recs = I.vatHide?.size ? I.peopleRec.filter((q) => !I.vatHide.has(q.t)) : I.peopleRec;
+  // somebody saying a line stands on the talk clip while it lasts (oneworld-speech.js)
+  return owSpeech ? owSpeech.clipOf(recs, I.people, now) : recs;
+}
+// WHAT PEOPLE SAY (phase C, oneworld-speech.js): the line over the speaker's head, the talk clip, and their voice from
+// where they stand, answering npc-bubbles.js's events as the Stage does. Made the first time you're inside.
+let owSpeech = null, owSpeechW = null;
+function owSpeechTick(s, now) {
+  if (!s.inside) { owSpeech?.clear(); return; }
+  if (!owSpeech) {
+    if (owSpeechW === null) { owSpeechW = import('./gl/world.js').then((w) => { owSpeechW = w; }).catch(() => { owSpeechW = null; }); }
+    if (owSpeechW instanceof Promise || !owSpeechW) return;
+    owSpeech = 'loading';
+    import('./oneworld-speech.js').then((m) => {
+      owSpeech = m.createOneWorldSpeech({
+        get: () => (st?.inside ? st : null),
+        project: (x, y, z) => { const at = st && owSpeechW.glInteriorProject(st.id, x - st.gx, y - st.gy, z); return at && at.f > 0 ? { x: at.x * st.root.clientWidth, y: at.y * st.root.clientHeight } : null; },
+        eared: () => !!st?.owSound,
+      });
+    }).catch(() => { owSpeech = null; });
+    return;
+  }
+  if (owSpeech === 'loading') return;
+  owSpeech.tick(owPeople(s), now);
+}
+// `room_people`: who's in the room you're walking in GLASS changed. True when it was that room.
+export function freelookPeople(msg) {
+  const I = st?.inside;
+  if (!I || msg.zone !== I.zone) return false;
+  const before = I.people || [];
+  I.people = msg.people || [];
+  I.beasts = msg.beasts || [];
+  if (!!msg.tv !== !!I.npcTv) { I.npcTv = !!msg.tv; I.npcTvAsked = false; }
+  I.routes = routesOf(I.people, performance.now());
+  // somebody walking in at a door, or out of one (`came`, `gone`)
+  if (msg.came?.length || msg.gone?.length) noteMoves(I.walks || (I.walks = new Map()), I.room?.L, msg, before, I.people, I.you, performance.now());
+  // on a studio floor, somebody coming or going changes who's on the set's marks
+  if (st.owStudio && before.map((p) => p.id).sort().join('|') !== I.people.map((p) => p.id).sort().join('|')) owRaw({ type: 'room_set', zone: msg.zone });
+  return true;
+}
+// THE STUDIO FLOOR (phase F): a room a studio set claims is drawn as the set, the TV's live stage (room-studio.js, the
+// Stage's own) laid over the street view's picture as the Stage lays it over its room. Asked for when you walk in and
+// again when the room's people change; it goes when you leave the room or the view's put away.
+const owRaw = (m) => import('../net.js').then((n) => n.sendRaw(m)).catch(() => {});
+function owStudioStop(s) { if (s?.owStudio) { s.owStudio.ui?.dispose(); s.owStudio = null; } }
+// 'room_set': the set the room you're walking in GLASS is, or none. True when it was that room.
+export function freelookSet(msg) {
+  const s = st, I = s?.inside;
+  if (!I || msg.zone !== I.zone) return false;
+  if (!msg.set) { owStudioStop(s); return true; }
+  if (s.owStudio?.ui) { s.owStudio.ui.show(msg); return true; }
+  const O = (s.owStudio = { zone: I.zone, ui: null });
+  import('./room-studio.js').then(({ createStudioFloor }) => {
+    if (s.owStudio !== O || s.inside?.zone !== O.zone) return;
+    O.ui = createStudioFloor(s.root, { phone: false });
+    O.ui.show(msg);
+  }).catch((err) => { console.error('[one-world] the studio set failed to load:', err); if (s.owStudio === O) s.owStudio = null; });
+  return true;
+}   // a door you walked into keeps its card up this long
+// `room_locks`: a lock of the room you're in changed (somebody worked it, a shop shut, the rent lapsed). An Unlock that
+// was to open the door too (`then`) opens it now the lock's given.
+export function freelookLocks(msg) {
+  const I = st?.inside;
+  if (!I || msg.zone !== I.zone) return false;
+  I.locks = msg.locks || [];
+  st.owCardAt = 0;
+  const c = I.chain;
+  if (c && performance.now() < c.until && I.locks.some((k) => k.to === c.to && !k.locked)) { I.chain = null; st.foot.onMove(c.cmd); }
+  return true;
+}
+// A line on the card. Sit down and Lie down put you on the seat, as the Stage's runAct does; Get up takes you off;
+// everything else is its typed verb.
+function owAct(s, a, piece) {
+  if (piece?.street) { streetAct(s, a, piece.street); return; }
+  const I = s.inside;
+  if (!I) return;
+  I.held = null;
+  if (a.verb === 'stand') { owStand(s); return; }
+  // a set's Watch is its power switch, as on the Stage (room-stage.js useStation): on, it goes off here
+  if (a.verb === 'watch' && piece && s.owTv?.on) { s.owTv.off(); return; }
+  // Talk turns you to face them, eye to eye, as the Stage's talk camera comes in on a face (room-talk.js); the rest of
+  // the camera's move onto the face is to come
+  if (a.verb === 'talk' && piece?.person) owFace(s, piece.person.id);
+  if (piece?.lock) { I.chain = a.then ? { to: piece.lock.to, cmd: a.then, until: performance.now() + 3000 } : null; s.foot.onMove(a.cmd); return; }
+  if ((a.verb === 'sit' || a.verb === 'lie') && piece && owSit(s, piece, a.verb)) return;
+  // a wardrobe's Change clothes: the street's own Pack (room-pack.js) on what you can wear, with its saved outfits
+  if (a.verb === 'dress') { footPack(s, 'wear', { wardrobe: piece?.arche === 'wardrobe' ? piece.id : null }); return; }
+  // a boombox's Music: the AMP player is the client's own, and the server never hears `music` (room-stage.js runAct)
+  if (a.verb === 'music') { import('./lazy-views.js').then((m) => m.openMusicPlayerPanel()); return; }
+  // a vending machine's flavour: its button goes in as it's bought, as on the Stage
+  if (a.verb === 'vendpress' && piece) s.owVend?.ui.press(piece.id, a.item);
+  // Cook at a cooker: the kitchen stands you at that one, not the room's first (owCookOpen)
+  if (a.verb === 'workspace' && piece && !piece.lab) I.cookAt = { id: piece.id, t: performance.now() };
+  // Examine a trophy case: the camera goes round its Cup, and the case is looked at as ever (owCupOpen)
+  if (a.verb === 'examine' && piece && I.room?.L.placed?.some((q) => q.id === piece.id && q.form === 'trophy')) owCupOpen(s, piece);
+  s.foot.onMove(a.cmd);
+}
+// A THING CLOSE UP (phase F): examining a trophy case takes the camera round its Cup to turn it and read who's engraved
+// on it, by the Stage's own room-closeup.js over the street view: its camera put on the street view's (owTakeCam), and
+// put back where you stood when it shuts. 'target' is asked every frame, so a room rebuilt without the case shuts it.
+let cupMods = null;
+function owCupOpen(s, piece) {
+  const I = s.inside, r = I?.room;
+  if (!r || s.owCup) return;
+  s.owCup = { room: r, id: piece.id, ui: null, home: owSeat(s, r) };
+  if (!cupMods) cupMods = Promise.all([import('./room-closeup.js'), import('./gl/room-stadium.js'), import('../../../shared/room-layout.js')]);
+  Promise.resolve(cupMods).then(([rc, rs, rl]) => {
+    cupMods = [rc, rs, rl];
+    const C = s.owCup;
+    if (!C || C.room !== s.inside?.room) { s.owCup = null; return; }
+    const target = () => {
+      const L = C.room.L, p = L.placed?.find((q) => q.id === C.id);
+      if (!p) return null;
+      const c = rs.trophyCup(p), [fu, fv] = rl.facing(p.turn);
+      const o = L.world(p.u, p.v, c.foot), f = L.world(p.u + fu, p.v + fv, c.foot);
+      return { c: [o[0], o[2]], y0: o[1], y1: o[1] + (c.top - c.foot), front: Math.atan2(o[0] - f[0], o[2] - f[2]), near: c.r + 0.09, far: 1.6, ceil: o[1] + (c.lid - c.foot) - 0.03 };
+    };
+    C.ui = rc.createCloseup({ host: s.root, target, onClose: () => { C.shut = true; } });
+    if (!C.ui.open(piece.label || piece.name)) { C.ui.dispose(); s.owCup = null; }
+  }).catch((e) => { console.warn('[one-world] the close-up would not load:', e?.message); s.owCup = null; cupMods = null; });
+}
+function owCupStop(s) {
+  const C = s.owCup;
+  if (!C) return;
+  if (C.ui?.on) C.ui.close();
+  C.ui?.dispose();
+  if (s.inside) s.inside.cupCam = null;
+  if (C.home && C.room === s.inside?.room) owTakeCam(s, C.room, C.home, () => {});
+  s.owCup = null;
+}
+function owCupTick(s, now) {
+  const C = s.owCup;
+  if (!C?.ui) return;
+  if (C.shut || !C.ui.on || C.room !== s.inside?.room) { owCupStop(s); return; }
+  const cam = C.ui.frame(now);
+  if (cam) owTakeCam(s, C.room, cam, (c) => { s.inside.cupCam = c; });
+}
+// Turn to face somebody in the room, at their eye height (oneworld-people.js records: absolute tiles, z their floor).
+const OW_FACE_EYE_M = 1.6;
+function owFace(s, id) {
+  const v = s.freeCam.view(), q = (owPeople(s) || []).find((r) => r.t === personToken(id));
+  if (!v || !q) return;
+  const dx = q.x - (s.gx + v.x), dy = q.y - (s.gy + v.y), d = Math.hypot(dx, dy);
+  if (d < 1e-6) return;
+  const dz = q.z + m2tf(q.clip === 'sit' ? OW_FACE_EYE_M * 0.72 : OW_FACE_EYE_M) - v.z;
+  s.freeCam.aimAt(Math.atan2(dx, -dy) * 180 / Math.PI, Math.atan2(dz, d));
+}
+// ON THE SEAT: the camera goes to the seat's eye, facing the way it faces (the layout's `y`, `dir` and `pitch`, put
+// through the room's matrix), and stays there (the eye in watchFoot, the feet in footBlock) until you get up. Where
+// you stood is kept, and Get up or a step puts you back there.
+const roomPt = (M, p) => [M[0] * p[0] + M[4] * p[1] + M[8] * p[2] + M[12], M[1] * p[0] + M[5] * p[1] + M[9] * p[2] + M[13], M[2] * p[0] + M[6] * p[1] + M[10] * p[2] + M[14]];
+function owSit(s, piece, verb) {
+  const I = s.inside, r = I.room, L = r.L, v = s.freeCam.view();
+  const seat = seatFor(L.seats, piece.id, verb);
+  if (!seat || !v) return false;
+  const dir = seat.dir || [0, 1], P = roomPt(r.M, L.world(seat.u, seat.v, seat.y)), Q = roomPt(r.M, L.world(seat.u + dir[0], seat.v + dir[1], seat.y));
+  I.sat = { piece: piece.id, z: P[2], from: { x: s.gx + v.x, y: s.gy + v.y, yaw: v.yaw, pitch: v.pitch } };
+  s.freeCam.rebase(r.gx + P[0] - (s.gx + v.x), r.gy + P[1] - (s.gy + v.y));
+  s.freeCam.aimAt(Math.atan2(Q[0] - P[0], -(Q[1] - P[1])) * 180 / Math.PI, seat.pitch || 0);
+  s.foot.onMove(sitCmd(seat, piece));
+  return true;
+}
+function owStand(s) {
+  const I = s.inside, at = I?.sat?.from, v = s.freeCam.view();
+  if (!at) return;
+  I.sat = null;
+  if (v) { s.freeCam.rebase(at.x - (s.gx + v.x), at.y - (s.gy + v.y)); s.freeCam.aimAt(at.yaw, at.pitch); }
+  s.foot.onMove('stand');
+}
+// A click on the picture, inside: the piece in that direction within reach holds the card, as a click on a piece does
+// on the Stage (`held`); a click on nothing lets it go. The bearing under the pointer is worked from GLASS's own lens
+// (windshield.js viewLatFocal), the way packViewNow works the other way.
+function owClick(s, e, el) {
+  if (!s.inside) { streetClick(s, e, el); return; }
+  const I = s.inside, v = s.freeCam.view(), r = I?.room;
+  if (!I || !v || !r || I.sat) return;
+  const box = el.getBoundingClientRect();
+  if (!box.width) return;
+  // a vending machine's button or plug under the pointer is pressed (room-vendor.js hitAt, by the picture GLASS drew)
+  if (I.join) { I.join.scene.skip(); return; }
+  // a button on the set's picture first, in this same event: going full screen needs the click's own turn
+  const on = owTvPoint(s, e, el), btn = on && s.owTv?.buttonAt(on.u, on.v);
+  if (btn) { btn.click(); return; }
+  const vh = s.owVend?.ui.hitAt(e.clientX - box.left, e.clientY - box.top, box.width, box.height, roomUV(s, r, v.x, v.y));
+  if (vh) { if (vh.act.verb === 'vendpress') s.owVend.ui.press(vh.piece.id, vh.act.item); s.foot.onMove(vh.act.cmd); return; }
+  const nx = (e.clientX - box.left - box.width / 2) / (box.width / 2), tanH = (box.width / 2) / viewLatFocal(box.width, { fovMul: v.fov || 1 });
+  const piece = facedAlong(s, r, v, (v.yaw || 0) + Math.atan(nx * tanH) * 180 / Math.PI);
+  I.held = piece ? { piece: piece.id, at: [s.gx + v.x, s.gy + v.y] } : null;
+  s.owCardAt = 0;
+}
 // The room of the building you're in that's free at a point, if any.
 function roomAt(s, x, y) {
   const I = s.inside;
   for (const r of s.interiors || []) {
-    if (r.gx !== I.gx || r.gy !== I.gy || r.L.floor !== I.room.L.floor) continue;
+    if (r.gx !== I.gx || r.gy !== I.gy || !sameStorey(r, I.room)) continue;
     const p = roomUV(s, r, x, y);
     if (p && roomFree(r.L, p[0], p[1])) return r;
   }
@@ -1341,20 +1977,72 @@ function roomAt(s, x, y) {
 }
 // A step inside: into free floor of any room on this floor, or out through a doorway of the room you're in. A
 // doorway to another room sends its move; the street door sends its own, and the server's window takes you out.
+// ⚠ A SHUT DOOR IS A WALL, inside as on the Stage (room-lock.js `enter` and `fence`): a step through a doorway whose
+// lock doesn't let you (client/shared/room-locks.js lockLetsThrough) stops there, and its card says what you can do.
+// Without this the step was taken here and refused by the server, and you stood in a room it said you weren't in.
+function owDoorLets(s, o) {
+  const k = (s.inside?.locks || []).find((q) => q.to === o.to);
+  // (its leaf slides back for you, as walking into it does on the Stage, room-lock.js enter)
+  if (lockLetsThrough(k)) { s.owLock?.ui.enter(o.to); return true; }
+  s.inside.bumped = { to: o.to, t: performance.now() };
+  s.owCardAt = 0;
+  return false;
+}
+const OW_LIFT_MS = 1500;
+// ⚠ A STEP THROUGH A DOORWAY OR UP A FLIGHT IS TAKEN HERE BEFORE THE SERVER ANSWERS, so a move it refused or never got
+// (a dropped socket) left you in a room it said you weren't in. As on the Stage (room-stage.js S.going): with no
+// `room_view` for the room in OW_GOING_MS you're put back where you stepped from, in the room you were in.
+const OW_GOING_MS = 1800;
+function owGoing(s, x0, y0) {
+  const I = s.inside;
+  I.going = { room: I.room, zone: I.zone, at: [s.gx + x0, s.gy + y0], yaw: s.freeCam.view()?.yaw, t: performance.now() };
+}
+// ⚠ NO ROOM_VIEW ISN'T ALWAYS A REFUSAL. A reconnect drops the server's note that you're watching the room (plugins/
+// roomstage player.logout), and then a step it took comes back as plain text. So the room the server last said you're
+// in (state.currentZone, from `move`) decides: in the new room, you stay and the room is asked for again (`room`);
+// still in the old one, you're put back.
+function owGoingTick(s, flash) {
+  const I = s.inside, g = I?.going;
+  if (!g || performance.now() - g.t < OW_GOING_MS) return;
+  I.going = null;
+  if (state.currentZone && state.currentZone === I.zone) { s.foot.onMove('room'); return; }
+  I.stairTo = null;
+  const v = s.freeCam.view(), wasStair = g.room && !sameStorey(g.room, I.room);
+  I.room = g.room; I.zone = g.zone;
+  if (v) { s.freeCam.rebase(g.at[0] - (s.gx + v.x), g.at[1] - (s.gy + v.y)); if (g.yaw != null) s.freeCam.aimAt(g.yaw, v.pitch); }
+  flash?.(wasStair ? "You can't get that way." : "The door won't let you through.");
+}
 function insideBlock(s, x0, y0, x1, y1) {
   const I = s.inside;
   const ok = (x, y) => {
-    const r = roomAt(s, x, y);
-    if (r) {
-      if (r !== I.room) {
-        const o = (I.room.L.spec.openings || []).find((q) => q.to === r.zone && q.dir);
-        if (!o) return false;
-        I.room = r; I.zone = r.zone; s.foot.onMove?.(o.dir);
-      }
-      return true;
+    if (I.stairTo) return false;   // on the way up or down: owStairTick moves you next frame
+    // ⚠ THROUGH A DOORWAY OR UP A FLIGHT TO ANOTHER ROOM OF THE BUILDING, PAST THE LINE THE STAGE COUNTS (room-layout.js
+    // openingCrossed): the move goes, the room switches, and the next frame stands you just inside the next room
+    // (owStairTick). It used to wait for the next room's own floor under you, and where two rooms don't quite meet in
+    // GLASS (the hostel's desk and kitchen) the doorway's reveal ended short of it and held you there.
+    const ps = roomUV(s, I.room, x, y), os = ps && openingCrossed(I.room.L, ps);
+    // (into a lift car, the copy of it open onto this landing: the server says whether the car's here)
+    const next = os?.dir ? (s.interiors || []).find((q) => q.zone === os.to && q.gx === I.gx && q.gy === I.gy && (!q.stop || q.stop === I.zone)) : null;
+    if (next) {
+      if (!owDoorLets(s, os)) return false;
+      I.stairTo = { room: next, from: I.room.zone };
+      owGoing(s, x0, y0);
+      I.room = next; I.zone = next.zone; s.foot.onMove?.(os.dir);
+      return false;
     }
+    // on this room's floor, or the floor of the next one a doorway already took you onto
+    const r = roomAt(s, x, y);
+    if (r) return r === I.room;
     const p = roomUV(s, I.room, x, y), o = p && openingCrossed(I.room.L, p);
+    // a lift's doors from its landing: the move goes (once a beat) and you stay on the landing; the car's `room_view`
+    // opens the Stage for the ride, and a car that isn't here leaves you where you stood (phase E)
+    if (o && o.dir && o.lift) {
+      const t = performance.now();
+      if (t - (I.liftAsked || 0) > OW_LIFT_MS) { I.liftAsked = t; s.foot.onMove?.(o.dir); }
+      return false;
+    }
     if (o && o.dir && !(s.interiors || []).some((q) => q.zone === o.to)) {
+      if (!owDoorLets(s, o)) return false;
       // out: the server's window takes it from here, and the tile edge mustn't send a second move meanwhile
       s.inside = null; s.foot.pending = { t: performance.now(), back: [s.gx + x0, s.gy + y0] }; s.foot.onMove?.(o.dir);
       return true;
@@ -1366,14 +2054,923 @@ function insideBlock(s, x0, y0, x1, y1) {
   if (ok(x0, y1)) return [x0, y1];
   return [x0, y0];
 }
+// THE STOREYS (phase E). Up or down a flight: the move was sent and the room switched in insideBlock, and here, a frame
+// later and outside the camera's own step, you're stood where the Stage stands you coming off that flight in the next
+// room (room-layout.js openingInside), facing the way it faces.
+// Into a room of the building by a move the walk didn't make: just inside the way back to the room you came from, as
+// the Stage stands you, or on clear floor near its middle when there's no way back drawn (an `up` with no stair).
+function owArrive(s, room, fromZone) {
+  const L = room.L, v = s.freeCam.view();
+  if (!v) return;
+  // the doorway you came through; else (a login, a respawn) just inside the street door, as the Stage's entryStand.
+  // ⚠ Not the room's middle: in the Embassy that stood you behind the card table's chairs.
+  const ops = L.spec.openings || [], back = ops.find((q) => q.to === fromZone && q.dir) || ops.find((q) => q.kind === 'front' && q.dir);
+  const at = back ? openingInside(L, back).at : roomNearFree(L, 0, (L.spec.d || 4) / 2, 3) || [0, (L.spec.d || 4) / 2];
+  const P = roomPt(room.M, L.world(at[0], at[1], 0));
+  s.freeCam.rebase(room.gx + P[0] - (s.gx + v.x), room.gy + P[1] - (s.gy + v.y));
+}
+// THE OUTSIDE THROUGH THE WINDOWS (phase D, oneworld-sound.js): a fresh set each time you're inside a building, stopped
+// on the way out, since room-sound.js can't start again once stopped.
+function owSoundTick(s) {
+  const I = s.inside;
+  if (!I) { if (s.owSound) { s.owSound.stop(); s.owSound = null; } return; }
+  const v = s.freeCam.view(), r = I.room;
+  if (!v || !r) return;
+  if (!s.owSound) { s.owSound = createOneWorldSound(); s.owSound.sky(s.owSky); }
+  const y = (v.yaw || 0) * Math.PI / 180, at = roomUV(s, r, v.x, v.y), ahead = roomUV(s, r, v.x + Math.sin(y) * OW_AHEAD, v.y - Math.cos(y) * OW_AHEAD);
+  s.owSound.tick(r, { map: s.map, gx: s.gx, gy: s.gy, wx: s.weather }, at, ahead, s.hour);
+}
+// THE SET ON THE WALL (phase B): room-tv.js's own wall TV, made while you're in a room with a set and stopped when
+// you leave it, so tv.js's panel comes up on the set and not as a popup, as on the Stage. Its picture goes on the room's
+// screen in GLASS (gl/interiors.js, the entry's `screen`), uploaded only when it's painted a new one.
+// TALKING TO SOMEBODY (phase C): while a conversation is open, the camera leaves your eyes and comes in on their face,
+// a little to one side of the line from you to them, at their eye height, head and shoulders, and eases back to where
+// you stood when it closes. room-talk.js's shot, worked in GLASS's tiles: dialogue.js says who (`npc:talk`), the room's
+// people records say where. Somebody not drawn in the room leaves the camera where it was.
+const TALK_EYE_M = 1.62, TALK_SIT_EYE_M = 1.18, TALK_SIDE_M = 0.16, TALK_NEAR_M = 1.0, TALK_FAR_M = 1.35;
+if (typeof window !== 'undefined') window.addEventListener('npc:talk', (e) => { if (st?.inside) st.inside.talkWho = e.detail?.name || null; });
+function owTalkTick(s, now) {
+  const I = s.inside;
+  if (!I || (!I.talkWho && !I.talkCur)) return;
+  const v = s.freeCam.view();
+  if (!v) return;
+  const dt = I.talkT ? Math.min(0.1, (now - I.talkT) / 1000) : 0.016;
+  I.talkT = now;
+  const who = I.talkWho && (I.people || []).find((p) => String(p.name || '').toLowerCase() === String(I.talkWho).toLowerCase());
+  const q = who && (owPeople(s) || []).find((r) => r.t === personToken(who.id));
+  const ax = s.gx + v.x, ay = s.gy + v.y, m = m2tf(1);
+  let goal;
+  if (q) {
+    if (!I.talkCur) { I.talkFrom = { x: ax, y: ay, z: v.z, yaw: v.yaw, pitch: v.pitch }; I.talkCur = { ...I.talkFrom }; }
+    const from = I.talkFrom, H = [q.x, q.y, q.z + (q.clip === 'sit' ? TALK_SIT_EYE_M : TALK_EYE_M) * m];
+    const dx = H[0] - from.x, dy = H[1] - from.y, D = Math.hypot(dx, dy) || 1, fx = dx / D, fy = dy / D;
+    const d = Math.max(TALK_NEAR_M * m, Math.min(TALK_FAR_M * m, D * 0.7)), side = TALK_SIDE_M * m;
+    const ex = H[0] - fx * d - fy * side, ey = H[1] - fy * d + fx * side, ez = H[2] + 0.03 * m;
+    const lz = H[2] - 0.1 * d, hz = Math.hypot(H[0] - ex, H[1] - ey);
+    goal = { x: ex, y: ey, z: ez, yaw: Math.atan2(H[0] - ex, -(H[1] - ey)) * 180 / Math.PI, pitch: Math.atan2(lz - ez, hz), k: 1 - Math.exp(-dt * 5) };
+  } else {
+    if (!I.talkCur) return;
+    goal = { ...I.talkFrom, k: 1 - Math.exp(-dt * 10) };
+  }
+  const c = I.talkCur, wrap = (a) => ((a % 360) + 540) % 360 - 180;
+  c.x += (goal.x - c.x) * goal.k; c.y += (goal.y - c.y) * goal.k; c.z += (goal.z - c.z) * goal.k;
+  c.yaw += wrap(goal.yaw - c.yaw) * goal.k; c.pitch += (goal.pitch - c.pitch) * goal.k;
+  s.freeCam.rebase(c.x - ax, c.y - ay);
+  s.freeCam.aimAt(c.yaw, c.pitch);
+  I.talkCam = { z: c.z };
+  // back at your own eyes: the shot's over
+  if (!q && Math.hypot(c.x - goal.x, c.y - goal.y) < 1e-4 && Math.abs(wrap(c.yaw - goal.yaw)) < 0.2) { I.talkCur = null; I.talkFrom = null; I.talkCam = null; I.talkT = 0; }
+}
+// A FLAT'S CONTROL PANEL ON ITS GLASS (phase B): room-envctl.js's own page, bent onto the panel's four corners each
+// frame as on the Stage, the corners put on the picture by the matrix GLASS drew the room with (gl/world.js
+// glInteriorProject). It's made while you're in a room with a panel and let go when you leave; the card's `panel` still
+// opens the same OS as a window. Its host is the canvas's own box, so a share of the picture is a share of it.
+// A DEPOT'S VEHICLE ON ITS STAND (phase F): room-hoist.js's own, as on the Stage: its panel (call one out, send it back,
+// climb in, buy, every button a typed verb) over the view, and the vehicle on the floor where it stands, written into a
+// batch hung on the room (`extra`, gl/interiors.js drawExtra), made again while it moves and once after. Fed by
+// room_view's and room_vehicles' `vehicles`; made while you're in a room with some and let go when you leave.
+let hoistMod = null, hoistW = null;
+function owHoistTick(s, now) {
+  const I = s.inside, r = I?.room;
+  if (!r || !I.vehicles) { if (s.owHoist) { s.owHoist.ui.dispose(); if (s.owHoist.room) s.owHoist.room.extra = null; s.owHoist = null; } return; }
+  if (!hoistMod) { hoistMod = Promise.all([import('./room-hoist.js'), import('./gl/world.js')]).then(([m, w]) => { hoistMod = m; hoistW = w; }).catch(() => { hoistMod = null; }); return; }
+  if (hoistMod instanceof Promise) return;
+  if (!s.owHoist) s.owHoist = { ui: hoistMod.createRoomHoist({ host: s.root, send: (cmd) => s.foot.onMove(cmd), walker: () => { const v = s.freeCam.view(), rr = s.inside?.room; return v && rr ? roomUV(s, rr, v.x, v.y) : null; },
+    // the hangar's display is laid over its glass from these (room-hangar-kiosk.js), as a door's hologram is
+    project: (p, w, h) => { const rr = s.inside?.room; if (!rr || !hoistW) return null; const q = roomPt(rr.M, p), at = hoistW.glInteriorProject(s.id, q[0] + rr.gx - s.gx, q[1] + rr.gy - s.gy, q[2]); return at && at.f > 0 ? { x: at.x * w, y: at.y * h } : null; } }), room: null, fed: null, ver: -1, was: false, n: 0 };
+  const H = s.owHoist;
+  if (H.room !== r) { if (H.room) H.room.extra = null; H.room = r; H.ui.load(r.L, I.vehicles); H.fed = I.vehicles; H.ver = -1; }
+  else if (H.fed !== I.vehicles) { H.ui.load(null, I.vehicles); H.fed = I.vehicles; }
+  H.ui.frame(now);
+  const moving = H.ui.moving(now);
+  if (moving || H.was || H.ver !== H.ui.ver || !r.extra) {
+    H.was = moving; H.ver = H.ui.ver;
+    const b = createBatch(4096);
+    H.ui.into(b, now);
+    r.extra = { batch: b, ver: ++H.n };
+  }
+}
+// `room_vehicles`: what stands on the depot floor of the room you're walking in GLASS changed. True when it was that room.
+export function freelookVehicles(msg) {
+  const I = st?.inside;
+  if (!I || (msg.zone && msg.zone !== I.zone)) return false;
+  I.vehicles = msg.vehicles?.machine ? null : msg.vehicles || null;
+  if (msg.vehicles?.machine) { I.machineVeh = msg.vehicles; st.owStad?.ui.vehicles(msg.vehicles); }
+  return true;
+}
+let envMods = null;
+function owEnvctlTick(s) {
+  const I = s.inside, r = I?.room, has = r && (r.L.placed || []).some((x) => x.dress === 'envctl');
+  if (!has) { if (s.owEnv) { s.owEnv.ui.stop(); s.owEnv.host.remove(); s.owEnv = null; } return; }
+  if (!envMods) { envMods = Promise.all([import('./room-envctl.js'), import('./gl/world.js')]).then(([e, w]) => { envMods = { e, w }; }).catch(() => { envMods = null; }); return; }
+  if (envMods instanceof Promise) return;
+  const wrap = s.root.querySelector('.ws-wrap');
+  if (!wrap) return;
+  if (!s.owEnv) {
+    const host = document.createElement('div');
+    host.style.cssText = 'position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:3';
+    wrap.appendChild(host);
+    const ui = envMods.e.createRoomEnvctl({ host, project: (p, w, h) => owProject(s, p, w, h) });
+    // (its layer is styled under #room-stage in room-lock.css: here it's given the same place by hand)
+    const layer = host.firstElementChild;
+    if (layer) layer.style.cssText = 'position:absolute;inset:0;overflow:hidden;pointer-events:none';
+    s.owEnv = { host, ui, room: null };
+  }
+  const E = s.owEnv;
+  if (E.room !== r) { E.room = r; E.ui.load(r.L); }
+  const v = s.freeCam.view();
+  if (!v) return;
+  const at = roomUV(s, r, v.x, v.y);
+  if (!at) return;
+  const eye = r.L.world(at[0], at[1], (v.z - r.M[14]) / (Math.hypot(r.M[4], r.M[5], r.M[6]) || 1));
+  // laid after the frame is drawn (owLate): projected here, it took the last frame's camera and slid as you walked
+  (s.owLate ||= []).push(() => E.ui.draw(E.host.clientWidth, E.host.clientHeight, eye, at, []));
+}
+// A LOCKED DOORWAY (phase B): room-lock.js's own, as on the Stage. The door's steel leaves in the doorway, slid to where
+// the server says each stands and back for you as you walk through one you can pass (owDoorLets), written into a batch
+// hung on the room ('lockExtra', drawn by gl/interiors.js drawExtra), and the hologram off its reader, its page bent onto
+// the reader's corners by the matrix GLASS drew the room with (owProject), its buttons the typed verbs. Hack on it sends
+// 'hack door <dir>', whose board opens as the ordinary hololock board here. Fed by room_view's and room_locks' 'locks'.
+let lockMod = null;
+function owLockStop(s) {
+  const K = s.owLock;
+  if (!K) return;
+  K.ui.stop(); K.host.remove();
+  if (K.room) K.room.lockExtra = null;
+  s.owLock = null;
+}
+function owLockTick(s, now) {
+  const I = s.inside, r = I?.room;
+  if (!r || !I.locks?.length) { owLockStop(s); return; }
+  if (!lockMod) { lockMod = Promise.all([import('./room-lock.js'), import('./gl/world.js')]).then(([m, w]) => { lockMod = { m, w }; }).catch(() => { lockMod = null; }); return; }
+  if (lockMod instanceof Promise) return;
+  const wrap = s.root.querySelector('.ws-wrap');
+  if (!wrap) return;
+  if (!s.owLock) {
+    const host = document.createElement('div');
+    host.style.cssText = 'position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:3';
+    wrap.appendChild(host);
+    const K = { host, room: null, fed: null, batch: null, ver: 0 };
+    K.ui = lockMod.m.createRoomLocks({ host, send: (cmd) => s.foot.onMove(cmd), setBatch: (b) => { K.batch = b; K.ver++; },
+      project: (p, w, h) => { const rr = s.inside?.room; if (!rr) return null; const q = roomPt(rr.M, p), at = lockMod.w.glInteriorProject(s.id, q[0] + rr.gx - s.gx, q[1] + rr.gy - s.gy, q[2]); return at && at.f > 0 ? { x: at.x * w, y: at.y * h } : null; } });
+    s.owLock = K;
+  }
+  const K = s.owLock;
+  if (K.room !== r) { if (K.room) K.room.lockExtra = null; K.room = r; K.ui.load(r.L, I.locks, { fresh: true, via: I.via }); K.fed = I.locks; }
+  else if (K.fed !== I.locks) { K.ui.load(r.L, I.locks, { fresh: false }); K.fed = I.locks; }
+  K.ui.slide(now);
+  r.lockExtra = K.batch?.n ? { batch: K.batch, ver: K.ver } : null;
+  const v = s.freeCam.view(), at = v && roomUV(s, r, v.x, v.y);
+  if (!at) return;
+  const eye = r.L.world(at[0], at[1], (v.z - r.M[14]) / (Math.hypot(r.M[4], r.M[5], r.M[6]) || 1));
+  (s.owLate ||= []).push(() => K.ui.draw(K.host.clientWidth, K.host.clientHeight, eye, at, []));   // after the frame (owLate)
+}
+// A VENDING MACHINE (phase B): room-vendor.js's own, as on the Stage. The room's baked mesh leaves the machine out
+// (gl/room-stadium.js) because it moves: here it's written into a batch hung on the room ('vendExtra', drawn by
+// gl/interiors.js drawExtra) and its lettering laid on its front as decals, eased out from the wall or home, its plug in
+// or out, a button in as it's bought. What it shows is the server's ('vend' on the piece, room_view's 'pieces' and then
+// room_piece), laid over the room's layout here, since the layout GLASS walks is built from the building's plan.
+let vendMod = null;
+function owVendTick(s, now) {
+  const I = s.inside, r = I?.room, has = r && (r.L.placed || []).some((p) => p.form === 'vendor');
+  if (!has) { if (s.owVend) { if (s.owVend.room) s.owVend.room.vendExtra = null; s.owVend = null; } if (I) I.vendDecals = null; return; }
+  if (!vendMod) { vendMod = Promise.all([import('./room-vendor.js'), import('./gl/world.js')]).then(([m, w]) => { vendMod = { m, w }; }).catch(() => { vendMod = null; }); return; }
+  if (vendMod instanceof Promise) return;
+  if (!s.owVend || s.owVend.room !== r) {
+    if (s.owVend?.room) s.owVend.room.vendExtra = null;
+    const ui = vendMod.m.createRoomVendor({ project: (p, w, h) => { const rr = s.inside?.room; if (!rr) return null; const q = roomPt(rr.M, p), at = vendMod.w.glInteriorProject(s.id, q[0] + rr.gx - s.gx, q[1] + rr.gy - s.gy, q[2]); return at && at.f > 0 ? { x: at.x * w, y: at.y * h } : null; } });
+    s.owVend = { ui, room: r, fed: null, ver: 0 };
+  }
+  const V = s.owVend;
+  if (V.fed !== I.pieces) {
+    V.fed = I.pieces;
+    // the layout as it stands, each machine carrying what the server says it shows (its 'solid' is the room's own, so a
+    // machine pulled out stands in your way here too)
+    const by = new Map((I.pieces || []).map((p) => [String(p.id), p]));
+    const Lv = Object.create(r.L);
+    Lv.placed = r.L.placed.map((p) => (p.form === 'vendor' ? { ...p, vend: by.get(String(p.id))?.vend } : p));
+    V.ui.load(Lv);
+  }
+  if (V.ui.frame(now)) { V.ver++; I.vendDecals = V.ui.decals(); }
+  const b = V.ui.batch();
+  r.vendExtra = b.n ? { batch: b, ver: V.ver } : null;
+}
+// 'room_piece': a piece of the room you're walking in GLASS changed (a vending machine nudged or unplugged, plugins/
+// vending, or anything else furniture.changed sends). True when it was that room. Only what it shows is taken: a
+// piece moved or added still needs the room built again, which the Stage does and this doesn't yet.
+export function freelookPiece(msg) {
+  const I = st?.inside;
+  if (!I || msg.zone !== I.zone) return false;
+  if (Array.isArray(msg.pieces)) I.pieces = msg.pieces;
+  else if (msg.gone) I.pieces = (I.pieces || []).filter((p) => p.id !== msg.id);
+  else if (msg.piece) I.pieces = [...(I.pieces || []).filter((p) => p.id !== msg.piece.id), msg.piece];
+  st.owCardAt = 0;
+  if (owRepiece(msg.zone, I.pieces)) keepInteriors(st, allSentInteriors());
+  return true;
+}
+// A piece moved, added or taken in a room walked in GLASS: the building's rooms as the server sent them get the room's
+// pieces as they stand now, and a version (room-interiors.js keys its mesh by it), and are made again, as the Stage
+// builds its room again (room-stage.js roomPiece). What a vending machine shows isn't in the mesh (owVendTick), so
+// a change only to that builds nothing. True when anything changed.
+const pieceShape = (ps) => JSON.stringify((ps || []).filter((p) => !p.annex).map(({ vend: _v, ...p }) => p).sort((a, b) => String(a.id).localeCompare(String(b.id))));
+function owRepiece(zone, pieces) {
+  let hit = false;
+  const main = (pieces || []).filter((p) => !p.annex), shape = pieceShape(main);
+  for (const b of sentInteriors.values()) for (const r of b.rooms || []) {
+    if (r.zone !== zone || !r.pieces || pieceShape(r.pieces) === shape) continue;
+    r.pieces = main; r.ver = (r.ver || 0) + 1; hit = true;
+  }
+  return hit;
+}
+// A point in a room's frame (L.world) on the street view's picture, in px of a `w` by `h` box over the canvas, or null
+// behind the eye: through the room's matrix to the frame's tiles, then GLASS's own camera (gl/world.js).
+function owProject(s, p, w, h) {
+  const r = s.inside?.room;
+  if (!r || !envMods?.w) return null;
+  const q = roomPt(r.M, p), at = envMods.w.glInteriorProject(s.id, q[0] + r.gx - s.gx, q[1] + r.gy - s.gy, q[2]);
+  return at && at.f > 0 ? { x: at.x * w, y: at.y * h } : null;
+}
+let roomTvMod = null;
+// THE PAINT ON THE WALLS (phase B): the room's tags (plugins/graffiti) and its sheets (plugins/posters), as decals by the
+// Stage's own builders (room-tags.js tagDecals, room-sheets.js sheetRuns and sheetDecals), hung on the room entry for
+// gl/interiors.js. Worked out again only when they change or the room does; a set whose join you've seen on the Stage
+// is drawn joined (its `rs-joined` mark). The join itself, and the foil and glow, are the Stage's for now.
+// THE CLONE HALL (phase F): its vats as the Stage has them. The sleepers posed in the room's own frame (room-vat-sleepers.js,
+// figurePeople), the vat cycle (room-vatcycle.js) playing whoever comes down a tube to a release vat, and the monitors'
+// screens (room-vitals.js), hung on the room's entry as 'vatLive' for gl/interiors.js, which runs the fluid and the
+// machines by the Stage's own gl/room-vat.js and draws the sleepers by the street's close-up figure. Your own arrival
+// takes the camera into the vat with you and stands you out of its front after, as on the Stage. Nothing here decides
+// anything: the cue is the server's 'room_vat'.
+let vatMods = null;
+const owVatCues = [];   // a room_vat for a room you're not in yet, kept a few seconds (room-stage.js vatWaiting)
+const OW_VAT_LAMPS = 10;
+const hexRgb = (hex, d = [0.27, 0.88, 0.66]) => { const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || '')); if (!m) return d; const n = parseInt(m[1], 16); return [(n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255]; };
+function owVatTick(s, now) {
+  const I = s.inside, r = I?.room, vs = r?.vatsNow?.() || null, racks = !!r?.L?.placed?.some((p) => p.form === 'vatrack');
+  if (!r || (!vs?.length && !racks)) {
+    if (s.owVat) { if (s.owVat.room) { s.owVat.room.vatLive = null; s.owVat.room.figLive = null; } s.owVat = null; }
+    if (I) { I.vatHide = null; I.vatCam = null; I.vitalList = null; }
+    return;
+  }
+  if (!vatMods) {
+    vatMods = Promise.all([import('./room-vatcycle.js'), import('./room-vat-sleepers.js'), import('./gl/room-people.js'), import('./figure-ahead.js'), import('./room-vitals.js'), import('../../../shared/player-figure.js')])
+      .then(([c, sl, rp, fa, vi, pf]) => { vatMods = { c, sl, rp, fa, vi, pf }; }).catch((e) => { console.warn('[one-world] the vat hall would not load:', e?.message); vatMods = null; });
+    return;
+  }
+  if (vatMods instanceof Promise) return;
+  const { c, sl, rp, fa, vi, pf } = vatMods;
+  if (!s.owVat || s.owVat.room !== r) {
+    if (s.owVat?.room) s.owVat.room.vatLive = null;
+    s.owVat = { room: r, cycle: s.owVat?.cycle || c.createVatCycle(), vitals: vi.createVitals(r.L) };
+  }
+  const V = s.owVat;
+  // the monitors, ten frames a second
+  if (V.vitals.tick(now)) I.vitalList = V.vitals.decals();
+  if (!vs?.length) { r.vatLive = null; V.bodies = null; return; }
+  const v = s.freeCam.view(), at = v ? roomUV(s, r, v.x, v.y) : null;
+  // the cycle reads the Stage's state; this is what of it it reads
+  const S = { L: r.L, mesh: { vats: vs, gantries: r.gantriesNow() }, walk: { at } };
+  for (let i = owVatCues.length - 1; i >= 0; i--) {
+    const q = owVatCues[i];
+    if (Date.now() - q.at > 8000) { owVatCues.splice(i, 1); continue; }
+    if (q.msg.zone === I.zone) { owVatCues.splice(i, 1); V.cycle.arrive(q.msg, I.you); }
+  }
+  const vc = V.cycle.frame(now, S), t = now / 1000;
+  // the sleepers, and anybody the cycle has coming down a tube (you aren't drawn: the camera's in there with you)
+  let coming = [];
+  if (V.cycle.busy) {
+    const people = (I.people || []).filter((p) => p.id !== I.you).map((p) => ({ id: p.id, sex: p.sex, sculpt: true, figure: p.figure || (p.look ? pf.playerFigure(p.look) : undefined) }));
+    coming = V.cycle.bodies(people, S, now).filter((b) => Array.isArray(b.at));
+  }
+  I.vatHide = coming.length ? new Set(coming.map((b) => personToken(b.id))) : null;
+  // posed with the room's other close-up figures (owFigTick), which hands the sleepers' capsules back to the fluid
+  V.bodies = [...sl.vatSleepers(r.L, vs, t), ...coming];
+  // their light: each vat's crown in its fluid's colour, nearest first, and the room's own lamps
+  const eye = at ? r.L.world(at[0], at[1], 1.6) : null, d2 = (p) => (eye ? (p[0] - eye[0]) ** 2 + (p[2] - eye[2]) ** 2 : 0);
+  const crowns = vs.filter((x) => x.h > 0.3 && x.state !== 'drained').map((x) => ({ p: [x.c[0], x.c[1] + x.h, x.c[2]], k: 0.45, c: hexRgb(x.fluid) }));
+  crowns.sort((a, b) => d2(a.p) - d2(b.p));
+  const lamps = [...crowns.slice(0, OW_VAT_LAMPS), ...(r.lampsNow?.() || []).map((l) => ({ p: l.p, k: (l.k ?? 1) * 0.6 }))];
+  V.lamps = lamps;
+  r.vatLive = { scene: vc.scene, levels: vc.levels, bodies: r.vatLive?.bodies || [] };
+  // your own arrival: the camera at your eyes in the vat, then stood just out of its front (room-vatcycle.js cam, stepOut)
+  const toTiles = (p) => { const q = roomPt(r.M, p); return [r.gx + q[0], r.gy + q[1], q[2]]; };
+  const bearingOf = (from, yaw) => { const a = toTiles(from), b = toTiles([from[0] + Math.sin(yaw), from[1], from[2] + Math.cos(yaw)]); return Math.atan2(b[0] - a[0], -(b[1] - a[1])) * 180 / Math.PI; };
+  const cam = v ? V.cycle.cam(now, S, {}) : null;
+  if (cam) {
+    const E = toTiles(cam.eye);
+    s.freeCam.rebase(E[0] - (s.gx + v.x), E[1] - (s.gy + v.y));
+    s.freeCam.aimAt(bearingOf(cam.eye, cam.yaw), cam.pitch);
+    I.vatCam = { z: E[2] };
+  } else if (I.vatCam) I.vatCam = null;
+  const out = v ? V.cycle.stepOut(S, now) : null;
+  if (out) {
+    const W = r.L.world(out.at[0], out.at[1], 0), E = toTiles(W);
+    s.freeCam.rebase(E[0] - (s.gx + v.x), E[1] - (s.gy + v.y));
+    s.freeCam.aimAt(bearingOf(W, out.yaw), 0);
+  }
+}
+// THE ROOM'S CLOSE-UP FIGURES: whoever the street's crowd body can't draw, posed in the room's own frame by the Stage's
+// figurePeople and drawn by the street's close-up figure (gl/interiors.js liveDraw, gl/street-hd.js drawRoom): the people
+// lying down (oneworld-people.js lyingBodies) and the vat hall's sleepers and arrivals (owVatTick). Each waits for its
+// figure to be built by the worker (figure-ahead.js), as on the Stage, and isn't drawn till then. Hung on the room as
+// 'figLive'; a sleeper's capsules go back to the vat's fluid.
+let figMods = null;
+function owFigTick(s, now) {
+  const I = s.inside, r = I?.room;
+  if (!r) return;
+  const lying = lyingBodies(r.L, I.people, I.you), vat = s.owVat?.room === r ? s.owVat : null;
+  const me = s.owMorph?.room === r && s.owMorph.ui?.on ? s.owMorph.ui.self(now) : null;
+  const want = [...lying, ...(vat?.bodies || []), ...(me ? [me] : [])];
+  if (!want.length) { r.figLive = null; r.heldExtra = null; return; }
+  if (!figMods) { figMods = Promise.all([import('./gl/room-people.js'), import('./figure-ahead.js'), import('./room-vat-sleepers.js'), import('./gl/room-held.js'), import('./gl/ballpark-mesh.js')]).then(([rp, fa, sl, rh, bm]) => { figMods = { rp, fa, sl, rh, bm }; }).catch((e) => { console.warn('[one-world] the close-up figures would not load:', e?.message); figMods = null; }); return; }
+  if (figMods instanceof Promise) return;
+  const { rp, fa, sl, rh, bm } = figMods, t = now / 1000;
+  const bodies = want.filter((b) => rp.figureLooks(b).every((k) => fa.figureAhead(k)));
+  const recs = bodies.length ? rp.figurePeople(r.L, bodies, t, { level: 'hd' }) : [];
+  if (r.vatLive) r.vatLive.bodies = recs.map((q, i) => (bodies[i].vat != null ? { id: bodies[i].vat, ...sl.sleeperCapsules(q.rows) } : null)).filter(Boolean);
+  // their light: the room's own lamps, and in the vat hall each vat's crown first
+  const lamps = vat?.lamps || (r.lampsNow?.() || []).map((l) => ({ p: l.p, k: (l.k ?? 1) * 0.6 }));
+  r.figLive = recs.length ? { recs, lamps, amb: r.lamp ? [0.1, 0.1, 0.11] : null } : null;
+  // what's in their hands that the figure doesn't draw (a barbell on a press bench: gl/room-held.js), built every frame
+  // while somebody holds it, hung on the room ('heldExtra') as the Stage puts it in its props
+  if (recs.some((q) => q?.hold?.L || q?.hold?.R)) { const b = bm.createBatch(2048); rh.heldProps(b, bodies, recs); r.heldExtra = b.n ? { batch: b, ver: (r.heldExtra?.ver || 0) + 1 } : null; } else r.heldExtra = null;
+}
+// A PET CAT (phase C, docs/proposals/pets.md), as on the Stage: his day from his id and the clock (client/shared/
+// cat-life.js through gl/room-beasts.js catsFrame), posed in the room's frame and skinned on the GPU by the Stage's own
+// catDrawer into GLASS's cat layer (gl/cat-layer.js, gl/world.js glRoomCats), heard where he is (room-cat-sound.js, by the
+// ear oneworld-sound.js sets). Beats (greet, petted, cross) come on the beasts from room_view and room_people.
+let catMods = null;
+const OW_CAT_REACH_M = 1.5, OW_PET_MS = 1100;
+function owCatStop(s) { if (s.owCat) { s.owCat.voice.stop(); s.owCat = null; } }
+// THE ROOM'S OTHER ANIMALS (phase C): the Stage's own beasts batch (gl/room-beasts.js beastsBatch), each standing its
+// ground and turned to face you, hung on the room ('beastExtra', gl/interiors.js drawExtra). Built again only when they
+// change, the room does or you've moved half a metre, as room-stage.js drawBeasts has it. A cat isn't in it (owCatTick).
+// A MORPHEX POD (phase F): the Stage's own sequence (room-morphex.js) in the room walked in GLASS. You back into it, it
+// shuts, the menu comes up over the picture and you come out somebody else, as on the Stage: its camera is put on the
+// street view's (owTakeCam), its swinging halves and ring are a batch hung on the room ('morphExtra'), the pod's own
+// halves are left out of the room's mesh meanwhile (hideMesh's busy), and your body is posed with the close-up figures
+// (owFigTick). Started by the morphex_panel the pod's `use` brings (dispatch.js, freelookMorphex), as the Stage's is.
+// It decides nothing: buying is the `morphex` verbs. Its visor is glass hung on the room ('morphGlass', drawn see-through
+// last by gl/interiors.js), and its glows light the room ('glowLive', gl/interiors.js glowLight); its steam and ring's halos are added over the picture ('haloLive', gl/interiors.js haloDraw).
+let morphMod = null;
+export function freelookMorphex() {
+  const s = st, I = s?.inside, r = I?.room, pod = I && (I.pieces || []).find((p) => p.pod && !p.annex);
+  if (!pod || !r) return false;
+  if (s.owMorph || performance.now() - (s.owMorphEnd || 0) < 4000) return true;
+  const q = (r.L.placed || []).find((x) => String(x.id) === String(pod.id));
+  if (!q) return false;
+  s.owMorph = { room: r, ui: null, ver: 0 };
+  Promise.all([import('./room-morphex.js'), import('../../../shared/player-figure.js')]).then(([m, pf]) => {
+    const M = s.owMorph;
+    if (!M || M.room !== s.inside?.room) { s.owMorph = null; return; }
+    const mine = (s.inside.people || []).find((p) => p.id === s.inside.you);
+    M.ui = m.createMorphex({ L: r.L, piece: q, mount: s.root, me: { id: s.inside.you, sex: mine?.sex, look: { ...(mine?.look || pf.lookOfPlayer({})) } }, send: (c) => s.foot.onMove(c),
+      done: ({ at, yaw }) => { owMorphStop(s); const v = s.freeCam.view(); if (v) owTakeCam(s, r, { eye: r.L.world(at[0], at[1], 1.6), yaw, pitch: 0 }, () => {}); } });
+    r.hideMesh?.([], q.id);
+  }).catch((e) => { console.warn('[one-world] the MORPHEX would not load:', e?.message); s.owMorph = null; });
+  return true;
+}
+function owMorphStop(s) {
+  const M = s.owMorph;
+  if (!M) return;
+  if (M.ui?.on) M.ui.close();
+  if (M.room) { M.room.morphExtra = null; M.room.morphGlass = null; M.room.morphGlows = null; M.room.haloLive = null; M.room.hideMesh?.(null); }
+  if (s.inside) s.inside.morphCam = null;
+  s.owMorph = null; s.owMorphEnd = performance.now();
+}
+function owMorphTick(s, now) {
+  const M = s.owMorph;
+  if (!M) return;
+  if (M.room !== s.inside?.room) { owMorphStop(s); return; }
+  if (!M.ui) return;
+  if (!M.ui.on) { owMorphStop(s); return; }
+  const f = M.ui.frame(now);
+  if (s.owMorph !== M) return;   // it let you out this frame
+  M.room.morphExtra = f.props?.n ? { batch: f.props, ver: ++M.ver } : null;
+  M.room.morphGlass = f.glass?.n ? { batch: f.glass, ver: M.ver, glass: true } : null;
+  M.room.morphGlows = f.glows?.length ? f.glows : null;
+  M.room.haloLive = f.halos?.n ? { batch: f.halos, ver: M.ver } : null;
+  if (f.cam) owTakeCam(s, M.room, f.cam, (c) => { s.inside.morphCam = c; });
+}
+// THE ARRANGE MODE (phase F): the owner's furniture moved by hand, by the Stage's own room-arrange.js over a room walked in
+// GLASS. Its camera is put on the street view's (owTakeCam), the room's mesh is the draft built with its walls down and
+// drawn instead of the room's own (room-interiors.js override), the piece in your hand a batch hung on the room
+// ('arrangeExtra'), and its picking reads GLASS's own lens (owKitchenMatrices through its 'ray'). Nothing is saved till
+// its Save, the typed 'arrange layout'; the server's room_arranged comes back through dispatch.js (freelookArranged).
+let arrangeMods = null;
+const ID_FRAME = { x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1], o: [0, 0, 0], s: 1 };
+function owArrangeStart(s) {
+  const I = s.inside, r = I?.room;
+  if (!r || s.owArrange || s.owMorph || document.getElementById('ks-root')) return;
+  s.owArrange = { room: r, ui: null };
+  if (!arrangeMods) arrangeMods = Promise.all([import('./room-arrange.js'), import('./gl/room-mesh.js'), import('../../../shared/room-layout.js')]);
+  Promise.resolve(arrangeMods).then(([ra, rm, rl]) => {
+    arrangeMods = [ra, rm, rl];
+    const A = s.owArrange;
+    if (!A || A.room !== s.inside?.room) { s.owArrange = null; return; }
+    const spec = r.L.spec, opts = { seed: r.seed, lampOn: !!r.lamp };
+    const S = { spec, pieces: I.pieces, sheets: I.sheets, L: r.L };
+    const rebuild = () => {
+      const ps = A.ui?.on ? A.ui.apply(I.pieces) : I.pieces;
+      S.L = rl.roomLayout(spec, ps);
+      r.override(A.ui?.on ? A.ui.cut(rm.buildRoom(S.L, opts)) : null);
+    };
+    const R = { setProps: (b) => { r.arrangeExtra = b?.n ? { batch: b, ver: (r.arrangeExtra?.ver || 0) + 1 } : null; }, project: (p, w, h) => owProject(s, p, w, h) };
+    const ray = (sx, sy) => { const K = owKitchenMatrices(s, r, ID_FRAME); return K ? { eye: K.eye, dir: K.ray(sx, sy) } : null; };
+    const send = (c) => s.foot.onMove(c);
+    A.ui = ra.createArrange({ root: s.root, host: s.root, S, R, rebuild, opts: () => opts, send, sendSilent: send, admin: !!I.admin, ray,
+      done: (saved) => { if (saved) I.pieces = saved; owArrangeStop(s); if (saved && owRepiece(I.zone, I.pieces)) keepInteriors(s, allSentInteriors()); } });
+    rebuild();
+  }).catch((e) => { console.warn('[one-world] the arrange mode would not load:', e?.message); s.owArrange = null; arrangeMods = null; });
+}
+function owArrangeStop(s) {
+  const A = s.owArrange;
+  if (!A) return;
+  if (A.ui?.on) A.ui.close();
+  A.room.override?.(null); A.room.arrangeExtra = null;
+  if (s.inside) s.inside.arrangeCam = null;
+  s.owArrange = null;
+}
+function owArrangeTick(s, now) {
+  const A = s.owArrange;
+  if (!A?.ui) return;
+  if (A.room !== s.inside?.room || !A.ui.on) { owArrangeStop(s); return; }
+  const f = A.ui.frame(now);
+  if (f?.cam) owTakeCam(s, A.room, f.cam, (c) => { s.inside.arrangeCam = c; });
+  if (f?.after) (s.owLate ||= []).push(f.after);
+}
+// The arrange mode's answers while it's up in GLASS: 'arranged' how its Save went (room_arranged), 'catalog' the staff
+// menu's furniture (room_catalog), 'stock' the posters you carry (room_sheet_stock). True when it took it.
+export function freelookArrange(kind, msg) {
+  const A = st?.owArrange;
+  if (!A?.ui?.on) return false;
+  if (kind === 'arranged') { if (msg.zone !== st.inside?.zone) return false; A.ui.result(msg); }
+  else if (kind === 'catalog') A.ui.catalog(msg.items);
+  else A.ui.stock(msg.items);
+  return true;
+}
+// A STADIUM'S ROOMS (phase F): the Stage's own room-stadium.js over a room walked in GLASS: the last champion's board
+// and the clubs' banners painted on their pieces, the venue's signs and the room's marks, as decals on the room
+// ('stadDecals', drawn by owDecals), and the champion's colour lighting the room with the MORPHEX's glows ('glowLive',
+// put together here every frame). It's given no rink and no neighbours, so it never starts the ice: a room at the rink
+// is still the Stage's. The resurfacer in its bay isn't drawn in GLASS yet.
+let stadMod = null;
+const STAD_FORMS = new Set(['champion', 'banner', 'trophy', 'seatdoor', 'boxoffice', 'smokebooth', 'packs', 'resurfacer']);
+function owStadiumTick(s) {
+  const I = s.inside, r = I?.room;
+  const want = !!r && (!!r.L.spec?.stadium || (r.L.placed || []).some((p) => STAD_FORMS.has(p.form)));
+  if (s.owStad && (!want || s.owStad.room !== r)) { s.owStad.ui.dispose(); if (s.owStad.room) { s.owStad.room.stadGlows = null; s.owStad.room.machineExtra = null; } s.owStad = null; if (I) I.stadDecals = null; }
+  if (want && !s.owStad) {
+    if (!stadMod) { stadMod = import('./room-stadium.js').then((m) => { stadMod = m; }).catch((e) => { console.warn('[one-world] the stadium would not load:', e?.message); stadMod = null; }); }
+    else if (!(stadMod instanceof Promise)) {
+      const host = document.createElement('div');
+      const R = { setGlows: (g) => { r.stadGlows = g?.length ? g : null; }, setUnder: () => {} };
+      const ui = stadMod.createRoomStadium({ R, host });
+      ui.setMsg({ vehicles: I.machineVeh || null });
+      // the pieces as the server has them now (each champion board's 'champ', each banner's 'club'), over the layout
+      const by = new Map((I.pieces || []).map((p) => [String(p.id), p]));
+      const Ls = Object.create(r.L);
+      Ls.placed = r.L.placed.map((p) => { const q = by.get(String(p.id)); return q ? { ...p, champ: q.champ, club: q.club } : p; });
+      ui.load(Ls);
+      s.owStad = { room: r, ui };
+    }
+  }
+  if (s.owStad && s.owStad.ui.frame()) I.stadDecals = s.owStad.ui.decals().slice();
+  // THE RESURFACER in its bay, and out on the ice at the break (room-machine.js, the stadium's): written into a batch
+  // hung on the room ('machineExtra'), made again every frame while it moves and once after, as the Stage's beasts batch
+  const mc = s.owStad?.ui.machine;
+  if (mc?.active) {
+    const O = s.owStad, moving = mc.moving();
+    if (moving || O.mWas || O.mVer !== mc.ver) {
+      O.mWas = moving; O.mVer = mc.ver;
+      const b = createBatch(4096);
+      mc.into(b);
+      r.machineExtra = b.n ? { batch: b, ver: (r.machineExtra?.ver || 0) + 1 } : null;
+    }
+  } else if (r?.machineExtra) r.machineExtra = null;
+  // the room's glows: the stadium's and a MORPHEX's sequence (owMorphTick), six at most (gl/interiors.js glowLight)
+  if (r) { const g = [...(r.morphGlows || []), ...(r.stadGlows || [])]; r.glowLive = g.length ? g : null; }
+}
+// THE ICE (phase F, behind RINK_IN_GLASS, off): a room at a rink, or next door to one, as on the Stage. The Stage's own
+// room-rink.js runs the arena (gameday-rink.js) in a box behind GLASS's canvas, its eye put on GLASS's own each frame (the
+// eye, the way it looks and the lens from owKitchenMatrices, in the room's frame), and its picture is painted into the
+// room's openings onto the ice where they land on the screen ('underExtra': room-interiors.js openHoles, gl/interiors.js
+// uScreenOn 2). Every room of the building gets it, so the ice through a doorway is the same ice. It decides nothing:
+// the server tunes you to the game's channel as it does for the Stage (room_view's 'rink').
+let rinkMod = null;
+// for the walk: `__oneWorldRink(true)` in the console lets a rink's rooms into GLASS for this page
+if (typeof globalThis !== 'undefined') globalThis.__oneWorldRink = (on = true) => { RINK_IN_GLASS.on = !!on; return RINK_IN_GLASS.on; };
+function owRinkStop(s) {
+  const K = s.owRink;
+  if (!K) return;
+  K.ui?.dispose(); K.host.remove();
+  for (const r of s.interiors || []) r.underExtra = null;
+  s.owRink = null;
+}
+function owRinkTick(s, now) {
+  const I = s.inside, r = I?.room;
+  const want = RINK_IN_GLASS.on && !!r && (!!r.L.spec?.rink || (I.neighbours || []).some((n) => n.spec?.rink));
+  if (!want) { owRinkStop(s); return; }
+  if (!rinkMod) { rinkMod = import('./room-rink.js').then((m) => { rinkMod = m; }).catch((e) => { console.warn('[one-world] the ice would not load:', e?.message); rinkMod = null; }); return; }
+  if (rinkMod instanceof Promise) return;
+  if (!s.owRink) {
+    const host = document.createElement('div');
+    host.className = 'fl-under';
+    host.style.cssText = 'position:absolute;inset:0;z-index:-1;pointer-events:none;overflow:hidden';
+    s.root.insertBefore(host, s.root.firstChild);
+    s.owRink = { host, ui: rinkMod.createRoomRink(host), room: null, ver: 0 };
+  }
+  const K = s.owRink;
+  if (K.room !== r) { K.room = r; K.ui.load(r.L, I.neighbours, I.rinkCh); }
+  const box = K.host.firstElementChild;
+  if (box && !box.dataset.fl) { box.dataset.fl = '1'; box.style.cssText += ';position:absolute;inset:0'; }
+  const M = owKitchenMatrices(s, r, ID_FRAME), w = s.root.clientWidth || 1, h = s.root.clientHeight || 1;
+  if (!M) return;
+  const d = M.ray(0.5, 0.5), top = M.ray(0.5, 0), half = Math.acos(Math.max(-1, Math.min(1, d[0] * top[0] + d[1] * top[1] + d[2] * top[2])));
+  K.ui.tick(now, { eye: M.eye, yaw: Math.atan2(d[0], d[2]), pitch: Math.asin(Math.max(-1, Math.min(1, d[1]))), fov: 2 * half * 180 / Math.PI }, r.L, w, h);
+  const cv = box?.querySelector('canvas');
+  if (!cv) return;
+  K.ver++;
+  for (const q of s.interiors || []) {
+    if (q.gx !== r.gx || q.gy !== r.gy) continue;
+    const b = q.holes?.();
+    q.underExtra = b?.n ? { batch: b, ver: 1, under: cv, uver: K.ver } : null;
+  }
+}
+let beastMod = null;
+function owBeastTick(s) {
+  const I = s.inside, r = I?.room, list = I?.beasts || [];
+  if (!r || !list.some((b) => b && !b.cat)) { if (s.owBeast?.room) s.owBeast.room.beastExtra = null; s.owBeast = null; return; }
+  if (!beastMod) { beastMod = import('./gl/room-beasts.js').then((m) => { beastMod = m; }).catch(() => { beastMod = null; }); return; }
+  if (beastMod instanceof Promise) return;
+  const v = s.freeCam.view(), eye = v ? roomUV(s, r, v.x, v.y) : null, B = s.owBeast;
+  const moved = !B || !B.eye !== !eye || (eye && Math.hypot(eye[0] - B.eye[0], eye[1] - B.eye[1]) > 0.5);
+  if (B && B.room === r && B.fed === list && !moved) return;
+  if (B?.room && B.room !== r) B.room.beastExtra = null;
+  const batch = beastMod.beastsBatch(r.L, list, { eye: eye ? [eye[0], eye[1]] : null }), ver = (B?.ver || 0) + 1;
+  s.owBeast = { room: r, fed: list, eye: eye ? [eye[0], eye[1]] : null, ver };
+  r.beastExtra = batch.n ? { batch, ver } : null;
+}
+function owCatTick(s, now, hour) {
+  const I = s.inside, r = I?.room;
+  if (!r || !(I.beasts || []).some((b) => b?.cat)) { if (r) r.catLive = null; owCatStop(s); return; }
+  if (!catMods) { catMods = Promise.all([import('./gl/room-beasts.js'), import('./gl/cat-gpu.js'), import('./room-cat-sound.js'), import('./gl/world.js')]).then(([b, g, v, w]) => { catMods = { b, g, v, w }; }).catch((e) => { console.warn('[one-world] no cats:', e?.message); catMods = null; }); return; }
+  if (catMods instanceof Promise) return;
+  const { b, g, v, w } = catMods, R = w.glRoomCats(s.id);
+  if (!R) return;
+  if (!s.owCat || s.owCat.R !== R) { owCatStop(s); s.owCat = { R, drawer: g.catDrawer(R, { furBudget: 480000 }), voice: v.createCatSound() }; }
+  const C = s.owCat, fv = s.freeCam.view(), me = fv ? roomUV(s, r, fv.x, fv.y) : null;
+  // where everybody is, you first, so a cat can choose who to look at and go to
+  const placed = new Map(placePeople(r.L, I.people, I.you).map((q) => [q.p.id, q.at]));
+  const whereIs = (id) => (id === I.you ? me : placed.get(id) || null);
+  const folk = () => [I.you, ...(I.people || []).map((p) => p.id)].map((id) => ({ id, at: whereIs(id) })).filter((x) => x.at);
+  // how much light there is for his pupils: the lamps, and some of the day
+  const h = Number.isFinite(hour) ? hour : 12, day = h > 6.5 && h < 19 ? 1 : 0.2;
+  const light = Math.min(1, 0.8 * (r.lamp ? 1 : 0) + 0.6 * day);
+  const f = b.catsFrame(r.L, I.beasts, { now: Date.now(), hour: h, whereIs, folk, lowOf: () => 1, drawer: C.drawer, lite: false, light, mouth: C.voice.mouth });
+  r.catLive = { cats: f.cats, lamps: (r.lampsNow?.() || []).map((l) => ({ p: l.p, k: (l.k ?? 1) * 0.6 })), amb: null };
+  C.voice.tick(f.voices);
+  C.b = b;
+}
+// STROKING HIM WITH THE MOUSE, as on the Stage (room-stage.js): press on him and drag. He answers the spot under the
+// pointer at once (catTouch), and every OW_PET_MS of stroking it's sent as the typed 'pet <cat> <spot>', so the server's
+// ladder runs and everybody in the room sees him answer.
+function owCatPress(s, e, el) {
+  const I = s.inside, r = I?.room, C = s.owCat, b = C?.b, W = catMods && !(catMods instanceof Promise) ? catMods.w : null;
+  if (!r || !b || !W || !(I.beasts || []).some((x) => x?.cat)) return null;
+  const box = el.getBoundingClientRect();
+  const project = (p, w, h) => { const q = roomPt(r.M, p), at = W.glInteriorProject(s.id, q[0] + r.gx - s.gx, q[1] + r.gy - s.gy, q[2]); return at && at.f > 0 ? { x: at.x * w, y: at.y * h } : null; };
+  const hitAt = (ev) => b.catHit(project, ev.clientX - box.left, ev.clientY - box.top, box.width, box.height, I.beasts);
+  const hit = hitAt(e);
+  if (!hit) return null;
+  const v = s.freeCam.view(), me = v && roomUV(s, r, v.x, v.y), A = b.catActors().get(hit.id);
+  if (!A || !me || Math.hypot(A.at[0] - me[0], A.at[1] - me[1]) > OW_CAT_REACH_M) { s.flash?.(`${hit.name || 'The cat'} is out of reach.`); return null; }
+  const p = { id: hit.id, name: hit.name, spot: hit.spot, x: e.clientX, y: e.clientY, moved: 0, sent: 0 };
+  b.catTouch(hit.id, { ...hit, down: true });
+  el.style.cursor = 'grabbing';
+  const send = () => { s.foot.onMove('pet ' + p.name + ' ' + p.spot); p.sent = performance.now(); p.moved = 0; };
+  return {
+    move(ev) {
+      p.moved += Math.hypot(ev.clientX - p.x, ev.clientY - p.y); p.x = ev.clientX; p.y = ev.clientY;
+      const t = hitAt(ev);
+      if (t && t.id === p.id) { p.spot = t.spot; b.catTouch(p.id, { ...t, down: true }); }
+      if (p.moved > 30 && performance.now() - p.sent > OW_PET_MS) send();
+    },
+    up() { el.style.cursor = ''; b.catTouch(p.id, null); if (!p.sent) send(); },
+  };
+}
+// THE KITCHEN AT THE ROOM'S OWN HOB (phase F), as on the Room Stage (room-stage.js onCook): kitchen-stage.js asks
+// 'kitchen:open' what the room cooks with and where, and the street view answers with the room's kit and a host. The
+// kitchen stands on a ring of the room's hob, its microwave or a worktop (room-cook.js cookFrame, the one you chose Cook
+// at first), you're stood in front of it, and its pieces are a live part on the room ('cookExtra', gl/interiors.js
+// drawExtra), drawn every frame. A close-up (a cut, the plate, the fridge) takes the camera and gives it back; the fridges
+// and the microwave it draws itself leave the room's mesh till it shuts (room-interiors.js hideMesh). It picks through
+// the matrix GLASS drew the room with (owKitchenMatrices), so a pan grabbed is the pan you see.
+function owCookOpen(s, e) {
+  const I = s?.inside, r = I?.room;
+  if (!I || !r || !s.foot || !e?.detail) return;
+  try { e.detail.kit = roomKitchenKit(r.L, r.seed || 1); } catch (err) { console.warn('[one-world] the kitchen kit:', err?.message); }
+  const want = I.cookAt && performance.now() - I.cookAt.t < 20000 ? I.cookAt.id : null;
+  I.cookAt = null;
+  const frame = cookFrame(r.L, want);
+  if (!frame) return;
+  const canvas = s.root.querySelector('.ws-wrap canvas') || s.root.querySelector('canvas');
+  let ver = 0;
+  const host = {
+    frame, canvas,
+    show(v) {
+      if (!v) { r.cookExtra = null; owCookCam(s, r, null); return true; }
+      r.cookExtra = { batch: v.props, ver: ++ver };
+      owCookCam(s, r, v.cam || null);
+      return true;
+    },
+    view: () => I.cookHome || owSeat(s, r),
+    cold: coldIn(r.L, frame),
+    cookers: cookersIn(r.L, frame.stand?.piece),
+    switchTo: (id) => { I.cookAt = { id, t: performance.now() }; s.foot.onMove('workspace'); },
+    hide: (ids) => { const gone = [...(ids || []), ...(host.frame.oven ? [host.frame.oven.id] : [])]; r.hideMesh?.(gone); },
+    setRing: (i) => { const f = cookFrame(r.L, host.frame.piece, i); if (f) { host.frame = f; host.cold = coldIn(r.L, f); } return host.frame; },
+    matrices: () => owKitchenMatrices(s, r, host.frame),
+    // the kitchen's drag to look, on your own feet: your own eye turns (kitchen-stage.js onMove 'look')
+    turn: (dx, dy) => { const fv = s.freeCam.view(); if (fv) s.freeCam.aimAt(fv.yaw + dx * FOOT_DRAG * 180 / Math.PI, fv.pitch - dy * FOOT_DRAG); },
+  };
+  if (frame.oven) host.hide([]);
+  e.detail.host = host;
+  I.cooking = { room: r, stand: frame.stand };
+  // on your feet in front of it, looking at it
+  const st0 = frame.stand, v = s.freeCam.view();
+  if (st0 && v) {
+    if (I.sat) owStand(s);
+    const k = r.L.spec?.unit === 'ft' ? FT_PER_M : 1;
+    owTakeCam(s, r, { eye: r.L.world(st0.at[0], st0.at[1], 1.6 * k), yaw: st0.yaw, pitch: Math.max(-1.1, Math.min(0.3, st0.pitch)) }, () => {});
+  }
+}
+function owCookClose(s) {
+  const I = s?.inside;
+  if (!I?.cooking) return;
+  const r = I.cooking.room;
+  I.cooking = null;
+  if (r) { r.cookExtra = null; r.hideMesh?.(null); }
+  owCookCam(s, r, null);
+}
+// a close-up's camera, or none: your own eye back where it was before the first one
+function owCookCam(s, r, cam) {
+  const I = s.inside;
+  if (!I || !r) return;
+  if (cam) { if (!I.cookHome) I.cookHome = owSeat(s, r); owTakeCam(s, r, cam, (c) => { I.cookCam = c; }); return; }
+  if (I.cookHome) { owTakeCam(s, r, I.cookHome, () => {}); I.cookHome = null; }
+  I.cookCam = null;
+}
+// walked off from where you were cooking: the kitchen shuts, as on the Stage (room-stage.js watchCookStand)
+function owCookTick(s) {
+  const I = s.inside, c = I?.cooking;
+  if (!c?.stand || I.cookCam || c.room !== I.room) return;
+  const v = s.freeCam.view(), at = v && roomUV(s, c.room, v.x, v.y);
+  if (at && Math.hypot(at[0] - c.stand.at[0], at[1] - c.stand.at[1]) > c.stand.leave) { c.stand = null; window.dispatchEvent(new Event('kitchen:walkaway')); }
+}
+// The kitchen's frame (cm, gl/kitchen.js F) on GLASS's picture: through the room's frame and its matrix to the window's
+// tiles, then the matrix GLASS last drew the rooms with. `vp` for its labels (toScreen), and `eye` and `ray` for its
+// picks (pickPlane), all in the kitchen's frame. Null till GLASS has drawn a frame.
+function owKitchenMatrices(s, r, F) {
+  const W = owWorld(), at = W?.glInteriorVP?.(s.id);
+  if (!at?.vp || !F) return null;
+  const Fm = [F.x[0] * F.s, F.x[1] * F.s, F.x[2] * F.s, 0, F.y[0] * F.s, F.y[1] * F.s, F.y[2] * F.s, 0, F.z[0] * F.s, F.z[1] * F.s, F.z[2] * F.s, 0, F.o[0], F.o[1], F.o[2], 1];
+  const Mt = r.M.slice(); Mt[12] += r.gx - s.gx - at.o[0]; Mt[13] += r.gy - s.gy - at.o[1];
+  const vp = new Float32Array(mat4Mul(at.vp, mat4Mul(Mt, Fm))), inv = mat4Inv(vp, new Float64Array(16));
+  if (!inv) return null;
+  const hom = (x, y, z, w) => [inv[0] * x + inv[4] * y + inv[8] * z + inv[12] * w, inv[1] * x + inv[5] * y + inv[9] * z + inv[13] * w, inv[2] * x + inv[6] * y + inv[10] * z + inv[14] * w, inv[3] * x + inv[7] * y + inv[11] * z + inv[15] * w];
+  const e = hom(0, 0, 1, 0), eye = [e[0] / e[3], e[1] / e[3], e[2] / e[3]];
+  return { vp, eye, ray: (sx, sy) => { const p = hom(sx * 2 - 1, 1 - sy * 2, 1, 1), q = [p[0] / p[3] - eye[0], p[1] / p[3] - eye[1], p[2] / p[3] - eye[2]], n = Math.hypot(q[0], q[1], q[2]) || 1; return [q[0] / n, q[1] / n, q[2] / n]; } };
+}
+if (typeof window !== 'undefined') {
+  window.addEventListener('kitchen:open', (e) => owCookOpen(st, e));
+  window.addEventListener('kitchen:close', () => owCookClose(st));
+}
+// 'room_vat': somebody coming down a tube to a release vat (plugins/roomstage). True when you're walking a building in GLASS,
+// which plays it in the room it's for when you're in it, or once you walk in within a few seconds.
+export function freelookVat(msg) {
+  const I = st?.inside;
+  if (!I) return false;
+  if (msg.zone === I.zone && st.owVat?.room === I.room) st.owVat.cycle.arrive(msg, I.you);
+  else owVatCues.push({ msg, at: Date.now() });
+  return true;
+}
+let wallMods = null;
+function owDecals(s) {
+  const I = s.inside, r = I?.room;
+  if (!r) return;
+  const more = [...(I.vitalList || []), ...(I.vendDecals || []), ...(I.stadDecals || [])];
+  if (!(I.tags?.length || I.sheets?.length)) { r.decals = more.length ? more : null; return; }
+  if (!wallMods) { wallMods = Promise.all([import('./room-tags.js'), import('./room-sheets.js')]).then(([t, sh]) => { wallMods = { t, sh }; sh.onArt(() => { if (st?.inside) st.inside.decalsFor = null; }, 'glass'); }).catch(() => { wallMods = null; }); return; }
+  if (wallMods instanceof Promise) return;
+  const joining = I.join?.set ?? null;
+  if (I.decalsFor !== r || I.decalsTags !== I.tags || I.decalsSheets !== I.sheets || I.decalsJoin !== joining) {
+    I.decalsFor = r; I.decalsTags = I.tags; I.decalsSheets = I.sheets; I.decalsJoin = joining;
+    const L = r.L, { t, sh } = wallMods;
+    let list = [];
+    try {
+      I.runs = I.sheets?.length ? sh.sheetRuns(L, I.sheets) : [];
+      // every set but the one joining, as it rests: a whole set this browser has seen join drawn as one sheet
+      const runs = I.runs.filter(({ g }) => g.set !== joining);
+      list = [...(I.tags?.length ? t.tagDecals(L, I.tags) : []), ...sh.sheetDecals(L, runs, new Set(runs.filter(({ g }) => sh.isWhole(g) && owSeenJoin(r, g.set)).map(({ g }) => g.set)))];
+    } catch (e) { console.warn('[one-world] the walls would not paint:', e?.message); }
+    I.decalList = list;
+  }
+  owJoinTick(s, performance.now());
+  const all = [...I.decalList, ...(I.joinDecals || []), ...more];
+  r.decals = all.length ? all : null;
+}
+// THE JOIN (phase B), as on the Stage (room-stage.js startJoin, room-sheets.js createSheetScene): a whole set of sheets
+// this browser hasn't seen join, a couple of seconds after you're in the room, closes up into one picture, its gold
+// seams lit and its foil lettering coming up a slot at a time, the camera taken square onto it and given back. A click
+// skips it. Seen once, it's drawn joined from then on (the Stage's own 'rs-joined' mark, so either view's join counts).
+const OW_JOIN_WAIT_MS = 2200;
+const owJoinKey = (r, set) => `rs-joined:${r.zone}:${set}`;
+function owSeenJoin(r, set) { try { return localStorage.getItem(owJoinKey(r, set)) === '1'; } catch { return false; } }
+function owJoinTick(s, now) {
+  const I = s.inside, r = I?.room, sh = wallMods?.sh;
+  if (!I || !r || !sh) return;
+  if (I.join && I.join.room !== r) { I.join = null; I.joinDecals = null; I.joinCam = null; }
+  if (!I.join) {
+    if (!I.runs?.length || I.sat || I.talkCur || I.vatCam) return;
+    if (I.joinWatch !== r) { I.joinWatch = r; I.joinFrom = now; return; }
+    if (now - I.joinFrom < OW_JOIN_WAIT_MS) return;
+    const pick = I.runs.find(({ g }) => sh.isWhole(g) && !owSeenJoin(r, g.set));
+    if (!pick || !sh.sheetDecals(r.L, [pick]).length) return;
+    const seat = owSeat(s, r);
+    if (!seat) return;
+    I.join = { room: r, set: pick.g.set, scene: sh.createSheetScene({ L: r.L, run: pick.run, g: pick.g, width: pick.width, height: pick.height, seat, aspect: () => { const c = s.root.querySelector('canvas'); return c && c.clientHeight ? c.clientWidth / c.clientHeight : 16 / 9; }, now }) };
+  }
+  const f = I.join.scene.frame(now);
+  if (f.done) {
+    try { localStorage.setItem(owJoinKey(r, I.join.set), '1'); } catch { /* it plays again, that's all */ }
+    I.join = null; I.joinDecals = null; I.joinCam = null; I.decalsFor = null;
+    return;
+  }
+  I.joinDecals = f.decals;
+  if (f.cam) owTakeCam(s, r, f.cam, (c) => { I.joinCam = c; });
+}
+// Where you stand and look, as the Stage's camera ('seat': eye in the room's frame, yaw, pitch, fov), for a shot that
+// starts from you and comes back to you.
+function owSeat(s, r) {
+  const v = s.freeCam.view(), at = v && roomUV(s, r, v.x, v.y);
+  if (!at) return null;
+  const y = (v.yaw || 0) * Math.PI / 180, ahead = roomUV(s, r, v.x + Math.sin(y) * OW_AHEAD, v.y - Math.cos(y) * OW_AHEAD);
+  if (!ahead) return null;
+  const eye = r.L.world(at[0], at[1], (v.z - r.M[14]) / (Math.hypot(r.M[4], r.M[5], r.M[6]) || 1));
+  const a = r.L.world(at[0], at[1], 0), b = r.L.world(ahead[0], ahead[1], 0);
+  return { eye, yaw: Math.atan2(b[0] - a[0], b[2] - a[2]), pitch: v.pitch || 0, fov: 72 };
+}
+// A shot of the Stage's ({ eye in the room's frame, yaw, pitch }) put on the street view's camera: where it stands, the way
+// it looks, and its eye height handed to 'hold' ({ z }, which the stand line reads).
+function owTakeCam(s, r, cam, hold) {
+  const v = s.freeCam.view();
+  if (!v) return;
+  const T = (p) => { const q = roomPt(r.M, p); return [r.gx + q[0], r.gy + q[1], q[2]]; };
+  const E = T(cam.eye), F = T([cam.eye[0] + Math.sin(cam.yaw), cam.eye[1], cam.eye[2] + Math.cos(cam.yaw)]);
+  s.freeCam.rebase(E[0] - (s.gx + v.x), E[1] - (s.gy + v.y));
+  s.freeCam.aimAt(Math.atan2(F[0] - E[0], -(F[1] - E[1])) * 180 / Math.PI, cam.pitch || 0);
+  hold({ z: E[2] });
+}
+// `room_tags` and `room_sheets`: the paint on the walls of the room you're walking in GLASS changed. True when it was that room.
+export function freelookWalls(msg, kind) {
+  const I = st?.inside;
+  if (!I || (msg.zone && msg.zone !== I.zone)) return false;
+  if (kind === 'tags') I.tags = msg.tags || []; else I.sheets = msg.sheets || [];
+  return true;
+}
+function owTvTick(s, now) {
+  const I = s.inside, set = I && (I.pieces || []).find((p) => p.arche === 'screen' && !p.annex);
+  if (!set) { if (s.owTv) { s.owTv.stop(); s.owTv = null; } return; }
+  if (!s.owTv) {
+    if (!roomTvMod) { roomTvMod = import('./room-tv.js').then((m) => { roomTvMod = m; }).catch(() => { roomTvMod = null; }); return; }
+    if (roomTvMod instanceof Promise || !roomTvMod.createWallTv) return;
+    s.owTv = roomTvMod.createWallTv(s.root, { onChange: () => {} });
+    return;
+  }
+  // a set somebody in the room has on (`tv` on room_view and room_people, plugins/roomstage setOn): it comes on here
+  // too, the public one first, and goes off when they turn it off, unless you turned it on (room-stage.js syncTv)
+  if (I.npcTv && !s.owTv.on && !I.npcTvAsked) { I.npcTvAsked = true; I.tvFromNpc = true; s.foot.onMove(`watch ${(I.pieces.find((p) => p.arche === 'screen' && p.public && !p.annex) || set).name}`); }
+  if (!I.npcTv && I.tvFromNpc && s.owTv.on) { I.tvFromNpc = false; s.owTv.off(); }
+  const r = I.room;
+  if (!s.owTv.on) { if (r) r.screen = null; s.owTvBoot = null; return; }
+  // a set with a `boot` plays it each time it comes on, the broadcast opening out of it (room-tv.js paintBoot)
+  const boot = set.boot, m = roomTvMod && !(roomTvMod instanceof Promise) ? roomTvMod : null;
+  if (boot && s.owTvBoot == null) s.owTvBoot = now;
+  const bt = boot ? (now - s.owTvBoot) / 1000 : Infinity;
+  const fresh = s.owTv.paint(now, 1);
+  if (m?.paintBoot && bt < m.BOOT_S) {
+    const c = s.owBootCanvas || (s.owBootCanvas = document.createElement('canvas'));
+    if (c.width !== s.owTv.canvas.width) { c.width = s.owTv.canvas.width; c.height = s.owTv.canvas.height; }
+    m.paintBoot(c, s.owTv.canvas, bt, boot);
+    s.owTvVer = (s.owTvVer || 0) + 1;
+    if (r) r.screen = { canvas: c, ver: s.owTvVer };
+    return;
+  }
+  if (fresh || (boot && r?.screen?.canvas !== s.owTv.canvas)) s.owTvVer = (s.owTvVer || 0) + 1;
+  if (r) r.screen = { canvas: s.owTv.canvas, ver: s.owTvVer || 0 };
+}
+// THE SET UNDER THE POINTER (phase B), as on the Stage (room-stage.js tvPoint): its screen's corners put on the picture by
+// the matrix GLASS drew the room with, and the pointer's place on them (room-tv.js quadUV). Over it the set's own buttons
+// show and take a click, and the wheel changes the channel, a notch a station.
+let owWorldMod = null;
+const owWorld = () => { if (!owWorldMod) owWorldMod = import('./gl/world.js').then((w) => { owWorldMod = w; }).catch(() => { owWorldMod = null; }); return owWorldMod instanceof Promise ? null : owWorldMod; };
+function owTvPoint(s, e, el) {
+  const I = s.inside, r = I?.room, W = owWorld(), m = roomTvMod && !(roomTvMod instanceof Promise) ? roomTvMod : null;
+  if (!r || !s.owTv?.on || !W || !m?.quadUV) return null;
+  const set = (I.pieces || []).find((p) => p.arche === 'screen' && !p.annex), all = r.screensNow?.() || [];
+  const sc = all.find((q) => String(q.id) === String(set?.id)) || all[0];
+  if (!sc) return null;
+  const box = el.getBoundingClientRect();
+  const q = sc.quad.map((p) => { const t = roomPt(r.M, p), at = W.glInteriorProject(s.id, t[0] + r.gx - s.gx, t[1] + r.gy - s.gy, t[2]); return at && at.f > 0 ? { x: at.x * box.width, y: at.y * box.height } : null; });
+  return m.quadUV(q, e.clientX - box.left, e.clientY - box.top);
+}
+function owTvHover(s, e, el) { if (s.owTv) s.owTv.touching(!!owTvPoint(s, e, el)); }
+const OW_TV_NOTCH = 100, OW_TV_GAP_MS = 220, OW_TV_IDLE_MS = 400;
+function owTvWheel(s, e, el) {
+  if (!owTvPoint(s, e, el)) return false;
+  const W = s.owTvWheel || (s.owTvWheel = { sum: 0, at: 0, stepped: 0 }), now = performance.now();
+  if (now - W.at > OW_TV_IDLE_MS) W.sum = 0;
+  W.at = now;
+  W.sum += e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY;
+  if (Math.abs(W.sum) >= OW_TV_NOTCH && now - W.stepped > OW_TV_GAP_MS) { s.owTv.step(W.sum < 0 ? 1 : -1); W.sum = 0; W.stepped = now; }
+  return true;
+}
+// THE LIFT CAR (phase E): which copy of a room this view has drawn is the one to take: for a car, the one open onto the
+// landing it's parked at (`lift.parked` on room_view), or with none said, its lowest; anything else has one copy.
+function liftCopy(s, zone, lift) {
+  const all = (s.interiors || []).filter((r) => r.zone === zone);
+  if (all.length < 2) return all[0] || null;
+  return (lift?.parked && all.find((r) => r.stop === lift.parked)) || all.reduce((a, b) => (b.M[14] < a.M[14] ? b : a));
+}
+// Ridden to another floor: the same spot in the car, in its copy there, and facing as you were.
+function owRide(s, was, now) {
+  const v = s.freeCam.view(), at = v && roomUV(s, was, v.x, v.y);
+  if (!at) return;
+  const P = roomPt(now.M, now.L.world(at[0], at[1], 0));
+  s.freeCam.rebase(now.gx + P[0] - (s.gx + v.x), now.gy + P[1] - (s.gy + v.y));
+}
+function owStairTick(s) {
+  const I = s.inside, go = I?.stairTo;
+  if (!go) return;
+  I.stairTo = null;
+  const r = go.room, L = r.L, back = (L.spec.openings || []).find((q) => q.to === go.from), v = s.freeCam.view();
+  const there = back && openingInside(L, back);
+  if (!there || !v) return;
+  // openingInside's yaw is in the layout's own x and z (L.world), so the step that says which way is taken there
+  const W = L.world(there.at[0], there.at[1], 0), P = roomPt(r.M, W), Q = roomPt(r.M, [W[0] + Math.sin(there.yaw), W[1], W[2] + Math.cos(there.yaw)]);
+  s.freeCam.rebase(r.gx + P[0] - (s.gx + v.x), r.gy + P[1] - (s.gy + v.y));
+  s.freeCam.aimAt(Math.atan2(Q[0] - P[0], -(Q[1] - P[1])) * 180 / Math.PI, v.pitch);
+}
+// How high the floor under you is inside, in tiles: the room's storey and its own ground there (a flight's steps, a
+// raised floor), put through its matrix. On the ground floor it's the street's 0, so the eye is FPS_EYE above it as
+// outside; upstairs it's the storey's height, which before this left you looking at the floor above from the one below.
+function owFloorZ(s) {
+  const r = s.inside?.room, v = s.freeCam.view();
+  if (!r || !v) return 0;
+  const p = roomUV(s, r, v.x, v.y), L = r.L;
+  const g = p && L.groundAt ? L.groundAt(p[0], p[1]) || 0 : 0;
+  return roomPt(r.M, L.world(p ? p[0] : 0, p ? p[1] : 0, g))[2];
+}
 // `room_view` for a room this view has drawn: stay in GLASS. True when it's taken; the Stage opens otherwise.
 // whether you're walking round inside a building in GLASS, so the server's indoor close doesn't park the view
 export function freelookInside() { return !!st?.inside; }
-export function freelookTakeRoom(msg) {
+// Whether the street view is up on foot with this room's building in it, so a room_view for it can be taken (dispatch.js
+// waits on it for the room button's `world`).
+// Whether the street view's own loading veil is still up (its first builds not done)
+export function freelookVeiled() { return !!(st && document.getElementById(st.id + '-veil')); }
+// Whether the street view has what's round you before its loading screen lifts: the map window, and every room within
+// WORLD_READY_TILES of you built whole (room-interiors.js meshReady, which asks for it, so they build behind the veil).
+const WORLD_READY_TILES = 1.5;
+function worldReady(s) {
+  if (!s || !s.map) return false;
+  const v = s.freeCam.view(), ex = s.gx + (v?.x || 0), ey = s.gy + (v?.y || 0);
+  return (s.interiors || []).every((r) => !r.box || !r.meshReady || Math.hypot(Math.max(r.box[0] - ex, 0, ex - r.box[2]), Math.max(r.box[1] - ey, 0, ey - r.box[3])) > WORLD_READY_TILES || r.meshReady());
+}
+// Whether the building you've walked into is ready to be seen: every room of it the street view has is built whole
+// (room-interiors.js meshReady), so the loading veil can stay up over the rooms building and the people arriving
+// (dispatch.js roomVeilOff) and you're never shown a room half there.
+export function freelookRoomsReady() {
+  const s = st, I = s?.inside;
+  if (!I) return true;
+  return (s.interiors || []).filter((r) => r.gx === I.gx && r.gy === I.gy).every((r) => !r.meshReady || r.meshReady());
+}
+export function freelookCanTake(zone) { return !!(st?.foot && st.map && (st.interiors || []).some((r) => r.zone === zone)); }
+export function freelookTakeRoom(msg, prev = undefined) {
+  if (msg.zone && msg.power && roomPower.get(msg.zone) !== msg.power) { roomPower.set(msg.zone, msg.power); if (st?.interiors?.some((r) => r.zone === msg.zone)) owRelight(st); }
+  // dispatch.js says which room the last room_view was (`prev`); this module's own memory is only a fallback
+  const was = prev !== undefined ? prev : lastView;
+  lastView = { zone: msg.zone, car: !!msg.lift };
   const s = st;
   if (!s || !s.foot) return false;
-  const room = (s.interiors || []).find((r) => r.zone === msg.zone);
-  if (!room || !oneWorldRoom(s, room)) { if (s.inside) s.inside = null; return false; }
+  const fromLift = was?.car && !s.inside ? was.zone : null;
+  const room = liftCopy(s, msg.zone, msg.lift);
+  // ⚠ ONLY A BUILDING IN THE VIEW'S WINDOW. A street view parked behind the Stage can be centred anywhere you last
+  // walked, and the rooms it was sent stay with the page (sentInteriors); taking one far off stood you in a building
+  // the window has no map for. The Stage keeps it, and the window comes round when you're next on the street.
+  const R = s.map ? (s.map.length - 1) / 2 : 0;
+  const inWindow = !!room && R > OW_WINDOW_MARGIN && Math.abs(room.gx - s.gx) <= R - OW_WINDOW_MARGIN && Math.abs(room.gy - s.gy) <= R - OW_WINDOW_MARGIN;
+  if (!room || !inWindow || !oneWorldRoom(s, room, fromLift)) { if (s.inside) s.inside = null; owStudioStop(s); owRinkStop(s); if (s.owSound) { s.owSound.stop(); s.owSound = null; } if (s.owTv) { s.owTv.stop(); s.owTv = null; } if (s.owEnv) { s.owEnv.ui.stop(); s.owEnv.host.remove(); s.owEnv = null; } owLockStop(s); owCatStop(s); if (s.owHoist) { s.owHoist.ui.dispose(); if (s.owHoist.room) s.owHoist.room.extra = null; s.owHoist = null; } return false; }
   if (s.warm) {
     const mount = document.getElementById('area-content');
     if (!mount) return false;
@@ -1383,21 +2980,45 @@ export function freelookTakeRoom(msg) {
   }
   // the model stays; the storey you're on is cut out of it (insideCut)
   const from = s.inside;
-  s.inside = { zone: msg.zone, room, gx: room.gx, gy: room.gy };
+  if (s.inside) s.inside.going = null;
+  owWorld();
+  s.inside = { zone: msg.zone, room, gx: room.gx, gy: room.gy, lift: msg.lift || null, pieces: msg.pieces || [], locks: msg.locks || [], via: msg.via || null, people: msg.people || [], beasts: msg.beasts || [], you: msg.you ?? null, npcTv: !!msg.tv, vehicles: msg.vehicles?.machine ? null : msg.vehicles || null, machineVeh: msg.vehicles?.machine ? msg.vehicles : null, tags: msg.tags || [], sheets: msg.sheets || [], neighbours: msg.building?.neighbours || null, rinkCh: msg.rink || null, mine: !!msg.mine, admin: !!msg.admin, keypad: !!msg.keypad, routes: routesOf(msg.people || [], performance.now()) };
+  if (!s.owCard) s.owCard = createOneWorldCard(s.root, (a, piece) => owAct(s, a, piece));
   s.foot.pending = null;
   // in from the street: stood just inside its door, as the Stage stands you (openingInside), since the doorway itself
   // is no room's floor
-  const o = !from && (room.L.spec.openings || []).find((q) => q.dir && !(s.interiors || []).some((r) => r.zone === q.to));
+  // the lift arrived at another floor: the same spot in the car, in its copy at that floor, as it rides you there
+  if (from && from.room !== room && from.room.zone === room.zone) owRide(s, from.room, room);
+  // a room of this building you didn't walk into (a typed `up` where the plan has no stair): stood in it (owArrive)
+  else if (from && from.room !== room) owArrive(s, room, from.zone);
+  // taken from the Stage: stood just inside the way back to the room it last showed (`was`), as the Stage stands you,
+  // so down its stairs you're at their foot and out of a lift car outside its doors, facing out of them. Only from the
+  // street, or from a room with no way back drawn, are you stood inside the street door.
+  // ⚠ IT USED TO BE THE STREET DOOR EVERY TIME: down the hostel's stairs on the Stage, GLASS took the desk and stood
+  // you at its front door facing the street.
+  const ops = room.L.spec.openings || [];
+  const back = !from && was?.zone ? ops.find((q) => q.to === was.zone && (q.dir || q.lift)) : null;
+  const o = from ? null : back || ops.find((q) => q.dir && !(s.interiors || []).some((r) => r.zone === q.to));
   const v = o && s.freeCam.view();
+  // a room with no street door, opened by the room button (`world`): stood in its middle, on clear floor
+  if (!from && !o && msg.world) {
+    const v0 = s.freeCam.view(), L = room.L, mid = roomNearFree(L, 0, L.d / 2) || [0, L.d / 2];
+    if (v0) { const P = roomPt(room.M, L.world(mid[0], mid[1], 0)); s.freeCam.rebase(room.gx + P[0] - (s.gx + v0.x), room.gy + P[1] - (s.gy + v0.y)); }
+  }
   if (v) {
-    const at = openingInside(room.L, o).at, P = room.L.world(at[0], at[1], 0), M = room.M;
-    s.freeCam.rebase(room.gx + M[0] * P[0] + M[8] * P[2] + M[12] - (s.gx + v.x), room.gy + M[1] * P[0] + M[9] * P[2] + M[13] - (s.gy + v.y));
+    const there = openingInside(room.L, o), W = room.L.world(there.at[0], there.at[1], 0), P = roomPt(room.M, W);
+    s.freeCam.rebase(room.gx + P[0] - (s.gx + v.x), room.gy + P[1] - (s.gy + v.y));
+    // turned into the room: down the stairs (`back`), and by the room button (`world`), whose street view looked away
+    // from the building, so you stood inside the door facing the street
+    if (back || msg.world) { const Q = roomPt(room.M, [W[0] + Math.sin(there.yaw), W[1], W[2] + Math.cos(there.yaw)]); s.freeCam.aimAt(Math.atan2(Q[0] - P[0], -(Q[1] - P[1])) * 180 / Math.PI, 0); }
   }
   return true;
 }
 function footBlock(s, x0, y0, x1, y1) {
   const f = s.foot;
   if (!f || !s.map) return null;
+  if (s.inside?.sat) return [x0, y0];   // on a seat (owSit): a step gets you up (footKey), it doesn't slide the seat
+  if (s.inside?.talkCam) return [x0, y0];   // in a conversation the camera's on their face (owTalkTick), not walking
   if (s.inside) return insideBlock(s, x0, y0, x1, y1);
   const z = s.freeCam.view()?.z ?? FPS_EYE, a0x = s.gx + x0, a0y = s.gy + y0;
   // stood in something already (put down there, or the window changed): walking out of it is allowed
@@ -1530,6 +3151,7 @@ function footDoor(s) {
 export function freelookStep(msg) {
   const s = st, f = s?.foot;
   if (!f) return;
+  freelookSetHere(msg.here);
   if (Number.isInteger(msg.gx) && Number.isInteger(msg.gy)) f.server = { gx: msg.gx, gy: msg.gy };
   if (!msg.refused && !msg.moved) {
     f.pending = null;

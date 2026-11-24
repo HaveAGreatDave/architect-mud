@@ -241,7 +241,246 @@
   },
   "faction": null,
   "flags": {
-    "table_id": "gametable_embassy"
+    "table_id": "gametable_embassy",
+    "parley": {
+      "topics": {
+        "rules": [
+          "rules",
+          "how do i play",
+          "how does it work",
+          "hold em",
+          "texas"
+        ],
+        "deck": [
+          "deck",
+          "cards",
+          "shuffle",
+          "shuffling"
+        ],
+        "badge": [
+          "badge",
+          "pin"
+        ],
+        "cheating": [
+          "cheat",
+          "cheating",
+          "rigged",
+          "stacked",
+          "marked"
+        ],
+        "hands": [
+          "hands",
+          "fingers"
+        ],
+        "thumb": [
+          "thumb",
+          "broken",
+          "injury"
+        ],
+        "past": [
+          "before",
+          "where did you learn",
+          "trained",
+          "casino"
+        ],
+        "drinks": [
+          "drink",
+          "drinks",
+          "beer",
+          "whiskey",
+          "gin",
+          "pint",
+          "bar"
+        ],
+        "game": [
+          "poker",
+          "game",
+          "the table",
+          "who plays",
+          "players",
+          "a seat",
+          "join"
+        ],
+        "lowry": [
+          "lowry",
+          "cormack",
+          "day barman",
+          "concierge"
+        ],
+        "imogen": [
+          "imogen",
+          "cardew",
+          "night shift"
+        ]
+      },
+      "react": {
+        "greet": {
+          "stranger": [
+            "*doesn't look up.* Sit or step back."
+          ],
+          "known": [
+            "*nods once.* Seat's open."
+          ],
+          "familiar": [
+            "{name}. Your usual seat's warm."
+          ],
+          "close": [
+            "*a nod that's almost warm.* {name}. Sit. I'll deal you in."
+          ]
+        },
+        "farewell": [
+          "*squares the deck.* Table'll be here."
+        ],
+        "thank": [
+          "*a nod.*"
+        ],
+        "praise": [
+          "*keeps shuffling.* Compliments don't change the odds."
+        ],
+        "praise:hands": [
+          "Practice. Ten thousand hours and a broken thumb."
+        ],
+        "insult": [
+          "*riffles the deck.* Tilt somewhere else.",
+          "Noted. Ante's still the ante."
+        ],
+        "insult_last": [
+          "*sets the deck down, flat.* You're off the table. Tonight and the next."
+        ],
+        "flirt": [
+          "*glances up, once.* I don't play with players."
+        ],
+        "apologise": [
+          "Forgotten. The cards don't hold grudges. Neither do I, much."
+        ],
+        "joke": [
+          "*nothing on his face.* That one's been dealt before."
+        ],
+        "complain": [
+          "Lose quieter.",
+          "The deck's honest. The math's honest. That leaves you."
+        ],
+        "ask_feeling": [
+          "Even. Always even."
+        ],
+        "order_drink": [
+          "Bar's that way. I deal, I don't pour."
+        ],
+        "ask_name": [
+          "Orion. It's on the badge."
+        ],
+        "ask_job": [
+          "Dealer. I keep it fair so you can lose properly."
+        ],
+        "ask_origin": [
+          "From wherever the last game was."
+        ],
+        "ask_news": {
+          "stranger": [
+            "I don't carry news. I carry a deck."
+          ],
+          "known": [
+            "Somebody's been playing with three aces this week. Not at my table."
+          ]
+        },
+        "ask_advice": [
+          "Fold more. Everybody should fold more.",
+          "Watch the hands, not the faces."
+        ],
+        "ask_about:rules": [
+          "Two in the hand, five on the felt, best five wins. Ask \"Tell me the rules\" for the long version."
+        ],
+        "ask_about:deck": [
+          "New deck every night. I check every one.",
+          "*fans it without looking.* Fifty-two. Always."
+        ],
+        "ask_about:badge": [
+          "Made it myself. The house never made me one."
+        ],
+        "ask_about:cheating": [
+          "*stops shuffling.* Not at my table. Say it again and you're not either."
+        ],
+        "ask_about:hands": [
+          "They don't stop. Cards help."
+        ],
+        "agree": [
+          "*nods.*"
+        ],
+        "disagree": [
+          "Your call."
+        ],
+        "ask_about:thumb": {
+          "stranger": [
+            "*hands keep moving.* Old injury."
+          ]
+        },
+        "ask_about:past": [
+          "Other tables. Worse ones."
+        ],
+        "defer:drinks": [
+          "*nods at the bar without looking.* {other} pours. I deal."
+        ],
+        "overheard": [
+          "*riffles the deck.* I heard my name.",
+          "*doesn't look up.* Talk about me at the table, where I can raise."
+        ],
+        "overheard_insult": [
+          "*stops shuffling.* Say it at the table."
+        ],
+        "overheard_praise": [
+          "*keeps shuffling, a fraction slower.*"
+        ],
+        "gossip_rude": [
+          "{other} says you were rude at the bar. Tilted players play badly. Sit down if you want to lose."
+        ],
+        "gossip_story": [
+          "{other} says you're all right. That's worth a seat."
+        ],
+        "ask_about:game": [
+          "Whoever sits. Seat's open. Say \"I'd like to play\" and I'll deal you in.",
+          "Regulars at nine, tourists after. The tourists pay for the regulars."
+        ],
+        "ask_about:lowry": [
+          "Lowry keeps the room straight. I keep the table straight. We get along."
+        ],
+        "ask_about:imogen": [
+          "Imogen reads the same book all night and never misses a raise from across the room."
+        ]
+      },
+      "deflect": [
+        "*riffles the deck.* Play or watch.",
+        "*doesn't look up.* Mm.",
+        "That a bet?"
+      ],
+      "effects": {
+        "flirt": {
+          "mood": "neutral"
+        }
+      },
+      "beats": [
+        {
+          "id": "thumb",
+          "topic": "hands",
+          "tier": "known",
+          "warmth": 5,
+          "steps": [
+            "*stops shuffling, holds up his left hand.* See the thumb? Doesn't bend at the top.",
+            "Dealt for a house out west that liked its games helped along. I wouldn't help.",
+            "They broke it in a door. I learned to shuffle with the other eight. That's why I deal honest. It cost me a thumb to be allowed to."
+          ]
+        }
+      ],
+      "circle": [
+        "npc_embassy_barkeep",
+        "npc_embassy_barkeep_night"
+      ],
+      "defer": {
+        "drinks": [
+          "npc_embassy_barkeep",
+          "npc_embassy_barkeep_night"
+        ]
+      }
+    }
   },
   "home_activities": [],
   "home_zone": "zone_yards_tenement_u4_6",

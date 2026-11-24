@@ -481,7 +481,8 @@ async function regressBody({ run, check, getPlayer }) {
     for (const g of r.signs) {
       let n = 0;
       for (let dx = -6; dx <= 6; dx++) for (let dy = -6; dy <= 6; dy++) {
-        if (corridorAt(r, g.x + dx, g.y + dy)?.flags?.road_sign) n++;
+        const rs = corridorAt(r, g.x + dx, g.y + dy)?.flags?.road_sign;
+        if (rs && rs.kind !== 'post') n++;   // a kilometre post (markersOf) is a post, not a second board
       }
       check(`the board at km ${roadKm(g.s)} stands on exactly one tile`, n === 1, n);
     }

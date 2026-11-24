@@ -1,7 +1,10 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "city",
-  "description": "Grass gives up here and goes over to stones the size of fists, graded by the water into a bank you can sit on. The kiln's back wall throws heat out onto it even when the kiln is cold.",
+  "ambient_events": [
+    "A gull walks along the waterline looking for something.",
+    "A wave comes in a little further than the others."
+  ],
+  "ambient_theme": "coast",
+  "description": "Coarse shingle at the top of the beach, the stones rounded and grey. They rattle when the waves pull back.",
   "exits": {
     "east": "zone_district_897_903",
     "north": "zone_district_896_902",
@@ -9,9 +12,10 @@
     "west": "zone_district_895_903"
   },
   "flags": {
+    "beach": true,
     "district": "filaments",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "terrain": "sand"
   },
   "grid_x": 896,
   "grid_y": 903,

@@ -1,0 +1,19 @@
+{
+  "description": "A sagging leather armchair by the back radiator, cracked at the arms and worn smooth where a lot of hurt customers have sat down before you. Rusty keeps it there on purpose.",
+  "flags": {
+    "interactions": [
+      "sit",
+      "lean"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_otoole_chair",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "sagging vinyl armchair",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 45,
+  "zone_id": "zone_otoole_interior"
+}

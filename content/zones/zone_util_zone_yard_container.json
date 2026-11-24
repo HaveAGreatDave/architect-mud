@@ -16,5 +16,5 @@
   "id": "zone_util_zone_yard_container",
   "map_id": "map_int_yard_container",
   "name": "Stack Overflow — Utility Room",
-  "parent_zone": "zone_district_924_907"
+  "parent_zone": null
 }

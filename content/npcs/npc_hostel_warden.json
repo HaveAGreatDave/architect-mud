@@ -227,14 +227,6 @@
     {
       "item_id": "item_glass_tea",
       "price": 3
-    },
-    {
-      "item_id": "item_ersatz_noodle",
-      "price": 4
-    },
-    {
-      "item_id": "item_steam_bun",
-      "price": 3
     }
   ],
   "vendor_restock_rate": 1,

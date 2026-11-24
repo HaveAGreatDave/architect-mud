@@ -1089,8 +1089,8 @@ on('player.login', async ({ id }) => {
 // ── The advert ──
 // The LAST beat of the prologue, and the only one that points at somewhere to go. A
 // player standing in the vat with a bat, a helmet and ₵100 has no idea that anything
-// in this city wants them — Grady's poster is the first thing that does, and it is
-// already on this wall (furn_poster_twocell_supply). The beat just makes sure it's
+// in this city wants them — Rusty's poster is the first thing that does, and it is
+// already on this wall (furn_poster_otoole_surplus). The beat just makes sure it's
 // SEEN: an ambient nudge, the `read` verb taught with the usual shimmer, and a
 // ripple on the poster's own link up in the room pane, so the nudge exists in both
 // places a new player might be looking.
@@ -1144,10 +1144,10 @@ async function autoReadAdvert(actor) {
 function offerTwocellDirections(player, delay = 400) {
   const dest = getZone(Z_TWOCELL_TILE);
   if (!dest) return;
-  setTimeout(() => out(player, `<span class="ambient">The address is at the bottom, under the crates. It's a ten-minute walk. Grady pays for work, and paid work is food, and enough of it is a door you can lock behind you. That's the entire plan, for now.</span> ` +
+  setTimeout(() => out(player, `<span class="ambient">The address is at the bottom, under the picture. It's a ten-minute walk. Rusty O'Toole pays for work, and paid work is food, and enough of it is a door you can lock behind you. That's the entire plan, for now.</span> ` +
     // Yes routes AND sets off (the `!go` flag) — the question has already been
     // asked here, so the gps prompt asking it a second time would be a nag.
-    `<span class="action-link prompt-link" data-raw-cmd="gps ${dest.name} !go" data-label="walk to Two-Cell Supply">Show me the way</span> ` +
+    `<span class="action-link prompt-link" data-raw-cmd="gps ${dest.name} !go" data-label="walk to O&#39;Toole&#39;s Surplus">Show me the way</span> ` +
     `<span class="action-link prompt-link prompt-link-ghost" data-client-cmd="echo Suit yourself." data-label="no thanks">Not now</span>`), delay);
 }
 
@@ -1157,8 +1157,8 @@ function offerTwocellDirections(player, delay = 400) {
 // `examine` is the one door and this is a quiet alias behind it. Self-gates on
 // zone + target and returns undefined for everything else, so the global `read`
 // still belongs to bulletins and job boards.
-const Z_TWOCELL_TILE = 'zone_district_920_903';   // the Two-Cell Supply facade
-const namesAdvert = (t) => /\b(advert|advertisement|poster|two.?cell|supply|grady)\b/.test(t);
+const Z_TWOCELL_TILE = 'zone_district_920_903';   // the O'Toole's Surplus facade
+const namesAdvert = (t) => /\b(advert|advertisement|poster|two.?cell|supply|grady|o.?toole|surplus|rusty)\b/.test(t);
 
 async function readTwocellAdvert(args, raw, player, broadcast) {
   const target = args.join(' ').toLowerCase();
@@ -1276,16 +1276,16 @@ function playBroadcast(player) {
   }, t + 400);
 }
 
-// ── First blood → Grady's chair ──────────────────────────────────────────────
+// ── First blood → Rusty's chair ──────────────────────────────────────────────
 // The one tutorial beat that lands AFTER the vat: the game never says out loud
-// that sitting heals you. Grady does, once, the first time you walk back into
+// that sitting heals you. Rusty does, once, the first time you walk back into
 // his shop having killed something. Two flags — one records that you've fought,
 // one that he's said his piece — so the tip can't fire before the fight or twice
 // after it. Sitting itself is the interactions plugin's `sit`; the HP regen is
 // the engine's (see docs/systems-posture.md). Nothing here touches either.
-const Z_TWOCELL     = 'zone_twocell_interior';
+const Z_TWOCELL     = 'zone_otoole_interior';
 const F_FIRST_BLOOD = 'grady_first_blood';   // player has won a fight
-const F_SEAT_TIP    = 'grady_seat_tip';      // Grady has given the sit-to-heal tip
+const F_SEAT_TIP    = 'grady_seat_tip';      // Rusty has given the sit-to-heal tip
 
 on('enemy.killed', async ({ actor }) => {
   if (!actor?.id) return;
@@ -1299,7 +1299,7 @@ on('zone.entered', async ({ actor, zone }) => {
   if (await isSet(actor, F_SEAT_TIP)) return;
   await raise(actor, F_SEAT_TIP);
   setTimeout(() => {
-    out(actor, `<span class="ambient">Grady looks up, takes one read of the state of you, and jerks his chin at the sagging armchair by the crates. "Sit down before you fall down. Go on. Off your feet, and stay off 'em a while. Body knits itself back together when you stop asking it to carry you around. Cheapest medicine in the basin, and I can't charge you a credit for it."</span>`);
+    out(actor, `<span class="ambient">Rusty takes one look at you and points at the old armchair by the radiator. "Sit down before you fall down. Stay off your feet a while and your body does the mending. Cheapest medicine in the Basin, and I can't charge you for it."</span>`);
   }, 1200);
   setTimeout(() => {
     out(actor, `<span class="ambient">Maybe I should ${teachVerb('sit', 'sit', 'sagging vinyl armchair')} and let it mend.</span>`);
@@ -1376,7 +1376,7 @@ function speakLogTour(player) {
 //
 // ⚠ THE ROUTE LINES LIVE HERE, NOT IN LOG_TOUR. Everything the game says about
 // getting somewhere is said in map language — the quest objectives say "follow
-// the green GPS line", Grady bellows about a line on your map — and at this rung
+// the green GPS line", Rusty bellows about a line on your map — and at this rung
 // there is no map drawn to put a line on. The walking still works: `gps_route`
 // is handled the same at every rung (client/game/js/dispatch.js), and the node
 // payload that arms auto-walk is stored whatever is on screen, so `auto` is a

@@ -275,6 +275,13 @@ async function currentSeason(sport) {
   return row;
 }
 
+// The two clubs in this sport's final while it's seeded and not yet played, else null.
+// Sync off the season cache the minute tick keeps warm; parley asks it mid-sentence.
+export function cupFinalists(sport) {
+  const row = _seasonCaches.get(sport)?.row;
+  return row?.phase === 'worldseries' && row.finalist_a && row.finalist_b ? [row.finalist_a, row.finalist_b] : null;
+}
+
 // Open a fresh regular-season row if none is active. The season's `start_slot` anchors
 // its standings window: games from this slot forward count toward it. It's the first slot
 // of the month, or of the next month on Cup day. Season numbers run per sport, so both

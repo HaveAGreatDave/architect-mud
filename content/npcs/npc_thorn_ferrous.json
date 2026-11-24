@@ -136,26 +136,6 @@
   "studio_zone_id": null,
   "vendor_inventory": [
     {
-      "item_id": "item_wb_spurblade",
-      "min_trust": 0,
-      "price": 210
-    },
-    {
-      "item_id": "item_wb_ribsaw",
-      "min_trust": 0,
-      "price": 340
-    },
-    {
-      "item_id": "item_wb_socket_spike",
-      "min_trust": 0,
-      "price": 180
-    },
-    {
-      "item_id": "item_wb_thorn_flail",
-      "min_trust": 0,
-      "price": 260
-    },
-    {
       "item_id": "item_wb_hide_apron",
       "min_trust": 0,
       "price": 90

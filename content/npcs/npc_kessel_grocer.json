@@ -219,47 +219,7 @@
   "studio_zone_id": null,
   "vendor_inventory": [
     {
-      "item_id": "item_macaroni",
-      "price": 7
-    },
-    {
       "item_id": "item_ration",
-      "price": 8
-    },
-    {
-      "item_id": "item_ration_apple",
-      "price": 5
-    },
-    {
-      "item_id": "item_ration_cheese",
-      "price": 6
-    },
-    {
-      "item_id": "item_ration_milk",
-      "price": 5
-    },
-    {
-      "item_id": "item_tinned_meat",
-      "price": 9
-    },
-    {
-      "item_id": "item_tinned_tomatoes",
-      "price": 6
-    },
-    {
-      "item_id": "item_grey_rice",
-      "price": 4
-    },
-    {
-      "item_id": "item_salt_ration",
-      "price": 3
-    },
-    {
-      "item_id": "item_powdered_egg",
-      "price": 5
-    },
-    {
-      "item_id": "item_cooking_oil",
       "price": 8
     },
     {
@@ -303,52 +263,72 @@
       "price": 4
     },
     {
-      "item_id": "item_brown_sugar",
-      "price": 9
-    },
-    {
-      "item_id": "item_mustard",
-      "price": 11
-    },
-    {
       "item_id": "item_beef_jerky",
       "price": 9
     },
     {
-      "item_id": "item_cracker_meal",
+      "item_id": "item_ration_milk",
       "price": 5
     },
     {
-      "item_id": "item_sausage",
-      "price": 26
-    },
-    {
-      "item_id": "item_dry_pulse",
-      "price": 7
-    },
-    {
-      "item_id": "item_vinegar",
-      "price": 8
-    },
-    {
-      "item_id": "item_tomato_paste",
+      "item_id": "item_butter_analog",
       "price": 12
     },
     {
-      "item_id": "item_orange",
-      "price": 28
-    },
-    {
-      "item_id": "item_pale_cabbage",
-      "price": 6
-    },
-    {
-      "item_id": "item_melon_chunk",
+      "item_id": "item_vat_cheese",
       "price": 11
     },
     {
-      "item_id": "item_synth_cream",
-      "price": 11
+      "item_id": "item_battery_egg",
+      "price": 5
+    },
+    {
+      "item_id": "item_grey_loaf",
+      "price": 7
+    },
+    {
+      "item_id": "item_soylent",
+      "price": 2
+    },
+    {
+      "item_id": "item_soylent_ember",
+      "price": 1
+    },
+    {
+      "item_id": "item_soylent_citrus",
+      "price": 1
+    },
+    {
+      "item_id": "item_soylent_family",
+      "price": 1
+    },
+    {
+      "item_id": "item_soylent_marrow",
+      "price": 1
+    },
+    {
+      "item_id": "item_soylent_verdant",
+      "price": 1
+    },
+    {
+      "item_id": "item_soylent_birthday",
+      "price": 1
+    },
+    {
+      "item_id": "item_soylent_clinical",
+      "price": 1
+    },
+    {
+      "item_id": "item_soylent_manyhappy",
+      "price": 1
+    },
+    {
+      "item_id": "item_salt_ration",
+      "price": 2
+    },
+    {
+      "item_id": "item_black_pepper",
+      "price": 14
     }
   ],
   "vendor_restock_rate": 3,

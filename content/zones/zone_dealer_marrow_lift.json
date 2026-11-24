@@ -1,0 +1,41 @@
+{
+  "ambient_events": [
+    "The car hums sideways for a moment, then up."
+  ],
+  "ambient_theme": "indoors",
+  "bg_color": "#161a20",
+  "color": "#d6e8ff",
+  "description": "A glass lift car with a brushed steel floor and two buttons: G for the showroom and R for the roof pad of Marrow Street Parking next door, where the cars wait. Step <b>out</b> when the doors open.",
+  "exits": {
+    "out": "zone_dealer_marrow_showroom",
+    "up": [
+      "zone_sdeck_pad"
+    ]
+  },
+  "flags": {
+    "building_name": "Higher Purchase",
+    "is_interior": true,
+    "floor": "metal",
+    "elevator": true,
+    "hide_exits": true,
+    "elevator_floors": [
+      {
+        "label": "Ground floor: Showroom",
+        "n": 1,
+        "zone": "zone_dealer_marrow_showroom"
+      },
+      {
+        "label": "Marrow Street Parking, roof pad",
+        "n": 6,
+        "zone": "zone_sdeck_pad"
+      }
+    ]
+  },
+  "grid_x": 1,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_dealer_marrow_lift",
+  "map_id": "map_int_dealer_marrow",
+  "name": "Higher Purchase Lift",
+  "parent_zone": "zone_district_912_908"
+}

@@ -1,0 +1,9 @@
+{
+  "a": "zone_util_zone_otoole_interior",
+  "b": "zone_otoole_interior",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_util_zone_otoole_interior_up_xag0",
+  "lockable": false,
+  "one_way": true
+}

@@ -2,7 +2,7 @@
 // NPCs and flags connect, plus the findings worth fixing.
 //
 //   node scripts/content/story-report.mjs              lint summary
-//   node scripts/content/story-report.mjs --npc npc_grady   one NPC's chain
+//   node scripts/content/story-report.mjs --npc npc_rusty_otoole   one NPC's chain
 //   node scripts/content/story-report.mjs --arc asc_arc     one ladder
 //   node scripts/content/story-report.mjs --json            the whole graph
 //

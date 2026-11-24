@@ -490,7 +490,145 @@
         "min": 3,
         "type": "chemical"
       }
-    ]
+    ],
+    "parley": {
+      "topics": {
+        "pests": [
+          "pests",
+          "vermin",
+          "rats",
+          "bugs",
+          "roaches",
+          "shell",
+          "walls"
+        ],
+        "suit": [
+          "suit",
+          "respirator",
+          "mask",
+          "filter"
+        ],
+        "moustache": [
+          "moustache",
+          "mustache",
+          "tache"
+        ],
+        "under": [
+          "under",
+          "tunnel",
+          "risers",
+          "down here"
+        ],
+        "quiet": [
+          "quiet",
+          "silence",
+          "worried",
+          "scared"
+        ]
+      },
+      "react": {
+        "greet": {
+          "stranger": [
+            "You here to lend a hand?",
+            "*muffled through the respirator.* Mind your boots."
+          ],
+          "close": [
+            "{name}. Good. I could use a second pair of boots."
+          ]
+        },
+        "farewell": [
+          "Watch the risers on your way up.",
+          "Stay off the walls."
+        ],
+        "thank": [
+          "Just doing the job nobody else will."
+        ],
+        "praise": [
+          "People don't appreciate good extermination till the walls start moving."
+        ],
+        "praise:moustache": [
+          "*strokes it with a blue glove.* Took a lot of work. Like everything worth doing."
+        ],
+        "insult": [
+          "*adjusts the respirator.* I've been bitten by worse.",
+          "Noted. You're still standing in a nest."
+        ],
+        "insult_last": [
+          "Right. Go up top. The bugs can have you."
+        ],
+        "flirt": [
+          "*a muffled laugh.* Not in the suit."
+        ],
+        "apologise": [
+          "Forget it. It's the fumes. Makes everyone tetchy."
+        ],
+        "joke": [
+          "*the moustache twitches.* Ha."
+        ],
+        "complain": [
+          "Two hundred a week out of this tunnel and you're complaining?"
+        ],
+        "ask_feeling": [
+          "Filter's at twenty hours. I'm fine.",
+          "Quiet down here. I don't like it quiet."
+        ],
+        "order_drink": [
+          "Not down here. Everything's got something in it."
+        ],
+        "ask_name": [
+          "Tom Budge. Won't Budge Vermin Control. I'm the whole company."
+        ],
+        "ask_job": [
+          "Extermination. Keeping the Under from coming up through your floor."
+        ],
+        "ask_origin": [
+          "Topside, once. Haven't been back in a while."
+        ],
+        "ask_news": [
+          "They're coming up the risers again. Always the risers."
+        ],
+        "ask_advice": [
+          "Worry when it gets quiet down here.",
+          "Change your filter early. Forty hours means thirty."
+        ],
+        "ask_about:pests": [
+          "Two hundred a week, and the surface has never heard of me.",
+          "Mind the shell. It'll go through a boot sole."
+        ],
+        "ask_about:suit": [
+          "Sealed, reinforced, and the mask is custom. For obvious reasons."
+        ],
+        "ask_about:moustache": [
+          "The mouthpiece is moulded around it. I wasn't shaving it for a suit."
+        ],
+        "ask_about:under": [
+          "The Under goes further than anyone maps. The bugs know the rest."
+        ],
+        "ask_about:quiet": {
+          "stranger": [
+            "Quiet's bad. That's all you need."
+          ]
+        }
+      },
+      "deflect": [
+        "*taps the respirator.* Didn't catch that. Filter noise.",
+        "Mm. Mind the shell.",
+        "*listens to the walls instead of you.*"
+      ],
+      "beats": [
+        {
+          "id": "quiet",
+          "topic": "quiet",
+          "tier": "known",
+          "warmth": 6,
+          "steps": [
+            "Three winters back, the tunnels went quiet. No scratching. No shells. Nothing.",
+            "I thought I'd won. Then the east cistern wall came down with something behind it bigger than anything I'd trapped.",
+            "It went back into the dark. I sealed the wall. *taps the respirator.* So when I say worry when it's quiet, I mean it."
+          ]
+        }
+      ]
+    }
   },
   "home_activities": [],
   "home_zone": "zone_under_bend",
@@ -521,10 +659,6 @@
     {
       "item_id": "item_battery",
       "price": 9
-    },
-    {
-      "item_id": "item_budge_fumigator",
-      "price": 900
     }
   ],
   "vendor_restock_rate": 1,

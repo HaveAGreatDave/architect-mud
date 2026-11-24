@@ -190,8 +190,20 @@ All in [systems-library.md](../systems-library.md) unless noted.
 | Rosenberg | The pulse `glottalWave()` builds. |
 | Liljencrants-Fant; Fant 1995 | The glottal pulse built per cycle, and the Rd voice-quality relations. |
 | Peterson and Barney | The vowels the pre-emphasis is calibrated against. |
+| Hillenbrand et al. 1995; Nearey and Assmann 1986 | The drift through a short vowel (`vs`, [oracle-naturalness.md](../proposals/oracle-naturalness.md)). |
+| Sussman, McCaffrey and Matthews 1991 | The locus equations that bend a consonant's place cue with its vowel (`LOCUS_EQ`). |
+| Klatt and Klatt 1990 (KLSYN88) | The tracheal pole-zero pairs of a breathy voice ([oracle-worklet.js](../../client/shared/oracle-worklet.js)). |
+| Engel, Hantrakul, Gu and Roberts 2020, "DDSP: Differentiable Digital Signal Processing" | Training a network to play ORACLE through a differentiable copy of the worklet ([oracle-neural.md](../proposals/oracle-neural.md)). |
+| Lehiste and Peterson 1961; Hombert 1978 | The F0 bump at a vowel's onset after a consonant. |
+| Pierrehumbert 1981 | Pitch bridging between close accents (`sagShape`). |
+| Bachenko and Fitzpatrick 1990 | The break between a long subject and its verb (`AUX_BREAK`). |
+| Black, Lenzo and Pagel 1998 (Flite's letter-to-sound) | The decision trees for words the lexicon lacks ([build-lts.mjs](../../scripts/voice/build-lts.mjs)). Its CMUdict attribution stays in the header of [oracle-lts.js](../../client/shared/oracle-lts.js). |
 | House, Williams, Hecker and Kryter 1965 | The Modified Rhyme Test's 50 six-word sets ([voicelab.js](../../client/devpanel/js/panels/voicelab.js)). |
 | The Harvard sentences | Intelligibility scoring with Whisper and a NeMo recogniser ([systems-procedural-audio.md](../systems-procedural-audio.md)). |
+| Mehta et al. 2024, Matcha-TTS; Lyth and King 2024, Parler-TTS; Li et al. 2023, StyleTTS 2 | Candidate teachers for the controller's training data ([oracle-teacher.md](../proposals/oracle-teacher.md)). |
+| Ito and Johnson 2017, the LJ Speech Dataset; Zen et al. 2019, LibriTTS (and LibriTTS-R) | The data under the candidate teachers, checked for licence ([oracle-teacher.md](../proposals/oracle-teacher.md)). |
+| McAuliffe et al. 2017, Montreal Forced Aligner; Kim et al. 2018, CREPE | Phone boundaries and F0 from teacher audio ([oracle-teacher.md](../proposals/oracle-teacher.md)). |
+| Kominek and Black 2004, CMU ARCTIC | Phonetically balanced prompts for the teacher's text ([oracle-teacher.md](../proposals/oracle-teacher.md)). |
 | Paul Kellett's filter | Pink noise ([audio-engine.js](../../client/shared/audio-engine.js)). |
 
 ### Sound and music

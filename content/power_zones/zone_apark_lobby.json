@@ -1,0 +1,7 @@
+{
+  "capacity_kw": 5000,
+  "generator_id": "gen_zone_powerplantnew_1782069598190",
+  "id": "zone_apark_lobby",
+  "name": "Airport Parking Plaza: Lobby",
+  "source_type": "city_grid"
+}

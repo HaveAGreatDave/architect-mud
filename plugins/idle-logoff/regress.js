@@ -1,6 +1,6 @@
 // idle-logoff regress — drives the tick.minute sweep directly with a capturing
 // broadcast, time-traveling the harness player's _lastInputAt stamp.
-import { hooks, IDLE_WARN_MS, IDLE_KICK_MS } from './index.js';
+import { hooks, IDLE_WARN_MS, IDLE_KICK_MS, IDLE_LOGOFF_ON, setIdleLogoff } from './index.js';
 
 export default async function ({ run, check, getPlayer }) {
   const p = getPlayer();
@@ -8,7 +8,8 @@ export default async function ({ run, check, getPlayer }) {
   const broadcast = (a, msg, b, playerId) => { if (playerId === p.id) sent.push(msg); };
   const sweep = () => hooks['tick.minute']({ broadcast });
 
-  const saved = { last: p._lastInputAt, warned: p._idleWarnedAt };
+  const saved = { last: p._lastInputAt, warned: p._idleWarnedAt, on: IDLE_LOGOFF_ON };
+  setIdleLogoff(true);
   try {
     // Fresh player: first sweep seeds the clock, says nothing.
     delete p._lastInputAt; delete p._idleWarnedAt;
@@ -49,5 +50,6 @@ export default async function ({ run, check, getPlayer }) {
     // Leave no idle state behind for later suites.
     if (saved.last == null) p._lastInputAt = Date.now(); else p._lastInputAt = saved.last;
     if (saved.warned == null) delete p._idleWarnedAt; else p._idleWarnedAt = saved.warned;
+    setIdleLogoff(saved.on);
   }
 }

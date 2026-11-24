@@ -91,7 +91,7 @@ uniform float uSeamEB;
 // Holes in the ground: a truck shed's lift well while its platform is down (windshield.js BAY_LIFT), so the
 // basement under the shed shows through it. x0, y0, x1, y1 in world tiles; nothing is drawn inside one, and
 // it writes no depth, so whatever stands below the ground there is seen.
-#define MAX_HOLE 2
+#define MAX_HOLE 6
 uniform vec4  uHole[MAX_HOLE];
 uniform int   uHoleN;
 
@@ -152,6 +152,7 @@ uniform float uSeaWind;   // the wind sea amplitude — the steep 3.2-tile train
 uniform float uShoal;    // how far, in tiles, a crest is dragged along the shore as it shallows
 uniform vec2  uSeaRot;   // (cos, sin) of the sea's heading: it runs downwind; (1, 0) is as shipped
 uniform float uSurf;     // 0 = the surf band pulses on its own clock as shipped, 1 = it runs up and back with the swell
+uniform float uBore;   // the broken wave's bore runs further up the sand and leaves a foam line; 0 is as shipped
 uniform float uSpread;   // 0 = the single-train sea that shipped, 1 = the full spectral band
 uniform float uSeaAmp;
 uniform float uFoamFar;   // Monahan whitecap threshold for the smooth chop; negative = the fixed 0.90
@@ -1133,12 +1134,21 @@ void main() {
       // ⚠ seaRoll at unit amplitude, so it is a PHASE and does not scale with the sea state; the
       // reach does, off uSeaRoll, so a glass day barely laps and a gale runs well up the sand.
       float rn = clamp(seaRoll(vec2(swx, swy), uT, 1.0, uSpread), -1.2, 1.2) / 1.2;
-      float reach = uSurf * (0.03 + clamp(uSeaRoll * 1.6, 0.0, 0.09));
+      float reach = uSurf * (0.03 + clamp(uSeaRoll * 1.6, 0.0, 0.09)) * (1.0 + 0.6 * uBore);
       float edge = 0.56 - reach * (0.5 + 0.5 * rn);   // the swash's leading edge, in waterW
-      float band = clamp(1.0 - abs(waterW - (edge + 0.07)) / 0.14, 0.0, 1.0);
+      // With the bore the white water behind the edge is a wide churned sheet, not a thin band.
+      float bw = 0.14 * (1.0 + 0.8 * uBore);
+      float band = clamp(1.0 - abs(waterW - (edge + bw * 0.5)) / bw, 0.0, 1.0);
       float lip = clamp(1.0 - abs(waterW - edge) / 0.018, 0.0, 1.0);
       float brk = 0.55 + 0.45 * vnoise2(swx * 3.1 + uT * 0.2, swy * 3.1);
-      foam = max(band * band * (0.45 + 0.35 * max(0.0, rn)), lip * 0.95) * brk;
+      foam = max(band * band * (0.45 + 0.35 * max(0.0, rn) + 0.2 * uBore), lip * 0.95) * brk;
+      // The foam line: where the last runs reached, a torn strand of spent foam stays on the wet sand.
+      if (uBore > 0.0) {
+        float top = 0.56 - reach;
+        float line = clamp(1.0 - abs(waterW - (top + 0.012)) / 0.02, 0.0, 1.0);
+        float strand = smoothstep(0.45, 0.8, vnoise2(swx * 7.3, swy * 7.3 + uT * 0.03));
+        foam = max(foam, line * strand * 0.6 * uBore);
+      }
       // Sand the wash has just run back off is darker and glossy for a moment.
       if (waterW < edge && waterW > edge - 0.10) tex *= 1.0 - (1.0 - (edge - waterW) / 0.10) * 0.16 * uSurf;
     } else {
@@ -1515,7 +1525,7 @@ export function createFloorLayer(gl) {
     nRoad: U('uNRoad'), roadSeg: U('uRoadSeg'), roadW: U('uRoadW'), roadCol: U('uRoadCol'),
     fogAmt: U('uFogAmt'), fogNear: U('uFogNear'), fogFar: U('uFogFar'), fogCol: U('uFogCol'),
     fogH: U('uFogH'), fogHScale: U('uFogHScale'),
-    t: U('uT'), seaLit: U('uSeaLit'), seaRoll: U('uSeaRoll'), seaWind: U('uSeaWind'), seaAmp: U('uSeaAmp'), foamFar: U('uFoamFar'), spread: U('uSpread'), shoal: U('uShoal'), seaRot: U('uSeaRot'), surf: U('uSurf'),
+    t: U('uT'), seaLit: U('uSeaLit'), seaRoll: U('uSeaRoll'), seaWind: U('uSeaWind'), seaAmp: U('uSeaAmp'), foamFar: U('uFoamFar'), spread: U('uSpread'), shoal: U('uShoal'), seaRot: U('uSeaRot'), surf: U('uSurf'), bore: U('uBore'),
     sunDir: U('uSunDir'), sunElev: U('uSunElev'),
     moonDir: U('uMoonDir'), moonElev: U('uMoonElev'), night: U('uNight'),
     heliDown: U('uHeliDown'), rotor: U('uRotor'), dc: U('uDC'),
@@ -1593,9 +1603,9 @@ export function createFloorLayer(gl) {
     gl.uniform1f(loc.freq, s.freq); gl.uniform1f(loc.cwarp, s.cwarp);
     gl.uniform2f(loc.wc, s.wcx, s.wcy); gl.uniform1f(loc.seamEB, s.seamEB);
     // Written every frame, so a well that has closed isn't left cut out of the ground.
-    const holes = s.holes && s.holes.length ? s.holes.slice(0, 2) : null;
+    const holes = s.holes && s.holes.length ? s.holes.slice(0, 6) : null;   // MAX_HOLE: a lift well, or the rooms of the building you're in at street level
     gl.uniform1i(loc.holeN, holes ? holes.length : 0);
-    if (holes) gl.uniform4fv(loc.hole, new Float32Array([].concat(...holes, ...(holes.length < 2 ? [[0, 0, 0, 0]] : []))));
+    if (holes) gl.uniform4fv(loc.hole, new Float32Array([].concat(...holes, ...Array.from({ length: 6 - holes.length }, () => [0, 0, 0, 0]))));
     const fd =s.farDirt || [150, 112, 72], fr = s.farRock || [150, 82, 54];
     gl.uniform3f(loc.farDirt, fd[0] / 255, fd[1] / 255, fd[2] / 255);
     gl.uniform3f(loc.farRock, fr[0] / 255, fr[1] / 255, fr[2] / 255);
@@ -1673,6 +1683,7 @@ export function createFloorLayer(gl) {
     const rot = s.seaRot || [1, 0];
     gl.uniform2f(loc.seaRot, rot[0], rot[1]);
     gl.uniform1f(loc.surf, s.seaSurf == null ? 0 : s.seaSurf);
+    gl.uniform1f(loc.bore, s.seaBore || 0);
     const sd = s.sunDir || [0, 0], md = s.moonDir || [0, 0];
     gl.uniform2f(loc.sunDir, sd[0], sd[1]); gl.uniform1f(loc.sunElev, s.sunElev || 0);
     gl.uniform2f(loc.moonDir, md[0], md[1]); gl.uniform1f(loc.moonElev, s.moonElev || 0);

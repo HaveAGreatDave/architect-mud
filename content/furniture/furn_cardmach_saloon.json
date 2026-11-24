@@ -4,6 +4,10 @@
     "click_cmd": "buypack",
     "interactions": [],
     "notable": true,
+    "spot": {
+      "along": 1.2,
+      "wall": "left"
+    },
     "vends_packs": 1
   },
   "hp": null,

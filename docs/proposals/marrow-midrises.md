@@ -42,6 +42,9 @@ about a storey either way of `floors`.
 - **Unit 4 is one of four storefronts a player can buy**, so it moved rather than closed.
   `zone_sf_marrow4` kept its id, price and terms, so any deed in the storefront tables follows it.
   Its authored model is bound by name and went with it. Denna Sorrel, who sits on its step, went too.
+- **Unit 4 came off the market on 2026-11-22**, when Compound Interest took the tile
+  ([compound-interest.md](compound-interest.md)). Its rooms are stored, and Denna sits on Unit 9's
+  step.
 - **The Slip moved, it didn't close.** Its shop, back room, utility room, map, shop door, furniture
   and Sluice all kept their ids; only the facade tile changed. It took the old weigh-house at the
   top of the lay-by where the weighbridge stood, two tiles from the gate into the Shingles. A weigh

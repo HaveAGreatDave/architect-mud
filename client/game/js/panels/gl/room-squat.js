@@ -9,6 +9,9 @@
 //   leaks    [{ at: [u, v], catch?: 'bucket'|'pan'|'none', r? }]
 //            a stain on the ceiling over something set to catch it, and a wet patch round that. While the
 //            weather is rain (precip-look.js precipKind) leaksProps drips it, every frame, on the props layer.
+//   torn     [{ wall, along, y?, n?, seed? }]            flyers and posters pasted over each other, torn, some peeling
+//   kit      [{ at: [u, v], seed?, turn? }]              what a user leaves: syringes, a burnt spoon, foil, a lighter, a pipe, baggies
+//   bags     [{ at: [u, v], n?, seed? }]                 a heap of tied black bin bags, some split
 //
 // Positions are roomLayout's u and v in metres; y is up from the floor.
 
@@ -48,6 +51,74 @@ export function drawSquatDecor(K, L, dc, ctx) {
   for (const c of [].concat(dc.mags || [])) if (isAt(c)) mags(K, c);
   for (const c of [].concat(dc.damp || [])) if (isAt(c)) stain(K, c.at[0], c.at[1], num(c.r, 0.6, 0.1, 3), H, 0x5a11 + Math.round(c.at[0] * 97 + c.at[1] * 31));
   for (const c of [].concat(dc.leaks || [])) if (isAt(c)) leak(K, c, H);
+  for (const c of [].concat(dc.torn || [])) if (c && WALLS.has(c.wall) && Number.isFinite(c.along)) torn(K, L, c);
+  for (const c of [].concat(dc.kit || [])) if (isAt(c)) kit(K, c);
+  for (const c of [].concat(dc.bags || [])) if (isAt(c)) bags(K, c);
+}
+
+// ── TORN POSTERS: layers of paste-ups on a wall, ripped back, a corner or two hanging off ───────────────
+const WALLS = new Set(['front', 'back', 'left', 'right']);
+const SHEETS = ['#d8d0b4', '#b8a448', '#9a3a30', '#3a5a82', '#b8708a', '#e0d8c4', '#3a3632', '#b8743a', '#c8c0a8'];
+function torn(K, L, c) {
+  const hu = L.w / 2, D = L.d, a = c.along;
+  const [u, v, fu, fv] = c.wall === 'front' ? [a, 0, 0, 1] : c.wall === 'back' ? [a, D, 0, -1] : c.wall === 'left' ? [-hu, a, 1, 0] : [hu, a, -1, 0];
+  const F = K.frame(u, v, fu, fv), r = rng(num(c.seed, 1) * 389 + 17), n = Math.round(num(c.n, 6, 1, 30)), y = num(c.y, 1.45, 0.4, 3);
+  for (let i = 0; i < n; i++) {
+    const w = 0.4 + r() * 0.35, h = w * (1.2 + r() * 0.3), x = (r() - 0.5) * 1.3, yy = y + (r() - 0.5) * 0.5, z = 0.002 + i * 0.0012;
+    const hex = pick(r, SHEETS), cut = r();
+    // the sheet, with its bottom ripped away where somebody pulled at it, the tear ragged
+    const keep = cut < 0.4 ? 0.45 + r() * 0.3 : 1, bot = yy - h / 2 + h * (1 - keep);
+    F.pbox(x - w / 2, x + w / 2, bot, yy + h / 2, z, z + 0.001, hex, 0.95, null, MATTE);
+    if (keep < 1) for (let j = 0; j < 4; j++) { const sx = x - w / 2 + (j + r()) * w / 4; F.pbox(sx - 0.03, sx + 0.03, bot - 0.02 - r() * 0.05, bot, z, z + 0.001, hex, 0.9, null, MATTE); }
+    // its print: a block of colour and a few lines of type, faded
+    if (keep > 0.6) {
+      F.pbox(x - w * 0.36, x + w * 0.36, yy + h * 0.05, yy + h * 0.38, z + 0.001, z + 0.0016, pick(r, SHEETS), 0.8, null, MATTE);
+      for (let j = 0; j < 3; j++) F.pbox(x - w * 0.34, x + w * (0.1 + r() * 0.24), yy - h * 0.1 - j * 0.04, yy - h * 0.1 - j * 0.04 + 0.016, z + 0.001, z + 0.0016, '#2a2622', 0.9, null, MATTE);
+    }
+    // a corner peeled off the wall and hanging forward
+    if (r() < 0.45) { const sd = r() < 0.5 ? -1 : 1, ex = x + sd * w / 2; F.pbox(Math.min(ex, ex - sd * 0.12), Math.max(ex, ex - sd * 0.12), yy + h / 2 - 0.14, yy + h / 2 - 0.02, z + 0.01, z + 0.03, '#d8d0bc', 0.75, null, MATTE); }
+    // tape at the top corners, gone yellow
+    if (r() < 0.5) for (const sx of [-1, 1]) F.pbox(x + sx * w / 2 - 0.025, x + sx * w / 2 + 0.025, yy + h / 2 - 0.02, yy + h / 2 + 0.015, z + 0.0015, z + 0.002, '#c8b070', 0.9, null, GLOSS);
+  }
+}
+
+// ── A USER'S KIT, left where they sat: syringes, a spoon burnt black, foil, a lighter, a pipe, baggies ────
+function kit(K, c) {
+  const [u, v] = c.at, r = rng(num(c.seed, 2) * 733 + 5), b = num(c.turn, r() * 360) * Math.PI / 180;
+  const at = (dx, dz, t) => { const ca = Math.cos(b), sa = Math.sin(b), a = b + t; return K.frame(u + ca * dx - sa * dz, v + sa * dx + ca * dz, Math.cos(a), Math.sin(a)); };
+  // two or three syringes, orange caps off
+  const ns = 2 + Math.floor(r() * 2);
+  for (let i = 0; i < ns; i++) {
+    const F = at((r() - 0.5) * 0.35, (r() - 0.5) * 0.3, r() * TAU);
+    F.pbox(-0.045, 0.035, 0, 0.012, -0.006, 0.006, '#e8eef0', 1, null, GLOSS);
+    F.pbox(0.035, 0.05, 0.002, 0.01, -0.004, 0.004, '#e86a1a', 1, null, GLOSS);
+    F.pbox(0.05, 0.075, 0.005, 0.007, -0.001, 0.001, '#c0c4c8', 1, null, METAL);
+    F.pbox(-0.06, -0.045, 0, 0.016, -0.009, 0.009, '#e8eef0', 1, null, GLOSS);
+  }
+  // a spoon with its bowl burnt black
+  { const F = at(0.1, -0.08, r() * TAU); F.pbox(-0.07, 0.02, 0, 0.004, -0.007, 0.007, '#b0b4b8', 1, null, METAL); F.pbox(0.02, 0.06, 0, 0.008, -0.02, 0.02, '#2a2420', 1, null, METAL); }
+  // a square of foil, crumpled, with a brown run down it
+  { const F = at(-0.12, 0.1, r() * TAU); F.pbox(-0.07, 0.07, 0, 0.003, -0.05, 0.05, '#c8ccd0', 1.05, null, METAL); F.pbox(-0.05, 0.04, 0.003, 0.0034, -0.006, 0.006, '#5a3412', 1, null, MATTE); }
+  // a disposable lighter
+  { const F = at(0.16, 0.08, r() * TAU); F.pbox(-0.04, 0.04, 0, 0.012, -0.012, 0.012, pick(r, ['#c8202a', '#2a6ac8', '#e8c020', '#3aa848']), 1, null, GLOSS); F.pbox(0.03, 0.045, 0.002, 0.014, -0.01, 0.01, '#9ea4a8', 1, null, METAL); }
+  // a glass pipe, the bowl smoked brown
+  { const F = at(-0.04, -0.14, r() * TAU); F.pbox(-0.08, 0.04, 0.004, 0.012, -0.004, 0.004, '#d8e4e8', 1, null, GLOSS); const [pu, pv] = F.P(0.055, 0, 0); K.lathe(pu, pv, [[0, 0], [0.012, 0.002], [0.016, 0.014], [0.012, 0.024], [0, 0.024]], '#6a4a2a', 0.9, 10, GLOSS); }
+  // little zip bags, emptied
+  for (let i = 0; i < 4; i++) { const F = at((r() - 0.5) * 0.45, (r() - 0.5) * 0.4, r() * TAU); F.pbox(-0.02, 0.02, 0, 0.002, -0.025, 0.025, '#e4ecee', 0.9, null, GLOSS); F.pbox(-0.02, 0.02, 0.002, 0.0026, 0.018, 0.022, pick(r, ['#c8202a', '#2a6ac8', '#1a1a1a']), 1, null, GLOSS); }
+  // a belt for tying off, left lying
+  { const F = at(0.02, 0.18, r() * TAU); F.pbox(-0.16, 0.16, 0, 0.005, -0.016, 0.016, '#3a2418', 1, null, SATIN); F.pbox(0.16, 0.2, 0, 0.008, -0.02, 0.02, '#a8a090', 1, null, METAL); }
+}
+
+// ── BIN BAGS, heaped where the last person gave up carrying them down ─────────────────────────────────
+function bags(K, c) {
+  const [u, v] = c.at, n = Math.round(num(c.n, 4, 1, 16)), r = rng(num(c.seed, 3) * 457 + 3);
+  for (let i = 0; i < n; i++) {
+    const a = r() * TAU, d = Math.sqrt(r()) * 0.35, x = u + Math.cos(a) * d, z = v + Math.sin(a) * d, s = 0.28 + r() * 0.1, y0 = i > 2 && r() < 0.6 ? s * 0.5 : 0;
+    const hex = r() < 0.8 ? '#141517' : '#2a3a5a';
+    K.lathe(x, z, [[0, y0], [s * 0.95, y0 + 0.02], [s * 1.1, y0 + s * 0.4], [s * 0.85, y0 + s * 0.85], [0.05, y0 + s * 1.05], [0.06, y0 + s * 1.22], [0, y0 + s * 1.25]], hex, 1, 7, SATIN);
+    // a split one has let a can roll out of the tear
+    if (r() < 0.35) { const F = K.frame(x + Math.cos(a) * s * 1.2, z + Math.sin(a) * s * 1.2, Math.cos(a), Math.sin(a)); F.pbox(-0.06, 0.06, 0, 0.066, -0.033, 0.033, pick(r, CANS), 0.8, null, METAL); }
+  }
 }
 
 // ── A STAIN on the ceiling: rings of brown laid one inside another, darker at the tide line ───────────

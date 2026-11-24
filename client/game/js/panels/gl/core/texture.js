@@ -23,3 +23,21 @@ export function texture2D(gl, { w, h, depth = false, format = null, type = null,
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wr);
   return t;
 }
+
+// Whether what's drawn into `fb` (a framebuffer, or null for the canvas) is float. A copy of its picture taken by blit
+// has to be float too: WebGL2 refuses a blit between float and fixed-point colour, and a multisampled source wants the
+// same format exactly. GLASS draws into an RGBA16F target where it can (gl/hdr.js); the Room Stage's canvas is 8-bit.
+// Asked once per framebuffer object.
+const FLOAT_FB = new WeakMap();
+export function drawsFloat(gl, fb) {
+  if (!fb) return false;
+  let f = FLOAT_FB.get(fb);
+  if (f === undefined) {
+    const was = gl.getParameter(gl.READ_FRAMEBUFFER_BINDING);
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, fb);
+    f = gl.getFramebufferAttachmentParameter(gl.READ_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.FRAMEBUFFER_ATTACHMENT_COMPONENT_TYPE) === gl.FLOAT;
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, was);
+    FLOAT_FB.set(fb, f);
+  }
+  return f;
+}

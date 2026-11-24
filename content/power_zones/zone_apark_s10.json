@@ -1,0 +1,7 @@
+{
+  "capacity_kw": 2000,
+  "generator_id": "gen_zone_powerplantnew_1782069598190",
+  "id": "zone_apark_s10",
+  "name": "Airport Parking Plaza, Slot 10",
+  "source_type": "city_grid"
+}

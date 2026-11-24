@@ -7,7 +7,7 @@
     "container": 24000,
     "dish_cabinet": true,
     "spot": {
-      "along": 6.35,
+      "along": 6.5,
       "wall": "right"
     }
   },

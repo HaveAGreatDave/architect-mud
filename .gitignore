@@ -39,3 +39,13 @@ sound-match-out/
 
 # Field-recording originals (scripts/audio/build-field-recordings.mjs --fetch)
 .cache/field-recordings/
+
+# Image-to-mesh references (tools/mesh-gen): local tool output, never shipped
+tools/mesh-gen/out/
+
+# Dev server logs
+.devserver*.log
+
+# Local logs (dev server, regress, push output)
+logs/*
+!logs/.gitkeep

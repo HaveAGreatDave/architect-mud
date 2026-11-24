@@ -5828,7 +5828,6 @@ function renderTv(d) {
         <button data-tv="stage-btn" title="3-D: watch this show on its set">3D</button>
         <button data-tv="standings-btn" title="Standings: the DEADBALL league table">&#x1F3C6;</button>
         <button data-tv="read-btn" title="Read broadcast aloud">&#x1F508;</button>
-        <button class="tos-tv-fs" type="button" title="Full screen" aria-label="Full screen" aria-pressed="false"></button>
       </div>
     </div>
     <div class="tos-tv-dial">${chips}</div>
@@ -5850,38 +5849,8 @@ function mountWorldmap() {
 }
 function unmountWorldmap() { _worldmapGen++; _worldmap?.destroy(); _worldmap = null; }
 
-// The control row's right-hand button takes the set full screen; Esc or the button again comes
-// back. ⚠ THE SET, NOT THE SCREEN: full screen on the picture alone left the control row (3D,
-// Gameday, the guide, the channels, and this button, the only way out on a tablet with no Esc key)
-// off the screen. A sports view's own full-screen button takes the same set (tv.js). render() holds
-// off repainting while the set is full (see its first guard). A browser that can't take an element
-// full screen (an iPhone) gets no button.
-const TV_FS_ON = '<svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>';
-const TV_FS_OFF = '<svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M6 2v4H2M14 6h-4V2M10 14v-4h4M2 10h4v4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>';
-function bindTabletTvFullscreen(set) {
-  const btn = set.querySelector('.tos-tv-fs');
-  if (!btn) return;
-  if (!document.fullscreenEnabled || typeof set.requestFullscreen !== 'function') { btn.remove(); return; }
-  // (anything of the set's full screen counts, so the button always leads back out)
-  const full = () => !!document.fullscreenElement && set.contains(document.fullscreenElement);
-  const paint = () => {
-    const on = full();
-    btn.innerHTML = on ? TV_FS_OFF : TV_FS_ON;
-    btn.title = on ? 'Leave full screen (Esc)' : 'Full screen';
-    btn.setAttribute('aria-label', btn.title);
-    btn.setAttribute('aria-pressed', String(on));
-    btn.classList.toggle('on', on);
-  };
-  paint();
-  btn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    if (full()) document.exitFullscreen?.().catch(() => {});
-    else set.requestFullscreen().catch(() => {});
-  });
-  // the set is rebuilt on every fresh mount, so the listener goes when its button does
-  const sync = () => { if (!btn.isConnected) document.removeEventListener('fullscreenchange', sync); else paint(); };
-  document.addEventListener('fullscreenchange', sync);
-}
+// Full screen and mute are the set's own corner (tv.js _mountCorner). render() holds off repainting
+// while the set is full (see its first guard).
 
 function mountTabletTv() {
   unmountTabletTv();
@@ -5895,7 +5864,6 @@ function mountTabletTv() {
     unwatchMsg: 'tablet_tv_unwatch',
   });
   _tvView.init();
-  bindTabletTvFullscreen(host);
   // Open with the picture centred, not under the clock/summary row.
   requestAnimationFrame(() => {
     const scroll = _overlay?.querySelector('.tos-scroll');

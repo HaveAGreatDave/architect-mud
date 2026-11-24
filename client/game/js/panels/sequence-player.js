@@ -23,6 +23,7 @@ import { createGfxLayer, paintSlate, paintBoard } from './sequence-gfx.js';
 import { paintBank } from './gl/screen-bank.js';
 import { timeline, timelineLength, beatAt, gfxAt, shotCamera, roleMark, fill, tableRows, autoShot, lineSeconds, CUTS, sourceKind, camerasFacing, directionOf, parseCamLabel, cameraOf } from '../../../shared/sequence.js';
 import { mouthTrack, textTrack, mouthAt } from '../../../shared/lip-sync.js';
+import { isMood } from '../../../shared/expressions.js';
 
 const PIP_MS = 80;       // a second camera, twelve times a second
 const WALL_MS = 66;      // the live feed on the wall
@@ -366,7 +367,18 @@ export function createSequencePlayer(host, { mode = 'clock', phone = false, feed
 
   const roles = () => Object.keys(S.seq.roles || {});
   // The people, each on their mark, turned a little to whoever's talking.
-  function bodiesAt(it) {
+  // Where each one looks: the one talking looks down the lens, the rest at the one talking. A beat's
+  // `look` ({ role: 'camera' | another role | 'none' }) says otherwise for that beat.
+  const headOf = (m) => [m.at[0], (+m.lift || 0) + ((m.pose || 'sit') === 'sit' ? 1.15 : 1.55), m.at[1]];
+  function watchFor(r, it, eye) {
+    const told = it?.beat.look?.[r], speaker = it?.role;
+    const aim = told || (!speaker ? null : speaker === r ? 'camera' : speaker);
+    if (!aim || aim === 'none') return null;
+    if (aim === 'camera') return eye || null;
+    const m = aim !== r ? roleMark(S.set, S.seq, aim) : null;
+    return m && !m.walk ? headOf(m) : null;
+  }
+  function bodiesAt(it, eye = null) {
     const out = [];
     for (const r of roles()) {
       if (roleMark(S.set, S.seq, r)?.walk) stepWalk(r);
@@ -389,7 +401,7 @@ export function createSequencePlayer(host, { mode = 'clock', phone = false, feed
       // an act starts its clip at the head of the beat, so a slam lands once rather than wherever the clock was
       const clip = actClipFor(it?.beat.act?.[r] || mark.act, mark.pose || 'sit'), into = Math.max(0, t - (it?.t0 || 0));
       const phase = clip ? (clipOnce(clip) ? Math.min(0.999, into / clipOnce(clip)) : into / clipDur(clip)) : undefined;
-      out.push({ id: who.id, at: mark.at, yaw: next, pose: mark.pose || 'sit', lift: +mark.lift || 0, table: mark.table || null, surfaces: mark.surfaces || null, sculpt: true, sex: who.sex, figure: who.figure, dress: who.dress || '', mouth: mouthOf(r), gaze: [0, 0.06], ...(clip ? { clip, phase } : {}) });
+      out.push({ id: who.id, at: mark.at, yaw: next, pose: mark.pose || 'sit', lift: +mark.lift || 0, table: mark.table || null, surfaces: mark.surfaces || null, sculpt: true, sex: who.sex, figure: who.figure, dress: who.dress || '', mouth: mouthOf(r), ...((w) => w ? { watch: w, watchHold: true } : { gaze: [0, 0.06] })(watchFor(r, it, eye)), ...(clip ? { clip, phase } : {}), ...(isMood(it?.beat.face?.[r]) ? { mood: { m: it.beat.face[r], i: 1 } } : {}) });
     }
     return out;
   }
@@ -501,7 +513,7 @@ export function createSequencePlayer(host, { mode = 'clock', phone = false, feed
     const i = beatAt(S.tl, t), it = S.tl[i];
     if (i !== beatNow) enterBeat(i);
     const k = Math.min(1, (t - it.t0) / it.dur), cam = shotCamera(S.set, S.seq, it.beat.shot, k, t - it.t0);
-    R.setFigures(figurePeople(SET_FRAME, bodiesAt(it), now / 1000, { level: phone ? 'lite' : 'hd', eye: cam.eye }));
+    R.setFigures(figurePeople(SET_FRAME, bodiesAt(it, cam.eye), now / 1000, { level: phone ? 'lite' : 'hd', eye: cam.eye }));
     paintWall(it, now);
     gfx.sync(gfxAt(S.tl, t));
     paintSources(now, it);
@@ -557,7 +569,7 @@ export function createSequencePlayer(host, { mode = 'clock', phone = false, feed
       const it = S?.tl.find((x) => x.i === i);
       if (!it) return false;
       const cam = shotCamera(S.set, S.seq, it.beat.shot, 0.5, 0);
-      R.setFigures(figurePeople(SET_FRAME, bodiesAt(it), 0, { level: 'lite', eye: cam.eye }));
+      R.setFigures(figurePeople(SET_FRAME, bodiesAt(it, cam.eye), 0, { level: 'lite', eye: cam.eye }));
       paintWall(it, 0);
       R.render(cam, light());
       out.getContext('2d').drawImage(canvas, 0, 0, out.width, out.height);

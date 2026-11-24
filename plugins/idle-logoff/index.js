@@ -20,9 +20,20 @@ import { getAllLivePlayers } from '../../server/engine/world.js';
 export const IDLE_WARN_MS = 15 * 60 * 1000;
 export const IDLE_KICK_MS = 20 * 60 * 1000;
 
+// Off on a local database: the kick exists to let prod's Neon and Render idle,
+// and a dev server costs nothing to keep a player on. Keyed off the DB host, as
+// db.js keys TLS, never NODE_ENV. Prod's URL is never localhost.
+function isLocalDb(url = process.env.DATABASE_URL) {
+  if (!url) return true;
+  try { return /^(localhost|127\.0\.0\.1|::1)$/.test(new URL(url).hostname); } catch { return false; }
+}
+export let IDLE_LOGOFF_ON = !isLocalDb() || process.env.IDLE_LOGOFF === '1';
+// For the regress suite, which runs on a local DB and still tests the sweep.
+export function setIdleLogoff(on) { IDLE_LOGOFF_ON = !!on; }
+
 export const hooks = {
   'tick.minute': async ({ broadcast } = {}) => {
-    if (!broadcast) return;
+    if (!broadcast || !IDLE_LOGOFF_ON) return;
     const now = Date.now();
     for (const player of getAllLivePlayers()) {
       // First sighting (covers login/reconnect before any input): start the clock.

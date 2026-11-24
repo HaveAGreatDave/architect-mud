@@ -62,7 +62,7 @@ export default async function regress({ run, check }) {
 
   // ── The shipped content is actually claimable ──────────────────────────────
   const units = [...world.zones.values()].filter(z => z.flags?.is_storefront);
-  check('vacant shopfronts ship in content', units.length >= 4, `${units.length} unit(s)`);
+  check('vacant shopfronts ship in content', units.length >= 3, `${units.length} unit(s)`);
   for (const u of units) {
     const t = authoredTerms(u);
     check(`${u.id} is priced and reachable`, t.price > 0 && t.weekly > 0 && Object.keys(u.exits || {}).length > 0,

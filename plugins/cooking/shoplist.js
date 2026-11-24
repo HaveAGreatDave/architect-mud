@@ -19,6 +19,7 @@ import { getFlagById, setFlagById, clearFlagsIn } from '../../server/engine/flag
 import { getItem, getItemCache } from '../../server/engine/items-cache.js';
 import { PROFILES, profileNameFor } from './profiles.js';
 import { unitsOf, ingredientLine, keyNounFor, DISHES } from './dishes.js';
+import { isShelved } from './pantry.js';
 import { GEAR, gearFor, gearKeysOf, gearExamples } from './gear.js';
 
 export const SHOPLIST_FLAG = 'shoplist';
@@ -309,6 +310,7 @@ export function buyableExamples(profileName, template = null) {
   const cands = new Map();       // noun → rank tuple
   for (const item of getItemCache().values()) {
     const tags = item?.tags || {};
+    if (isShelved(item)) continue;
     // The tin is `liquid` with `food_also: soft_vegetable` — the narrowed class
     // is answered by a secondary identity here, so the sweep has to see both or
     // a required tomato would have no buyable answer at all.

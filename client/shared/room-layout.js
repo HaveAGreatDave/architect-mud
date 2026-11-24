@@ -167,10 +167,10 @@ export const WASH_FORMS = Object.freeze(['basin', 'vanity']);
 export const FORMS = Object.freeze({
   seat: ['stool', 'chair', 'armchair', 'office', 'stools', 'wingback'], bench: ['bench', 'booth', 'banquette', 'slab'], sofa: ['sofa', 'cot', 'lounger', 'chesterfield'], bed: ['bed', 'pod', 'platform', 'mattress', 'pressbench'],
   screen: ['flat', 'crt', 'slab'], cold: ['fridge', 'double', 'chest', 'column'], hob: ['cooktop', 'range', 'microwave', 'seam', 'induction'],
-  surface: ['counter', 'corner', 'desk', 'rail', 'barwall', 'chemwall', 'bar', 'stage', 'runway', 'reception', 'console', 'treadmill', 'pool', 'pcdesk', 'tradecounter', 'boxoffice', 'grill'], small: ['heater', 'box', 'plinth', 'telescope', 'lacquer', 'boombox', 'smoketable', 'petbowl', 'littertray'], prop: ['cabinet', 'piano', 'fountain', 'catstatue', 'lantern', 'rug', 'bonsai', 'vat', 'tank', 'morphex', 'vatrack', 'manifold', 'gantry', 'jukebox', 'easel', 'packs', 'trophy', 'champion', 'seatdoor', 'resurfacer', 'turnstile', 'balustrade', 'towelrail', 'pigeonholes', 'trolley', 'banner', 'smokebooth', 'vendor'], fireplace: ['hearth', 'firetrough'],
+  surface: ['counter', 'corner', 'desk', 'rail', 'barwall', 'chemwall', 'bar', 'stage', 'runway', 'reception', 'console', 'treadmill', 'pool', 'pcdesk', 'tradecounter', 'boxoffice', 'grill'], small: ['heater', 'box', 'plinth', 'telescope', 'lacquer', 'boombox', 'smoketable', 'petbowl', 'littertray'], prop: ['cabinet', 'piano', 'fountain', 'catstatue', 'lantern', 'rug', 'bonsai', 'vat', 'tank', 'morphex', 'vatrack', 'manifold', 'gantry', 'jukebox', 'easel', 'packs', 'trophy', 'champion', 'seatdoor', 'resurfacer', 'turnstile', 'balustrade', 'towelrail', 'pigeonholes', 'trolley', 'pullup', 'banner', 'smokebooth', 'vendor'], fireplace: ['hearth', 'firetrough'],
   urinal: ['urinal', 'urinaltrough'], stall: ['cubicle'],
   wardrobe: ['wardrobe', 'valet'], cabinet: ['cupboard', 'vitrine', 'humidor', 'rack'], store: ['shelves', 'locker', 'crate', 'weights', 'bookcase', 'racking', 'drawers'],
-  sink: ['kitchen', 'basin', 'trough', 'vanity'], toilet: ['pan', 'hung'], shower: ['stall', 'wetroom', 'bath', 'soak'],
+  sink: ['kitchen', 'basin', 'trough', 'vanity'], toilet: ['pan', 'hung'], shower: ['stall', 'wetroom', 'bath', 'soak', 'gang'],
   deck: ['console', 'portable'], table: ['coffee', 'dining', 'games', 'poker', 'cocktail'], top: ['kettle', 'press'],
 });
 export function formOf(arche, flags = {}, grams = 0, { annex = false } = {}) {
@@ -212,7 +212,7 @@ const FORM_DIMS = { chest: [1.3, 0.72, 0.88], double: [1.3, 0.75, 2.0], range: [
   desk: [1.2, 0.6, 0.76], rail: [1.2, 0.12, 1.0], towelrail: [0.6, 0.16, 1.05], cot: [1.9, 0.75, 0.5], pod: [1.1, 2.15, 1.1], stool: [0.42, 0.42, 0.74], booth: [1.5, 0.7, 1.15],
   column: [0.62, 0.68, 2.0], seam: [1.2, 0.62, 0.92], barwall: [2.2, 0.46, 2.3], chemwall: [2.4, 0.72, 2.3], armchair: [0.82, 0.84, 0.92], office: [0.68, 0.68, 1.24], pcdesk: [1.9, 1.9, 0.75], platform: [2.6, 2.25, 0.62], mattress: [1.0, 2.0, 0.26],
   valet: [2.2, 0.64, 2.3], vitrine: [1.0, 0.36, 1.9], humidor: [0.8, 0.48, 1.45], rack: [0.7, 0.3, 0.5], shelves: [1.2, 0.42, 1.9], locker: [0.6, 0.52, 1.8], crate: [0.72, 0.5, 0.44],
-  basin: [0.62, 0.46, 0.88], vanity: [1.5, 0.52, 0.86], trough: [1.4, 0.5, 0.86], hung: [0.38, 0.56, 0.82], wetroom: [1.3, 1.1, 2.2], bath: [0.8, 1.75, 0.6], soak: [1.0, 2.0, 0.66],
+  basin: [0.62, 0.46, 0.88], vanity: [1.5, 0.52, 0.86], trough: [1.4, 0.5, 0.86], hung: [0.38, 0.56, 0.82], wetroom: [1.3, 1.1, 2.2], gang: [4.6, 0.5, 2.3], bath: [0.8, 1.75, 0.6], soak: [1.0, 2.0, 0.66],
   portable: [0.5, 0.36, 0.2], dining: [1.6, 0.86, 0.76], press: [0.3, 0.36, 0.4], bar: [3.2, 0.8, 1.12],
   reception: [3.4, 0.85, 1.1], console: [1.3, 0.38, 0.82], plinth: [0.4, 0.4, 1.1], slab: [1.6, 0.5, 0.45],
   // an old hotel's (gl/room-hotel.js)
@@ -234,7 +234,7 @@ const FORM_DIMS = { chest: [1.3, 0.72, 0.88], double: [1.3, 0.75, 2.0], range: [
   // a painter's (gl/room-decor.js): a studio easel with a canvas on its ledge; a timber bookcase (gl/room-fittings.js)
   easel: [0.8, 0.7, 1.9], bookcase: [1.0, 0.36, 2.0],
   // a clone facility's (gl/room-decor.js): a print vat with somebody in it, a squat dogged tank, and the MORPHEX pod
-  vat: [1.1, 1.1, 2.4], tank: [1.2, 1.2, 1.3], morphex: [1.5, 1.4, 2.55], vatrack: [0.9, 0.62, 2.3], manifold: [1.8, 0.9, 1.9], gantry: [2.4, 2.4, 3.6],
+  pullup: [1.3, 1.1, 2.4], vat: [1.1, 1.1, 2.4], tank: [1.2, 1.2, 1.3], morphex: [1.5, 1.4, 2.55], vatrack: [0.9, 0.62, 2.3], manifold: [1.8, 0.9, 1.9], gantry: [2.4, 2.4, 3.6],
   // an old bar's (gl/room-saloon.js): a run of stools along it, a seat every STOOL_PITCH, and a jukebox
   stools: [3.2, 0.45, 0.76], jukebox: [0.95, 0.62, 1.55],
   // a shop's (gl/room-shop.js): the trade counter you're served over, pallet racking and a wall of small drawers
@@ -341,7 +341,7 @@ export function screenView(p, k = 1) {
 // hung high on purpose (a `y` on its spot: over a bar, over a reception desk) whatever doesn't reach it.
 // A low table against the wall a set hangs on stands under it (a coffee table as a TV stand): it's below the
 // picture and no deeper than a stand, so it blocks nobody's view. `k` is the room's units per metre.
-export const mayFaceScreen = (p, s = null, k = 1) => p.arche === 'deck' || p.form === 'rug' || !!p.spot?.on || !!p.on || (s?.mount > 0 && p.h < s.mount - s.h / 2)
+export const mayFaceScreen = (p, s = null, k = 1) => p.arche === 'deck' || p.form === 'rug' || !!p.flat || !!p.spot?.on || !!p.on || (s?.mount > 0 && p.h < s.mount - s.h / 2)
   || (p.arche === 'table' && !!p.wall && p.wall === s?.wall && p.h <= 0.6 * k);
 
 // ── what each archetype gives the room ──────────────────────────────────────────────────────────
@@ -387,7 +387,8 @@ function contribute(spec, p) {
   // the dressing gantry hangs from the trunk on its boom, well over head height when parked: only a mark on the floor,
   // so you walk under it
   // a rug lies flat on the floor: you walk on it and things stand on it
-  if (p.form === 'gantry' || p.form === 'rug') return out;
+  // and a decor object (plugins/roomstage/decor-pieces.js) on a wall is out of reach, one on the floor flat or underfoot
+  if (p.form === 'gantry' || p.form === 'rug' || p.flat || p.form === 'walldecor') return out;
   if (p.form === 'seatdoor' || p.form === 'champion' || p.form === 'banner') { if (p.form === 'seatdoor') out.solid.push(fp); station(1.3, 1.6); return out; }
   switch (p.arche) {
     case 'seat':
@@ -433,6 +434,12 @@ function contribute(spec, p) {
       out.climb.push([...fp, 0.44 * k]); break;
     }
     case 'bed':
+      // a press bench: lying on the pad with the eyes under the racked bar (gl/room-decor.js pressbench), and nobody
+      // walks over it
+      if (p.form === 'pressbench') {
+        seat('lie', 0, -p.d / 2 + 0.42 * k, { y: 0.56 * k, lie: true, verb: 'lie', pitch: 0, head: [-fu, -fv], top: 0.45 * k });
+        out.solid.push(fp); break;
+      }
       // the head against the wall, the eye on the pillow looking down the bed
       seat('lie', 0, -p.d / 2 + 0.35 * k, { y: (p.form === 'mattress' ? 0.58 : p.form === 'platform' ? 0.88 : 0.75) * k, lie: true, verb: 'lie', pitch: 0.12, head: [-fu, -fv], top: (p.form === 'pod' ? 0.42 : p.form === 'mattress' ? 0.22 : p.form === 'platform' ? 0.5 : 0.38) * k });
       out.climb.push([...fp, (p.form === 'mattress' ? 0.24 : 0.55) * k]); break;
@@ -532,32 +539,111 @@ export function pitFloorAt(S, u, v) {
 export const STAIR = Object.freeze({ riser: 0.19, going: 0.27, w: 1.1, rail: 0.05, headroom: 2.05, eye: 1.65, gap: 0.1 });
 const CLIMB = Object.freeze({ right: [1, 0], left: [-1, 0], back: [0, 1], front: [0, -1] });
 const r3 = (n) => Math.round(n * 1000) / 1000;
+// A SPIRAL: `spiral: 'left'` or `'right'` (the side its newel is on as you climb, in the frame's x: 'left' is +x)
+// and `r`, the radius of the line walked up it from the newel's centre. Then `s` is metres round that line and `x`
+// metres off it, as on a straight flight, so everything below that works in [s, x] works on both. Past either end
+// the line runs on straight along its tangent, so the step off the top (or onto the bottom) is a straight one.
+// It must turn less than once (len < 2πr), or one spot would be two places on it.
 export function stairSpecOf(v) {
   if (!v || typeof v !== 'object' || !Array.isArray(v.at) || v.at.length !== 2 || !v.at.every(Number.isFinite) || !CLIMB[v.climb]) return null;
-  return { at: [v.at[0], v.at[1]], climb: v.climb, w: clampN(v.w, 0.8, 3, STAIR.w), going: clampN(v.going, 0.22, 0.35, STAIR.going) };
+  const out = { at: [v.at[0], v.at[1]], climb: v.climb, w: clampN(v.w, 0.8, 3, STAIR.w), going: clampN(v.going, 0.22, 0.35, STAIR.going) };
+  if (v.spiral === 'left' || v.spiral === 'right') { out.spiral = v.spiral === 'left' ? 1 : -1; out.r = clampN(v.r, 0.6, 3, 1); }
+  // `headroom`: clear height over the last tread under the floor above, so the well opens sooner (up to 3 m)
+  if (Number.isFinite(v.headroom)) out.headroom = clampN(v.headroom, STAIR.headroom, 3, STAIR.headroom);
+  return out;
 }
 // A flight's numbers for a rise: as many risers as keep each under STAIR.riser
 export function flightOf(st, rise) {
   const n = Math.max(2, Math.ceil(rise / STAIR.riser - 1e-6)), going = st.going || STAIR.going, len = r3((n - 1) * going), [du, dv] = CLIMB[st.climb];
-  const hole = r3(Math.max(0, Math.min(len - 1, (Math.ceil((rise - STAIR.headroom) / (rise / n)) - 1) * going)));
+  const hole = r3(Math.max(0, Math.min(len - 1, (Math.ceil((rise - (st.headroom || STAIR.headroom)) / (rise / n)) - 1) * going)));
   const cross = r3(Math.min(len - 0.4, Math.max(hole + 0.6, len * (rise - STAIR.eye) / rise)));
-  return { foot: [st.at[0], st.at[1]], climb: [du, dv], w: st.w, rise: r3(rise), n, going, len, hole, cross, head: [r3(st.at[0] + du * len), r3(st.at[1] + dv * len)] };
+  const f = { foot: [st.at[0], st.at[1]], climb: [du, dv], w: st.w, rise: r3(rise), n, going, len, hole, cross };
+  if (st.spiral) { f.spiral = st.spiral; f.r = st.r; }
+  const h = flightAt(f, len, 0);
+  return { ...f, head: [r3(h[0]), r3(h[1])] };
 }
 // a room's stairs: its building's stair openings (roomOpenings)
 export const stairsOf = (S) => (S?.openings || []).filter((o) => o.kind === 'stair' && Array.isArray(o.foot) && Array.isArray(o.climb));
+// a spiral's newel centre and turn: the centre is r off the bottom step along +x ('left') or -x ('right')
+const rotV = ([a, b], t) => [a * Math.cos(t) - b * Math.sin(t), a * Math.sin(t) + b * Math.cos(t)];
+function spiralOf(o) {
+  const [cu, cv] = o.climb, k = o.spiral, R = o.r, n = [-cv, cu];
+  return { k, R, c: [o.foot[0] + n[0] * k * R, o.foot[1] + n[1] * k * R], a0: [-n[0] * k, -n[1] * k], sweep: o.len / R };
+}
+// The way the flight goes at `s`, as [du, dv]: its climb on a straight one; round a spiral, its tangent there
+export function flightDir(o, s) {
+  if (!o.spiral) return [o.climb[0], o.climb[1]];
+  const { k, sweep } = spiralOf(o);
+  return rotV(o.climb, k * Math.max(0, Math.min(sweep, s / o.r)));
+}
+// The point [u, v] at `s` along flight `o` and `x` across it (the inverse of flightLocal)
+export function flightAt(o, s, x = 0) {
+  const [cu, cv] = o.climb;
+  if (!o.spiral || s <= 0) return [o.foot[0] + cu * s - cv * x, o.foot[1] + cv * s + cu * x];
+  const { k, R, c, a0, sweep } = spiralOf(o);
+  if (s >= o.len) {
+    const e = flightAt(o, o.len - 1e-9, x), [tu, tv] = rotV(o.climb, k * sweep), d = s - o.len;
+    return [e[0] + tu * d, e[1] + tv * d];
+  }
+  const rad = R - k * x, a = rotV(a0, k * s / R);
+  return [c[0] + a[0] * rad, c[1] + a[1] * rad];
+}
 // [s, x] of a point [u, v] on flight `o`; x runs as the room kit's frame() turns it (gl/room-kit.js)
 export function flightLocal(o, u, v) {
-  const du = u - o.foot[0], dv = v - o.foot[1], [cu, cv] = o.climb;
-  return [du * cu + dv * cv, -du * cv + dv * cu];
+  const straight = (f, cl, s0) => { const du = u - f[0], dv = v - f[1], [cu, cv] = cl; return [s0 + du * cu + dv * cv, -du * cv + dv * cu]; };
+  if (!o.spiral) return straight(o.foot, o.climb, 0);
+  const { k, R, c, a0, sweep } = spiralOf(o), du = u - c[0], dv = v - c[1], rad = Math.hypot(du, dv);
+  // how far round from the bottom step, in the way it turns, with the open sector split between the two ends
+  let t = k * Math.atan2(a0[0] * dv - a0[1] * du, a0[0] * du + a0[1] * dv);
+  const gap = Math.max(0, 2 * Math.PI - sweep);
+  if (t < -gap / 2) t += 2 * Math.PI;
+  if (t < 0) return straight(o.foot, o.climb, 0);
+  if (t > sweep) return straight(flightAt(o, o.len, 0), rotV(o.climb, k * sweep), o.len);
+  return [t * R, k * (R - rad)];
 }
-// [u0, u1, v0, v1] covering s0..s1 along the flight and x0..x1 across it
+// [u0, u1, v0, v1] covering s0..s1 along the flight and x0..x1 across it (round a spiral, the box round that piece of it)
 export function flightBox(o, s0, s1, x0, x1) {
-  const [cu, cv] = o.climb, P = (s, x) => [o.foot[0] + cu * s - cv * x, o.foot[1] + cv * s + cu * x];
-  const ps = [P(s0, x0), P(s1, x0), P(s1, x1), P(s0, x1)];
+  const ps = [];
+  const steps = o.spiral ? Math.max(1, Math.ceil(Math.abs(s1 - s0) / (o.r * 0.1))) : 1;
+  for (let i = 0; i <= steps; i++) { const s = s0 + (s1 - s0) * i / steps; ps.push(flightAt(o, s, x0), flightAt(o, s, x1)); }
   return [Math.min(...ps.map((p) => p[0])), Math.max(...ps.map((p) => p[0])), Math.min(...ps.map((p) => p[1])), Math.max(...ps.map((p) => p[1]))].map(r3);
 }
 // the well cut in the floor above: over the flight from `hole` to the top, and STAIR.gap past its sides
 export const wellBox = (o) => flightBox(o, o.hole, o.len, -o.w / 2 - STAIR.gap, o.w / 2 + STAIR.gap);
+// the well as rectangles to cut: one on a straight flight, a ring of short pieces round a spiral
+export function wellBoxes(o) {
+  if (!o.spiral) return [wellBox(o)];
+  const g = o.w / 2 + STAIR.gap, n = Math.max(2, Math.ceil((o.len - o.hole) / (o.r * 0.3))), out = [];
+  for (let i = 0; i < n; i++) out.push(flightBox(o, o.hole + (o.len - o.hole) * i / n, o.hole + (o.len - o.hole) * (i + 1) / n, -g, g));
+  return out;
+}
+// [u0, u1, v0, v1] less each hole in it, as rectangles: the strips either side of a hole, then the pieces before
+// and after it between them. A floor and a ceiling are laid this way round a stair's well.
+export function cutRects(r, holes) {
+  let out = [r];
+  for (const h of holes) {
+    const next = [];
+    for (const q of out) {
+      if (h[0] >= q[1] || h[1] <= q[0] || h[2] >= q[3] || h[3] <= q[2]) { next.push(q); continue; }
+      const a = Math.max(q[0], h[0]), b = Math.min(q[1], h[1]);
+      if (a > q[0]) next.push([q[0], a, q[2], q[3]]);
+      if (b < q[1]) next.push([b, q[1], q[2], q[3]]);
+      if (h[2] > q[2]) next.push([a, b, q[2], h[2]]);
+      if (h[3] < q[3]) next.push([a, b, h[3], q[3]]);
+    }
+    out = next;
+  }
+  return out.filter((q) => q[1] - q[0] > 1e-3 && q[3] - q[2] > 1e-3);
+}
+// A spiral's rails as solid posts: the newel round its middle and a post every so often down the outer edge
+function spiralSolids(o, a, b) {
+  const { k, R, c } = spiralOf(o), hw = o.w / 2, out = [], nw = Math.max(0.08, (R - hw) * 0.75);
+  out.push([c[0] - nw, c[0] + nw, c[1] - nw, c[1] + nw].map(r3));
+  // below, the outer edge; above, both edges of the ring cut in the floor
+  const xs = o.wall === 'floor' ? [hw + STAIR.gap + 0.03, -hw - STAIR.gap - 0.03] : [-k * (hw + STAIR.rail / 2)], q = 0.07;
+  for (const xo of xs) for (let s = a; s <= b + 1e-6; s += 0.22) { const p = flightAt(o, s, xo); out.push([p[0] - q, p[0] + q, p[1] - q, p[1] + q].map(r3)); }
+  return out;
+}
 // The height of the flight's going at `s`, in its room's frame: each step's tread (`stepped`), or the line up
 // their noses that an eye walks, so climbing doesn't jolt. Null off the flight.
 export function flightY(o, s, stepped = false) {
@@ -599,8 +685,9 @@ export function roomLayout(spec, pieces = []) {
   // (a one-way stair seen from the end it doesn't go from) is solid.
   for (const o of stairsOf(S)) {
     const hw = o.w / 2, rt = STAIR.rail, [a, b] = flightSpan(o);
-    if (!o.dir) { solid.push(flightBox(o, a, b, -hw - rt, hw + rt)); continue; }
-    solid.push(flightBox(o, a, b, hw, hw + rt), flightBox(o, a, b, -hw - rt, -hw));
+    if (!o.dir) { if (o.spiral) solid.push(...wellBoxes(o)); else solid.push(flightBox(o, a, b, -hw - rt, hw + rt)); continue; }
+    if (o.spiral) solid.push(...spiralSolids(o, a, b));
+    else solid.push(flightBox(o, a, b, hw, hw + rt), flightBox(o, a, b, -hw - rt, -hw));
     solid.push(o.wall === 'ceiling' ? flightBox(o, b, b + rt, -hw - rt, hw + rt) : flightBox(o, a - rt, a, -hw - rt, hw + rt));
   }
   // a column or a planter the room's finish stands on the floor (gl/room-decor.js)
@@ -664,7 +751,7 @@ export function roomLayout(spec, pieces = []) {
   const m = 0.9 * ft, radius = 0.6 * ft, bounds = [-w / 2 + m, w / 2 - m, m, d - m];
   // an en-suite is a second rectangle to walk in, joined to the room by the strip through its door,
   // and so is a balcony
-  const rects = [bounds];
+  const rects = S.hull ? hullRects(S, ft) : [bounds];
   if (S.balcony) {
     const [a, b] = S.balcony.door, [u0, u1] = S.balcony.u, rail = 0.25;
     rects.push([a + radius, b - radius, -WALL_T - rail, m + 0.02], [u0 + rail, u1 - rail, -WALL_T - S.balcony.d + rail, -WALL_T - 0.02]);
@@ -811,6 +898,9 @@ export function openingCrossed(L, at) {
     if (!o.dir) continue;
     const [s, x] = flightLocal(o, at[0], at[1]), [a, b] = flightSpan(o);
     if (Math.abs(x) > o.w / 2 || s < a - 0.3 || s > b + 0.3) continue;
+    // ⚠ A SPIRAL'S TOP RUNS ON PAST ITS LAST STEP as a straight line (flightLocal), out over the floor below. Walking
+    // past the open side of the Embassy's spiral on the ground floor counted as up the stairs and pulled you back.
+    if (o.spiral && s > o.len) continue;
     if (o.wall === 'ceiling' ? s > o.cross : s < crossLine(o)) return o;
   }
   return null;
@@ -831,8 +921,8 @@ export function openingPast(L, o, at) {
 // it, or a flight's crossing line, the same distance across it.
 export function heldShort(L, o, at) {
   if (o.kind === 'stair') {
-    const s = flightLocal(o, at[0], at[1])[0], d = (o.wall === 'ceiling' ? crossLine(o) - 0.05 : crossLine(o) + 0.05) - s;
-    return [at[0] + o.climb[0] * d, at[1] + o.climb[1] * d];
+    const [s, x] = flightLocal(o, at[0], at[1]);
+    return flightAt(o, o.wall === 'ceiling' ? crossLine(o) - 0.05 : crossLine(o) + 0.05, x);
   }
   const hu = L.spec.w / 2, lim = WALL_T / 2 - 0.02;
   if (o.wall === 'front') return [at[0], Math.max(at[1], -lim)];
@@ -846,9 +936,9 @@ export function heldShort(L, o, at) {
 export function openingInside(L, o) {
   if (o.kind === 'stair') {
     // come down it, you're stood off its bottom step facing away from it; come up it, off its top, facing on
-    const low = o.wall === 'ceiling', s = low ? -0.5 : o.len + 0.5, k = low ? -1 : 1, want = [o.foot[0] + o.climb[0] * s, o.foot[1] + o.climb[1] * s];
+    const low = o.wall === 'ceiling', s = low ? -0.5 : o.len + 0.5, k = low ? -1 : 1, want = flightAt(o, s, 0), dir = flightDir(o, s);
     const at = roomFree(L, want[0], want[1]) ? want : roomNearFree(L, want[0], want[1], 1.5) || want;
-    const p = L.world(at[0], at[1], 0), q = L.world(at[0] + o.climb[0] * k, at[1] + o.climb[1] * k, 0);
+    const p = L.world(at[0], at[1], 0), q = L.world(at[0] + dir[0] * k, at[1] + dir[1] * k, 0);
     return { at, yaw: Math.atan2(q[0] - p[0], q[2] - p[2]) };
   }
   const [u0, u1, v0, v1] = L.bounds, c = (o.a + o.b) / 2, k = 0.3, hall = hallOf(L.spec, o);
@@ -885,7 +975,9 @@ export const onBalcony =(S, at) => !!S?.balcony && !!at && (at[1] < 0 || (!!S.ba
 // the plan. A partition hides, the room's own walls hide what's past them except through a doorway or
 // glass, and the en-suite shows through its door. Furniture hides nobody, and nor does a wall of the room
 // next door: this is for a name over a head (room-stage.js), which the picture's depth can't hide.
-export function roomSees(L, a, b) {
+// `veiled`: shutters or blinds shut over the glass, so a pane or glass wall hides what's past it; an open
+// doorway still sees through.
+export function roomSees(L, a, b, { veiled = false } = {}) {
   const S = L.spec, hu = S.w / 2, d = S.d;
   const du = b[0] - a[0], dv = b[1] - a[1];
   for (const [u0, u1, v0, v1] of S.walls || []) {
@@ -911,6 +1003,7 @@ export function roomSees(L, a, b) {
     if (pv > 0) leave((d - p[1]) / pv, 'back'); else if (pv < 0) leave(-p[1] / pv, 'front');
     if (!wall) return true;
     const x = wall === 'front' || wall === 'back' ? p[0] + pu * t : p[1] + pv * t;
+    if (veiled) return doorwaysOf(S).some((o) => (o.wall || 'front') === wall && x >= o.a && x <= o.b);
     const panes = S.windowless ? [] : S.windows?.length ? S.windows : S.window ? [{ wall: 'front', a: S.window[0], b: S.window[1] }] : [];
     return (S.glass || []).includes(wall) || (wall === 'front' && !!S.balcony && x >= S.balcony.door[0] && x <= S.balcony.door[1])
       || [...doorwaysOf(S), ...panes].some((o) => (o.wall || 'front') === wall && x >= o.a && x <= o.b);
@@ -928,6 +1021,23 @@ export function annexFrame(S) {
   if (!a) return null;
   const cu = (a.u[0] + a.u[1]) / 2, v0 = (S.d || FLAT_ROOM.d) + WALL_T;
   return { cu, v0, u0: a.u[0], u1: a.u[1], spec: { w: a.u[1] - a.u[0], d: a.d, h: a.h, unit: 'm', door: [a.door[0] - cu, a.door[1] - cu], doorWall: 'front', windows: a.windows || [] } };
+}
+
+// The piece you're facing and within reach of, standing at `at` ([u, v]) and looking along [fu, fv] (a unit vector in
+// the room's own u and v): the nearest station or seat ahead of you, nearer and squarer winning. What the Room Stage's
+// card talks about (room-walk.js aim) and what GLASS's does on foot inside a building (oneworld-card.js), one sum.
+// `aimable(pieceId)` leaves a piece out.
+export function roomAim(L, at, fu, fv, aimable = null) {
+  const ft = L.ft || 1;
+  let best = null, score = Infinity;
+  for (const t of [...(L.stations || []), ...(L.seats || [])]) {
+    if (aimable && !aimable(t.piece)) continue;
+    const du = t.u - at[0], dv = t.v - at[1], dist = Math.hypot(du, dv), facing = dist ? (du * fu + dv * fv) / dist : 1;
+    if (dist > (t.reach ? t.reach + 4 * ft : 8 * ft) || facing < 0.55) continue;
+    const s = dist * (2 - facing);
+    if (s < score) { score = s; best = t.piece; }
+  }
+  return best;
 }
 
 // ── walking ─────────────────────────────────────────────────────────────────────────────────────
@@ -1230,7 +1340,7 @@ export function placeSpot(spec, pieces, arche, dims, { crt = false, wall = null,
     if (byHand) {
       if (!hangs && keep.some(([a, b, c, e, , tag]) => tag === 'way' && fp[0] < b - 0.01 && fp[1] > a + 0.01 && fp[2] < e - 0.01 && fp[3] > c + 0.01)) return false;
       return !have.some((o) => {
-        if (o.spot?.on || o.form === 'rug' || hung(o.arche, o.crt, o.form) !== hung(arche, crt, form)) return false;
+        if (o.spot?.on || o.form === 'rug' || o.flat || hung(o.arche, o.crt, o.form) !== hung(arche, crt, form)) return false;
         return mine.some((f) => pieceBoxes(o, k).some((g) => f[0] < g[1] - 1e-6 && f[1] > g[0] + 1e-6 && f[2] < g[3] - 1e-6 && f[3] > g[2] + 1e-6));
       });
     }
@@ -1252,7 +1362,7 @@ export function placeSpot(spec, pieces, arche, dims, { crt = false, wall = null,
       if (applies && fp[0] < b && fp[1] > a && fp[2] < e && fp[3] > c) return false;
     }
     for (const o of have) {
-      if (o.spot?.on || o.form === 'rug') continue;
+      if (o.spot?.on || o.form === 'rug' || o.flat) continue;
       // a hung thing and a floor piece only meet if the floor piece is tall enough to reach it, or a bed:
       // nothing hangs over a headboard
       if (hung(o.arche, o.crt, o.form) !== hung(arche, crt, form) && (hangs ? o.h : q.h) <= 1.0 * k && !(hangs && o.arche === 'bed')) continue;
@@ -1397,11 +1507,39 @@ export function decorSolids(S) {
   for (const c of S?.decor?.leaks || []) if (ok(c?.at) && c.catch !== 'none') { const r = (c.catch === 'pan' ? 0.2 : 0.15) + 0.03; out.push([c.at[0] - r, c.at[0] + r, c.at[1] - r, c.at[1] + r]); }
   // a truck shed's own fittings (bayOf): the office, the bench, the racks, the drums, the bollards round the lift
   if (bayOf(S)) for (const q of DEPOT_SHED.solids) out.push(q.slice());
+  // a cell's barred sides (cellsOf): nobody gets between the bars
+  for (const c of cellsOf(S)) out.push(...c.solids);
   const bd = balconyDressOf(S);
   if (bd) {
     out.push(...bd.troughs);
     if (bd.bench) out.push(bd.bench);
     if (bd.urn) { const r = 0.34 * bd.urn[2]; out.push([bd.urn[0] - r, bd.urn[0] + r, bd.urn[1] - r, bd.urn[1] + r]); }
+  }
+  return out;
+}
+
+// A CELL'S BARS (`decor.cells`): [{ u: [u0, u1], v: [v0, v1], sides: ['front', 'left', ...], door: { side, at, w } }],
+// a cage in the room's frame, barred on the sides it names (the others are the room's own walls). Each upright is a
+// solid round bar CELL_BAR.r across, no more than CELL_BAR.gap apart, so nobody squeezes between them; a door is the
+// same bars on a frame, shut. Comes back as each cell's bars ([u, v] per upright), its rails (the flat bands across
+// them, [[u, v], [u, v]] per side) and its solids, the boxes the walk keeps out of. gl/room-decor.js draws it from this.
+export const CELL_BAR = Object.freeze({ r: 0.019, gap: 0.1, band: [0.08, 1.1, 2.05] });
+export function cellsOf(S) {
+  const out = [], list = Array.isArray(S?.decor?.cells) ? S.decor.cells : [];
+  for (const c of list) {
+    if (!Array.isArray(c?.u) || !Array.isArray(c?.v) || ![...c.u, ...c.v].every(Number.isFinite)) continue;
+    const [u0, u1] = [Math.min(...c.u), Math.max(...c.u)], [v0, v1] = [Math.min(...c.v), Math.max(...c.v)];
+    const ends = { front: [[u0, v0], [u1, v0]], back: [[u0, v1], [u1, v1]], left: [[u0, v0], [u0, v1]], right: [[u1, v0], [u1, v1]] };
+    const bars = [], rails = [], solids = [], t = CELL_BAR.r + 0.02;
+    for (const side of Array.isArray(c.sides) ? c.sides : []) {
+      const e = ends[side];
+      if (!e) continue;
+      const len = Math.hypot(e[1][0] - e[0][0], e[1][1] - e[0][1]), n = Math.max(1, Math.ceil(len / (CELL_BAR.gap + 2 * CELL_BAR.r)));
+      for (let i = 0; i <= n; i++) bars.push([+(e[0][0] + (e[1][0] - e[0][0]) * i / n).toFixed(3), +(e[0][1] + (e[1][1] - e[0][1]) * i / n).toFixed(3)]);
+      rails.push(e);
+      solids.push([Math.min(e[0][0], e[1][0]) - t, Math.max(e[0][0], e[1][0]) + t, Math.min(e[0][1], e[1][1]) - t, Math.max(e[0][1], e[1][1]) + t]);
+    }
+    out.push({ bars, rails, solids, door: c.door && ends[c.door.side] ? { ...c.door } : null });
   }
   return out;
 }
@@ -1522,6 +1660,8 @@ function keepClear(S) {
 //   rink     { sport, at: [x, y], look, ice, open }: the room stands at a rink (panels/room-rink.js): the live game is
 //            drawn under it, and `open` ([{ wall, a, b, y0, y1, glass? }]) are its openings onto the ice
 //   club     true for a club: dark paint, bills on the walls, a truss of moving lights and strobes
+//   hull     a room that isn't a box (hullSpecOf): side walls that follow a plan and lean in, a raked front, or
+//            an open deck behind a rail. The Echelon's rooms are fitted to her hull this way
 // A lift car's panel (docs/proposals/building-stage.md): `spec.lift` is { floors: [{ n, label }], at },
 // the floors it really stops at, lowest first. The panel is a reader on the right-hand wall by the front
 // doors (liftPanelAt) with a hologram hung off it (room-lift.js) that carries the buttons; the button for
@@ -1589,7 +1729,9 @@ export function roomSpecOf(flags, isFlat, { storey = null } = {}) {
   const shop = glass.length || !Array.isArray(base.panes) ? [] : base.panes.filter((q) => q && ['front', 'back', 'left', 'right'].includes(q.wall)).map((q) => {
     const lo = q.wall === 'front' || q.wall === 'back' ? -hu + 0.12 : 0.12, hi = q.wall === 'front' || q.wall === 'back' ? hu - 0.12 : d - 0.12;
     const a = clampN(Math.min(q.a, q.b), lo, hi, lo), b = clampN(Math.max(q.a, q.b), a + 0.3, hi, hi), y0 = clampN(q.y0, 0.05, h - 0.6, 0.6);
-    return { wall: q.wall, a, b, y0, y1: clampN(q.y1, y0 + 0.3, h - 0.1, h - 0.4), kind: 'curtain' };
+    // `kind: 'sash'` is a timber sash in place of the black-framed glass, for a building whose model draws
+    // sash windows where its room's panes are (the Coyote's Rest, scripts/content/coyotes-rest-rooms.mjs)
+    return { wall: q.wall, a, b, y0, y1: clampN(q.y1, y0 + 0.3, h - 0.1, h - 0.4), kind: q.kind === 'sash' ? 'sash' : 'curtain' };
   }).filter((q) => q.b - q.a >= 0.3);
   if (shop.length) { out.windows = shop; out.window = [shop[0].a, shop[0].b, shop[0].y0, shop[0].y1]; }
   // Venetian blinds in a sash window, run from the room's control panel (plugins/envcontrol): the mesh hangs a
@@ -1600,6 +1742,14 @@ export function roomSpecOf(flags, isFlat, { storey = null } = {}) {
   if (['stone', 'marble', 'terrazzo', 'rubber', 'tile', 'concrete', 'plant'].includes(base.ground)) out.ground = base.ground;
   // `dim` (0.1 to 1): the room's own lamps turned down, so what glows in it (a clone hall's vats) lights it instead
   if (Number.isFinite(base.dim)) out.dim = Math.max(0.1, Math.min(1, base.dim));
+  // `wet`: a floor that's always wet (a wash block, a shower room): its tile or concrete dark with water and glossy,
+  // and the puddles `decor.puddles` lays on it (gl/room-mesh.js, gl/room-decor.js)
+  if (base.wet === true) out.wet = true;
+  // `unlit`: no lamp and no fitting at all, lit only by what comes in at its windows (a cell, a cellar)
+  if (base.unlit === true) out.unlit = true;
+  // `daylight` (0 to 1): how much of the day gets in at its windows, for a room whose windows are too small for the
+  // daylight a room usually takes (a cell's slots at pavement level). Both renderers scale their day by it
+  if (Number.isFinite(base.daylight)) out.daylight = Math.max(0, Math.min(1, base.daylight));
   // a lift car: clad as one (gl/room-mesh.js drawCar), whether you're in it or seeing it from a landing
   if (base.car === true) out.car = true;
   // lettering on a wall, as a hotel puts its name behind the desk: { text, sub, wall, y, size, at }.
@@ -1637,6 +1787,9 @@ export function roomSpecOf(flags, isFlat, { storey = null } = {}) {
     if (open.length) { out.windows = open; out.window = [open[0].a, open[0].b, open[0].y0, open[0].y1]; }
   }
   // a club or a back room with no window at all
+  // a room that isn't a box: a ship's saloon in her hull (hullSpecOf, gl/room-hull.js)
+  const hl = hullSpecOf(base.hull, w, d, h, glass);
+  if (hl) out.hull = hl;
   if (base.windowless) { out.windowless = true; out.windows = []; }
   // a club: painted dark, bills on the walls, and a rig of moving lights and strobes (gl/room-mesh.js clubRig)
   if (base.club === true) out.club = true;
@@ -1667,6 +1820,8 @@ export function roomSpecOf(flags, isFlat, { storey = null } = {}) {
   if (Number(base.storeys) && (Number(base.storey) || storey) >= Number(base.storeys) - 1) out.crown = true;
   const stand = standSpecOf(base.stand, w, d);
   if (stand) out.stand = stand;
+  const kiosk = kioskSpecOf(base.kiosk, w, d);
+  if (kiosk) out.kiosk = kiosk;
   const display = displaysOf(base.display, w, d);
   if (display.length) out.display = display;
   if (base.bay === 'truck') out.bay = 'truck';
@@ -1715,6 +1870,19 @@ export function standSpecOf(s, w, d) {
   const from = s.from === 'below' || STAND_WALLS.includes(s.from) ? s.from : 'back';
   const out = { kind: typeof s.kind === 'string' ? s.kind : null, at: [u, v], face, len, wid, from, box: [u - hu, u + hu, v - hv, v + hv] };
   if (s.water === true) out.water = true;
+  // the display you buy one from or call yours up on (room-hoist.js kiosk): a pedestal at `at`, its glass facing `face`
+  const k = kioskSpecOf(s.kiosk, w, d);
+  if (k) out.kiosk = k;
+  return out;
+}
+// A hangar display's spot (room-hangar-kiosk.js): a pedestal at `at` [u, v], its glass facing `face`. On a stand
+// (`stand.kiosk`) in a hangar, or on the room itself (`flags.room.kiosk`) in a terminal with no floor lift.
+export function kioskSpecOf(k, w, d) {
+  if (!k || !Array.isArray(k.at) || k.at.length !== 2 || !k.at.every(Number.isFinite)) return null;
+  const out = { at: [clampN(k.at[0], -w / 2 + 0.5, w / 2 - 0.5, 0), clampN(k.at[1], 0.5, d - 0.5, 1)], face: STAND_WALLS.includes(k.face) ? k.face : 'back' };
+  // the word over its page (HANGAR, TERMINAL, SHOWROOM) and where yours are kept, for a room that isn't a hangar
+  if (typeof k.label === 'string' && k.label.trim()) out.label = k.label.trim().slice(0, 16).toUpperCase();
+  if (typeof k.kept === 'string' && k.kept.trim()) out.kept = k.kept.trim().slice(0, 40);
   return out;
 }
 // A period sash window, as an old hotel or a mansion block has, from `flags.room.sash`; null for none.
@@ -1772,9 +1940,17 @@ export const ANNEX_DRESSES = Object.freeze(['spa']);
 // isn't there until it's found, a dead drop is hidden on purpose, and a fixture with nothing to say
 // what it is (a poster, a pipe) has no shape here unless `flags.look` gives it one.
 const DRAWN_TYPES = new Set(['furniture', 'container', 'bed', 'tv', 'chair', 'table', 'sink', 'toilet', 'shower', 'media_deck']);
+// A dead drop's cover: the plain name it's drawn under (`flags.look.cover`), so the bench a cache is hidden in is
+// still a bench. Drawn under it, the piece carries no container, verbs or actions, and nothing says it's a cache.
+export function coverOf(f) {
+  const fl = f?.flags || {}, c = fl.look?.cover;
+  return fl.dead_drop && !fl.dead_drop_placed && typeof c === 'string' && c.trim() ? c.trim().slice(0, 40) : null;
+}
 export function rowDrawn(f) {
   const fl = f.flags || {};
   // what a Cachet hides is on the back of its turntable, so it's never a piece of its own
+  // an authored dead drop stands as the ordinary thing it's hidden in (`look.cover`, coverOf); a placed one never does
+  if (coverOf(f)) return true;
   if (fl.dead_drop || fl.hidden || fl.concealed || fl.compartment_of || fl.conceal_hidden_by) return false;
   if (fl.look?.arche) return true;
   if (DRAWN_TYPES.has(f.object_type)) return true;
@@ -1878,7 +2054,11 @@ export function layRows(rows, spec, { annex = false, finish = 'plain', itemOf = 
   const pieces = [], stamps = [];
   // A turned Cachet shows what it hid. Sealed, the payload says nothing about what's behind it.
   const turned = (f) => { const h = f.flags?.conceal_hides && rows.find((x) => x.id === f.flags.conceal_hides); return h && !h.flags?.concealed ? { form: 'chemwall', turned: h.name, lab: labGrade(h.flags) } : {}; };
-  const add = (f, spot) => pieces.push({ id: f.id, name: f.name, ...look(f), ...turned(f), ...(f.flags?.conceal_hides ? { keypad: true } : {}), spot, verbs: Array.isArray(f.flags?.interactions) ? f.flags.interactions : [], container: f.object_type === 'container', ...(annex ? { annex: true } : {}) });
+  const add = (f, spot) => {
+    const cover = coverOf(f);
+    if (cover) return pieces.push({ id: f.id, name: cover, ...look(f), spot, verbs: [], container: false, ...(annex ? { annex: true } : {}) });
+    pieces.push({ id: f.id, name: f.name, ...look(f), ...turned(f), ...(f.flags?.conceal_hides ? { keypad: true } : {}), spot, verbs: Array.isArray(f.flags?.interactions) ? f.flags.interactions : [], container: f.object_type === 'container', ...(annex ? { annex: true } : {}) });
+  };
   const fresh = (f, bases) => { const L = look(f); return placeSpot(spec, pieces, L.arche, L.dims, { crt: L.crt, form: L.form, bases }) || { at: [0, +(spec.d / 2).toFixed(2)], turn: 0 }; };
   // ⚠ NOTHING STANDS IN A WAY THROUGH. A spot written before its room was on a building's walk (or before a stair
   // went in) could put a chair in a doorway: the Embassy's waiting chairs stood in the door you'd walk through.
@@ -1907,7 +2087,7 @@ export const pieceHangs = (p) => (p.arche === 'screen' && !p.crt) || hungOf(p.ar
 export function spotFits(spec, others, p, spot, { byHand = false } = {}) {
   if (!spot || (pieceHangs(p) && !spot.wall)) return false;
   const arche = ARCHETYPES[p.arche] ? p.arche : 'prop';
-  return !!placeSpot(spec, others, arche, p.dims || dimsOf(arche), { crt: !!p.crt, form: p.form || null, test: spot, byHand });
+  return !!placeSpot(spec, others, arche, p.dims || dimsOf(arche), { crt: !!p.crt, form: p.flat ? 'rug' : p.form || null, test: spot, byHand });
 }
 // A hand-placed spot as the server keeps it: { wall, along } with its back to a wall, or { at: [u, v], turn } out
 // in the room, turned a quarter at a time. Null for anything else.
@@ -1941,3 +2121,58 @@ export function parseLayout(words, max = 80) {
 const PLACE_ORDER = ['bed', 'shower', 'wardrobe', 'cold', 'sink', 'hob', 'surface', 'toilet', 'store', 'cabinet', 'fireplace', 'screen', 'deck', 'sofa', 'bench', 'seat', 'table', 'top', 'small', 'prop'];
 export const placeRank = (p) => { const i = PLACE_ORDER.indexOf(p.arche); return (i < 0 ? PLACE_ORDER.length : i) + (p.form === 'microwave' ? 12 : 0); };
 const clampN = (x, lo, hi, dflt) => (Number.isFinite(Number(x)) ? Math.max(lo, Math.min(hi, Number(x))) : dflt);
+
+// ── A ROOM THAT ISN'T A BOX ───────────────────────────────────────────────────────────────────────
+// `flags.room.hull`, for a room inside a ship's hull or deckhouse (the Echelon's; scripts/content/echelon-fit.mjs):
+//   sides  [[v, floor, head], ...]: the half-width of the room at `v` metres back from the front wall, at the floor
+//          and at the ceiling (a deckhouse's glass leans in, a hull's side flares out). Linear between rows. The
+//          room's `w` is the widest of them doubled; the side walls follow the rows instead of standing at ±w/2.
+//   rake   metres the front wall's head stands back from its foot: a raked windscreen
+//   deck   true for an open deck: no walls, a rail along the sides and ends (and the room is `open`)
+//   rail   the rail's height, metres (1.05)
+// The front and back walls are as wide as the sides are where they meet them. Doors only go in those two.
+// Returns the clean spec or null.
+export function hullSpecOf(raw, w, d, h, glass = []) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const hu = w / 2;
+  let sides = (Array.isArray(raw.sides) ? raw.sides : []).filter((r) => Array.isArray(r) && Number.isFinite(+r[0]) && Number.isFinite(+r[1]))
+    .map((r) => { const a = clampN(r[1], 0.3, hu, hu); return [clampN(r[0], 0, d, 0), a, clampN(r[2] ?? a, 0.3, hu, a)]; })
+    .sort((a, b) => a[0] - b[0]);
+  if (!sides.length) sides = [[0, hu, hu], [d, hu, hu]];
+  if (sides[0][0] > 0) sides.unshift([0, sides[0][1], sides[0][2]]);
+  if (sides[sides.length - 1][0] < d) { const l = sides[sides.length - 1]; sides.push([d, l[1], l[2]]); }
+  const out = { sides: sides.map((r) => r.map((x) => +(+x).toFixed(3))) };
+  const rake = clampN(raw.rake, 0, d / 2, 0);
+  if (rake > 0.01) out.rake = +rake.toFixed(3);
+  if (raw.deck === true) { out.deck = true; out.rail = clampN(raw.rail, 0.6, 1.6, 1.05); }
+  // which of the walls it draws are glass (the room's `glass`)
+  const gl = glass.filter((x) => x === 'left' || x === 'right' || (x === 'front' && out.rake));
+  if (gl.length) out.glass = gl;
+  return out;
+}
+// The half-width of a hull room at `v`, at height fraction `t` (0 the floor, 1 the ceiling).
+export function hullHalf(hull, v, t = 0) {
+  const S = hull.sides;
+  let i = 0; while (i < S.length - 2 && S[i + 1][0] < v) i++;
+  const a = S[i], b = S[i + 1] || a, k = b[0] > a[0] ? Math.max(0, Math.min(1, (v - a[0]) / (b[0] - a[0]))) : 0;
+  const f = a[1] + (b[1] - a[1]) * k, c = a[2] + (b[2] - a[2]) * k;
+  return f + (c - f) * t;
+}
+// The v stations a hull room's walls are drawn between: its rows, and where the rake meets the sides.
+export function hullStations(hull, d) {
+  const vs = new Set(hull.sides.map((r) => r[0]));
+  if (hull.rake) vs.add(hull.rake);
+  return [...vs].filter((v) => v >= 0 && v <= d).sort((a, b) => a - b);
+}
+// Where you can stand in a hull room: a strip for each pair of stations, as wide as the narrower end, off the walls
+// by the body's margin (and clear of the foot of a raked screen).
+function hullRects(S, ft) {
+  const H = S.hull, m = (H.deck ? 0.45 : 0.9) * ft, vs = hullStations(H, S.d), out = [], v0 = m + (H.rake ? H.rake * 0.45 : 0);
+  for (let i = 0; i < vs.length - 1; i++) {
+    const a = Math.max(vs[i], v0), b = Math.min(vs[i + 1], S.d - m);
+    if (b - a < 0.05) continue;
+    const half = Math.min(hullHalf(H, vs[i]), hullHalf(H, vs[i + 1])) - m;
+    if (half > 0.1) out.push([-half, half, a, b]);
+  }
+  return out.length ? out : [[-S.w / 2 + m, S.w / 2 - m, m, S.d - m]];
+}

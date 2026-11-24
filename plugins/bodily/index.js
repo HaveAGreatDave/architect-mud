@@ -1243,7 +1243,7 @@ const freeFixture = (f) => !showerRunning.has(f.id) && !npcOnToilet.has(f.id)
 // The fixture an NPC would use for `intent` in a zone: a toilet for pee/poop, a shower, a sink. Null when there's
 // none free.
 export function npcFixtureFor(zoneId, intent) {
-  const want = intent === 'shower' ? isShower : intent === 'wash' ? (f) => f?.object_type === 'sink' || /\b(sink|basin)\b/i.test(f?.name || '') : isToilet;
+  const want = intent === 'shower' ? isShower : intent === 'wash' || intent === 'teeth' ?(f) => f?.object_type === 'sink' || /\b(sink|basin)\b/i.test(f?.name || '') : isToilet;
   return getZoneFurniture(zoneId).find((f) => want(f) && freeFixture(f)) || null;
 }
 // Sat down on the bowl. A piss is heard and drawn as it goes; anything else goes in quietly and lands at the end.

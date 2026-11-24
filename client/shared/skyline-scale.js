@@ -59,7 +59,7 @@ export const TYPE_FLOORS = {
   // chip shop with two floors of flats over it. Both tiles also author their own `flags.floors`.
   fish_works: 3, chip_shop: 3,
   // Grounds for Concern and its car park: one storey, and one storey of nothing. So is a plot to let.
-  coffee_shop: 1, car_park: 1, staff_lot: 1, vacant_plot: 1,
+  coffee_shop: 1, car_park: 1, staff_lot: 1, vacant_plot: 1, vtol_bridge: 1,
   // A hover car dealership: one tall showroom floor under its roof pad.
   vtol_dealer: 2,
   // A compact harbour crane stands about seven storeys to the slew house, which is what every

@@ -1,0 +1,26 @@
+{
+  "description": "A glossy white chair with no legs, held half a metre off the floor by a repulsion field embedded in the base plate.",
+  "flags": {
+    "interactions": [
+      "sit"
+    ],
+    "item_id": "item_furn_mag_lev_chair",
+    "spot": {
+      "at": [
+        2.18,
+        3.06
+      ],
+      "turn": 90
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_jolenes_loft_mag_lev_chair_98eb",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "mag-lev chair",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 2400,
+  "zone_id": "zone_jolenes_loft"
+}

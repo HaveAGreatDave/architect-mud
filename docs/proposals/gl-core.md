@@ -78,7 +78,7 @@ Each lands with a route-bench number.
    - Still to do: a third cascade for the aircraft seats, and the near map for the solids and the cabin (`worldSun`), which still read only the far one.
 3. Ambient from the sky: spherical harmonics from the env cube in place of the two-colour ambient.
 4. Clustered lights with specular (`core/light/cluster.js`), grown from `lightgrid.js`, in place of the 16 wall slots. The ballpark's towers and the rink's five lights move onto it.
-5. ROOM through the core. One-world interiors' lighting (its step 5) is then the same code.
+5. ROOM through the core. One-world interiors' lighting (phase D of [its conversion](one-world-interiors.md#the-conversion)) is then the same code.
    - **Built: bloom and SSAO (`gl/room-post.js`, `ROOM_POST`, on; off on phones).** The room's colour and depth go through the ballpark's depth-only SSAO (`ssao.js` `createDepthSSAO`, half size, 0.4 m reach) and a bright-pass bloom at half and quarter size, then one composite: the scene times the occlusion, plus the bloom, coverage kept. Under the lens it works on the lens's resolved target (`room-dof.js` `finish({ grade })`) before the blur; without the lens the room draws into its own target. Display values, like GLASS's bright pass, because several room outputs (fire, screens, glows, shutters, mirror) skip `finish()`.
    - Measured 2026-11-15 in the Room Lab (Solenne salon, clock pinned): with both terms at 0 the frame is identical to the pass off, lens on or off; the occlusion moves 15% of the frame (mean 12/255) and the bloom 1%. About 0.2 ms of GPU a frame at 964×740.
    - Still to do: lamp shadows (`spotshadow.js` maps for the two or three strongest lamps, and one for the sun through the panes), which means touching `ROOM_LIGHT_GLSL` and so the figure's shader too; and true linear HDR (`uStreet` 3 on the room's programs, with the outputs above turned back from display values). `ROOM_LIGHT_GLSL` moves to `core/light` with the shadows.
@@ -113,7 +113,7 @@ Spends what phase 2 saves: instanced clutter and planting with wind, puddles fro
 
 1. The TV feed: the ballpark and rink already build everything on a context they're handed, so they can draw into ROOM's.
 2. The window view: `createGLView` takes the host's context. The phone's worker keeps its own, since an OffscreenCanvas context can't be shared across threads.
-3. ROOM inside GLASS, which is one-world step 3.
+3. ROOM inside GLASS, which is [the one-world conversion](one-world-interiors.md#the-conversion).
 4. The venues as views.
 5. One canvas for the page.
 

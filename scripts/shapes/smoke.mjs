@@ -197,7 +197,13 @@ async function main() {
   // work on it read as having done nothing. `cab:ext` below is a truck in the external view, so the
   // counter has to move; if it stops moving, that renderer has quietly fallen back off.
   const rasterBefore = rasterCount(), shadeBefore = shadeCount(), depthBefore = a3d.depthPassCount();
-  const views = ws.viewRenderSmoke(WS_ID);
+  // With a GL hook the own rig goes to the GL pass (glShip), so model-raster.js never runs and these
+  // counters can't move. The checks are about model-raster.js, which still draws the rig whenever
+  // glShip is off, so they run with it off. The artic check below does the same.
+  const glShip0 = ws.RENDER_TUNE.glShip;
+  ws.RENDER_TUNE.glShip = 0;
+  let views;
+  try { views = ws.viewRenderSmoke(WS_ID); } finally { ws.RENDER_TUNE.glShip = glShip0; }
   for (const f of views) problems.push(`view   ${f.key} (hour=${f.hour}, ${f.weather}) → ${f.err}`);
   lockstep('view   cab:ext', rasterBefore, depthBefore,
     'It is back on the painter\'s sort, which cannot order nested boxes — see model-raster.js.');
@@ -366,7 +372,9 @@ async function main() {
   // A semi is a tractor and a box sharing one point. Splitting the welded mesh into two drawn
   // models has one silent failure — the JOINT — so the gate is a comparison: at φ=0 the two-body
   // rig must occupy the same silhouette as the welded one, and at φ=40 it must not.
-  const artic = truckArticSmoke(ws.paintWindshield, stubCanvas, 'shape-artic', TRUCKS);
+  ws.RENDER_TUNE.glShip = 0;
+  let artic;
+  try { artic = truckArticSmoke(ws.paintWindshield, stubCanvas, 'shape-artic', TRUCKS); } finally { ws.RENDER_TUNE.glShip = glShip0; }
   for (const a of artic) {
     if (!a.clears) {
       problems.push(`artic  ${a.variant} → the box reaches the back of the cab before ${CLEAR_DEG}° of `

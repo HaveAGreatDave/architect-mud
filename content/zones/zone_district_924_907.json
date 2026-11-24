@@ -1,29 +1,24 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "urban",
-  "bg_color": "#33383e",
-  "color": "#cdb489",
-  "description": "A yard of intermodal boxes stacked four high in sun-bleached reds and blues, aisles between them like canyons. A reach-stacker sits idle, keys long gone. Half the containers are empty; the other half nobody will open on record.",
+  "ambient_events": [
+    "A taxi goes past toward the terminal with its light off.",
+    "A jet lifts off beyond the fence and the noise arrives a second later."
+  ],
+  "ambient_theme": "city",
+  "description": "Airport Road leaves Kessler Street between the fuel yard and the runway fence, two lanes of new asphalt with the paint still bright. A sign on a gantry says COLDWATER REGIONAL with an arrow north, and under it, smaller, PARKING.",
   "exits": {
-    "north": "zone_yard_container",
+    "north": "zone_district_924_906",
     "south": "zone_district_924_908"
   },
   "flags": {
-    "building_name": "Stack Overflow",
-    "building_type": "container_yard",
-    "district": "yards",
-    "entrance": "south",
-    "facade": true,
-    "is_building": true,
+    "district": "docks",
     "region_id": "region_coldwater",
-    "world_exit_zone": "zone_district_924_908"
+    "terrain": "road"
   },
   "grid_x": 925,
   "grid_y": 907,
   "grid_z": 0,
   "id": "zone_district_924_907",
   "map_id": "map_world",
-  "marker": "CY",
-  "name": "Stack Overflow",
+  "name": "Airport Road",
   "parent_zone": null
 }

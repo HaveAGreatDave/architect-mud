@@ -313,11 +313,13 @@ for (let i = 0; i < 5; i++) {
 const caps = [...new Set(rings.map((c) => Math.round(c * 1000)))].map((c) => c / 1000).sort((a, b) => a - b);
 const merged = caps.filter((c, k) => k === 0 || c - caps[k - 1] > 0.3);
 const gaps = merged.slice(1).map((c, k) => c - merged[k]);
-const ordinary = gaps.filter((g) => g < 4);
-check(ordinary.length > 20, `only ${ordinary.length} bollard gaps in a five-tile block`);
+// At 10 m spacing the crossing's 5.2 m gap takes out one post or none, so a wide gap is one step missed.
+const WIDE = KIT_M.BOLLARD_EVERY * 1.5;
+const ordinary = gaps.filter((g) => g < WIDE);
+check(ordinary.length >= 5 * 18 / KIT_M.BOLLARD_EVERY - 3, `only ${ordinary.length} bollard gaps in a five-tile block`);
 check(ordinary.every((g) => near(g, KIT_M.BOLLARD_EVERY, 0.02)), `bollards not every ${KIT_M.BOLLARD_EVERY} m: ${[...new Set(ordinary.map((g) => g.toFixed(3)))].join(', ')}`);
-const wide = gaps.filter((g) => g >= 4);
-check(wide.length === 1 && wide[0] >= 5, `the crossing's bollard gap: ${wide.map((g) => g.toFixed(2)).join(', ') || 'none'}`);
+const wide = gaps.filter((g) => g >= WIDE);
+check(wide.length <= 1 && wide.every((g) => near(g, KIT_M.BOLLARD_EVERY * 2, 0.02)), `the crossing's bollard gap: ${wide.map((g) => g.toFixed(2)).join(', ') || 'none'}`);
 const crossTiles = [...new Set(crossings)];
 check(crossTiles.length === 1 && crossTiles[0] === 2, `crossing on tiles ${crossTiles.join(', ') || 'none'}, not the middle one`);
 const bridgeTiles = [...new Set(bridges)];

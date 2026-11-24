@@ -11,8 +11,8 @@
       "wear": 0.95
     },
     "spot": {
-      "along": 2.4,
-      "wall": "right"
+      "wall": "back",
+      "along": -1.2
     },
     "stove_tier": "low"
   },
@@ -25,5 +25,5 @@
   "object_type": "fixture",
   "power_draw_kw": 0.1,
   "price": 10,
-  "zone_id": "zone_hostel_kitchen"
+  "zone_id": "zone_hostel_dorm"
 }

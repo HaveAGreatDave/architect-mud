@@ -30,7 +30,7 @@ function facing(q, out) {
 // A face in the model's own frame, facing the local direction `out`. `lit` [r,g,b] is what it
 // shows after dark (a window, a lamp); without it the face takes the dusk like any painted surface.
 // ⚠ ADORNMENT: it never reaches the shape capture, so collision and shadows never see it.
-function flat(ctx, cam, W3, pts, out, day, alpha, dn, lit) {
+export function flat(ctx, cam, W3, pts, out, day, alpha, dn, lit) {
   if (SHAPE_SINK) return;
   if (!MESH_SINK && out[2] < -0.5 && (cam.EH || 0) > Math.max(...pts.map((p) => p[2]))) return;   // an underside, seen from above
   const O = W3(0, 0, 0), D = W3(out[0], out[1], out[2]);
@@ -45,7 +45,7 @@ function flat(ctx, cam, W3, pts, out, day, alpha, dn, lit) {
     { lift: DETAIL_LIFT, cullN: Math.abs(oz / ol) < 0.8 ? [ox, oy] : undefined });
 }
 // A drum's shading off a base colour: lit per facet, darkened with the night.
-const drumSkin = (base, dusk) => (f) => { const s = (0.58 + f.nl * 0.46) * dusk; return rgb([base[0] * s, base[1] * s, base[2] * s]); };
+export const drumSkin = (base, dusk) => (f) => { const s = (0.58 + f.nl * 0.46) * dusk; return rgb([base[0] * s, base[1] * s, base[2] * s]); };
 
 // ── THE CUP ON THE ROOF ───────────────────────────────────────────────────────────────────────
 // Glazed white on a saucer, a green band round it, and steam out of the top, because the roaster's
@@ -103,8 +103,8 @@ function vtolPad(ctx, cam, F, cx, cy, r, z, alpha, dn) {
 }
 // A mini VTOL sitting on a pad: two skids, a pod with a glass canopy toward +x, a short tail boom,
 // and four ducted fans on arms at the corners. Fixed in place and colour, the parked car's reason.
-function parkedVtol(ctx, cam, F, box, cx, cy, paintPal, alpha, dn, s0 = 0) {
-  const SLAB = 0.006;
+function parkedVtol(ctx, cam, F, box, cx, cy, paintPal, alpha, dn, s0 = 0, zb = 0) {
+  const SLAB = 0.006 + zb;   // zb lifts it onto a raised deck
   for (const sy of [-0.038, 0.038]) {
     box(cx, cy + sy, 0.070, SLAB, SLAB + 0.006, 'ty_pier_steel', s0 + 1, true, 0.005);                 // the skid
     for (const sx of [-0.040, 0.040]) box(cx + sx, cy + sy * 0.8, 0.004, SLAB + 0.006, SLAB + 0.022, 'ty_pier_steel', s0 + 2, false, 0.004);
@@ -480,5 +480,50 @@ export const GREENSIDE_ARMS = {
           emitWire(ctx, cam, W3(bx - bw * 0.1, yb, zs + k * 0.06), W3(bx + bw * 0.5, yb, zs - k * 0.02), 1.3, 'rgba(170,40,36,0.9)', alpha, { pull: 0.02 });
         }
       } }
+  },
+  // ══ THE VTOL BRIDGE ═════════════════════════════════════════════════════════════════════════
+  // A small white bridge deck one VTOL bay wide on four white pylons, steps up at both ends, white
+  // railings, a pad painted on the deck and one white mini VTOL parked on it. The path runs straight
+  // under it, from the way in (+y) to the far side (−y). A TYPE arm with nothing of Coldwater's.
+  //
+  // ⚠ IN TILE UNITS, the car park's reason: a VTOL is a VTOL whatever the tile rolled, so every
+  //    measure here is a constant.
+  vtol_bridge(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {
+    const dn = night ? clamp(night, 0, 1) : 0;
+    const YAW = faceYaw(E);
+    const WHITE = pal || 'ty_atc_white';
+    const box = (lx, ly, hw, z0, z1, p, s, roof, hd) => { const [x, y] = F(lx, ly); draw3DBoxAt(ctx, cam, x, y, hw, z0, z1, p, seed + s, night, alpha, roof, YAW, hd); };
+    const paint = (x0, y0, x1, y1, z, fill) => groundPaint(ctx, cam, [F(x0, y0), F(x1, y0), F(x1, y1), F(x0, y1)], z, fill, alpha);
+    const DECK = 0.22, SLAB = 0.018, HW = 0.24, HL = 0.28;           // deck top, its thickness, half-width (x), half-length (y)
+    // 1) The path under it: pale paving from the way in to the far side.
+    paint(-0.10, -0.48, 0.10, 0.48, 0.0012, dn > 0.5 ? 'rgba(120,118,110,0.8)' : 'rgba(196,190,176,0.85)');
+    // 2) The deck and its four pylons.
+    box(0, 0, HW, DECK - SLAB, DECK, WHITE, 0, true, HL);
+    const skin = drumSkin([226, 226, 222], 1 - 0.5 * dn);
+    for (const sx of [-1, 1]) for (const sy of [-1, 1]) {
+      const [px, py] = F(sx * (HW - 0.04), sy * (HL - 0.05));
+      drawFacetDrum(ctx, cam, px, py, 0, DECK - SLAB, 0.022, 0.018, 10, alpha, skin, null, WHITE);
+    }
+    // 3) The steps at both ends, down from the deck to the ground, either side of the path.
+    const N = 6, RUN = (0.47 - HL) / N;
+    for (const sy of [-1, 1]) for (let i = 0; i < N; i++) {
+      const y = sy * (HL + RUN * (i + 0.5)), z1 = DECK * (N - i) / (N + 1);
+      for (const sx of [-1, 1]) box(sx * (HW - 0.05), y, 0.045, z1 - 0.010, z1, WHITE, 10 + i, true, RUN / 2);   // an open tread
+    }
+    // Each flight's two stringers: thin white posts under its ends, so the treads aren't hanging.
+    for (const sy of [-1, 1]) for (const sx of [-1, 1]) for (const dx of [-0.04, 0.04]) {
+      box(sx * (HW - 0.05) + dx, sy * (HL + RUN * 0.5), 0.004, 0, DECK * N / (N + 1) - 0.010, WHITE, 20, false, 0.004);
+      box(sx * (HW - 0.05) + dx, sy * (0.47 - RUN * 0.5), 0.004, 0, DECK / (N + 1) - 0.010, WHITE, 21, false, 0.004);
+    }
+    // 4) The railings down both long sides: posts and a top rail.
+    for (const sx of [-1, 1]) {
+      box(sx * (HW - 0.006), 0, 0.006, DECK + 0.050, DECK + 0.058, WHITE, 30, true, HL);
+      for (let k = 0; k <= 4; k++) box(sx * (HW - 0.006), -HL + (2 * HL) * k / 4, 0.005, DECK, DECK + 0.050, WHITE, 31, false, 0.005);
+    }
+    // 5) The pad, and a white mini VTOL on it.
+    vtolPad(ctx, cam, F, 0, 0, 0.17, DECK + 0.0012, alpha, dn);
+    parkedVtol(ctx, cam, F, box, 0, -0.02, WHITE, alpha, dn, 40, DECK - 0.006);
+    // 6) Lights under the deck after dark.
+    if (night) for (const sy of [-0.15, 0.15]) glowPool(ctx, cam, ...F(0, sy), 0.003, '235,240,255', 14, alpha * 0.35 * dn);
   },
 };

@@ -221,6 +221,16 @@ When two or more residents are home, off shift and awake, `home-life.js` hands t
 It shares the engine banter's chitchat format and its `npc.banter.start`/`end` events (the Room Stage turns
 them to face each other), and holds the zone with `holdBanterZone` so a library thread doesn't start over it.
 
+### Street banter frames
+
+The engine's library threads (anywhere, not at home) are framed by `banter-frames.js`, registered with
+`registerBanterFrames`. The engine remembers in RAM how often each pair has talked: strangers open with a
+nod or a name, a pair that has met says "You again.", regulars skip the hello. A pair that has talked may
+open on their last talk instead, and won't repeat any of its last eight threads. A talk may end on a closer,
+a third idle NPC may remark on it afterwards, and a player neither of them has met may get looked at first.
+Every frame piece is two lines so the thread still opens on the initiator. `{me}` and `{you}` (first names)
+now work in library threads too.
+
 The solo half got eleven more kinds besides cooking, drinks and tidying: phone calls (one side of them),
 hobbies, getting ready, rehearsing something to say, fixing things, money, downtime, late-night and
 early-morning scenes, rare odd ones, and sulking. `soloScene` weights them by the time of day.

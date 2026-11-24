@@ -26,7 +26,7 @@
       "bay": "truck",
       "d": 16.786,
       "doors": {
-        "west": 5.27
+        "west": 0
       },
       "face": 270,
       "ground": "stone",

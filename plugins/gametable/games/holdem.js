@@ -86,7 +86,7 @@ export function bestHand(cards) {
   return best;
 }
 
-function compareEval(a, b) {
+export function compareEval(a, b) {
   if (a.rank !== b.rank) return a.rank - b.rank;
   for (let i = 0; i < Math.max(a.tiebreakers.length, b.tiebreakers.length); i++) {
     const diff = (a.tiebreakers[i] || 0) - (b.tiebreakers[i] || 0);
@@ -188,6 +188,8 @@ export class HoldemGame {
     // Post blinds
     const sbIdx = this._nextActive(this.dealerIdx);
     const bbIdx = this._nextActive(sbIdx);
+    // kept for the felt, which marks the blinds (game-table.js roomState)
+    this.sbIdx = sbIdx; this.bbIdx = bbIdx;
     this._postBlind(sbIdx, this.smallBlind);
     this._postBlind(bbIdx, this.bigBlind);
     this.currentBet = this.bigBlind;

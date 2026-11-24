@@ -1,0 +1,31 @@
+{
+  "description": "A cubicle with no seat on the pan and a door that stops a hand's width short of shutting. Somebody has written a phone number on the wall and somebody else has written NO under it.",
+  "flags": {
+    "aliases": [
+      "cubicle",
+      "stall",
+      "toilet",
+      "loo",
+      "first toilet"
+    ],
+    "look": {
+      "arche": "stall",
+      "form": "cubicle",
+      "wear": 0.95
+    },
+    "spot": {
+      "along": 1,
+      "wall": "left"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_hostel_loo_1",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "first toilet",
+  "object_type": "toilet",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_hostel_kitchen"
+}

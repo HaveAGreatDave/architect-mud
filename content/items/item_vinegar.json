@@ -9,16 +9,17 @@
     "food_noun": "soured",
     "food_profile": "liquid",
     "matter": {
+      "look": {
+        "label": "#e8e4d8",
+        "pack": "bottle"
+      },
       "ramp": {
         "raw": "#f0eee0"
-      },
-      "look": {
-        "pack": "bottle",
-        "label": "#e8e4d8"
       }
     },
     "needs_cooking": true,
     "restore_hunger": 2,
+    "shelved": true,
     "stackable": true,
     "status_chance": {
       "food_poisoning": 0.1

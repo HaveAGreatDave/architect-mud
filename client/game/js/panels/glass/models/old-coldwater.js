@@ -5,7 +5,7 @@ import {
   ADORN_NEAR, ADORN_TIER, DECO_LIFT, DECO_PULL, DETAIL_LIFT, FACE_EPS, LCK_ROOF_Z, SHAPE_SINK, SLUM_PULL,
   SLUM_RUST, SLUM_TIN, TARPS, TR, WALL_COL, awning, bakeSignText, blinkLight, clamp, draw3DBoxAt,
   drawBarrelRoof, drawFacetDrum, drawRing, drawSmoke, emitDecoFill, emitFlat, emitSurfaceText, emitWire,
-  faceAway, faceYaw, frac, glowPool, hfChrome, hfGlass, litStyle, marqueeBand, nearOrMesh, neonBlade, rgb,
+  faceAway, faceYaw, frac, glowPool, markDoorway, hfChrome, hfGlass, litStyle, marqueeBand, nearOrMesh, neonBlade, rgb,
   roofClutter, slumCurtain, slumDrape, slumFaceVis, slumHole, slumOpening, slumRope, slumScrawl,
   slumSheet, TILE_REACH,
 } from '../../windshield.js';
@@ -535,8 +535,12 @@ export const OLD_COLDWATER_ARMS = {
     // (alpha-tested holes), so the yard shows through the palisade.
     const fence = h * 0.62, boxTop = h * 0.50;
     // ⚠ Four slabs, never one box: a box has a lid, and a roofed compound is a warehouse.
-    for (const [sx, sy, w, d] of [[0, 1, 0.92, 0.04], [0, -1, 0.92, 0.04], [1, 0, 0.04, 0.92], [-1, 0, 0.04, 0.92]]) {
-      const [fx, fy] = F(sx * fh * 0.92, sy * fh * 0.92);
+    // ⚠ The front run stops either side of the gate: the lot is walked into (zone_gatepound_lot), and a gate that was
+    // a solid box over an unbroken fence was a wall you went through.
+    const gw = 0.34;   // the gate's half-width, in fh
+    for (const [sx, sy, w, d, cx] of [[0, 1, (0.92 - gw) / 2, 0.04, (0.92 + gw) / 2], [0, 1, (0.92 - gw) / 2, 0.04, -(0.92 + gw) / 2],
+      [0, -1, 0.92, 0.04, 0], [1, 0, 0.04, 0.92, 0], [-1, 0, 0.04, 0.92, 0]]) {
+      const [fx, fy] = F(sx * fh * 0.92 + cx * fh, sy * fh * 0.92);
       draw3DBoxAt(ctx, cam, fx, fy, fh * w, 0, fence, 'ty_bond_fence', seed + 1 + sx * 2 + sy, night, alpha, false, faceYaw(E), fh * d);
     }
     // Trailer rows, lower than the fence and all one height.
@@ -545,7 +549,9 @@ export const OLD_COLDWATER_ARMS = {
       draw3DBoxAt(ctx, cam, rx, ry, fh * 0.16, 0, boxTop, 'ty_stack_dk', seed + 10 + i, night, alpha, true, faceYaw(E), fh * 0.58);
     }
     { const [gx, gy] = F(0, fh * 0.94 + FACE_EPS);
-      draw3DBoxAt(ctx, cam, gx, gy, fh * 0.34, 0, fence * 0.88, 'ty_gantry', seed + 20, night, alpha, false, faceYaw(E), fh * 0.03); }
+      // the gantry over the gate, the opening under it clear (its doorway, for the street door: windshield.js doorBayAt)
+      draw3DBoxAt(ctx, cam, gx, gy, fh * gw, fence * 0.66, fence * 0.88, 'ty_gantry', seed + 20, night, alpha, true, faceYaw(E), fh * 0.03);
+      markDoorway(F, 0, fh * 0.92, fh * (gw - 0.06), 0, fence * 0.66, fh * 0.94 + FACE_EPS); }
     for (const s of [-1, 1]) {
       const [px, py] = F(s * fh * 0.38, fh * 0.94);
       draw3DBoxAt(ctx, cam, px, py, fh * 0.06, 0, fence + h * 0.10, 'ty_gantry', seed + 22 + s, night, alpha, false);

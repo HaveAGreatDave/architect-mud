@@ -11,7 +11,7 @@ import { faceAway,
   BAY, BERTH_LATCH, BERTH_SETDOWN, DECO_LIFT, DECO_PULL, DETAIL_LIFT, FACE_EPS, nearOrMesh, rgb, TR, WALL_COL, awning,
   bakeSignText, berthBoxColour, berthServiceOpen, berthBoxZ, berthOwnLift, berthPhase, berthPre, berthRow,
   berthRowOut, berthSlot, blinkLight, clamp, cssRgb, draw3DBoxAt, drawBarrelRoof, drawFacetDrum,
-  drawRing, drawSmoke, emitDecoFill, emitLightRunner, emitSurfaceText, emitWire, facePals, faceYaw,
+  drawRing, drawSmoke, emitDecoFill, emitLightRunner, emitSurfaceText, emitWire, facePals, faceYaw, markDoorway,
   glowPool, hfChrome, lightBeam, marqueeBand, mast, moveSeg, movingBox, reserveSignBand, roofCross,
   windFlag,
 } from '../../windshield.js';
@@ -1047,11 +1047,13 @@ export const WATERFRONT_ARMS = {
     // ── THE WAY IN ────────────────────────────────────────────────────────
     // A thin chrome blade over the doors on the quay face, edged in champagne, with a downlight
     // under it — what tells somebody on the quay which of the glass bays is the door.
-    { const CZ = PLINTH + h * 0.05, CD = fh * 0.16;
+    { const CZ = PLINTH + h * 0.05 + 0.08, CD = fh * 0.16;   // 0.08 over the old height, so the street door (2.3 m and up) fits beneath it; affine, so no max()
       const [cx, cy] = F(0, HY + CD * 0.5);
       draw3DBoxAt(ctx, cam, cx, cy, HX * 0.32, CZ, CZ + h * 0.010, CH, seed + 50, night, alpha, true, faceYaw(E), CD * 0.5);
       draw3DBoxAt(ctx, cam, cx, cy, HX * 0.33, CZ + h * 0.006, CZ + h * 0.010, GOLD, seed + 51, night, alpha, false, faceYaw(E), CD * 0.52);
-      glowPool(ctx, cam, cx, cy, CZ - h * 0.004, '236,226,198', 8, alpha * (night ? 0.7 : 0.15)); }
+      glowPool(ctx, cam, cx, cy, CZ - h * 0.004, '236,226,198', 8, alpha * (night ? 0.7 : 0.15));
+      // the glass bay under the blade is the door: 2 m wide (marina_lobby's street_door), sill on the plinth, head under the blade
+      markDoorway(F, 0, HY, 0.05625, PLINTH, CZ, HY + 0.004); }
 
     // ── THE CROWN MAST ────────────────────────────────────────────────────
     // A slim chrome mast off the vault's apex with a red aviation light: the building is the tallest
@@ -1344,28 +1346,6 @@ export const WATERFRONT_ARMS = {
     // One lit window at the top, night or day: somebody up there is still processing forms.
     { const [wx, wy] = F(fh * 0.55, fh * 1.12); glowPool(ctx, cam, wx, wy, body * 0.86, '210,225,180', 5, alpha * (night ? 0.42 : 0.18)); }
   },
-  rationnine(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // Ration Nine — a state ration depot: roller shutter, stacked crates, and a stencilled 9 the size of a door
-    const wallTop = h * 0.90;
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 1.04, 0, wallTop, pal, seed, night, alpha, true);
-    { const [sx, sy] = F(0, fh * 1.06); draw3DBoxAt(ctx, cam, sx, sy, fh * 0.62, 0, wallTop * 0.58, 'ty_door', seed + 1, night, alpha, false); }   // the roller shutter, half down
-    for (let i = 0; i < 3; i++) {   // delivery crates nobody has taken in yet
-      const [bx, by] = F((-0.8 + i * 0.8) * fh * 0.72, fh * 1.22);
-      draw3DBoxAt(ctx, cam, bx, by, fh * 0.20, 0, h * (0.14 + 0.05 * (i & 1)), 'ty_door', seed + 8 + i, night, alpha, true);
-    }
-    // The stencilled 9, painted straight onto the wall as surface text — it leans and
-    // foreshortens with the face, never billboards.
-    if (frontVis) {
-      const nhw = fh * 0.30, z0 = wallTop * 0.62, z1 = wallTop * 0.96;
-      const [lx, ly] = F(-nhw - fh * 0.4, fh * 1.05), [rx, ry] = F(nhw - fh * 0.4, fh * 1.05);
-      const TL = cam.proj(lx, ly, z1), TR = cam.proj(rx, ry, z1), BR = cam.proj(rx, ry, z0), BL = cam.proj(lx, ly, z0);
-      if ([TL, TR, BR, BL].every(p => p.f > 0.12)) {
-        const tex = bakeSignText('9', '#d8d2c0', night ? 1 : 0, false);
-        emitSurfaceText(ctx, cam, [TL, TR, BR, BL], tex, false, alpha * 0.9);
-      }
-      marqueeBand(ctx, cam, dx, dy, E, fh * 0.96, wallTop * 0.74, m.neon || '#ffb43a', night, alpha, 'RATION NINE');
-    }
-    if (night) { const [wx, wy] = F(0, fh * 1.02); glowPool(ctx, cam, wx, wy, h * 0.18, '255,200,140', 10, alpha * 0.22); }
-  },
   // ══ THE EASTERN MARINA, at the head of Ironside Street ═════════════════════════════════════
   // The cheap boatyard at the east end of the waterfront, and the opposite answer to Fairweather
   // on every point: tarred timber and galvanised tin rather than chrome and glass, a lamp on a pole
@@ -1413,6 +1393,7 @@ export const WATERFRONT_ARMS = {
     { const dx0 = HX * 0.30, dx1 = HX * 0.62, dz1 = h * 0.40;
       const leaf = lerp([64, 88, 74], [44, 56, 50]);
       flatOut(ctx, cam, W3, [[dx0, GY, dz1], [dx1, GY, dz1], [dx1, GY, PLINTH], [dx0, GY, PLINTH]], [0, 1, 0], rgb(leaf.map((v) => v * dusk)), alpha, { lit: 'plain', albedo: leaf });
+      markDoorway(F, (dx0 + dx1) / 2, GY, (dx1 - dx0) / 2, PLINTH, dz1, GY + 0.002);   // zone_hulls_shop's street door is this leaf
       // The sales window beside it: one pane on to the bench, a warm square after dark when he's in.
       const wx0 = -HX * 0.62, wx1 = -HX * 0.10, wz0 = h * 0.18, wz1 = h * 0.38;
       flatOut(ctx, cam, W3, [[wx0, GY, wz1], [wx1, GY, wz1], [wx1, GY, wz0], [wx0, GY, wz0]], [0, 1, 0], rgb(lerp([40, 44, 46], [226, 176, 108])), alpha);

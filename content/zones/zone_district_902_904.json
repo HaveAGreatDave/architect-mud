@@ -1,13 +1,17 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "forest",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "ambient_events": [
+    "A gull walks along the waterline looking for something.",
+    "A wave comes in a little further than the others."
+  ],
+  "ambient_theme": "coast",
+  "description": "Sand between the junkyard fence and the Codfather's quay, a quiet corner of the beach.",
   "exits": {
     "east": "zone_district_903_904",
     "north": "zone_district_902_903",
     "west": "zone_district_901_904"
   },
   "flags": {
+    "beach": true,
     "district": "wasteland",
     "region_id": "region_coldwater",
     "terrain": "sand"
@@ -17,6 +21,6 @@
   "grid_z": 0,
   "id": "zone_district_902_904",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "The Shingle",
   "parent_zone": null
 }

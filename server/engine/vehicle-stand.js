@@ -65,8 +65,8 @@ export function standAt(bayId) {
 }
 
 /** The vehicles this player has in this bay, as last listed (by the counter or by `callup`). */
-export function noteStandHand(playerId, bayId, list) {
-  hands.set(playerId, { bay: bayId, list: (list || []).map((v) => ({ id: v.id, name: v.name })) });
+export function noteStandHand(playerId, bayId, list, shop = null) {
+  hands.set(playerId, { bay: bayId, list: (list || []).map((v) => ({ id: v.id, name: v.name, look: v.look || null })), shop });
 }
 export const forgetStandHand = (playerId) => hands.delete(playerId);
 
@@ -109,6 +109,9 @@ export function standVehicles(zoneId, player, kind) {
       mine: String(S.ownerId) === String(player?.id), board: def.board(S.id),
       age: now - S.since, ...(S.down ? { down: now - S.down } : {}) } : null,
     mine: h && h.bay === zoneId ? h.list : [],
+    ...(h && h.bay === zoneId && h.shop?.length ? { shop: h.shop } : {}),
+    // a desk (a terminal's display): it lists and sells, and nothing is ever brought out onto its floor
+    ...(def.desk ? { desk: true } : {}),
   };
 }
 
@@ -141,16 +144,26 @@ export async function callUp(player, words = []) {
   const kind = bayKindOf(zone);
   if (!kind) return say("There's nothing to call up here. Vehicles are brought out onto the floor of a depot: a truck shed, a hangar, a marina's covered slip, the racer bay.");
   const def = KINDS.get(kind);
+  const want = words.join(' ').trim();
+  // `callup list`: what's yours here, and what's for sale if the kind sells (`def.shop`), into the hand the room's
+  // display reads (room-hangar-kiosk.js). Calls nothing up, and runs before a kind's own `call`, so a desk that
+  // raises nothing still lists. Its queries run on this verb only.
+  if (/^(list|ls|\?)$/i.test(want)) {
+    const [list, shop] = await Promise.all([def.list(player, zone), def.shop ? def.shop(player, zone).catch(() => null) : null]);
+    noteStandHand(player.id, zone.id, list, shop);
+    emit('room.vehiclesChanged', { zoneId: zone.id });
+    const names = list.map((x, i) => `${i + 1}. ${x.name}`).join('\n  ');
+    return say(list.length ? `Yours here:\n  ${names}\n${dim('callup <name> brings one out')}` : (def.words?.none || `Nothing of yours is kept here.`));
+  }
   if (def.call) return def.call(player, words, zone);
   const busy = def.busy?.(player);
   if (busy) return say(busy);
-  const want = words.join(' ').trim();
   const up = standAt(zone.id), noun = def.words?.noun || 'vehicle';
   if (/^(back|down|away|stow|return|lower)$/i.test(want)) {
     if (!up || up.down) return say(`There's nothing out on the floor to send back.`);
     if (String(up.ownerId) !== String(player.id)) return say(`The ${up.name} isn't yours to send back.`);
     lowerStand(zone.id);
-    return say(`<span class="text-amber">${def.words?.down?.(up.name) || `The ${up.name} goes back.`}</span>`);
+    return say(`<span class="text-amber">${def.words?.down?.(up.name, zone) || `The ${up.name} goes back.`}</span>`);
   }
   if (up?.down) return say(`The ${up.name} is still on its way back. Give it a moment.`);
   if (up) {
@@ -169,7 +182,7 @@ export async function callUp(player, words = []) {
   }
   raiseStand(zone.id, player.id, { kind, id: v.id, name: v.name, look: v.look });
   noteCalled(player, zone.id);
-  return say(`<span class="text-amber">${def.words?.up?.(v.name) || `The ${v.name} is brought out onto the floor.`}</span>`);
+  return say(`<span class="text-amber">${def.words?.up?.(v.name, zone) || `The ${v.name} is brought out onto the floor.`}</span>`);
 }
 
 export const _resetStands = () => { stands.clear(); hands.clear(); };

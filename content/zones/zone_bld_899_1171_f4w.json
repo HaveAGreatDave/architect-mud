@@ -1,0 +1,71 @@
+{
+  "description": "The quietest room in the building, with no window on the side where the old sign's painted. A bed, a wardrobe, a card table with one chair, and a deck of cards laid out in a game of patience.",
+  "exits": {
+    "east": "zone_bld_899_1171_f4"
+  },
+  "flags": {
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "lawless": true,
+    "room": {
+      "balcony": false,
+      "d": 10.8,
+      "decor": {
+        "walls": {
+          "hex": "#6a4c32",
+          "kind": "walnut",
+          "rail": 0.95,
+          "trim": "#2e2216",
+          "y1": 1.05
+        }
+      },
+      "doors": {
+        "east": -3.4000000000000004
+      },
+      "face": 180,
+      "h": 3.25,
+      "panes": [
+        {
+          "a": 0.7,
+          "b": 2.06,
+          "kind": "sash",
+          "wall": "front",
+          "y0": 0.89,
+          "y1": 2.68
+        },
+        {
+          "a": -2.06,
+          "b": -0.7,
+          "kind": "sash",
+          "wall": "front",
+          "y0": 0.89,
+          "y1": 2.68
+        },
+        {
+          "a": -0.51,
+          "b": 0.77,
+          "kind": "sash",
+          "wall": "back",
+          "y0": 0.89,
+          "y1": 2.68
+        }
+      ],
+      "studio": false,
+      "tone": {
+        "ceiling": "#7a6c5a",
+        "trim": "#4a3624",
+        "wall": "#9a8a6e"
+      },
+      "w": 4.9
+    },
+    "world_exit_zone": "zone_the_reach_872_1954"
+  },
+  "grid_x": -1,
+  "grid_y": 0,
+  "grid_z": 3,
+  "id": "zone_bld_899_1171_f4w",
+  "map_id": "map_int_bld_899_1171",
+  "name": "The Top West Room",
+  "parent_zone": "zone_the_reach_872_1954"
+}

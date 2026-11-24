@@ -11,11 +11,19 @@
     "is_building": true,
     "is_interior": true,
     "room": {
-      "w": 12,
-      "d": 9,
+      "w": 8,
+      "d": 8,
       "h": 3.4,
       "studio": false,
-      "balcony": false
+      "balcony": false,
+      "face": 180,
+      "floor_m": 42,
+      "doors": {
+        "down": [
+          0,
+          3.9
+        ]
+      }
     },
     "window": {
       "description": "The whole perimeter, canted off the grid by the twist, so no window frames a street square-on. The Basin to the north, the Curtain to the south, and between them the quarter with its lights on in the wrong places.",

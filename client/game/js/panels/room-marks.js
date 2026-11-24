@@ -29,6 +29,14 @@ export const MARK_FONTS = {
   Oxanium: 'oxanium.woff2', 'Rubik Glitch': 'rubik-glitch.woff2', Splash: 'splash.woff2', 'Courier Prime': 'courier-prime.woff2',
   // the deco faces (docs/reference/fonts.md "Art deco"), for a marquee
   Limelight: 'limelight.woff2', 'Poiret One': 'poiret-one.woff2', Monoton: 'monoton.woff2', 'Fascinate Inline': 'fascinate-inline.woff2', Federo: 'federo.woff2',
+  // the rest of the library a wall sign may ask for by name (room-signs.js)
+  Syncopate: 'syncopate.woff2', Gruppo: 'gruppo.woff2', 'Lexend Zetta': 'lexend-zetta.woff2', Jura: 'jura.woff2', Orbitron: 'orbitron.woff2', Audiowide: 'audiowide.woff2',
+  Righteous: 'righteous.woff2', 'Tilt Neon': 'tilt-neon.woff2', 'Varela Round': 'varela-round.woff2', Bungee: 'bungee.woff2', 'Bungee Inline': 'bungee-inline.woff2',
+  Anton: 'anton.woff2', 'League Gothic': 'league-gothic.woff2', 'Big Shoulders Display': 'big-shoulders-display.woff2', 'Big Shoulders Inline Display': 'big-shoulders-inline-display.woff2',
+  'Bowlby One SC': 'bowlby-one-sc.woff2', Ultra: 'ultra.woff2', 'Abril Fatface': 'abril-fatface.woff2', 'Playfair Display SC': 'playfair-display-sc.woff2', 'Alfa Slab One': 'alfa-slab-one.woff2',
+  Shrikhand: 'shrikhand.woff2', Barrio: 'barrio.woff2', 'Holtwood One SC': 'holtwood-one-sc.woff2', Ewert: 'ewert.woff2', Rye: 'rye.woff2', Plaster: 'plaster.woff2', 'Vast Shadow': 'vast-shadow.woff2',
+  Novem: 'novem.woff2', 'Black Ops One': 'black-ops-one.woff2', 'Saira Stencil One': 'saira-stencil-one.woff2', 'Operation Napalm': 'operation-napalm.woff2', 'Chakra Petch': 'chakra-petch.woff2',
+  B612: 'b612.woff2', Sixtyfour: 'sixtyfour.woff2', 'Permanent Marker': 'permanent-marker.woff2', Lacquer: 'lacquer.woff2', Knewave: 'knewave.woff2', Sacramento: 'sacramento.woff2', Yellowtail: 'yellowtail.woff2', Italiana: 'italiana.ttf',
 };
 const DEFAULT_FONT = { marquee: 'Limelight', logo: 'Michroma', wayfinding: 'Michroma', label: 'Geist', placard: 'Overpass', tag: 'Special Elite', readout: 'Doto', stencil: 'Stardos Stencil', scrawl: 'Rock Salt', poster: 'Staatliches' };
 const SUB_FONT = { marquee: 'Poiret One', logo: 'Geist', wayfinding: 'Geist', label: 'Geist', placard: 'Geist Mono', poster: 'Geist', readout: 'Share Tech Mono' };

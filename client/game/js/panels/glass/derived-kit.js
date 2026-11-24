@@ -231,7 +231,7 @@ const COL_PITCH_RICH = 0.085;
 // Types the kit never touches.
 // ⚠ Walls: the same tile repeats and each derives a different "front", so one-sided parts read as noise.
 // ⚠ Jetty, yards and plots: their decks are unyawed boxes the kit would glaze like walls.
-const NO_KIT = new Set(['trm_wall', 'thornwall', 'damwall', 'pier', 'harbour_yard', 'lighthouse', 'quay_crane', 'pontoon', 'fuel_dock', 'car_park', 'staff_lot', 'vacant_plot',
+const NO_KIT = new Set(['trm_wall', 'thornwall', 'damwall', 'pier', 'harbour_yard', 'lighthouse', 'quay_crane', 'pontoon', 'fuel_dock', 'car_park', 'staff_lot', 'vacant_plot', 'vtol_bridge',
   // A glass box with its own door, sign and roof pad: anything the kit hung would stand in the glass.
   'vtol_dealer',
   // Each draws all four of its own sides (building-styles.md §4.3).
@@ -268,6 +268,8 @@ const KIT_DECLINE = { meridian: ['signRoof', 'wall', 'pier'],   // 'wall' and 'p
   // The clinic emblem is drawn by `emitFlat`, which the shape capture can't see, so a hoarding would
   // stand through it. The embassy and meridian cut their names in stone.
   clinic: ['signRoof'], stitch: ['signRoof'], embassy: ['signRoof'],
+  // Coldwater Financial draws every part of its front: a glazed screen behind a colonnade and its name cut in the frieze.
+  reserve_bank: ['sign', 'signRoof', 'neon', 'ground', 'roof', 'stair', 'cope', 'wall', 'paint', 'pier', 'trade', 'riser'],
   // An empty shop has no tenant paying for a neon tube; the rest of its kit stays.
   vacantunit: ['neon'],
   // Aurelia's highest deck is a lit vitrine lid.
@@ -305,7 +307,7 @@ const KIT_DECLINE = { meridian: ['signRoof', 'wall', 'pier'],   // 'wall' and 'p
   institute: ['ground', 'wall'], fishmonger: ['ground', 'wall'],
   // Both draw their own openings, roofs and light.
   incinerator: ['signRoof', 'wall', 'ground', 'neon', 'roof', 'stair', 'cope'],
-  twocell: ['signRoof', 'wall', 'ground', 'neon', 'roof', 'stair', 'cope', 'riser'],
+  otoole: ['signRoof', 'wall', 'ground', 'neon', 'roof', 'stair', 'cope', 'riser'],
   // ⚠ Every Solenne plate is yawed, so the kit's highest deck is plate 0, a ledge near the podium.
   // The roof is a helideck and nothing may stand on it.
   solenne: ['ground', 'stair', 'roof', 'signRoof'],
@@ -916,8 +918,9 @@ function derivedKit(list, cand, deck, m, seed, A, have, rich, spars = [], mod = 
         }
       }
       // The door (`door` draws leaf, kick plate, push bar and step); the lobby takes the band's glow.
+      // ⚠ Never under 0.0225 a side (0.8 m): a narrow base gave 10 Kettle Lane a 0.69 m door (scripts/shapes/street-doors.mjs).
       push({ kind: 'windowBay', door: 1, cx: A(base.cx), cy: A(band ? by + out : by), z: A(base.z0 + GF * 0.42),
-        half: A(Math.min(base.hw * 0.13, 0.045)), hh: A(GF * 0.42), depth: A(0.016), pal: wpal,
+        half: A(Math.min(Math.max(base.hw * 0.13, 0.0225), 0.045)), hh: A(GF * 0.42), depth: A(0.016), pal: wpal,
         glow, ...(band ? { transom: 0.78 } : {}) });
     }
     // ── 3b. THE NAME ────────────────────────────────────────────────────────

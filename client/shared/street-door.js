@@ -56,6 +56,8 @@ export function streetDoorLook(sd) {
     ...(sd.handle === 's' ? { handle: 's' } : {}),
     ...(sd.leaf ? { leaf: String(sd.leaf) } : {}),
     ...(sd.bars ? { bars: true } : {}),
+    // the light in a painted leaf, so the room shows through it: 'porthole', 'half' or 'slot' (the default)
+    ...(['porthole', 'half', 'slot'].includes(sd.lite) ? { lite: sd.lite } : {}),
     ...(sd.fanlight ? { fanlight: true } : {}),
     ...(sd.dark ? { dark: true } : {}),
     // `own`: the model draws its own door and its animation (the clone arm's, a fresh clone in the doorway), so

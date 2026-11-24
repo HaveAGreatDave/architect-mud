@@ -1,7 +1,7 @@
 {
   "connection_id": "conn_citadel_hall_north_nuly",
   "door_type": "reinforced",
-  "exit_dir": "north",
+  "exit_dir": "south",
   "flags": {},
   "hololock_difficulty": 6,
   "hp": 3000,

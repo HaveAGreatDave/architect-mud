@@ -1,0 +1,14 @@
+{
+  "description": "A fringed shade on a drop cord, wired down the back stair to the panel in the cellar.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_bld_899_1171_f4e",
+  "light_type": "overhead",
+  "lumen_output": 1000,
+  "name": "Overhead Light",
+  "object_type": "light",
+  "power_draw_kw": 0.03,
+  "price": 0,
+  "zone_id": "zone_bld_899_1171_f4e"
+}

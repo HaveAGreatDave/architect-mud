@@ -260,38 +260,8 @@
       "sourceContainer": "furn_flashpoint_shelves"
     },
     {
-      "item_id": "item_ramen_noodles",
-      "price": 11,
-      "restockToQty": 6,
-      "sourceContainer": "furn_flashpoint_shelves"
-    },
-    {
-      "item_id": "item_ersatz_noodle",
-      "price": 6,
-      "restockToQty": 6,
-      "sourceContainer": "furn_flashpoint_shelves"
-    },
-    {
       "item_id": "item_flat_bread",
       "price": 6,
-      "restockToQty": 4,
-      "sourceContainer": "furn_flashpoint_shelves"
-    },
-    {
-      "item_id": "item_steam_bun",
-      "price": 7,
-      "restockToQty": 4,
-      "sourceContainer": "furn_flashpoint_shelves"
-    },
-    {
-      "item_id": "item_salt_ration",
-      "price": 4,
-      "restockToQty": 4,
-      "sourceContainer": "furn_flashpoint_shelves"
-    },
-    {
-      "item_id": "item_tinned_meat",
-      "price": 11,
       "restockToQty": 4,
       "sourceContainer": "furn_flashpoint_shelves"
     },
@@ -386,12 +356,6 @@
       "sourceContainer": "furn_flashpoint_chiller"
     },
     {
-      "item_id": "item_sausage",
-      "price": 24,
-      "restockToQty": 4,
-      "sourceContainer": "furn_flashpoint_roller"
-    },
-    {
       "item_id": "item_cigarettes",
       "price": 18,
       "restockToQty": 6,
@@ -418,14 +382,6 @@
     {
       "item_id": "item_drug_coffee",
       "price": 5
-    },
-    {
-      "item_id": "item_ration_apple",
-      "price": 11
-    },
-    {
-      "item_id": "item_cooking_oil",
-      "price": 13
     },
     {
       "item_id": "item_industrial_tape",

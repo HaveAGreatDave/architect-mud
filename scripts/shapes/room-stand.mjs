@@ -35,6 +35,9 @@ const ROOMS = [
   { kind: 'truck', name: 'truck shed', room: { w: 16, d: 24, h: 7.5, bay: 'truck' }, look: { cls: 'truck', variant: 'hauler' }, board: 'drive t1' },
   { kind: 'aircraft', room: { w: 30, d: 30, h: 8, studio: false, windowless: true, stand: { kind: 'aircraft', at: [0, 15], face: 'front', len: 18, wid: 20, from: 'back' } },
     look: { cls: 'prop', livery: {} }, board: 'hangaract launch a1' },
+  // a hangar's floor lift: the deck parts, the turntable comes up turning (room-hoist.js drawCarousel)
+  { kind: 'aircraft', name: 'aircraft carousel', carousel: true, room: { w: 30, d: 30, h: 12, studio: false, windowless: true, stand: { kind: 'aircraft', at: [0, 15], face: 'front', len: 18, wid: 20, from: 'below', kiosk: { at: [13, 3], face: 'left' } } },
+    look: { cls: 'prop', livery: {} }, board: 'hangaract launch a1' },
   { kind: 'boat', room: { w: 18, d: 22, h: 7, studio: false, windowless: true, stand: { kind: 'boat', at: [-3, 9], face: 'back', len: 13, wid: 5, from: 'front', water: true } },
     look: { cls: 'hydro', livery: null }, board: 'boat take b1' },
   { kind: 'podracer', room: { w: 16, d: 20, h: 6, studio: false, windowless: true, stand: { kind: 'podracer', at: [0, 11], face: 'front', len: 11, wid: 6, from: 'back' } },
@@ -92,6 +95,17 @@ for (const R of ROOMS) {
   H.load(null, { kind: R.kind, moveMs: 9000, from: S?.from || 'below', label: 'X', call: 'callup', back: 'callup back', mine: [],
     lift: { id: 'v1', name: 'One', look: R.look, mine: true, board: R.board, age: 0 } });
   await new Promise((ok) => setTimeout(ok, 10));   // the model loader's then
+  if (R.carousel) {
+    check(`${name}: the spec keeps the display's spot`, S.kiosk?.face === 'left' && S.kiosk.at[0] === 13, JSON.stringify(S.kiosk));
+    // a tenth of the way: the leaves are drawing back and she's still down in the well, nothing of her above the floor
+    NOW = 1000 + 900;
+    const early = createBatch(1024);
+    H.into(early, NOW);
+    let above = 0;
+    for (let i = 0; i < early.n; i++) if (early.data[i * STRIDE + 1] > 0.2) above++;
+    check(`${name}: early on she's still under the floor`, above === 0 && early.n > 200, `${above} vertices above the floor of ${early.n}`);
+    check(`${name}: the rim lamps chase while it moves`, (early.lights || []).length > 0 && early.lights.every((l) => l.c[0] === 1), JSON.stringify(early.lights?.[0]));
+  }
   NOW = 1000 + 4500;
   const mid = createBatch(1024);
   H.into(mid, NOW);

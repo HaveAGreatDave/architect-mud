@@ -1,30 +1,26 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "urban",
-  "bg_color": "#1c1e22",
-  "description": "A narrow front on the boulevard with a display case beside the door, lit, holding eleven portraits and a card that says SITTINGS BY ARRANGEMENT. The portraits are all of people looking directly at you and none of them is smiling, which is a house style rather than a mood. What makes the building worth looking up at is the roof: the whole of the north slope is glass, in small panes in an iron frame, tilted away from the sun rather than toward it, and it is the only roof on Halcyon Boulevard that is not a roof. Chrome Court is four doors down. A great many of the sittings are booked for the day before.",
+  "ambient_events": [
+    "Somebody comes up from the beach with a towel round their neck and sand on their feet.",
+    "A kid drags a cool box down the lane on its wheels, loudly."
+  ],
+  "ambient_theme": "city",
+  "description": "A short lane off Halcyon Boulevard down to the beach, new tarmac between two kerbs and a painted sign that says THE SHINGLE with an arrow east. The white VTOL pad stands over the pavement on the south side. Sand blows up the lane and nobody sweeps it.",
   "exits": {
-    "east": "zone_negeq_shop",
+    "east": "zone_district_896_904",
+    "south": "zone_district_895_905",
     "west": "zone_district_894_904"
   },
   "flags": {
-    "building_name": "Negative Equity",
-    "building_type": "photographer",
     "district": "filaments",
-    "entrance": "west",
-    "facade": true,
-    "floors": 2,
-    "is_building": true,
     "region_id": "region_coldwater",
-    "sign_trade": "PHOTOGRAPHER",
-    "world_exit_zone": "zone_district_894_904"
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 895,
   "grid_y": 904,
   "grid_z": 0,
   "id": "zone_district_895_904",
   "map_id": "map_world",
-  "marker": "NE",
-  "name": "Negative Equity",
+  "name": "Shingle Lane",
   "parent_zone": null
 }

@@ -7,10 +7,10 @@
   "ambient_theme": "indoors",
   "bg_color": "#14141a",
   "color": "#e8e0ff",
-  "description": "The boarding foyer of the Echelon: a double-height atrium in black marble and brushed titanium, lit by a single vast chandelier that costs more than most people will earn in a lifetime. A grand staircase sweeps UP to the cabin deck and DOWN to engineering. Forward (NORTH) lies the bridge; aft (SOUTH), the stern lounge. The gangway hatch leads OUT onto the water.",
+  "description": "The boarding foyer, amidships on the main deck: a stair hall in black marble and brushed titanium under a chandelier worth more than most people earn in a lifetime. The gangway door leads OUT to starboard. Stairs go UP to the owner's deck and DOWN to engineering. Forward (NORTH) is the owner's suite; aft (SOUTH), the stern lounge.",
   "exits": {
     "down": "zone_echelon_engineering",
-    "north": "zone_echelon_bridge",
+    "north": "zone_echelon_suite",
     "out": "zone_echelon_exterior",
     "south": "zone_echelon_stern",
     "up": "zone_echelon_landing"
@@ -24,7 +24,7 @@
     "is_interior": true,
     "room": {
       "balcony": false,
-      "d": 10,
+      "d": 8.73,
       "decor": {
         "ceiling": {
           "band": 0.5,
@@ -99,18 +99,21 @@
       },
       "doors": {
         "down": [
-          0,
-          5
+          0.9,
+          4.37
         ],
         "up": [
-          0,
-          5
+          -0.9,
+          4.37
         ]
       },
       "face": 90,
       "finish": "fine",
+      "glass": [
+        "front"
+      ],
       "ground": "marble",
-      "h": 6.2,
+      "h": 3,
       "studio": false,
       "tone": {
         "accent": "#9aa3ab",
@@ -118,8 +121,7 @@
         "trim": "#0b0b0b",
         "wall": "#1d1d1f"
       },
-      "w": 9,
-      "windowless": true
+      "w": 3.6
     },
     "window": {
       "description": "A full-height pane onto the street, kept just clean enough to trade through. Whatever the weather is doing out there, it's doing it in plain view.",

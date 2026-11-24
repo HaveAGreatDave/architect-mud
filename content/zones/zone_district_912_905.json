@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "forest",
   "color": "#b8a880",
-  "description": "Dry sand gives underfoot and hisses away from each step, then firms up toward the water. The wind comes off the basin with a mineral cold in it and finds every gap in whatever you're wearing. Someone's dragged a boat up here once and never dragged it back.",
+  "description": "Warm sand underfoot, and a tide line that's mostly weed these days instead of plastic. A lifebuoy on a post has stood here so long people have carved their initials into it.",
   "exits": {
     "east": "zone_district_913_905",
     "north": "zone_district_912_904",
@@ -12,13 +12,14 @@
   "flags": {
     "district": "docks",
     "region_id": "region_coldwater",
-    "terrain": "sand"
+    "terrain": "sand",
+    "beach": true
   },
   "grid_x": 912,
   "grid_y": 905,
   "grid_z": 0,
   "id": "zone_district_912_905",
   "map_id": "map_world",
-  "name": "The Strand",
+  "name": "Marina Beach",
   "parent_zone": null
 }

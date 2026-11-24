@@ -72,6 +72,14 @@ uniform float uCirSheet;
 uniform float uAlto;
 uniform float uAltoSheet;
 
+// ── DETAIL LOD (the moire fix, 2026-11-22) ───────────────────────────────────────────────────
+// The detail octaves repeat every 3 to 5 tiles. Far off, or on a shallow ray, the march steps and the
+// quarter-res pixel are wider than that, so the octave aliased into a moire that swam in and out
+// over whole stretches of deck. The march sets this from its footprint; 1 is full detail, 0 none,
+// and a faded octave is held at its mean (0.5), which leaves the body where it was.
+float gLod = 1.0;
+float det(float d) { return mix(0.5, d, gLod); }
+
 vec4 cover(vec3 p) {
   vec2 uv = (p.xy - uCoverOff) / (2.0 * uCoverRange) + 0.5;
   if (any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0)))) return vec4(0.0, 0.0, 0.5, 0.0);
@@ -132,7 +140,7 @@ float density(vec3 p, vec4 cs, out float ice) {
     w.xy += flow(w.xy, hf, 10.0);
     float n = texture(uNoise, w * vec3(0.032, 0.032, 0.05)).r;
     // The towers boil: the detail rides a finer eddy of its own, so it moves rather than fades.
-    float d = texture(uNoise, vec3(w.xy + eddy(w.xy, hf, 4.0), w.z) * vec3(0.16, 0.16, 0.2)).r;
+    float d = det(texture(uNoise, vec3(w.xy + eddy(w.xy, hf, 4.0), w.z) * vec3(0.16, 0.16, 0.2)).r);
     float core = smoothstep(0.4, 0.95, cov * cb);
     float topH = mix(0.5, 0.86, core);
     float tower = smoothstep(0.0, 0.04, hf) * (1.0 - smoothstep(topH - 0.12, topH, hf));
@@ -151,7 +159,7 @@ float density(vec3 p, vec4 cs, out float ice) {
     }
     float an = clamp((0.55 * n + 0.45 * d) - 0.3, 0.0, 1.0) * 2.2 * shelf;
     // Mammatus: rounded pouches off the anvil's underside, from a coarse lumpy octave.
-    float m = texture(uNoise, w * vec3(0.11, 0.11, 0.0)).r;
+    float m = det(texture(uNoise, w * vec3(0.11, 0.11, 0.0)).r);
     float pouch = smoothstep(0.55, 0.8, m) * smoothstep(0.66, 0.74, hf) * (1.0 - smoothstep(0.76, 0.79, hf))
       * smoothstep(0.1, 0.4, cov * cb) * (1.0 - core);
     dCb = max(max(body * tower * 3.4, an * 1.5), pouch * 1.8) * cb;
@@ -178,12 +186,15 @@ float density(vec3 p, vec4 cs, out float ice) {
       // (about 0.5) is rolls and cells with gaps between, cumulus (1) is towers with flat bases.
       // A nimbus cell (rain) is a deep, featureless, ragged-based nimbostratus.
       float n = texture(uNoise, w * vec3(0.045, 0.045, 0.07)).r;
-      // Cumulus churns harder than stratus.
-      float d = texture(uNoise, vec3(w.xy + eddy(w.xy, hf, mix(1.5, 4.0, heap)), w.z) * vec3(0.19, 0.19, 0.24)).r;
       float topF = mix(0.3, 1.0, max(heap, rain * 0.85));
       float shape = smoothstep(0.0, mix(0.07, 0.02, rain), lf) * smoothstep(topF, topF * mix(0.8, 0.3, heap), lf);
       float c = cov * (mix(1.15, 0.84, heap) + 0.35 * rain);
       float body = clamp((n - (1.0 - c)) / max(c, 0.05), 0.0, 1.0);
+      // Moving edges, a still middle: the eddy that carries the detail is strong where the body is
+      // thin (the rim) and weak in the core, so a cloud frays and curls at its edge and holds its
+      // shape inside. Cumulus churns harder than stratus.
+      float rim = 1.0 - smoothstep(0.25, 0.75, body);
+      float d = det(texture(uNoise, vec3(w.xy + eddy(w.xy, hf, mix(1.5, 4.0, heap) * mix(0.25, 1.8, rim)), w.z) * vec3(0.19, 0.19, 0.24)).r);
       // Stratocumulus: the detail octave cuts the deck into cells, strongest at heap 0.5.
       float scW = 1.0 - abs(heap - 0.5) * 2.0;
       body *= mix(1.0, smoothstep(0.32, 0.6, d), scW * 0.75 * (1.0 - rain));
@@ -197,7 +208,7 @@ float density(vec3 p, vec4 cs, out float ice) {
       // patches. Cells raise both, so the mid deck thickens ahead of the weather.
       float c1 = max(cov * 0.55, uAlto + uAltoSheet * 0.6);
       float n = texture(uNoise, w * vec3(0.06, 0.06, 0.08) * 1.35).r;
-      float d = texture(uNoise, vec3(w.xy + eddy(w.xy, hf, 1.5), w.z) * vec3(0.3, 0.3, 0.3)).r;
+      float d = det(texture(uNoise, vec3(w.xy + eddy(w.xy, hf, 1.5), w.z) * vec3(0.3, 0.3, 0.3)).r);
       float shape = smoothstep(0.0, 0.18, lf) * smoothstep(1.0, 0.55, lf);
       float heaps = clamp((d * 0.6 + n * 0.4 - (1.0 - c1)) / max(c1, 0.05), 0.0, 1.0);
       heaps = smoothstep(0.15, 0.6, heaps);
@@ -212,7 +223,7 @@ float density(vec3 p, vec4 cs, out float ice) {
       q.y += 6.0 * sin(q.x * 0.05);                       // the hooks (uncinus)
       vec3 wf = vec3(q.x * 0.018, q.y * 0.24, p.z * 0.1);
       float n = texture(uNoise, w * vec3(0.03, 0.03, 0.05)).r;
-      float f = texture(uNoise, wf).r;
+      float f = det(texture(uNoise, wf).r);
       float shape = smoothstep(0.0, 0.25, lf) * smoothstep(1.0, 0.5, lf);
       float fib = clamp((f * 0.65 + n * 0.35 - (1.0 - c2)) / max(c2, 0.05), 0.0, 1.0);
       float veil = uCirSheet * (0.55 + 0.45 * n) * smoothstep(0.0, 0.4, lf) * smoothstep(1.0, 0.6, lf);
@@ -221,7 +232,17 @@ float density(vec3 p, vec4 cs, out float ice) {
     }
   }
   // The low octave thins the sheet in patches, so it is a ceiling with lighter spots, not a lid.
-  float dS = shF <= 0.0 ? 0.0 : shF * 3.4 * (0.5 + 0.5 * texture(uNoise, vec3(p.xy + uOrigin + drift, p.z) * vec3(0.045, 0.045, 0.07)).r);
+  // Breaks: a coarser octave opens real holes in it, fewer as the sheet thickens, so an overcast
+  // has patches of sky rather than one unbroken lid (2026-11-22).
+  float dS = 0.0;
+  if (shF > 0.0) {
+    vec3 sp = vec3(p.xy + uOrigin + drift, p.z);
+    float sn = texture(uNoise, sp * vec3(0.045, 0.045, 0.07)).r;
+    float hole = texture(uNoise, vec3(sp.xy * 0.014, 0.77)).r;
+    float thin = 1.0 - sheetHere;
+    float open = smoothstep(0.66 - 0.24 * thin, 0.76 - 0.24 * thin, hole);
+    dS = shF * 3.4 * (0.35 + 0.65 * smoothstep(0.25, 0.75, sn)) * (1.0 - open);
+  }
   float dn = max(max(dL, dS), dCb);
   if (dn <= 0.0) return 0.0;
   ice = clamp((ice * dL + iCb) / dn, 0.0, 1.0);
@@ -379,6 +400,8 @@ void main() {
     float t = t0 + (float(i) + jit) * dt;
     vec3 p = ro + rd * t;
     vec4 cs = cover(p);
+    // The footprint: the larger of the step and the pixel's width at this distance.
+    gLod = 1.0 - smoothstep(0.7, 1.8, max(dt, t * 2.4 / uRes.y));
     float ice;
     // ⚠ THE FAR END IS A FADE, NOT A WALL. The march stops at uFar, and a cloud at uFar minus a hair
     // was full density, so weather arrived as a hard line about 9° above the horizon and grew down

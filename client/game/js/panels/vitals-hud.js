@@ -76,6 +76,11 @@ function mount() {
     </div>`).join('') + `
     <div class="vh-row vh-cred" data-k="cr" title="Credits">
       <span class="vh-lbl">₵</span><span class="vh-num vh-cr-val">--</span><span class="vh-cr-delta"></span>
+    </div>
+    <div class="vh-wet" data-w="dry" title="Dry">
+      <svg viewBox="0 0 10 13" aria-hidden="true"><defs><clipPath id="vh-drop-clip"><path d="M5 .8C3.3 3.6 1 6 1 8.6a4 4 0 0 0 8 0C9 6 6.7 3.6 5 .8Z"/></clipPath></defs>
+        <rect class="vh-fill" x="0" y="0" width="10" height="13" clip-path="url(#vh-drop-clip)"/>
+        <path class="vh-drop" d="M5 .8C3.3 3.6 1 6 1 8.6a4 4 0 0 0 8 0C9 6 6.7 3.6 5 .8Z"/></svg>
     </div>`;
   host.appendChild(root);
   mountButton();
@@ -194,6 +199,13 @@ export function updateVitalsHud(p) {
       showUntil.cr = now + 5000;
     } else if (!((showUntil.cr || 0) > now)) d.textContent = '';
     last.cr = c;
+  }
+  // Wetness, the 0-100 the environment pane bands: under 10 dry, under 50 wet, then soaked.
+  if (p.wetness != null) {
+    const w = Number(p.wetness) || 0;
+    const band = w >= 50 ? 'soaked' : w >= 10 ? 'wet' : 'dry';
+    const el = root.querySelector('.vh-wet');
+    if (el.dataset.w !== band) { el.dataset.w = band; el.title = band[0].toUpperCase() + band.slice(1); }
   }
   apply(now);
 }

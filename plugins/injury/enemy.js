@@ -265,7 +265,7 @@ function onEnemyDamage(enemy, { part, damage, baseDamage, type, critical, forceS
 // but a high-stat build. A lesson whose caveat is "not yet" should not be
 // delivered mid-swing by nobody.
 //
-// Grady teaches it instead (TEACH_AIM, plugins/injury/index.js). He can say
+// Rusty teaches it instead (TEACH_AIM, plugins/injury/index.js). He can say
 // "not yet" and still be there to say "now" when you come back trained, which
 // an ambient one-shot never could.
 

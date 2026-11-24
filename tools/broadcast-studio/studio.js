@@ -3,7 +3,7 @@
 // live preview through the player the TV uses. The forms come off sequence.js's tables and
 // SET_PIECES, so a new graphic or piece needs nothing here. See tools/broadcast-studio/README.md.
 
-import { GFX, FRAMES, MOVES, CUTS, ACTS, OPS, SEQ_FORMAT, timeline, timelineLength, checkSequence, checkShow, tokenPaths, listPaths, peoplePaths, passes, sequenceFromBsm, shotCamera, SHOW_KINDS, kindOf, showSkeleton, castToken, fill, resolveSet, partsOf } from '/client/shared/sequence.js';
+import { GFX, FRAMES, MOVES, CUTS, ACTS, FACES, OPS, SEQ_FORMAT, timeline, timelineLength, checkSequence, checkShow, tokenPaths, listPaths, peoplePaths, passes, sequenceFromBsm, shotCamera, SHOW_KINDS, kindOf, showSkeleton, castToken, fill, resolveSet, partsOf } from '/client/shared/sequence.js';
 import { SET_PIECES } from '/client/game/js/panels/gl/set-mesh.js';
 import { createSequencePlayer } from '/client/game/js/panels/sequence-player.js';
 
@@ -74,6 +74,16 @@ function selectInput(obj, key, options, after, doc) {
   const el = h('select', { onchange: (e) => { obj[key] = e.target.value; touch(doc); after?.(); } });
   for (const [v, label] of options) el.add(new Option(label, v, false, String(obj[key] ?? '') === String(v)));
   return el;
+}
+// A person's face on a beat (`beat.face[role]`). A beat nobody has a face on carries no `face` at all, so looking
+// at a beat doesn't write an empty one into every sequence.
+function faceInput(b, role, after, doc) {
+  const pick = { [role]: b.face?.[role] || '' };
+  return selectInput(pick, role, Object.entries(FACES), () => {
+    if (pick[role]) (b.face = b.face || {})[role] = pick[role];
+    else if (b.face) { delete b.face[role]; if (!Object.keys(b.face).length) delete b.face; }
+    after?.();
+  }, doc);
 }
 function linesInput(obj, key, after, doc, rows = 3) {
   return remember(h('textarea', { rows, value: (obj[key] || []).join('\n'), oninput: (e) => { obj[key] = e.target.value.split('\n').filter((s) => s.trim()); touch(doc); after?.(); } }));
@@ -451,7 +461,7 @@ function renderInspector() {
     box.append(h('div', { class: 'group' }, h('h4', {}, 'Plays when'), h('p', { class: 'hint' }, 'Leave it empty and this beat always plays.'), condEditor(b, conds, seq)));
 
     box.append(h('div', { class: 'group' }, h('h4', {}, 'People'),
-      Object.keys(seq.roles || {}).map((r) => field(seq.roles[r].label || r, selectInput(b.act = b.act || {}, r, Object.entries(ACTS), after, seq)))));
+      Object.keys(seq.roles || {}).map((r) => h('div', { class: 'two' }, field(seq.roles[r].label || r, selectInput(b.act = b.act || {}, r, Object.entries(ACTS), after, seq)), field('Face', faceInput(b, r, after, seq))))));
 
     box.append(h('div', { class: 'group' }, h('h4', {}, 'Set\'s screen'),
       h('div', { class: 'two' }, field('Shows', selectInput(b, 'wall', [['', 'As before'], ['brand', 'Title'], ['feed', 'The live programme'], ['list', 'A list']], () => { after(); renderInspector(); }, seq)), field('Title', textInput(b, 'wallText', after, seq))),

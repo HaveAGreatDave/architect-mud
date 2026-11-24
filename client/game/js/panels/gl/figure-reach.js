@@ -52,6 +52,7 @@ export const HELD = Object.freeze({
   pen: { len: 0.026, back: 0.115, r: 0.0045 },
   note: { len: 0.054, back: 0.014, r: 0.001 }, wad: { len: 0.054, back: 0.014, r: 0.004 }, card: { len: 0.074, back: 0.014, r: 0.001 },
   deck: { len: 0.044, back: 0.044, r: 0.008 }, pad: { len: 0.075, back: 0.075, r: 0.004 },
+  book: { len: 0.09, back: 0.09, r: 0.012 }, remote: { len: 0.1, back: 0.07, r: 0.011 }, controller: { len: 0.06, back: 0.06, r: 0.02 },
 });
 const AXES = { a: (s) => [-s, 0, 0], d: () => [0, -1, 0], f: () => [0, 0, 1] };
 const axisOf = (name, s) => (name[0] === '-' ? AXES[name[1]](s).map((v) => -v) : AXES[name](s));
@@ -98,6 +99,7 @@ const CALL = { L: H('relax'), R: H('cup', { hold: 'phone' }), phone: 'ear' };
 const SCROLL = { R: H('cup', { hold: 'phone' }), phone: 'thumb' };
 // a note held out or up to a dancer
 const TIP = { R: H('pinch', { hold: 'note' }) };
+const POLE = Object.freeze({ pole: true });
 export const CLIP_HANDS = Object.freeze({
   eat: EAT, sitEat: EAT,
   drink: DRINK, sitDrink: { ...DRINK, cup: true },
@@ -122,7 +124,18 @@ export const CLIP_HANDS = Object.freeze({
   sitCook: { L: H('tool'), R: H('cup', { hold: 'lighter' }) },
   // a bottle up to somebody else's, then a swig (actor3d.js toastPose)
   toast: { L: H('relax'), R: H('cup', { hold: 'bottle' }) },
+  // a high five, right hand or left (actor3d.js highFivePose): the open palm turned to the front and onto the point
+  // between the two of them as the clip swings it up
+  highFive: { L: H('relax'), R: H('flat', { at: 'palm', goal: 'fiveR', near: 0.26, full: 0.08, tw: 0.9 }) },
+  highFiveL: { L: H('flat', { at: 'palm', goal: 'fiveL', near: 0.26, full: 0.08, tw: 0.9 }), R: H('relax') },
+  // a fist bump (actor3d.js fistBumpPose): the fist closed on the way out and onto the point between them
+  fistBump: { L: H('relax'), R: H('relax', { to: 'fist', at: 'palm', goal: 'bumpR', near: 0.13, full: 0.05, tw: 0.4 }) },
+  fistBumpL: { L: H('relax', { to: 'fist', at: 'palm', goal: 'bumpL', near: 0.13, full: 0.05, tw: 0.4 }), R: H('relax') },
   phone: PHONE, sitPhone: PHONE, liePhone: PHONE,
+  // a bench press: both fists closed round the bar, which gl/room-held.js draws once between the palms
+  // an acoustic guitar (actor3d.js guitarPose): the left fist round the neck, the right hand loose over the strings
+  guitar: { L: H('fist', { hold: 'guitar' }), R: H('pinch') },
+  liePress: { L: H('fist', { hold: 'bar' }), R: H('fist', { hold: 'bar' }) },
   phoneScroll: SCROLL, sitScroll: SCROLL,
   panicPhone: CALL, sitPanicPhone: CALL,
   // writing on a pad held at the waist; counting a wad of notes, the right thumb going through them
@@ -131,6 +144,20 @@ export const CLIP_HANDS = Object.freeze({
   tipOffer: TIP, sitTipOffer: TIP, billWave: TIP, sitBillWave: TIP,
   // dealing: the deck in the left, a card pinched off it in the right
   deal: { L: H('cup', { hold: 'deck' }), R: H('pinch', { hold: 'card' }) }, sitDeal: null,
+  // at home (actor3d.js): a mug sipped from, a can, a book, the remote pointed at the set, a game pad in both hands.
+  // The side-by-side ones are named with where the other person is ('L', 'R'), so each is listed twice.
+  sitMug: { L: H('relax'), R: H('cup', { hold: 'mug', at: 'tip', goal: 'mouth', tw: 0.25, aim: 0.6 }) },
+  sitCan: { L: H('relax'), R: H('cup', { hold: 'can', at: 'tip', goal: 'mouth', tw: 0.25, aim: 1 }) },
+  sitBook: { L: H('flat', { hold: 'book', tw: 1.1 }), R: H('relax') }, lieBook: { L: H('flat', { hold: 'book', tw: 1.1 }), R: H('relax') },
+  sitRemote: { L: H('relax'), R: H('cup', { hold: 'remote' }) },
+  sitGame: { L: H('cup'), R: H('cup', { hold: 'controller' }) },
+  ...Object.fromEntries(['L', 'R'].flatMap((s) => [
+    ['sitGamePair' + s, { L: H('cup'), R: H('cup', { hold: 'controller' }) }], ['sitGameWin' + s, { L: H('cup'), R: H('cup', { hold: 'controller' }) }],
+    ['sitGameLose' + s, { L: H('cup'), R: H('cup', { hold: 'controller' }) }], ['sitCheers' + s, { L: H('relax'), R: H('cup', { hold: 'can' }) }],
+    ['sitShowPhone' + s, PHONE], ['sitPassRemote' + s, { L: H('relax'), R: H('cup', { hold: 'remote' }) }],
+  ])),
+  // at a dancer's pole: any hand the clip brings near it closes round it (polePlan)
+  poleLean: POLE, poleHold: POLE, poleKick: POLE, poleSlide: POLE,
 });
 // a clip's own name with a man's wide knees taken off (actor3d.js wideKnees)
 const baseClip = (c) => String(c || '').replace(/Wide$/, '');
@@ -274,6 +301,15 @@ const GOALS = {
   nose: [BN.head, [0, 1.597, 0.118]],
   crookL: [BN.farmL, [0.178, 1.075, 0.042]],
   crookR: [BN.farmR, [-0.178, 1.075, 0.042]],
+  // a high five: the meeting point over the hand's own shoulder a little above the head, half the 0.6 m that
+  // plugins/roomstage npc-life.js stands the pair apart, less half a palm, so the two palms touch and don't cross.
+  // No bone carries it (null): it's in the body's own frame, the one both bodies are stood in, so a stance's hip
+  // shift or a lean into the slap doesn't move it off the other person's.
+  fiveR: [null, [-0.22, 1.82, 0.288]],
+  fiveL: [null, [0.22, 1.82, 0.288]],
+  // a fist bump: the middle of the fist at chest height, short of the middle by half a fist so the knuckles meet
+  bumpR: [null, [-0.14, 1.22, 0.255]],
+  bumpL: [null, [0.14, 1.22, 0.255]],
 };
 // between the eyes, and each ear's hole
 const EYES = [0, 1.62, 0.09], EAR = (s) => [s * 0.078, 1.6, 0.0];
@@ -490,6 +526,24 @@ function mealPlan(M, out, { t, id, keyOf, meal, lift, bite, table }) {
 }
 const PALM_A_PLATE = 0.035;
 
+// ── The pole ──────────────────────────────────────────────────────────────────────────────────────────────────────
+// The pole stands a quarter of a metre in front of the dancer (actor3d.js poleHoldPose), 5 cm across. A hand the
+// clip brings within 40 cm of it reaches the rest of the way, at the height the clip put it, the palm on the
+// pole's near side and the fingers closing round it as it arrives; one further off is left to the clip.
+const POLE_Z = 0.25, POLE_R = 0.025;
+function polePlan(M, out, keyOf) {
+  for (const [L, s] of [['L', 1], ['R', -1]]) {
+    const k = keyOf(s), pt = handPoint(s, PALM, k), P = at(M[BN['hand' + L]], pt);
+    const dx = P[0], dz = P[2] - POLE_Z, d = Math.hypot(dx, dz) || 1e-4, w = ease((0.4 - (d - POLE_R)) / 0.28);
+    out.on[L] = w;
+    if (w <= 0) { out.shapes[L] = 'relax'; continue; }
+    const y = Math.max(0.35, Math.min(2.25, P[1])), r = POLE_R + 0.012;
+    const goal = [dx / d * r, y, POLE_Z + dz / d * r];
+    reachTo(M, s, L, pt, add(P, mul(sub(goal, P), w)));
+    out.shapes[L] = mixShape('relax', 'fist', 0.85 * w);
+  }
+}
+
 // ── Small motions with nothing to place ───────────────────────────────────────────────────────────────────────────
 // A thumb flicking through a wad (counting), and the thumb idling on whatever the hand's round
 function thumbFlick(pose, t, seed) {
@@ -530,6 +584,9 @@ export function finishArms(S, { clip, key = {}, grip = null, props = {}, holds =
   } else if (spec?.meal && meal) {
     M = Array.from(S);
     mealPlan(M, out, { t, id, keyOf, meal: typeof meal === 'object' ? meal : null, lift, bite: biteOf(), table });
+  } else if (spec?.pole) {
+    M = Array.from(S);
+    polePlan(M, out, keyOf);
   } else {
     for (const [L, s] of [['L', 1], ['R', -1]]) {
       const h = spec?.[L], k = keyOf(s);
@@ -540,7 +597,7 @@ export function finishArms(S, { clip, key = {}, grip = null, props = {}, holds =
       // how near the clip has brought the palm decides how much of the rest the reach does: none past `near`, all of
       // it inside `full`. At rest a hand hangs about a third of a metre from the mouth, and at it the clips bring the
       // palm within about ten centimetres.
-      const [gb, gp] = GOALS[h.goal], goal = at(M[gb], gp);
+      const [gb, gp] = GOALS[h.goal], goal = gb == null ? gp : at(M[gb], gp);
       const dist = len(sub(at(M[BN['hand' + L]], handPoint(s, PALM, k)), goal)), near = h.near || 0.24, full = h.full || 0.13;
       const w = ease((near - dist) / (near - full));
       on[L] = w;

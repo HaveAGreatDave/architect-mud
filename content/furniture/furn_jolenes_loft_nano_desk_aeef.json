@@ -1,0 +1,23 @@
+{
+  "description": "A broad desk surface with embedded touchpads and holographic emitters projecting a ghost workspace thirty centimetres above the surface.",
+  "flags": {
+    "interactions": [
+      "lean"
+    ],
+    "item_id": "item_furn_nano_desk",
+    "spot": {
+      "along": 3.3,
+      "wall": "right"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_jolenes_loft_nano_desk_aeef",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "self-organizing desk",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 3600,
+  "zone_id": "zone_jolenes_loft"
+}

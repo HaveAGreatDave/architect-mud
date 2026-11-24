@@ -17,7 +17,7 @@
  *   { type:'retrieve', item_id:'relic', zone:'zone_sewers', spawn:true, count:1, desc:'Recover the relic' }
  *   { type:'assassinate', target:'npc_vale', desc:'Put Vale in the ground' }
  *   { type:'escort', target:'npc_vale', zone:'zone_clinic', desc:'Walk Vale to the clinic' }
- *   { type:'talk',   target:'npc_grady',  desc:'Hear Grady out' }
+ *   { type:'talk',   target:'npc_rusty_otoole',  desc:'Hear Rusty out' }
  *   { type:'buy',    target:'medkit', count:3, desc:'Buy three medkits' }
  *   { type:'sell',   target:'scrap',  count:10, desc:'Offload ten scrap' }
  *   { type:'craft',  target:'shiv',   desc:'Make yourself a shiv' }

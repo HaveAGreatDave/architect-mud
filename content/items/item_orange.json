@@ -10,25 +10,26 @@
     "food_profile": "fruit",
     "matter": {
       "form": {
-        "kind": "sphere",
-        "w": 7.5,
         "d": 7.5,
         "h": 7.5,
-        "round": 1
-      },
-      "ramp": {
-        "raw": "#f4a03a",
-        "cook": "#e8902e",
-        "peak": "#d07824"
+        "kind": "sphere",
+        "round": 1,
+        "w": 7.5
       },
       "look": {
+        "flesh": "#f4a03a",
         "skin": "#f08a1c",
-        "stem": "#4a6a2a",
-        "flesh": "#f4a03a"
+        "stem": "#4a6a2a"
+      },
+      "ramp": {
+        "cook": "#e8902e",
+        "peak": "#d07824",
+        "raw": "#f4a03a"
       }
     },
     "perishable": true,
     "restore_hunger": 12,
+    "shelved": true,
     "spoil_rate": "normal",
     "stackable": true
   },

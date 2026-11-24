@@ -1,0 +1,31 @@
+{
+  "description": "A grey breaker panel plastered with faded safety notices, and one evidence tag nobody ever filed.",
+  "flags": {
+    "aliases": "breakers,breaker panel,panel",
+    "look": {
+      "arche": "prop",
+      "dims": [
+        0.9,
+        0.2,
+        1.2
+      ],
+      "form": "cabinet",
+      "wear": 0.6
+    },
+    "spot": {
+      "along": 0,
+      "wall": "back",
+      "y": 0.6
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_precinct_breakers",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "breaker panel",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_mq_precinct_util"
+}

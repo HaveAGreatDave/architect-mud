@@ -211,11 +211,6 @@
       "price": 120
     },
     {
-      "item_id": "item_rusty_knife",
-      "min_trust": 0,
-      "price": 25
-    },
-    {
       "item_id": "item_wb_split_gloves",
       "min_trust": 1,
       "price": 700

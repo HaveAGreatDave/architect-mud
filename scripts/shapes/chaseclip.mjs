@@ -18,7 +18,7 @@
 // sweep below carries the same rig at three camera distances rather than one: the number that
 // matters is not "is anything drawn behind the vehicle" but "does that band grow as the camera
 // moves back", and a single seat cannot answer it.
-import { loadWindshield, stubCanvas } from './dom-stub.mjs';
+import { loadWindshield, stubCanvas, glStub } from './dom-stub.mjs';
 import { CAB_VIEW_TUNE } from '../../client/shared/cab-render-tune.js';
 
 const DETAIL = process.argv.includes('--detail');
@@ -59,19 +59,16 @@ function scene({ furniture, where }) {
 }
 
 // ── THE COUNTER ─────────────────────────────────────────────────────────────
-// framecost.mjs's shape: a Proxy over the stub context tallying every method call. `getContext` is
-// replaced rather than wrapped once, because paintWindshield asks for it every frame.
-const el = stubCanvas('__chaseclip', 900, 520);
-const inner = el.getContext('2d');
-let TALLY = 0;
-el.getContext = () => new Proxy({}, {
-  get(_t, k) {
-    const v = inner[k];
-    if (typeof v !== 'function') return v;
-    return (...a) => { TALLY++; return v(...a); };
-  },
-  set(_t, k, v) { inner[k] = v; return true; },
-});
+// There is no 2-D city painter any more, so this counts what the sweep hands the GL world hook:
+// the sprites, strokes, decals and scatter it queued for the frame (the stub hook in dom-stub.mjs
+// keeps the last call). A lamp, a signal mast or a person is a handful of these. The ownship sink
+// is left out: it is the rig itself and the same in both frames of a pair.
+stubCanvas('__chaseclip', 900, 520);
+function glItems() {
+  const o = glStub.last?.opts;
+  if (!o) return 0;
+  return (o.sprites?.length || 0) + (o.strokes?.length || 0) + (o.decals?.length || 0) + (o.scatter?.length || 0);
+}
 
 const SEATS = {
   // The truck's own external chase — `cls: 'truck'`, ground phase, the cab's render tune — which is
@@ -103,9 +100,9 @@ function calls(seat, opts) {
   // Painted twice, the first discarded: the first frame builds every lazy cache the renderer has.
   let n = 0;
   for (let i = 0; i < 2; i++) {
-    TALLY = 0;
+    glStub.last = null;
     ws.paintWindshield('__chaseclip', { ...SEATS[seat], map, mapOffset: { x: 0, y: OFF_Y }, heading: 0, hour: 21, weather: 'clear', speed: 0.4 });
-    n = TALLY;
+    n = glItems();
   }
   return n;
 }
@@ -123,18 +120,18 @@ for (const seat of ['chase', 'chaseNear', 'cab']) for (const where of ['ahead', 
   cost[`${seat}:${where}`] = on - off;
 }
 globalThis.performance = clock;
-if (DETAIL) for (const k of Object.keys(cost)) console.log(`  · ${k}: ${cost[k]} calls`);
+if (DETAIL) for (const k of Object.keys(cost)) console.log(`  · ${k}: ${cost[k]} items`);
 
 // 1. The case the report is about. A dressed street the vehicle has already driven past must still
-//    cost something to draw from a camera standing behind the vehicle.
+//    hand the GL pass something from a camera standing behind the vehicle.
 check('the chase camera still draws the street behind the rig', cost['chase:behind'] > 0,
-  `the lamps and signals behind the truck cost ${cost['chase:behind']} canvas calls — nothing is being drawn`);
+  `the lamps and signals behind the truck cost ${cost['chase:behind']} GL items — nothing is being drawn`);
 
-// 2. …and it must be a real amount, not one stray call. A lamp is on the order of 25 canvas calls,
-//    so a hundred is several tiles of dressed street; anything much under that would mean one tile
-//    had survived the clip by a hair and the rest are still going.
-check('and it is a street rather than a survivor', cost['chase:behind'] > 100,
-  `only ${cost['chase:behind']} calls — most of the street is still being clipped`);
+// 2. …and it must be a real amount, not one stray item. A lamp is about nine GL items (a glow
+//    sprite and its pole and arm strokes), so forty is four or five lamps; anything much under that
+//    would mean one tile had survived the clip by a hair and the rest are still going.
+check('and it is a street rather than a survivor', cost['chase:behind'] > 40,
+  `only ${cost['chase:behind']} items — most of the street is still being clipped`);
 
 // 3. THE DEPTH RECOVERED IS THE CAMERA'S SETBACK, which is the actual claim and the one a call
 //    count on its own cannot make. Dolly the same camera all the way in and the band collapses,
@@ -142,23 +139,23 @@ check('and it is a street rather than a survivor', cost['chase:behind'] > 100,
 //    craft-relative test and BOTH go to zero; this is what says the number tracks the setback
 //    rather than just being non-zero.
 check('the clip follows the camera, not the craft', cost['chase:behind'] > cost['chaseNear:behind'] * 4 + 50,
-  `dollied out ${cost['chase:behind']} calls against ${cost['chaseNear:behind']} dollied in — the setback is not moving the clip`);
+  `dollied out ${cost['chase:behind']} items against ${cost['chaseNear:behind']} dollied in — the setback is not moving the clip`);
 
 // 4. THE CAB IS UNTOUCHED. `fwdOff` is 0 from inside the vehicle, so behind it is behind the camera
 //    and the same dressed street must still cost exactly nothing — the change is arithmetically a
 //    no-op at the seat players spend most of their time in, and this is what says so.
 check('the cab draws nothing behind itself', cost['cab:behind'] === 0,
-  `${cost['cab:behind']} canvas calls spent on ground the driver cannot see`);
+  `${cost['cab:behind']} GL items spent on ground the driver cannot see`);
 
 // 5. Both seats still draw the street IN FRONT of them — the sanity leg that says the passes are
 //    running at all and the scene is dressed the way this file thinks it is.
-check('the chase camera draws the street ahead', cost['chase:ahead'] > 200, `${cost['chase:ahead']} calls`);
-check('the cab draws the street ahead', cost['cab:ahead'] > 200, `${cost['cab:ahead']} calls`);
+check('the chase camera draws the street ahead', cost['chase:ahead'] > 200, `${cost['chase:ahead']} items`);
+check('the cab draws the street ahead', cost['cab:ahead'] > 200, `${cost['cab:ahead']} items`);
 
 if (fails.length) {
   console.error(`\n✗ chaseclip — ${fails.length} failure${fails.length === 1 ? '' : 's'}:`);
   for (const f of fails) console.error(`    ${f}`);
   process.exit(1);
 }
-console.log(`✓ chaseclip: the street behind the rig costs ${cost['chase:behind']} canvas calls from the chase camera `
+console.log(`✓ chaseclip: the street behind the rig costs ${cost['chase:behind']} GL items from the chase camera `
   + `and ${cost['cab:behind']} from the cab — lamps, signals and people are clipped against the CAMERA, not the craft.`);

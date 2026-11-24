@@ -1,0 +1,9 @@
+{
+  "a": "zone_dealer_marrow_lift",
+  "b": "zone_sdeck_pad",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_dealer_marrow_lift_up_pad",
+  "lockable": false,
+  "one_way": true
+}

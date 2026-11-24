@@ -24,11 +24,12 @@
 import { HOUSE } from './house-style.js';
 import { viewProjMatrix, viewMatrix } from './camera.js';
 import { makeVertexStream } from './stream.js';
-import { actorBakeReady, actorSilhouette, ACTOR_HEAD_BONES } from '../actor3d.js';
+import { actorBakeReady, actorSilhouette, actorOutfitReady, ACTOR_HEAD_BONES } from '../actor3d.js';
 import { headMesh, hairMesh, HEAD_LEVELS, HAIR_STYLES, FACE, HAIRLINE_GLSL } from '../actor-head.js';
 import { faceLeaned } from '../form-normals.js';
 import { FACE_ATLAS, FACE_GLSL } from '../actor-faces.js';
 import { createFaceAtlasFeed } from './face-atlas.js';
+import { texture2D as coreTexture2D } from './core/texture.js';
 import { declareProgram, takeWarm } from './programs.js';
 import { linearOut, applyLinOut } from './colour.js';
 import { LIGHTGRID_GLSL, LIGHTGRID_UNIFORMS, bindNoLightGrid } from './lightgrid.js';
@@ -37,8 +38,21 @@ import { createActorSmoke } from './actor-smoke.js';
 
 // Per instance: x, y, z, tiles per metre | clip A row0, frames, phase, heading | clip B row0, frames,
 // phase, share of B | coat rgb | trousers rgb | skin rgb | hair rgb | shoes rgb | brightness, alpha |
-// materials (coat + trousers·8 + shoes·64, ACTOR_MATERIAL codes) | body (actor3d.js bodyOf)
-const STRIDE = 34;
+// materials (coat + trousers·8 + shoes·64, ACTOR_MATERIAL codes) | body (actor3d.js bodyOf) | tumble
+const STRIDE = 38;
+// A person knocked flying (windshield.js streetRag) turns as a whole: `tumble` is a horizontal axis (x, y),
+// an angle in radians and the height in tiles it turns about, over their feet. All zero is upright, so
+// every record that doesn't set it is drawn as before. Body and head both read it, so the head stays on.
+const TUMBLE_GLSL = `
+in vec4 iTumble;
+vec3 tumbleV(vec3 v) {
+  if (iTumble.z == 0.0) return v;
+  vec3 k = normalize(vec3(iTumble.xy, 0.0) + vec3(1e-6, 0.0, 0.0));
+  float c = cos(iTumble.z), s = sin(iTumble.z);
+  return v * c + cross(k, v) * s + k * dot(k, v) * (1.0 - c);
+}
+vec3 tumbleP(vec3 o) { vec3 pv = vec3(0.0, 0.0, iTumble.w); return tumbleV(o - pv) + pv; }
+`;
 // Units no other layer binds: 0-5 are the world pass's, 7 is fauna.js's pose, 8-17 are the
 // murmuration's simulation and its drawing.
 const POS_UNIT = 20, NRM_UNIT = 21;
@@ -69,7 +83,9 @@ vec4 outlined(vec3 w, vec3 nw, vec3 toEye, float k, vec4 clip) {
 const VERT = `#version 300 es
 precision highp float;
 precision highp int;
-in float aMat;
+// x the material slot; on an outfit body y and z its two bones and w the first one's weight (a silhouette's
+// buffer gives x alone). One attribute, not two: ANGLE counts gl_VertexID among the sixteen
+in vec4 aMat;
 in vec3 aRest;
 in vec4 aBody;
 in vec4 iBody;
@@ -81,8 +97,9 @@ in vec3 iLegs;
 in vec3 iSkin;
 in vec3 iHair;
 in vec3 iShoe;
-in vec2 iLit;
-in float iMats;
+// brightness, alpha, and the garments' materials (coat + trousers·8 + shoes·64), one attribute: the program is at
+// WebGL's limit with the outfit bodies' normal (aNrm)
+in vec3 iLit;
 uniform highp sampler2D uPosT;
 uniform highp sampler2D uNrmT;
 uniform int uW;
@@ -96,6 +113,7 @@ uniform float uFogAmt;
 // brightness negative (iLit.x), and is put off the screen here. The mirror and the ink's depth prepass keep it.
 uniform float uHideHD;
 ${OUTLINE_GLSL}
+${TUMBLE_GLSL}
 out vec3 vColor;
 out vec3 vN;
 out vec3 vNv;
@@ -110,6 +128,20 @@ out float vFog;
 out float vAlpha;
 out float vLum;
 ivec2 texel(int f) { return ivec2(gl_VertexID % uW, f * uRows + gl_VertexID / uW); }
+// uSkin 1: an outfit body (actor3d.js actorOutfitBody), its bind position on aRest with two bones a vertex, skinned here
+// from the bake's bone matrices (bk.skel: a row a frame, three texels a bone), which are then on uPosT.
+// uW is the bone count. 0: a silhouette's baked vertices, as before.
+uniform int uSkin;
+in vec3 aNrm;
+vec3 boneP(int f, int b, vec4 q) {
+  return vec3(dot(texelFetch(uPosT, ivec2(b * 3, f), 0), q), dot(texelFetch(uPosT, ivec2(b * 3 + 1, f), 0), q), dot(texelFetch(uPosT, ivec2(b * 3 + 2, f), 0), q));
+}
+void skinAt(int f, vec3 bp, out vec3 p, out vec3 n) {
+  int b0 = int(aMat.y + 0.5), b1 = int(aMat.z + 0.5);
+  float w = aMat.w;
+  p = boneP(f, b0, vec4(bp, 1.0)) * w + boneP(f, b1, vec4(bp, 1.0)) * (1.0 - w);
+  n = boneP(f, b0, vec4(aNrm, 0.0)) * w + boneP(f, b1, vec4(aNrm, 0.0)) * (1.0 - w);
+}
 // One clip at one phase: the two baked frames either side of it, blended.
 void clipAt(vec4 c, out vec3 p, out vec3 n) {
   float fr = fract(c.z) * c.y;
@@ -118,6 +150,15 @@ void clipAt(vec4 c, out vec3 p, out vec3 n) {
   if (float(f1) >= c.y) f1 = 0;
   float t = fr - float(f0);
   int b = int(c.x + 0.5);
+  if (uSkin == 1) {
+    // their body type before the pose, along the bind normal (the baked path does it after)
+    vec3 bp = aRest + aNrm * dot(aBody, iBody), p0, n0, p1, n1;
+    skinAt(b + f0, bp, p0, n0);
+    skinAt(b + f1, bp, p1, n1);
+    p = mix(p0, p1, t);
+    n = mix(n0, n1, t);
+    return;
+  }
   p = mix(texelFetch(uPosT, texel(b + f0), 0).xyz, texelFetch(uPosT, texel(b + f1), 0).xyz, t);
   n = mix(texelFetch(uNrmT, texel(b + f0), 0).xyz, texelFetch(uNrmT, texel(b + f1), 0).xyz, t);
 }
@@ -134,21 +175,21 @@ void main() {
     n = mix(n, nb, iClipB.w);
   }
   // their body type: the bake's one body moved along its normals, by how much of each type they are
-  p += normalize(n) * dot(aBody, iBody);
+  if (uSkin == 0) p += normalize(n) * dot(aBody, iBody);
   // The mesh faces +Z with its left hand on +X and Y up. Here forward is the heading on the ground
   // plane, up is world z, and left is forward turned the way the camera's own left is (see makeCam:
   // screen right for a forward of (sin h, -cos h) is (cos h, sin h)).
   vec3 F = vec3(cos(iClipA.w), sin(iClipA.w), 0.0);
   vec3 L = vec3(F.y, -F.x, 0.0);
-  vec3 w = iPos.xyz + (F * p.z + L * p.x + vec3(0.0, 0.0, p.y)) * iPos.w;
-  vN = F * n.z + L * n.x + vec3(0.0, 0.0, n.y);
+  vec3 w = iPos.xyz + tumbleP((F * p.z + L * p.x + vec3(0.0, 0.0, p.y)) * iPos.w);
+  vN = tumbleV(F * n.z + L * n.x + vec3(0.0, 0.0, n.y));
   // The normal in camera space, whose z is straight ahead, for the rim light.
   vNv = mat3(uView) * vN;
   vRest = aRest;
-  int m = int(aMat + 0.5);
+  int m = int(aMat.x + 0.5);
   vMat = m;
   // The garment's material, three bits apiece for coat, trousers and shoes. Skin and hair are 0.
-  int pk = int(iMats + 0.5);
+  int pk = int(iLit.z + 0.5);
   vMk = m == 1 ? pk & 7 : m == 2 ? (pk >> 3) & 7 : m == 3 ? (pk >> 6) & 7 : 0;
   // For the reflections: the normal in the mesh's own frame (to pick a weave's plane), the position
   // in metres (the weave's bump is in metres), and the way back to the eye. The view matrix is a
@@ -378,8 +419,8 @@ void main() {
 // ── THE HEAD ────────────────────────────────────────────────────────────────────────────────────────
 // Per instance: x, y, z, tiles per metre | clip A row0, frames, phase, heading | clip B row0, frames,
 // phase, share of B | skin rgb | hair rgb | lips rgb | lipstick rgb | iris rgb | brightness, alpha,
-// layout + 32 · hair style, makeup. The clips are the body's, so the head is where the body has it.
-const HSTRIDE = 31;
+// layout + 32 · hair style, makeup | tumble. The clips are the body's, so the head is where the body has it.
+const HSTRIDE = 35;
 // Units nothing else binds: the body has 20 and 21, cloth 24 and 25.
 const BONE_UNIT = 22, FACE_UNIT = 23, INK_UNIT = 27;
 // The street's people's outline: `m` metres of a person wide on the screen, held between `px`
@@ -410,6 +451,7 @@ uniform mat4 uViewProj;
 uniform mat4 uView;
 uniform float uHideHD;
 ${OUTLINE_GLSL}
+${TUMBLE_GLSL}
 uniform float uFogNear;
 uniform float uFogFar;
 uniform float uFogAmt;
@@ -458,8 +500,8 @@ void main() {
   // Onto the ground plane exactly as the body's VERT does it.
   vec3 F = vec3(cos(iClipA.w), sin(iClipA.w), 0.0);
   vec3 L = vec3(F.y, -F.x, 0.0);
-  vec3 w = iPos.xyz + (F * p.z + L * p.x + vec3(0.0, 0.0, p.y)) * iPos.w;
-  vN = F * n.z + L * n.x + vec3(0.0, 0.0, n.y);
+  vec3 w = iPos.xyz + tumbleP((F * p.z + L * p.x + vec3(0.0, 0.0, p.y)) * iPos.w);
+  vN = tumbleV(F * n.z + L * n.x + vec3(0.0, 0.0, n.y));
   vNv = mat3(uView) * vN;
   vRest = aP;
   vWT = w;
@@ -681,7 +723,7 @@ export function createActorLayer(gl) {
   const A = (n) => gl.getAttribLocation(prog, n);
   const loc = {
     mat: A('aMat'), bodyV: A('aBody'), bodyI: A('iBody'), pos: A('iPos'), clipA: A('iClipA'), clipB: A('iClipB'),
-    coat: A('iCoat'), legs: A('iLegs'), skin: A('iSkin'), hair: A('iHair'), shoe: A('iShoe'), lit: A('iLit'), mats: A('iMats'),
+    coat: A('iCoat'), legs: A('iLegs'), skin: A('iSkin'), hair: A('iHair'), shoe: A('iShoe'), lit: A('iLit'), tumble: A('iTumble'),
     posT: gl.getUniformLocation(prog, 'uPosT'),
     nrmT: gl.getUniformLocation(prog, 'uNrmT'),
     w: gl.getUniformLocation(prog, 'uW'),
@@ -699,6 +741,7 @@ export function createActorLayer(gl) {
     matOn: gl.getUniformLocation(prog, 'uMat'),
     top: gl.getUniformLocation(prog, 'uTop'),
     rest: A('aRest'),
+    nrm: A('aNrm'), skinOn: gl.getUniformLocation(prog, 'uSkin'),
     dim: gl.getUniformLocation(prog, 'uDim'),
     wlN: gl.getUniformLocation(prog, 'uWLN'), wlP: gl.getUniformLocation(prog, 'uWLP'),
     wlC: gl.getUniformLocation(prog, 'uWLC'), wlR: gl.getUniformLocation(prog, 'uWLR'),
@@ -732,7 +775,7 @@ export function createActorLayer(gl) {
   // first instance, since WebGL2 has no base instance.
   const HINST = [
     [HA('iPos'), 4, 0], [HA('iClipA'), 4, 4], [HA('iClipB'), 4, 8], [HA('iSkin'), 3, 12], [HA('iHair'), 3, 15],
-    [HA('iLip'), 3, 18], [HA('iLipstick'), 3, 21], [HA('iIris'), 3, 24], [HA('iFace'), 4, 27],
+    [HA('iLip'), 3, 18], [HA('iLipstick'), 3, 21], [HA('iIris'), 3, 24], [HA('iFace'), 4, 27], [HA('iTumble'), 4, 31],
   ].filter(([l]) => l >= 0);
   const hstream = makeVertexStream(gl, gl.createVertexArray(), HSTRIDE, [], HSTRIDE * 64);
   // A VAO per mesh: its own vertices and indices, and the instance attributes on the shared stream.
@@ -838,10 +881,56 @@ export function createActorLayer(gl) {
   // program and use units 20 and 21, bound in turn at draw time. Kept by the bake's own object, and
   // thrown away when actor3d.js hands over a new bake (actorBakeReset).
   const meshes = new Map();
-  let curBake = null;
+  let curBake = null, skelT = null;
   function dropMeshes() {
-    for (const M of meshes.values()) { gl.deleteTexture(M.posT); gl.deleteTexture(M.nrmT); gl.deleteVertexArray(M.vao); }
+    for (const M of meshes.values()) { if (!M.skin) { gl.deleteTexture(M.posT); gl.deleteTexture(M.nrmT); } gl.deleteVertexArray(M.vao); }
     meshes.clear();
+    if (skelT) { gl.deleteTexture(skelT); skelT = null; }
+  }
+  // The bake's bone matrices as a texture, for every outfit body: a row a frame, three texels a bone.
+  function skelTex() {
+    if (skelT || !curBake || !curBake.skel) return skelT;
+    const nb = curBake.skel.length / 12 / curBake.frames;
+    gl.activeTexture(gl.TEXTURE0 + POS_UNIT);
+    skelT = coreTexture2D(gl, { w: nb * 3, h: curBake.frames, format: gl.RGBA32F, type: gl.FLOAT, base: gl.RGBA, filter: gl.NEAREST, data: curBake.skel });
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    gl.activeTexture(gl.TEXTURE0);
+    return skelT;
+  }
+  const attr = (l, data, k) => {
+    if (l < 0) return;
+    gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+    gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(l);
+    gl.vertexAttribPointer(l, k, gl.FLOAT, false, k * 4, 0);
+  };
+  // An outfit body (actor3d.js actorOutfitBody): its bind mesh goes up once, and it plays the bake's clips
+  // through skelTex. Kept by the body's own object, which actor3d.js keeps by the outfit's shape.
+  function outfitMeshFor(ob) {
+    if (meshes.has(ob)) return meshes.get(ob);
+    const vao = gl.createVertexArray();
+    gl.bindVertexArray(vao);
+    attr(loc.mat, ob.mb, 4); attr(loc.bodyV, ob.body, 4); attr(loc.rest, ob.p, 3);
+    attr(loc.nrm, ob.n, 3);
+    const ib = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, ob.i, gl.STATIC_DRAW);
+    gl.bindVertexArray(null);
+    const M = { ...instanced(vao), count: ob.i.length, skin: true, bk: curBake, ob };
+    meshes.set(ob, M);
+    return M;
+  }
+  // The per-instance stream on a body's VAO, one advance per instance.
+  function instanced(vao) {
+    const at = (l, n, off) => [l, n, off * 4];
+    const stream = makeVertexStream(gl, vao, STRIDE, [
+      at(loc.pos, 4, 0), at(loc.clipA, 4, 4), at(loc.clipB, 4, 8), at(loc.coat, 3, 12), at(loc.legs, 3, 15),
+      at(loc.skin, 3, 18), at(loc.hair, 3, 21), at(loc.shoe, 3, 24), at(loc.lit, 3, 27), at(loc.bodyI, 4, 30), at(loc.tumble, 4, 34),
+    ], STRIDE * 64);
+    gl.bindVertexArray(vao);
+    for (const l of [loc.pos, loc.clipA, loc.clipB, loc.coat, loc.legs, loc.skin, loc.hair, loc.shoe, loc.lit, loc.bodyI, loc.tumble]) if (l >= 0) gl.vertexAttribDivisor(l, 1);
+    gl.bindVertexArray(null);
+    return { vao, stream, data: new Float32Array(STRIDE * 64), n: 0 };
   }
   function meshFor(bk) {
     if (meshes.has(bk)) return meshes.get(bk);
@@ -877,11 +966,11 @@ export function createActorLayer(gl) {
     const at = (l, n, off) => [l, n, off * 4];
     const stream = makeVertexStream(gl, vao, STRIDE, [
       at(loc.pos, 4, 0), at(loc.clipA, 4, 4), at(loc.clipB, 4, 8), at(loc.coat, 3, 12), at(loc.legs, 3, 15),
-      at(loc.skin, 3, 18), at(loc.hair, 3, 21), at(loc.shoe, 3, 24), at(loc.lit, 2, 27), at(loc.mats, 1, 29), at(loc.bodyI, 4, 30),
+      at(loc.skin, 3, 18), at(loc.hair, 3, 21), at(loc.shoe, 3, 24), at(loc.lit, 3, 27), at(loc.bodyI, 4, 30), at(loc.tumble, 4, 34),
     ], STRIDE * 64);
     // One advance per instance, not per vertex. The divisor is VAO state, so it is set once, here.
     gl.bindVertexArray(vao);
-    for (const l of [loc.pos, loc.clipA, loc.clipB, loc.coat, loc.legs, loc.skin, loc.hair, loc.shoe, loc.lit, loc.mats, loc.bodyI]) if (l >= 0) gl.vertexAttribDivisor(l, 1);
+    for (const l of [loc.pos, loc.clipA, loc.clipB, loc.coat, loc.legs, loc.skin, loc.hair, loc.shoe, loc.lit, loc.bodyI, loc.tumble]) if (l >= 0) gl.vertexAttribDivisor(l, 1);
     gl.bindVertexArray(null);
     const tex = (unit, data) => {
       const t = gl.createTexture();
@@ -902,7 +991,7 @@ export function createActorLayer(gl) {
     return M;
   }
 
-  let n = 0;
+  let n = 0, mOf = [];
   let key = [-0.7, -0.7, 0.35];
 
   /**
@@ -922,27 +1011,35 @@ export function createActorLayer(gl) {
     // Which body draws a record: its silhouette's (actor3d.js actorSilhouette, off its cut), near or far.
     const sils = bake.sils || [bake];
     const bodyOf = (r) => { const S = sils[Math.min(sils.length - 1, actorSilhouette(r.o.cut))] || bake; return r.lod && S.far ? S.far : S; };
-    for (const r of recs) meshFor(bodyOf(r)).n++;
+    // Near, their own outfit's body once it's built (actor3d.js actorOutfitReady), so the cut, the skirt or
+    // shorts and the hat are already theirs when the close-up figure takes over; their silhouette till then.
+    if (mOf.length < recs.length) mOf = new Array(recs.length * 2);
+    recs.forEach((r, j) => {
+      const ob = !r.lod && bake.skel && r.o.shape ? actorOutfitReady(r.o.shape) : null;
+      (mOf[j] = ob ? outfitMeshFor(ob) : meshFor(bodyOf(r))).n++;
+    });
     for (const M of meshes.values()) {
       if (!M.n) continue;
       if (M.data.length < M.n * STRIDE) M.data = new Float32Array(Math.max(M.n * STRIDE, M.data.length * 2));
       M.n = 0;
     }
-    for (const r of recs) {
-      const M = meshes.get(bodyOf(r)), bk = M.bk, data = M.data;
+    for (let j = 0; j < recs.length; j++) {
+      const r = recs[j], M = mOf[j], bk = M.bk, data = M.data;
       const c = (o, rgb) => { data[o] = rgb[0] / 255; data[o + 1] = rgb[1] / 255; data[o + 2] = rgb[2] / 255; };
       const A = bk.clips[r.clip] || bk.clips.idle, Bc = r.clip2 ? bk.clips[r.clip2] : null;
       const o = M.n * STRIDE;
       data[o] = r.x; data[o + 1] = r.y; data[o + 2] = r.z || 0; data[o + 3] = r.s;
       data[o + 4] = A.row0; data[o + 5] = A.len; data[o + 6] = r.ph || 0; data[o + 7] = r.hd || 0;
       data[o + 8] = Bc ? Bc.row0 : 0; data[o + 9] = Bc ? Bc.len : 1; data[o + 10] = r.ph2 || 0; data[o + 11] = Bc ? (r.mix || 0) : 0;
-      c(o + 12, r.o.coat); c(o + 15, r.o.legs); c(o + 18, r.o.skin); c(o + 21, r.o.hair); c(o + 24, r.o.shoes);
+      c(o + 12, (M.skin && r.o.coatOwn) || r.o.coat); c(o + 15, (M.skin && r.o.legsOwn) || r.o.legs); c(o + 18, r.o.skin); c(o + 21, r.o.hair); c(o + 24, r.o.shoes);
       // drawn close up by gl/street-hd.js: the brightness goes negative, for uHideHD
       data[o + 27] = (r.lum == null ? 1 : r.lum) * (r.close ? -1 : 1); data[o + 28] = r.a == null ? 1 : r.a;
       const mt = r.o.mat;
       data[o + 29] = mt ? (mt[0] & 7) + (mt[1] & 7) * 8 + (mt[2] & 7) * 64 : 0;
       const bd = r.o.body;
       data[o + 30] = bd ? bd[0] : 0; data[o + 31] = bd ? bd[1] : 0; data[o + 32] = bd ? bd[2] : 0; data[o + 33] = bd ? bd[3] : 0;
+      const tb = r.tumble;
+      data[o + 34] = tb ? tb[0] : 0; data[o + 35] = tb ? tb[1] : 0; data[o + 36] = tb ? tb[2] : 0; data[o + 37] = tb ? tb[3] : 0;
       M.n++; n++;
     }
     const r0 = recs[0];
@@ -975,6 +1072,8 @@ export function createActorLayer(gl) {
       c(o + 18, F ? F.lip : r.o.skin); c(o + 21, F ? F.lipstick : r.o.skin); c(o + 24, F ? F.iris : [60, 44, 32]);
       hdata[o + 27] = (r.lum == null ? 1 : r.lum) * (r.close ? -1 : 1); hdata[o + 28] = r.a == null ? 1 : r.a;
       hdata[o + 29] = (F ? F.layout : 0) + 32 * (b % HAIR_STYLES); hdata[o + 30] = F ? F.makeup : 0;
+      const tb = r.tumble;
+      hdata[o + 31] = tb ? tb[0] : 0; hdata[o + 32] = tb ? tb[1] : 0; hdata[o + 33] = tb ? tb[2] : 0; hdata[o + 34] = tb ? tb[3] : 0;
     }
     hstream.write(hdata, nh * HSTRIDE);
   }
@@ -1023,6 +1122,10 @@ export function createActorLayer(gl) {
 
   function draw(cam, cssH, opts = {}) {
     if (!n) return 0;
+    // Nobody walks on with a blank face: hold the people back until the atlas is up (or the
+    // feed gives up waiting, gl/face-atlas.js FACE_WAIT_MS).
+    faceTex();
+    if (!faceFeed.settled) return 0;
     gl.useProgram(prog); applyLinOut(gl, prog);
     const VP = opts.vp || viewProjMatrix(cam, cssH, opts.near, opts.far), VM = viewMatrix(cam);
     const f = opts.fog;
@@ -1070,11 +1173,15 @@ export function createActorLayer(gl) {
     const bodies = () => {
       for (const mesh of meshes.values()) {
         if (!mesh.n) continue;
+        // (fetched before the bind: making it moves the active unit)
+        const st = mesh.skin ? skelTex() : null;
+        if (mesh.skin && !st) continue;
+        gl.uniform1i(loc.skinOn, mesh.skin ? 1 : 0);
         gl.uniform1i(loc.w, mesh.bk.W);
         gl.uniform1i(loc.rows, mesh.bk.rows);
         gl.uniform1f(loc.top, mesh.bk.top || 1.7);
         gl.activeTexture(gl.TEXTURE0 + POS_UNIT);
-        gl.bindTexture(gl.TEXTURE_2D, mesh.posT);
+        gl.bindTexture(gl.TEXTURE_2D, mesh.skin ? st : mesh.posT);
         gl.activeTexture(gl.TEXTURE0 + NRM_UNIT);
         gl.bindTexture(gl.TEXTURE_2D, mesh.nrmT);
         gl.bindVertexArray(mesh.vao);

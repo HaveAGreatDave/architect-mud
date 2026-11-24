@@ -203,6 +203,8 @@ export function streetLifeGroups(geo, win, actors, now) {
       L.sx = k.base[0] - (Math.round(h.bx) - h.bx); L.sy = k.base[1] - (Math.round(h.by) - h.by);
       L.arr = -Infinity; L.snap = true;
     }
+    // somebody minding a spot doesn't wander off to chat
+    if (h.b && h.b.k === 'post') continue;
     if (!k.code || now - L.arr < settleMs(L) || geo.hash(t, 60) >= LIFE.social) continue;
     const key = ((Math.round(h.bx) & 4095) * 4096 + (Math.round(h.by) & 4095)) * 8 + k.code;
     let b = _buckets.get(key);
@@ -266,6 +268,21 @@ function nextPlan(geo, L, k, t, now) {
   L.last = kind;
   const dur = (lo, hi) => 1000 * (lo + (hi - lo) * R(5));
   const plan = { kind, tx: L.sx, ty: L.sy, face: null, clip: 'idle', speed: LIFE.shuffle, until: now + dur(5, 12), t0: now, ph0: L.ph0 };
+  // Somebody minding a spot (the server's `post`, a street dealer): the same place all night. On a pavement with a
+  // building behind it they lean on the wall at their own bit of it; anywhere else they stand where they are, facing
+  // the way the server says. `hdClip` is the close-up figure's clip; the crowd plays `clip`, which is baked.
+  if (L.post) {
+    plan.kind = 'post'; plan.until = now + 600000; plan.ph0 = mixN(L.seed, 91);
+    if (k.kind === 'walk' && k.wall) {
+      const a = clamp(Number(L.post.a) || 0, -1, 1) * LIFE.along * 0.9, q = geo.WALK_HW - LIFE.wallGap;
+      plan.tx = k.cx + k.ax * a + k.wx * q; plan.ty = k.cy + k.ay * a + k.wy * q;
+      plan.face = Math.atan2(-k.wy, -k.wx); plan.clip = 'leanWall'; plan.hdClip = 'dealerLean';
+    } else {
+      const F = { n: [0, -1], s: [0, 1], e: [1, 0], w: [-1, 0] }[L.post.f];
+      plan.face = F ? Math.atan2(F[1], F[0]) : null; plan.clip = 'idle'; plan.hdClip = 'dealerStand';
+    }
+    return plan;
+  }
   if (k.kind === 'walk') {
     // In the street's own terms: `a` along it, `q` across it, positive toward the buildings.
     const dx = L.sx - k.cx, dy = L.sy - k.cy;
@@ -337,6 +354,10 @@ export function streetLifeLeg(h, legT) {
 // phase there). `walking` and `legT` are the walk's own: on a leg between tiles, and how far along.
 export function streetLifeStep(geo, win, h, t, cell, rx, ry, walking, legT, now) {
   const L = lifeOf(h, geo, t);
+  // a post (a dealer's spot) arriving or going ends whatever plan they had
+  const post = h.b && h.b.k === 'post' ? h.b : null;
+  if (!!post !== !!L.post) L.plan = null;
+  L.post = post;
   const k = frameFor(geo, win, h, t, L, cell, rx, ry);
   const dt = L.t ? clamp((now - L.t) / 1000, 0, 0.25) : 0;
   L.t = now; L.seen = true;
@@ -354,7 +375,7 @@ export function streetLifeStep(geo, win, h, t, cell, rx, ry, walking, legT, now)
     L.r0x = L.r0y = 0; L.arr = now; L.plan = null;
   }
   let tx = L.sx, ty = L.sy, face = null, clip = 'idle', speed = LIFE.shuffle;
-  L.cp = 0; L.ph0 = geo.hash(t, 29);
+  L.cp = 0; L.ph0 = geo.hash(t, 29); L.hdClip = null;
   if (h.gone) {
     // Leaving: they stay where they stood and windshield.js walks them to the door.
   } else if (L.grp) {
@@ -364,7 +385,7 @@ export function streetLifeStep(geo, win, h, t, cell, rx, ry, walking, legT, now)
     if (!L.plan || now >= L.plan.until) L.plan = nextPlan(geo, L, k, t, now);
     const p = L.plan;
     tx = p.tx; ty = p.ty; face = p.face; clip = p.clip; speed = p.speed;
-    L.cp = p.t0; L.ph0 = p.ph0;
+    L.cp = p.t0; L.ph0 = p.ph0; L.hdClip = p.hdClip || null;
   }
   if (L.snap) { L.sx = tx; L.sy = ty; L.snap = false; }
   const ddx = tx - L.sx, ddy = ty - L.sy, d = Math.hypot(ddx, ddy);

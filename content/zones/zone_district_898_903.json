@@ -1,6 +1,9 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "city",
+  "ambient_events": [
+    "A gull walks along the waterline looking for something.",
+    "A wave comes in a little further than the others."
+  ],
+  "ambient_theme": "coast",
   "description": "Two upturned dinghies sit above the waterline, one with a hole you could put a boot through and one that is simply waiting. A chain runs from both to a ring set in concrete.",
   "exits": {
     "east": "zone_district_899_903",
@@ -9,9 +12,10 @@
     "west": "zone_district_897_903"
   },
   "flags": {
+    "beach": true,
     "district": "filaments",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "terrain": "sand"
   },
   "grid_x": 898,
   "grid_y": 903,

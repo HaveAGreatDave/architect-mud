@@ -124,21 +124,6 @@
       "price": 3
     },
     {
-      "item_id": "item_lamp_greens",
-      "min_trust": 0,
-      "price": 4
-    },
-    {
-      "item_id": "item_bean_sprout",
-      "min_trust": 0,
-      "price": 4
-    },
-    {
-      "item_id": "item_herb_bundle",
-      "min_trust": 0,
-      "price": 10
-    },
-    {
       "item_id": "item_water_bottle",
       "min_trust": 0,
       "price": 4
@@ -147,16 +132,6 @@
       "item_id": "item_tea_leaves_herbal",
       "min_trust": 0,
       "price": 8
-    },
-    {
-      "item_id": "item_seed_oil",
-      "min_trust": 0,
-      "price": 14
-    },
-    {
-      "item_id": "item_salt_ration",
-      "min_trust": 0,
-      "price": 2
     }
   ],
   "vendor_restock_rate": 1,

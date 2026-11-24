@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "description": "A lived-in room with a shelf of half-empty bottles she is \"testing\" and a spiral ledger by the bed listing, in tiny handwriting, exactly who in the Reach owes what to whom.",
+  "description": "A motel cabin: a sagging bed, a lamp on a chair, a fan that rattles, and a window onto the walk. Nobody lives in it right now, and it shows.",
   "exits": {
     "north": "zone_bld_900_1171_walk1"
   },
@@ -18,6 +18,6 @@
   "grid_z": 0,
   "id": "zone_bld_900_1171_cabin_marla",
   "map_id": "map_int_bld_900_1171",
-  "name": "Marla's Cabin",
+  "name": "Cabin 2",
   "parent_zone": "zone_the_reach_873_1954"
 }

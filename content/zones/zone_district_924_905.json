@@ -1,24 +1,25 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "coast",
-  "color": "#7fd3ff",
-  "description": "Dark, cold water at the shore, shelving away steeply. This is as far as walking goes: the channel needs a boat.",
+  "ambient_events": [
+    "A taxi goes past toward the terminal with its light off.",
+    "A jet lifts off beyond the fence and the noise arrives a second later."
+  ],
+  "ambient_theme": "city",
+  "description": "The last stretch of Airport Road, with the wharf off to the west. Ahead the road widens into the terminal forecourt, and the parking garage stands at its west side with its blue sign lit.",
   "exits": {
-    "east": "zone_district_925_905",
     "north": "zone_district_924_904",
     "south": "zone_district_924_906",
     "west": "zone_district_923_905"
   },
   "flags": {
-    "district": "water",
+    "district": "docks",
     "region_id": "region_coldwater",
-    "terrain": "water"
+    "terrain": "road"
   },
   "grid_x": 925,
   "grid_y": 905,
   "grid_z": 0,
   "id": "zone_district_924_905",
   "map_id": "map_world",
-  "name": "Coldwater Basin",
+  "name": "Airport Road",
   "parent_zone": null
 }

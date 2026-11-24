@@ -18,6 +18,24 @@ NPCs have friends, and on an evening off they go out together: a night at a bar 
 
 All state is RAM. Nothing is queried or written; after a restart the plan is worked out again from the date and anything under way starts again.
 
+## What a party does
+
+Once two of them are there, the group is always in a **scene** (`scenes.js`). Each lasts a minute or two of real time, and the next is rolled by how far into the night it is: early it's mostly talk and a toast, at the peak dancing and drinking games, late the sing-songs, people passed out and couples pairing off. The same scene doesn't come up twice running, and one that needs three people doesn't come up for two.
+
+| Scene | Who does what | Clips (actor3d.js) |
+| --- | --- | --- |
+| huddle | everyone in a tight ring, talking over each other | `huddle`, `talk`, `laugh`, `listen` |
+| dance | a ring on the open floor | `groove`, `dance` |
+| toast | a tight ring, drinks up together, then a swig | `toastUp` |
+| drinking | one downs a drink, the rest chant | `chug`, `chant` |
+| singalong | a line, shoulder to shoulder, arms round each other | `swaySing` |
+| passedOut | one on the floor in the middle, the rest round them laughing | `sprawl`, `pointLaugh`, `laugh` |
+| slipOff | a couple off in the corner, the rest huddled; at the end the couple leave together | `canoodle`, `huddle`, `talk`, `listen` |
+
+Each scene says one line in the room as it starts (and the passed-out one and the couple say one as it ends), only with a player there. The Room Stage draws it through `room.npcStage` (`partyStage`): a free spot near the middle of the floor, one place each round it facing in, laid out from the room's own plan (`roomLayout`), and each member's clip rolled through their role's list every nine seconds. Someone the engine has sat down or laid down is left as the engine says. Every new clip plants both feet (`plant`), and `scripts/shapes/actor-feet.mjs` holds them to it. `partyScene(npcId)` says what a member's party is doing, for anything telling players.
+
+The couple slipping off is the one scene that changes the night: when it ends they're let go from the party (`slipAway`) and walk home on their graphs. A host who slips off ends their own party.
+
 ## Commands
 
 None.
@@ -25,6 +43,7 @@ None.
 ## Seams
 
 - **tick**: `1m`; the scheduler skips it while nobody is logged in.
+- **hook**: answers `room.npcStage` for a member at their party; emits `room.peopleChanged` when the scene or a clip changes.
 - **engine**: `registerLifeDriver` and `walkNpcToward` in `server/engine/ai-behaviour.js`.
 
 ## Content

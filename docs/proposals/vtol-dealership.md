@@ -62,7 +62,7 @@ is lit inside it, not by its height.
   emblems in a row and the name once, with the trade under it; round the corner it says HOVER CARS.
 - **Each maker has its own emblem**, told apart by its outline before anything in it is read, the
   way real marques are: Corvane's swept wings round a kite (an aerospace firm's, as Bentley's
-  came from aero engines), Castellan's tower on a shield, Brakk's beast's head with its jaw open,
+  came from aero engines), Castellan's tower on a shield, Brakk's block B in a bolted octagon,
   and Vex's V in a circle. The last three are the cars' own drawings
   (`client/shared/hover-car-emblems.js`, the badge on each nose and wheel), so the sign and the
   car can't differ; Corvane's is in `DEALER_EMBLEMS`. Each is drawn in its maker's line colour and
@@ -118,6 +118,19 @@ The four plinths in ROOM are the four turntables in GLASS: `flags.room.display` 
 ([house-voice.md](../reference/house-voice.md)): Lucian Varney, the sales manager, behind the desk, and Marlowe Dax,
 the technician, who talks about charge and fans. They share The Flute 7B. Neither sells through a shop panel:
 the desk opens the dealer's counter.
+
+**The showroom computer** stands beside the sales desk (`flags.room.kiosk`, a pedestal with a glass screen). Walk up to
+it in ROOM and it shows every car the dealer sells or hires, turning in 3D, with BUY and RENT keys that send `buy <type>`
+and `rent <type>`, and your own cars here with SERVICE. It's the hangar's display (room-hangar-kiosk.js) on the flight
+plugin's `aircraft_desk` stand kind, the same as the airport terminal's: a room with a display and no `stand` is a desk,
+so nothing is brought down onto the showroom floor and `callup` sends you out to the roof pad.
+
+**The cars wait next door.** The facade carries `flags.delivers_to: zone_seam_914_908`, Marrow Street Parking's field,
+so a car bought or hired here is parked on that garage's roof pad (acquisition.js `park`), not on the dealer's own.
+The sale says so, and the showroom computer then lists her under YOURS as waiting on the roof, with a TO THE LIFT key.
+The lift (`zone_dealer_marrow_lift`, an elevator off the showroom, `in`) has two stops, the showroom and the roof
+pad; from the pad it's `west`. Stepping out onto the pad offers the new car with a Call her up link
+(`embark <id>`; acquisition.js `noteDelivery`, RAM only, an hour). Any dealer can deliver to another field this way.
 
 ## 5. Sales
 

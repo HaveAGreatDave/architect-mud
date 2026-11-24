@@ -525,6 +525,81 @@ function leanWallPose(p) {
   return P;
 }
 
+// ── A street dealer at his spot (docs/proposals/street-dealers.md). ──
+// One long loop of somebody who isn't waiting for a bus. Each tell is small and on its own could be anyone; together
+// they're a man minding the street. Hands in his pockets most of the time. Times are in seconds into DEALER_DUR so
+// the beats keep their real lengths whatever the cycle is.
+//   - glances: a quick turn of the head along the street, eyes first, held a moment, back slower than it went. The
+//     second one is a double-take, the other way, shorter. Nobody idle looks round that fast.
+//   - the bag: the right hand comes out and pats the bum bag twice, the head dipping to it, then straight back up.
+//   - a scan: a slow look one way and on round the other, the chest going with it.
+//   - the phone: out, a look down at it, a look up the street in the middle of reading, a thumb, and away again.
+//   - settling: a shrug of the shoulders into the coat, and a sniff.
+const DEALER_DUR = 32;
+// 0..1 then back: in over `a` seconds, held `h`, out over `o`, starting at `s` seconds.
+function beat(p, s, a, h, o) {
+  const t = ((p * DEALER_DUR - s) % DEALER_DUR + DEALER_DUR) % DEALER_DUR;
+  if (t < a) return smooth(0, 1, t / a);
+  if (t < a + h) return 1;
+  if (t < a + h + o) return 1 - smooth(0, 1, (t - a - h) / o);
+  return 0;
+}
+// The dealer's arms, neck, head and shoulders, laid over whichever body (leaning or standing).
+function dealerUpper(P, p) {
+  const s1 = Math.sin(TAU * p * 3), s2 = Math.sin(TAU * p * 5 + 1.3);
+  // glances: [start, sign, size]; a double-take after the first; the eyes lead, so the neck starts a touch after the head
+  const glance = 1.0 * beat(p, 3.0, 0.22, 0.7, 0.55) - 0.6 * beat(p, 4.3, 0.18, 0.35, 0.45)
+    - 0.85 * beat(p, 13.5, 0.25, 0.9, 0.6) + 0.7 * beat(p, 26.2, 0.2, 0.6, 0.5);
+  const neckG = 1.0 * beat(p, 3.06, 0.24, 0.66, 0.55) - 0.6 * beat(p, 4.36, 0.2, 0.3, 0.45)
+    - 0.85 * beat(p, 13.56, 0.27, 0.86, 0.6) + 0.7 * beat(p, 26.26, 0.22, 0.56, 0.5);
+  // the slow scan: round one way, then the other, over about four seconds
+  const sc = (t) => beat(p, t, 1.1, 0.4, 0.9);
+  const scan = sc(17.5) - sc(19.4);
+  // the bag: hand out of the pocket to the belt front and two pats
+  const bag = beat(p, 9.0, 0.45, 1.0, 0.5), pat = bag * (bump(p, (9.6) / DEALER_DUR, 0.006) + bump(p, (9.95) / DEALER_DUR, 0.006));
+  // the phone: out, read, a look up in the middle, back to reading, away
+  const ph = beat(p, 21.5, 0.6, 3.6, 0.6), up = ph * beat(p, 23.1, 0.18, 0.5, 0.3);
+  const thumb = ph * Math.max(0, Math.sin(TAU * p * DEALER_DUR * 1.7));
+  // settling: the shoulders up into the coat and down, and a sniff
+  const shrug = beat(p, 29.0, 0.35, 0.15, 0.5), sniff = beat(p, 11.8, 0.12, 0.08, 0.2);
+  // the arms
+  armTo(P, 'L', 'pocketL');
+  if (ph > 0) armTo(P, 'R', 'pocketR', 'phoneR', ph);
+  else armTo(P, 'R', 'pocketR', 'claspR', bag);
+  setR(P, 'handR', -8 * DEG * pat + 3 * DEG * thumb, 0, 0);
+  setR(P, 'uarmR', 0, 0, -0.03 * pat);
+  // the shoulders into the coat
+  setR(P, 'chest', (-1.5 * shrug) * DEG, (6 * glance + 9 * scan) * DEG, 0);
+  setR(P, 'uarmL', 0, 0, 0.05 * shrug);
+  setR(P, 'uarmR', 0, 0, -0.05 * shrug);
+  // the head: chin a little down by habit, a slow drift, the glances and the scan on top, down to the bag and the phone
+  const yaw = 4 * s1 + 2 * s2 + 38 * glance + 30 * scan;
+  const down = 6 + 16 * beat(p, 9.0, 0.35, 1.1, 0.4) + 22 * (ph - up) - 6 * up + 5 * sniff;
+  setR(P, 'neck', (4 + 0.4 * down) * DEG, (6 * s1 + 18 * neckG + 14 * scan) * DEG, 0);
+  setR(P, 'head', (down * 0.6 - 4 * sniff) * DEG, yaw * DEG, (1.5 * s2 - 3 * glance) * DEG);
+  return P;
+}
+// Leaning on a wall, the left foot up on it, the heel of the free foot tapping now and then.
+function dealerLeanPose(p) {
+  const P = leanBody(p, true);
+  for (const b of ARMS) zeroR(P, b);
+  dealerUpper(P, p);
+  setR(P, 'footL', 6 * DEG * (bump(p, 7.1 / DEALER_DUR, 0.004) + bump(p, 7.5 / DEALER_DUR, 0.004) + bump(p, 7.9 / DEALER_DUR, 0.004)), 0, 0);
+  setR(P, 'neck', 5 * DEG, 0, 0);
+  return P;
+}
+// Standing where there's no wall: the weight on the right leg, the left loose, and once a cycle the weight across
+// onto the left and back, slowly, as somebody does who's been stood there an hour.
+function dealerStandPose(p) {
+  const P = idlePose(0.25 + 0.04 * Math.sin(TAU * p), false);
+  const swap = beat(p, 14.5, 1.6, 6, 1.8);
+  // the hip drops on the side the weight leaves, before the feet are planted, so the plant keeps both soles down
+  setR(P, 'pelvis', 0, 0, 4 * swap * DEG);
+  plant(P, IDLE_FEET, { weight: 0.28 + 0.4 * swap + 0.02 * Math.sin(TAU * p * 4), dx: 0.004 * Math.sin(TAU * p * 4) });
+  for (const b of ARMS) zeroR(P, b);
+  return dealerUpper(P, p);
+}
+
 // Walking with a cigarette going: the walk's legs and left arm, four strides to a cycle, the right forearm carried
 // up a little with the cigarette in it, and once a cycle the hand up to the mouth for a drag on the move and down
 // again. Four strides, because a drag every stride would be a chain-smoker's; its stride is four of the walk's
@@ -699,6 +774,8 @@ const ARM_AT = {
   // the forehead, either side of the mouth, and at the collar
   mouthR: [-76.1, 71.5, 0.629, -110, -27.4, 6], browR: [-108.3, 28.1, -0.036, -86.8, -27.4, 6],
   collarR: [-54.5, 44.4, -0.075, -126.8, -8, 0], cupL: [-61.6, -52.6, -0.51, -114.3, -10, 0], cupR: [-61.6, 52.6, 0.51, -114.3, -10, 0],
+  // the right hand up in front of the chest with a phone in it (phonePose's right arm)
+  phoneR: [-20, 34, -0.04, -84, -14, 10],
 };
 // An arm k of the way from one solved place to another.
 function armTo(P, side, a, b = a, k = 1) {
@@ -744,6 +821,97 @@ function hipPose(p) {
   return P;
 }
 const hipRPose = (p) => mirrored(hipPose(p));
+// ── More ways of standing about. Each is the idle's own stance with something done over it for part of a slot. ──
+// Both hands on the hips, the chest out, looking the place over.
+function hipsPose(p) {
+  const P = stance(p), s = Math.sin(TAU * p), k = held(p, 0.06, 0.8);
+  armTo(P, 'L', 'hangL', 'hipL', k); armTo(P, 'R', 'hangR', 'hipR', k);
+  setR(P, 'spine', -2 * DEG * k, 0, 0);
+  setR(P, 'chest', -3 * DEG * k, 5 * DEG * s * k, 0);
+  setR(P, 'neck', 0, 8 * DEG * s, 0);
+  setR(P, 'head', -2 * DEG * k, 16 * DEG * s, 0);
+  return P;
+}
+// Head back, looking up at whatever's up there, and round at it.
+function lookUpPose(p) {
+  const P = stance(p), k = held(p, 0.1, 0.6), s = Math.sin(2 * TAU * p);
+  armTo(P, 'L', 'hangL'); armTo(P, 'R', 'hangR');
+  setR(P, 'spine', -3 * DEG * k, 0, 0);
+  setR(P, 'chest', -4 * DEG * k, 4 * DEG * s * k, 0);
+  setR(P, 'neck', -10 * DEG * k, 6 * DEG * s * k, 0);
+  setR(P, 'head', -16 * DEG * k, 10 * DEG * s * k, 2 * DEG * k);
+  return P;
+}
+// A cough into the fist, twice (ROOM_CLIPS' face opens the mouth on each).
+const idleCoughK = (p) => bump(p, 0.3, 0.035) + bump(p, 0.42, 0.035);
+function idleCoughPose(p) {
+  const P = stance(p), k = held(p, 0.16, 0.5), c = idleCoughK(p);
+  armTo(P, 'L', 'hangL'); armTo(P, 'R', 'hangR', 'mouthR', k);
+  setR(P, 'spine', 5 * DEG * c, 0, 0);
+  setR(P, 'chest', (3 * k + 7 * c) * DEG, 0, 0);
+  setR(P, 'neck', 5 * DEG * k, 0, 0);
+  setR(P, 'head', (8 * k + 8 * c) * DEG, -4 * DEG * k, 0);
+  return P;
+}
+// The back of the hand drawn across the forehead.
+function idleWipePose(p) {
+  const P = stance(p), k = held(p, 0.14, 0.46), sweep = smooth(0.2, 0.42, p);
+  // (the hand goes to between the mouth's place and the brow's and slides across from there: all the way to the
+  // brow's, which was found for a seated lean, a standing arm put the fist over the head)
+  const to = ARM_AT.mouthR.map((x, i) => x + (ARM_AT.browR[i] - x) * (0.45 + 0.15 * sweep)), v = ARM_AT.hangR.map((x, i) => x + (to[i] - x) * k);
+  armTo(P, 'L', 'hangL');
+  setR(P, 'uarmR', v[0] * DEG, v[1] * DEG, v[2]); setR(P, 'farmR', v[3] * DEG, 0, 0); setR(P, 'handR', v[4] * DEG, 0, v[5] * DEG);
+  setR(P, 'neck', -4 * DEG * k, 0, 0);
+  setR(P, 'head', -8 * DEG * k, (6 - 12 * sweep) * DEG * k, 3 * DEG * k);
+  return P;
+}
+// Two fingers in the collar, the chin up and round to ease the neck.
+function collarPose(p) {
+  const P = stance(p), k = held(p, 0.12, 0.58), s = Math.sin(3 * TAU * p);
+  armTo(P, 'L', 'hangL'); armTo(P, 'R', 'hangR', 'collarR', k);
+  setR(P, 'neck', -6 * DEG * k, 8 * DEG * s * k, 0);
+  setR(P, 'head', -8 * DEG * k, 12 * DEG * s * k, 4 * DEG * s * k);
+  return P;
+}
+// Hands clasped in front, waiting politely, a slow look each way.
+function claspPose(p) {
+  const P = stance(p), s = Math.sin(TAU * p), k = held(p, 0.04, 0.84);
+  armTo(P, 'L', 'hangL', 'claspL', k); armTo(P, 'R', 'hangR', 'claspR', k);
+  setR(P, 'chest', 1 * DEG, 0, 0);
+  setR(P, 'neck', 0, 6 * DEG * s, 0);
+  setR(P, 'head', 3 * DEG, 14 * DEG * s, 0);
+  return P;
+}
+// A shrug at nobody: the hands turn out, the head tips, and it's gone.
+function idleShrugPose(p) {
+  const P = stance(p), k = held(p, 0.3, 0.42), s = Math.sin(TAU * p);
+  armTo(P, 'L', 'hangL'); armTo(P, 'R', 'hangR');
+  setR(P, 'uarmL', -6 * DEG * k, 0, 0.22 * k); setR(P, 'uarmR', -6 * DEG * k, 0, -0.22 * k);
+  setR(P, 'farmL', -48 * DEG * k, 0, 0); setR(P, 'farmR', -48 * DEG * k, 0, 0);
+  setR(P, 'handL', -20 * DEG * k, 0, -30 * DEG * k); setR(P, 'handR', -20 * DEG * k, 0, 30 * DEG * k);
+  setR(P, 'chest', -2 * DEG * k, 0, 0);
+  setR(P, 'neck', 0, 5 * DEG * s, 0);
+  setR(P, 'head', 2 * DEG * k, 10 * DEG * s, 7 * DEG * k);
+  return P;
+}
+// Bored: the arms swung forward and back together, loose, the hands nearly meeting in front.
+function swingPose(p) {
+  const P = stance(p), k = held(p, 0.08, 0.78), s = Math.sin(5 * TAU * p), f = Math.max(0, s);
+  armTo(P, 'L', 'hangL'); armTo(P, 'R', 'hangR');
+  setR(P, 'uarmL', -22 * DEG * s * k, -10 * DEG * f * k, 0); setR(P, 'uarmR', -22 * DEG * s * k, 10 * DEG * f * k, 0);
+  setR(P, 'farmL', -14 * DEG * f * k, 0, 0); setR(P, 'farmR', -14 * DEG * f * k, 0, 0);
+  setR(P, 'head', 3 * DEG, 10 * DEG * Math.sin(TAU * p), 0);
+  return P;
+}
+// The weight from one foot to the other and back, slowly, without settling on either.
+function swayPose(p) {
+  const P = idlePose(p), s = Math.sin(2 * TAU * p);
+  for (const b of ARMS) zeroR(P, b);
+  armTo(P, 'L', 'hangL'); armTo(P, 'R', 'hangR');
+  setR(P, 'chest', 0, 0, -1.5 * DEG * s);
+  setR(P, 'head', 1 * DEG, 8 * DEG * Math.sin(TAU * p), 1 * DEG * s);
+  return plant(P, IDLE_FEET, { weight: 0.5 + 0.2 * s });
+}
 function pocketsPose(p) {
   const P = idlePose(p);
   for (const b of ARMS) zeroR(P, b);
@@ -842,11 +1010,61 @@ function sighPose(p) {
 // Nobody sits square: the room's seat (not the Coliseum crowd's, which is sitBody alone) has the left foot out
 // in front and the right tucked back under the chair, the knees apart and not level, the hips turned a little
 // and the shoulders off true, so a seated person looks settled rather than placed.
-const sitting = (lean = 4) => {
+// ⚠ A SEATED THIGH IS AT GIMBAL LOCK. Local rotation is Rz·Rx·Ry, and a thigh raised to the seat is x ≈ -90, where
+// z and y both turn it about its own length. Neither opens the knees: adding to them rolled the thigh, which swung
+// the shins out with the knees still together and left the toes pointing in. seatLeg takes a leg as people
+// describe it and works the Euler angles out from that.
+// `flex` raises the thigh from hanging (90 is level), `spread` turns the knee out from straight ahead (negative
+// across the other leg), `roll` turns the thigh about its own length (positive swings the foot in toward the other
+// one), `knee` bends the shin from straight, `ankle` points the toes (positive down), `toe` turns the foot out. With
+// the shin upright the foot follows the knee, so an open knee has its toes pointing out over it.
+const _m3 = (A, Bm) => A.map((r) => [0, 1, 2].map((c) => r[0] * Bm[0][c] + r[1] * Bm[1][c] + r[2] * Bm[2][c]));
+const _x3 = (a) => [[1, 0, 0], [0, Math.cos(a), -Math.sin(a)], [0, Math.sin(a), Math.cos(a)]];
+const _y3 = (a) => [[Math.cos(a), 0, Math.sin(a)], [0, 1, 0], [-Math.sin(a), 0, Math.cos(a)]];
+function seatLeg(P, sd, { flex = 88, spread = 4, roll = 0, knee = 86, ankle = 0, toe = 6 } = {}) {
+  const s = sd === 'L' ? 1 : -1, M = _m3(_y3(s * spread * DEG), _m3(_x3(-flex * DEG), _y3(s * roll * DEG)));
+  const x = Math.asin(Math.max(-1, Math.min(1, M[2][1]))), y = Math.atan2(-M[2][0], M[2][2]), z = Math.atan2(-M[0][1], M[1][1]);
+  for (const b of ['thigh', 'shin', 'foot']) zeroR(P, b + sd);
+  setR(P, 'thigh' + sd, x, y, z); setR(P, 'shin' + sd, knee * DEG, 0, 0); setR(P, 'foot' + sd, ankle * DEG, s * toe * DEG, 0);
+}
+// The ways of sitting, as [left leg, right leg]. `rest` is everybody's: knees a hand apart, the left foot out in
+// front and the right back under the seat, toes a little out. Each has a man's version in SEAT_WIDE.
+const SEAT_LEGS = {
+  rest: [{ flex: 84, spread: 5, knee: 66, ankle: -8, toe: 6 }, { flex: 90, spread: 3, knee: 100, ankle: 8, toe: 4 }],
+  // his knees over his feet and his toes pointing straight out over them
+  open: [{ flex: 86, spread: 17, knee: 74, ankle: -4, toe: 6 }, { flex: 90, spread: 15, knee: 94, ankle: 4, toe: 8 }],
+  // slid forward, both legs out long and apart, toes out
+  sprawl: [{ flex: 72, spread: 14, knee: 40, ankle: -14, toe: 10 }, { flex: 76, spread: 12, knee: 52, ankle: -8, toe: 12 }],
+  // legs out in front, crossed at the ankle, left over right
+  ankles: [{ flex: 78, spread: 2, roll: 18, knee: 46, ankle: -16, toe: 2 }, { flex: 80, spread: 2, roll: 10, knee: 50, ankle: -12, toe: 2 }],
+  // out in front, the heels together and the toes apart
+  anklesOpen: [{ flex: 78, spread: 8, knee: 46, ankle: -16, toe: 16 }, { flex: 80, spread: 8, knee: 50, ankle: -12, toe: 16 }],
+  // the left leg crossed over the right knee, its foot hanging outside the right shin
+  crossL: [{ flex: 106, spread: -18, roll: 20, knee: 82, ankle: -14, toe: 0 }, { flex: 86, spread: 6, knee: 82, ankle: 0, toe: 6 }],
+  // a man's crossed leg: the left ankle up on the right knee
+  fourL: [{ flex: 105, spread: 25, roll: 92, knee: 115, ankle: 8, toe: 0 }, { flex: 88, spread: 10, knee: 86, ankle: 0, toe: 10 }],
+  // both feet drawn back under the seat, up on the toes, knees together
+  tuck: [{ flex: 86, spread: 2, roll: 3, knee: 116, ankle: 26, toe: 2 }, { flex: 86, spread: 2, roll: 3, knee: 112, ankle: 24, toe: 2 }],
+  tuckOpen: [{ flex: 86, spread: 12, knee: 110, ankle: 22, toe: 10 }, { flex: 86, spread: 12, knee: 106, ankle: 20, toe: 10 }],
+};
+// the right-over-left sets, mirrored
+const mirrorLegs = ([l, r]) => [r, l];
+SEAT_LEGS.crossR = mirrorLegs(SEAT_LEGS.crossL); SEAT_LEGS.fourR = mirrorLegs(SEAT_LEGS.fourL);
+const SEAT_WIDE = { rest: 'open', ankles: 'anklesOpen', crossL: 'fourL', crossR: 'fourR', tuck: 'tuckOpen' };
+function seatLegs(P, name) {
+  const [l, r] = SEAT_LEGS[name] || SEAT_LEGS.rest;
+  seatLeg(P, 'L', l); seatLeg(P, 'R', r);
+  P.legs = name;
+  return P;
+}
+// Each set's own angles, so a man's twin can swap the set and keep what the clip did to the shins and feet on top.
+const LEG_BONES = ['thighL', 'shinL', 'footL', 'thighR', 'shinR', 'footR'];
+const LEG_R = {};
+for (const n of Object.keys(SEAT_LEGS)) { const Q = seatLegs(newPose(), n); LEG_R[n] = LEG_BONES.map((b) => [0, 1, 2].map((k) => Q.r[B[b] * 3 + k])); }
+const sitting = (lean = 4, legs = 'rest') => {
   const P = sitBody();
   zeroR(P, 'spine');
-  setR(P, 'thighL', 6 * DEG, -10 * DEG, 13 * DEG); setR(P, 'shinL', -26 * DEG, 0, 0); setR(P, 'footL', -10 * DEG, 0, 0);
-  setR(P, 'thighR', -2 * DEG, 8 * DEG, -9 * DEG); setR(P, 'shinR', 14 * DEG, 0, 0); setR(P, 'footR', 8 * DEG, 0, 0);
+  seatLegs(P, legs);
   setR(P, 'pelvis', 0, 3 * DEG, -2 * DEG);
   setR(P, 'spine', lean * DEG, -3 * DEG, 2 * DEG);
   setR(P, 'chest', 0, -2 * DEG, -1.5 * DEG);
@@ -890,9 +1108,7 @@ function sitBackPose(p) {
 // Sprawled: slid down and well back, both legs out long, the right arm along the seat back and the left hand on
 // the belly, the head tipped a little to one side and looking about.
 function sitSprawlPose(p) {
-  const P = sitting(-14), s = Math.sin(TAU * p);
-  setR(P, 'thighL', 14 * DEG, -12 * DEG, 15 * DEG); setR(P, 'shinL', -38 * DEG, 0, 0); setR(P, 'footL', -14 * DEG, 0, 0);
-  setR(P, 'thighR', 10 * DEG, 10 * DEG, -12 * DEG); setR(P, 'shinR', -24 * DEG, 0, 0); setR(P, 'footR', -8 * DEG, 0, 0);
+  const P = sitting(-14, 'sprawl'), s = Math.sin(TAU * p);
   setR(P, 'chest', -5 * DEG, 4 * DEG * s, 0);
   arm(P, 'R', 88, 30, -1.15, -62, 4, 14); onBelly(P, 'L');
   setR(P, 'neck', 4 * DEG, 0, 0);
@@ -934,6 +1150,212 @@ function sitFoldPose(p) {
   setR(P, 'head', 3 * DEG, 12 * DEG * Math.sin(TAU * p), 0);
   return P;
 }
+// One leg crossed over the other at the knee, the hands stacked on the top knee, sat back and looking about. A man's
+// twin has the ankle up on the knee instead (SEAT_WIDE).
+function sitCrossPose(p) {
+  const P = sitting(-6, 'crossL'), s = Math.sin(TAU * p);
+  setR(P, 'pelvis', 0, 4 * DEG, -3 * DEG);
+  armTo(P, 'L', 'lapL', 'claspL', 0.6); armTo(P, 'R', 'lapR', 'claspR', 0.6);
+  setR(P, 'uarmL', -6 * DEG, 0, 0); setR(P, 'uarmR', -10 * DEG, 0, 0);
+  setR(P, 'footL', 6 * DEG * Math.max(0, Math.sin(TAU * p * 6)), 0, 0);
+  setR(P, 'neck', 0, 5 * DEG * s, 0);
+  setR(P, 'head', (3 + 2 * Math.sin(2 * TAU * p)) * DEG, 15 * DEG * s, 0);
+  return P;
+}
+const sitCrossRPose = (p) => { const P = mirrored(sitCrossPose(p)); P.legs = 'crossR'; return P; };
+// Legs out long, crossed at the ankle, sat well back with the hands folded on the belly.
+function sitAnklesPose(p) {
+  const P = sitting(-10, 'ankles'), s = Math.sin(TAU * p);
+  onBelly(P, 'L'); onBelly(P, 'R');
+  setR(P, 'chest', (-3 + 1.5 * Math.cos(TAU * p * 2)) * DEG, 0, 0);
+  setR(P, 'head', (2 + 3 * held(p, 0.3, 0.55)) * DEG, 12 * DEG * s, 0);
+  return P;
+}
+// Feet drawn back under the seat, leaning in with the forearms on the knees and the hands loose between them.
+function sitTuckPose(p) {
+  const P = sitting(20, 'tuck'), s = Math.sin(TAU * p);
+  armTo(P, 'L', 'leanL'); armTo(P, 'R', 'leanR');
+  setR(P, 'handL', 0, 0, 4 * DEG * s); setR(P, 'handR', 0, 0, -4 * DEG * s);
+  setR(P, 'neck', -8 * DEG, 0, 0);
+  setR(P, 'head', -6 * DEG, 14 * DEG * s, 0);
+  return P;
+}
+
+// ── Seated side by side. Two people on one piece talk, laugh, show each other a phone, nudge each other: gl/room-people.js
+// pairs them (pairPlan) and gives each its half on the same slot of the clock. Each clip is built with the other
+// person on their left and mirrored for the right ('…L' and '…R'). Nothing reaches across to the other body: they
+// turn, lean and look, which never puts a hand through somebody. ──
+// turned toward the left by `k` of a conversational turn, from the hips up
+function turnLeft(P, k) {
+  setR(P, 'pelvis', 0, 6 * DEG * k, 0);
+  setR(P, 'spine', 0, 10 * DEG * k, 2 * DEG * k);
+  setR(P, 'chest', 0, 10 * DEG * k, 0);
+  setR(P, 'neck', 0, 14 * DEG * k, 0);
+  setR(P, 'head', 0, 18 * DEG * k, -3 * DEG * k);
+}
+// Talking: turned to them, the right hand making the point, the head going with it.
+function sitChatPose(p) {
+  const P = sitting(4), s = Math.sin(TAU * p * 3), beat = Math.max(0, Math.sin(TAU * p * 5)), on = held(p, 0.08, 0.86);
+  turnLeft(P, 1);
+  armTo(P, 'L', 'lapL');
+  armTo(P, 'R', 'lapR', 'leanR', 0.3);
+  setR(P, 'uarmR', -26 * DEG * on, 20 * DEG * on, -0.15 * on);
+  setR(P, 'farmR', (-30 - 12 * beat) * DEG * on, 0, 0);
+  setR(P, 'handR', -10 * DEG * on, 0, 14 * DEG * s * on);
+  setR(P, 'head', (2 - 4 * beat * on) * DEG, 4 * DEG * s, 0);
+  return P;
+}
+// Listening: turned to them, hands together, a nod now and then.
+function sitListenPose(p) {
+  const P = sitting(6), nod = bump(p, 0.3, 0.03) + bump(p, 0.62, 0.03) + 0.6 * bump(p, 0.82, 0.025);
+  turnLeft(P, 0.85);
+  armTo(P, 'L', 'claspL'); armTo(P, 'R', 'claspR');
+  setR(P, 'neck', 6 * DEG * nod, 0, 0);
+  setR(P, 'head', (4 + 10 * nod) * DEG, 0, 0);
+  return P;
+}
+// Both laughing: turned in, rocking back on the laugh, a hand to the chest.
+function sitLaughPairPose(p) {
+  const P = sitting(2), laugh = held(p, 0.15, 0.6), shake = Math.sin(TAU * p * 14) * laugh;
+  turnLeft(P, 0.7 - 0.3 * laugh);
+  setR(P, 'spine', (-6 * laugh + 2 * shake) * DEG, 0, 0);
+  setR(P, 'chest', (-4 * laugh + 1.5 * shake) * DEG, 0, 0);
+  armTo(P, 'L', 'lapL'); armTo(P, 'R', 'lapR', 'collarR', 0.7 * laugh);
+  setR(P, 'head', (-10 * laugh + 2 * shake) * DEG, 0, 0);
+  return P;
+}
+const LAUGH_FACE = (p) => { const l = held(p, 0.15, 0.6); return { open: 0.3 * l, round: 0.1 }; };
+// Showing them something on the phone: it held out low toward them, glancing from it to their face.
+function sitShowPhonePose(p) {
+  const P = takeArms(sitting(10), phonePose(p)), look = held(p, 0.45, 0.7);
+  turnLeft(P, 0.6);
+  setR(P, 'uarmR', -8 * DEG, 16 * DEG, -0.1); setR(P, 'uarmL', -6 * DEG, 12 * DEG, -0.08);
+  setR(P, 'head', -14 * DEG * look, 10 * DEG * look, 0);
+  return P;
+}
+// Leaning over to look at it: turned and bent toward them, eyes down on their hands.
+function sitLookPhonePose(p) {
+  const P = sitting(16), k = held(p, 0.05, 0.9);
+  turnLeft(P, 1);
+  setR(P, 'spine', 0, 0, 7 * DEG * k);
+  armTo(P, 'L', 'lapL'); armTo(P, 'R', 'leanR');
+  setR(P, 'neck', 8 * DEG * k, 0, 0);
+  setR(P, 'head', 16 * DEG * k, 6 * DEG * k, 0);
+  return P;
+}
+// A nudge: leaning in and bumping them with the shoulder, then back, grinning.
+function sitNudgePose(p) {
+  const P = sitting(4), bumpK = bump(p, 0.32, 0.05), back = held(p, 0.4, 0.8);
+  turnLeft(P, 0.5);
+  setR(P, 'spine', 0, 0, 12 * DEG * bumpK);
+  setR(P, 'chest', 0, 0, 5 * DEG * bumpK);
+  armTo(P, 'L', 'lapL'); armTo(P, 'R', 'lapR');
+  setR(P, 'head', (-4 * back) * DEG, 8 * DEG * back, -6 * DEG * bumpK);
+  return P;
+}
+// Nudged: knocked a little away on the bump and turning back to them with a look.
+function sitNudgedPose(p) {
+  const P = sitting(4), hit = bump(p, 0.34, 0.05), look = held(p, 0.4, 0.85);
+  turnLeft(P, 0.3 + 0.6 * look);
+  setR(P, 'spine', 0, 0, -9 * DEG * hit);
+  setR(P, 'chest', 0, 0, -4 * DEG * hit);
+  armTo(P, 'L', 'claspL'); armTo(P, 'R', 'claspR');
+  setR(P, 'head', -3 * DEG * look, 0, 5 * DEG * hit);
+  return P;
+}
+// the same clip for the other one on their right
+// The body and head are mirrored; the arms are left as they were, so what's in the right hand stays in the right
+// hand (gl/figure-reach.js holds it there) and is held out to whoever's on that side the same. The legs go back to
+// the set as it is: mirrored, they'd not match the angles a man's twin swaps from.
+const ARM_BONES = ['uarmR', 'farmR', 'handR', 'uarmL', 'farmL', 'handL'];
+const toRight = (fn) => (p) => { const Q = fn(p); return seatLegs(takeArms(mirrored(Q), Q, ARM_BONES), Q.legs || 'rest'); };
+// ── At home on a sofa or an armchair. What's in the hand is gl/figure-reach.js CLIP_HANDS's, drawn by gl/room-held.js. ──
+// A mug of something hot in both hands on the lap, blown on and sipped twice a cycle.
+function sitMugPose(p) {
+  const P = sitting(-4, 'ankles'), lift = held(p, 0.18, 0.36) + held(p, 0.62, 0.78);
+  armTo(P, 'L', 'lapL', 'claspL', 0.7);
+  armTo(P, 'R', 'claspR');
+  handToMouth(P, lift);
+  setR(P, 'head', (-6 * lift + 3) * DEG, 10 * DEG * Math.sin(TAU * p) * (1 - lift), 0);
+  return P;
+}
+// A can on the knee, sat back, a swig now and then, the head going back for it.
+function sitCanPose(p) {
+  const P = sitting(-8), lift = held(p, 0.3, 0.46);
+  armTo(P, 'L', 'lapL');
+  armTo(P, 'R', 'lapR', 'leanR', 0.5);
+  handToMouth(P, lift);
+  setR(P, 'handR', -18 * DEG * lift, 0, 6 * DEG);
+  setR(P, 'head', (-12 * lift + 3) * DEG, 12 * DEG * Math.sin(TAU * p) * (1 - lift), 0);
+  return P;
+}
+// A paperback open in the left hand, the legs crossed, a page turned with the right once a cycle.
+function sitBookPose(p) {
+  const P = sitting(6, 'crossL'), turn = bump(p, 0.62, 0.04);
+  armTo(P, 'L', 'lapL', 'leanL', 0.4);
+  setR(P, 'uarmL', -24 * DEG, 0, 0); setR(P, 'farmL', -24 * DEG, 0, 0);
+  armTo(P, 'R', 'lapR', 'claspR', 0.4 + 0.6 * turn);
+  setR(P, 'uarmR', -18 * DEG * turn, 0, 0);
+  setR(P, 'neck', 8 * DEG, 0, 0); setR(P, 'head', (16 + 2 * Math.sin(TAU * p * 3)) * DEG, -6 * DEG, 0);
+  return P;
+}
+// Flicking through the channels: the remote pointed at the set, a press every couple of seconds, sat well back.
+function sitRemotePose(p) {
+  const P = sitting(-10, 'sprawl'), press = Math.max(0, Math.sin(TAU * p * 4)) ** 6, up = held(p, 0.1, 0.85);
+  armTo(P, 'L', 'lapL');
+  armTo(P, 'R', 'lapR', 'leanR', 0.6);
+  setR(P, 'uarmR', -30 * DEG * up, 8 * DEG * up, 0); setR(P, 'farmR', 30 * DEG * up, 0, 0);
+  setR(P, 'handR', (-12 * up - 6 * press) * DEG, 0, 0);
+  setR(P, 'head', -2 * DEG, 0, 0);
+  return P;
+}
+// Playing a game: the pad in both hands, leaning in at the screen, thumbs going, a jolt when something happens.
+// `mood` is +1 for a win, -1 for a loss, 0 for playing on.
+const gamePose = (mood = 0, turn = 0) => (p) => {
+  const P = sitting(mood < 0 ? -12 : 18, mood ? 'rest' : 'tuck'), th = Math.sin(TAU * p * 11), jolt = bump(p, 0.45, 0.03), end = held(p, 0.55, 0.9);
+  if (turn) turnLeft(P, turn * end);
+  armTo(P, 'L', 'leanL', 'claspL', 0.7); armTo(P, 'R', 'leanR', 'claspR', 0.7);
+  setR(P, 'uarmL', -14 * DEG, 0, 0); setR(P, 'uarmR', -14 * DEG, 0, 0);
+  setR(P, 'handL', 3 * DEG * th, 0, 0); setR(P, 'handR', -3 * DEG * th, 0, 0);
+  setR(P, 'spine', -4 * DEG * jolt, 0, 0);
+  if (mood > 0) { setR(P, 'uarmL', -70 * DEG * end, 0, 0.3 * end); setR(P, 'uarmR', -70 * DEG * end, 0, -0.3 * end); setR(P, 'head', -12 * DEG * end, 0, 0); }
+  if (mood < 0) { setR(P, 'spine', -6 * DEG * end, 0, 0); setR(P, 'head', (-14 * end) * DEG, 0, 0); setR(P, 'neck', -6 * DEG * end, 0, 0); }
+  setR(P, 'neck', -6 * DEG * (1 - end), 0, 0);
+  return P;
+};
+// Lying back with the book held up over the face.
+function lieBookPose(p) {
+  const P = lieBackPose(p), turn = bump(p, 0.6, 0.04);
+  setR(P, 'uarmL', 0, 0, 0); arm(P, 'L', -70, -10, 0.1, -70, -10);
+  arm(P, 'R', -40 - 20 * turn, 20, -0.1, -80, -10);
+  setR(P, 'head', 12 * DEG, 0, 0);
+  return P;
+}
+// Side by side: a can raised to theirs, a clink, and a swig.
+function sitCheersPose(p) {
+  const P = sitting(4), up = held(p, 0.12, 0.42), clink = bump(p, 0.32, 0.025), drink = held(p, 0.55, 0.78);
+  turnLeft(P, 0.8 * (1 - drink));
+  armTo(P, 'L', 'lapL');
+  armTo(P, 'R', 'lapR', 'leanR', 0.5);
+  setR(P, 'uarmR', (-48 * up) * DEG, 26 * DEG * up, -0.25 * up); setR(P, 'farmR', (30 * up + 6 * clink) * DEG, 0, 0);
+  handToMouth(P, drink);
+  setR(P, 'head', (-10 * drink) * DEG, 0, 0);
+  return P;
+}
+// Handing the remote over: held out to them, and let go of. The other takes it with the same move, so it reads as
+// passed either way.
+function sitPassRemotePose(p) {
+  const P = sitting(8), out = held(p, 0.15, 0.55);
+  turnLeft(P, 0.9);
+  armTo(P, 'L', 'lapL');
+  armTo(P, 'R', 'lapR', 'leanR', 0.4);
+  setR(P, 'uarmR', -40 * DEG * out, 40 * DEG * out, -0.2 * out); setR(P, 'farmR', 40 * DEG * out, 0, 0);
+  return P;
+}
+// What two seated people do together, as [one, the other, how often]; pairPlan swaps who's who each time.
+// `home` ones only on a sofa or an armchair, where there's a set to watch and a game to play (pairsOf).
+export const ACTOR_PAIR_ACTS = [['sitChat', 'sitListen', 4], ['sitLaughPair', 'sitLaughPair', 1.5], ['sitShowPhone', 'sitLookPhone', 1.5], ['sitNudge', 'sitNudged', 0.8],
+  ['sitCheers', 'sitCheers', 1, 'home'], ['sitGamePair', 'sitGamePair', 1.5, 'home'], ['sitGameWin', 'sitGameLose', 1, 'home'], ['sitPassRemote', 'sitPassRemote', 0.6, 'home']];
 // One pose's arms, neck and head on another's body: a standing clip's hands on a seated or lying body.
 const UPPER_BONES = ['uarmR', 'farmR', 'handR', 'uarmL', 'farmL', 'handL', 'neck', 'head'];
 function takeArms(P, Q, bones = UPPER_BONES) {
@@ -1163,6 +1585,21 @@ function liePhonePose(p) {
   setR(P, 'head', -6 * DEG, 0, 0);
   return P;
 }
+// On a press bench, pressing (plugins/weightbench `lift`): four reps a cycle, each lowered slow to the chest with the
+// elbows flared, a breath at the bottom and driven back up to lockout, the last one a grind. The feet are planted off the
+// pad's end, knees bent over them; the head flat, the eyes on the bar. gl/room-held.js draws the bar between the palms.
+function liePressPose(p) {
+  const P = lying(p, 4), reps = 4, q = (p * reps) % 1, last = p * reps >= reps - 1;
+  // 0 at lockout, 1 with the bar on the chest: down over 45% of the rep, a beat there, up over 30% (slower on the last)
+  const up = last ? 0.45 : 0.3, e = q < 0.45 ? smooth(0, 0.45, q) : q < 0.55 ? 1 : 1 - smooth(0.55, 0.55 + up, q);
+  const lerp = (a, b) => a + (b - a) * e;
+  arm(P, 'L', lerp(-88, -22), lerp(4, 0), lerp(0.28, 1.15), lerp(-6, -100), -4);
+  arm(P, 'R', lerp(-88, -22), lerp(-4, 0), lerp(-0.28, -1.15), lerp(-6, -100), -4);
+  for (const s of ['L', 'R']) { setR(P, 'thigh' + s, -14 * DEG, 0, (s === 'L' ? 14 : -14) * DEG); setR(P, 'shin' + s, 88 * DEG, 0, 0); setR(P, 'foot' + s, -6 * DEG, 0, 0); }
+  // the chest lifts into the drive, the head stays down
+  setR(P, 'chest', -5 * DEG * (1 - e), 0, 0); setR(P, 'head', 4 * DEG, 0, 0);
+  return P;
+}
 // On the side, awake: the knees drawn up a little, the lower arm under the head and the other on the bed.
 function lieSidePose(p) {
   const P = lying(p);
@@ -1195,6 +1632,33 @@ function sprawlPose(p) {
   arm(P, 'R', -10, 0, -1.35, -24, 4); onBelly(P, 'L');
   setR(P, 'thighL', -36 * DEG, 0, 24 * DEG); setR(P, 'shinL', 68 * DEG, 0, 0);
   setR(P, 'neck', 0, 18 * DEG, 0); setR(P, 'head', -6 * DEG, 26 * DEG, 12 * DEG);
+  return P;
+}
+
+// Sunbathing on a towel (plugins/beach): on the back, one arm over the eyes, a knee up that comes down and goes
+// up again now and then, the other hand on the belly.
+function sunbathePose(p) {
+  const P = lying(p, 2), k = held(p, 0.15, 0.55);
+  onBelly(P, 'L');
+  arm(P, 'R', -112, 68.8, 0.56, -118.8, -20);
+  setR(P, 'thighR', -34 * DEG * (0.4 + 0.6 * k), 0, 0); setR(P, 'shinR', 64 * DEG * (0.4 + 0.6 * k), 0, 0);
+  // the chin a little down onto the chest, as on a towel: with the neck straight the back of it shows over the collar
+  setR(P, 'head', 0, 8 * DEG, 0); setR(P, 'neck', 6 * DEG, 0, 0);
+  setR(P, 'pelvis', -Math.PI / 2, 0, 0);   // on the back: a street clip lays itself down, nothing puts it on a bed
+  return P;
+}
+// Breaststroke (plugins/beach), face down in the water: the arms reach forward together and sweep out and back,
+// the legs draw up and kick out, the head lifts for a breath as the arms pull.
+function swimPose(p) {
+  const P = lying(p, 0), s = Math.sin(TAU * p), pull = 0.5 + 0.5 * s, kick = 0.5 - 0.5 * Math.cos(TAU * p);
+  setR(P, 'pelvis', Math.PI / 2, 0, 0);   // flat on the front: a street clip lays itself down
+  for (const side of ['L', 'R']) {
+    const sg = side === 'L' ? -1 : 1;
+    arm(P, side, -150 + 70 * pull, sg * (10 + 40 * pull), sg * (0.15 + 0.35 * pull), -20 - 70 * pull, -6);
+    setR(P, 'thigh' + side, -40 * DEG * kick, 0, sg * -14 * DEG * kick);
+    setR(P, 'shin' + side, 90 * DEG * kick, 0, 0);
+  }
+  setR(P, 'neck', -18 * DEG * pull, 0, 0); setR(P, 'head', -26 * DEG * pull, 0, 0);
   return P;
 }
 
@@ -1438,6 +1902,16 @@ function flexPose(p) {
   return P;
 }
 // Clapping in front of the chest.
+// An acoustic guitar played standing (gl/room-held.js draws it): the left hand out on the neck at the chest, the
+// right arm across the belly strumming over the sound hole, the head down to the fretboard and swaying with it.
+function guitarPose(p) {
+  const P = stance(p), k = 1, st = Math.sin(16 * TAU * p), sw = Math.sin(2 * TAU * p);
+  setR(P, 'spine', 4 * DEG * k, 3 * DEG * sw * k, 0); setR(P, 'chest', 3 * DEG * k, -6 * DEG * k, 0);
+  arm(P, 'L', -6 - 44 * k, 25 * k, 0.1 + 0.3 * k, -12 - 48 * k, -8, -20 * k);
+  arm(P, 'R', -4 - 52 * k + 3 * st * k, 44 * k, -0.14 - 0.12 * k, -10 - 30 * k + 6 * st * k, -8 + 14 * st * k, -30 * k);
+  setR(P, 'head', 16 * DEG * k, 14 * DEG * k, 5 * DEG * sw * k);
+  return P;
+}
 function clapPose(p) {
   const P = stance(p), k = held(p, 0.06, 0.86), c = Math.abs(Math.sin(8 * TAU * p));
   arm(P, 'R', -2 - 38 * k, 50 * k, -0.07 - 0.08 * c * k, -12 - 58 * k, -8);
@@ -1452,13 +1926,29 @@ function reachPose(p) {
   return P;
 }
 // ── Two at once: plugins/roomstage npc-life.js PAIRS stands them face to face and plays one of these on both. ──
-// A high five: the right hand up past the head, a slap forward at the top, and down again.
-function highFivePose(p) {
-  const P = stance(p), k = held(p, 0.08, 0.62), hit = bump(p, 0.42, 0.04);
-  arm(P, 'R', -2 - (122 + 18 * hit) * k, 30 * k, -0.07 - 0.12 * k, -12 - 18 * k + 10 * hit, -8 - 20 * hit);
-  setR(P, 'chest', (4 * hit - 3 * k) * DEG, -10 * DEG * k, 0); setR(P, 'head', -8 * DEG * k, 0, 0);
+// A high five: the hand up by the head with the elbow bent, then pushed up and forward to meet the other's at the
+// top, and down again. Face to face, one person's right hand is over the other's left, so whoever came over plays
+// highFive (right) and the other highFiveL (left); gl/figure-reach.js puts both palms on the one point between them
+// (its 'fiveR'/'fiveL' goals), so the hands meet whatever the bodies. The arm is never straight: a straight arm up
+// at an angle reads as a salute.
+function highFivePose(p, L = false) {
+  const side = L ? 'L' : 'R', sg = L ? -1 : 1, P = stance(p), k = held(p, 0.08, 0.66);
+  const hit = smooth(0.3, 0.42, p) * (1 - smooth(0.56, 0.72, p)), slap = bump(p, 0.43, 0.035);
+  arm(P, side, -2 - (150 - 14 * hit) * k, 0, sg * (-0.07 + 0.17 * k), -12 - (74 - 52 * hit) * k, -8 - 22 * k + 14 * slap);
+  setR(P, 'chest', (6 * hit + 3 * slap - 2 * k) * DEG, -sg * 8 * DEG * k, 0); setR(P, 'head', (-6 * k + 4 * hit) * DEG, 0, 0);
   return P;
 }
+const highFiveLPose = (p) => highFivePose(p, true);
+// A fist bump: the fist drawn back to the hip, pushed out at chest height to meet the other's in the middle, a small
+// bounce off it, and down. Right and left as the high five, onto gl/figure-reach.js's 'bumpR'/'bumpL'.
+function fistBumpPose(p, L = false) {
+  const side = L ? 'L' : 'R', sg = L ? -1 : 1, P = stance(p), k = held(p, 0.08, 0.7);
+  const out = smooth(0.24, 0.4, p) * (1 - smooth(0.58, 0.74, p)), bo = bump(p, 0.45, 0.04);
+  arm(P, side, -2 + (22 - 28 * out) * k, 0, sg * (-0.07 + 0.06 * k), -12 - (116 - 14 * out + 6 * bo) * k, -4);
+  setR(P, 'chest', (3 * out - 2 * bo) * DEG, -sg * 6 * DEG * k, 0); setR(P, 'head', (4 * out) * DEG, 0, 0);
+  return P;
+}
+const fistBumpLPose = (p) => fistBumpPose(p, true);
 // A hug: both arms round somebody a head away, a lean in, the head to one side, a pat or two on the back.
 function hugPose(p) {
   const P = stance(p), k = held(p, 0.06, 0.82), pat = Math.max(0, Math.sin(6 * TAU * p)) * smooth(0.35, 0.45, p) * k;
@@ -1479,6 +1969,113 @@ function toastPose(p) {
   const P = stance(p), up = held(p, 0.06, 0.4), swig = held(p, 0.5, 0.82);
   arm(P, 'R', -2 - 82 * up - 50 * swig, 44 * up + 34 * swig, -0.07 - 0.06 * up, -12 - 30 * up - 104 * swig, -10);
   setR(P, 'head', (-4 * up - 16 * swig) * DEG, 0, 0); setR(P, 'chest', (4 * up - 4 * swig) * DEG, 0, 0);
+  return P;
+}
+// ── At a party: plugins/outings scenes.js stands a group of friends together and plays one of these on each. ──
+// Every one plants both feet (plant/footwork), and none is the mirror of itself: the drink is in the right hand.
+//
+// Dancing with friends over eight beats, smaller than a dancer's: a step-touch from foot to foot, the knees
+// giving on each downbeat, the drink held up and out of the way in the right hand, the left forearm loose and
+// bobbing, the shoulders going against the hips and the head nodding late.
+function groovePose(p) {
+  const P = stance(p, false), dip = onBeat(p, 8), s = Math.sin(4 * TAU * p), c = Math.cos(4 * TAU * p), w = onFeet(p, 8, 0.5);
+  setR(P, 'pelvis', (2 + 3 * dip) * DEG, 6 * DEG * c, 0);
+  footwork(P, w, { x: 0.12, z: 0.05, heel: 22, sink: 0.025 + 0.03 * dip, dx: 0.02 * (2 * w - 1), hike: 6 });
+  setR(P, 'spine', (3 + 2 * dip) * DEG, -4 * DEG * c, -3 * DEG * s);
+  setR(P, 'chest', 2 * DEG * Math.sin(4 * TAU * p - 1.2), -7 * DEG * c, -4 * DEG * s);
+  arm(P, 'R', -58 + 6 * dip, 30, -0.22, -96 + 8 * s, -12);
+  arm(P, 'L', -26 - 10 * dip, -30, 0.2 + 0.05 * s, -78 - 18 * dip, -10, -8 * s);
+  setR(P, 'neck', (-2 + 4 * onBeat(p, 8, 3)) * DEG, 0, 0);
+  setR(P, 'head', (3 * Math.sin(8 * TAU * p - 1.4)) * DEG, 8 * DEG * Math.cos(4 * TAU * p - 0.8), 5 * DEG * Math.sin(4 * TAU * p - 0.8));
+  return P;
+}
+// A toast with the whole group: the weight onto the left foot as the drink goes up high into the middle, a
+// clink at the top, the left hand on the hip throughout, then back over the right for a long swig, head back.
+const toastUpK = (p) => held(p, 0.06, 0.38);
+function toastUpPose(p) {
+  const P = stance(p, false), up = toastUpK(p), clink = bump(p, 0.3, 0.025), swig = held(p, 0.52, 0.82);
+  setR(P, 'pelvis', 1 * DEG, (4 * up - 3 * swig) * DEG, (3 * up - 3 * swig) * DEG);
+  plant(P, IDLE_FEET, { weight: 0.3 + 0.38 * up - 0.2 * swig, dz: 0.015 * up, sink: 0.01 * swig });
+  arm(P, 'R', -2 - 140 * up - 40 * swig + 6 * clink, 30 * up + 34 * swig, -0.07 - 0.12 * up, -12 - 22 * up - 108 * swig, -10 - 8 * clink);
+  arm(P, 'L', 10, -40, 0.52, -92, -14);
+  setR(P, 'spine', (2 * up - 3 * swig) * DEG, -4 * DEG * up, 2 * DEG);
+  setR(P, 'chest', (5 * up - 6 * swig) * DEG, -6 * DEG * up, 0);
+  setR(P, 'neck', (-6 * up - 6 * swig) * DEG, 0, 0); setR(P, 'head', (-10 * up - 18 * swig) * DEG, 4 * DEG * up, 4 * DEG * up);
+  return P;
+}
+// Huddled in close, talking low: leant in from the hips over a forward left foot, the weight on it, the drink
+// at the chest with the left arm folded under it, nodding along and looking from one face to the next.
+function huddlePose(p) {
+  const P = stance(p, false), s = Math.sin(TAU * p), nod = bump(p, 0.2, 0.05) + bump(p, 0.62, 0.06);
+  setR(P, 'pelvis', 4 * DEG, -4 * DEG, 3 * DEG);
+  plant(P, { R: { x: -0.1, z: -0.06, turn: 12 }, L: { x: 0.1, z: 0.1, turn: 6 } }, { weight: 0.68 + 0.04 * s, dz: 0.02 });
+  setR(P, 'spine', 9 * DEG, 0, -2 * DEG); setR(P, 'chest', 8 * DEG, 3 * DEG * s, 0);
+  arm(P, 'R', -24, 46, -0.16, -104, -12);
+  arm(P, 'L', -16, -64, 0.17, -70, -10);
+  setR(P, 'neck', -10 * DEG, 10 * DEG * s, 0);
+  setR(P, 'head', (-2 + 8 * nod) * DEG, 22 * DEG * Math.sin(TAU * p + 0.4), 5 * DEG * Math.sin(TAU * p + 1.1));
+  return P;
+}
+// Downing it: the feet set apart, the left hand on the hip, the bottle tipped up and the head going back further
+// as it empties, the knees softening, then the bottle down and a gasp.
+const chugK = (p) => held(p, 0.08, 0.72);
+function chugPose(p) {
+  const P = stance(p, false), k = chugK(p), deep = smooth(0.2, 0.7, p) * k, done = bump(p, 0.88, 0.05);
+  setR(P, 'pelvis', (-2 * deep) * DEG, 3 * DEG, -2 * DEG);
+  plant(P, { R: { x: -0.12, z: 0.0, turn: 10 }, L: { x: 0.13, z: 0.04, turn: 16 } }, { weight: 0.45, sink: 0.02 * deep + 0.03 * done, dz: -0.015 * deep });
+  arm(P, 'R', -2 - 110 * k - 40 * deep, 40 * k, -0.07 - 0.1 * k, -12 - 118 * k + 30 * deep, -10 - 20 * deep);
+  arm(P, 'L', 8, -42, 0.5, -90, -14);
+  setR(P, 'spine', -4 * deep * DEG, 0, 0); setR(P, 'chest', (-6 * deep + 8 * done) * DEG, 0, 0);
+  setR(P, 'neck', (-8 * k - 8 * deep) * DEG, 0, 0); setR(P, 'head', (-10 * k - 16 * deep + 10 * done) * DEG, 0, 3 * DEG);
+  return P;
+}
+// Egging the drinker on over four beats: the right fist banged up on every beat, a bounce at the knees with it,
+// the drink in the left, the head and chest jerked forward with each shout.
+function chantPose(p) {
+  const P = stance(p, false), b = onBeat(p, 4, 6), s = Math.sin(4 * TAU * p);
+  setR(P, 'pelvis', 2 * DEG, -5 * DEG, 2 * DEG);
+  plant(P, IDLE_FEET, { weight: 0.4 + 0.08 * s, sink: 0.012 + 0.03 * b });
+  arm(P, 'R', -86 - 46 * b, 28, -0.2, -98 + 40 * b, -12);
+  arm(P, 'L', -30, -46, 0.18, -82, -10);
+  setR(P, 'spine', 3 * b * DEG, -3 * DEG, 0); setR(P, 'chest', (6 * b - 2) * DEG, -5 * DEG, 0);
+  setR(P, 'head', (-6 + 8 * b) * DEG, 5 * DEG, 2 * DEG * s);
+  return P;
+}
+// Laughing at somebody on the floor: bent forward with a hand braced on the left knee, the right pointing down at
+// them, the shoulders going, and straightening up now and then to wipe an eye.
+const pointLaughK = (p) => held(p, 0.06, 0.66);
+function pointLaughPose(p) {
+  const P = stance(p, false), k = pointLaughK(p), sh = Math.sin(14 * TAU * p) * k, wipe = held(p, 0.72, 0.9);
+  setR(P, 'pelvis', 10 * DEG * k, -6 * DEG, 2 * DEG);
+  plant(P, { R: { x: -0.12, z: -0.04, turn: 12 }, L: { x: 0.12, z: 0.1, turn: 8 } }, { weight: 0.62, sink: 0.05 * k + 0.01, dz: -0.04 * k });
+  setR(P, 'spine', (14 * k + 2 * sh) * DEG, 0, 3 * DEG); setR(P, 'chest', (10 * k + 3 * sh) * DEG, -6 * DEG, 0);
+  arm(P, 'L', -46 * k - 4, -20 * k, 0.12, -24 * k - 12, -6);
+  arm(P, 'R', -2 - 64 * k - 60 * wipe, 6, -0.12, -12 - 8 * k - 110 * wipe, -6);
+  setR(P, 'neck', -18 * DEG * k, 0, 0); setR(P, 'head', (-14 * k + 4 * sh + 6 * wipe) * DEG, 8 * DEG, 4 * DEG * k);
+  return P;
+}
+// Wrapped up in one another off in a corner: close, an arm round their waist, the other hand on their chest, the
+// head tilted in, the weight on one hip, swaying slowly together.
+function canoodlePose(p) {
+  const P = stance(p, false), s = Math.sin(TAU * p), s2 = Math.sin(2 * TAU * p + 0.5);
+  setR(P, 'pelvis', 2 * DEG, 4 * DEG, -3 * DEG);
+  plant(P, { R: { x: -0.09, z: 0.0, turn: 6 }, L: { x: 0.11, z: 0.08, turn: 14 } }, { weight: 0.34 + 0.08 * s, dz: 0.02 });
+  setR(P, 'spine', 5 * DEG, 0, 3 * DEG); setR(P, 'chest', 6 * DEG, 4 * DEG * s, -2 * DEG);
+  arm(P, 'R', -58, 42, -0.42, -82 + 6 * s2, -10, 10);
+  arm(P, 'L', -50, -36, 0.1, -96 + 5 * s, -12);
+  setR(P, 'neck', -6 * DEG, 0, 0); setR(P, 'head', (4 + 2 * s2) * DEG, 10 * DEG, 14 * DEG);
+  return P;
+}
+// Arms round each other's shoulders, singing: the right arm up and over a neighbour's shoulder, the drink held up
+// in the left, the whole body swaying from foot to foot over eight beats, the head back on the long notes.
+function swaySingPose(p) {
+  const P = stance(p, false), s = Math.sin(2 * TAU * p), belt = held(p, 0.4, 0.58) + held(p, 0.86, 0.95);
+  setR(P, 'pelvis', 1 * DEG, 0, 4 * DEG * s);
+  plant(P, { R: { x: -0.13, z: 0.0, turn: 10 }, L: { x: 0.13, z: 0.02, turn: 12 } }, { weight: 0.5 + 0.26 * s, sink: 0.015, dx: 0.02 * s });
+  setR(P, 'spine', 0, 0, -3 * DEG * s); setR(P, 'chest', -3 * DEG * belt, 0, -4 * DEG * s);
+  arm(P, 'R', -24, 8, -1.35, -58, -8);
+  arm(P, 'L', -86 - 20 * belt, -26, 0.2, -76 + 20 * belt, -10);
+  setR(P, 'neck', -4 * DEG * belt, 0, 0); setR(P, 'head', (-14 * belt + 2) * DEG, 6 * DEG * s, 7 * DEG * s);
   return P;
 }
 // Not moving at all: no sway, no glance, the eyes on one place.
@@ -1816,23 +2413,58 @@ function billWavePose(p) {
   return P;
 }
 const mixN = (a, b, k) => a + (b - a) * k;
-// Taking a layer off, played once: the hands down to the hem, the garment drawn up over the head with the
-// arms crossed, flung away to the right, and back to the hips with a roll of them.
+// Getting changed, played once, the way anybody does it: the fingers down the front of the top, a shrug that
+// takes it off the shoulders, each arm drawn out behind, a fold of it and a stoop to put it on the side; then
+// thumbs in the waistband, a bend with the knees to push the bottoms down, a foot stepped out of each, and up.
+// Every move overlaps the next and the weight goes from foot to foot under it, so nothing starts from still.
 function undressPose(p) {
-  const P = stance(p, false), a = smooth(0.04, 0.28, p), b = smooth(0.3, 0.58, p), c = smooth(0.6, 0.72, p), d = smooth(0.78, 0.98, p);
+  const P = stance(p, false);
+  const btn = held(p, 0.02, 0.17), shrug = held(p, 0.17, 0.27), outR = held(p, 0.24, 0.31), outL = held(p, 0.29, 0.36);
+  const fold = held(p, 0.36, 0.44), down = held(p, 0.5, 0.76), stepL = held(p, 0.66, 0.72), stepR = held(p, 0.73, 0.8);
+  const bend = Math.max(fold * 0.55, down), walk = Math.sin(TAU * 0.5 * p * 4);
+  // the fingers working down a button at a time: a small dip of the hands on each
+  const pick = Math.sin(TAU * 7 * p) * btn;
   for (const [sd, s] of [['R', 1], ['L', -1]]) {
-    let f = mixN(-6, -24, a), tw = mixN(0, s * 34, a), ab = mixN(-s * 0.1, -s * 0.05, a), el = mixN(-10, -48, a);
-    f = mixN(f, -168, b); tw = mixN(tw, s * 8, b); ab = mixN(ab, s * 0.05, b); el = mixN(el, -36, b);   // crossed over the head
-    if (sd === 'R') { f = mixN(f, -96, c); ab = mixN(ab, -0.95, c); el = mixN(el, -6, c); }            // and away
-    f = mixN(f, -16, d); tw = mixN(tw, s * 30, d); ab = mixN(ab, -s * 0.3, d); el = mixN(el, -82, d);   // to the hips
+    let f = -10, tw = 0, ab = -s * 0.1, el = -12;
+    f = mixN(f, -42 + 18 * smooth(0.02, 0.17, p) + 3 * pick, btn); tw = mixN(tw, s * 52, btn); el = mixN(el, -118 + 26 * smooth(0.02, 0.17, p), btn);
+    // the shrug: the hands go back and down, the elbows behind
+    f = mixN(f, 22, shrug); tw = mixN(tw, s * 10, shrug); ab = mixN(ab, -s * 0.28, shrug); el = mixN(el, -30, shrug);
+    // each arm drawn out of its sleeve, behind and down, the other hand pulling the cuff
+    const out = sd === 'R' ? outR : outL, pull = sd === 'R' ? outL : outR;
+    f = mixN(f, 34, out); el = mixN(el, -6, out); ab = mixN(ab, -s * 0.2, out);
+    f = mixN(f, -30, pull); tw = mixN(tw, s * 60, pull); el = mixN(el, -70, pull);
+    // a fold in front of the belly, then laid down on the side as she stoops
+    f = mixN(f, -48, fold); tw = mixN(tw, s * 44, fold); ab = mixN(ab, s * 0.05, fold); el = mixN(el, -84, fold);
+    // thumbs in the waistband, pushing down the thighs as the body folds over
+    f = mixN(f, mixN(-8, -34, smooth(0.5, 0.7, p)), down); tw = mixN(tw, s * 20, down); ab = mixN(ab, -s * 0.16, down); el = mixN(el, -16, down);
     arm(P, sd, f, tw, ab, el, -10);
   }
-  setR(P, 'spine', (8 * a * (1 - b) - 6 * b * (1 - d)) * DEG, 0, 0);
-  setR(P, 'chest', -6 * DEG * b * (1 - d), -10 * DEG * c * (1 - d), 0);
-  setR(P, 'head', (10 * a * (1 - b) - 12 * b * (1 - c)) * DEG, -14 * DEG * c * (1 - d), 0);
-  // the hips sway from foot to foot over feet that stay put
-  setR(P, 'pelvis', 0, 8 * DEG * Math.sin(2 * TAU * p) * d, 0);
-  footwork(P, 0.5 + 0.3 * Math.sin(2 * TAU * p), { hike: 6 });
+  // down for the bottoms with the knees and the back both bending, a foot lifted out of them one at a time
+  footwork(P, 0.5 + 0.18 * walk * (1 - down) - 0.32 * stepL + 0.32 * stepR, { x: 0.11, sink: 0.12 * down + 0.03 * fold, dz: -0.05 * down, heel: 6, liftL: 0.09 * stepL, liftR: 0.09 * stepR });
+  setR(P, 'spine', (6 * btn + 26 * bend - 4 * shrug) * DEG, 0, 0);
+  setR(P, 'chest', (6 * btn - 8 * shrug + 8 * bend) * DEG, (6 * outR - 6 * outL) * DEG, 0);
+  setR(P, 'pelvis', 0, 4 * DEG * walk * (1 - down), 0);
+  setR(P, 'head', (22 * btn + 16 * fold + 18 * down - 6 * shrug) * DEG, (8 * outR - 8 * outL) * DEG, 0);
+  return P;
+}
+// Taking a layer off on stage, played once and slower than anybody changing: the hips never stop, both hands slide
+// from the hips up the sides to the hem, the garment rises over the head with the arms crossed and the back arching,
+// it's held out at arm's length a beat and dropped, and the hands come down the body to the hips.
+function stripPose(p) {
+  const P = stance(p, false), roll = Math.sin(2 * TAU * p), a = smooth(0.02, 0.3, p), b = smooth(0.3, 0.56, p), c = smooth(0.58, 0.74, p), d = smooth(0.76, 0.98, p);
+  for (const [sd, s] of [['R', 1], ['L', -1]]) {
+    let f = mixN(-8, -30, a), tw = mixN(s * 20, s * 40, a), ab = mixN(-s * 0.18, -s * 0.06, a), el = mixN(-20, -60, a);
+    f = mixN(f, -170, b); tw = mixN(tw, s * 6, b); ab = mixN(ab, s * 0.06, b); el = mixN(el, -40, b);
+    if (sd === 'R') { f = mixN(f, -84, c); tw = mixN(tw, -10, c); ab = mixN(ab, -0.9, c); el = mixN(el, -4, c); }
+    else { f = mixN(f, -60, c); ab = mixN(ab, 0.3, c); el = mixN(el, -90, c); }
+    f = mixN(f, -14, d); tw = mixN(tw, s * 34, d); ab = mixN(ab, -s * 0.26, d); el = mixN(el, -76, d);
+    arm(P, sd, f, tw, ab, el, -10);
+  }
+  setR(P, 'spine', (6 * a * (1 - b) - 10 * b * (1 - d)) * DEG, 0, 4 * DEG * roll);
+  setR(P, 'chest', -8 * DEG * b * (1 - d), (-10 * c * (1 - d) + 5 * Math.sin(2 * TAU * p - 0.7)) * DEG, -3 * DEG * roll);
+  setR(P, 'head', (8 * a * (1 - b) - 16 * b * (1 - c)) * DEG, (-16 * c * (1 - d) + 8 * Math.sin(2 * TAU * p - 1.3)) * DEG, 0);
+  setR(P, 'pelvis', 3 * DEG * Math.cos(2 * TAU * p), 12 * DEG * roll, 4 * DEG * Math.cos(2 * TAU * p));
+  footwork(P, 0.5 + 0.32 * roll, { heel: 18, hike: 8, sink: 0.015 });
   return P;
 }
 // Putting a layer back on, played once: a dip to pick it up, then pulling it up the body and over the shoulders,
@@ -2065,6 +2697,39 @@ function guardPose(p) {
   setR(P, 'neck', 0, 10 * DEG * look, 0); setR(P, 'head', 0, 20 * DEG * look, 0);
   return P;
 }
+// On the door: hands clasped low in front, the weight moved from foot to foot, a slow look right across the room
+// that stops at each end before it comes back.
+function guardScanPose(p) {
+  const P = stance(p, false), k = held(p, 0.04, 0.84), s = Math.sin(TAU * p), look = Math.sign(s) * Math.pow(Math.abs(s), 0.45);
+  plant(P, { L: { x: 0.17, z: 0.03, turn: 12 }, R: { x: -0.16, z: -0.02, turn: 10 } }, { weight: 0.5 + 0.12 * Math.sin(TAU * p + 1), sink: 0.012 });
+  armTo(P, 'L', 'hangL', 'claspL', k); armTo(P, 'R', 'hangR', 'claspR', k);
+  setR(P, 'chest', -2 * DEG, 6 * DEG * look, 0);
+  setR(P, 'neck', 0, 12 * DEG * look, 0); setR(P, 'head', 2 * DEG, 26 * DEG * look, 0);
+  return P;
+}
+// A hand up to the earpiece to listen, the head tipped to it and the eyes down, then the arms folded again.
+function guardEarPose(p) {
+  const P = stance(p, false), k = held(p, 0.15, 0.5), r = 1 - k;
+  plant(P, { L: { x: 0.16, z: 0.04, turn: 12 }, R: { x: -0.15, z: -0.02, turn: 10 } }, { weight: 0.55, sink: 0.015 });
+  arm(P, 'L', -6, -70, 0.2, -50, -8);
+  // (the ear is half way from the collar to the back of the neck, ARM_AT's collarR and neckR)
+  const G = [-6, 70, -0.2, -50, -8, 0], E = ARM_AT.collarR.map((v, i) => v + (ARM_AT.neckR[i] - v) * 0.55);
+  // (the elbow goes out and the forearm turns first, so the hand comes up beside the face, not across it)
+  const A = G.map((v, i) => v + (E[i] - v) * (i === 1 || i === 2 ? Math.sqrt(k) : k * k * (3 - 2 * k)));
+  arm(P, 'R', A[0], A[1], A[2], A[3], A[4], A[5]);
+  setR(P, 'chest', -3 * DEG, 0, 0);
+  setR(P, 'neck', 4 * DEG * k, 0, -5 * DEG * k); setR(P, 'head', 10 * DEG * k, -8 * DEG * k, -10 * DEG * k);
+  return P;
+}
+// Behind a counter with nobody to serve: squaring things on it, a hand at a time, then looking up at the door.
+function tidyPose(p) {
+  const P = stance(p), k = held(p, 0.08, 0.7), a = Math.sin(3 * TAU * p), b = Math.sin(3 * TAU * p + 2);
+  setR(P, 'spine', 12 * DEG * k, 0, 0); setR(P, 'chest', 6 * DEG * k, 4 * DEG * a * k, 0);
+  arm(P, 'R', -14 * k - 8 * a * k, 30, -0.1, -80 * k - 12 * a * k, -10 * k);
+  arm(P, 'L', -14 * k - 8 * b * k, -30, 0.1, -80 * k - 12 * b * k, -10 * k);
+  setR(P, 'head', (24 * k - 10 * (1 - k)) * DEG, 6 * DEG * a * k, 0);
+  return P;
+}
 
 // ── In the stands: the fans' clips (gl/fan-vat.js bakes them). ──
 // An arm solved to put the middle of its palm at `to`, given in the chest bone's own frame (metres:
@@ -2244,6 +2909,11 @@ const CLIPS = [
   { name: 'leanSmoke', frames: 36, dur: 9.0, fn: leanSmokePose },
   { name: 'leanWall', frames: 16, dur: 6.0, fn: leanWallPose },
   { name: 'walkSmoke', frames: 16 * WALK_SMOKE_STRIDES, dur: 1.10 * WALK_SMOKE_STRIDES, fn: walkSmokePose, walk: true, of: 'walk', n: WALK_SMOKE_STRIDES },
+  // Out cold on the ground: somebody the vehicle you're in has knocked flying (windshield.js streetRag) lands in it.
+  { name: 'sprawl', frames: 8, dur: 9, fn: sprawlPose },
+  // At the beach (plugins/beach, windshield.js drawBeachProps): on a towel in the sun, and out in the water.
+  { name: 'sunbathe', frames: 12, dur: 14, fn: sunbathePose },
+  { name: 'swim', frames: 24, dur: 1.6, fn: swimPose },
 ];
 export const ACTOR_CLIPS = CLIPS.map(({ name, frames, dur }) => ({ name, frames, dur }));
 // The clips that walk, whose phase is the distance walked over actorStrideM(name) rather than the clock.
@@ -2261,6 +2931,10 @@ const ROOM_CLIPS = [
   { name: 'drink', dur: 6.0, fn: drinkPose, once: true },
   { name: 'idleShift', dur: 10, fn: idleShiftPose }, { name: 'idleLook', dur: 10, fn: idleLookPose },
   { name: 'idleHip', dur: 10, fn: hipPose }, { name: 'idleHipR', dur: 10, fn: hipRPose },
+  { name: 'idleHips', dur: 10, fn: hipsPose }, { name: 'idleLookUp', dur: 10, fn: lookUpPose }, { name: 'idleWipe', dur: 10, fn: idleWipePose },
+  { name: 'idleCough', dur: 10, fn: idleCoughPose, face: (p) => ({ open: 0.32 * Math.min(1, idleCoughK(p)), round: 0.4 }) },
+  { name: 'idleCollar', dur: 10, fn: collarPose }, { name: 'idleClasp', dur: 10, fn: claspPose }, { name: 'idleShrug', dur: 10, fn: idleShrugPose },
+  { name: 'idleSwing', dur: 10, fn: swingPose }, { name: 'idleSway', dur: 10, fn: swayPose },
   { name: 'idlePockets', dur: 10, fn: pocketsPose }, { name: 'idleBehind', dur: 10, fn: behindPose },
   { name: 'idleScratch', dur: 10, fn: scratchPose }, { name: 'idleNeck', dur: 10, fn: neckPose },
   { name: 'idleWatch', dur: 10, fn: watchPose }, { name: 'idleStretch', dur: 10, fn: stretchPose },
@@ -2268,6 +2942,13 @@ const ROOM_CLIPS = [
   { name: 'idleSigh', dur: 10, fn: sighPose, face: (p) => ({ open: 0.22 * smooth(0.38, 0.44, p) * (1 - smooth(0.54, 0.66, p)), round: 0.5 }) },
   { name: 'sitRest', dur: 10, fn: sitRestPose }, { name: 'sitClasp', dur: 10, fn: sitClaspPose },
   { name: 'sitLean', dur: 10, fn: sitLeanPose }, { name: 'sitBack', dur: 10, fn: sitBackPose }, { name: 'sitSprawl', dur: 12, fn: sitSprawlPose }, { name: 'sitBar', dur: 9, fn: sitBarPose }, { name: 'sitBarSmoke', dur: 11, fn: sitBarSmokePose }, { name: 'sitFold', dur: 10, fn: sitFoldPose },
+  { name: 'sitMug', dur: 10, fn: sitMugPose }, { name: 'sitCan', dur: 9, fn: sitCanPose }, { name: 'sitBook', dur: 12, fn: sitBookPose },
+  { name: 'sitRemote', dur: 8, fn: sitRemotePose }, { name: 'sitGame', dur: 6, fn: gamePose(0) }, { name: 'lieBook', dur: 12, fn: lieBookPose },
+  { name: 'sitCross', dur: 12, fn: sitCrossPose }, { name: 'sitCrossR', dur: 12, fn: sitCrossRPose }, { name: 'sitAnkles', dur: 11, fn: sitAnklesPose }, { name: 'sitTuck', dur: 9, fn: sitTuckPose },
+  // side by side with somebody (ACTOR_PAIR_ACTS): the other one on the left, and on the right
+  ...[['sitChat', sitChatPose, 6], ['sitListen', sitListenPose, 6], ['sitLaughPair', sitLaughPairPose, 5, LAUGH_FACE], ['sitShowPhone', sitShowPhonePose, 7], ['sitLookPhone', sitLookPhonePose, 7], ['sitNudge', sitNudgePose, 4, LAUGH_FACE], ['sitNudged', sitNudgedPose, 4],
+    ['sitCheers', sitCheersPose, 6], ['sitGamePair', gamePose(0, 0.3), 5], ['sitGameWin', gamePose(1, 0.8), 5, LAUGH_FACE], ['sitGameLose', gamePose(-1), 5], ['sitPassRemote', sitPassRemotePose, 5]]
+    .flatMap(([n, fn, dur, face]) => [{ name: n + 'L', dur, fn, ...(face ? { face } : {}) }, { name: n + 'R', dur, fn: toRight(fn), ...(face ? { face } : {}) }]),
   { name: 'sitPhone', dur: 6, fn: sitPhonePose }, { name: 'sitRead', dur: 9, fn: sitReadPose }, { name: 'sitDrink', dur: 10, fn: sitDrinkPose },
   { name: 'sitSmoke', dur: 9, fn: sitSmokePose }, { name: 'sitDrive', dur: 6, fn: sitDrivePose }, { name: 'sitDriveWave', dur: 1.6, fn: sitDriveWavePose }, { name: 'sitDoze', dur: 10, fn: sitDozePose, face: () => ({ shut: 1 }) },
   { name: 'sitSlump', dur: 10, fn: sitSlumpPose, face: () => ({ shut: 1, open: 0.18 }) },
@@ -2277,12 +2958,12 @@ const ROOM_CLIPS = [
   { name: 'sitPack', dur: 6, fn: sitPackPose }, { name: 'sitPipe', dur: 11, fn: sitPipePose, face: (p) => ({ round: smooth(0.62, 0.68, p) * (1 - smooth(0.84, 0.96, p)), open: 0.15 * smooth(0.62, 0.68, p) * (1 - smooth(0.84, 0.96, p)) }) },
   { name: 'sitCook', dur: 9, fn: sitCookPose }, { name: 'sitTie', dur: 10, fn: sitOf(injectPose, 12) },
   { name: 'sitShake', dur: 4, fn: sitShakePose }, { name: 'sitHuff', dur: 9, fn: sitOf(huffPose, 6) }, { name: 'sitPour', dur: 5, fn: sitPourPose },
-  { name: 'lieBack', dur: 12, fn: lieBackPose }, { name: 'lieArm', dur: 10, fn: lieArmPose }, { name: 'liePhone', dur: 8, fn: liePhonePose },
+  { name: 'lieBack', dur: 12, fn: lieBackPose }, { name: 'lieArm', dur: 10, fn: lieArmPose }, { name: 'liePhone', dur: 8, fn: liePhonePose }, { name: 'liePress', dur: 12, fn: liePressPose, face: (p) => ({ shut: 0.35 * (((p * 4) % 1) > 0.45 && ((p * 4) % 1) < 0.85 ? 1 : 0), open: 0.25 * (((p * 4) % 1) > 0.55 && ((p * 4) % 1) < 0.85 ? 1 : 0) }) },
   { name: 'lieSide', dur: 12, fn: lieSidePose },
   { name: 'sleepSide', dur: 9, fn: sleepSidePose, face: () => ({ shut: 1 }) },
   { name: 'sleepBack', dur: 9, fn: sleepBackPose, face: () => ({ shut: 1, open: 0.12 }) },
   { name: 'sprawl', dur: 9, fn: sprawlPose, face: () => ({ shut: 1, open: 0.22 }) },
-  { name: 'wipe', dur: 6, fn: wipePose }, { name: 'polish', dur: 6, fn: polishPose }, { name: 'stir', dur: 5, fn: stirPose },
+  { name: 'wipe', dur: 6, fn: wipePose }, { name: 'guitar', dur: 8, fn: guitarPose }, { name: 'polish', dur: 6, fn: polishPose }, { name: 'stir', dur: 5, fn: stirPose },
   // behind a bar
   { name: 'pour', dur: 6, fn: pourPose }, { name: 'shakeTin', dur: 5, fn: shakeTinPose }, { name: 'tapPull', dur: 6, fn: tapPullPose },
   { name: 'checkBottle', dur: 6, fn: checkBottlePose }, { name: 'slideGlass', dur: 4, fn: slideGlassPose },
@@ -2302,12 +2983,16 @@ const ROOM_CLIPS = [
   { name: 'lookBack', dur: 8 * DANCE_BEAT, fn: lookBackPose }, { name: 'shimmy', dur: 4 * DANCE_BEAT, fn: shimmyPose }, { name: 'kneelRoll', dur: 16 * DANCE_BEAT, fn: kneelRollPose },
   { name: 'tipTake', dur: 3.4, fn: tipTakePose, once: true, face: (p) => ({ round: 0.9 * kissK(p), open: 0.08 * kissK(p) }) },
   // and the punters': a note held out, and cheering her on
+  // a street dealer at his spot: on a wall, and on open ground
+  { name: 'dealerLean', dur: DEALER_DUR, fn: dealerLeanPose, face: (p) => ({ shut: 0.6 * bump(p, 11.85 / DEALER_DUR, 0.004) }) },
+  { name: 'dealerStand', dur: DEALER_DUR, fn: dealerStandPose, face: (p) => ({ shut: 0.6 * bump(p, 11.85 / DEALER_DUR, 0.004) }) },
   { name: 'tipOffer', dur: 2.6, fn: tipOfferPose, once: true }, { name: 'sitTipOffer', dur: 2.6, fn: sitOf(tipOfferPose, 18), once: true },
   { name: 'fistPump', dur: 4 * DANCE_BEAT, fn: fistPumpPose, face: (p) => ({ open: 0.3 * (bump(p, 0.02, 0.06) + bump(p, 0.52, 0.06)) }) }, { name: 'sitFistPump', dur: 4 * DANCE_BEAT, fn: sitOf(fistPumpPose, 4), face: (p) => ({ open: 0.3 * (bump(p, 0.02, 0.06) + bump(p, 0.52, 0.06)) }) },
   { name: 'billWave', dur: 4 * DANCE_BEAT, fn: billWavePose }, { name: 'sitBillWave', dur: 4 * DANCE_BEAT, fn: sitOf(billWavePose, 6) },
-  { name: 'undress', dur: 4, fn: undressPose, once: true }, { name: 'redress', dur: 4.5, fn: redressPose, once: true }, { name: 'shiver', dur: 6, fn: shiverPose },
+  { name: 'undress', dur: 9, fn: undressPose, once: true }, { name: 'strip', dur: 6, fn: stripPose, once: true }, { name: 'redress', dur: 4.5, fn: redressPose, once: true }, { name: 'shiver', dur: 6, fn: shiverPose },
   { name: 'vatFloat', dur: 11, fn: vatFloatPose, face: () => ({ shut: 1 }) },
   { name: 'cough', dur: 5, fn: coughPose, face: (p) => ({ open: 0.4 * coughK(p) }) }, { name: 'guard', dur: 12, fn: guardPose },
+  { name: 'guardScan', dur: 14, fn: guardScanPose }, { name: 'guardEar', dur: 8, fn: guardEarPose }, { name: 'tidy', dur: 9, fn: tidyPose },
   // a show's stage directions, on their feet and in a chair
   { name: 'point', dur: 3, fn: pointPose }, { name: 'sitPoint', dur: 3, fn: sitOf(pointPose) },
   { name: 'spread', dur: 3.5, fn: spreadPose, face: (p) => ({ open: 0.25 * held(p, 0.12, 0.72) }) }, { name: 'sitSpread', dur: 3.5, fn: sitOf(spreadPose) },
@@ -2315,8 +3000,16 @@ const ROOM_CLIPS = [
   { name: 'holdup', dur: 4, fn: holdupPose }, { name: 'sitHoldup', dur: 4, fn: sitOf(holdupPose) },
   { name: 'flex', dur: 3.5, fn: flexPose, face: (p) => ({ open: 0.15 * held(p, 0.12, 0.76) }) }, { name: 'sitFlex', dur: 3.5, fn: sitOf(flexPose) },
   { name: 'clap', dur: 3, fn: clapPose }, { name: 'sitClap', dur: 3, fn: sitOf(clapPose) },
-  { name: 'highFive', dur: 2.4, fn: highFivePose, once: true }, { name: 'hug', dur: 6, fn: hugPose },
+  { name: 'highFive', dur: 2.4, fn: (p) => highFivePose(p), once: true }, { name: 'highFiveL', dur: 2.4, fn: highFiveLPose, once: true },
+  { name: 'fistBump', dur: 2.2, fn: (p) => fistBumpPose(p), once: true }, { name: 'fistBumpL', dur: 2.2, fn: fistBumpLPose, once: true }, { name: 'hug', dur: 6, fn: hugPose },
   { name: 'shake', dur: 3, fn: shakePose, once: true }, { name: 'toast', dur: 5, fn: toastPose },
+  // a group of friends at a party (plugins/outings scenes.js); the beat clips are whole beats at the club's tempo
+  { name: 'groove', dur: 8 * DANCE_BEAT, fn: groovePose }, { name: 'toastUp', dur: 6, fn: toastUpPose, face: (p) => ({ open: 0.3 * bump(p, 0.3, 0.04) }) },
+  { name: 'huddle', dur: 7, fn: huddlePose }, { name: 'chug', dur: 6, fn: chugPose, face: (p) => ({ open: 0.45 * bump(p, 0.9, 0.04), shut: 0.6 * smooth(0.2, 0.7, p) * chugK(p) }) },
+  { name: 'chant', dur: 4 * DANCE_BEAT, fn: chantPose, face: (p) => ({ open: 0.4 * onBeat(p, 4, 6) }) },
+  { name: 'pointLaugh', dur: 5, fn: pointLaughPose, face: (p) => ({ open: 0.45 * pointLaughK(p) * (0.7 + 0.3 * Math.sin(14 * TAU * p)), shut: 0.5 * pointLaughK(p) }) },
+  { name: 'canoodle', dur: 9, fn: canoodlePose, face: () => ({ shut: 0.5 }) },
+  { name: 'swaySing', dur: 8 * DANCE_BEAT, fn: swaySingPose, face: (p) => ({ open: 0.2 + 0.25 * (held(p, 0.4, 0.58) + held(p, 0.86, 0.95)), round: 0.3 }) },
   { name: 'reach', dur: 3, fn: reachPose }, { name: 'sitReach', dur: 3, fn: sitOf(reachPose, 18) },
   { name: 'stare', dur: 8, fn: starePose }, { name: 'sitStare', dur: 8, fn: sitStarePose },
   { name: 'wink', dur: 2, fn: winkPose, face: (p) => ({ shut: winkK(p) }) }, { name: 'sitWink', dur: 2, fn: sitOf(winkPose), face: (p) => ({ shut: winkK(p) }) },
@@ -2350,9 +3043,14 @@ const ROOM_CLIPS = [
 export const ACTOR_IDLES = {
   stand: [['idle', 5], ['idleShift', 2], ['idleLook', 2], ['idleHip', 1.5], ['idleHipR', 1.5], ['idlePockets', 2], ['idleBehind', 1], ['wait', 1.5], ['listen', 1],
     ['idleScratch', 0.7], ['idleNeck', 0.7], ['idleWatch', 0.7], ['idleStretch', 0.4], ['idleYawn', 0.4], ['idleSigh', 0.7],
-    ['idleRock', 1.2], ['idleTap', 0.8], ['idleRoll', 0.6], ['idleRub', 0.5], ['idleKnuckles', 0.5], ...MOOD_IDLES.stand],
-  sit: [['sitRest', 4], ['sitSprawl', 3], ['sitBack', 2.5], ['sitClasp', 1], ['sitLean', 0.8], ['sitFold', 1.5], ['sitPhone', 1], ['sitRead', 0.6],
+    ['idleRock', 1.2], ['idleTap', 0.8], ['idleRoll', 0.6], ['idleRub', 0.5], ['idleKnuckles', 0.5],
+    ['idleHips', 1.2], ['idleSway', 1.5], ['idleClasp', 1.2], ['idleLookUp', 0.7], ['idleSwing', 0.6], ['idleShrug', 0.4], ['idleCough', 0.4], ['idleWipe', 0.4], ['idleCollar', 0.5], ...MOOD_IDLES.stand],
+  sit: [['sitRest', 4], ['sitSprawl', 1.5], ['sitBack', 2.5], ['sitCross', 2], ['sitCrossR', 2], ['sitAnkles', 1.5], ['sitTuck', 1], ['sitClasp', 1], ['sitLean', 0.8], ['sitFold', 1.5], ['sitPhone', 1], ['sitRead', 0.6],
     ['sitScratch', 0.5], ['sitNeck', 0.5], ['sitWatch', 0.5], ['sitStretch', 0.4], ['sitYawn', 0.4], ['sitRub', 0.4], ...MOOD_IDLES.sit],
+  // on a sofa or an armchair (gl/room-people.js HOME_SEAT): the same, and the things people do at home
+  sitHome: [['sitRest', 3], ['sitSprawl', 1.5], ['sitBack', 2], ['sitCross', 2], ['sitCrossR', 2], ['sitAnkles', 2], ['sitTuck', 1], ['sitPhone', 1.5], ['sitScroll', 1],
+    ['sitMug', 2], ['sitCan', 1.5], ['sitBook', 1.5], ['sitRemote', 2], ['sitGame', 1.2], ['sitFold', 1], ['sitYawn', 0.4], ['sitStretch', 0.4]],
+  lieHome: [['lieBack', 3], ['lieArm', 2], ['liePhone', 2], ['lieSide', 2], ['lieBook', 2]],
   // a room past room temperature, mild and then harsh (client/shared/comfort.js feelBand): gl/room-people.js
   // gives somebody one of these in place of their own for some of their slots, more of them the worse it is
   cool: [['coldRub', 3], ['wait', 2], ['coldBlow', 1], ['shiver', 0.5]],
@@ -2371,7 +3069,7 @@ export const ACTOR_IDLES = {
   sitSleep: [['sitDoze', 1]], sitOut: [['sitSlump', 1]],
   // at work: behind a bar, behind a shop counter, on guard; and somebody living rough
   bar: [['wipe', 2.5], ['polish', 2.5], ['pour', 2], ['tapPull', 1.5], ['shakeTin', 1.2], ['checkBottle', 0.8], ['slideGlass', 0.8], ['counter', 2], ['idle', 1.5], ['wait', 1], ['idleLook', 1], ['count', 0.5]],
-  shop: [['counter', 3], ['idle', 3], ['count', 1.5], ['write', 1.5], ['wait', 1.5], ['idleWatch', 1], ['idleLook', 1], ['idleBehind', 1]],
+  shop: [['counter', 3], ['idle', 2], ['tidy', 2], ['count', 1.5], ['write', 1.5], ['wait', 1.5], ['idleWatch', 1], ['idleLook', 1], ['idleBehind', 1]],
   // a dancer on shift: at her pole, or working the floor where there isn't one
   pole: [['poleHold', 3], ['poleLean', 2.5], ['poleSlide', 2.5], ['poleKick', 1.5], ['dance', 1], ['bodyRoll', 1], ['backArch', 1], ['hairWhip', 0.5]],
   floorwork: [['dance', 3], ['hipCircle', 2], ['bodyRoll', 2], ['shimmy', 1.5], ['lookBack', 1.5], ['dropLow', 1.5], ['backArch', 1], ['hairWhip', 1], ['kneelRoll', 0.8]],
@@ -2381,7 +3079,7 @@ export const ACTOR_IDLES = {
   // somebody in the room watching a dancer (plugins/roomstage `punter`): looking, clapping, a note in the air
   punter: [['stare', 3], ['clap', 1.5], ['fistPump', 1], ['billWave', 1], ['leanIn', 1], ['idleHip', 1], ['idle', 1], ['wink', 0.5]],
   sitPunter: [['sitStare', 3], ['sitBack', 2], ['sitClap', 1.5], ['sitFistPump', 1], ['sitBillWave', 1], ['sitLean', 1], ['sitDrink', 1], ['sitWink', 0.5]],
-  guard: [['guard', 5], ['wait', 2], ['idleBehind', 2], ['idleLook', 2], ['idle', 1]],
+  guard: [['guard', 4], ['guardScan', 2.5], ['guardEar', 1], ['wait', 1.5], ['idleBehind', 2], ['idleLook', 1], ['idle', 1]],
   rough: [['idle', 3], ['shiver', 1.5], ['idleScratch', 1.5], ['cough', 1], ['idleNeck', 1], ['wait', 1], ['idleSigh', 1]],
 };
 // How long one of those is held before the next: a sleeper turns over now and then, not every ten seconds.
@@ -2395,13 +3093,13 @@ export const ACTOR_ACTS = {
   rap: { sit: 'sitRap' }, muck: { stand: 'toss', sit: 'sitMuck' }, chips: { stand: 'reach', sit: 'sitChips' }, deal: { stand: 'deal', sit: 'sitDeal' },
   smoke: { stand: 'smoke', sit: 'sitSmoke' }, phone: { stand: 'phone', sit: 'sitPhone', lie: 'liePhone' },
   read: { stand: 'phone', sit: 'sitRead', lie: 'liePhone' }, drink: { stand: 'drink', sit: 'sitDrink' },
-  eat: { stand: 'eat', sit: 'sitEat' }, wipe: { stand: 'wipe' }, polish: { stand: 'polish' }, stir: { stand: 'stir' },
+  eat: { stand: 'eat', sit: 'sitEat' }, wipe: { stand: 'wipe' }, guitar: { stand: 'guitar' }, polish: { stand: 'polish' }, stir: { stand: 'stir' },
   pour: { stand: 'pour', sit: 'sitPour' }, mix: { stand: 'shakeTin' }, pint: { stand: 'tapPull' }, slide: { stand: 'slideGlass' }, eye: { stand: 'checkBottle' },
   rummage: { stand: 'rummage' }, wash: { stand: 'wash' }, lean: { stand: 'counter', sit: 'sitLean' }, count: { stand: 'count' },
   write: { stand: 'write', sit: 'sitRead' }, laugh: { stand: 'laugh', sit: 'sitBack' }, shrug: { stand: 'shrug' },
-  cower: { stand: 'cower' }, dance: { stand: 'dance' }, undress: { stand: 'undress' }, redress: { stand: 'redress' }, shiver: { stand: 'shiver', sit: 'sitShiver' }, cough: { stand: 'cough' },
+  cower: { stand: 'cower' }, dance: { stand: 'dance' }, undress: { stand: 'undress' }, strip: { stand: 'strip' }, redress: { stand: 'redress' }, shiver: { stand: 'shiver', sit: 'sitShiver' }, cough: { stand: 'cough' },
   blow: { stand: 'coldBlow', sit: 'sitBlow' }, swelter: { stand: 'hotFan', sit: 'sitFan' }, brow: { stand: 'hotBrow', sit: 'sitBrow' }, tug: { stand: 'hotTug', sit: 'sitTug' },
-  stoop: { stand: 'pickUp' }, exercise: { stand: 'squats' }, rub: { stand: 'idleRub', sit: 'sitRub' }, knuckles: { stand: 'idleKnuckles', sit: 'sitClasp' },
+  stoop: { stand: 'pickUp' }, exercise: { stand: 'squats' }, press: { lie: 'liePress' }, rub: { stand: 'idleRub', sit: 'sitRub' }, knuckles: { stand: 'idleKnuckles', sit: 'sitClasp' },
   rock: { stand: 'idleRock' }, tap: { stand: 'idleTap', sit: 'sitClasp' }, roll: { stand: 'idleRoll', sit: 'sitNeck' },
   fold: { stand: 'wait', sit: 'sitFold' }, yawn: { stand: 'idleYawn', sit: 'sitBack' }, stretch: { stand: 'idleStretch', sit: 'sitBack' },
   sigh: { stand: 'idleSigh', sit: 'sitBack', lie: 'lieArm' }, scratch: { stand: 'idleScratch' }, look: { stand: 'idleLook', sit: 'sitRest', lie: 'lieBack' },
@@ -2415,13 +3113,17 @@ export const ACTOR_ACTS = {
   slouch: { stand: 'counter', sit: 'sitBar' }, barsmoke: { stand: 'smoke', sit: 'sitBarSmoke' }, brace: { stand: 'guard' }, enter: { stand: 'idleLook', sit: 'sitRest' },
   ...MOOD_ACTS,
 };
-// A man's seat: the same clip with his knees out over his feet. sitting()'s hip twist keeps the knees in and
-// swings the feet out, which reads as a woman's; this undoes the twist and opens the thighs. gl/room-people.js
-// plays '<clip>Wide' for a man. Folded, driving and sprawled legs are left as the clip has them.
-const WIDE_SKIP = /^sit(Fold|Drive|Sprawl)/;
+// A man's seat: the same clip on his set of legs (SEAT_WIDE): knees out over his feet with the toes pointing out,
+// or the ankle up on the knee where she'd cross her legs. What the clip did to the shins and feet on top of its set
+// (a heel tapping) is kept. gl/room-people.js plays '<clip>Wide' for a man. Driving and sprawled legs are left as
+// they are, and so is any clip that didn't sit on a set.
+const WIDE_SKIP = /^sit(Drive|Sprawl)/;
 function wideKnees(P) {
-  const add = (bone, y, z) => { const i = B[bone] * 3; P.r[i + 1] += y * DEG; P.r[i + 2] += z * DEG; };
-  add('thighL', 10, 12); add('thighR', -8, -12);
+  const to = SEAT_WIDE[P.legs], from = LEG_R[P.legs];
+  if (!to || !from) return P;
+  const keep = LEG_BONES.map((b, j) => [0, 1, 2].map((k) => P.r[B[b] * 3 + k] - from[j][k]));
+  seatLegs(P, to);
+  LEG_BONES.forEach((b, j) => { if (!b.startsWith('thigh')) for (let k = 0; k < 3; k++) P.r[B[b] * 3 + k] += keep[j][k]; });
   return P;
 }
 // ROOM's gaits (actor-gait.js): walks solved by IK from where the feet go, each with its own stride
@@ -2557,6 +3259,7 @@ function bakeBegin(lod = 0, head = true, sil = 0, ground = null) {
     ground: ground || new Float32Array(frames), ownGround: !ground,
     pos: new Uint16Array(W * H * 4), nrm: new Uint16Array(W * H * 4), preview: new Float32Array(nv * frames * 3),
     bones: lod ? null : new Float32Array(frames * ACTOR_HEAD_BONES.texels * 4),
+    skel: lod ? null : new Float32Array(frames * BONES.length * 12),
     P: new Float32Array(nv * 3), Nn: new Float32Array(nv * 3), mat: new Float32Array(M.m), body: Float32Array.from({ length: nv * 4 }, (_, i) => M.body[i] || 0),
     rp: new Float64Array(M.p), rw: new Float64Array(M.w), b0: new Uint8Array(M.b0), b1: new Uint8Array(M.b1), ix: new Uint16Array(M.i),
   };
@@ -2614,12 +3317,22 @@ function bakeFrame(J) {
       }
     }
   }
+  if (J.skel) {
+    // every bone, as the head's three are: an outfit body (actorOutfitBody) skins from these on the GPU
+    for (let bone = 0; bone < BONES.length; bone++) {
+      const m = S[bone], o = (F * BONES.length + bone) * 12;
+      for (let r = 0; r < 3; r++) {
+        J.skel[o + r * 4] = m[r]; J.skel[o + r * 4 + 1] = m[4 + r]; J.skel[o + r * 4 + 2] = m[8 + r];
+        J.skel[o + r * 4 + 3] = m[12 + r] - (r === 1 ? minY : 0);
+      }
+    }
+  }
   J.F++;
   if (++J.f >= len) { J.f = 0; J.ci++; }
   return J.ci >= CLIPS.length;
 }
 const bakeOut = (J) => ({ nv: J.nv, nt: J.nt, W: J.W, rows: J.rows, H: J.H, frames: J.frames, pos: J.pos, nrm: J.nrm,
-  mat: J.mat, body: J.body, idx: J.ix, top: J.top, clips: J.clips, preview: J.preview, bones: J.bones, sil: J.sil, ground: J.ground });
+  mat: J.mat, body: J.body, idx: J.ix, top: J.top, clips: J.clips, preview: J.preview, bones: J.bones, skel: J.skel, sil: J.sil, ground: J.ground });
 // The next job: each silhouette's near body (without its head) and then its far one. `_done` holds
 // the finished ones in that order.
 function nextJob() {
@@ -2747,6 +3460,78 @@ export function actorFanBody({ tris = 430, sil = 0 } = {}) {
   const M = buildBody(1, false, sil, tris);
   return { p: new Float32Array(M.p), b0: new Uint8Array(M.b0), b1: new Uint8Array(M.b1), w: new Float32Array(M.w), mat: new Uint8Array(M.m), idx: new Uint16Array(M.i), body: new Float32Array(M.body) };
 }
+
+// ── Outfit bodies: a crowd body for each outfit's shape ───────────────────────────────────────────
+// The four silhouettes above are baked a vertex a frame, about 8 MB each, so a skirt, shorts or a hat
+// can't have one, and somebody walking up changed shape as the close-up figure took over. An outfit body
+// is the close-up figure in that person's cut, bottoms and hat, cut down to the crowd's budget as
+// hdBody cuts the silhouettes, and posed on the GPU from the bake's bone matrices (bk.skel), so it plays
+// every clip at no cost but its own vertices. Colours stay per person, on the instance.
+//
+// `shape` is { cut, bottoms, hat } (streetLook hands it over as `shape`). Returned in bind space:
+// p and n (the figure's own normals), mb (the crowd's material slot, first bone, second bone, the first
+// one's weight), body (as hdBody's) and i. The head stays actor-head.js's, as the silhouettes'.
+export const OUTFIT_BODY = { on: 1, tris: 3600, hats: 1, keep: 64 };
+export const outfitKey = (sh) => (sh ? `${sh.cut || 'coat'}|${sh.bottoms || ''}|${OUTFIT_BODY.hats ? sh.hat || '' : ''}` : '');
+export function actorOutfitBody(shape, tris = OUTFIT_BODY.tris) {
+  const spec = { cut: shape.cut || 'coat', bottoms: shape.bottoms || '', hat: OUTFIT_BODY.hats ? shape.hat || '' : '' };
+  const at = (weight = null, build = 'average') => buildFigure({ ...spec, level: 'hd', sculpt: true, weight, build });
+  const F = at();
+  const keep = [];
+  for (let t = 0; t < F.I.length; t += 3) {
+    const a = F.I[t], b = F.I[t + 1], c = F.I[t + 2];
+    if (!HD_DROP.has(F.S[a]) && !HD_DROP.has(F.S[b]) && !HD_DROP.has(F.S[c])) keep.push(a, b, c);
+  }
+  const cls = Uint8Array.from(F.S, (s) => SLOT_MAT[s] ?? (s === FIG_SLOT.hat ? HAIR : COAT));
+  const skin = (v) => { const o = []; for (let k = 0; k < 4; k++) if (F.W[v * 4 + k] > 0) o.push([F.B[v * 4 + k], F.W[v * 4 + k]]); return o; };
+  const { ids, I } = simplifyMesh({ P: F.P, I: keep, cls, skin, target: tris });
+  const E = at(0), Me = at(0.5), En = at(1), Wo = at(0.5, 'woman');
+  const same = [E, Me, En, Wo].every((G) => G.nv === F.nv);
+  const along = (G, v, H = F) => (G.P[v * 3] - H.P[v * 3]) * F.N[v * 3] + (G.P[v * 3 + 1] - H.P[v * 3 + 1]) * F.N[v * 3 + 1] + (G.P[v * 3 + 2] - H.P[v * 3 + 2]) * F.N[v * 3 + 2];
+  const bake = (b) => (b === FIGURE_BONE.clavL || b === FIGURE_BONE.clavR ? FIGURE_BONE.chest : b);
+  const nv = ids.length, out = { key: outfitKey(spec), nv, p: new Float32Array(nv * 3), n: new Float32Array(nv * 3), mb: new Float32Array(nv * 4), body: new Float32Array(nv * 4), i: new Uint16Array(I) };
+  ids.forEach((v, k) => {
+    for (let j = 0; j < 3; j++) { out.p[k * 3 + j] = F.P[v * 3 + j]; out.n[k * 3 + j] = F.N[v * 3 + j]; }
+    const w0 = F.W[v * 4], w1 = F.W[v * 4 + 1];
+    out.mb[k * 4] = cls[v]; out.mb[k * 4 + 1] = bake(F.B[v * 4]); out.mb[k * 4 + 2] = bake(w1 > 0 ? F.B[v * 4 + 1] : F.B[v * 4]); out.mb[k * 4 + 3] = w0 / (w0 + w1 || 1);
+    if (same) { out.body[k * 4] = along(E, v); out.body[k * 4 + 1] = along(Me, v); out.body[k * 4 + 2] = along(En, v); out.body[k * 4 + 3] = along(Wo, v, Me); }
+  });
+  return out;
+}
+// The outfit bodies built so far, by outfitKey, and the ones asked for. Each takes a second or so (five
+// close-up figures and a simplify), so in a browser they're built in a worker one at a time, and whoever
+// wears one waiting is drawn in their silhouette until it's back. Without a worker (Node, the gates) it's
+// built where it's asked for.
+const _outfits = new Map(), _outfitWant = [];
+let _outfitWorker = null, _outfitBusy = '';
+function outfitNext() {
+  if (_outfitBusy || !_outfitWant.length) return;
+  const sh = _outfitWant.shift(), k = outfitKey(sh);
+  if (_outfits.has(k)) return outfitNext();
+  _outfitBusy = k;
+  _outfitWorker.postMessage({ shape: sh, tris: OUTFIT_BODY.tris, hats: OUTFIT_BODY.hats });
+}
+export function actorOutfitReady(shape) {
+  if (!OUTFIT_BODY.on || !shape) return null;
+  const k = outfitKey(shape), got = _outfits.get(k);
+  if (got !== undefined) return got;
+  if (_outfitWorker === null) {
+    try {
+      if (typeof Worker !== 'function' || typeof document === 'undefined') throw 0;
+      const w = new Worker(new URL('./actor-outfit-worker.js', import.meta.url), { type: 'module' });
+      w.onmessage = (e) => { const b = e.data && e.data.body; _outfits.set(_outfitBusy, b || null); _outfitBusy = ''; outfitNext(); };
+      w.onerror = () => { w.terminate(); _outfitWorker = false; };
+      _outfitWorker = w;
+    } catch { _outfitWorker = false; }
+  }
+  if (_outfits.size >= OUTFIT_BODY.keep) return null;
+  if (_outfitWorker === false) { let b = null; try { b = actorOutfitBody(shape); } catch { /* the silhouette keeps them */ } _outfits.set(k, b); return b; }
+  if (_outfitBusy !== k && !_outfitWant.some((s) => outfitKey(s) === k)) _outfitWant.push(shape);
+  outfitNext();
+  return null;
+}
+// What's built and waiting, for a bench and the gate.
+export const actorOutfitStats = () => ({ built: _outfits.size, waiting: _outfitWant.length + (_outfitBusy ? 1 : 0) });
 
 // ── Outfits ────────────────────────────────────────────────────────────────────────────────────────
 // Colours as 0..255 sRGB, the unit every palette in windshield.js uses. Each entry is [rgb, weight];

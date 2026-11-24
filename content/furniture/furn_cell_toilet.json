@@ -1,6 +1,16 @@
 {
   "description": "A seatless steel toilet-and-basin combo bolted to the cinderblock, scuffed to a dull shine by a decade of reluctant use. No lid, no privacy, no dignity: just cold metal and a slow, resigned trickle.",
-  "flags": {},
+  "flags": {
+    "look": {
+      "arche": "toilet",
+      "form": "pan",
+      "wear": 0.9
+    },
+    "spot": {
+      "along": 2.6,
+      "wall": "back"
+    }
+  },
   "hp": null,
   "hp_max": null,
   "id": "furn_cell_toilet",

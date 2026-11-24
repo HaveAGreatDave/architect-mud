@@ -1,0 +1,25 @@
+{
+  "description": "A steel terminal on a post at the pad's edge with a screen and a ticket slot. Tap PARK and the pad takes your aircraft down into the carousel. It only takes the small ones, and today it takes them free.",
+  "flags": {
+    "click_cmd": "garage",
+    "field_zone": "zone_district_923_904",
+    "levels": [
+      2,
+      3,
+      4,
+      5
+    ],
+    "public": true,
+    "roof_level": 6,
+    "sky_garage": 12,
+    "ticket": "item_skypark_ticket",
+    "bay_zone": "zone_apark_l2"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_apark_pad_terminal",
+  "name": "parking terminal",
+  "object_type": "terminal",
+  "price": 0,
+  "zone_id": "zone_apark_pad"
+}

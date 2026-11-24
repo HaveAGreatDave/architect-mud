@@ -26,6 +26,7 @@ const WORKSPACES = [
 const I = {
   logo: '<path d="M10 2 17 6v8l-7 4-7-4V6zM3 6l7 4 7-4M10 10v8"/>',
   editor: '<path d="M4 17V7l4-3 4 3v10M12 17V10h4v7M2.5 17h15M6.5 9h3M6.5 12h3"/>',
+  meshref: '<rect x="2.5" y="4" width="6.5" height="6" rx="1"/><path d="M2.5 9 5 7l2 1.5L9 7"/><path d="M14 6l3.5 2v4.5L14 14.5l-3.5-2V8zM10.5 8l3.5 2 3.5-2M14 10v4.5"/><path d="M9.5 15.5h4" stroke-dasharray="1 1.5"/>',
   cab: '<circle cx="10" cy="10" r="7"/><circle cx="10" cy="10" r="2"/><path d="M3.5 9.5h4.6M11.9 9.5h4.6M10 12v5"/>',
   figures: '<circle cx="10" cy="5" r="2.5"/><path d="M5.5 17v-4.5a4.5 4.5 0 0 1 9 0V17M8 17v-3M12 17v-3"/>',
   poses: '<circle cx="11.5" cy="3.8" r="2"/><path d="m5 9 3.5-2.5 3 1.5 1.5 3 3 1M11.5 8l-2 4.5 3 2.5-1 3M9.5 12.5 6 15l-2 0"/>',
@@ -47,6 +48,7 @@ const icon = (name) => {
 
 const PAGES = [
   { ws: 'models', path: '/', name: 'Editor', icon: 'editor', blurb: 'GLASS buildings, vehicles and fauna: inspect, edit, compare' },
+  { ws: 'models', path: '/mesh-ref.html', name: 'Reference', long: 'Mesh reference', icon: 'meshref', blurb: 'An image-to-mesh reference beside its picture, with a game model ghosted over it' },
   { ws: 'models', path: '/cabtrinkets.html', name: 'Cab', long: 'Cab interior', icon: 'cab', blurb: "A truck's cab from the driver's seat, with the driver's things hung in it" },
   { ws: 'people', path: '/figure-lab.html', name: 'Figures', icon: 'figures', blurb: 'Everybody as a person: the close-up figure or the street crowd' },
   { ws: 'people', path: '/pose-lab.html', name: 'Poses', icon: 'poses', blurb: "Deadball's clips keyed on the real rig, played in the 3-D park" },

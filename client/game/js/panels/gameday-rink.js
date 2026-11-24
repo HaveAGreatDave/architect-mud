@@ -184,7 +184,7 @@ export function createRinkView(host, opts = {}) {
         const x = o && Number.isFinite(o.x) ? o.x : CONTACT.has(key) && W.puck ? W.puck.x : null;
         const pan = x != null && W.cam?.focus ? Math.max(-0.5, Math.min(0.5, (x - W.cam.focus[0]) / 90)) : 0;
         const near = opts.seat ? fromSeat(key, o) : null;
-        const go = () => AE.playSfx(H.variant(def, seed, 1, pick.intensity), under * (near ? near.gain : 1), pan ? { pan } : {});
+        const go = () => AE.playSfx(H.variant(def, seed, 1, pick.intensity), under * (near ? near.gain : 1), { ...(pan ? { pan } : {}), ...(opts.onTv ? { tv: true } : {}) });
         if (near && near.ms > 15) setTimeout(go, near.ms); else go();
         if (key === 'horn') loudUntil = W.t + (o && o.long ? 3.8 : 2);
         else if (key === 'whistle') loudUntil = Math.max(loudUntil, W.t + (o && o.long ? 0.5 : 0.25));
@@ -201,7 +201,7 @@ export function createRinkView(host, opts = {}) {
   function crowdOn() {
     if (crowd != null) return crowd || null;
     const H = hockeySfx();
-    crowd = (H?.crowdBed && win?.AudioEngine?.engineNodes && H.crowdBed()) || false;
+    crowd = (H?.crowdBed && win?.AudioEngine?.engineNodes && H.crowdBed({ tv: !!opts.onTv })) || false;
     if (crowd) crowd.start().setState('active');
     return crowd || null;
   }

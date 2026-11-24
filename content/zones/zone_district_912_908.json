@@ -25,7 +25,8 @@
     "is_building": true,
     "region_id": "region_coldwater",
     "sign_trade": "HOVER CARS",
-    "world_exit_zone": "zone_district_912_909"
+    "world_exit_zone": "zone_district_912_909",
+    "delivers_to": "zone_seam_914_908"
   },
   "grid_x": 912,
   "grid_y": 908,

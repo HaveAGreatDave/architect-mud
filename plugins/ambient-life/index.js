@@ -25,7 +25,9 @@
 // room — no target to disambiguate, so no SIFT/Action needed.
 
 import { schedule } from '../../server/engine/scheduler.js';
-import { eligibleNpcs } from '../../server/engine/npc-banter.js';
+import { eligibleNpcs, registerBanterFrames } from '../../server/engine/npc-banter.js';
+import { BANTER_FRAMES } from './banter-frames.js';
+registerBanterFrames(BANTER_FRAMES);
 import { world, getZonePlayers } from '../../server/engine/world.js';
 import { query } from '../../server/models/db.js';
 import { adjustSanity } from '../../server/engine/condition.js';
@@ -35,7 +37,10 @@ import { sendToZone, getBroadcast } from '../../server/engine/messaging.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { foodLoad } from '../../server/engine/bodily.js';
 import { commands as stripperCommands } from '../strippers/index.js';
-import { homeLifeTick } from './home-life.js';
+import { homeLifeTick, bedtimeTeeth } from './home-life.js';
+import { on as onEvent } from '../../server/engine/events.js';
+// teeth before bed (server/engine/ai-behaviour.js AT_HOME_LIFE fires it as they undress)
+onEvent('npc.bedtime', ({ npc, zoneId }) => { try { if (npc && zoneId) bedtimeTeeth(zoneId, npc); } catch (e) { console.error('[ambient-life] bedtime:', e.message); } });
 import { remarksTick } from './remarks.js';   // NPCs saying something to the player near them, and hello on the way in
 import './intrusion.js';   // registers the zone.entered "someone's in my flat" reaction
 import './panic.js';       // registers the lock.hackAttempt "they're breaking in, I'm calling the police" reaction

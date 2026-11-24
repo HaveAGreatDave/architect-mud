@@ -11,7 +11,7 @@ let _pending = null;
 // after `loadWindshield()` has resolved sees the real value, because an import binds rather
 // than copies. Read one before that and it is undefined, which is why the loader is awaited
 // at the door rather than at the first use.
-export let ADORN_CHEAP, ADORN_NEAR, ADORN_RICH, AUTHORED_ADORN_KINDS, AUTHORED_DETAIL_KINDS, BERTH_LIFTS, BERTH_SETDOWN, BERTH_SLOTS, BUILDING_FOOT, CAB_TRIM, CONTACT_NEAR_F, CURTAIN_H, CURTAIN_HALF_W, DETAIL_PX, DRUM_MAT_FAMILIES, FAUNA_INK_GAIN, FAUNA_INK_R, FLASH_AREA, FLASH_BANK, FLASH_FLOOR, FLAT_ONLY_KINDS, FT_PER_FLOOR, GLASS1_BASIC, GL_TIER, HUNT_BAND, HUNT_MIN_LEDGE, HUNT_REACH, INTERIOR_PANES, LEGACY_MODELS, MAT_ORDER, MODEL_MAX_EXTENT, NEON_ART, NO_TILE_FIT, PARK_CLIP, PARK_FIG_STRIDE, PHONE_TIER, RENDER_TUNE, RIDE_ROLL_W, RIDE_ROLL_ZETA, RIDE_W, ROAD_RIG_MUL, ROOF_CATCH_CEIL_Z, ROOF_CATCH_R, SHELTER_MARCH, SHIP_PLAN, SIGN_FONT, SIGN_PICTO, SIGN_TRACK, SKY_DECK_Z, TILE_REACH, TRUCK_STEP_Z, TRUCK_VARIANTS, VEHICLE_CLASSES, VEHICLE_PARAM_TABLE, VISIBLE_FAR_F, VISIBLE_NEAR_F, WIRE_RING_S, _bayCutaway, _lifeGeo, armKeepStats, armKeepWhy, parkFigStats;
+export let ADORN_CHEAP, ADORN_NEAR, ADORN_RICH, AUTHORED_ADORN_KINDS, AUTHORED_DETAIL_KINDS, BERTH_LIFTS, BERTH_SETDOWN, BERTH_SLOTS, BUILDING_FOOT, CAB_TRIM, CONTACT_NEAR_F, CURTAIN_H, CURTAIN_HALF_W, DETAIL_PX, DRUM_MAT_FAMILIES, FAUNA_INK_GAIN, FAUNA_INK_R, FLASH_AREA, FLASH_BANK, FLASH_FLOOR, FLAT_ONLY_KINDS, FT_PER_FLOOR, GL_TIER, HUNT_BAND, HUNT_MIN_LEDGE, HUNT_REACH, INTERIOR_PANES, LEGACY_MODELS, MAT_ORDER, MODEL_MAX_EXTENT, NEON_ART, NO_TILE_FIT, PARK_CLIP, PARK_FIG_STRIDE, PHONE_TIER, RENDER_TUNE, RIDE_ROLL_W, RIDE_ROLL_ZETA, RIDE_W, ROAD_RIG_MUL, ROOF_CATCH_CEIL_Z, ROOF_CATCH_R, SHELTER_MARCH, SHIP_PLAN, SIGN_FONT, SIGN_PICTO, SIGN_TRACK, SKY_DECK_Z, STREET_RAG, TILE_REACH, TRUCK_STEP_Z, TRUCK_VARIANTS, VEHICLE_CLASSES, VEHICLE_PARAM_TABLE, VISIBLE_FAR_F, VISIBLE_NEAR_F, WIRE_RING_S, _bayCutaway, _lifeGeo, armKeepStats, armKeepWhy, parkFigStats;
 
 export function isLoaded() { return !!_m; }
 
@@ -42,7 +42,6 @@ export function loadWindshield() {
     FLASH_FLOOR = m.FLASH_FLOOR;
     FLAT_ONLY_KINDS = m.FLAT_ONLY_KINDS;
     FT_PER_FLOOR = m.FT_PER_FLOOR;
-    GLASS1_BASIC = m.GLASS1_BASIC;
     GL_TIER = m.GL_TIER;
     HUNT_BAND = m.HUNT_BAND;
     HUNT_MIN_LEDGE = m.HUNT_MIN_LEDGE;
@@ -69,6 +68,7 @@ export function loadWindshield() {
     SIGN_PICTO = m.SIGN_PICTO;
     SIGN_TRACK = m.SIGN_TRACK;
     SKY_DECK_Z = m.SKY_DECK_Z;
+    STREET_RAG = m.STREET_RAG;
     TILE_REACH = m.TILE_REACH;
     TRUCK_STEP_Z = m.TRUCK_STEP_Z;
     TRUCK_VARIANTS = m.TRUCK_VARIANTS;
@@ -103,6 +103,7 @@ export function _blockSpan(...a) { return (_m || _cold('_blockSpan'))._blockSpan
 export function _elbowSweep(...a) { return (_m || _cold('_elbowSweep'))._elbowSweep(...a); }
 export function _resetTruckOrder(...a) { return (_m || _cold('_resetTruckOrder'))._resetTruckOrder(...a); }
 export function accentOf(...a) { return (_m || _cold('accentOf')).accentOf(...a); }
+export function alleyPropsFor(...a) { return (_m || _cold('alleyPropsFor')).alleyPropsFor(...a); }
 export function altForRoofZ(...a) { return (_m || _cold('altForRoofZ')).altForRoofZ(...a); }
 export function altRestingOnZ(...a) { return (_m || _cold('altRestingOnZ')).altRestingOnZ(...a); }
 export function armSignsItself(...a) { return (_m || _cold('armSignsItself')).armSignsItself(...a); }
@@ -216,6 +217,7 @@ export function lastFloorState(...a) { return (_m || _cold('lastFloorState')).la
 export function lastLightCensus(...a) { return (_m || _cold('lastLightCensus')).lastLightCensus(...a); }
 export function lastOwnShipMask(...a) { return (_m || _cold('lastOwnShipMask')).lastOwnShipMask(...a); }
 export function lastViewState(...a) { return (_m || _cold('lastViewState')).lastViewState(...a); }
+export function liftPadHere(...a) { return (_m || _cold('liftPadHere')).liftPadHere(...a); }
 export function lightVisibilitySmoke(...a) { return (_m || _cold('lightVisibilitySmoke')).lightVisibilitySmoke(...a); }
 export function limbTilt(...a) { return (_m || _cold('limbTilt')).limbTilt(...a); }
 export function liteArtTex(...a) { return (_m || _cold('liteArtTex')).liteArtTex(...a); }
@@ -282,7 +284,6 @@ export function segFit(...a) { return (_m || _cold('segFit')).segFit(...a); }
 export function setBayVehicles(...a) { return (_m || _cold('setBayVehicles')).setBayVehicles(...a); }
 export function setBirdSeason(...a) { return (_m || _cold('setBirdSeason')).setBirdSeason(...a); }
 export function setBirdWeather(...a) { return (_m || _cold('setBirdWeather')).setBirdWeather(...a); }
-export function setGlass(...a) { return (_m || _cold('setGlass')).setGlass(...a); }
 export function setGlassMode(...a) { return (_m || _cold('setGlassMode')).setGlassMode(...a); }
 export function setLockBoardFeed(...a) { return (_m || _cold('setLockBoardFeed')).setLockBoardFeed(...a); }
 export function setObjectTexture(...a) { return (_m || _cold('setObjectTexture')).setObjectTexture(...a); }
@@ -317,10 +318,12 @@ export function skyColumnP(...a) { return (_m || _cold('skyColumnP')).skyColumnP
 export function sortOrderSmoke(...a) { return (_m || _cold('sortOrderSmoke')).sortOrderSmoke(...a); }
 export function sortTruckFaces(...a) { return (_m || _cold('sortTruckFaces')).sortTruckFaces(...a); }
 export function sprayTally(...a) { return (_m || _cold('sprayTally')).sprayTally(...a); }
+export function streetActorSpots(...a) { return (_m || _cold('streetActorSpots')).streetActorSpots(...a); }
 export function streetKitDeckAt(...a) { return (_m || _cold('streetKitDeckAt')).streetKitDeckAt(...a); }
 export function streetKitFootAt(...a) { return (_m || _cold('streetKitFootAt')).streetKitFootAt(...a); }
 export function streetKitLiftBoard(...a) { return (_m || _cold('streetKitLiftBoard')).streetKitLiftBoard(...a); }
 export function streetKitLiftPress(...a) { return (_m || _cold('streetKitLiftPress')).streetKitLiftPress(...a); }
+export function streetRagDebug(...a) { return (_m || _cold('streetRagDebug')).streetRagDebug(...a); }
 export function subCrossing(...a) { return (_m || _cold('subCrossing')).subCrossing(...a); }
 export function surfaceBreakup(...a) { return (_m || _cold('surfaceBreakup')).surfaceBreakup(...a); }
 export function tagArtwork(...a) { return (_m || _cold('tagArtwork')).tagArtwork(...a); }

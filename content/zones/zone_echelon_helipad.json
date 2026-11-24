@@ -7,9 +7,9 @@
   "ambient_theme": "coast",
   "bg_color": "#12161a",
   "color": "#cfd8e0",
-  "description": "The helipad: a broad open circle of non-slip deck ringed in recessed landing lights, cantilevered out over the stern and open to the sky. Rotor wash, rain, wind and ash all reach you here; it's outside in every sense but the floor beneath your feet. A Dragonfly sets down on a whisper of turbine and its passengers step straight out onto the deck. A refuelling bowser is lashed to the deck at the pad's edge. Beyond the rail there's only air and the long drop to the Basin. The stair landing lies to the NORTH.",
+  "description": "The aft deck, and most of it is helipad: a circle of non-slip deck nearly ten metres across, ringed in recessed landing lights and open to the sky. Rotor wash, rain and ash all reach you here. A refuelling bowser is lashed down at the edge. Past the rail it's a long drop to the Basin. The stern lounge is FORWARD (NORTH).",
   "exits": {
-    "north": "zone_echelon_landing"
+    "north": "zone_echelon_stern"
   },
   "flags": {
     "always_lit": true,
@@ -25,11 +25,15 @@
     "open_sky": true,
     "room": {
       "balcony": false,
-      "d": 10,
+      "d": 17.48,
       "decor": {
         "downlights": false,
         "pad": {
-          "r": 3.6
+          "at": [
+            0,
+            12.14
+          ],
+          "r": 4.8
         },
         "rug": false
       },
@@ -37,6 +41,46 @@
       "finish": "plain",
       "ground": "rubber",
       "h": 3,
+      "hull": {
+        "deck": true,
+        "sides": [
+          [
+            0,
+            3.43,
+            3.43
+          ],
+          [
+            2.91,
+            3.96,
+            3.96
+          ],
+          [
+            5.83,
+            4.4,
+            4.4
+          ],
+          [
+            8.74,
+            4.7,
+            4.7
+          ],
+          [
+            11.66,
+            4.96,
+            4.96
+          ],
+          [
+            14.57,
+            5.09,
+            5.09
+          ],
+          [
+            17.48,
+            5.23,
+            5.23
+          ]
+        ]
+      },
       "open": true,
       "studio": false,
       "tone": {
@@ -45,7 +89,7 @@
         "trim": "#111111",
         "wall": "#2c2f33"
       },
-      "w": 11
+      "w": 10.46
     },
     "window": {
       "description": "A window with a bad seal, letting in a draught and a slice of whatever the weather is doing.",
@@ -57,8 +101,8 @@
     "yacht": true
   },
   "grid_x": 0,
-  "grid_y": 1,
-  "grid_z": 2,
+  "grid_y": 2,
+  "grid_z": 1,
   "id": "zone_echelon_helipad",
   "map_id": "map_echelon",
   "name": "Echelon — Helipad",

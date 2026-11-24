@@ -594,7 +594,10 @@ export class GameTable extends TableBase {
   // deliberating opponent rather than an instant reflex.
   _scheduleBotMove(seat) {
     clearTimeout(this._botMoveTimer);
-    const delay = 500 + Math.floor(Math.random() * 900);
+    // longer on later streets and facing a big bet, the way a person slows down when it matters
+    const g = this.game, facing = g ? Math.max(0, (g.currentBet || 0) - (g.getActiveSeat(seat.playerId)?.bet || 0)) : 0;
+    const weight = (g?.community?.length || 0) * 180 + (g?.pot ? Math.min(1200, 1200 * facing / g.pot) : 0);
+    const delay = 600 + Math.floor(Math.random() * 900) + Math.floor(weight * (0.5 + Math.random()));
     this._botMoveTimer = setTimeout(() => {
       if (!this.game || this.phase !== 'InProgress') return;
       const actor = this.game.getCurrentActor();
@@ -640,6 +643,7 @@ export class GameTable extends TableBase {
         won: !!this.lastWinners?.includes(seat.playerId),
         acting: !!(this.phase === 'InProgress' && live && g.actionIdx >= 0 && g.seats[g.actionIdx]?.playerId === seat.playerId),
         button: !!(live && g.seats[g.dealerIdx]?.playerId === seat.playerId),
+        blind: live && g.seats[g.sbIdx]?.playerId === seat.playerId ? 'sb' : live && g.seats[g.bbIdx]?.playerId === seat.playerId ? 'bb' : null,
       };
     });
     return {

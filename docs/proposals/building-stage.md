@@ -276,13 +276,21 @@ the wall you face going up (`left`, `right`, `front` or `back`) and `w` its widt
 room needs its `up` exit, and the room above its `down`, as any stair does in text. A stair with no flight authored
 stays text, and the Stage leaves it out.
 
+A spiral adds `spiral: 'left'` or `'right'` (which side of the frame's x its newel is on) and `r`, the radius of the
+line walked up it (the Embassy lobby's is 1.3 m). Its `s` is metres round that line, so every number below holds for
+it. It has to turn less than once, and about three-quarters is the most that leaves room to walk on at the bottom: past
+that its top stands over its foot, and the walk can't tell which one you're on. Its well is a ring of short rectangles
+(`wellBoxes`), railed on both edges above.
+
 - **Numbers** (`flightOf` in room-layout.js). The flight rises the lower room's height, to the floor of the room above,
   which the plan stands on its ceiling. Each riser is at most 0.19 m and each going 0.27 m, so a 3 m room has 16 risers
   and a flight 4.05 m long. The floor above is its last step. `hole` is where the floor above is cut from, so nobody
   climbing has less than 2.05 m over their head; `cross` is where you go from one room to the other, about where your eye
   passes through the floor above.
 - **Plan** (building-graph.js). The room above stands with its `flags.room.doors.down` `[u, v]` over the top of the
-  flight; without one, its middle is. The plan fails `stair_off_room` (the flight runs out through a wall of its room) and
+  flight; without one, its middle is. A room reached by a typed `up` or `down` and no flight, such as a lift the prose
+  rides, can set `flags.room.floor_m`, its floor's height in metres over the entry's, so it stands at its model's storey
+  instead of the next one: 17 Kerbstone Row's Crown Floor is at 42 m over a lobby 2.8 m high. The plan fails `stair_off_room` (the flight runs out through a wall of its room) and
   `stair_off_floor` (its well, or 0.6 m of floor past its top, isn't in the floor above). Both rooms get it as an opening,
   `kind: 'stair'`, in their own frame: the room below with `wall: 'ceiling'` and the flight on its floor, the room above
   with `wall: 'floor'` and the flight falling away from it (`y0` is -rise there). Each sees the other through the well,
@@ -559,6 +567,8 @@ view later.
 | 3 | The walker crosses any door with `move <dir>`; the Stage stays open in the same building (built) | Regress: walk through, and a refused door sends nothing; room-stage gate check 10 |
 | 4 | Neighbour rooms drawn through doorways, furnished and with their people (built; portal culling to come) | room-stage gate check 11: a six-doorway landing, lined up and under 2 s of CPU |
 | 5 | Front door to GLASS on foot, and back (built) | Regress: out of the Solenne's street door onto the doorstep, and back in |
+
+What comes after step 5 is one-world: the rooms drawn in GLASS itself and the Stage retired on a desktop. Its plan, phases and feature table are in [one-world-interiors.md](one-world-interiors.md#the-conversion), not here.
 
 ## Open questions
 

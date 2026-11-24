@@ -1,5 +1,8 @@
 import { world } from './world.js';
 import { playerFigure, lookOfPlayer } from '../../client/shared/player-figure.js';
+import { token } from '../../client/shared/person-token.js';
+import { npcFigure } from '../../client/shared/figure-text.js';
+import { gatherHookSync } from './plugins.js';
 
 /**
  * STREET ACTORS — who is standing on the open world grid, right now.
@@ -46,18 +49,9 @@ import { playerFigure, lookOfPlayer } from '../../client/shared/player-figure.js
  * sent only for the few who have one, so the street costs a few bytes a figure more than before.
  */
 
-// FNV-1a over the id, base36: room-people.js rand(id)'s seed. ~250 entities against 2^32: a
-// collision is negligible, and its failure is cosmetic (two figures briefly interpolate as one
-// and dress alike). Cheap matters more here than perfect: this runs per entity.
-export function token(id) {
-  let h = 0x811c9dc5;
-  const s = String(id);
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 0x01000193) >>> 0;
-  }
-  return h.toString(36);
-}
+// FNV-1a over the id, base36: room-people.js rand(id)'s seed, in client/shared/person-token.js so a room walked in
+// GLASS dresses people by the same hash. Re-exported for whoever imported it from here.
+export { token };
 
 // The open-air surface grid, matching the flight sim's own coord index (plugins/flight/state.js
 // buildCoordIndex): the world map only, and z=0 only. The Under shares the world grid 202 zones
@@ -85,7 +79,10 @@ function tally() {
     if (npc._aboard || npc._charterHeld) continue;   // riding something, not walking
     const z = surfaceTile(world.zones.get(npc.zone_id));
     if (!z) continue;
-    out.push({ id: npc.id, t: token(npc.id), x: z.grid_x, y: z.grid_y, f: npc.sex === 'female', g: npc.flags?.figure || null });
+    // what a plugin has them doing on the tile (plugins/beach: lying on a towel, swimming), for GLASS to draw
+    let b = null;
+    try { b = gatherHookSync('npc.streetPose', npc)[0] || null; } catch { b = null; }
+    out.push({ id: npc.id, t: token(npc.id), x: z.grid_x, y: z.grid_y, f: npc.sex === 'female', g: npcFigure(npc), b });
   }
   for (const [pid, p] of world.players) {
     // Airborne players are drawn as aircraft by the contact pass; they are not pedestrians.
@@ -115,7 +112,18 @@ export function streetActors(cx, cy, radius, excludeId = null) {
   for (const a of tally()) {
     if (a.id === excludeId) continue;
     if (Math.abs(a.x - cx) > radius || Math.abs(a.y - cy) > radius) continue;
-    out.push(a.f ? (a.g ? { t: a.t, x: a.x, y: a.y, s: 1, g: a.g } : { t: a.t, x: a.x, y: a.y, s: 1 }) : a.g ? { t: a.t, x: a.x, y: a.y, g: a.g } : { t: a.t, x: a.x, y: a.y });
+    const o = { t: a.t, x: a.x, y: a.y };
+    if (a.f) o.s = 1;
+    if (a.g) o.g = a.g;
+    if (a.b) o.b = a.b;
+    // somebody minding a spot (a street dealer's `post`) takes each viewer their own way: a stare for a stranger, a nod
+    // for somebody they know. Asked per viewer, only for the few on a post.
+    if (a.b && a.b.k === 'post' && excludeId) {
+      let r = null;
+      try { r = gatherHookSync('npc.streetRegard', { npc: world.npcs.get(a.id), viewer: world.players.get(excludeId) })[0] || null; } catch { r = null; }
+      if (r) o.r = r;
+    }
+    out.push(o);
   }
   return out;
 }

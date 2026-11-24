@@ -9,16 +9,17 @@
     "food_noun": "fried",
     "food_profile": "fat_or_oil",
     "matter": {
+      "look": {
+        "label": "#e8c84a",
+        "pack": "bottle",
+        "size": 1.1
+      },
       "ramp": {
         "raw": "#e0c050"
-      },
-      "look": {
-        "pack": "bottle",
-        "label": "#e8c84a",
-        "size": 1.1
       }
     },
     "restore_hunger": 4,
+    "shelved": true,
     "stackable": true,
     "status_chance": {
       "food_poisoning": 0.1

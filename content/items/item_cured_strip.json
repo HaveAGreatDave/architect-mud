@@ -10,20 +10,21 @@
     "food_profile": "preserved",
     "matter": {
       "form": {
-        "kind": "slab",
-        "w": 16,
         "d": 3,
         "h": 0.6,
-        "round": 0.2
-      },
-      "ramp": {
-        "raw": "#5a2018"
+        "kind": "slab",
+        "round": 0.2,
+        "w": 16
       },
       "look": {
         "spots": "#e8e4dc"
+      },
+      "ramp": {
+        "raw": "#5a2018"
       }
     },
     "restore_hunger": 16,
+    "shelved": true,
     "stackable": true,
     "status_chance": {
       "food_poisoning": 0.1

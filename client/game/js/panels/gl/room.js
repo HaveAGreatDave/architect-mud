@@ -218,7 +218,7 @@ void main() {
       if (ln.z > 0.05 && le < 1.0) {
         lookW = 1.0 - smoothstep(0.85, 1.0, le);
         lookC = textureLod(uLook, vec2(ln.x * 0.5 + 0.5, 0.5 - ln.y * 0.5), 0.0).rgb;
-        if (lookW > 0.999) { outColor = vec4(lookC, 1.0); return; }
+        if (lookW > 0.999) { outColor = vec4(fallOver(d0, lookC), 1.0); return; }
       }
     }
     int b0 = 0; float fb = -2.0;
@@ -244,7 +244,9 @@ void main() {
       vec2 uv = panoUV(i, panoRay(prev ? uPanoEyePrev[i] : uPanoEye[i], d0));
       acc += wk * (prev ? textureLod(uPanoPrev, uv, 0.0).rgb : textureLod(uTex, uv, 0.0).rgb);
     }
-    outColor = vec4(mix(acc, lookC, lookW), 1.0);
+    // ⚠ THE WEATHER GOES OVER THE LIVE VIEW TOO (2026-11-22). Only the painted street (mode 4) had fallOver, so a
+    // balcony or a window onto GLASS showed the rain as faint screen-space streaks baked into six faces, or none.
+    outColor = vec4(fallOver(d0, mix(acc, lookC, lookW)), 1.0);
     return;
   }
   if (uMode == 4) {
@@ -603,7 +605,7 @@ export function createRoomRenderer(canvas, { phone = false, see = false } = {}) 
     // the people: the close-up figures (gl/figure-hd.js, posed by the stage every frame) and a batch
     // the Figure Lab fills with the crowd's body to set beside them
     let room = null, view = null, screen = null, live = null, figures = [];
-    const people = layer(), fig = createFigureLayer(gl, { half: phone });
+    const people = layer(), fig = createFigureLayer(gl, { half: phone, panels: true });
     // what people are handling, posed each frame: a pan on the hob, a camping stove on the floor, a plate in a hand (gl/room-meals.js)
     const props = layer();
     // a locked doorway's door and the reader beside it (gl/room-lock.js), slid by the stage as the lock gives
@@ -1493,6 +1495,8 @@ export function createRoomRenderer(canvas, { phone = false, see = false } = {}) 
           }
           gl.depthMask(true); gl.disable(gl.BLEND); gl.depthFunc(gl.LESS);
           gl.bindVertexArray(null);
+          // the censor's boxes over any bare body, last: they copy the picture as it now stands (gl/figure-hd.js)
+          fig.censor(vp, figures, eye, w, h);
           // light.focus pins the lens in metres (a stage's own camera on its bench); without it, it focuses itself
         };
         // the mirror most in view, if any: the room again through it, you in it, into its own target. Its texture is

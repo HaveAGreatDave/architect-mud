@@ -429,7 +429,14 @@ export function buildingLayout(b, { zones, specOf }) {
     if (dir === 'up' || dir === 'down') {
       // stacked middle over middle, unless both rooms say where their stair is: then the stair's
       // head on one stands over its foot on the other
-      const y = dir === 'up' ? A.floor + A.h : A.floor - s.h, mine = stairOf(from, dir), theirs = stairOf(to, OPPOSITE[dir]);
+      // `flags.room.floor_m`: a room reached by a typed move (a lift the prose rides, not one the plan draws) can
+      // say how high its floor is, in metres over the entry's, so it stands where its model's storey is. Only past
+      // the next storey the way you went: it never pulls a room into the one it's reached from. Its
+      // `doors.up`/`down` still say where the two line up across.
+      const next = dir === 'up' ? A.floor + A.h : A.floor - s.h, fm = Number(Z.get(to)?.flags?.room?.floor_m);
+      // the way back from a room that set its own height comes down to where the other room already stands
+      const back = Number.isFinite(Number(Z.get(from)?.flags?.room?.floor_m)) && rooms[to] && (dir === 'up' ? rooms[to].floor >= next : rooms[to].floor <= next) ? rooms[to].floor : null;
+      const y = back ?? (Number.isFinite(fm) && (dir === 'up' ? fm >= next : fm <= next) ? fm : next), mine = stairOf(from, dir), theirs = stairOf(to, OPPOSITE[dir]);
       if (!mine && !theirs) return { cx: ax, cz: az, y };
       const [px, pz] = mine ? fromMid(A.face, A.d, mine) : [0, 0], [qx, qz] = theirs ? fromMid(face, B.d, theirs) : [0, 0];
       return { cx: r2(ax + px - qx), cz: r2(az + pz - qz), y };

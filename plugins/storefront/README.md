@@ -171,11 +171,12 @@ a forced witness).
 
 ## Shipped units
 
-Four vacant units across Coldwater, priced by frontage:
+Three vacant units across Coldwater, priced by frontage. Unit 4, Marrow Street was the fourth
+until 2026-11-22, when Compound Interest took its tile; its rooms are stored
+([stored-buildings.md](../../docs/proposals/stored-buildings.md)).
 
 | Unit | Where | Price | Term | Upkeep |
 |---|---|---|---|---|
-| Unit 4, Marrow Street | beside the KSAB/Sentinel media strip | 9000c | 10 | 60c |
 | Unit 9, Marrow Street | the pawn-and-fence end | 6000c | 8 | 45c |
 | Unit 7, Voss Avenue | a kiosk off the Voss parade | 4500c | 8 | 32c |
 | Unit 3, Kessler Street | corner unit under the flats | 3200c | 8 | 24c |

@@ -1,23 +1,25 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "coast",
-  "color": "#7fd3ff",
-  "description": "You're at the edge of deep water. It's cold, the bottom falls away quickly, and there's no going further without a boat.",
+  "ambient_events": [
+    "A taxi goes past toward the terminal with its light off.",
+    "A jet lifts off beyond the fence and the noise arrives a second later."
+  ],
+  "ambient_theme": "city",
+  "description": "Airport Road runs north on fill tipped into the Basin, water on the left behind a crash barrier and the runway fence on the right. Jet wash comes over the fence every few minutes and rattles it.",
   "exits": {
-    "east": "zone_district_925_906",
     "north": "zone_district_924_905",
+    "south": "zone_district_924_907",
     "west": "zone_district_923_906"
   },
   "flags": {
-    "district": "water",
+    "district": "docks",
     "region_id": "region_coldwater",
-    "terrain": "water"
+    "terrain": "road"
   },
   "grid_x": 925,
   "grid_y": 906,
   "grid_z": 0,
   "id": "zone_district_924_906",
   "map_id": "map_world",
-  "name": "Coldwater Basin",
+  "name": "Airport Road",
   "parent_zone": null
 }

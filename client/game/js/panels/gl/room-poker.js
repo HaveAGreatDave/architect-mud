@@ -23,15 +23,17 @@ const SUIT_INK = { s: BLACK, h: RED, d: C('#1d5fc4'), c: C('#17803c') };
 const CHIP = { 1: C('#ece6d8'), 5: C('#c22a2e'), 25: C('#2a7a3c'), 100: C('#1a1a1e'), 500: C('#6a2a8a') };
 const STRIPE = C('#f2efe6'), BUTTON = C('#f4f0e2'), GOLD = [2.2, 1.5, 0.4], WIN = [2.4, 1.9, 0.6];
 // a card, half its width and length, drawn a size up on life so it reads from across the room
-const CW = 0.048, CD = 0.067, CT = 0.0014;
+const CW = 0.048, CD = 0.067, CT = 0.002;
 const DEAL_GAP = 0.13, FLY = 0.42, FLIP = 0.22;
 // your own two: how much bigger than everybody's, where the baize starts in from the table's edge (gl/room-decor.js
 // lays it 0.215 in), and turned up: how far in from the edge they stand, how far they lean back off the felt, how high
 const MINE_K = 1.45, BAIZE = 0.215, UP_INSET = 0.03, UP_LEAN = 0.8, UP_RISE = 0.03;
 // which way a propped card and a peeked card turn; a bench may change these to compare (tools/modelshop room-lab)
-export const POKER_TUNE = { boardYaw: 0, lean: 1, peek: 1, peekYaw: Math.PI, bend: 1.45, bendFrom: 0.42, peekEnd: 1 };
+export const POKER_TUNE = { boardYaw: 0, lean: 1, peek: 1, peekYaw: Math.PI, bend: 1.45, bendFrom: 0.3, peekEnd: 1 };
 // how many strips a bent card is drawn in along its length: enough that the curl reads as a curl
 const BEND_STRIPS = 9;
+// how far a peek curls a card, as a share of POKER_TUNE.bend: about 85 degrees at the lifted end, over the near 70% of the card
+const PEEK_BEND = 1.05;
 
 // ── triangles, wound to face along `n` ───────────────────────────────────────────────────────────────────────────
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
@@ -270,8 +272,14 @@ function drawFelt(b, L, p, st, mine, t, eye) {
   const scaled = (k, c) => (k === 1 ? W : (x, y, z) => W(c[0] + (x - c[0]) * k, c[1] + (y - c[1]) * k, c[2] + (z - c[2]) * k));
   // one of yours, `c` 0 or 1: where it lies (`rest`) and, turned up, where it stands (`lift` of the way up)
   const minePose = (q, c, lift) => {
-    const K = MINE_K, [rx, rz] = edgeAt(q, BAIZE + CD * K + 0.006), across = [Math.cos(q.yaw), -Math.sin(q.yaw)], off = (0.5 - c) * CW * 2.3 * K;
-    const rest = [rx + across[0] * off, 0.0012 + c * 0.0025, rz + across[1] * off], restYaw = q.yaw + (0.5 - c) * 0.12;
+    // square to the rail in front of you: the long side points straight at you along the edge's normal, and the two
+    // lie side by side along the edge with a hairline between them, flat on the felt
+    const K = MINE_K, [rx, rz] = edgeAt(q, BAIZE + CD * K + 0.006), L0 = Math.max(0, hw - hd);
+    let nx = Math.abs(rx) <= L0 ? 0 : rx - Math.sign(rx) * L0, nz = Math.abs(rx) <= L0 ? Math.sign(rz) || 1 : rz;
+    const nl = Math.hypot(nx, nz) || 1; nx /= nl; nz /= nl;
+    // the card's +z (its frame turns z to [-sin, cos]) is outward, toward your chair
+    const restYaw = Math.atan2(-nx, nz), across = [nz, -nx], off = (0.5 - c) * CW * 2.08 * K;
+    const rest = [rx + across[0] * off, 0.0012, rz + across[1] * off];
     if (lift <= 0) return { pos: rest, yaw: restYaw, flip: 0, tilt: 0 };
     // up: drawn in to the rail, stood on its near edge and turned over toward your eye, fanned, the way a hand is held
     const [ux, uz] = edgeAt(q, UP_INSET), lean = UP_LEAN * lift, hz = CD * K * (1 - Math.cos(lean)), hy = CD * K * Math.sin(lean) + UP_RISE * lift;
@@ -286,7 +294,8 @@ function drawFelt(b, L, p, st, mine, t, eye) {
   if (!m || m.hand !== st.hand) {
     // a fresh page (or first sight of a hand already dealt) shows it as it is, without dealing it again
     const fresh = !!m && st.hand > 0;
-    m = { hand: st.hand, dealt: fresh ? t : -1e9, board: [], boardN: (st.board || []).length, win: -1e9 };
+    // the button and the blinds keep where they were, so they slide on to the new hand's seats
+    m = { hand: st.hand, dealt: fresh ? t : -1e9, board: [], boardN: (st.board || []).length, win: -1e9, marks: m?.marks, markT: m?.markT };
     if (!fresh) m.board = (st.board || []).map(() => -1e9);
     memo.set(p.id, m);
   }
@@ -313,6 +322,7 @@ function drawFelt(b, L, p, st, mine, t, eye) {
   }
   // who was dealt in, in the order the cards went round (the deck itself is the decor's, at the dealer's end)
   const order = seated.filter(({ s }) => s.holding || s.folded);
+  const marks = {};
 
   seated.forEach(({ s, i }) => {
     const q = spot(i), me = mine && s.id === mine.id;
@@ -323,11 +333,9 @@ function drawFelt(b, L, p, st, mine, t, eye) {
     stacks(b, W, sx, 0, sz, s.chips, [-q.dx, -q.dz], 14, won && t - m.win < 4 ? WIN.map((c) => c * pulse) : null);
     if (s.bet) stacks(b, W, q.x - q.dx * 0.24, 0, q.z - q.dz * 0.24, s.bet, across, 8);
     // the button
-    if (s.button) {
-      const bx = q.x - across[0] * 0.14 - q.dx * 0.06, bz = q.z - across[1] * 0.14 - q.dz * 0.06;
-      chip(b, W, bx, 0, bz, BUTTON, true);
-      glyphs(b, (x, z) => W(bx + x, CHIP_H + 0.0004, bz + z), 'D', -0.006, -0.009, 0.018, BLACK, sub(W(bx, 1, bz), W(bx, 0, bz)));
-    }
+    // the button and the blinds: where they belong this hand (drawn after, sliding there from the last seat)
+    if (s.button) marks.D = [q.x - across[0] * 0.14 - q.dx * 0.06, q.z - across[1] * 0.14 - q.dz * 0.06];
+    if (s.blind) marks[s.blind] = [q.x - across[0] * 0.2 - q.dx * 0.16, q.z - across[1] * 0.2 - q.dz * 0.16];
     // the seat to act: a ring breathing on the felt in front of them
     if (s.acting) glowRing(b, W, q.x - q.dx * 0.05, 0.0006, q.z - q.dz * 0.05, 0.13, GOLD.map((c) => c * (0.55 + 0.45 * Math.sin(t * 5))));
     if (won && t - m.win < 6) glowRing(b, W, q.x, 0.0006, q.z, 0.17, WIN.map((c) => c * pulse));
@@ -337,22 +345,27 @@ function drawFelt(b, L, p, st, mine, t, eye) {
     for (let c = 0; c < n; c++) {
       const start = m.dealt + (c * order.length + k) * DEAL_GAP, u = (t - start) / FLY;
       if (u < 0) continue;
-      const rest = me ? minePose(q, c, 0).pos : [q.x + (c - 0.5) * CW * 1.5 * Math.cos(q.yaw), 0.0012 + c * 0.0025, q.z - (c - 0.5) * CW * 1.5 * Math.sin(q.yaw)];
+      const restMe = me ? minePose(q, c, 0) : null;
+      const rest = me ? restMe.pos : [q.x + (c - 0.5) * CW * 1.5 * Math.cos(q.yaw), 0.0012 + c * 0.0025, q.z - (c - 0.5) * CW * 1.5 * Math.sin(q.yaw)];
       const face = me ? mine.cards?.[c] || s.shown?.[c] : s.shown?.[c];
       if (u < 1) {
         const e = u * u * (3 - 2 * u), arc = Math.sin(Math.PI * u) * 0.12;
         const pos = [deck[0] + (rest[0] - deck[0]) * e, deck[1] + (rest[1] - deck[1]) * e + arc, deck[2] + (rest[2] - deck[2]) * e];
-        drawCard(b, me ? scaled(1 + (MINE_K - 1) * e, pos) : W, null, pos, q.yaw + (1 - e) * TAU * 1.5, 0, 0.3 * Math.sin(Math.PI * u));
+        drawCard(b, me ? scaled(1 + (MINE_K - 1) * e, pos) : W, null, pos, (me ? restMe.yaw : q.yaw) + (1 - e) * TAU * 1.5, 0, 0.3 * Math.sin(Math.PI * u));
         continue;
       }
       // yours: big, at your edge of the felt, face down until you turn them up; then each comes in to the rail and
       // stands up turned over toward you, the second a beat after the first. A showdown turns them up the same way.
       if (me) {
-        const pk = face ? (s.shown?.[c] ? 1 : Math.max(0, Math.min(1, mine.peek || 0))) : 0;
+        // A peek bends the near end of each card up off the felt, a thumb under it, just far enough that the index
+        // corner (rank and suit, in the suit's colour) faces you; the cards don't leave the felt, and the second
+        // follows the first a beat later. A showdown still turns them right over.
+        const shownUp = !!s.shown?.[c], pk = face && !shownUp ? Math.max(0, Math.min(1, mine.peek || 0)) : 0;
         const kc = Math.max(0, Math.min(1, pk * 1.25 - c * 0.25)), e = kc * kc * (3 - 2 * kc);
-        const P = minePose(q, c, e), Wk = scaled(MINE_K, P.pos);
-        drawCard(b, Wk, e > 0.001 ? face : null, P.pos, P.yaw, P.flip, P.tilt, won ? 1 : null);
-        const fr = cardFrame(Wk, P.pos, P.yaw, P.flip, P.tilt);
+        const P = minePose(q, c, shownUp ? 1 : 0), Wk = scaled(MINE_K, P.pos);
+        const bend = e > 0.001 ? { s: POKER_TUNE.peekEnd, k: e * PEEK_BEND } : null;
+        drawCard(b, Wk, shownUp || e > 0.001 ? face : null, P.pos, P.yaw, P.flip, P.tilt, won ? 1 : null, bend);
+        const fr = cardFrame(Wk, P.pos, P.yaw, P.flip, P.tilt, bend);
         for (const [x, z] of [[-CW, -CD], [CW, -CD], [CW, CD], [-CW, CD]]) anchors?.me?.box.push(fr.at(x, 0, z));
         if (c === 0) mineAt = fr.at(0, 0, 0);
         continue;
@@ -382,6 +395,23 @@ function drawFelt(b, L, p, st, mine, t, eye) {
     // turned over, then propped up toward you; a winning board card glows at the showdown
     propped(card, rest[0], rest[2] + Math.sin(Math.PI * f) * 0.0, vYaw, 0.42 * e, Math.PI * e);
   });
+  // The dealer's button, a fat white puck, and the blinds' markers: each slides across the felt to its new seat when
+  // a hand moves it on, rather than jumping. Eased per table on the frame's clock.
+  m.marks = m.marks || {};
+  const dt = Math.max(0, Math.min(0.1, t - (m.markT ?? t))); m.markT = t;
+  for (const [key, to] of Object.entries(marks)) {
+    const cur = m.marks[key] || (m.marks[key] = [...to]);
+    const k = Math.min(1, dt * 4.5);
+    cur[0] += (to[0] - cur[0]) * k; cur[1] += (to[1] - cur[1]) * k;
+    const [mx, mz] = cur, moving = Math.hypot(to[0] - mx, to[1] - mz) > 0.004;
+    // lifted a little off the felt while it slides, as a dealer pushes it over
+    const lift = moving ? 0.006 : 0, big = key === 'D' ? 1.55 : 1.05, Wm = scaled(big, [mx, lift, mz]);
+    const ink = key === 'D' ? BUTTON : key === 'sb' ? C('#2f6fd0') : C('#d6a21c');
+    chip(b, Wm, mx, lift, mz, ink, true);
+    chip(b, Wm, mx, lift + CHIP_H, mz, ink, true);
+    const label = key === 'D' ? 'D' : key.toUpperCase(), top = lift + CHIP_H * 2 + 0.0004, gh = key === 'D' ? 0.018 : 0.012;
+    glyphs(b, (x, z) => Wm(mx + x, top, mz + z), label, -gh * (label.length > 1 ? 0.55 : 0.33), -gh / 2, gh, key === 'D' ? BLACK : C('#f6f2e8'), sub(W(mx, 1, mz), W(mx, 0, mz)), 1.3);
+  }
   // the pot, beside the board on the dealer's side
   // (the pot counts this street's bets, which are still out in front of each seat)
   const inPot = (st.pot || 0) - (st.seats || []).reduce((n, s) => n + (s?.bet || 0), 0);

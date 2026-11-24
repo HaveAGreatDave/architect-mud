@@ -8,9 +8,9 @@
   "ambient_theme": "coast",
   "bg_color": "#1b2530",
   "color": "#cfe6f2",
-  "description": "The Echelon's topmost terrace, open to the sky. Pale teak underfoot, a curved run of cushioned loungers, and a sunken jacuzzi lit turquoise from below. A brass deck telescope stands at the forward rail, trained over the bow. The wind smells of salt. A stair descends (DOWN) to the landing. You can LOOK EAST or WEST out across the water.",
+  "description": "The Echelon's topmost terrace, open to the sky on the bridge roof. Pale teak underfoot, a curved run of cushioned loungers and a raised jacuzzi lit turquoise from below. A brass telescope stands at the forward rail, trained over the bow. A companionway goes DOWN to the bridge. You can LOOK EAST or WEST across the water.",
   "exits": {
-    "down": "zone_echelon_landing"
+    "down": "zone_echelon_bridge"
   },
   "flags": {
     "building_name": "The Echelon",
@@ -25,7 +25,7 @@
     "open_sky": true,
     "room": {
       "balcony": false,
-      "d": 8,
+      "d": 8.84,
       "decor": {
         "downlights": false,
         "plants": [
@@ -45,12 +45,27 @@
       "doors": {
         "down": [
           0,
-          4
+          7.61
         ]
       },
       "face": 0,
       "finish": "fine",
       "h": 3,
+      "hull": {
+        "deck": true,
+        "sides": [
+          [
+            0,
+            3.57,
+            3.57
+          ],
+          [
+            8.84,
+            3.57,
+            3.57
+          ]
+        ]
+      },
       "open": true,
       "studio": false,
       "tone": {
@@ -59,14 +74,14 @@
         "trim": "#e9e3d6",
         "wall": "#d8d0c0"
       },
-      "w": 9
+      "w": 7.14
     },
     "world_exit_zone": "zone_echelon_exterior",
     "yacht": true
   },
   "grid_x": 0,
   "grid_y": 0,
-  "grid_z": 3,
+  "grid_z": 4,
   "id": "zone_echelon_sundeck",
   "map_id": "map_echelon",
   "name": "Echelon — Sun Deck",

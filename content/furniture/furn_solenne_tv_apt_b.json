@@ -15,12 +15,12 @@
       ]
     },
     "spot": {
-      "along": 3.25,
+      "along": 3.5,
       "wall": "back"
     },
-    "tuned_channel": 7,
+    "tuned_channel": 5,
     "tv": true,
-    "tv_dial_freq": 7,
+    "tv_dial_freq": 5,
     "tv_skin": "flatscreen"
   },
   "hp": null,

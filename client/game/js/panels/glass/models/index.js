@@ -20,3 +20,4 @@ export { PALAIS_BOWL_ARMS } from './palais-bowl.js';
 export { GREENSIDE_ARMS } from './greenside.js';
 export { LOT_BUILDING_ARMS } from './lot-buildings.js';
 export { DEALERSHIP_ARMS } from './dealership.js';
+export { RATION_ARMS } from './ration.js';

@@ -26,7 +26,7 @@ with no floor. Now:
   raises `tablet_issued`, pushes `tablet_access: true`, and pushes **`tablet_offer`** —
   a chip in the smart bar that bobs for attention, opens the tablet **and its
   walkthrough** when tapped, and gives up after **25 s** if ignored (`smartbar.js`).
-- **Then the poster.** Grady's advert nudge (`pointAtAdvert`) no longer runs on a timer
+- **Then the poster.** Rusty's advert nudge (`pointAtAdvert`) no longer runs on a timer
   behind the tablet chrome: it waits for `tabletdone` — the client's echo when the
   walkthrough ends, is skipped, or the chip times out — with a server-side backstop
   (`ADVERT_FALLBACK_MS`) so the one beat that tells a new player *where to go* can never
@@ -68,7 +68,7 @@ goes on talking stops being a hint and becomes a nag.
 - **Re-arming the same step keeps its place**, so a bounced move gate re-lighting a
   beacon does not start the ladder over and say the first thing twice.
 ## The two beats outside the corridor
-- **Post-vat onboarding:** after your first kill, Grady points you at his armchair — which is how you learn that sitting heals.
+- **Post-vat onboarding:** after your first kill, Rusty points you at his armchair — which is how you learn that sitting heals.
 - **Out-of-fiction:** on a first login it asks whether you have ever played a multiplayer text game. If not, the client runs a spotlight tour of the interface. `tutorial` replays it. Its **last step no longer opens the tablet** — it promises one, because you don't have one yet.
 
 ## Commands

@@ -10,17 +10,18 @@
     "food_noun": "tomato",
     "food_profile": "liquid",
     "matter": {
+      "look": {
+        "label": "#c8281e",
+        "pack": "tube"
+      },
       "ramp": {
         "raw": "#8e1e14"
-      },
-      "look": {
-        "pack": "tube",
-        "label": "#c8281e"
       }
     },
     "needs_cooking": true,
     "perishable": true,
     "restore_hunger": 6,
+    "shelved": true,
     "spoil_rate": "slow",
     "stackable": true,
     "status_chance": {

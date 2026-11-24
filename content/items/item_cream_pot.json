@@ -10,6 +10,7 @@
     "perishable": true,
     "pour_units": 6,
     "restore_hunger": 6,
+    "shelved": true,
     "stackable": true
   },
   "type": "consumable",

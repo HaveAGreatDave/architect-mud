@@ -25,9 +25,10 @@
 // and goes under the pointer after.
 //
 // SOUND all the way through, tuned to spray-done's G: a puff each quarter of a stroke (spray-trace,
-// brighter as it fills), a ping as it lands (spray-step, a step up the pentatonic each stroke and
-// each section), a fifth as a section goes on (spray-section), the whistle when it's shaken
-// (spray-ready). `cue` moves them; the catalog keeps them in G.
+// brighter as it fills), a ping as it lands (spray-step, the next note of TUNE: the tune is
+// spelled out a stroke at a time, as Jet Set Radio does it), a chord root as a section goes on
+// (spray-section, I V vi IV), the whistle when it's shaken (spray-ready), and the tune played whole
+// with drums, bass and chords when it's done (spray-done, in G major). `cue` moves them; the catalog keeps them in G.
 //
 // The host is the 3-D view that's up (spray-aim.js): its `preview(canvas)` puts the paint on the
 // real wall as it goes (ROOM does; the street shows it here, in the close-up), and `label` names
@@ -57,7 +58,20 @@ const SHAKE_PX = 22;         // how far a drag goes before it's a stroke of the 
 const SHAKE_REST_MS = 700;   // stop for longer than this and the ring starts running down…
 const SHAKE_DECAY = 1.2;     // …at this many shakes a second
 
-const PENTA = [0, 3, 5, 7, 10];   // G minor pentatonic, in semitones over the catalog's G
+// The tune, in semitones over the catalog's G4. Every stroke that lands plays the next note, so a
+// piece spells it out as it goes up, and spray-done plays it back with the band. G major: the call
+// (A), the answer up to F# and left hanging (B), the call again, then the turn home (D), which
+// spray-done finishes on the high G.
+const TUNE = [
+  7, 4, 7, 9, 7, 4, 2, 4,      // A  D B D E | D B A B
+  2, 4, 7, 4, 9, 7, 11, 7,     // B  A B D B | E D F# D
+  7, 4, 7, 9, 7, 4, 2, 4,      // A
+  0, 2, 4, 7, 9, 7, 4, 2,      // D  G A B D | E D B A
+];
+// A section lands on the next chord of I V vi IV (G D Em C): its root in semitones over the G.
+const CHORDS = [0, -5, -3, -7];
+// The shake climbs the G major arpeggio.
+const ARP = [0, 4, 7, 12, 16];
 
 let live = null;
 
@@ -81,13 +95,12 @@ export function patternFor(i, n, rnd = Math.random) {
 
 const turn = (d, by) => DIRS[(DIRS.indexOf(d) + by + 4) % 4];
 
-// A catalog cue moved: `deg` steps up the pentatonic (its tones only; noise stays put), `bright`
-// octaves on its noise filters, `gain` on the whole. Sounds nothing without an audio engine.
-function cue(id, { deg = 0, bright = 0, gain = 1 } = {}) {
+// A catalog cue moved: `semis` up (its tones only; noise stays put), `bright` octaves on its noise
+// filters, `gain` on the whole. Sounds nothing without an audio engine.
+function cue(id, { semis = 0, bright = 0, gain = 1 } = {}) {
   try {
     const def = window.SFXCatalog?.get?.(id);
     if (!def?.config) return;
-    const semis = PENTA[((deg % 5) + 5) % 5] + 12 * Math.floor(deg / 5);
     const r = 2 ** (semis / 12), b = 2 ** bright;
     const move = (l) => {
       if (l.waveform === 'noise') return bright && l.filter ? { ...l, filter: { ...l.filter, freq: Math.min(16000, l.filter.freq * b) } } : l;
@@ -176,7 +189,7 @@ export function runSpraySession({ text, runs = null, face = null, host = null, c
 
   const S = { sec: 0, step: 0, spin: null, misses: 0, lastOk: 0, filling: null, done: false, held: null, raf: 0, pointer: null, consumed: new Set(),
     phase: 'shake', cx: innerWidth / 2, cy: innerHeight * 0.42, kx: 0, ky: 0, last: performance.now(),
-    prog: 0, q: 0, missAt: -1e9, sayT: 0, cells: [], enterAt: 0, doneAt: 0 };
+    prog: 0, q: 0, note: 0, missAt: -1e9, sayT: 0, cells: [], enterAt: 0, doneAt: 0 };
   // the shake: `n` shakes so far (it runs down), the stroke under way and where it's got to, and
   // where the drag took hold (`grab`) so the can moves with the hand; `lvl` is good shakes, for the notes
   const K = { n: 0, dir: 0, ext: 0, lastKey: null, lastAt: 0, kick: 0, grab: null, pull: 0, lvl: 0, shown: 0 };
@@ -254,8 +267,9 @@ export function runSpraySession({ text, runs = null, face = null, host = null, c
     if (c) { c.doneAt = performance.now(); c.pop = 1; }
     S.step++; S.spin = null; S.lastOk = performance.now(); S.prog = 0; S.q = 0;
     cellBurst(at, 16);
-    if (S.step >= patterns[S.sec].length) { cue('spray-step', { deg: S.sec + at, gain: 0.7 }); fillSection(); return; }
-    cue('spray-step', { deg: S.sec + at });
+    const semis = TUNE[S.note++ % TUNE.length];
+    if (S.step >= patterns[S.sec].length) { cue('spray-step', { semis, gain: 0.7 }); fillSection(); return; }
+    cue('spray-step', { semis });
     steps();
   }
 
@@ -290,7 +304,7 @@ export function runSpraySession({ text, runs = null, face = null, host = null, c
     const x0 = bounds[S.sec], x1 = bounds[S.sec + 1];
     S.filling = { x0, x1, t0: performance.now() };
     sfx('spray-fill');
-    cue('spray-section', { deg: S.sec });
+    cue('spray-section', { semis: CHORDS[S.sec % CHORDS.length] });
     steps();
     say('');
   }
@@ -364,7 +378,7 @@ export function runSpraySession({ text, runs = null, face = null, host = null, c
     chev.classList.remove('hit'); void chev.offsetWidth; chev.classList.add('hit');
     // a good shake (one each way) is a note up the ring
     const lvl = Math.floor(K.n / 2);
-    if (lvl > K.lvl && K.n < SHAKES) cue('spray-step', { deg: lvl - 1, gain: 0.4 });
+    if (lvl > K.lvl && K.n < SHAKES) cue('spray-step', { semis: ARP[Math.min(ARP.length - 1, lvl - 1)], gain: 0.4 });
     K.lvl = lvl;
     meter();
     if (K.n >= SHAKES) shaken();

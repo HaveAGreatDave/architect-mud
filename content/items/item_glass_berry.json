@@ -10,23 +10,24 @@
     "food_profile": "fruit",
     "matter": {
       "form": {
-        "kind": "cluster",
-        "w": 5,
         "d": 5,
         "h": 2,
-        "round": 1
-      },
-      "ramp": {
-        "raw": "#d8e8e4",
-        "cook": "#c8d8c8",
-        "peak": "#b8c4a8"
+        "kind": "cluster",
+        "round": 1,
+        "w": 5
       },
       "look": {
         "spots": "#6a5a4a"
+      },
+      "ramp": {
+        "cook": "#c8d8c8",
+        "peak": "#b8c4a8",
+        "raw": "#d8e8e4"
       }
     },
     "perishable": true,
     "restore_hunger": 6,
+    "shelved": true,
     "spoil_rate": "fast",
     "stackable": true,
     "status_chance": {

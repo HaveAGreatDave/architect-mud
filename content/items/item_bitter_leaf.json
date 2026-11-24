@@ -10,23 +10,24 @@
     "food_profile": "soft_vegetable",
     "matter": {
       "form": {
-        "kind": "leaf",
-        "w": 14,
         "d": 8,
         "h": 1,
-        "round": 0.6
-      },
-      "ramp": {
-        "raw": "#2e4a26",
-        "cook": "#2a4222",
-        "peak": "#24381e"
+        "kind": "leaf",
+        "round": 0.6,
+        "w": 14
       },
       "look": {
         "stem": "#e0e6d0"
+      },
+      "ramp": {
+        "cook": "#2a4222",
+        "peak": "#24381e",
+        "raw": "#2e4a26"
       }
     },
     "perishable": true,
     "restore_hunger": 6,
+    "shelved": true,
     "spoil_rate": "fast",
     "stackable": true,
     "status_chance": {

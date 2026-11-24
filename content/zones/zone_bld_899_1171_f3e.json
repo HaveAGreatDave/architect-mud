@@ -1,0 +1,88 @@
+{
+  "description": "Marla's room, over the bar. A shelf of half-empty bottles she's \"testing\", a dresser with a cracked mirror, and by the bed a spiral ledger listing, in tiny handwriting, exactly who in the Reach owes what to whom. The saloon comes up through the floor all night.",
+  "exits": {
+    "west": "zone_bld_899_1171_f3"
+  },
+  "flags": {
+    "floor": "boards",
+    "is_building": true,
+    "is_dwelling": true,
+    "is_interior": true,
+    "lawless": true,
+    "room": {
+      "balcony": false,
+      "d": 10.8,
+      "decor": {
+        "walls": {
+          "hex": "#6a4c32",
+          "kind": "walnut",
+          "rail": 0.95,
+          "trim": "#2e2216",
+          "y1": 1.05
+        }
+      },
+      "doors": {
+        "west": -3.4000000000000004
+      },
+      "face": 180,
+      "h": 3.25,
+      "panes": [
+        {
+          "a": 0.7,
+          "b": 2.06,
+          "kind": "sash",
+          "wall": "front",
+          "y0": 0.89,
+          "y1": 2.68
+        },
+        {
+          "a": -2.06,
+          "b": -0.7,
+          "kind": "sash",
+          "wall": "front",
+          "y0": 0.89,
+          "y1": 2.68
+        },
+        {
+          "a": 8.29,
+          "b": 9.57,
+          "kind": "sash",
+          "wall": "left",
+          "y0": 0.89,
+          "y1": 2.68
+        },
+        {
+          "a": 4.36,
+          "b": 5.64,
+          "kind": "sash",
+          "wall": "left",
+          "y0": 0.89,
+          "y1": 2.68
+        },
+        {
+          "a": -0.77,
+          "b": 0.51,
+          "kind": "sash",
+          "wall": "back",
+          "y0": 0.89,
+          "y1": 2.68
+        }
+      ],
+      "studio": false,
+      "tone": {
+        "ceiling": "#7a6c5a",
+        "trim": "#4a3624",
+        "wall": "#9a8a6e"
+      },
+      "w": 4.9
+    },
+    "world_exit_zone": "zone_the_reach_872_1954"
+  },
+  "grid_x": 1,
+  "grid_y": 0,
+  "grid_z": 2,
+  "id": "zone_bld_899_1171_f3e",
+  "map_id": "map_int_bld_899_1171",
+  "name": "Marla's Room",
+  "parent_zone": "zone_the_reach_872_1954"
+}

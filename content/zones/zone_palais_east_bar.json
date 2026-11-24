@@ -17,7 +17,12 @@
       "d": 9,
       "h": 3.4,
       "studio": false,
-      "balcony": false
+      "balcony": false,
+      "street_door": {
+        "kind": "swing",
+        "w": 1.6
+      },
+      "face": 0
     },
     "window": {
       "description": "Tall windows in bronze frames onto Meltwater Row, the Palais's own marquee lighting the pavement outside.",

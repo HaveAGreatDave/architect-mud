@@ -11,20 +11,20 @@
     },
     "spot": {
       "at": [
-        -5.6,
-        9.2
+        -4.14,
+        2.2
       ],
-      "turn": 180
+      "turn": 0
     }
   },
   "hp": null,
   "hp_max": null,
+  "id": "furn_skypad_bench_s",
   "light_type": null,
   "lumen_output": null,
+  "name": "teak bench",
   "object_type": "furniture",
   "power_draw_kw": null,
   "price": 0,
-  "id": "furn_skypad_bench_s",
-  "name": "teak bench",
   "zone_id": "zone_solenne_helipad"
 }

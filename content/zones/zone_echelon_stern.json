@@ -7,9 +7,10 @@
   "ambient_theme": "coast",
   "bg_color": "#101820",
   "color": "#cfe6f2",
-  "description": "The stern lounge: a crescent of low leather seating open to the air, overlooking the black water of Coldwater Basin. Heaters glow amber under the rail. Deals get closed out here, with nothing behind you but the Basin. You can LOOK SOUTH, EAST, or WEST across the water. The foyer lies to the NORTH.",
+  "description": "The stern lounge, at the aft end of the main deck: low leather seating behind a wall of glass, with glass doors out onto the helipad. Heaters glow amber under the sills. Deals get closed out here. You can LOOK SOUTH, EAST, or WEST across the water. The foyer is FORWARD (NORTH); the helipad, AFT (SOUTH).",
   "exits": {
-    "north": "zone_echelon_foyer"
+    "north": "zone_echelon_foyer",
+    "south": "zone_echelon_helipad"
   },
   "flags": {
     "always_lit": true,
@@ -23,7 +24,7 @@
     "naval_ambience": true,
     "room": {
       "balcony": false,
-      "d": 6,
+      "d": 4.97,
       "decor": {
         "ceiling": {
           "band": 0.4,
@@ -47,7 +48,21 @@
         "left",
         "right"
       ],
-      "h": 3.2,
+      "h": 3,
+      "hull": {
+        "sides": [
+          [
+            0,
+            4.37,
+            4.13
+          ],
+          [
+            4.97,
+            4.37,
+            4.13
+          ]
+        ]
+      },
       "studio": false,
       "tone": {
         "accent": "#e0902e",
@@ -55,7 +70,7 @@
         "trim": "#0b0b0b",
         "wall": "#2a2420"
       },
-      "w": 10
+      "w": 8.74
     },
     "world_exit_zone": "zone_echelon_exterior",
     "yacht": true

@@ -1,0 +1,23 @@
+{
+  "description": "A dresser with a cracked mirror and a hairbrush on it.",
+  "flags": {
+    "look": {
+      "arche": "store",
+      "form": "cabinet"
+    },
+    "spot": {
+      "along": 7,
+      "wall": "left"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_coyote_l3e_cabinet",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "a dresser",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_bld_899_1171_f3e"
+}

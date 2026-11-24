@@ -159,19 +159,6 @@
       "options": [],
       "text": "\"Chair's here when you want it, hon. It's not going anywhere, and neither am I.\""
     },
-    "oldway": {
-      "options": [
-        {
-          "label": "That's exactly what I want.",
-          "next": "play"
-        },
-        {
-          "label": "How do I bet?",
-          "next": "betting"
-        }
-      ],
-      "text": "\"No screens, no flashing cabinets. I shuffle by hand and I say every card out loud: your hole cards, the flop, the turn, the river, the winner. A body can play my table with their eyes shut and never miss a beat. That's how it was done, and that's how I still do it.\""
-    },
     "name": {
       "options": [
         {
@@ -184,6 +171,19 @@
         }
       ],
       "text": "\"The Widow Maker paid out once, years back, to a dockhand who'd only come in to use the toilet. The owner had to sign him half the house to cover it.\" She squares the deck. \"The dockhand named his half. The owner called him a few other things, but you can't put those on a sign.\""
+    },
+    "oldway": {
+      "options": [
+        {
+          "label": "That's exactly what I want.",
+          "next": "play"
+        },
+        {
+          "label": "How do I bet?",
+          "next": "betting"
+        }
+      ],
+      "text": "\"No screens, no flashing cabinets. I shuffle by hand and I say every card out loud: your hole cards, the flop, the turn, the river, the winner. A body can play my table with their eyes shut and never miss a beat. That's how it was done, and that's how I still do it.\""
     },
     "people": {
       "options": [
@@ -256,7 +256,7 @@
     "table_id": "gametable_neonvig_oldschool"
   },
   "home_activities": [],
-  "home_zone": "zone_meridian_unit_402",
+  "home_zone": "zone_mq_chrome_203",
   "hp": 30,
   "hp_max": 30,
   "id": "npc_neonvig_backroom_dealer",

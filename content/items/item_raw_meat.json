@@ -4,17 +4,18 @@
   "id": "item_raw_meat",
   "name": "raw meat",
   "tags": {
+    "aisle": "meat",
     "consumable": true,
-    "description": "Something used to own this. Cook before eating.",
+    "description": "A dark red slab in cling film, no label. It looks like beef. You hope it's beef. Cook it through.",
     "food_noun": "meat",
     "food_profile": "dense_meat",
     "matter": {
       "form": {
-        "kind": "slab",
-        "w": 14,
         "d": 9,
         "h": 3,
-        "round": 0.35
+        "kind": "slab",
+        "round": 0.35,
+        "w": 14
       }
     },
     "needs_cooking": true,

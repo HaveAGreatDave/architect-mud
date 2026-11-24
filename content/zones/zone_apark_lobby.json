@@ -1,0 +1,47 @@
+{
+  "ambient_events": [
+    "The lift arrives empty, opens, waits, and shuts again.",
+    "The pay station prints a receipt for nobody."
+  ],
+  "ambient_theme": "indoors",
+  "bg_color": "#1a2228",
+  "color": "#cfe4ea",
+  "description": "A concrete room the width of the building, painted the blue of the sign as far as the paint went. A pay station by the lift says PARKING FREE, with a phone number for lost tickets taped under it. The lift is <b>in</b> and the forecourt is <b>east</b>.",
+  "exits": {
+    "east": "zone_district_923_904",
+    "in": "zone_apark_lift"
+  },
+  "flags": {
+    "building_name": "Airport Parking Plaza",
+    "building_type": "vtol_park",
+    "floor": "concrete",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_923_904",
+    "room": {
+      "w": 10,
+      "d": 4.9,
+      "h": 3.4,
+      "face": 90,
+      "finish": "plain",
+      "ground": "concrete",
+      "studio": false,
+      "balcony": false,
+      "doors": {
+        "east": 0,
+        "in": 0
+      },
+      "street_door": {
+        "kind": "sliding",
+        "w": 1.6
+      }
+    }
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_apark_lobby",
+  "map_id": "map_int_apark",
+  "name": "Airport Parking Plaza, Lobby",
+  "parent_zone": "zone_district_923_904"
+}

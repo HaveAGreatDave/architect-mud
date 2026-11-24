@@ -1,5 +1,5 @@
 {
-  "description": "A hardened camera under the lintel on the corner of the portico, angled down at the steps. A small brass plate reads THIS FRONTAGE IS MONITORED BY PRECINCT 9 UNDER CONTRACT.",
+  "description": "A hardened camera in a bronze housing under the frieze, angled down at the doors. A small brass plate reads THIS FRONTAGE IS MONITORED BY PRECINCT 9 UNDER CONTRACT.",
   "flags": {
     "concealed": false,
     "device_id": "secdev_citadel_facade",
@@ -10,9 +10,9 @@
   "id": "secdev_citadel_facade",
   "light_type": "lamp",
   "lumen_output": null,
-  "name": "Compound Interest security camera",
+  "name": "Coldwater Financial security camera",
   "object_type": "security_device",
   "power_draw_kw": null,
   "price": 0,
-  "zone_id": "zone_district_921_911"
+  "zone_id": "zone_district_916_910"
 }

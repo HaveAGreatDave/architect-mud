@@ -1,0 +1,29 @@
+{
+  "ambient_events": [
+    "Rusty taps a stubborn valve with the butt of a screwdriver until its filament catches and glows orange. He mutters something about modern circuits.",
+    "The kettle on the hotplate starts to tick as it comes back to the boil.",
+    "A floorboard by the boots creaks under nobody in particular.",
+    "Somebody has pinned a new card to the corkboard: a name, a question mark, and a vat number."
+  ],
+  "ambient_theme": "indoors",
+  "bg_color": "#2a2620",
+  "color": "#d8c8a0",
+  "description": "Oak floorboards groan underfoot, warped by a century of boots. Steel shelves bolted into the 1924 brick sag under canteens, bedrolls, lamps, copper wire and crates of boots. It smells of gun grease, wool and the chicory on the hotplate by the radiator. By the door, a corkboard is pinned thick with clones' notes about who they used to be.",
+  "exits": {
+    "west": "zone_district_920_903"
+  },
+  "flags": {
+    "building_name": "O'Toole's Surplus",
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_920_903"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_otoole_interior",
+  "map_id": "map_interior_zone_otoole_interior",
+  "name": "O'Toole's Surplus",
+  "parent_zone": "zone_district_920_903"
+}

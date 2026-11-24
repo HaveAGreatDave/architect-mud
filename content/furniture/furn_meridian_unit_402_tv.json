@@ -1,0 +1,26 @@
+{
+  "description": "A big flatscreen on the wall, newer than anything else in the room. It's left on KSAB-TV, and a Blue Birds pennant is tacked up beside it.",
+  "flags": {
+    "broadcast_device_type": "tv",
+    "broadcast_receiver": true,
+    "spot": {
+      "along": 2.4,
+      "wall": "right",
+      "turn": 270
+    },
+    "tuned_channel": 7,
+    "tv": true,
+    "tv_dial_freq": 7,
+    "tv_skin": "flatscreen"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_meridian_unit_402_tv",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "flatscreen",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_meridian_unit_402"
+}

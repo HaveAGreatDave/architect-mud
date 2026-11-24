@@ -116,7 +116,7 @@ export const AUTHORED_DETAIL = {
     const yT = y + out * SIGN_BOARD_OUT * 0.6;
     const pts = [[c.lx - half, yT, z + hh], [c.lx + half, yT, z + hh], [c.lx + half, yT, z - hh], [c.lx - half, yT, z - hh]];
     const w = pts.map(([lx, ly, z2]) => { const [wx, wy] = c.F(lx, ly); return c.cam.proj(wx, wy, z2); });
-    if (w.every((q) => q.f > 0.12)) emitSurfaceText(c.ctx, c.cam, w, tex, false, c.alpha, DETAIL_LIFT * 2, false, FACE_EPS * 2);
+    if (w.every((q) => q.f > 0.065)) emitSurfaceText(c.ctx, c.cam, w, tex, false, c.alpha, DETAIL_LIFT * 2, false, FACE_EPS * 2);
   },
 
   // A pipe: two flat strips at right angles, which reads as a round pipe from any angle a wall is
@@ -781,7 +781,7 @@ export const AUTHORED_DETAIL = {
     const y = faceY(c.ly);
     const pts = [[cx - w, y, z + hh], [cx + w, y, z + hh], [cx + w, y, z - hh], [cx - w, y, z - hh]]
       .map(([lx, ly, lz]) => { const [wx, wy] = c.F(lx, ly); return c.cam.proj(wx, wy, lz); });
-    if (!pts.every((q) => q && q.f > 0.12)) return;
+    if (!pts.every((q) => q && q.f > 0.065)) return;
     // ⚠ `onCanvas` IS FALSE AND `pull` IS THE DEFAULT HAIR — the same call `drawWallTags` makes, for
     // the same reason. There is no board under a tag: the paint is on the wall, the wall is in the
     // mesh, and the lettering only has to clear its own brickwork by a tie-breaker.
@@ -1259,7 +1259,7 @@ export const AUTHORED_DETAIL = {
       // off the deck it stands on and lettered with whatever the tile is called.
       const tex = bakeSignText(say, d.ink || inkFor(board), c.night ? 1 : 0, false, !d.neon, true, d);
       const w = pts.map(([lx, ly, z2]) => { const [wx, wy] = c.F(lx, ly); return c.cam.proj(wx, wy, z2); });
-      if (w.every((q) => q.f > 0.12)) {
+      if (w.every((q) => q.f > 0.065)) {
         // ⚠ THE PULL IS MEASURED FROM `yF`, THE BOARD'S OWN FACE, so it only has to win a tie with
         // the board and clear the surround channel at `yFace`. It was `DETAIL_LIFT * 2.5` — 0.05 of a
         // tile, a fifth of a typical hoarding's height — which stood the tube lettering visibly off
@@ -1381,7 +1381,7 @@ export const AUTHORED_DETAIL = {
       const vert = !d.horiz;
       const tex = bakeSignText(txt, d.ink || inkFor(face), c.night ? 1 : 0, vert, true, !vert, d);
       const w = pts.map(([lx, ly, z2]) => { const [wx, wy] = c.F(lx, ly); return c.cam.proj(wx, wy, z2); });
-      if (w.every((q) => q.f > 0.12)) {
+      if (w.every((q) => q.f > 0.065)) {
         // `vertical` down the panel, which is what a hung blade is for. Painted ink rather than
         // neon: the panel itself is the lit surface, so a glowing letter on a glowing board is the
         // same soup `signBoard` used to make.

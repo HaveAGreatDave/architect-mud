@@ -17,6 +17,7 @@ import {
 	initVitalsReorder,
 	initScrollLock,
 	keepTail,
+	setRoomButton,
 } from "./render.js";
 import { initLogTools } from "./logtools.js";
 import { initAutomation } from "./automation.js";
@@ -70,7 +71,7 @@ import { initInsurancePanel } from "./panels/insurance.js";
 import { initWantedHud } from "./panels/wanted.js";
 import { setDistrictLegend } from "./panels/minimap.js";
 import { initAudio } from "./panels/audio.js";
-import { stopMusicPlayer } from "./panels/lazy-views.js";
+import { stopMusicPlayer, closeFreelook, freelookInside } from "./panels/lazy-views.js";
 import { stopEngineAudio } from "./panels/lazy-views.js";
 import { isFlightSimActive } from "./panels/lazy-views.js";
 import { isHangarBayWalkActive } from "./panels/lazy-views.js";
@@ -184,13 +185,8 @@ window._applyCelShade = (mode, shadows) => {
 };
 // Renderer (Settings → Renderer): 'auto', 'full' (GLASS 2) or 'lite' (GLASS Lite), handed to
 // windshield.js `setGlassMode` the same way. Only a CHANGE is passed on, because applySettings runs
-// on every pill press: re-sending it then would undo the switch-off GLASS 2 does on itself when it
-// fails.
+// on every pill press.
 let glassPicked = null;
-// GLASS 1 is the last resort, for a lost context or a crash in the GL pass: buildings as boxes, no
-// signs or glows (GLASS1_BASIC in windshield.js). The Modelshop and the gates load windshield.js
-// without this and keep the full painter.
-window.__glass1BasicPending = true;
 window._applyGlass = (mode) => {
 	mode = mode === '2' ? 'auto' : mode === '1' ? 'lite' : (mode === 'full' || mode === 'lite' ? mode : 'auto');
 	if (mode === glassPicked) return;
@@ -953,9 +949,17 @@ function wireDpadPressRelease(container) {
 for (const b of document.querySelectorAll("[data-home-cmd]"))
 	b.addEventListener("click", () => sendCmd(b.dataset.homeCmd));
 
-// The room button toggles the Stage. Its state comes from setRoomButton (render.js).
+// THE ROOM BUTTON IS THE WAY INTO THE 3-D WORLD. On a desktop it opens the world itself where you are: in a building, the
+// room drawn inside the city (`room world`, docs/proposals/one-world-interiors.md); on a street tile, the street on foot.
+// A phone opens the Room Stage, as before. Pressed again it shuts whichever is up. Its state comes from setRoomButton
+// (render.js). Free look stays the staff's camera for flying about anywhere (.dpad-freelook-btn).
+const roomBtnPhone = () => { try { return matchMedia("(pointer: coarse)").matches && Math.min(screen.width, screen.height) < 600; } catch { return false; } };
 for (const b of document.querySelectorAll(".dpad-room-btn"))
-	b.addEventListener("click", () => sendCmd(b.dataset.room === "open" ? "room close" : "room"));
+	b.addEventListener("click", () => {
+		// walking a building in GLASS: the view goes, and the server lets the room go
+		if (freelookInside()) { closeFreelook(); setRoomButton({ open: false }); sendCmd("room close"); return; }
+		sendCmd(b.dataset.room === "open" ? "room close" : roomBtnPhone() ? "room" : "room world");
+	});
 
 // Mobile dpad — send movement commands without opening the keyboard
 wireDpadPressRelease(document.getElementById("mob-dpad"));

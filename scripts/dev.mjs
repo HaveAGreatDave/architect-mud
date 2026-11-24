@@ -3,6 +3,7 @@
 //   npm run dev                     → server on :3000 (+ /dev), Studio on :5180, Modelshop on :5181
 //   npm run dev -- --no-studio      → drop the Studio
 //   npm run dev -- --no-modelshop   → drop the Modelshop
+//   npm run dev -- --no-broadcast-studio → drop the Broadcast Studio (:5190)
 //   npm run dev -- --studio-port 5200 --modelshop-port 5201
 //
 // They stay SEPARATE processes on purpose, and this wrapper is the whole of the
@@ -84,4 +85,8 @@ if (withModelshop) {
   const args = [join('tools', 'modelshop', 'serve.mjs')];
   if (modelshopPort) args.push(modelshopPort);
   start('modelshop', args);
+}
+// The Broadcast Studio (tools/broadcast-studio): the dev panel links to it on :5190.
+if (!argv.includes('--no-broadcast-studio')) {
+  start('broadcast-studio', [join('tools', 'broadcast-studio', 'serve.mjs')]);
 }

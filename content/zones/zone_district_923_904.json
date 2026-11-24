@@ -1,23 +1,36 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "coast",
-  "color": "#7fd3ff",
-  "description": "The bottom slopes away from the shore into lightless water. It's cold, and the channel beyond is too deep to wade.",
+  "ambient_events": [
+    "Somewhere inside the decks a carousel turns with a long hydraulic groan and stops.",
+    "A small VTOL drops onto the roof pad and its rotors wind down.",
+    "The lift tower's red light blinks on top."
+  ],
+  "ambient_theme": "urban",
+  "bg_color": "#1a2228",
+  "color": "#7fe6ff",
+  "description": "Five open decks of grey precast at the west side of the terminal forecourt, with small aircraft parked on every one behind a steel mesh. A lift tower runs up one corner to a landing pad on the roof. AIRPORT PARKING PLAZA is lit in blue over the door, and a board under it says VTOL PARKING: FREE.",
   "exits": {
     "east": "zone_district_924_904",
-    "north": "zone_district_923_903",
-    "south": "zone_district_923_905"
+    "west": "zone_apark_lobby"
   },
   "flags": {
-    "district": "water",
+    "airfield_id": "af_apark",
+    "building_name": "Airport Parking Plaza",
+    "building_type": "vtol_park",
+    "district": "docks",
+    "entrance": "east",
+    "facade": true,
+    "floors": 5,
+    "hangar_interior_zone": "zone_apark_pad",
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "water"
+    "world_exit_zone": "zone_district_924_904"
   },
   "grid_x": 924,
   "grid_y": 904,
   "grid_z": 0,
   "id": "zone_district_923_904",
   "map_id": "map_world",
-  "name": "Coldwater Basin",
+  "marker": "PZ",
+  "name": "Airport Parking Plaza",
   "parent_zone": null
 }

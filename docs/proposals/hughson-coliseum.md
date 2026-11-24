@@ -34,8 +34,9 @@ Where it's told:
 |---|---|
 | The rotunda | his statue on a granite plinth, the toes of its shoes rubbed gold for luck, and the inscription "He would not sell" |
 | The rotunda wall | the dedication plaque: "For Sir Charles, who kept the gates open", and Halcyon's steel plate under it acknowledging "the existing structure" |
-| The stands | his seat behind home plate, folded up, kept clean and never sat in |
-| Ray Dombrowski | the `charles` node of his dialogue: the cheques, the handshake, the name |
+| The stands | his seat behind home plate, kept clean for him. He sits in it one game in four, every season opener, and a final the Blue Birds are in (`flags.regular`, plugins/stands/regulars.js) |
+| Ray Dombrowski | the `charles` node of his dialogue: the cheques, the handshake, the name, and where he lives now |
+| The Meridian | Sir Charles himself (`npc_charles_hughson`), alive and in the two-floor penthouse at the top (units 402 and 502, [meridian-refit.mjs](../../scripts/content/meridian-refit.mjs)). He goes to his seat on game nights (the row above) and home after |
 | The booth | one sign-on line and four `chatter` lines for Chip Vega in [baseball.bsm](../../data/scripts/baseball.bsm) |
 | The bowl wall | his name cut into the stone in one line, on Sorrel Way and again on Halcyon Boulevard (§5) |
 | The main gate | two Guardians in the manner of Cleveland's bridge, GRANDSTAND in raised gilt on its plate, and the gilt sun with a baseball for its disc over it (§5) |

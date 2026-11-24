@@ -1,0 +1,30 @@
+{
+  "description": "A wide armchair in worn green leather, turned to face the set. There's a dent in the seat the exact shape of one man, and a scorecard pencil down the side of the cushion.",
+  "flags": {
+    "aliases": "armchair,chair,green armchair",
+    "interactions": [
+      "sit"
+    ],
+    "look": {
+      "arche": "seat",
+      "form": "armchair"
+    },
+    "spot": {
+      "at": [
+        1.6,
+        2.4
+      ],
+      "turn": 90
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_meridian_unit_402_armchair",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "green armchair",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_meridian_unit_402"
+}

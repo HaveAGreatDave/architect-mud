@@ -1,8 +1,10 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "ambient_events": [
+    "A gull walks along the waterline looking for something.",
+    "A wave comes in a little further than the others."
+  ],
+  "ambient_theme": "coast",
+  "description": "Dunes with tough grass on them at the back of the beach. A path has been worn through the middle to the sand.",
   "exits": {
     "east": "zone_district_898_903",
     "north": "zone_district_897_902",
@@ -10,15 +12,16 @@
     "west": "zone_district_896_903"
   },
   "flags": {
+    "beach": true,
     "district": "wasteland",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "terrain": "sand"
   },
   "grid_x": 897,
   "grid_y": 903,
   "grid_z": 0,
   "id": "zone_district_897_903",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "The Shingle",
   "parent_zone": null
 }

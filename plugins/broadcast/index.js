@@ -33,6 +33,7 @@ import { HOCKEY, rivalOf, healSlot, reprintSlots, rosterFor } from './sports/hoc
 import { bindingOf, whereabouts, seasonLine } from './sports/league-npcs.js';
 import { finalPackage, packageText } from './sports/final-package.js';
 import { deskSegment, deskOverlay, deskStaffed, castOnAir, castStage, withLive, stageSet, roomSet, guestPerson, breakSetFor, breakStage, sceneSetFor, setOfId } from './sequences.js';
+import { npcFigure } from '../../client/shared/figure-text.js';
 import { factsAt, watchOf, boothCuts, pickBoothCut, cutFacts } from './sports/facts.js';
 import { gameLore } from './sports/club-lore.js';
 import {
@@ -302,7 +303,7 @@ function roomSetFor(zoneId) {
   for (const id of world.zones.get(zoneId)?.npcs || []) {
     const n = world.npcs.get(id);
     if (!n || n._dead || n.flags?.camera_droid || seen.has(n.id)) continue;
-    seen.add(n.id); people.push({ id: n.id, name: n.name, sex: n.sex, figure: n.flags?.figure || null });
+    seen.add(n.id); people.push({ id: n.id, name: n.name, sex: n.sex, figure: npcFigure(n) });
   }
   for (const pl of getZonePlayers(zoneId) || []) {
     if (!pl || seen.has(pl.id)) continue;
@@ -366,7 +367,7 @@ function stageFor(channelId) {
   // seats a stranger under that name to say them while the actor sits silent on his mark.
   const people = [...ids].map((id) => world.npcs.get(id)).filter((n) => n && !n._dead && !n.flags?.camera_droid).slice(0, 12).map((n) => {
     const billed = _anchorDisplayFor(graph, n.id);
-    return { id: n.id, name: n.name, sex: n.sex, figure: n.flags?.figure || null, ...(billed && billed !== n.name ? { billed } : {}), ...(placed?.[n.id] ? { to: placed[n.id] } : {}) };
+    return { id: n.id, name: n.name, sex: n.sex, figure: npcFigure(n), ...(billed && billed !== n.name ? { billed } : {}), ...(placed?.[n.id] ? { to: placed[n.id] } : {}) };
   });
   // a talk show's guest is tonight's: the persona the day draws, or the townsperson who's come in to do it
   if (item?.playback_mode === 'talkshow' && item.talkshowScript) {
@@ -3710,6 +3711,15 @@ export function sportsGamesAhead(sport, count = 4, look = 16) {
     out.push({ slot, away: m.away, home: m.home, hour: slateStartHour(sport, slot), days: slotDay(slot) - slotDay(cur), final: !!o, now: slot === live });
   }
   return out;
+}
+// Whether `slot` is `sport`'s first game of its season (plugins/stands regulars: a fan who never misses
+// an opener). Pure off the slate, and at most a month of slots walked, once a game.
+export function sportsSeasonOpener(sport, slot) {
+  if (!Number.isFinite(slot)) return false;
+  const start = seasonCalendar(sport, slot).seasonStartSlot;
+  if (slot < start) return false;
+  for (let c = start; c < slot; c++) if (slateSportAt(slotDay(c), slotSod(c)) === sport) return false;
+  return slateSportAt(slotDay(slot), slotSod(slot)) === sport;
 }
 // Whether `sport`'s game on the air now is in an intermission: { channelId, slot, inBreak, msIn, msLeft },
 // or null with no game on. A break runs from its intermission payload to that payload's `resume` cue

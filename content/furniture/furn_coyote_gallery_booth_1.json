@@ -1,0 +1,26 @@
+{
+  "description": "High-backed and patched with tape, against the back wall, the kind of seat you can talk in.",
+  "flags": {
+    "interactions": [
+      "sit"
+    ],
+    "look": {
+      "arche": "seat",
+      "form": "booth"
+    },
+    "spot": {
+      "along": 4.2,
+      "wall": "back"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_coyote_gallery_booth_1",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "a booth",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_bld_899_1171_gallery"
+}

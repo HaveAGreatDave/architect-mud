@@ -6,12 +6,13 @@
   "ambient_theme": "indoors",
   "bg_color": "#1a2228",
   "color": "#cfe4ea",
-  "description": "The roof of the garage: a square landing pad marked in white with a blue light ring, set into a turntable the carousel lifts and lowers. A steel terminal on a post at the edge takes your aircraft down and gives you a ticket. The lift is <b>in</b>.",
+  "description": "The roof of the garage: a square landing pad marked in white with a blue light ring, set into a turntable the carousel lifts and lowers. A steel terminal on a post at the edge takes your aircraft down and gives you a ticket. The lift is <b>in</b>, and Higher Purchase's glass lift down to their showroom is <b>west</b>.",
   "exits": {
-    "in": "zone_sdeck_lift"
+    "in": "zone_sdeck_lift",
+    "west": "zone_dealer_marrow_lift"
   },
   "flags": {
-    "building_name": "Stacked Deck",
+    "building_name": "Marrow Street Parking",
     "is_interior": true,
     "floor": "concrete",
     "hangar_interior": true,
@@ -24,6 +25,6 @@
   "grid_z": 5,
   "id": "zone_sdeck_pad",
   "map_id": "map_int_stackeddeck",
-  "name": "Stacked Deck, Roof Pad",
+  "name": "Marrow Street Parking, Roof Pad",
   "parent_zone": "zone_seam_914_908"
 }

@@ -326,8 +326,8 @@
         ...[[0, 0.3], [0.07, 0.22], [0.15, 0.14]].map(([d, g]) => ({ waveform: 'noise', noiseMix: 1, delay: d, filter: { type: 'bandpass', freq: 2100, q: 1.6 }, adsr: { a: 0.002, d: 0.04, s: 0, r: 0.02 }, gain: g })),
         { waveform: 'sawtooth', freq: 92, pitchBend: { to: 58, time: 0.2 }, filter: { type: 'lowpass', freq: 600, q: 1 }, adsr: { a: 0.004, d: 0.18, s: 0, r: 0.06 }, gain: 0.1 } ] } },
     // The rest of the session's cues are tuned to G and moved by the session itself (spray-session.js
-    // `cue`): it transposes their tones up a G minor pentatonic as the piece goes on, and brightens
-    // the hiss, so a section climbs and the whole piece climbs with it, into spray-done's G.
+    // `cue`): each stroke that lands plays the next note of its G major TUNE, each section the next
+    // chord root of I V vi IV, and the hiss brightens as a stroke fills; spray-done plays the tune back.
     //
     // A stroke filling, a quarter at a time: a short puff off the nozzle.
     { id: 'spray-trace', name: 'Spray: a stroke filling', group: 'spray', category: 'sfx', priority: 3,
@@ -351,18 +351,38 @@
         { waveform: 'sine', freq: 520, pitchBend: { to: 1560, time: 0.22 }, adsr: { a: 0.01, d: 0.24, s: 0, r: 0.1 }, gain: 0.08 },
         ...hiss(5191, { len: 0.2, lvl: 0.8 }).map((l) => ({ ...l, delay: (l.delay || 0) + 0.16 })) ] } },
     // The tag signature: the sound of a tag going up, whichever way it went up (the session, the
-    // dialog or a typed `tag`). Two stabs of one instrument a fourth apart, D3 then G3, and a run
-    // that answers them: G4 Bb4 D5 F5 in 32nds, a rest, D5, then G5 bent up from F#5 and held over
-    // a G4. No `vary`: it's a signature, and it should be the same every time.
+    // dialog or a typed `tag`). Two stabs a fourth apart (D3, G3) count it in, then one bar at
+    // 150 bpm in G major: the session's tune (its A phrase, D B D E D-B A B) on the lead, a
+    // bass walking G C D, offbeat chord skanks, kick, snare on 2 and 4 and eighth hats, landing on
+    // the high G, bent up from F#, over a G major chord and a crash. No `vary`: it's a signature.
     { id: 'spray-done', name: 'Spray — piece finished', group: 'spray', category: 'sfx', priority: 8,
-      config: { duration: 1.25, send: 0.3, retro: { rate: 20000, bits: 9 }, layers: [
-        ...tagHit(146.83, 0, 4101),
-        ...tagHit(196, 0.17, 4103, 1.12),
-        ...tagNote(392, 0.38), ...tagNote(466.16, 0.435), ...tagNote(587.33, 0.49), ...tagNote(698.46, 0.545, 0.05, 1.05),
-        ...tagNote(587.33, 0.655, 0.045, 0.9),
-        ...tagNote(783.99, 0.71, 0.34, 1.15, 739.99, { rate: 6.5, depth: 14 }),
-        ...tagNote(392, 0.71, 0.3, 0.6),
-      ] } },
+      config: { duration: 2.7, send: 0.3, retro: { rate: 20000, bits: 9 }, layers: (() => {
+        const E = 0.2, T0 = 0.4, at = (n) => +(T0 + n * E).toFixed(3);
+        const hz = (s) => +(392 * 2 ** (s / 12)).toFixed(2);       // semitones over G4
+        const kick = (t) => ({ waveform: 'sine', freq: 150, delay: t, pitchBend: { to: 48, time: 0.07 }, drive: 0.3, adsr: xp(0.001, 0.16), gain: 0.2 });
+        const snare = (t, s) => [
+          { waveform: 'noise', noiseMix: 1, noiseSeed: s, delay: t, filter: { type: 'bandpass', freq: 2600, q: 0.7 }, adsr: xp(0.001, 0.12), gain: 0.11 },
+          { waveform: 'triangle', freq: 210, delay: t, pitchBend: { to: 170, time: 0.04 }, adsr: xp(0.001, 0.07), gain: 0.07 } ];
+        const hat = (t, s, g = 0.03) => ({ waveform: 'noise', noiseMix: 1, noiseSeed: s, delay: t, filter: { type: 'highpass', freq: 8000, q: 0.7 }, adsr: xp(0.0005, 0.03), gain: g });
+        const bass = (f, t, len) => ({ waveform: 'triangle', freq: f, delay: t, filter: { type: 'lowpass', freq: 900, q: 1 }, adsr: { a: 0.004, d: len, s: 0.4, r: 0.05 }, gain: 0.16 });
+        const skank = (fs, t, len = 0.08) => fs.map((f) => ({ waveform: 'square', freq: f, delay: t, filter: { type: 'lowpass', freq: 2400, q: 0.8 }, adsr: xp(0.002, len), gain: 0.018 }));
+        const G = [196, 246.94, 293.66], C = [196, 261.63, 329.63], D = [220, 293.66, 369.99];
+        const out = [...tagHit(146.83, 0, 4101), ...tagHit(196, 0.17, 4103, 1.12)];
+        // the band: kick on 1, the and of 2, 3 and the landing; snare on 2 and 4; hats on every eighth
+        for (const n of [0, 3, 4, 8]) out.push(kick(at(n)));
+        for (const [n, s] of [[2, 4201], [6, 4203]]) out.push(...snare(at(n), s));
+        for (let n = 0; n < 8; n++) out.push(hat(at(n), 4211 + n, n % 2 ? 0.022 : 0.032));
+        out.push(bass(98, at(0), 0.3), bass(98, at(1.5), 0.15), bass(130.81, at(2), 0.3), bass(130.81, at(3.5), 0.15),
+          bass(146.83, at(4), 0.3), bass(146.83, at(5.5), 0.1), bass(185, at(6), 0.15), bass(146.83, at(7), 0.15), bass(98, at(8), 0.6));
+        for (const [n, ch] of [[1, G], [3, C], [5, D], [7, D]]) out.push(...skank(ch, at(n)));
+        // the lead: the tune's call, then home
+        for (const [n, s, len] of [[0, 7, 0.1], [1, 4, 0.1], [2, 7, 0.1], [3, 9, 0.14], [4, 7, 0.06], [4.5, 4, 0.06], [5, 2, 0.1], [6, 4, 0.1], [7, 7, 0.08]])
+          out.push(...tagNote(hz(s), at(n), len));
+        out.push(...tagNote(783.99, at(8), 0.5, 1.15, 739.99, { rate: 6.5, depth: 14 }));
+        out.push(...skank([196, 246.94, 293.66, 392], at(8), 0.6));
+        out.push({ waveform: 'noise', noiseMix: 1, noiseSeed: 4231, delay: at(8), filter: { type: 'highpass', freq: 5000, q: 0.5 }, adsr: xp(0.001, 0.7), gain: 0.05 });
+        return out.map((l) => ({ ...l, gain: +(l.gain * 0.5).toFixed(4) }));   // the band together peaks where the stabs alone did
+      })() } },
 
     // ── Vault Crack ──────────────────────────────────────────────────────────
     { id: 'vault-entry', name: 'Vault — approach', group: 'vault', category: 'sfx', priority: 4,

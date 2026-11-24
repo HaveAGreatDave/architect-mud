@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#8f9a7e",
-  "description": "Unit 401, fourth floor of The Meridian. A concrete studio with a drop ceiling, a water stain spreading in one corner, and bare cable hookups. The single window faces the airshaft and another wall close enough to touch. Old picture hooks on the walls.",
+  "description": "The fourth floor, north side: six windows, a long room, a kitchen with one working ring. Two of the windows are painted shut. The other four rattle when a truck goes past.",
   "exits": {
     "south": "zone_meridian_floor_4"
   },
@@ -11,6 +11,60 @@
     "is_apartment": true,
     "is_interior": true,
     "rent_cost": 200,
+    "room": {
+      "balcony": false,
+      "d": 5.8,
+      "doors": {
+        "south": 1.1
+      },
+      "face": 0,
+      "h": 3,
+      "panes": [
+        {
+          "a": -5.95,
+          "b": -5.05,
+          "wall": "front",
+          "y0": 0.75,
+          "y1": 2.9
+        },
+        {
+          "a": -4.1,
+          "b": -3.2,
+          "wall": "front",
+          "y0": 0.75,
+          "y1": 2.9
+        },
+        {
+          "a": -2.25,
+          "b": -1.35,
+          "wall": "front",
+          "y0": 0.75,
+          "y1": 2.9
+        },
+        {
+          "a": 1.35,
+          "b": 2.25,
+          "wall": "front",
+          "y0": 0.75,
+          "y1": 2.9
+        },
+        {
+          "a": 3.2,
+          "b": 4.1,
+          "wall": "front",
+          "y0": 0.75,
+          "y1": 2.9
+        },
+        {
+          "a": 5.05,
+          "b": 5.95,
+          "wall": "front",
+          "y0": 0.75,
+          "y1": 2.9
+        }
+      ],
+      "w": 14.2
+    },
     "terrain": "grass",
     "window": {
       "description": "A plain sash window, painted shut some years ago, with a view of the block opposite.",

@@ -115,9 +115,6 @@ const state = {
   heading: 0, dist: 9, eye: 1.4, pitch: 0, panX: 0, panY: 0, vehSizeMul: 1,
   floors: 6, seed: 3, night: 0,
   E: [0, 1], tier: ADORN_RICH, wire: false, spin: false, gl: false, preset: 'cockpit',
-  // GLASS 2 over the viewport (glass2.js), on unless this browser switched it off. It's what the
-  // game draws with, so it's the honest default; the line below drops it where there's no WebGL2.
-  g2: (() => { try { return localStorage.getItem('ms_glass2') !== '0'; } catch { return true; } })(),
   // A plain grey backdrop in place of the sky (the Grey button, B). Remembered per browser.
   grey: (() => { try { return localStorage.getItem('ms_grey') === '1'; } catch { return false; } })(),
   mode: 'move',
@@ -514,7 +511,9 @@ function paintViewport() {
 const ENTRANCE_OF = { '0,1': 'south', '0,-1': 'north', '1,0': 'east', '-1,0': 'west' };
 function paintGlass2(view) {
   const kind = kindOf(state.key);
-  if (!state.g2 || kind === 'fauna') { g2Hide(); return; }
+  if (kind === 'fauna') { g2Hide(); return; }
+  // GLASS is the only renderer for buildings and vehicles. With no WebGL2 there is nothing to show.
+  if (!glAvailable()) { blankForNoGL(view); glNote = 'This browser has no WebGL2, and GLASS needs it: the viewport has nothing to draw with.'; return; }
   const orbit = { heading: state.heading, dist: state.dist, eye: state.eye, pitch: state.pitch, panY: state.panY, night: state.night };
   let subject;
   if (kind === 'vehicle') {
@@ -530,12 +529,11 @@ function paintGlass2(view) {
   glNote = r.gl ? 'GLASS 2: ' + r.faces + ' faces, ' + r.lights + ' lights (the game\'s own frame; edits draw as you make them)'
     : 'GLASS 2 drew nothing this frame (no WebGL2, or the pass switched itself off: see __glass2() in the console)';
 }
-function setG2(on) {
-  state.g2 = !!on && glAvailable();
-  try { localStorage.setItem('ms_glass2', state.g2 ? '1' : '0'); } catch { /* per-browser convenience */ }
-  $('g2')?.classList.toggle('on', state.g2);
-  if (!state.g2) { g2Hide(); glNote = ''; }
-  draw();
+// The 2-D pass under the overlay only solves the camera for the cage, selection and pick test; where
+// GLASS can't draw, it is covered rather than shown as if it were the game's picture.
+function blankForNoGL(view) {
+  const ctx = view.getContext('2d');
+  ctx.fillStyle = '#14171c'; ctx.fillRect(0, 0, view.width, view.height);
 }
 
 function draw() {
@@ -1282,11 +1280,6 @@ function setGrey(on) {
 }
 $('grey').onclick = () => setGrey(!state.grey);
 $('grey').classList.toggle('on', state.grey);
-if ($('g2')) {
-  $('g2').onclick = () => setG2(!state.g2);
-  $('g2').classList.toggle('on', state.g2);
-  if (!glAvailable()) { $('g2').disabled = true; $('g2').title = 'this browser has no WebGL2'; state.g2 = false; }
-}
 if (!glAvailable()) { $('gl').disabled = true; $('gl').title = 'this browser has no WebGL2'; }
 
 function setMode(mode) {
@@ -1436,7 +1429,6 @@ addEventListener('keydown', (ev) => {
   else if (k === 'o') { ev.preventDefault(); $('open').click(); }
   else if (k === 't') { ev.preventDefault(); toggleToolbox(); }
   else if (k === 'g' && !ev.shiftKey) { ev.preventDefault(); setGl(!state.gl); }
-  else if (k === '2') { ev.preventDefault(); setG2(!state.g2); }
   else if (k === 'b') { ev.preventDefault(); setGrey(!state.grey); }
   else if (k === 'escape') { selectedSeg = -1; draw(); }
   else if ((k === 'delete' || k === 'backspace') && doc && selectedSeg >= 0) {

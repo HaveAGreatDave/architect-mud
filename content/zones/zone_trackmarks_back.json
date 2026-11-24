@@ -66,6 +66,24 @@
             "cage": true,
             "len": 1.2
           }
+        ],
+        "torn": [
+          {
+            "wall": "left",
+            "along": 1.8,
+            "y": 1.6,
+            "n": 4,
+            "seed": 71
+          }
+        ],
+        "kit": [
+          {
+            "at": [
+              -1.9,
+              0.9
+            ],
+            "seed": 72
+          }
         ]
       },
       "face": 180,
@@ -89,6 +107,6 @@
   "grid_z": 0,
   "id": "zone_trackmarks_back",
   "map_id": "map_int_trackmarks",
-  "name": "Hostel Takeover, the wash",
+  "name": "Hostel Takeover, the showers",
   "parent_zone": "zone_district_917_903"
 }

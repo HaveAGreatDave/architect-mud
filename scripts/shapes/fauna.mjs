@@ -1319,7 +1319,10 @@ T = T_GROUND ?? 1e6;
 const ownFlock = (q) => {
   let bd = Infinity, best = null;
   for (const fl of localAnchors) { const d = Math.hypot(q.wx - fl.ax, q.wy - fl.ay); if (d < bd) { bd = d; best = fl; } }
-  return best && best.ax === ANCHOR.ax && best.ay === ANCHOR.ay;
+  // ⚠ AND CLOSE TO IT. localAnchors is the parkland geese only, so a flock of another species a few
+  // tiles off (a street flock of pigeons) has no anchor of its own and was read as part of this one.
+  // A startled patch stays inside a tile of its anchor.
+  return best && best.ax === ANCHOR.ax && best.ay === ANCHOR.ay && bd < 1.5;
 };
 const spreadOf = (r) => {
   const g = r.quads.filter((q) => q.state !== 'air' && ownFlock(q));
@@ -1509,29 +1512,16 @@ function census(glOn) {
 // ground AND one in the air at that instant — which it did for one anchor and stopped doing for
 // the next. The failure reads as "the flying drawer lost its canvas path", which is a real and
 // serious bug, so the check must not be able to claim it for a reason as thin as the clock.
-const paintBefore = faunaPaintCount();
+// GLASS 1 (the 2-D painter) was removed on 2026-11-23, so there is no canvas control to paint a
+// bird; what is left is the residue half: with GL on, nothing of drawGeese may reach the canvas.
 T = T_GROUND ?? 1e6;
-const ctrlRows = census(false);
-const midC = faunaPaintCount();
-T = T_AIR ?? 1e6;
-census(false);
-const after = faunaPaintCount();
-const walkedC = midC.walk - paintBefore.walk, airC = after.air - midC.air;
-// ⚠ BOTH HALVES, SEPARATELY. The walking and flying drawers are different code, so a total lets
-// one of them lose its canvas path with the other keeping the count above zero.
-if (!walkedC) problems.push('GLASS 1 queued geese but painted no WALKING bird — drawGooseGround only pushes a billboard, so with GLASS 2 off the flock on the grass is invisible');
-if (!airC) problems.push('GLASS 1 queued geese but painted no FLYING bird — drawGooseAir only pushes a billboard, so with GLASS 2 off the skein is invisible');
-if (walkedC && airC) notes.push(`GLASS 1 painted ${walkedC} walking and ${airC} flying`);
 const glRows = census(true);
 const gooseIn = (rows) => rows.filter((r) => /drawGeese/.test(r.tag));
-if (!gooseIn(ctrlRows).length) {
-  problems.push('the GLASS 1 control drew no drawGeese — the scene does not contain what this measures, so an empty GLASS 2 tally would mean nothing');
-} else {
+{
   const left = gooseIn(glRows);
   if (left.length) problems.push(`drawGeese left ${left.reduce((a, r) => a + r.faces, 0)} face(s) on the canvas over the composited city — it is queueing through emitFace rather than emitScatterFace`);
 }
 if (REPORT) {
-  console.log('  control goose rows: ' + (gooseIn(ctrlRows).map((r) => r.faces + ' ' + r.tag).join(' | ') || 'none'));
   console.log('  residue goose rows: ' + (gooseIn(glRows).map((r) => r.faces + ' ' + r.tag).join(' | ') || 'none'));
 }
 
@@ -2351,9 +2341,6 @@ T = T_GROUND ?? 1e6;
     const lying = houndPaint(T_STOP, 12);
     if (!lying.length || !lying.every((r) => r.state === 'lie')) problems.push('at a stop the pack is not lying down: ' + lying.map((r) => r.state).join());
     if (houndPaint(T_RUN, 2).length) problems.push('hounds drew after dark; the fauna layer has no night tint, so they are day-gated like the birds');
-    const before = faunaPaintCount().run;
-    houndPaint(T_RUN, 12, false);
-    if (!(faunaPaintCount().run > before)) problems.push('GLASS 1 painted no running hound: drawHounds only pushes a record, so with GLASS 2 off the pack is invisible');
   }
 }
 

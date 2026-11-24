@@ -294,7 +294,7 @@ export default async function regress({ run, check, getPlayer }) {
   check("centre mass is free — it's what the roll already favoured",
     (() => { const p = body(); p._aimPart = 'torso'; return aimHitPenalty(p, 0) === 0; })());
 
-  // The lesson is Grady's now, and its whole point is that it tells the truth
+  // The lesson is Rusty's now, and its whole point is that it tells the truth
   // about YOUR hands. The trap it exists to prevent is a novice being sold a
   // called shot as an unqualified good, so the untrained wording must actually
   // say no — and the readout must quote the skill-adjusted cost, not the

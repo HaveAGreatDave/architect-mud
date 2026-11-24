@@ -133,7 +133,7 @@ export default async function regress({ check }) {
   const advertOther = await readTwocellAdvert(['bulletin'], 'read bulletin', { ...p, current_zone: Z_CLONEVAT });
   check('read <not the advert> falls through', advertOther === undefined);
   const twocell = await query(`SELECT name FROM zones WHERE id='zone_district_920_903'`);
-  check('the advert has somewhere to send you', twocell.rows[0]?.name === 'Two-Cell Supply', twocell.rows[0]?.name);
+  check('the advert has somewhere to send you', twocell.rows[0]?.name === "O'Toole's Surplus", twocell.rows[0]?.name);
 
   // ── The poster beat waits for the tablet walkthrough ───────────────────────
   // The nudge used to fire on a timer; it now fires when the client says the
@@ -366,7 +366,7 @@ export default async function regress({ check }) {
 
   // The two gaps the log rung had that the visual tour never did. Everything
   // pointing a player at a destination speaks in map language ("the green GPS
-  // line", Grady's "line on your map"), and there is no map drawn at this rung —
+  // line", Rusty's "line on your map"), and there is no map drawn at this rung —
   // so the route verbs have to be said. `auto` is the load-bearing one: the
   // walking works here (gps_route is handled identically at every rung), it was
   // simply never named anywhere this player would hear it.

@@ -32,8 +32,8 @@
 // scene contained no street furniture at all. That happened twice while this was being written —
 // the first map set `surf: 'road'` where drawTrafficSignals reads `c.road`, the second put the
 // junction under the camera where the near clip drops it — and both times the census reported a
-// clean city. So the GLASS 1 frame is a CONTROL: the painters have to show up there, or this fails
-// for its own reason rather than passing for the renderer's.
+// clean city. So the control takes each subject out in turn on the GL path: the frame handed to the GL
+// hook has to change, or this fails for its own reason rather than passing for the renderer's.
 import { loadWindshield, stubCanvas } from './dom-stub.mjs';
 
 const ws = await loadWindshield();
@@ -50,16 +50,17 @@ stubCanvas('__wr', W, H);
 // its own feet, so a crossing on the centre tile is a crossing nothing draws.
 const N = 41, R = 20, CROSS = R - 6;
 const dirsAt = (x, y) => (x === R && y === CROSS) ? 'nesw' : x === R ? 'ns' : y === CROSS ? 'ew' : null;
-const map = Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) => {
-  const rd = dirsAt(x, y);
-  if (rd) return { kind: 'land', biome: 'city', flr: 0, road: 1, rd, pw: 1, sl: ((x + y) % 4 === 0) ? 1 : undefined };
+const buildMap = (omit = new Set()) => Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) => {
+  let rd = dirsAt(x, y);
+  if (rd === 'nesw' && omit.has('drawTrafficSignals')) rd = 'ns';
+  if (rd) return { kind: 'land', biome: 'city', flr: 0, road: 1, rd, pw: 1, sl: ((x + y) % 4 === 0 && !omit.has('drawStreetLamps')) ? 1 : undefined };
   // ⚠ AND THE ECHELON, BECAUSE THIS CENSUS COULD NOT SEE HER EITHER. The same gap the pedestrians
   // sat in: `drawYacht` paints through the world sweep and no scene here had ever contained one, so
   // a two-tile ship painting over the whole city was invisible to the gate written to find exactly
   // that. Her hull is in gl/solids.js and her fittings — the pad ring, the rails, the mast, the deck
   // lamps, the sidelights and the wake — followed it there, so she declares nothing and leaves
   // nothing. That she leaves nothing is a claim this file is the only thing that checks.
-  if (x === R - 5 && y === CROSS - 3) return { kind: 'land', biome: 'water', road: 0, mark: 'yacht', heading: 40, wake: { spd: 0.2 }, flr: 0 };
+  if (x === R - 5 && y === CROSS - 3 && !omit.has('yacht')) return { kind: 'land', biome: 'water', road: 0, mark: 'yacht', heading: 40, wake: { spd: 0.2 }, flr: 0 };
   // …AND A BERTH WITH A FREIGHTER IN IT, for the Echelon's reason exactly. She is the second ship
   // in the game and the same census could not see her either: her hull goes to gl/solids.js and
   // her fittings — the mast, the derrick posts, the handrail, the deck lamps and the wake — are
@@ -69,7 +70,7 @@ const map = Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x)
   // ⚠ THE CYCLE IS FORCED, not left to the clock. `berthPhase` is a function of wall time, so an
   // unforced berth is empty for a third of every cycle — and a census that silently draws no ship
   // is the vacuous control this file's own header is about. `RENDER_TUNE.shipForce` is pinned below.
-  if (x === R - 7 && y === CROSS - 4) return { kind: 'land', biome: 'water', road: 0, mark: 'berth', bf: 'north', bq: 'west', flr: 0 };
+  if (x === R - 7 && y === CROSS - 4 && !omit.has('freighter')) return { kind: 'land', biome: 'water', road: 0, mark: 'berth', bf: 'north', bq: 'west', flr: 0 };
   // …AND A TENT CAMP, for the yacht's and the freighter's reason a third time. Old Coldwater's
   // Pitch is a `mark` drawn INLINE from the world sweep — tarpaulin quads, guy lines, poles, a
   // strung cable, lamps and a painted slogan, every one of them on a layer that is null until the
@@ -85,6 +86,7 @@ const map = Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x)
     ? { kind: 'land', biome: 'city', flr: 0, bt: 'shop', is_building: 1, floors: 4 }
     : { kind: 'land', biome: 'city', flr: 0 };
 }));
+const map = buildMap();
 
 const VIEW = {
   cls: 'truck', variant: 'hauler', phase: 'ground', worldBlend: 1, height: 0, eyeH: 0.12, fovMul: 1.22,
@@ -116,11 +118,11 @@ const glWas = ws.RENDER_TUNE.gl, floorWas = ws.RENDER_TUNE.glFloor, shipWas = ws
 // census whose ship happened not to be there would report a clean canvas for the wrong reason.
 ws.RENDER_TUNE.shipForce = (ws.SHIP_PLAN.load0 + ws.SHIP_PLAN.load1) / 2;
 
-let sinks = null;
-function tally(glOn) {
-  ws.RENDER_TUNE.gl = glOn ? 1 : 0;
-  ws.RENDER_TUNE.glFloor = glOn ? 1 : 0;
-  if (glOn) {
+let sinks = null, sizes = null;
+function tally(view = VIEW) {
+  ws.RENDER_TUNE.gl = 1;
+  ws.RENDER_TUNE.glFloor = 1;
+  {
     // ⚠ THE HOOK HAS TO RETURN A CANVAS, NOT MERELY A TRUTHY OBJECT. `if (out && out.canvas)` is
     // what counts as having drawn; anything else is the no-WebGL2 path, which puts RENDER_TUNE.gl
     // back to 0 and paints the NEXT frame in 2-D — so the census comes back holding the whole city
@@ -130,13 +132,15 @@ function tally(glOn) {
     ws.installGLWorld((cells, cam, o) => {
       sinks = { strokes: (o.strokes || []).length, sprites: (o.sprites || []).length,
                 decals: (o.decals || []).length, ground: ws.expandGroundBlocks(o.ground || []).length };   // blocks expanded (groundGPU)
+      sizes = { cells: (cells || []).length };
+      for (const [k, v] of Object.entries(o || {})) if (Array.isArray(v)) sizes[k] = v.length;
       return { faces: 1, canvas: c };
     });
-  } else ws.installGLWorld(null);
-  ws.paintWindshield('__wr', VIEW);              // settle every lazy cache and bake — and BIRTH the actors
+  }
+  ws.paintWindshield('__wr', view);              // settle every lazy cache and bake — and BIRTH the actors
   T += FADE_MS + 100;                            // …so they have finished fading in by the census frame
   globalThis.window.__emitWhoStart();
-  ws.paintWindshield('__wr', VIEW);
+  ws.paintWindshield('__wr', view);
   const rows = globalThis.window.__emitWho();
   if (typeof rows === 'string') return null;
   return rows.map((l) => {
@@ -145,18 +149,32 @@ function tally(glOn) {
   }).filter(Boolean);
 }
 
-const control = tally(false);
-const residue = tally(true);
+const residue = tally();
+const full = sizes, fullSinks = sinks;
+// THE CONTROL, ON THE GL PATH. Each subject is taken out of the scene in turn and the frame the GL
+// hook is handed has to change: if it doesn't, the scene never contained that subject.
+const without = (w) => {
+  const v = { ...VIEW, map: buildMap(new Set([w])) };
+  if (w === 'drawStreetActors') delete v.actors;
+  if (w === 'drawRoadside') delete v.roadside;
+  sizes = null; tally(v); return sizes;
+};
+const SUBJECTS = ['drawTrafficSignals', 'drawStreetLamps', 'drawStreetActors', 'drawRoadside', 'yacht', 'freighter'];
+const control = SUBJECTS.map((w) => {
+  const less = without(w);
+  const moved = less && full ? Object.keys({ ...full, ...less }).filter((k) => (full[k] || 0) !== (less[k] || 0)) : [];
+  return { subject: w, moved };
+});
 
 ws.installGLWorld(null);
 ws.RENDER_TUNE.gl = glWas; ws.RENDER_TUNE.glFloor = floorWas; ws.RENDER_TUNE.shipForce = shipWas;
 globalThis.performance = clock;
 
 const problems = [];
-if (!control || !residue) problems.push('the tally never started — __emitWhoStart is not wired');
+if (!residue) problems.push('the tally never started — __emitWhoStart is not wired');
 
-// The scene has to contain the thing being measured. Both of these paint on the canvas in GLASS 1
-// by construction, so their absence means the map is wrong rather than that the city is clean.
+// The scene has to contain the thing being measured. Each subject has to move the GL frame when it
+// is removed (the control above), so its absence means the map is wrong rather than that the city is clean.
 // ⚠ NAME THE PASS, NOT THE DRAWER. The tally tags a face with the function that QUEUED it, and a
 // figure is queued by its pass — `emitScatterFace < drawStreetActors` — so looking for the drawer
 // underneath it (drawActorFigure) finds nothing and fails a scene that is perfectly correct.
@@ -176,9 +194,9 @@ if (!control || !residue) problems.push('the tally never started — __emitWhoSt
 // file to claim — whether she is drawn at all is `scripts/shapes/moving.mjs`'s question, and it
 // is mutation-tested there. What this one settles is that the canvas branch is REACHED and leaves
 // nothing behind that has no reason on file.
-for (const w of ['drawTrafficSignals', 'drawStreetLamps', 'drawStreetActors', 'drawRoadside', 'yacht', 'freighter']) {
-  if (!control || !control.some((r) => r.tag.includes(w))) {
-    problems.push(`the GLASS 1 control drew no ${w} — the scene does not contain what this measures, so an empty GLASS 2 tally would mean nothing`);
+for (const c of control) {
+  if (!c.moved.length) {
+    problems.push(`removing ${c.subject} changed nothing handed to the GL pass: the scene does not contain what this measures, so an empty tally would mean nothing`);
   }
 }
 
@@ -204,9 +222,10 @@ if (REPORT) {
     if (!list || !list.length) { console.log('    (nothing)'); return; }
     for (const r of [...list].sort((a, b) => b.faces - a.faces)) console.log(`    ${String(r.faces).padStart(5)}  ${r.tag}`);
   };
-  show('GLASS 1 — the whole canvas queue (the control)', control);
+  console.log('\n  the control: what each subject moves in the GL frame');
+  for (const c of control) console.log(`    ${c.subject.padEnd(20)} ${c.moved.join(', ') || '(nothing)'}`);
   show('GLASS 2 — what is LEFT on the canvas', residue);
-  console.log('\n  GLASS 2 — where the rest went instead: ' + JSON.stringify(sinks));
+  console.log('\n  GLASS 2 — where the rest went instead: ' + JSON.stringify(fullSinks));
   console.log('');
 }
 
@@ -220,5 +239,5 @@ if (problems.length) {
 
 const total = residue.reduce((n, r) => n + r.faces, 0);
 console.log(`✓ worldresidue: the world pass leaves ${residue.length} painter(s) and ${total} face(s) on the canvas, all accounted for.`);
-console.log(`  · control: ${control.length} painters in GLASS 1 — GLASS 2 moved them to ${sinks.strokes} strokes, ${sinks.sprites} sprites, ${sinks.decals} decals, ${sinks.ground} ground quads`);
+console.log(`  · control: all ${control.length} subjects move the GL frame; the sinks hold ${fullSinks.strokes} strokes, ${fullSinks.sprites} sprites, ${fullSinks.decals} decals, ${fullSinks.ground} ground quads`);
 for (const r of residue) console.log(`  · ${r.painter} — ${r.faces} face(s) still painted over the city`);

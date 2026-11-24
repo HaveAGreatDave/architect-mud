@@ -130,88 +130,6 @@
       }
     }
   },
-  "faction": null,
-  "home_activities": [],
-  "studio_zone_id": null,
-  "wander_zones": [],
-  "wanders": 0,
-  "npc_type": "vendor",
-  "id": "npc_negeq_salis",
-  "name": "Benedetta Salis",
-  "sex": "female",
-  "hp": 36,
-  "hp_max": 36,
-  "home_zone": "zone_negeq_studio",
-  "work_zone_id": "zone_negeq_shop",
-  "vendor_shop_name": "Negative Equity",
-  "vendor_restock_rate": 2,
-  "vendor_stock_size": 10,
-  "vendor_schedule": {
-    "mon": [
-      {
-        "from": 10,
-        "to": 18
-      }
-    ],
-    "tue": [
-      {
-        "from": 10,
-        "to": 18
-      }
-    ],
-    "wed": [
-      {
-        "from": 10,
-        "to": 18
-      }
-    ],
-    "thu": [
-      {
-        "from": 10,
-        "to": 18
-      }
-    ],
-    "fri": [
-      {
-        "from": 10,
-        "to": 18
-      }
-    ],
-    "sat": [
-      {
-        "from": 10,
-        "to": 15
-      }
-    ],
-    "sun": []
-  },
-  "vendor_inventory": [
-    {
-      "item_id": "item_negeq_card",
-      "price": 34
-    },
-    {
-      "item_id": "item_negeq_fixer",
-      "price": 22
-    },
-    {
-      "item_id": "item_negeq_plate",
-      "price": 62
-    },
-    {
-      "item_id": "item_negeq_portrait",
-      "price": 180
-    }
-  ],
-  "flags": {
-    "clothing_layers": [
-      "a black cotton work coat with the cuffs turned back",
-      "a grey shirt, buttoned, with nothing at the collar",
-      "plain trousers and shoes chosen for standing in"
-    ],
-    "personality": "vendor"
-  },
-  "description": "A woman of about forty-five in a black work coat, standing very still. She looks at your face a beat too long, once. Her hands smell faintly of fixer. She isn't selling you anything.",
   "chitchat": [
     "Salis looks up at the roof, at nothing, and goes back to the ledger.",
     "She turns a print face down on the desk without letting you see it.",
@@ -228,6 +146,7 @@
     "She looks at the sky through the studio glass for a long moment, judging something.",
     "\"That one's not for sale, it's not for showing, and it's on the wall because it's the best thing I've done.\""
   ],
+  "description": "A woman of about forty-five in a black work coat, standing very still. She looks at your face a beat too long, once. Her hands smell faintly of fixer. She isn't selling you anything.",
   "dialogue_tree": {
     "bye": {
       "options": [],
@@ -311,5 +230,86 @@
         "known": "\"You.\" She glances up at the roof glass. \"Another sitting, or cards?\""
       }
     }
-  }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a black cotton work coat with the cuffs turned back",
+      "a grey shirt, buttoned, with nothing at the collar",
+      "plain trousers and shoes chosen for standing in"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_negeq_studio",
+  "hp": 36,
+  "hp_max": 36,
+  "id": "npc_negeq_salis",
+  "name": "Benedetta Salis",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_negeq_card",
+      "price": 34
+    },
+    {
+      "item_id": "item_negeq_fixer",
+      "price": 22
+    },
+    {
+      "item_id": "item_negeq_plate",
+      "price": 62
+    },
+    {
+      "item_id": "item_negeq_portrait",
+      "price": 180
+    }
+  ],
+  "vendor_restock_rate": 2,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 10,
+        "to": 18
+      }
+    ],
+    "mon": [
+      {
+        "from": 10,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 15
+      }
+    ],
+    "sun": [],
+    "thu": [
+      {
+        "from": 10,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 10,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 10,
+        "to": 18
+      }
+    ]
+  },
+  "vendor_shop_name": "Negative Equity",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
 }

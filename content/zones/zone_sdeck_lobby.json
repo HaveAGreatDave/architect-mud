@@ -12,18 +12,36 @@
     "south": "zone_seam_914_908"
   },
   "flags": {
-    "building_name": "Stacked Deck",
+    "building_name": "Marrow Street Parking",
     "is_interior": true,
     "floor": "concrete",
     "building_type": "vtol_park",
     "is_building": true,
-    "world_exit_zone": "zone_seam_914_908"
+    "world_exit_zone": "zone_seam_914_908",
+    "room": {
+      "w": 10,
+      "d": 5.5,
+      "h": 3.4,
+      "face": 180,
+      "finish": "plain",
+      "ground": "concrete",
+      "studio": false,
+      "balcony": false,
+      "doors": {
+        "south": 0,
+        "in": 0
+      },
+      "street_door": {
+        "kind": "sliding",
+        "w": 1.6
+      }
+    }
   },
   "grid_x": 0,
   "grid_y": 0,
   "grid_z": 0,
   "id": "zone_sdeck_lobby",
   "map_id": "map_int_stackeddeck",
-  "name": "Stacked Deck, Lobby",
+  "name": "Marrow Street Parking, Lobby",
   "parent_zone": "zone_seam_914_908"
 }

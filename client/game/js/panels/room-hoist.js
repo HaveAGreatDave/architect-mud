@@ -23,6 +23,7 @@ import { podracerLook, podracerLivery } from './podracer-model.js';
 import { vtx, lin, MAT } from './gl/ballpark-mesh.js';
 import { bayOf } from '../../../shared/room-layout.js';
 import { dealerBay, dealerCar } from '../../../shared/dealer-display.js';
+import { createHangarKiosk } from './room-hangar-kiosk.js';
 
 const CSS = await loadCss(new URL('./room-hoist.css', import.meta.url));
 function ensureStyles() {
@@ -58,6 +59,7 @@ const WORDS = {
 };
 const wordsOf = (kind) => WORDS[kind] || WORDS.truck;
 
+const seg = (t, a, b) => (t - a) / (b - a);
 const ease = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
 const hex = (c) => '#' + c.slice(0, 3).map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
 // the way each wall is from the middle of the room, in its u and v (left is -u, front is v = 0)
@@ -94,7 +96,7 @@ function modelOf(look) {
 /**
  * The stand of one open Stage. `send(cmd)` sends a verb; `walker()` is where you stand, [u, v], or null.
  */
-export function createRoomHoist({ host, send, walker }) {
+export function createRoomHoist({ host, send, walker, project = null }) {
   ensureStyles();
   const panel = document.createElement('div');
   panel.className = 'rh-panel'; panel.hidden = true;
@@ -102,6 +104,8 @@ export function createRoomHoist({ host, send, walker }) {
   const board = document.createElement('button');
   board.type = 'button'; board.className = 'rh-board'; board.hidden = true;
   host.append(panel, board);
+  // a hangar's display (room-hangar-kiosk.js), in a room whose stand has a 'kiosk'; the host must project for it
+  const kiosk = project ? createHangarKiosk({ host, project, send, walker }) : null;
   panel.addEventListener('click', (e) => { const b = e.target.closest('button[data-cmd]'); if (b) { send(b.dataset.cmd); b.blur(); } });
   board.addEventListener('click', () => { if (board.dataset.cmd) { send(board.dataset.cmd); board.blur(); } });
 
@@ -193,7 +197,9 @@ export function createRoomHoist({ host, send, walker }) {
         if (lf.down != null && (was?.down == null || !was)) tDown = now - lf.down;
       }
     }
-    panel.hidden = !V;
+    kiosk?.load(Lnew, vehicles);
+    // where the display is, it's the way in: the corner panel would only say it twice
+    panel.hidden = !V || !!(kiosk?.active);
     // a showroom's display cars (below): solid where they stand, and their meshes asked for once
     if (Lnew) {
       if (L.solid) for (let i = L.solid.length - 1; i >= 0; i--) if (L.solid[i]._hoist === 'display') L.solid.splice(i, 1);
@@ -228,14 +234,19 @@ export function createRoomHoist({ host, send, walker }) {
     // a shed's platform is always somewhere: flush with the floor with nothing on it, else where the lift has it
     if (L && B) shedPlate(b, B, V?.lift ? level(now) : 1);
     if (L) displays(b);
-    if (!L || !V) return;
+    kiosk?.into(b);
+    // a desk (a terminal's display) has no floor to bring anything onto: the display is all it draws
+    if (!L || !V || V.desk) return;
     const S = standOf(), from = fromOf(), kind = kindOf(), lf = V.lift;
     const [u, v] = spot();
     const m = lf && ready ? modelOf(lf.look || { cls: 'truck', variant: lf.variant, paint: lf.paint, grime: lf.grime }) : null;
     const k = level(now), go = moving(now);
     const s = m ? scaleOf(m) : 1;
     const lift = from === 'below';
-    const y = lift ? -(B ? B.lift.rise : SHAFT) * (1 - k) : 0;
+    // AN AIRCRAFT'S FLOOR LIFT IS A CAROUSEL: the deck parts, the turntable comes up turning, the locks go home
+    const carousel = lift && !B && kind === 'aircraft', C6 = carousel ? carouselAt(now) : null;
+    const shaft = m ? Math.max(SHAFT, (m.h1 - m.h0) * s + 1.2) : SHAFT;
+    const y = carousel ? -shaft * (1 - C6.rise) : lift ? -(B ? B.lift.rise : SHAFT) * (1 - k) : 0;
     // the stand's size: the vehicle's, plus an apron round it; the box (or a default) before the model's in
     const hl = m ? (m.f1 - m.f0) * s / 2 + APRON : (S ? S.len / 2 : 4.5), hw = m ? (m.g1 - m.g0) * s / 2 + APRON : (S ? S.wid / 2 : 1.9);
     const W = (a, c, h) => L.world(a, c, h);
@@ -255,7 +266,7 @@ export function createRoomHoist({ host, send, walker }) {
     };
     const [p0, p1, q0, q1] = pad;
     // (a truck shed has its own, painted round its well)
-    if (!B) { edge(p0 - fr, p1 + fr, q0 - fr, q0); edge(p0 - fr, p1 + fr, q1, q1 + fr); edge(p0 - fr, p0, q0, q1); edge(p1, p1 + fr, q0, q1); }
+    if (!B && !carousel) { edge(p0 - fr, p1 + fr, q0 - fr, q0); edge(p0 - fr, p1 + fr, q1, q1 + fr); edge(p0 - fr, p0, q0, q1); edge(p1, p1 + fr, q0, q1); }
     if (S?.water) {
       // the slip: dark water a hand under the quay, with bands of lighter sheen. Still: the batch is only
       // built again while something moves, and a ripple isn't worth a rebuild a frame
@@ -267,6 +278,8 @@ export function createRoomHoist({ host, send, walker }) {
         const q = longU ? [p0 + (p1 - p0) * f, p0 + (p1 - p0) * f + wb, q0 + 0.25, q1 - 0.25] : [p0 + 0.25, p1 - 0.25, q0 + (q1 - q0) * f, q0 + (q1 - q0) * f + wb];
         flat(q, 0.005, lin('#143a40'), MAT.GLOSS);
       }
+    } else if (carousel) {
+      drawCarousel(b, [u, v], Math.max(hl, hw) + 0.4, C6, y, now);
     } else if (lift && !B) {
       // the hole, while there's one: the plate is somewhere under the floor (a shed's is its own: shedPlate)
       if (k < 0.999) flat(boxAt([u, v], hl, hw), 0.004, lin('#050505'), MAT.MATTE);
@@ -281,7 +294,7 @@ export function createRoomHoist({ host, send, walker }) {
     }
     const c = centreAt(k, m, s);
     if (m && lf) {
-      const { F, R } = axes();
+      const { F, R } = carousel ? turned(axes(), C6.spin) : axes();
       const WF = sub(W(c[0] + F[0], c[1] + F[1], 0), W(c[0], c[1], 0)), WR = sub(W(c[0] + R[0], c[1] + R[1], 0), W(c[0], c[1], 0));
       // afloat she sits down to her waterline and rides the slip; a racer floats a hand off its dolly
       const sink = S?.water ? -(m.h1 - m.h0) * s * 0.28 : kind === 'podracer' ? 0.35 : 0;
@@ -300,7 +313,7 @@ export function createRoomHoist({ host, send, walker }) {
         for (let j = 1; j + 1 < q.length; j++) for (const p of [q[0], q[j], q[j + 1]]) vtx(b, p, n, uv, fc.col, mat);
       }
       // the tug under an aircraft's nose and the dolly under a racer, while they're being moved
-      if (go && kind === 'aircraft') block(b, [c[0] + F[0] * (hl + 0.9), c[1] + F[1] * (hl + 0.9)], 1.1, 0.7, 1.0, lin('#e0b020'));
+      if (go && kind === 'aircraft' && !carousel) block(b, [c[0] + F[0] * (hl + 0.9), c[1] + F[1] * (hl + 0.9)], 1.1, 0.7, 1.0, lin('#e0b020'));
       if (kind === 'podracer') block(b, c, Math.max(0.8, hw - APRON - 0.4), Math.max(1, hl - APRON - 0.6), 0.22, lin('#3a3d42'));
     }
     // the beacons at the corners of the stand, going round while it moves
@@ -367,6 +380,120 @@ export function createRoomHoist({ host, send, walker }) {
     }
   }
 
+  // WHERE THE CAROUSEL IS, from the stand's clock: 'e' is how far through its move (0 to 1, on the way up or down),
+  // 'open' how far the deck's leaves have drawn back, 'rise' how far up the turntable is, 'spin' its turn in
+  // radians (0 when it's up, facing the stand's way), 'locked' once the locks are home. Down is the same, backwards.
+  function carouselAt(now) {
+    const lf = V?.lift, ms = V?.moveMs || 14000;
+    if (!lf) return { e: 0, t: 0, open: 0, rise: 0, spin: 0, locked: false, down: false };
+    const down = lf.down != null, e = Math.max(0, Math.min(1, (now - (down ? tDown : t0)) / ms)), t = down ? 1 - e : e;
+    const open = down ? ease(seg(t, 0.06, 0.2)) : ease(seg(t, 0.03, 0.17));
+    const rise = ease(seg(t, 0.2, 0.84));
+    return { e, t, open, rise, spin: (1 - rise) * Math.PI * 2.5, locked: t >= 0.88, down };
+  }
+  const turned = ({ F, R }, a) => { const c = Math.cos(a), s2 = Math.sin(a); return { F: [F[0] * c - F[1] * s2, F[0] * s2 + F[1] * c], R: [R[0] * c - R[1] * s2, R[0] * s2 + R[1] * c] }; };
+
+  // THE CAROUSEL ON THE FLOOR: a hazard ring round the well; the well, black, where the two deck leaves have drawn
+  // back from; the turntable riding in it, ribbed steel with spokes that show it turning; and the lamps on the rim,
+  // amber while it moves, green once it's locked. Under the floor the room's own floor hides it, as the lift's plate.
+  function drawCarousel(b, [u, v], R, c, y, now) {
+    const W = (a, e, h) => L.world(a, e, h), up = [0, 1, 0], uv = [0, 0], N = 48;
+    const tri = (p, q, r, col, mat) => { for (const x of [p, q, r]) vtx(b, x, up, uv, col, mat); };
+    const ring = (r0, r1, h, colOf, mat, a0 = 0) => {
+      for (let i = 0; i < N; i++) {
+        const A0 = a0 + i / N * Math.PI * 2, A1 = a0 + (i + 1) / N * Math.PI * 2, col = colOf(i);
+        const P = (a, r) => W(u + Math.cos(a) * r, v + Math.sin(a) * r, h);
+        tri(P(A0, r0), P(A0, r1), P(A1, r1), col, mat); tri(P(A0, r0), P(A1, r1), P(A1, r0), col, mat);
+      }
+    };
+    const amber = lin('#e8a818'), ink = lin('#141416');
+    ring(R, R + 0.35, 0.011, (i) => (i % 2 ? ink : amber), MAT.MATTE);
+    ring(R + 0.35, R + 0.45, 0.012, () => lin('#8a9096'), MAT.METAL);
+    // the well, wherever the leaves aren't
+    if (c.rise < 0.999 && c.open > 0.001) ring(0, R, 0.011, () => lin('#040405'), MAT.MATTE);   // over the floor's paint, which mustn't cross the hole
+    // the two leaves: each the half of the disc on its side, cut back toward the rim as it draws away
+    if (c.open < 0.999 && c.rise < 0.999) {
+      const n = 24, keep = 1 - c.open;
+      const hz = (x) => Math.sqrt(Math.max(0, R * R - x * x));
+      for (const side of [-1, 1]) for (let i = 0; i < n; i++) {
+        // strips across, from the rim in toward the middle, only as far as the leaf still reaches
+        const x0 = side * R * (1 - keep * i / n), x1 = side * R * (1 - keep * (i + 1) / n);
+        const q = [[x0, -hz(x0)], [x1, -hz(x1)], [x1, hz(x1)], [x0, hz(x0)]].map(([a, e]) => W(u + a, v + e, 0.013));
+        const col = lin(i === n - 1 ? '#d8a018' : (i % 2 ? '#5a5f65' : '#62676d'));
+        tri(q[0], q[1], q[2], col, MAT.PLATE); tri(q[0], q[2], q[3], col, MAT.PLATE);
+      }
+    }
+    // the turntable: the deck, its spokes and the rim, turning with the aircraft. Flush, it's the floor
+    if (c.rise > 0.001 || !c.open) {
+      const h = Math.min(0.016, y + 0.016);
+      ring(0, R, h, (i) => lin(i % 2 ? '#43484e' : '#4a4f55'), MAT.PLATE, -c.spin);
+      for (let k = 0; k < 8; k++) {
+        const a = -c.spin + k / 8 * Math.PI * 2, d = [Math.cos(a), Math.sin(a)], s2 = [-d[1] * 0.06, d[0] * 0.06];
+        const q = [[s2[0], s2[1]], [d[0] * R * 0.97 + s2[0], d[1] * R * 0.97 + s2[1]], [d[0] * R * 0.97 - s2[0], d[1] * R * 0.97 - s2[1]], [-s2[0], -s2[1]]].map(([a2, e]) => W(u + a2, v + e, h + 0.002));
+        const col = lin(k === 0 ? '#e8a818' : '#7d848b');
+        tri(q[0], q[1], q[2], col, MAT.METAL); tri(q[0], q[2], q[3], col, MAT.METAL);
+      }
+      ring(R * 0.94, R, h + 0.003, () => lin('#9aa2aa'), MAT.METAL, -c.spin);
+    }
+    // the rim lamps: eight, chasing amber while it moves, steady green once it's locked up, off at rest
+    const lit = V?.lift && c.e < 1 ? 'move' : V?.lift && c.locked && !c.down ? 'lock' : null;
+    if (lit) {
+      const on = Math.floor(now / 140) % 8;
+      b.lights = (b.lights || []).concat(Array.from({ length: 8 }, (_, i) => i).filter((i) => lit === 'lock' || (i - on + 8) % 8 < 2).map((i) => {
+        const a = i / 8 * Math.PI * 2;
+        return { p: W(u + Math.cos(a) * (R + 0.2), v + Math.sin(a) * (R + 0.2), 0.25), c: lit === 'lock' ? [0.25, 1, 0.4] : [1, 0.6, 0.1], r: 5 };
+      }));
+    }
+  }
+
+  // THE CAROUSEL'S NOISES, on its own clock: the klaxon, the deck leaves grinding back, the rams' hum while it rises,
+  // and the locks going home, chunk chunk CHUNK (down: the locks let go first, and the leaves close last)
+  const CUES_UP = [[0, 'klaxon'], [0.03, 'deck'], [0.2, 'rams'], [0.86, 'chunk'], [0.895, 'chunk'], [0.93, 'chunkBig'], [0.96, 'hiss']];
+  const CUES_DOWN = [[0, 'klaxon'], [0.02, 'chunk'], [0.05, 'chunkBig'], [0.08, 'hiss'], [0.12, 'rams'], [0.8, 'deck'], [0.95, 'chunk']];
+  let cueKey = '', cueAt = -1;
+  function carouselSounds(now) {
+    const lf = V?.lift;
+    if (!lf || kindOf() !== 'aircraft' || fromOf() !== 'below' || bayOf(L?.spec)) { cueKey = ''; return; }
+    const c = carouselAt(now), key = lf.id + (c.down ? ':d' : ':u');
+    // came in part way through: don't play what's already passed
+    if (key !== cueKey) { cueKey = key; cueAt = c.e > 0.05 ? c.e : -1; }
+    const ms = (V?.moveMs || 14000) / 1000;
+    for (const [at, cue] of c.down ? CUES_DOWN : CUES_UP) if (at > cueAt && at <= c.e) playCue(cue, ms);
+    cueAt = c.e;
+  }
+  function playCue(cue, ms) {
+    const sfx = (id, duration, layers, vol) => { try { window.AudioEngine?.playSfx({ id, name: id, category: 'sfx', priority: 4, config: { duration, layers } }, vol); } catch { /* silent is still a lift */ } };
+    if (cue === 'klaxon') {
+      // two tones, twice, a hard square through a horn's band
+      const layers = [];
+      for (let i = 0; i < 4; i++) layers.push({ delay: i * 0.42, waveform: 'square', freq: i % 2 ? 392 : 523, filter: { type: 'bandpass', freq: 900, q: 1.1 }, adsr: { a: 0.01, d: 0.05, s: 0.9, r: 0.06 }, duration: 0.36, gain: 0.16 });
+      sfx('sfx_hangar_klaxon', 1.8, layers, 0.55);
+    } else if (cue === 'deck') {
+      const d = ms * 0.15;
+      sfx('sfx_hangar_deck', d + 0.4, [
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass', freq: 320, q: 0.8 }, adsr: { a: 0.15, d: 0.2, s: 0.8, r: 0.3 }, duration: d, gain: 0.3 },
+        { waveform: 'sawtooth', freq: 46, pitchBend: { to: 52, time: d }, filter: { type: 'lowpass', freq: 220, q: 1 }, adsr: { a: 0.2, d: 0.2, s: 0.7, r: 0.3 }, duration: d, gain: 0.12 },
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 2600, q: 3 }, adsr: { a: 0.3, d: 0.3, s: 0.2, r: 0.2 }, duration: d, gain: 0.03 },
+      ], 0.6);
+    } else if (cue === 'rams') {
+      const d = ms * 0.64;
+      sfx('sfx_hangar_rams', d + 0.6, [
+        { waveform: 'sine', freq: 41, pitchBend: { to: 55, time: Math.min(2, d * 0.3) }, adsr: { a: 0.6, d: 0.4, s: 0.85, r: 0.8 }, duration: d, gain: 0.34 },
+        { waveform: 'triangle', freq: 82, pitchBend: { to: 110, time: Math.min(2, d * 0.3) }, adsr: { a: 0.7, d: 0.4, s: 0.6, r: 0.6 }, duration: d, gain: 0.06 },
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass', freq: 420, q: 0.7 }, adsr: { a: 0.8, d: 0.4, s: 0.7, r: 0.8 }, duration: d, gain: 0.12 },
+      ], 0.6);
+    } else if (cue === 'chunk' || cue === 'chunkBig') {
+      const big = cue === 'chunkBig', f = big ? 0.8 : 1;
+      sfx('sfx_hangar_chunk', 0.6, [
+        { waveform: 'sine', freq: 62 * f, pitchBend: { to: 36 * f, time: 0.14 }, adsr: { a: 0.002, d: big ? 0.3 : 0.2, s: 0, r: 0.1 }, gain: big ? 0.6 : 0.45 },
+        { waveform: 'square', freq: 180 * f, filter: { type: 'lowpass', freq: 800, q: 1.3 }, adsr: { a: 0.001, d: 0.06, s: 0, r: 0.05 }, gain: 0.1 },
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 1200 * f, q: 1.8 }, adsr: { a: 0.001, d: 0.08, s: 0, r: 0.05 }, gain: 0.09 },
+      ], big ? 0.8 : 0.65);
+    } else if (cue === 'hiss') {
+      sfx('sfx_hangar_hiss', 1.2, [{ waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 2400, q: 0.7 }, adsr: { a: 0.01, d: 0.9, s: 0, r: 0.2 }, gain: 0.08 }], 0.5);
+    }
+  }
+
   // a big door in a wall: `go` it's open, a dark mouth; shut, ribbed steel (or a water gate over a slip)
   function drawDoor(b, wall, wide, tall, go, water) {
     const [u, v] = spot(), hu = (L.spec.w || 16) / 2, d = L.spec.d || 20, h = Math.min(L.spec.h - 0.2, tall);
@@ -406,7 +533,9 @@ export function createRoomHoist({ host, send, walker }) {
 
   /** Each frame: the panel's word, and the key to climb in when you're beside your own vehicle on the floor. */
   function frame(now = performance.now()) {
+    kiosk?.frame(now);
     if (!V) return;
+    carouselSounds(now);
     paintPanel();
     const lf = V.lift, at = walker();
     const by = lf?.mine && lf.down == null && level(now) >= 1 && near && at
@@ -420,7 +549,7 @@ export function createRoomHoist({ host, send, walker }) {
   }
 
   return { load, into, frame, moving: (now) => moving(now ?? performance.now()), get active() { return !!V; }, get ver() { return ver; },
-    dispose() { panel.remove(); board.remove(); setSolid('body', null); setSolid('water', null); } };
+    dispose() { kiosk?.dispose(); panel.remove(); board.remove(); setSolid('body', null); setSolid('water', null); } };
 }
 
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];

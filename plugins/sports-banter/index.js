@@ -288,6 +288,10 @@ function onBroadcastMessage(beat) {
 
 on('broadcast.message', onBroadcastMessage);
 
+// The league as this plugin has it pinned, for parley's sports talk (one club per fan,
+// the same club the room cheers for when the game is on).
+export const currentLeague = () => league;
+
 export const commands = {};
 
 // Exposed for the regress suite.

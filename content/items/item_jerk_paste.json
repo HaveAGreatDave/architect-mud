@@ -9,16 +9,17 @@
     "food_noun": "jerk",
     "food_profile": "aromatic",
     "matter": {
+      "look": {
+        "label": "#2a1a10",
+        "pack": "jar"
+      },
       "ramp": {
         "raw": "#3a2216"
-      },
-      "look": {
-        "pack": "jar",
-        "label": "#2a1a10"
       }
     },
     "perishable": true,
     "restore_hunger": 2,
+    "shelved": true,
     "spoil_rate": "slow",
     "stackable": true,
     "status_chance": {

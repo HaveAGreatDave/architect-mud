@@ -9,16 +9,17 @@
     "food_noun": "dripping",
     "food_profile": "fat_or_oil",
     "matter": {
+      "look": {
+        "label": "#d8d0c0",
+        "pack": "tub"
+      },
       "ramp": {
         "raw": "#f2eedc"
-      },
-      "look": {
-        "pack": "tub",
-        "label": "#d8d0c0"
       }
     },
     "perishable": true,
     "restore_hunger": 8,
+    "shelved": true,
     "spoil_rate": "slow",
     "spreadable": true,
     "stackable": true,

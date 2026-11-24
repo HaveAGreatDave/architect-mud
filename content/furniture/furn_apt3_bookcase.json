@@ -15,8 +15,8 @@
       "wood": "#8a6a4a"
     },
     "spot": {
-      "along": 3.1,
-      "wall": "front"
+      "along": -2.39,
+      "wall": "back"
     }
   },
   "hp": null,

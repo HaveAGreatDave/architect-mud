@@ -1,0 +1,79 @@
+{
+  "description": "A bare-board landing between two doors, one bulb, and the neon coming pink through the front window. The stairs go on up, and back down to the Gallery.",
+  "exits": {
+    "down": "zone_bld_899_1171_gallery",
+    "east": "zone_bld_899_1171_f3e",
+    "up": "zone_bld_899_1171_f4",
+    "west": "zone_bld_899_1171_f3w"
+  },
+  "flags": {
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "lawless": true,
+    "room": {
+      "balcony": false,
+      "d": 10.8,
+      "decor": {
+        "walls": {
+          "hex": "#6a4c32",
+          "kind": "walnut",
+          "rail": 0.95,
+          "trim": "#2e2216",
+          "y1": 1.05
+        }
+      },
+      "doors": {
+        "down": [
+          -1,
+          8.19
+        ],
+        "east": -3.4000000000000004,
+        "west": -3.4000000000000004
+      },
+      "face": 180,
+      "h": 3.25,
+      "panes": [
+        {
+          "a": -0.68,
+          "b": 0.68,
+          "kind": "sash",
+          "wall": "front",
+          "y0": 0.89,
+          "y1": 2.68
+        },
+        {
+          "a": -0.64,
+          "b": 0.64,
+          "kind": "sash",
+          "wall": "back",
+          "y0": 0.89,
+          "y1": 2.68
+        }
+      ],
+      "stair": {
+        "at": [
+          1,
+          3.6
+        ],
+        "climb": "back",
+        "w": 0.9
+      },
+      "studio": false,
+      "tone": {
+        "ceiling": "#7a6c5a",
+        "trim": "#4a3624",
+        "wall": "#9a8a6e"
+      },
+      "w": 3.2
+    },
+    "world_exit_zone": "zone_the_reach_872_1954"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 2,
+  "id": "zone_bld_899_1171_f3",
+  "map_id": "map_int_bld_899_1171",
+  "name": "The Upstairs Landing",
+  "parent_zone": "zone_the_reach_872_1954"
+}

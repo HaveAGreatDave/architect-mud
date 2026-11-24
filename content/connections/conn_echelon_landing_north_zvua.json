@@ -1,9 +1,0 @@
-{
-  "a": "zone_echelon_landing",
-  "b": "zone_echelon_suite",
-  "blocked": false,
-  "dir": "north",
-  "id": "conn_echelon_landing_north_zvua",
-  "lockable": true,
-  "one_way": false
-}

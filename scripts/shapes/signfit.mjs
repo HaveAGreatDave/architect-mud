@@ -56,6 +56,11 @@ const TOL = 1.18;
 // a new one silently the moment somebody removes an old one, which is the failure this gate exists
 // to stop being silent.
 const KNOWN = new Map([
+  ['named:rationnine',
+    "the roundel is a neon sign, and its tubes are the sign: a ring round the disc and an outline " +
+    "round the ribbon, each framing its own word. They cross the lettering's quads only in the glow " +
+    "margin a tube-lettered texture carries round its glyphs, never the letters, and pulling the " +
+    "tubes clear would take the outline off the ribbon the word sits on."],
   ['named:salvagerites',
     "the board is a panel in the yard's own chain-link fence, so from off-square the near side run's " +
     "rails and barbed wire stand between the eye and the lettering. That is a fence seen through, " +
@@ -205,7 +210,10 @@ for (const { key, m } of ws.shapeModelRegistry()) {
       if (heading === 0) signs++;
       const across = len(d.p[0], d.p[1]), down = len(d.p[0], d.p[3]);
       if (heading === 0 && across > 1e-6 && down > 1e-6) {
-        const ratio = (across / down) / (d.img.width / d.img.height);
+        // A texture that asks for another shape on the wall (`_fitAspect`: a round badge drawn taller
+        // than wide so it reads round through the camera) is fitted to that by fitSignPts, not its own.
+        const want = d.img._fitAspect > 0 ? d.img._fitAspect : d.img.width / d.img.height;
+        const ratio = (across / down) / want;
         if (ratio > TOL || ratio < 1 / TOL) {
           stretched.push({ key, ratio, tex: `${d.img.width}x${d.img.height}`, quad: `${across.toFixed(3)}x${down.toFixed(3)}` });
         }

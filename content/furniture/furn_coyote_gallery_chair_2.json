@@ -1,0 +1,29 @@
+{
+  "description": "A bentwood chair.",
+  "flags": {
+    "interactions": [
+      "sit"
+    ],
+    "look": {
+      "arche": "seat",
+      "form": "chair"
+    },
+    "spot": {
+      "at": [
+        3,
+        4.9
+      ],
+      "turn": 0
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_coyote_gallery_chair_2",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "a chair",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_bld_899_1171_gallery"
+}

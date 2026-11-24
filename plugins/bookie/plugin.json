@@ -1,0 +1,9 @@
+{
+  "name": "bookie",
+  "version": "1.0.0",
+  "description": "A house sportsbook run by a bookie NPC (`flags.bookie`). `odds` shows the line on each sports game on the air, priced off the league table with a house margin; `punt <amount> <team>` backs a side to win at those decimal odds while the book is open (the first few minutes of an airing); `slips` lists open bets. Slips live in `bookie_bets` and a one-minute sweep pays them at the final.",
+  "commands": ["odds", "punt", "slips"],
+  "events": { "consumes": ["sports.game"] },
+  "ticks": ["1m"],
+  "dataSchema": ["bookie_bets"]
+}

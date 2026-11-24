@@ -1,0 +1,169 @@
+{
+  "banter": [],
+  "chitchat": [
+    "looks up the Gate Road, then down it.",
+    "shifts his weight onto the wall and lets it hold him.",
+    "checks his phone, puts it away, checks it again.",
+    "\"Keep moving, it's mud, nobody's watching it.\""
+  ],
+  "description": "A wiry man in a hood he keeps up in any weather, leaning where Ropewalk meets the Gate Road. Bum bag worn round the front, hands in his pockets. He watches the road more than the people on it, and the people on it more than he lets on.",
+  "dialogue_tree": {
+    "root": {
+      "options": [
+        {
+          "label": "What have you got?",
+          "next": "shop"
+        },
+        {
+          "label": "Who's around here, then?",
+          "next": "who"
+        },
+        {
+          "label": "Never mind.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"What.\"",
+      "text_by_relation": {
+        "first": "The man in the hood looks you over without taking his shoulder off the wall.\n\n\"You're not from here.\" He isn't asking. \"Lot of people round here'd tell you to go back where you came from. I'm in business, so I won't. Green, and that's it. Don't ask me for anything else.\"",
+        "stranger": "\"You again.\" He doesn't move off the wall. \"Green's all I've got for you.\"",
+        "known": "Tibs nods without looking round. \"Alright. What do you need?\"",
+        "familiar": "\"There you are.\" Tibs takes his hands out of his pockets, which is as warm as he gets. \"Go on.\"",
+        "close": "Tibs bumps your shoulder with his. \"Anything you want. Just don't make me regret it.\""
+      }
+    },
+    "shop": {
+      "actions": [
+        {
+          "action": "OPEN_SHOP"
+        }
+      ],
+      "options": [],
+      "text": "He glances up the road once, then unzips the bum bag."
+    },
+    "who": {
+      "options": [
+        {
+          "label": "Right.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Who's around is none of your business till they say it is.\" He shrugs. \"Buy off me a while. People see who I talk to.\""
+    },
+    "bye": {
+      "options": [],
+      "text": "Tibs goes back to watching the road."
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a grey hooded top, hood up, cuffs chewed",
+      "a black bum bag worn round the front",
+      "tracksuit bottoms gone shiny at the knee",
+      "trainers with the laces tucked in"
+    ],
+    "inner_circle_flag": "tibs_inner_circle",
+    "inner_circle_line": "Tibs takes a while before he says anything. \"You're alright, you. There's a bloke in the Yards tenements, Lenny Sorel. Days, not nights. I'll tell him you're coming. He won't make you say anything stupid at the door.\"",
+    "mis_willing": false,
+    "parley": {
+      "deflect": {
+        "stranger": [
+          "\"Don't know you. Don't want to.\"",
+          "\"Buy something or move.\""
+        ],
+        "known": [
+          "\"Don't know about that.\"",
+          "\"Not my business.\""
+        ],
+        "familiar": [
+          "\"Ask me something I can answer.\"",
+          "\"No idea, mate.\""
+        ],
+        "close": [
+          "\"Couldn't tell you. Honestly.\""
+        ]
+      }
+    },
+    "personality": "dealer",
+    "street": {
+      "cred_per_step": 5,
+      "post": {
+        "a": 0.4,
+        "f": "w"
+      },
+      "lines": {
+        "stranger": [
+          "{name} watches you all the way along the lane.",
+          "{name} turns his back on you, slowly, so you see him do it.",
+          "{name} says, to nobody, \"Tourists.\""
+        ],
+        "known": [
+          "{name} gives you a look, then goes back to the road.",
+          "{name} lifts his chin a fraction as you pass."
+        ],
+        "trusted": [
+          "{name} nods you over.",
+          "{name} says, \"Alright,\" without looking round."
+        ]
+      },
+      "vouch_line": "Tibs has a quiet word on the phone. You hear your own name in it.",
+      "vouches_to": [
+        "npc_dealer_sorel"
+      ],
+      "wary": 0.5
+    },
+    "trust_flag": "tibs_trust",
+    "trust_max": 100,
+    "trust_per_buy": 4
+  },
+  "home_activities": [
+    "rolls three joints, slowly, and keeps one back.",
+    "counts a roll of notes and writes a number on his hand."
+  ],
+  "home_zone": "zone_district_924_918",
+  "hp": 30,
+  "hp_max": 30,
+  "id": "npc_shingles_tibs_klimek",
+  "name": "Tibs Klimek",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_loose_cannabis",
+      "min_trust": 0,
+      "price": 12
+    },
+    {
+      "item_id": "item_joint",
+      "min_trust": 0,
+      "price": 22
+    },
+    {
+      "item_id": "item_psilocybin",
+      "min_trust": 40,
+      "price": 60
+    },
+    {
+      "item_id": "item_opium",
+      "min_trust": 75,
+      "price": 140
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [{ "from": 19, "to": 28 }],
+    "mon": [{ "from": 19, "to": 28 }],
+    "sat": [{ "from": 19, "to": 28 }],
+    "sun": [{ "from": 19, "to": 28 }],
+    "thu": [{ "from": 19, "to": 28 }],
+    "tue": [{ "from": 19, "to": 28 }],
+    "wed": [{ "from": 19, "to": 28 }]
+  },
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_district_920_916"
+}

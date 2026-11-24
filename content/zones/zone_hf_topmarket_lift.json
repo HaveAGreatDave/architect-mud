@@ -18,7 +18,29 @@
       "name": "the door glazing",
       "visibility": 0.6
     },
-    "world_exit_zone": "zone_district_898_915"
+    "world_exit_zone": "zone_district_898_915",
+    "room": {
+      "w": 4,
+      "d": 6.3,
+      "h": 2.8,
+      "face": 180,
+      "finish": "fine",
+      "ground": "stone",
+      "studio": false,
+      "balcony": false,
+      "windowless": true,
+      "doors": {
+        "south": 0,
+        "up": [
+          0,
+          6.1
+        ]
+      },
+      "street_door": {
+        "kind": "swing",
+        "w": 1.4
+      }
+    }
   },
   "grid_x": 0,
   "grid_y": 0,

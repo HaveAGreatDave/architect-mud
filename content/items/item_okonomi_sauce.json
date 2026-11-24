@@ -10,17 +10,18 @@
     "food_noun": "okonomi",
     "food_profile": "aromatic",
     "matter": {
+      "look": {
+        "label": "#e94a2a",
+        "pack": "bottle",
+        "size": 0.8
+      },
       "ramp": {
         "raw": "#3a1e12"
-      },
-      "look": {
-        "pack": "bottle",
-        "label": "#e94a2a",
-        "size": 0.8
       }
     },
     "perishable": true,
     "restore_hunger": 4,
+    "shelved": true,
     "spoil_rate": "slow",
     "stackable": true,
     "status_chance": {

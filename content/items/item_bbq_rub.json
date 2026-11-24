@@ -9,17 +9,18 @@
     "food_noun": "rubbed",
     "food_profile": "aromatic",
     "matter": {
-      "ramp": {
-        "raw": "#8a3b22",
-        "cook": "#7a3018",
-        "peak": "#6a2a14"
-      },
       "look": {
-        "pack": "shaker",
-        "label": "#7a2e1a"
+        "label": "#7a2e1a",
+        "pack": "shaker"
+      },
+      "ramp": {
+        "cook": "#7a3018",
+        "peak": "#6a2a14",
+        "raw": "#8a3b22"
       }
     },
     "restore_hunger": 1,
+    "shelved": true,
     "stackable": true,
     "status_chance": {
       "food_poisoning": 0.05

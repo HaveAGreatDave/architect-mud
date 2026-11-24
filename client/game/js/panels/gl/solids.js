@@ -704,7 +704,19 @@ float markPool(vec3 P, vec3 C, vec3 at) {
   float r2 = dot(rel, rel) + h * h;
   return lum * min(1.0, (0.33 * 0.33) / (h * h)) * ((h * h * h) / (r2 * sqrt(r2)));
 }
+// A VESSEL'S STOREY, CUT OUT OF HER (setVesselCut): while you stand in one of her rooms in one-world, her hull and
+// deckhouse are taken out across her whole plan between that storey's floor and ceiling, as a building's storey is
+// cut out of its mass (gl/context.js uCutA). Her rooms stand in the gap. uVCutA: her middle [x, y] in the window's
+// tiles, her heading in radians, 1 when on; uVCutB: her half-beam, how far forward and how far aft (tiles, aft
+// negative) the cut runs; uVCutZ: the band's floor and ceiling over the water as she sits level; uVCutT: her heave and
+// the sines of her roll and pitch, so the band tilts with her as her hull does (windshield.js drawYacht's lift).
+uniform vec4 uVCutA; uniform vec4 uVCutB; uniform vec2 uVCutZ; uniform vec3 uVCutT;
 void main() {
+  if (uVCutA.w > 0.5) {
+    vec2 q = vPos.xy - uVCutA.xy; float sh = sin(uVCutA.z), ch = cos(uVCutA.z);
+    float fw = q.x * sh - q.y * ch, st = q.x * ch + q.y * sh, zl = vPos.z - (uVCutT.x + st * uVCutT.y + fw * uVCutT.z);
+    if (zl > uVCutZ.x && zl < uVCutZ.y && abs(st) < uVCutB.x && fw < uVCutB.y && fw > uVCutB.z) discard;
+  }
   if (vAlpha <= 0.002) discard;
   vec3 c = vColor;
   float alpha = vAlpha;
@@ -1166,6 +1178,11 @@ void main() {}`;
 const SHADOW_SIZE = 1024;
 
 
+// The storey of a vessel you're standing in (freelook-view.js owVesselTick): { x, y, rad, half, fore, aft, z0, z1, heave,
+// sinRoll, sinPitch } in the
+// window's tiles, or null. Module state, read by every solids layer's draw, set once a frame by the one view on foot.
+let VESSEL_CUT = null;
+export function setVesselCut(c) { VESSEL_CUT = c || null; }
 let SMOOTH_SEQ = 0;   // see smooth(): the pass stamp every solids layer draws from
 export function createSolidsLayer(gl, opt = {}) {
   const cabin = !!opt.cabin;
@@ -1211,6 +1228,7 @@ export function createSolidsLayer(gl, opt = {}) {
     markHor: gl.getUniformLocation(prog, 'uMarkHor'), markTop: gl.getUniformLocation(prog, 'uMarkTop'), markG: gl.getUniformLocation(prog, 'uMarkG'),
     markN: gl.getUniformLocation(prog, 'uMarkN'),
     markW: gl.getUniformLocation(prog, 'uMarkW'),
+    vCutA: gl.getUniformLocation(prog, 'uVCutA'), vCutB: gl.getUniformLocation(prog, 'uVCutB'), vCutZ: gl.getUniformLocation(prog, 'uVCutZ'), vCutT: gl.getUniformLocation(prog, 'uVCutT'),
   };
   const wlP = new Float32Array(36), wlC = new Float32Array(36), wlR = new Float32Array(12);
 
@@ -1691,6 +1709,12 @@ export function createSolidsLayer(gl, opt = {}) {
     gl.uniform1f(loc.fogNear, f ? f.near : 1e9);
     gl.uniform1f(loc.fogFar, f ? f.far : 1e9 + 1);
     gl.uniform1f(loc.fogAmt, f ? f.amt : 0);
+    // ⚠ SET ON EVERY DRAW, ON or OFF, as the ship's sun is: a cabin or the rig must never be cut by the yacht's storey
+    const vc = opts.film || cabin ? null : VESSEL_CUT;
+    gl.uniform4f(loc.vCutA, vc ? vc.x : 0, vc ? vc.y : 0, vc ? vc.rad : 0, vc ? 1 : 0);
+    gl.uniform4f(loc.vCutB, vc ? vc.half : 0, vc ? vc.fore : 0, vc ? vc.aft : 0, 0);
+    gl.uniform2f(loc.vCutZ, vc ? vc.z0 : 0, vc ? vc.z1 : 0);
+    gl.uniform3f(loc.vCutT, vc ? vc.heave : 0, vc ? vc.sinRoll : 0, vc ? vc.sinPitch : 0);
     // What the metals reflect (the sky the frame drew, handed over on the quads) and the eye they are
     // seen from. A buffer with no metal in it leaves these at harmless values the shader never reads.
     const e = eyePos(cam), E = env || {};

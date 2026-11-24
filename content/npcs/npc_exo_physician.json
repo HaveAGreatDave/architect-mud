@@ -143,11 +143,6 @@
       "price": 70
     },
     {
-      "item_id": "item_herb_bundle",
-      "min_trust": 0,
-      "price": 12
-    },
-    {
       "item_id": "item_soap_block",
       "min_trust": 0,
       "price": 4

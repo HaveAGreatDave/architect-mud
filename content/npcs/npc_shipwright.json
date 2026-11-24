@@ -472,7 +472,163 @@
       "rubber boots cut down to the ankle"
     ],
     "personality": "vendor",
-    "repairman": true
+    "repairman": true,
+    "parley": {
+      "topics": {
+        "boats": [
+          "boat",
+          "boats",
+          "hull",
+          "skiff",
+          "stocks",
+          "build"
+        ],
+        "sea": [
+          "sea",
+          "water",
+          "basin",
+          "tide",
+          "weather"
+        ],
+        "pencils": [
+          "pencil",
+          "pencils",
+          "ear"
+        ],
+        "name": [
+          "keel",
+          "nickname"
+        ],
+        "outboard": [
+          "outboard",
+          "engine",
+          "motor"
+        ],
+        "ketch": [
+          "ketch",
+          "your boat",
+          "forty foot",
+          "own boat"
+        ]
+      },
+      "react": {
+        "greet": {
+          "stranger": [
+            "Buying, hiring, berthing or broke?",
+            "*doesn't put the mallet down.* Morning."
+          ],
+          "close": [
+            "{name}! Grab a plane. You can earn your tea."
+          ]
+        },
+        "farewell": [
+          "Mind the slip, it's greasy.",
+          "*nods at the hull.* She says bye."
+        ],
+        "thank": [
+          "*grunts, pleased.*"
+        ],
+        "praise": [
+          "Tell her, not me. *nods at the hull.*"
+        ],
+        "praise:boats": [
+          "She'll float. That's all a boat has to do. The rest is showing off."
+        ],
+        "insult": [
+          "*drives a nail in three blows.* Didn't hear that.",
+          "Mind your tongue near the hull. She's sensitive."
+        ],
+        "insult_last": [
+          "Go on. Out of the shed before I plane you."
+        ],
+        "flirt": [
+          "I'm married to a forty-foot ketch. She's jealous."
+        ],
+        "apologise": [
+          "Fine. Hand me that clamp."
+        ],
+        "joke": [
+          "*a laugh like a hull scraping.*"
+        ],
+        "complain": [
+          "Everything costs what it costs. Wood's not cheap and I'm not fast."
+        ],
+        "ask_feeling": [
+          "Back hurts. Hull's coming on. Fair trade."
+        ],
+        "order_drink": [
+          "There's a kettle. That's the bar."
+        ],
+        "ask_name": [
+          "Wilf. Treharne. Keel to anyone who stays long enough."
+        ],
+        "ask_job": [
+          "I build boats and mend the ones people bring back broken."
+        ],
+        "ask_origin": [
+          "Coast born. Boatyard raised. I smell of pitch on Sundays too."
+        ],
+        "ask_news": [
+          "Somebody took a skiff out past the mole in an ion storm. They'll be back as wreckage."
+        ],
+        "ask_advice": [
+          "Check the bilge before you check the weather.",
+          "Never trust an outboard that starts first time."
+        ],
+        "ask_about:boats": [
+          "Planks, fastenings and patience. Mostly patience."
+        ],
+        "ask_about:sea": [
+          "The Basin's calm till it isn't. Read the sky, not the forecast."
+        ],
+        "ask_about:pencils": [
+          "*feels behind one ear, then the other.* Two. Huh."
+        ],
+        "ask_about:name": [
+          "Keel. Because I'm short and steady and always underneath something."
+        ],
+        "ask_about:outboard": [
+          "*listens to one going past, shakes his head.* That one's running lean."
+        ],
+        "ask_about:ketch": {
+          "stranger": [
+            "She's out back. She's not for sale."
+          ]
+        },
+        "overheard": [
+          "*doesn't put the mallet down.* Talking about me or the boat?"
+        ],
+        "overheard_insult": [
+          "*drives a nail in three blows.* I heard that. So did she. *nods at the hull.*"
+        ],
+        "gossip_rude": [
+          "The Sabbatinis say you were rude at the desk. Don't be rude in my shed."
+        ]
+      },
+      "deflect": [
+        "*sights along a plank.* Mm.",
+        "Didn't catch that. Hull was talking.",
+        "*writes something on the slate.* Go on."
+      ],
+      "beats": [
+        {
+          "id": "ketch",
+          "topic": "ketch",
+          "tier": "known",
+          "warmth": 6,
+          "steps": [
+            "The ketch on the hard out back? I've been building her since before my hair went.",
+            "Every time I nearly finish, someone needs a hull mending and I put her down again.",
+            "Truth is I don't know where I'd sail her. Easier to keep building.",
+            "*runs a hand along a plank.* When she's done, you can crew. Don't hold your breath."
+          ]
+        }
+      ],
+      "circle": [
+        "npc_marina_desk_day",
+        "npc_marina_desk_night"
+      ]
+    }
   },
   "home_activities": [],
   "home_zone": "zone_yards_tenement_u5_3",

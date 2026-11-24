@@ -133,7 +133,7 @@ function panelLeaf(L, F, o, { DH, look, hingeAt, inward, way, to }) {
  * `fixed` the vertices that don't move; `panels[i]` where lock i's hologram hangs.
  */
 export function buildLocks(L, ways, locks) {
-  const fine = L.spec.finish === 'fine', DH = fine ? Math.min(2.4, L.h - 0.3) : 2.05;
+  const DH = Math.min(2.05, L.h - 0.3); // the doorway's height in room-mesh.js; the two must agree
   const leaves = [], panels = [], fixedK = kitFor(L), look = panelDoorOf(L.spec);
   locks.forEach((k, way) => {
     const o = k.annex ? annexWay(L.spec, k.inside, k.to) : ways.find((x) => x.to === k.to && !x.annex);

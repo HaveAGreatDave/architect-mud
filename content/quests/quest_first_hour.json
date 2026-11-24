@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "Grady says the clonejackers working the strip south of the Embassy are killing his business by killing his customers. Clear two of them out and bring back the flashlight cells they lifted off him.",
+  "description": "Rusty O'Toole says the clonejackers working the strip south of the Embassy are robbing fresh clones as they come out of the vats, and they took a box of his cells. Put two of them down and bring the cells back.",
   "fail_on": [],
   "id": "quest_first_hour",
   "meta": {},
@@ -30,7 +30,7 @@
     },
     {
       "count": 1,
-      "desc": "Loot Grady's stolen cells off a downed clonejacker.",
+      "desc": "Loot Rusty's stolen cells off a downed clonejacker.",
       "id": "o_loot",
       "item_id": "item_stolen_cells",
       "requires": [

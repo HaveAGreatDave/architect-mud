@@ -1,0 +1,31 @@
+{
+  "description": "The end cubicle, the one with the lock that works, which is why it is always taken. The floor in front of it is wet.",
+  "flags": {
+    "aliases": [
+      "cubicle",
+      "stall",
+      "toilet",
+      "loo",
+      "end toilet"
+    ],
+    "look": {
+      "arche": "stall",
+      "form": "cubicle",
+      "wear": 0.95
+    },
+    "spot": {
+      "along": 3.6,
+      "wall": "left"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_hostel_loo_3",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "end toilet",
+  "object_type": "toilet",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_hostel_kitchen"
+}

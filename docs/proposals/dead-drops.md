@@ -37,6 +37,8 @@ would have made `search` a generic counter-surveillance sweep and ended the plan
 game. §2's insistence that a cache carries its own `flags.dead_drop` is right for a reason
 this document did not know when it was written.
 
+**In the 3D world (2026-11-23).** An authored cache with `flags.look.cover` is drawn in its room as the ordinary thing it's hidden in, under that plain name (client/shared/room-layout.js `coverOf`): the precinct's waiting bench and the Yards mailboxes. The piece carries no container, verbs or actions, so neither GLASS nor the Stage says it's a cache. A cache with no cover (the Embassy cistern, which is the toilet's) and every player-placed one stay undrawn.
+
 A dead drop is a container in a public room that one player stocks and another
 player empties, without the two of them ever being in the same place. The engine
 already has the *placing* half. This proposal is the *finding* half: `search`

@@ -1,0 +1,26 @@
+{
+  "description": "A narrow bed against the blind wall.",
+  "flags": {
+    "interactions": [
+      "lie"
+    ],
+    "look": {
+      "arche": "bed",
+      "form": "bed"
+    },
+    "spot": {
+      "along": 0,
+      "wall": "back"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_coyote_l4w_bed",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "a bed",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_bld_899_1171_f4w"
+}

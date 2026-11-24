@@ -8,26 +8,19 @@
   "ambient_theme": "indoors",
   "bg_color": "#2b2b33",
   "description": "A long, narrow retail unit stripped back to the render. There's a counter, bolted down so it stayed, a run of empty shelving along one wall, and a floor safe sunk into the concrete at the back with its door hanging open. It was a print room once; the ceiling still carries the ammonia stain and the extractor housing nobody could get out. Through the whitewashed glass, Marrow Street goes past in both directions all day long.",
-  "exits": {
-    "north": "zone_district_916_910"
-  },
+  "exits": {},
   "flags": {
     "building_name": "Unit 4, Marrow Street",
     "building_type": "shop",
     "floor": "boards",
     "is_building": true,
     "is_interior": true,
-    "is_storefront": true,
-    "shop_price": 9000,
-    "shop_term": 10,
-    "shop_upkeep": 60,
     "window": {
       "description": "A window with a bad seal, letting in a draught and a slice of whatever the weather is doing.",
       "light": 0.75,
       "name": "the window",
       "visibility": 0.8
-    },
-    "world_exit_zone": "zone_district_916_910"
+    }
   },
   "grid_x": 0,
   "grid_y": 0,
@@ -35,5 +28,5 @@
   "id": "zone_sf_marrow4",
   "map_id": "map_int_sf_marrow4",
   "name": "Unit 4, Marrow Street",
-  "parent_zone": "zone_district_916_910"
+  "parent_zone": null
 }

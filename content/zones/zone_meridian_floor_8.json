@@ -1,0 +1,89 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#8f9a7e",
+  "description": "A square of terrazzo, a shell lamp and one door on the west wall, 801. The stairs carry on up from the east.",
+  "exits": {
+    "down": "zone_meridian_floor_7",
+    "up": "zone_meridian_floor_9",
+    "west": "zone_meridian_unit_202"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "room": {
+      "balcony": false,
+      "d": 2.4,
+      "decor": {
+        "ceiling": {
+          "band": 0.35,
+          "drop": 0.14,
+          "hex": "#ece3cf",
+          "kind": "cove",
+          "trim": "#c49a52"
+        },
+        "doors": [
+          {
+            "at": 1.2,
+            "finish": "steel",
+            "label": "Stairs",
+            "w": 1,
+            "wall": "right"
+          }
+        ],
+        "downlights": false,
+        "frieze": {
+          "h": 0.22,
+          "hex": "#1e1c1a",
+          "line": "#c49a52",
+          "y": 2.8
+        },
+        "plaques": {
+          "zone_meridian_unit_202": "801"
+        },
+        "rug": false,
+        "sconces": {
+          "kind": "fan",
+          "points": [
+            [
+              "back",
+              0
+            ]
+          ],
+          "y": 1.9
+        },
+        "walls": {
+          "hex": "#211e1c",
+          "kind": "stone",
+          "pitch": 1,
+          "trim": "#c49a52",
+          "y1": 1
+        }
+      },
+      "doors": {
+        "west": 0
+      },
+      "face": 0,
+      "finish": "fine",
+      "ground": "concrete",
+      "h": 3.69,
+      "studio": false,
+      "tone": {
+        "accent": "#c49a52",
+        "ceiling": "#ece3cf",
+        "trim": "#1e1c1a",
+        "wall": "#e6dcc8"
+      },
+      "w": 3,
+      "windowless": true
+    },
+    "terrain": "grass"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 8,
+  "id": "zone_meridian_floor_8",
+  "map_id": "map_int_meridian",
+  "name": "The Meridian - Floor 8 Landing",
+  "parent_zone": "zone_district_918_908"
+}

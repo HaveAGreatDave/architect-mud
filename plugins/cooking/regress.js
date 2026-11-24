@@ -3,7 +3,8 @@
 // eat-path gate (raw sickness vs. a normal cooked meal).
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
-import { reloadItem, deleteItemCache } from '../../server/engine/items-cache.js';
+import { reloadItem, deleteItemCache, getItemCache } from '../../server/engine/items-cache.js';
+import { aisleOf, dishInPantry, isShelved } from './pantry.js';
 import { insertFurniture, deleteFurniture, getFurnitureById } from '../../server/engine/world.js';
 import { furnitureVerbs } from '../../server/engine/furnitureActions.js';
 import { computeDuration, checkCooking, _test as cookTest } from './cook.js';
@@ -27,7 +28,7 @@ import { FLAG_PREFIX, PROGRESS_PREFIX, UNTRIED, learnRecipe, knownRecipes, cookb
 import { inferDish, improvisedCeiling, improvisedIp, recipeSignature } from './improvised.js';
 import { SHOPLIST_FLAG, getList, holdings, answer, buyableExamples } from './shoplist.js';
 import { markShelf, markContainer } from './shoplist-cmd.js';
-import { getItemCache, getItem } from '../../server/engine/items-cache.js';
+import { getItem } from '../../server/engine/items-cache.js';
 import { evaluate, endStateAt, timeline, heatSpans, finishAt } from './quality.js';
 import { rowIsInstanced } from '../../server/engine/inventory.js';
 import { applyEffect, tickEffects, getRegisteredStatusEffects } from '../../server/engine/effects.js';
@@ -517,11 +518,27 @@ export default async function regress({ run, check, getPlayer }) {
     let r = await run('cook nonexistent food');
     check('heating with nothing by that name errors cleanly', r?.type === 'error', JSON.stringify(r));
 
+    // The pantry (pantry.js): an aisle tag wins, the profile picks one otherwise, and a dish
+    // needs every class it asks for to be on sale or held.
+    check('pantry: tags.aisle wins over the profile', aisleOf({ tags: { aisle: 'staples', food_profile: 'dairy' } }) === 'staples');
+    check('pantry: an egg is on the dairy aisle', aisleOf({ tags: { food_profile: 'egg' } }) === 'dairy');
+    check('pantry: shelved is the tag', isShelved({ tags: { shelved: true } }) && !isShelved({ tags: {} }));
+    check('pantry: a dish of meat and eggs is in the pantry', dishInPantry({ needs: { dense_meat: 1, egg: 1 } }));
+    check('pantry: a dish needing a class nothing carries is not', !dishInPantry({ needs: { no_such_class: 1 } }));
+
     // Delivery (stock.js): beside this stove the catalogue is food and kit only, and an item nobody
     // in town sells can't be ordered.
     r = await run('kitchenstock');
     check('kitchenstock sends the delivery catalogue', r?.type === 'kitchen_stock' && Array.isArray(r.items), JSON.stringify(r).slice(0, 300));
-    check('...and every line is food or kit at a price', (r?.items || []).every(i => (i.shelf === 'food' || i.shelf === 'kit') && i.price > 0));
+    {
+      const aisles = new Set((r?.shelves || []).map(([k]) => k));
+      check('...every line is on an aisle or the kit shelf, at a price',
+        aisles.has('dairy') && aisles.has('kit') && (r?.items || []).every(i => aisles.has(i.shelf) && i.price > 0), JSON.stringify(r?.shelves));
+      // pantry.js: shelved food (docs/proposals/cooking-basics.md) is never delivered.
+      const cache = getItemCache();
+      check('...and none of it is shelved', (r?.items || []).every(i => !cache.get(i.id)?.tags?.shelved),
+        (r?.items || []).filter(i => cache.get(i.id)?.tags?.shelved).map(i => i.id).join(', '));
+    }
     check('...at a 5% delivery markup', r?.markup === 5, JSON.stringify(r?.markup));
     r = await run('kitchenorder item_not_sold_anywhere 1');
     check('kitchenorder refuses what nobody delivers', r?.type === 'error', JSON.stringify(r));
@@ -2357,9 +2374,10 @@ export default async function regress({ run, check, getPlayer }) {
       {
         // A written-out note, not a dish's — penne alla gin names its tomato and
         // its cream outright now, so the catalog no longer has a note that talks
-        // about a class in nouns. The ORDERING rule it proves is unchanged: what
+        // about a class in nouns; tinned tomato and cream are shelved since the
+        // slim-down, so this note names live ones. The ORDERING rule it proves is unchanged: what
         // the note mentions first, the list offers first.
-        const t = { notes: { liquid: 'tomato for the body, a slug of gin, cream to finish' } };
+        const t = { notes: { liquid: 'milk for the body, a slug of gin to finish' } };
         const ex = buyableExamples('liquid', t);
         check('a class entry names buyable examples', ex.length > 0, JSON.stringify(ex));
         check('...and every one of them really carries that profile',
@@ -2367,8 +2385,8 @@ export default async function regress({ run, check, getPlayer }) {
             i.tags?.food_profile === 'liquid' &&
             String(i.tags?.food_noun || i.name || '').toLowerCase() === noun)),
           JSON.stringify(ex));
-        check('...ordered so the recipe\'s own note leads (tomato before the spirit)',
-          ex.indexOf('tomato') === 0, JSON.stringify(ex));
+        check('...ordered so the recipe\'s own note leads (milk before the spirit)',
+          ex.indexOf('milk') === 0 && ex.indexOf('gin') === 1, JSON.stringify(ex));
       }
 
       // The container hook: the same mark on the box you opened, because half a
@@ -3246,7 +3264,8 @@ export default async function regress({ run, check, getPlayer }) {
       //
       // Exempt by REASON if a bread is ever deliberately unsold (found in a
       // ruin, baked by an NPC, handed over in a quest). An empty list is the
-      // honest state today.
+      // honest state today. A shelved bread (the slim-down) is out of the game,
+      // so nobody selling it is correct.
       const UNSOLD_BREAD = {/* item_id: 'why nobody sells this' */};
       const { rows: sold } = await query(
         `SELECT DISTINCT e->>'item_id' AS item_id
@@ -3254,7 +3273,7 @@ export default async function regress({ run, check, getPlayer }) {
           WHERE jsonb_typeof(vendor_inventory) = 'array'`);
       const onSale = new Set(sold.map(r => r.item_id));
       const unreachable = allBread
-        .filter(i => !onSale.has(i.id) && !UNSOLD_BREAD[i.id])
+        .filter(i => !onSale.has(i.id) && !UNSOLD_BREAD[i.id] && !isShelved(i))
         .map(i => i.id);
       check('every bread is on somebody\'s shelf, since nothing else hands one out',
         !unreachable.length, JSON.stringify(unreachable));

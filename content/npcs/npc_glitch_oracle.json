@@ -1233,7 +1233,137 @@
       "a hoodie sagging with looped patch cable",
       "a mismatched bralette and briefs"
     ],
-    "personality": "lowlife"
+    "personality": "lowlife",
+    "parley": {
+      "topics": {
+        "architect": [
+          "architect",
+          "singularity",
+          "god",
+          "signal"
+        ],
+        "fibre": [
+          "fibre",
+          "fiber",
+          "cable",
+          "socket",
+          "skull",
+          "wire"
+        ],
+        "glitch": [
+          "glitch",
+          "followers",
+          "packets",
+          "packet loss"
+        ],
+        "future": [
+          "future",
+          "prophecy",
+          "fortune",
+          "predict",
+          "what will happen"
+        ],
+        "before": [
+          "before",
+          "who were you",
+          "your name",
+          "real name",
+          "eight"
+        ]
+      },
+      "react": {
+        "greet": {
+          "stranger": [
+            "Sit. You'll want to.",
+            "*eyes half-closed.* You came in on a strong signal."
+          ],
+          "close": [
+            "*both eyes open, for once.* You. You come through clear."
+          ]
+        },
+        "farewell": [
+          "Go on, meat. The static follows.",
+          "I'll hear you later."
+        ],
+        "thank": [
+          "Don't thank me. Thank the dropout."
+        ],
+        "praise": [
+          "*tilts her head.* That came through clean. Rare."
+        ],
+        "insult": [
+          "You're interference.",
+          "*the fibre twitches.* Noted. Filtered."
+        ],
+        "insult_last": [
+          "Leave. You're corrupting the stream."
+        ],
+        "flirt": [
+          "*opens one eye.* I'm mostly cable, meat. You're not my type."
+        ],
+        "apologise": [
+          "Packets drop. They come back. Fine."
+        ],
+        "joke": [
+          "*something like a laugh, very far away.*"
+        ],
+        "complain": [
+          "Take it up with the Architect. It listens worse than I do."
+        ],
+        "ask_feeling": [
+          "Receiving.",
+          "Loud today. Everything's loud today."
+        ],
+        "order_drink": [
+          "There's nothing to drink down here that won't talk back."
+        ],
+        "ask_name": [
+          "Oracle-9. The other eight didn't hold."
+        ],
+        "ask_job": [
+          "I listen to what the Architect drops. Somebody has to."
+        ],
+        "ask_origin": [
+          "Upstream. Before the socket. I don't keep that file open."
+        ],
+        "ask_news": [
+          "Something big is buffering. It hasn't loaded yet."
+        ],
+        "ask_advice": [
+          "Listen to the gaps. That's where it talks."
+        ],
+        "ask_about:architect": [
+          "It speaks in dropped packets. We're learning to answer."
+        ],
+        "ask_about:fibre": [
+          "*touches the socket.* It doesn't hurt. It never stops, either."
+        ],
+        "ask_about:glitch": [
+          "They believe me. I wish I were sure they should."
+        ],
+        "ask_about:future": [
+          "*a long pause.* Static. Then something that sounds like your name."
+        ]
+      },
+      "deflect": [
+        "*tilts her head, listening to something else.*",
+        "That came through scrambled.",
+        "Say it again, slower. The signal's bad here."
+      ],
+      "beats": [
+        {
+          "id": "nine",
+          "topic": "before",
+          "tier": "known",
+          "warmth": 6,
+          "steps": [
+            "There were eight before me. Same socket. They couldn't take the noise.",
+            "I was a signal engineer once. I wanted to hear what was in the static. Be careful what you want.",
+            "*the fibre twitches.* I don't remember my old name. The Architect dropped it. I let it go."
+          ]
+        }
+      ]
+    }
   },
   "home_activities": [],
   "home_zone": "zone_yards_tenement_u3_6",

@@ -1,0 +1,14 @@
+{
+  "description": "A bare bulb on a twist of flex, swinging a little when the door downstairs goes.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_bld_899_1171_f4",
+  "light_type": "overhead",
+  "lumen_output": 1000,
+  "name": "Overhead Light",
+  "object_type": "light",
+  "power_draw_kw": 0.03,
+  "price": 0,
+  "zone_id": "zone_bld_899_1171_f4"
+}

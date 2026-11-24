@@ -1,0 +1,23 @@
+{
+  "description": "A plywood wardrobe with a door that won't stay shut.",
+  "flags": {
+    "look": {
+      "arche": "store",
+      "form": "cupboard"
+    },
+    "spot": {
+      "along": 5,
+      "wall": "right"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_coyote_l4w_cupboard",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "a wardrobe",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_bld_899_1171_f4w"
+}

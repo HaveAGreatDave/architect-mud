@@ -147,30 +147,114 @@ const PHONE = [
    `{npc} hangs up, shakes their head, and goes back to what they were doing.`],
 ];
 
-// A hobby: what they'd do all day if they could.
-const HOBBY = [
-  [`{npc} gets a model aircraft half built out of a shoebox and squints at the instructions.`,
-   `{npc} glues their finger to the wing.`,
-   `{npc} gets the finger free, and the wing comes with it.`],
-  [`{npc} tunes an old guitar for a long time.`,
-   `{npc} plays the first four notes of a song, gets the fifth wrong, and starts again.`,
-   `{npc} plays the first four notes again, then puts the guitar down, satisfied.`],
-  [`{npc} sets up a little easel and starts painting the view out of the window.`,
-   `{npc} steps back, tilts their head, and paints a boat in that isn't there.`],
-  [`{npc} lays out a jigsaw on the floor and sorts the edge pieces.`,
-   `{npc} finds a piece that doesn't belong to this puzzle and holds it up to the light.`,
-   `{npc} puts the stray piece in their pocket for later.`],
-  [`{npc} sits down to knit, and talks quietly to the needles.`,
-   `{npc} holds up what they've made. It's either a scarf or a very long sock.`],
-  [`{npc} plays a game on their tablet with the sound up.`,
-   `{npc} loses, says "no" quite loudly, and starts again.`,
-   `{npc} wins, and looks around for somebody to tell.`],
-  [`{npc} does a crossword with a pen, confidently.`,
-   `{npc} gets stuck on one clue and reads it out to themselves four times.`,
-   `{npc} writes something in that doesn't fit and moves on.`],
-  [`{npc} waters a row of seedlings on the windowsill and tells each one it's doing well.`,
-   `{npc} pauses at the last one. "You, I'm worried about."`],
-];
+// What they're into. Each person has two or three of these (`interestsOf`: flags.interests if it's authored, or
+// rolled off their id so it's the same every evening), and a hobby scene comes from one of theirs. So the man who
+// builds model aircraft is always the one building them, and a regular who visits learns what he's like.
+const INTERESTS = {
+  models: [
+    [`{npc} gets a model aircraft half built out of a shoebox and squints at the instructions.`,
+     `{npc} glues their finger to the wing.`,
+     `{npc} gets the finger free, and the wing comes with it.`],
+    [`{npc} paints the tiny pilot for a model plane with a brush that's mostly one hair.`,
+     `{npc} holds their breath for the eyes.`,
+     `{npc} gives him a moustache he didn't have in the picture on the box.`]],
+  guitar: [
+    [`{npc} tunes an old guitar for a long time.`,
+     `{npc} plays the first four notes of a song, gets the fifth wrong, and starts again.`,
+     `{npc} plays the first four notes again, then puts the guitar down, satisfied.`],
+    [`{npc} picks out a slow tune on the guitar with their eyes shut.`,
+     `{npc} sings one line of it under their breath and stops, embarrassed.`]],
+  painting: [
+    [`{npc} sets up a little easel and starts painting the view out of the window.`,
+     `{npc} steps back, tilts their head, and paints a boat in that isn't there.`],
+    [`{npc} sketches the room in pencil on the back of an envelope.`,
+     `{npc} rubs out the chair three times and draws it a fourth.`,
+     `{npc} props the envelope against the kettle and looks at it from across the room.`]],
+  puzzles: [
+    [`{npc} lays out a jigsaw on the floor and sorts the edge pieces.`,
+     `{npc} finds a piece that doesn't belong to this puzzle and holds it up to the light.`,
+     `{npc} puts the stray piece in their pocket for later.`],
+    [`{npc} does a crossword with a pen, confidently.`,
+     `{npc} gets stuck on one clue and reads it out to themselves four times.`,
+     `{npc} writes something in that doesn't fit and moves on.`],
+    [`{npc} plays patience at the table, laying the cards out with a snap.`,
+     `{npc} cheats, quietly, and wins.`]],
+  knitting: [
+    [`{npc} sits down to knit, and talks quietly to the needles.`,
+     `{npc} holds up what they've made. It's either a scarf or a very long sock.`],
+    [`{npc} darns a sock over a light bulb, very slowly.`,
+     `{npc} holds the sock up. The darn is bigger than the hole was.`]],
+  games: [
+    [`{npc} plays a game on their tablet with the sound up.`,
+     `{npc} loses, says "no" quite loudly, and starts again.`,
+     `{npc} wins, and looks around for somebody to tell.`],
+    [`{npc} sets up a chess problem from a book and stares at it.`,
+     `{npc} moves a knight, takes it back, and moves it again.`,
+     `{npc} turns to the answer at the back and says "oh, come on."`]],
+  plants: [
+    [`{npc} waters a row of seedlings on the windowsill and tells each one it's doing well.`,
+     `{npc} pauses at the last one. "You, I'm worried about."`],
+    [`{npc} repots a spider plant on a sheet of newspaper.`,
+     `{npc} gets soil everywhere, then sweeps it into the new pot.`]],
+  reading: [
+    [`{npc} reads a library book with a bus ticket for a bookmark.`,
+     `{npc} turns back a page to check something, then turns back two more.`],
+    [`{npc} reads the paper from front to back, tide times included.`,
+     `{npc} reads something out to the room. "Listen to this." Nobody does.`]],
+  sport: [
+    [`{npc} has the game on the radio, turned low.`,
+     `Somebody scores. {npc} punches the air, then pretends they didn't.`],
+    [`{npc} goes through the league table in the paper with a pen, doing sums in the margin.`,
+     `{npc} works out that their team can still do it, if three other things happen.`]],
+  radio: [
+    [`{npc} turns the dial on an old scanner, slowly, through the static.`,
+     `A voice comes through for a second, a dispatcher reading out a plate. {npc} writes it down.`,
+     `{npc} looks at what they wrote and doesn't know why they wrote it.`],
+    [`{npc} has a radio in bits on the table and a soldering iron going.`,
+     `Something pops. {npc} blows on it and carries on.`]],
+  writing: [
+    [`{npc} writes in a notebook, covering the page with their other arm.`,
+     `{npc} reads it back, tears the page out, and folds it very small.`],
+    [`{npc} writes a letter, crosses out the first line, and starts again on a new sheet.`,
+     `{npc} puts the finished letter in a drawer with a lot of other letters.`]],
+  fitness: [
+    [`{npc} does a few press-ups by the bed, counting out loud.`,
+     `{npc} gets to seven and calls it ten.`],
+    [`{npc} skips with a length of washing line in the middle of the room.`,
+     `Somebody downstairs bangs on the ceiling. {npc} switches to sit-ups.`]],
+  cooking: [
+    [`{npc} reads a cookbook like a novel, licking a finger to turn the pages.`,
+     `{npc} folds the corner down on a recipe they'll never make.`],
+    [`{npc} feeds a jar of sourdough starter and talks to it like a pet.`,
+     `{npc} sniffs it and nods. "Good boy."`]],
+  collecting: [
+    [`{npc} goes through a shoebox of bottle caps, sorting them by colour.`,
+     `{npc} finds one they don't remember getting, and looks at it for a long time.`],
+    [`{npc} pins a new beer mat on the board with the others.`,
+     `{npc} straightens all of them, one by one.`]],
+  birds: [
+    [`{npc} watches the birds on the roof opposite through a pair of binoculars.`,
+     `{npc} writes something in a little book. "Two."`],
+    [`{npc} puts crumbs out on the windowsill and waits, very still.`,
+     `A pigeon comes. {npc} looks disappointed in it.`]],
+};
+const INTEREST_KEYS = Object.keys(INTERESTS);
+const HOBBY = INTEREST_KEYS.flatMap((k) => INTERESTS[k]);
+// A stable roll off the id: FNV-1a with murmur3's finaliser, so ids a digit apart don't land together.
+function idHash(id, salt = 0) {
+  let h = (0x811c9dc5 ^ salt) >>> 0;
+  for (const ch of String(id || '')) { h ^= ch.charCodeAt(0); h = Math.imul(h, 0x01000193); }
+  h ^= h >>> 16; h = Math.imul(h, 0x85ebca6b); h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35); h ^= h >>> 16;
+  return h >>> 0;
+}
+export function interestsOf(npc) {
+  const own = Array.isArray(npc?.flags?.interests) ? npc.flags.interests.filter((k) => INTERESTS[k]) : [];
+  if (own.length) return own;
+  const out = [], n = 2 + (idHash(npc?.id, 7) % 2);
+  for (let i = 0; out.length < n && i < 16; i++) { const k = INTEREST_KEYS[idHash(npc?.id, i + 1) % INTEREST_KEYS.length]; if (!out.includes(k)) out.push(k); }
+  return out;
+}
+const hobbyOf = (npc) => (npc ? rand(INTERESTS[rand(interestsOf(npc))]) : rand(HOBBY));
 
 // Getting ready, or giving up on getting ready.
 const GROOM = [
@@ -420,10 +504,12 @@ const BATH_USE = {
   poop:   { ms: [40_000, 75_000], w: () => 1.6 },
   shower: { ms: [55_000, 100_000], w: (npc, phase) => (phase === 'dawn' || phase === 'morning' ? 4 : 1.2) + 4 * grimeOf(npc) },
   wash:   { ms: [10_000, 18_000], w: () => 1 },
+  // first thing and last thing, at the basin
+  teeth:  { ms: [35_000, 60_000], w: (npc, phase) => (phase === 'dawn' || phase === 'morning' ? 3 : phase === 'night' ? 4 : 0.15) },
 };
 function grimeOf(npc) { try { return grimeFactor(npc) || 0; } catch { return 0; } }
-function pickBathUse(npc, bathId, phase) {
-  const opts = Object.keys(BATH_USE).map((k) => ({ k, f: npcFixtureFor(bathId, k) })).filter((o) => o.f);
+function pickBathUse(npc, bathId, phase, only = null) {
+  const opts = (only ? [only] : Object.keys(BATH_USE)).map((k) => ({ k, f: npcFixtureFor(bathId, k) })).filter((o) => o.f);
   if (!opts.length) return null;
   let r = Math.random() * opts.reduce((n, o) => n + BATH_USE[o.k].w(npc, phase), 0);
   for (const o of opts) if ((r -= BATH_USE[o.k].w(npc, phase)) <= 0) return { intent: o.k, fixture: o.f };
@@ -439,6 +525,8 @@ const BATH_SEEN = {
   poop:   [`{npc} sits down on the toilet and settles in.`],
   shower: [`{npc} turns the shower on and gets in.`],
   wash:   [`{npc} runs the tap and splashes water on their face.`],
+  teeth:  [`{npc} brushes their teeth at the basin, staring at nothing in the mirror.`, `{npc} brushes their teeth, spits, and checks them in the mirror.`,
+    `{npc} brushes their teeth with the tap running the whole time.`],
 };
 // The beats of the trip. ROOM (plugins/roomstage npc-life.js) walks the body to each on `npc.bathroom`, so the
 // gaps are the walks: up to the door from wherever they were, through it, and over to the fixture.
@@ -470,9 +558,9 @@ function bathroomFree(bathId, door, npcId) {
 
 // Bespoke rather than play(): the generic beat-runner aborts the moment the NPC
 // isn't in the room any more, and being out of the room is the point of this one.
-function playBathroom(zoneId, npc, bathId) {
+function playBathroom(zoneId, npc, bathId, only = null) {
   const { timePhase } = getEnvironmentState();
-  const use = pickBathUse(npc, bathId, timePhase);
+  const use = pickBathUse(npc, bathId, timePhase, only);
   const door = bathDoor(zoneId, bathId);
   if (!use || !bathroomFree(bathId, door, npc.id)) return false;
   activeHome.add(zoneId);
@@ -575,6 +663,18 @@ export function tripToBathroom(zoneId, npc) {
   return playBathroom(zoneId, npc, bath);
 }
 
+// Getting ready for bed (`npc.bedtime`, server/engine/ai-behaviour.js AT_HOME_LIFE): teeth at the basin when the flat
+// has a bathroom with one, or at the kitchen sink when it hasn't. Only played to somebody who's there.
+const TEETH_SINK = [`{npc} brushes their teeth at the kitchen sink and spits in with the washing-up.`,
+  `{npc} walks about the room with a toothbrush in their mouth, then spits in the kitchen sink.`];
+export function bedtimeTeeth(zoneId, npc) {
+  if (!getZonePlayers(zoneId).length || activeHome.has(zoneId)) return false;
+  const bath = bathroomFor(zoneId);
+  if (bath && npcFixtureFor(bath, 'teeth') && playBathroom(zoneId, npc, bath, 'teeth')) return true;
+  sendToZone(zoneId, { type: 'ambient', message: `<span class="msg-ambient">${rand(TEETH_SINK).replace(/\{npc\}/g, npc.name)}</span>`, flavour: true });
+  return true;
+}
+
 // A plausible thing to have made. Straight off the live catalogues, so anything
 // authored for players shows up here for free — and both are filtered to what a
 // person would plausibly knock together at home rather than the whole list.
@@ -626,15 +726,15 @@ function homebodiesIn(zoneId) {
 }
 
 // The rest of an evening at home, weighted, with the time of day and a fresh grudge leaning on it.
-function soloScene(phase, sulking) {
+function soloScene(phase, sulking, npc = null) {
   const late = phase === 'night', early = phase === 'dawn' || phase === 'morning';
   const table = [
-    [TIDY, 'tidy', 3], [PHONE, 'phone', 2], [HOBBY, 'hobby', 3], [GROOM, 'groom', 1.5], [REHEARSE, 'rehearse', 1],
+    [TIDY, 'tidy', 3], [PHONE, 'phone', 2], [null, 'hobby', 4], [GROOM, 'groom', 1.5], [REHEARSE, 'rehearse', 1],
     [DIY, 'diy', 1.5], [MONEY, 'money', 1], [LEISURE, 'leisure', 3], [ODD, 'odd', 0.6],
     [NIGHT, 'night', late ? 5 : 0], [MORNING, 'morning', early ? 5 : 0], [SULK, 'sulk', sulking ? 6 : 0],
   ];
   let r = Math.random() * table.reduce((n, t) => n + t[2], 0);
-  for (const [pool, kind, w] of table) { if ((r -= w) <= 0) return { beats: rand(pool), kind }; }
+  for (const [pool, kind, w] of table) { if ((r -= w) <= 0) return { beats: pool ? rand(pool) : hobbyOf(npc), kind }; }
   return { beats: rand(TIDY), kind: 'tidy' };
 }
 
@@ -728,7 +828,7 @@ export function homeLifeTick() {
     else if (roll < 0.42) { beats = rand(DRINK).map(l => l.replace('{thing}', pickDrink(timePhase))); kind = 'drink'; }
     else {
       const other = sulkingAt(npc);
-      const pick = soloScene(timePhase, other && folk.includes(other));
+      const pick = soloScene(timePhase, other && folk.includes(other), npc);
       kind = pick.kind;
       beats = pick.kind === 'sulk' ? pick.beats.map(l => l.replace(/\{other\}/g, other.name.split(' ')[0])) : pick.beats;
     }
@@ -743,5 +843,5 @@ export function homeLifeTick() {
 export const _internals = {
   pickMeal, pickDrink, MEAL, DRINK, TIDY, CHILL, HEAT, isBusyBeingUnconscious,
   bathroomFor, bathroomOf, BATHROOM_GOING, BATHROOM_BACK, BATH_USE, pickBathUse, bathDoor, bathroomFree,
-  PHONE, HOBBY, GROOM, REHEARSE, DIY, MONEY, LEISURE, NIGHT, MORNING, ODD, SULK, soloScene,
+  PHONE, HOBBY, INTERESTS, interestsOf, GROOM, REHEARSE, DIY, MONEY, LEISURE, NIGHT, MORNING, ODD, SULK, soloScene,
 };

@@ -1,23 +1,26 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "ambient_events": [
+    "A gull walks along the waterline looking for something.",
+    "A wave comes in a little further than the others."
+  ],
+  "ambient_theme": "coast",
+  "description": "Sand drifted up over what was rough grass, with a bench facing the water.",
   "exits": {
     "east": "zone_district_898_904",
     "north": "zone_district_897_903",
     "west": "zone_district_896_904"
   },
   "flags": {
+    "beach": true,
     "district": "wasteland",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "terrain": "sand"
   },
   "grid_x": 897,
   "grid_y": 904,
   "grid_z": 0,
   "id": "zone_district_897_904",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "The Shingle",
   "parent_zone": null
 }

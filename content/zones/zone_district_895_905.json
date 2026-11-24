@@ -1,35 +1,33 @@
 {
   "ambient_events": [
-    "The mirror flank slides your reflection past, stretched and improved.",
-    "A cyan band ticks a shade brighter as the light goes.",
-    "A car with tinted glass idles at the plinth, waits, and is gone.",
-    "The crown beacon pulses once, high enough that you lose it in the haze."
+    "A small VTOL settles onto the deck and its fans wind down.",
+    "A gull lands on the white railing and leaves a mark on it."
   ],
-  "ambient_theme": "indoors",
-  "bg_color": "#1b232c",
-  "color": "#cfe9ff",
-  "description": "Chrome Court goes up out of the Marquee like something dropped rather than built: a smooth tapered obelisk of mirror steel, decagonal, seamless, throwing the whole cheap pink-and-cyan street back at itself in a warped and flattering curve. Cyan LED bands ring it at every tech-floor, a brighter halo marks the sky-lounge two thirds up, and a beacon pulses off the spire at the crown. At street level the mirror splays into a lit plinth and a doorway that doesn't so much open as decide. Nothing here has been repainted, because nothing here has ever been allowed to weather.",
+  "ambient_theme": "city",
+  "color": "#f2f2ee",
+  "description": "A small white bridge on four white pylons, one parking bay wide, with a yellow ring and an H painted on its deck. Steps go up at both ends, and the path to the beach runs straight underneath it. Everything is painted white, including the railings, and the gulls have noticed.",
   "exits": {
-    "east": "zone_mq_chrome_lobby",
+    "east": "zone_district_896_905",
+    "north": "zone_district_895_904",
     "west": "zone_district_894_905"
   },
   "flags": {
-    "building_name": "Chrome Court",
-    "building_type": "apartment",
-    "district": "glasshouse",
+    "airfield_id": "af_shingle",
+    "building_name": "Shingle Pad",
+    "building_type": "vtol_bridge",
+    "district": "filaments",
     "entrance": "west",
-    "facade": true,
-    "is_building": true,
+    "floors": 1,
+    "icon": "helipad",
     "region_id": "region_coldwater",
-    "world_exit_zone": "zone_district_894_905",
-    "floors": 13
+    "street_life": true,
+    "terrain": "concrete"
   },
   "grid_x": 895,
   "grid_y": 905,
   "grid_z": 0,
   "id": "zone_district_895_905",
   "map_id": "map_world",
-  "marker": "CH",
-  "name": "Chrome Court",
+  "name": "Shingle Pad",
   "parent_zone": null
 }

@@ -3,8 +3,7 @@
   "flags": {
     "aliases": "grill, roller, rollers, hot case, hot food",
     "container": 20000,
-    "preserves": "refrigerated",
-    "vendor_stock": "npc_flashpoint_attendant"
+    "preserves": "refrigerated"
   },
   "hp": null,
   "hp_max": null,

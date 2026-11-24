@@ -245,10 +245,92 @@
       "scuffed steel-toed boots"
     ],
     "mis_willing": false,
-    "personality": "guard"
+    "personality": "guard",
+    "parley": {
+      "topics": {
+        "club": [
+          "club",
+          "this place",
+          "cherry pit",
+          "the pit",
+          "the cherry"
+        ],
+        "rules": [
+          "rules",
+          "allowed",
+          "touch",
+          "touching"
+        ],
+        "trouble": [
+          "trouble",
+          "fight",
+          "thrown out",
+          "kicked out"
+        ]
+      },
+      "react": {
+        "greet": {
+          "stranger": [
+            "*looks you over.* Behave and we're fine.",
+            "Evening. No touching the dancers."
+          ],
+          "familiar": [
+            "{name}. Go on in."
+          ],
+          "hostile": [
+            "*steps into your way.* Not tonight."
+          ]
+        },
+        "farewell": {
+          "stranger": [
+            "Get home safe."
+          ]
+        },
+        "thank": [
+          "Mm."
+        ],
+        "ask_about:club": [
+          "It's a club. I keep the door. That's all I know about it."
+        ],
+        "ask_about:rules": [
+          "Hands to yourself, tip in cash, don't follow anyone backstage. That's it."
+        ],
+        "ask_about:trouble": [
+          "Most nights there isn't any. When there is, it ends on the pavement."
+        ],
+        "flirt": [
+          "No."
+        ],
+        "insult": [
+          "*doesn't move.* Keep going. See what happens."
+        ],
+        "joke": [
+          "*nothing.*"
+        ],
+        "ask_feeling": [
+          "Fine. Quiet night."
+        ]
+      },
+      "deflect": [
+        "*watches the door.* Hm.",
+        "Ask Rudi. I'm working."
+      ],
+      "circle": [
+        "npc_cherry_bartender",
+        "npc_cherry_dancer_coco",
+        "npc_cherry_dancer_echo",
+        "npc_cherry_dancer_glory",
+        "npc_cherry_dancer_lux",
+        "npc_cherry_dancer_margaux",
+        "npc_cherry_dancer_mink",
+        "npc_cherry_dancer_nova",
+        "npc_cherry_dancer_opal",
+        "npc_cherry_dancer_peaches"
+      ]
+    }
   },
   "home_activities": [],
-  "home_zone": "zone_mq_chrome_102",
+  "home_zone": "zone_hf_chainfree_u1",
   "hp": 20,
   "hp_max": 20,
   "id": "npc_cherry_bouncer",
@@ -259,31 +341,13 @@
   "vendor_inventory": [],
   "vendor_restock_rate": 1,
   "vendor_schedule": {
-    "mon": [
-      {
-        "from": 14,
-        "to": 28
-      }
-    ],
-    "tue": [
-      {
-        "from": 14,
-        "to": 28
-      }
-    ],
-    "wed": [
-      {
-        "from": 14,
-        "to": 28
-      }
-    ],
-    "thu": [
-      {
-        "from": 14,
-        "to": 28
-      }
-    ],
     "fri": [
+      {
+        "from": 14,
+        "to": 28
+      }
+    ],
+    "mon": [
       {
         "from": 14,
         "to": 28
@@ -296,6 +360,24 @@
       }
     ],
     "sun": [
+      {
+        "from": 14,
+        "to": 28
+      }
+    ],
+    "thu": [
+      {
+        "from": 14,
+        "to": 28
+      }
+    ],
+    "tue": [
+      {
+        "from": 14,
+        "to": 28
+      }
+    ],
+    "wed": [
       {
         "from": 14,
         "to": 28

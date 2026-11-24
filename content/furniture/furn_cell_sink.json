@@ -1,6 +1,15 @@
 {
   "description": "A knuckle-sized stainless basin jutting from the wall above the toilet. One push-button tap coughs out a thin stream of cold water: enough to drink, or to scrub the worst of the night off your hands.",
   "flags": {
+    "look": {
+      "arche": "sink",
+      "form": "trough",
+      "wear": 0.9
+    },
+    "spot": {
+      "along": 1.3,
+      "wall": "right"
+    },
     "water_source": true
   },
   "hp": null,

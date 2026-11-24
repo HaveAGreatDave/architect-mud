@@ -8,7 +8,7 @@ import { m2t } from '../../../shared/world-scale.js';
 const EYE_OUT = 0.42;
 // what's drawn in full and how far: from a flat almost all of the city is far off, and through a pane it's small
 // farMax: the city past 16 tiles is the skyline backdrop. Through a pane the far towers are a few pixels, and the
-// 34-tile sweep was a quarter of a live paint (room-outlook.js); 16 is GLASS1_BASIC's cap too
+// 34-tile sweep was a quarter of a live paint (room-outlook.js)
 // ⚠ perfDS 0 STANDS GLASS'S GOVERNOR DOWN (and the floor's load downscale). Both judge load by the time between
 // paints, and a still head is painted every other frame on purpose (room-outlook.js livePaint): 33 ms read as a
 // machine at half rate, and within two seconds the governor had cut every detail ring to 40%, so the city out of
@@ -254,10 +254,15 @@ export function roomToGlass(L, origin, bearing, floorM = 0) {
 // Where a room's front wall middle stands on its building's tile, in tiles, from the roomstage plugin's `frame`
 // (as inBuilding reads it). Null when the frame doesn't place it.
 // `d` is the cut room's depth, metres, as eyeBase takes it (msg.cut.d): the room is moved onto its tile the same way.
-export function roomOrigin(fr, bearing, d = 0) {
+// `near` (one-world, room-interiors.js): a building's rooms are drawn together, so a room just past its tile's edge
+// (the Cherry Pit's VIP, beside an 11 m floor) stays where the plan puts it, against its neighbours. Pulled onto the
+// tile, it stood inside the club floor as a box. Only a room more than a tile off is moved, as onTile was written for.
+export function roomOrigin(fr, bearing, d = 0, { near = false } = {}) {
   if (!fr || !Array.isArray(fr.entry) || !Number.isFinite(fr.side)) return null;
   const rad = (bearing || 0) * Math.PI / 180, s = Math.sin(rad), c = Math.cos(rad);
   const u0 = -fr.entry[0], v0 = -fr.entry[1], [ax, ay] = anchorOf(fr);
-  const p = onTile({ x: ax - (c * m2t(u0) - s * m2t(v0)), y: ay - (s * m2t(u0) + c * m2t(v0)) }, rad, d);
+  const raw = { x: ax - (c * m2t(u0) - s * m2t(v0)), y: ay - (s * m2t(u0) + c * m2t(v0)) };
+  const mx = raw.x - Math.sin(rad) * m2t(d / 2), my = raw.y + Math.cos(rad) * m2t(d / 2);
+  const p = !near ? onTile(raw, rad, d) : Math.abs(mx) <= 1 && Math.abs(my) <= 1 ? raw : onTile(raw, rad, 0);
   return [p.x, p.y];
 }

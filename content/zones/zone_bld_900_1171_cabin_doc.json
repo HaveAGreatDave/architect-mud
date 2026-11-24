@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "description": "Unnervingly neat: a made bed with hospital corners, a single chair squared to the window, and three sealed decks of cards fanned on the dresser like a tidy little threat.",
+  "description": "A motel cabin: a sagging bed, a lamp on a chair, a fan that rattles, and a window onto the walk. Nobody lives in it right now, and it shows.",
   "exits": {
     "north": "zone_bld_900_1171_walk2"
   },
@@ -18,6 +18,6 @@
   "grid_z": 0,
   "id": "zone_bld_900_1171_cabin_doc",
   "map_id": "map_int_bld_900_1171",
-  "name": "Doc's Cabin",
+  "name": "Cabin 4",
   "parent_zone": "zone_the_reach_873_1954"
 }

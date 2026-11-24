@@ -9,17 +9,18 @@
     "food_noun": "pancake",
     "food_profile": "batter",
     "matter": {
+      "look": {
+        "label": "#e9e4d6",
+        "pack": "tub"
+      },
       "ramp": {
         "raw": "#efe0b4"
-      },
-      "look": {
-        "pack": "tub",
-        "label": "#e9e4d6"
       }
     },
     "needs_cooking": true,
     "perishable": true,
     "restore_hunger": 14,
+    "shelved": true,
     "spoil_rate": "normal",
     "stackable": true,
     "status_chance": {

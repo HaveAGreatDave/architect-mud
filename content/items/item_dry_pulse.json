@@ -15,13 +15,14 @@
         "size": 0.7
       },
       "ramp": {
-        "raw": "#b8a070",
         "cook": "#c8b088",
-        "peak": "#b89a6a"
+        "peak": "#b89a6a",
+        "raw": "#b8a070"
       }
     },
     "needs_cooking": true,
     "restore_hunger": 19,
+    "shelved": true,
     "stackable": true,
     "status_chance": {
       "food_poisoning": 0.3

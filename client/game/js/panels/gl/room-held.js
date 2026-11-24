@@ -10,7 +10,7 @@
 
 import { grid, ellipsoid, lin, vtx, MAT } from './ballpark-mesh.js';
 import { FIGURE_BONE } from '../figure.js';
-import { heldFrame } from './figure-reach.js';
+import { heldFrame, handPoint } from './figure-reach.js';
 import { handScaleOf } from '../figure.js';
 import { PHONE_SIZE } from './figure-grips.js';
 
@@ -22,6 +22,8 @@ const PILL = C('#eceef4'), BARREL = C('#dfe8ee'), PLUNGER = C('#2a2c30'), STEEL 
 const CAN = C('#b8342a'), CAN_TOP = C('#c8ccd0'), BREAD = C('#c89a5a'), FILL = C('#7a9a3a'), LIGHTER = C('#d84a2a');
 const BUN = C('#d9a05c'), BUN_TOP = C('#b8743a'), FRANK = C('#9a3c1c'), MUSTARD = C('#e8c020'), PATTY = C('#4a2a18'), CHEESE = C('#f0b830'), LETTUCE = C('#6aa83a');
 const CUTLERY = C('#b8bcc0'), KNIFE_H = C('#2a2420'), NOTE = C('#9ab48a'), NOTE_INK = C('#5a7a52'), CARD_BACK = C('#a0282a'), CARD_FACE = C('#f2f0ea');
+// a paperback, a TV remote and a game controller (the home acts, actor3d.js sitBookPose and the rest)
+const BOOK_COVER = C('#7a2e2a'), BOOK_PAGES = C('#e8dfc4'), REMOTE = C('#1c1c20'), REMOTE_KEY = C('#8a8f98'), PAD_RED = C('#c0302a'), CONTROLLER = C('#2a2c33');
 const PAD_PAPER = C('#efe9c8'), PAD_BACK = C('#6a5a44'), PEN = C('#20304a'), PEN_TIP = C('#d8d8d8');
 const MUGS = ['#e8e2d6', '#2a4a6a', '#a83a2a', '#3a3a3a', '#d8b040'].map(C);
 
@@ -237,6 +239,20 @@ function draw(b, kind, { c, tip, end, F }, seed) {
   } else if (kind === 'pad' && F) {
     obox(b, F, [0, -0.0015, 0], [0.075, 0.0025, 0.052], PAD_BACK, MAT.MATTE);
     obox(b, F, [0, 0.0025, 0], [0.074, 0.0015, 0.051], PAD_PAPER, MAT.MATTE);
+  } else if (kind === 'book' && F) {
+    // a paperback open on the palm: two covers either side of the spine, the pages on top
+    for (const z of [-1, 1]) obox(b, F, [0, -0.003, z * 0.054], [0.09, 0.0015, 0.053], BOOK_COVER, MAT.SATIN);
+    for (const z of [-1, 1]) obox(b, F, [0, 0.004, z * 0.052], [0.087, 0.006, 0.05], BOOK_PAGES, MAT.MATTE);
+  } else if (kind === 'remote' && F) {
+    obox(b, F, [0.02, 0, 0], [0.085, 0.009, 0.022], REMOTE, MAT.SATIN);
+    obox(b, F, [0.07, 0.009, 0], [0.006, 0.002, 0.008], PAD_RED, MAT.GLOSS);
+    for (let i = 0; i < 4; i++) obox(b, F, [0.03 - i * 0.018, 0.009, 0], [0.005, 0.0015, 0.012], REMOTE_KEY, MAT.SATIN);
+  } else if (kind === 'controller' && F) {
+    // a pad held in both hands: the body across the palm and the grips down either side
+    obox(b, F, [0, 0, 0], [0.06, 0.014, 0.035], CONTROLLER, MAT.SATIN);
+    for (const z of [-1, 1]) obox(b, F, [-0.025, -0.006, z * 0.045], [0.03, 0.016, 0.018], CONTROLLER, MAT.SATIN);
+    obox(b, F, [0.01, 0.015, 0.02], [0.008, 0.003, 0.008], REMOTE_KEY, MAT.GLOSS);
+    obox(b, F, [0.01, 0.015, -0.02], [0.008, 0.003, 0.008], PAD_RED, MAT.GLOSS);
   }
 }
 
@@ -247,12 +263,49 @@ function frameOnBone(rec, bone, F) {
 }
 const seedOf = (body) => [...String(body?.id || body?.name || '')].reduce((n, ch) => n * 31 + ch.charCodeAt(0) >>> 0, 7);
 
+// A loaded barbell through both palms: the shaft, knurled where the hands are, the sleeves, two plates a side and the
+// collars, the same bar gl/room-decor.js racks on a press bench. `body.bar` 'concrete' loads the precinct's poured plates.
+const BAR_HALF = 0.85;
+function barbell(b, rec, body) {
+  const palm = (L, s) => onBone(rec, FIGURE_BONE['hand' + L], handPoint(s, [0.035, 0.07, 0], handScaleOf(rec.key, s)));
+  const pl = palm('L', 1), pr = palm('R', -1), mid = lerp3(pl, pr, 0.5), ax = unit(sub(pl, pr));
+  const at = (x) => [mid[0] + ax[0] * x, mid[1] + ax[1] * x, mid[2] + ax[2] * x];
+  const CH = C('#d6dade'), concrete = body?.bar === 'concrete', PL = C(concrete ? '#8a8578' : '#1a1b1d');
+  lathe(b, at(-0.56), at(0.56), [[0, 0.014], [1, 0.014]], CH, MAT.METAL, 12);
+  for (const s of [-1, 1]) {
+    const x = (t) => at(s * t);
+    lathe(b, x(0.56), x(0.585), [[0, 0.03], [1, 0.03]], CH, MAT.METAL, 14);
+    lathe(b, x(0.585), x(BAR_HALF), [[0, 0.025], [1, 0.025]], C('#c4c8cc'), MAT.METAL, 14);
+    lathe(b, x(0.6), x(0.66), [[0, 0.04], [0.02, 0.225], [0.98, 0.225], [1, 0.04]], PL, concrete ? MAT.MATTE : MAT.SATIN, 20);
+    lathe(b, x(0.665), x(0.71), [[0, 0.04], [0.02, 0.17], [0.98, 0.17], [1, 0.04]], PL, concrete ? MAT.MATTE : MAT.SATIN, 20);
+    lathe(b, x(0.715), x(0.74), [[0, 0.034], [1, 0.034]], C('#9aa0a6'), MAT.METAL, 10);
+  }
+}
+// An acoustic guitar (figure-reach.js guitar): the neck from the left fist down to a body held against the right
+// of the belly, a round-shouldered dreadnought with a dark sound hole, a bridge and a headstock past the fist.
+function guitar(b, rec) {
+  const fret = onBone(rec, FIGURE_BONE.handL, handPoint(1, [0.035, 0.07, 0], handScaleOf(rec.key, 1)));
+  const mid = onBone(rec, FIGURE_BONE.spine, [-0.05, 1.06, 0.2]), back = onBone(rec, FIGURE_BONE.spine, [-0.05, 1.06, 0.06]);
+  const X = unit(sub(fret, mid)), Zr = unit(sub(mid, back)), Y = unit(cross(Zr, X)), Z = cross(X, Y);
+  const F = { o: mid, X, Y, Z }, WOOD = C('#a85a24'), RIM = C('#5a3214'), NECK = C('#3a2414'), HOLE = C('#140c06');
+  // the two bouts, the lower one bigger, flat across the player's front (z) and seen from the room
+  ellipsoid(b, P(F, -0.06, 0, 0), [X, Y, Z], [0.2, 0.2, 0.05], 10, 18, WOOD, MAT.GLOSS);
+  ellipsoid(b, P(F, 0.13, 0, 0), [X, Y, Z], [0.13, 0.15, 0.048], 8, 16, WOOD, MAT.GLOSS);
+  ellipsoid(b, P(F, 0.04, 0, 0.044), [X, Y, Z], [0.045, 0.045, 0.008], 5, 12, HOLE, MAT.MATTE);
+  obox(b, F, [-0.15, 0, 0.05], [0.015, 0.06, 0.006], RIM, MAT.SATIN);
+  const nk = P(F, 0.25, 0, 0.03), end = add(fret, mul(X, 0.04));
+  lathe(b, nk, end, [[0, 0.026], [1, 0.021]], NECK, MAT.SATIN, 8);
+  obox(b, { o: end, X, Y, Z }, [0.09, 0, 0], [0.09, 0.035, 0.012], NECK, MAT.SATIN);
+}
 // Into `b`: what each body holds that nothing else draws. `bodies` as room-stage.js hands figurePeople and `recs`
 // what that gave back, one for one; each record's `hold` (gl/figure-reach.js finishArms) names what's in each hand.
 export function heldProps(b, bodies, recs) {
   recs.forEach((rec, i) => {
     const body = bodies[i];
     if (!rec?.hold || !rec.key?.sculpt || body?.stash) return;
+    // a barbell in both fists (figure-reach.js liePress): one bar through both palms, as long as a bar is, loaded
+    if (rec.hold.L === 'bar' && rec.hold.R === 'bar') { barbell(b, rec, body); return; }
+    if (rec.hold.L === 'guitar') { guitar(b, rec); return; }
     for (const [L, s] of [['L', 1], ['R', -1]]) {
       const kind = rec.hold[L];
       if (!kind) continue;

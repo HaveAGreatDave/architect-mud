@@ -831,6 +831,15 @@ token so nobody hops kerbs mid-block. On a road two to four tiles wide (`blockSp
 only at the block's outer edges, so street life (below) stands an edge tile's people on its outer
 side and a middle tile's on the nearer edge, never in a lane.
 
+**On foot, the people on your tile have names.** The street view on foot is also sent `here`
+(`hereFor` in [plugins/freelook](../../plugins/freelook/index.js)): `[{ t, n, npc }]` for the
+people on the tile you're standing on, the ones `look` lists, with the same unnoticed sneakers left
+out. It rides the open, every `freelook_step` and the 15 s sky push. Face one of them within
+3.5 m, or click them, and the card at the foot of the picture puts up their name and Talk (F), the
+lines a person has indoors (`personActs`); a player gets Look. The figure's place is where GLASS
+drew them (`streetActorSpots` in windshield.js); the name only ever comes from `here`, so nobody
+further off than your own tile can be named from the street, and `here` never carries an id.
+
 **Far away the figure is an abstraction; close up it's a person.** The billboard is a head on a
 body with no limbs, because at a few pixels legs read as jitter and the bob carries the motion. On
 GLASS 2, somebody taller than `RENDER_TUNE.actorMeshPx` (8 device pixels) is drawn as a skinned
@@ -1519,7 +1528,7 @@ The fix is to promote the more characterful half of a pair to a `NAMED_MODELS` e
 
 Eleven groups covering thirty Coldwater buildings were sharing an arm, eight of those groups
 sharing a palette too — literal clones. Promoted: **Fired & Forgotten** (`ff_kiln`), **Tine &
-Temper** (`tine`), **Two-Cell Supply** (`twocell`), **Fallow Provisions** (`fallow`), **The Paper
+Temper** (`tine`), **O'Toole's Surplus** (`otoole`), **Fallow Provisions** (`fallow`), **The Paper
 Tomb** (`papertomb`), **Stitch ’n’ Bitch** (`stitch`), **Camp Giardia** (`campgiardia`), **Watts
 The Damage** (`watts`), **Slag & Wares** (`slagwares`), **The Slip** (`slipback`), **Sentimental Value Pawn** (`sentimental`) and
 **Grind House** (`grindhouse`). Their twins — Precinct 9, Grease Expectations, Nuts to That, The

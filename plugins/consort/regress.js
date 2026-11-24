@@ -5,6 +5,8 @@ import { _test } from './index.js';
 import { ARCHETYPES, PAIRINGS, renderLine, pronounsFor, soloSafe, needsOther, temperamentOf, voiceSamples } from './archetypes.js';
 import { generateAppearance, appearanceCard, describeAppearance, intimateCard, intimateHeadline, BUILDS, rngFor } from './appearance.js';
 import * as roster from './roster.js';
+import * as life from './life.js';
+import { consortDay, consortNeeds, CONSORT_ACTS } from '../../client/shared/consort-life.js';
 
 export default async function regress({ check }) {
   const mk = (over = {}) => ({
@@ -839,6 +841,38 @@ export default async function regress({ check }) {
   }
 
   // Housekeeping — don't leave regress ids in the shared in-memory maps.
+
+  // ── Life at home (life.js, consort-life.js) ────────────────────────────────
+  {
+    const a = consortDay('c1', 600, 3), b = consortDay('c1', 600, 3);
+    check('life: the day is a pure function of id and clock', JSON.stringify(a) === JSON.stringify(b));
+    let acts = true, slept = 0;
+    for (let m = 0; m < 1440; m += 15) { const d = consortDay('c1', m, 3); if (!CONSORT_ACTS.includes(d.act)) acts = false; if (d.asleep) slept++; }
+    check('life: every block is a known act', acts);
+    check('life: they sleep a night, not all day', slept >= 24 && slept <= 50, String(slept));
+    const H = 3_600_000, now = 1e12;
+    check('needs: just fed is not hungry', !consortNeeds(now, now, now).hungry);
+    check('needs: a day unfed is hungry', consortNeeds(now - 20 * H, now, now).hungry);
+    check('needs: thirty hours is starving', consortNeeds(now - 31 * H, now, now).starving);
+    check('needs: three days alone is lonely', consortNeeds(now, now - 72 * H, now).isLonely);
+    const keeper = { id: 'regress_keeper', handle: 'Cyd', current_zone: 'zone_nowhere' };
+    const c = mk({ id: 'regress_life', _fedAt: Date.now(), _seenAt: Date.now(), _wokenAt: Date.now() });
+    const stranger = { id: 'regress_other', handle: 'Someone', current_zone: 'zone_nowhere' };
+    check('caress: a stranger is refused', /not yours/i.test(life.caress(stranger, c, 'hand').message));
+    _test.arousal.delete(c.id);
+    const r1 = life.caress(keeper, c, 'neck');
+    check('caress: the keeper is answered', r1.type === 'output' && r1.message.includes('Roxy') && !/[{}§]/.test(r1.message), r1.message);
+    check('caress: the neck warms them', (_test.arousal.get(c.id) || 0) > 0);
+    check('caress: the same spot again soon is quiet', life.caress(keeper, c, 'neck').type === 'noop');
+    check('ROOM: a consort names their keeper only when the keeper is on', life.npcTouch(c) === undefined);
+    let last;
+    for (let i = 0; i < 8; i++) { life._test.CARESS_SAID.clear(); last = life.caress(keeper, c, 'thigh'); }
+    check('caress: enough is enough', /in the mood|minute/i.test(last.message), last.message);
+    life._test.TOUCHES.delete(c.id); life._test.CARESS_SAID.delete(c.id); _test.arousal.delete(c.id);
+    let clean = true;
+    for (const pool of Object.values(life._test.ACT_LINE)) for (const l of pool) if (/[{}§]/.test(renderLine(l, c))) clean = false;
+    check('life: every day line renders clean', clean);
+  }
   for (const id of ['regress_consort_a', 'regress_deck', 'p_a', 'p_b']) {
     _test.arousal.delete(id); _test.lastSpoke.delete(id); _test.moodCap.delete(id);
   }

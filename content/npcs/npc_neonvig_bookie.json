@@ -1,0 +1,95 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "chat_wait": {
+        "next": "start",
+        "seconds": 75,
+        "type": "wait"
+      },
+      "chitchat": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "chat_wait",
+        "type": "action"
+      },
+      "idle_wait": {
+        "next": "start",
+        "seconds": 30,
+        "type": "wait"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "idle_wait",
+        "ifTrue": "chitchat",
+        "type": "condition"
+      },
+      "start": {
+        "next": "player_check",
+        "type": "start"
+      }
+    }
+  },
+  "chitchat": [
+    "rubs out a price on the chalkboard with his thumb and writes a shorter one",
+    "\"Kingfishers at home, I'd want a better price than that. But it's my price, so.\"",
+    "counts a fold of notes, twice, and puts it in a tin",
+    "\"Pick a side, put your money down. Odds are on the board.\"",
+    "glances up at the screen over the bar, then back to his ledger",
+    "\"House always wins. Not always tonight, mind. Over the month.\""
+  ],
+  "description": "A narrow man at a chalkboard by the cashier's cage, sleeves held up with garters, a pencil behind each ear. The board lists the games on the air and his prices on them in a tidy hand. He takes bets on the sports. Type odds to see the board.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Good luck.\""
+    },
+    "how": {
+      "options": [
+        {
+          "label": "Thanks.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Game comes on, I put a price on both sides. Type odds to read it. Punt fifty on the Rats at two-forty and if they win you get a hundred and twenty back. Book shuts once the game's going.\""
+    },
+    "root": {
+      "first": "\"New face. You want a bet, the board's right there.\"",
+      "known": "\"Back again. Board's up.\"",
+      "options": [
+        {
+          "label": "How does it work?",
+          "next": "how"
+        },
+        {
+          "label": "Never mind.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"You want a bet, the board's right there.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "bookie": true,
+    "personality": "clerk",
+    "posted": true
+  },
+  "home_activities": [],
+  "home_zone": "zone_casino_interior",
+  "hp": 40,
+  "hp_max": 40,
+  "id": "npc_neonvig_bookie",
+  "name": "Sal Brennock",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_casino_interior"
+}

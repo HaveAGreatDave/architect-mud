@@ -1,0 +1,854 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "\"Kettle's on. First cup's free. Second one's free too, but don't tell anyone.\"",
+    "\"My grandad opened this place in 1924. Same floorboards. Same leaky roof.\"",
+    "\"Fresh out of the vat? Sit by the radiator till your legs stop wobbling.\"",
+    "\"Everything on these shelves did a job for somebody once. Most of it has another one left in it.\"",
+    "\"The Handoff came and went. We opened the next morning like always.\"",
+    "\"That rig on the wall's a dead lock. Practise on it all you like. It only costs you whatever your deck's got left.\"",
+    "\"I stock the cheap decks and I'll tell you straight, they're bad. Learn on one anyway.\"",
+    "\"Keep the rain off and your feet dry. That's most of staying alive.\""
+  ],
+  "description": "Built like an old boiler, with a barrel chest under a grease-stained canvas apron. His flannel sleeves are rolled over forearms scarred by solder and wrenches. Brass loupes sit pushed up in thinning red hair gone silver at the temples. He's big enough to worry you, in no hurry about anything, and he treats every lost clone like a neighbour.",
+  "dialogue_tree": {
+    "accepted": {
+      "_vine": {
+        "x": 680,
+        "y": 240
+      },
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_first_hour"
+        },
+        {
+          "action": "GRANT_ITEM",
+          "item_id": "item_bat",
+          "quantity": 1
+        },
+        {
+          "action": "EXECUTE_SCRIPT",
+          "scriptId": "script_rusty_crash_course"
+        }
+      ],
+      "options": [
+        {
+          "label": "On it.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Good. There's a green line on your map now. Follow it. And come back in one piece, I hate sweeping up.\""
+    },
+    "aim_lesson": {
+      "_vine": {
+        "x": 360,
+        "y": 1680
+      },
+      "actions": [
+        {
+          "action": "TEACH_AIM"
+        }
+      ],
+      "options": [
+        {
+          "label": "And if I do put the hours in?",
+          "next": "aim_lesson_trained"
+        },
+        {
+          "label": "Centre mass it is.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Where do you hit them.\" He says it flat, like it isn't a question worth the breath. \"Same place everyone hits them, is where. The middle. It's the biggest part of a person and it's the part that's always facing you.\"\nHe sets down the radio he was holding.\n\"Now. You *can* pick a spot. Head, knee, the hand holding the thing you don't want held. It works. It works about as well as your hands do, which right now isn't very. A man who calls a head shot he can't make hasn't made a head shot, he has made a miss, and out here a miss is a whole second of your life you handed to somebody else.\""
+    },
+    "aim_lesson_trained": {
+      "_vine": {
+        "x": 680,
+        "y": 1680
+      },
+      "actions": [],
+      "options": [
+        {
+          "label": "Understood.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Then it stops being a gamble and starts being a decision.\" He shrugs. \"That's the entire difference between the two of us and whatever is out in that alley. It isn't the gun. Anyone can hold the gun. It's that you get to choose where it goes and they do not.\"\nHe goes back to the radio.\n\"Come ask me again when you have been swinging a while. I'll tell you the same thing and it'll be worth more.\""
+    },
+    "bye": {
+      "_vine": {
+        "x": 680,
+        "y": 60
+      },
+      "actions": [],
+      "options": [],
+      "text": "\"Go careful. Keep your feet dry.\" He goes back to the radio."
+    },
+    "deep_tip": {
+      "_vine": {
+        "x": 360,
+        "y": 1140
+      },
+      "actions": [],
+      "options": [
+        {
+          "label": "How deep are we talking?",
+          "next": "bye"
+        }
+      ],
+      "text": "\"More work? Down there, always.\" He doesn't look happy about it. \"You thinned the shallows. But the Under goes down a long way past where you were, and it gets meaner every level. Word is there's an old scavenger who's dug in about as deep as anyone can and lived. Works a walled cistern off a crossroads they call the Throat, east and down. Dredge, they call her. She pays real credits for the ugly work she can't do herself anymore.\" He shrugs. \"Push past the pocket, keep that light charged, and go find her. Just don't go dark down there. You go dark, you stay.\""
+    },
+    "hiring_tip": {
+      "_vine": {
+        "x": 360,
+        "y": 1320
+      },
+      "actions": [],
+      "options": [
+        {
+          "label": "Names?",
+          "next": "hiring_tip_names"
+        },
+        {
+          "label": "I'll stick to the crates.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Hiring?\" He laughs. \"Everybody's hiring, nobody's saying so.\" He leans on the counter. \"Delia's board is fine for bus fare. The real money's people with a problem they can't be seen fixing themselves. They don't post. You knock.\""
+    },
+    "hiring_tip_names": {
+      "_vine": {
+        "x": 680,
+        "y": 600
+      },
+      "actions": [],
+      "options": [
+        {
+          "label": "I'll pay them a visit.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Two worth your time, and both of ’em keep office hours where you can actually reach them.\" He counts on thick fingers. \"Precinct Nine lobby, out east past the Lucky Bastard. There's a records clerk they call the Registrar, and an Assemblyman named Croll who’s usually in there leaning on somebody. Both have got wastes-work they’d rather not sign their name to. Registrar pays a hundred and change; Croll better than that.\" He shrugs. \"And if you get ambitious, Consul Alcaraz holds court in the Halcyon lobby. Pays double what I do and asks twice as much. Don’t go to any of them broke and unarmed; they can smell it, and the price of your help drops accordingly.\""
+    },
+    "lore": {
+      "_vine": {
+        "x": 360,
+        "y": 240
+      },
+      "actions": [],
+      "options": [
+        {
+          "label": "Noted.",
+          "next": "root"
+        }
+      ],
+      "text": "He pats the counter. \"My grandad opened this place in 1924, the year they put up the Meridian. Army surplus off the boats, mostly. My dad kept it going, then me.\" He shrugs. \"The Handoff came and the whole city changed hands. We opened the next morning anyway. Somebody's got to sell boots.\""
+    },
+    "quest_offer": {
+      "_vine": {
+        "x": 360,
+        "y": 420
+      },
+      "actions": [],
+      "options": [
+        {
+          "label": "I’ll clear them out.",
+          "next": "accepted"
+        },
+        {
+          "label": "Not my fight.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Fresh clone, huh?\" He looks at the vat-slick on your skin, then at your empty hands. \"There's a crew of clonejackers working the strip south of the Embassy. They wait for new ones to wobble out of the vats and take everything. They took a box of my cells off a kid last week. Put a couple of them down for me and bring the cells back, and I'll see you right.\""
+    },
+    "regular": {
+      "_vine": {
+        "x": 360,
+        "y": 1500
+      },
+      "actions": [],
+      "options": [
+        {
+          "label": "Show me the crates.",
+          "next": "shop"
+        },
+        {
+          "label": "Where do you hit them, exactly?",
+          "next": "aim_lesson"
+        },
+        {
+          "label": "Just passing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Back for more? Good. You keep coming home, I keep the shop open. Works for both of us.\""
+    },
+    "reported": {
+      "_vine": {
+        "x": 360,
+        "y": 600
+      },
+      "actions": [
+        {
+          "action": "REMOVE_ITEM",
+          "item_id": "item_stolen_cells",
+          "quantity": 1
+        },
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_first_hour"
+        }
+      ],
+      "options": [
+        {
+          "label": "Obliged, Grady.",
+          "next": "bye"
+        }
+      ],
+      "text": "He takes the cells, counts them, and grins. \"Well, look at you.\" He unclips a battered lamp from under the counter and puts it in your hand. \"That was my grandad's. Never once left him in the dark. It's yours now. Consider yourself a regular.\""
+    },
+    "rig": {
+      "_vine": {
+        "x": 360,
+        "y": 1860
+      },
+      "actions": [],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "He nods at the dead panel on the wall. \"Practice. Buy a deck off me and <b>hack</b> the rig. There's nothing behind it: no credits, no shock, and nobody calls the police.\n\nA miss still wears the deck, same as a real lock. When it's too easy for you, it'll say so.\""
+    },
+    "root": {
+      "_vine": {
+        "x": 40,
+        "y": 60
+      },
+      "actions": [],
+      "options": [
+        {
+          "label": "What are you selling?",
+          "next": "shop"
+        },
+        {
+          "label": "What's the rig on the wall?",
+          "next": "rig"
+        },
+        {
+          "label": "Where do you hit them, exactly?",
+          "next": "aim_lesson"
+        },
+        {
+          "label": "\"Two-Cell?\"",
+          "next": "lore"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "quest_first_hour",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "label": "Something’s hunting the new ones out there.",
+          "next": "quest_offer"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "quest_first_hour",
+              "op": "eq",
+              "scope": "player",
+              "value": "completed"
+            }
+          ],
+          "label": "I put those clonejackers down.",
+          "next": "reported"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "grady_regular",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "quest_down_the_drain",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "label": "Where's a fresh clone earn next?",
+          "next": "sewer_offer"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "quest_down_the_drain",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "grady_sewer_cleared",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "label": "The Under's a little quieter now.",
+          "next": "sewer_reported"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "grady_sewer_cleared",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "quest_under_deepcuts",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "label": "Is there more work down in the Under?",
+          "next": "deep_tip"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "grady_sewer_cleared",
+              "op": "set",
+              "scope": "player"
+            }
+          ],
+          "label": "Who else round here pays for work?",
+          "next": "hiring_tip"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "grady_regular",
+              "op": "set",
+              "scope": "player"
+            }
+          ],
+          "label": "Thanks, Rusty.",
+          "next": "regular"
+        }
+      ],
+      "text": [
+        "He looks up from a radio chassis and wipes his hands on a rag. \"What can I get you?\"",
+        "\"Back again.\" He sets the screwdriver down. \"What do you need?\"",
+        "He nods at the kettle on the hotplate. \"Help yourself. Then tell me what you're after.\""
+      ],
+      "text_by_relation": {
+        "familiar": [
+          "\"There you are.\" He's already pouring you a cup. \"What's it this time?\"",
+          "\"Still in one piece. Good.\" He waves at the shelves. \"Take what you need, we'll square it after.\""
+        ],
+        "first": "He looks up from a gutted radio and wipes his hands on a rag. \"Easy, friend. You've still got vat-fog in your eyes. I'm Rusty. There's chicory in the kettle, and the first cup's free. Tell me what you need when your legs stop wobbling.\"",
+        "known": "\"You again. Good.\" He means it. \"What are you short of?\""
+      }
+    },
+    "sewer_accepted": {
+      "_vine": {
+        "x": 680,
+        "y": 420
+      },
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_down_the_drain"
+        }
+      ],
+      "options": [
+        {
+          "label": "Down I go.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Green line's on your map. Keep the lamp charged. I sell cells, and don't be too proud to buy them. Six, then home.\""
+    },
+    "sewer_offer": {
+      "_vine": {
+        "x": 360,
+        "y": 780
+      },
+      "actions": [],
+      "options": [
+        {
+          "label": "Point me at it.",
+          "next": "sewer_accepted"
+        },
+        {
+          "label": "Maybe later.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Work? Always.\" He points at the floor. \"That storm drain on Ironside, the one with the grate kicked off, drops into the Under. Old sewers. Something's breeding down there and coming up toward the vats. Rats, roaches, worse. You've got the lamp. Go and thin them out, six of them.\""
+    },
+    "sewer_reported": {
+      "_vine": {
+        "x": 360,
+        "y": 960
+      },
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_down_the_drain"
+        }
+      ],
+      "options": [
+        {
+          "label": "All in a day’s work.",
+          "next": "bye"
+        }
+      ],
+      "text": "He hears the count and nods. \"Six, and you walked back up on your own. Most don't.\" He counts your pay out onto the counter, then adds a handful of cells. \"Those are for what you burned getting there. I'm not charging you for the light I sent you down with.\""
+    },
+    "shop": {
+      "_vine": {
+        "x": 360,
+        "y": 60
+      },
+      "actions": [
+        {
+          "action": "OPEN_SHOP",
+          "npcId": "npc_rusty_otoole"
+        }
+      ],
+      "options": [
+        {
+          "label": "(browse the crates)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Have a look round. Mind the floorboard by the boots, it bites.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a grease-stained canvas shop apron",
+      "a patched red flannel shirt, sleeves rolled to the elbow",
+      "brass-rimmed magnifier loupes pushed up into his hair",
+      "heavy work trousers and old boots"
+    ],
+    "personality": "vendor",
+    "purchase_remarks": {
+      "item_pry_deck": "slides the deck across the counter. \"That's for diagnostic work, officially.\" He tips his head at the dead panel on the wall. \"That rig's not wired to anything and it doesn't call the police. Learn on that. Stay off the cash machines till you're good.\""
+    },
+    "parley": {
+      "topics": {
+        "cells": [
+          "cells",
+          "battery",
+          "batteries",
+          "flashlight",
+          "torch",
+          "lamp",
+          "power"
+        ],
+        "name": [
+          "rusty",
+          "o'toole",
+          "otoole",
+          "name"
+        ],
+        "shop": [
+          "shop",
+          "stock",
+          "prices",
+          "surplus",
+          "shelves"
+        ],
+        "vat": [
+          "vat",
+          "fresh",
+          "new",
+          "woke up"
+        ],
+        "family": [
+          "family",
+          "grandad",
+          "grandfather",
+          "father",
+          "dad",
+          "1924",
+          "history",
+          "handoff"
+        ],
+        "tea": [
+          "chicory",
+          "tea",
+          "kettle",
+          "cup"
+        ]
+      },
+      "react": {
+        "greet": {
+          "stranger": [
+            "Come in out of the cold.",
+            "*looks up from the radio.* Hello there."
+          ],
+          "familiar": [
+            "{name}. Kettle's on."
+          ],
+          "close": [
+            "{name}! Sit down, I'll pour you one."
+          ]
+        },
+        "farewell": [
+          "Come back when it breaks.",
+          "Keep the light on."
+        ],
+        "thank": [
+          "Pay me and we're square."
+        ],
+        "praise": [
+          "Thank you. My grandad would be pleased."
+        ],
+        "insult": [
+          "*sets the screwdriver down.* That's not very neighbourly."
+        ],
+        "insult_last": [
+          "Out you go. Come back when you've remembered your manners."
+        ],
+        "flirt": [
+          "*laughs.* I'm flattered. Still full price, though."
+        ],
+        "apologise": [
+          "Forget it. Have a cup."
+        ],
+        "joke": [
+          "*a big laugh.* That's a good one."
+        ],
+        "complain": [
+          "Bring it back and I'll look at it. I stand behind what I sell."
+        ],
+        "ask_feeling": [
+          "Can't complain. Shop's open, kettle's on."
+        ],
+        "order_drink": [
+          "Chicory's all I've got. It's free, mind."
+        ],
+        "ask_name": [
+          "Rusty O'Toole. Third O'Toole behind this counter."
+        ],
+        "ask_job": [
+          "Surplus. Boots, coats, lamps, the things that keep the rain off."
+        ],
+        "ask_origin": [
+          "Born upstairs. Never lived anywhere else."
+        ],
+        "ask_news": [
+          "Prices on cells are up again. Somebody's buying the lot."
+        ],
+        "ask_advice": [
+          "Keep your feet dry and carry a spare cell.",
+          "Big scores get people killed. A working lamp gets you home."
+        ],
+        "ask_about:cells": [
+          "Two in the lamp, two in your pocket. Never just one."
+        ],
+        "ask_about:name": [
+          "Rusty, for the hair. It used to be redder."
+        ],
+        "ask_about:shop": [
+          "Same shelves since 1924. My grandad bolted them in himself."
+        ],
+        "ask_about:vat": [
+          "Fresh out of the vat? Sit by the radiator a minute. Nobody's rushing you."
+        ],
+        "ask_about:tea": [
+          "Chicory. It isn't coffee, but it's hot."
+        ],
+        "ask_about:family.stranger": [
+          "*smiles.* Long story. Come back when you've got time for it."
+        ]
+      },
+      "deflect": [
+        "Say what you came in to say, friend.",
+        "*waits, patient.* Go on."
+      ],
+      "beats": [
+        {
+          "id": "family",
+          "topic": "family",
+          "tier": "known",
+          "warmth": 6,
+          "steps": [
+            "My grandad opened this shop in 1924. Surplus off the boats, and he slept behind the counter the first year.",
+            "My dad kept it open through the bad years, and I kept it open through the Handoff. The morning after, I unlocked the door like any other day.",
+            "Everything else in this city changed hands. This place didn't. That's what I'm proud of."
+          ]
+        }
+      ]
+    }
+  },
+  "home_activities": [],
+  "home_zone": "zone_apt_4",
+  "hp": 60,
+  "hp_max": 60,
+  "id": "npc_rusty_otoole",
+  "name": "Rusty O'Toole",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_water_bottle",
+      "price": 5,
+      "stock": 30
+    },
+    {
+      "item_id": "item_ration",
+      "price": 10,
+      "stock": 20
+    },
+    {
+      "item_id": "item_chicory_sachet",
+      "price": 4,
+      "stock": 30
+    },
+    {
+      "item_id": "item_rag_bandage",
+      "price": 6,
+      "stock": 30
+    },
+    {
+      "item_id": "item_battery",
+      "price": 12,
+      "stock": 40
+    },
+    {
+      "item_id": "item_flashlight",
+      "price": 55,
+      "stock": 10
+    },
+    {
+      "item_id": "item_work_gloves",
+      "price": 10,
+      "stock": 10
+    },
+    {
+      "item_id": "item_steel_toe_boots",
+      "price": 40,
+      "stock": 6
+    },
+    {
+      "item_id": "item_kevlar_raincoat",
+      "price": 180,
+      "stock": 3
+    },
+    {
+      "item_id": "item_respirator_mask",
+      "price": 70,
+      "stock": 5
+    },
+    {
+      "item_id": "item_mining_pick",
+      "price": 55,
+      "stock": 4
+    },
+    {
+      "item_id": "item_pry_deck",
+      "price": 95,
+      "stock": 3
+    },
+    {
+      "item_id": "item_wetsuit",
+      "price": 300,
+      "stock": 2
+    },
+    {
+      "item_id": "item_rebreather",
+      "price": 420,
+      "stock": 2
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 6,
+        "to": 24
+      }
+    ],
+    "mon": [
+      {
+        "from": 6,
+        "to": 24
+      }
+    ],
+    "sat": [
+      {
+        "from": 6,
+        "to": 24
+      }
+    ],
+    "sun": [
+      {
+        "from": 6,
+        "to": 24
+      }
+    ],
+    "thu": [
+      {
+        "from": 6,
+        "to": 24
+      }
+    ],
+    "tue": [
+      {
+        "from": 6,
+        "to": 24
+      }
+    ],
+    "wed": [
+      {
+        "from": 6,
+        "to": 24
+      }
+    ]
+  },
+  "vendor_shop_name": "O'Toole's Surplus",
+  "vendor_stock_size": 14,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_otoole_interior"
+}

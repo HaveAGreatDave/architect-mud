@@ -4,6 +4,7 @@
   "id": "item_soylent_manyhappy",
   "name": "soylent pouch (many happy returns)",
   "tags": {
+    "aisle": "staples",
     "consumable": true,
     "description": "A foil pouch in a colour the others don't come in, a deep and slightly iridescent bronze, with no cartoon on it and no exclamation marks. MANY HAPPY RETURNS is printed small and centred, and under it, smaller still: ISSUED ONCE ANNUALLY PER REGISTERED INSTANCE. The straw is the good kind, the rigid kind, and it has been taped on straight.",
     "restore_hunger": 60,

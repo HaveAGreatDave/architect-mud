@@ -10,45 +10,38 @@
     "out": "zone_sdeck_lobby",
     "up": [
       "zone_sdeck_l2",
-      "zone_sdeck_l3",
-      "zone_sdeck_l4",
-      "zone_sdeck_l5",
       "zone_sdeck_pad"
     ]
   },
   "flags": {
-    "building_name": "Stacked Deck",
+    "building_name": "Marrow Street Parking",
     "is_interior": true,
     "floor": "metal",
     "elevator": true,
     "hide_exits": true,
     "elevator_floors": [
       {
-        "label": "Parking, level 2",
+        "label": "Carousel",
         "n": 2,
         "zone": "zone_sdeck_l2"
-      },
-      {
-        "label": "Parking, level 3",
-        "n": 3,
-        "zone": "zone_sdeck_l3"
-      },
-      {
-        "label": "Parking, level 4",
-        "n": 4,
-        "zone": "zone_sdeck_l4"
-      },
-      {
-        "label": "Parking, level 5",
-        "n": 5,
-        "zone": "zone_sdeck_l5"
       },
       {
         "label": "Roof pad",
         "n": 6,
         "zone": "zone_sdeck_pad"
       }
-    ]
+    ],
+    "room": {
+      "balcony": false,
+      "car": true,
+      "d": 2.2,
+      "face": 180,
+      "finish": "plain",
+      "h": 2.7,
+      "studio": false,
+      "w": 2.2,
+      "windowless": true
+    }
   },
   "grid_x": 0,
   "grid_y": -1,

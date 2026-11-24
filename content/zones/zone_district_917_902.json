@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "forest",
   "color": "#b8a880",
-  "description": "Coarse grey sand, more grit than beach, packed hard by the wind and stitched with the things the basin gives back: bottle glass worn smooth, a rib of some hull, plastic bleached to bone. It runs down to the waterline and stops being land somewhere you can't quite point at.",
+  "description": "Pale sand, raked clear of glass once a week by somebody the marina pays. It slopes gently into the basin, which gets warm enough by July to swim in, as long as you don't think about what used to be in it.",
   "exits": {
     "north": "zone_district_917_901",
     "west": "zone_district_916_902"
@@ -10,13 +10,14 @@
   "flags": {
     "district": "wasteland",
     "region_id": "region_coldwater",
-    "terrain": "sand"
+    "terrain": "sand",
+    "beach": true
   },
   "grid_x": 918,
   "grid_y": 902,
   "grid_z": 0,
   "id": "zone_district_917_902",
   "map_id": "map_world",
-  "name": "The Strand",
+  "name": "Marina Beach",
   "parent_zone": null
 }

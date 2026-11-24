@@ -1,0 +1,25 @@
+{
+  "description": "A glass induction top over a fan oven, in brushed steel, with a clock on a panel raised off the back. Stands on its own, or slots into a run of units and looks like it was always there.",
+  "flags": {
+    "induction": true,
+    "interactions": [
+      "lean"
+    ],
+    "item_id": "item_furn_range_solace_i90",
+    "spot": {
+      "along": 1.18,
+      "wall": "right"
+    },
+    "stove_tier": "high"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_apt_3_range_solace_i90_3759",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "Solace i90 Range",
+  "object_type": "furniture",
+  "power_draw_kw": 0.4,
+  "price": 4200,
+  "zone_id": "zone_apt_3"
+}

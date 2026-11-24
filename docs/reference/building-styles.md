@@ -220,6 +220,12 @@ granite plinth, fins in `ty_marble_col`, `ty_meridian_bronze` and `ty_verdigris`
 gilt on a bronze plate in the `deco` hand, and a later steel roof over it. The trades round it take
 the same stone and gilt at a smaller size.
 
+**Compound Interest is the fourth** (2026-11,
+[compound-interest.md](../proposals/compound-interest.md)): the bank on Marrow Street, two doors
+from the Meridian, in `ty_palais_stone` on a `ty_hc_granite` plinth with `ty_marble_col` piers,
+`ty_meridian_bronze` frames and a `ty_verdigris` cap. It's an authored model, and it needed no new
+palette key or part.
+
 **Before the Coliseum it was two.** The Coldwater Palais on Meltwater Row (2026-10,
 [coldwater-palais.md](../proposals/coldwater-palais.md)) is the Meridian's decade and the Meridian's
 stone: its foyers' windows are parts between its piers (`palaisLights`), and its blind stage house and ground
@@ -273,6 +279,42 @@ aircraft into. The ruins ARE buildings, for the mirror reason.
 
 Timber, boardwalks, hitching rails, split shakes (`ty_reach_shake`, `ty_reach_motel_roof`,
 `ty_reach_bath_roof`), rust (`ty_reach_rust`). The `western` hand.
+
+**Timber and neon** (David, 2026-11-23; the plan is [reach-rebuild.md](../proposals/reach-rebuild.md)).
+The buildings are timber and the future is the light on them and the kit bolted to them. Neon is
+the Reach's futurism, so there's a lot of it: every business is lit, in amber, cyan and magenta,
+and every sign pairs one western shape with one piece of circuit board (a coyote drawn in circuit
+traces, a rope ring with cyan traces inside it).
+
+A Reach sign that's more than a name is drawn with the **neon kit**
+([glass/neon-kit.js](../../client/game/js/panels/glass/neon-kit.js)): bent tube along any path, a
+ring, lettering along a line or a rising arc, a colour that runs along a tube, sharp or rounded
+bends, and a glow over an outlined shape. Lit, it's the same four-pass tube as a lit name; unlit,
+it's pale glass throwing a shadow on its board. A sign's artwork is registered by id in
+[glass/reach-neon.js](../../client/game/js/panels/glass/reach-neon.js) and hung by its arm with
+`bakeNeonArt(id, night, dead, aspect)`, which sheds, goes dark with the power and records itself for
+GLASS Lite as bakeSignText does. The Coyote's Rest badge is the first and the bar for the rest: its
+coyote and layout were traced off David's mock-up (`docs/proposals/img/reach-coyote-sign.webp`).
+
+**The Coyote's Rest is the bar for the rest** (the `saloon` arm in
+[the-reach.js](../../client/game/js/panels/glass/models/the-reach.js), rebuilt 2026-11-23): four
+storeys of board in tile units (a storey is 0.196, so the rooms can be fitted to it), a stepped
+false front carrying the badge at about a third of the building's height, a porch and a covered
+gallery on posts, an outside stair up the side for the people who live upstairs, sash windows with
+sills, heads, shutters and curtains that are lit tonight or not by a roll off the tile's seed, two
+with a magenta tube round them and two with an air conditioner in them, a ghost sign on the blind
+wall, and the 2077 bolted on: dishes, an aerial with its light, cameras on the corners, panels on
+the roof, a hover bike at the rail and a charging post. It's `noKit`, because the derived kit laid
+its own trim across the bays.
+
+⚠ **An outline needs its glow.** Drawn as tube alone, an animal reads as wire and its head is lost
+at sign size; `pen.glow` washing the board inside the outline is what made the coyote read as one
+bright animal, as the mock's does.
+
+⚠ **A round sign is a quad drawn taller than wide.** GLASS's camera draws the world wider than tall,
+so a square quad measured 1.5 to 1 on screen from the street. The badge's quad is 1.45 times taller
+than wide, and `aspect` tells `fitSignPts` that's the shape it fills (`_fitAspect`), or the fit
+pulls it back to square.
 
 ⚠ **The exemption is by ARM, never by palette.** `NO_TILE_FIT` lets the Reach, the Thornwarren and
 Terminus keep boardwalks that cross their own plot line — but `laundromat`, `citybathhouse`,

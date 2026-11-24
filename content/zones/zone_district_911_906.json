@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "forest",
   "color": "#b8a880",
-  "description": "A shelf of pale sand and shingle, ridged where the water works it and works it again. Bootprints fill and blur behind you almost politely. Further out the basin lies flat and lightless, and nothing crossing it moves in a way you'd care to name.",
+  "description": "Warm sand underfoot, and a tide line that's mostly weed these days instead of plastic. A lifebuoy on a post has stood here so long people have carved their initials into it.",
   "exits": {
     "east": "zone_district_912_906",
     "north": "zone_district_911_905",
@@ -11,13 +11,14 @@
   "flags": {
     "district": "docks",
     "region_id": "region_coldwater",
-    "terrain": "sand"
+    "terrain": "sand",
+    "beach": true
   },
   "grid_x": 911,
   "grid_y": 906,
   "grid_z": 0,
   "id": "zone_district_911_906",
   "map_id": "map_world",
-  "name": "The Strand",
+  "name": "Marina Beach",
   "parent_zone": null
 }

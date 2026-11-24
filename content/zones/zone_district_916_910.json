@@ -3,19 +3,21 @@
   "ambient_theme": "indoors",
   "bg_color": "#3a3550",
   "color": "#e8e0ff",
-  "description": "A wide, low brick shopfront with its window whitewashed from the inside and a letting notice taped to the glass. Four bright screw-holes and a ghost of a name show where the fascia came off. Solenne's glass goes up across the road. Whoever takes it gets the busiest forty feet of pavement on Marrow Street.",
+  "description": "Pale limestone on a black granite plinth. Four round columns of veined white marble stand out front on a granite step, banded in bronze halfway up, and they hold up the frieze where the name is cut and gilded. Behind them the front wall is set back, with tall bronze-framed windows and a pair of bronze doors standing open. Over the doors the stone steps up toward a copper crown. The stone is the Meridian's, and it has been washed more often. The way in is south. Marrow Street runs north.",
   "exits": {
     "north": "zone_district_916_909",
-    "south": "zone_sf_marrow4"
+    "south": "zone_citadel_hall"
   },
   "flags": {
-    "building_name": "Unit 4, Marrow Street",
-    "building_type": "shop",
+    "building_name": "Coldwater Financial",
+    "building_type": "bank",
     "district": "marrow",
     "entrance": "north",
     "facade": true,
+    "icon": "bldg_compound_interest",
     "is_building": true,
     "region_id": "region_coldwater",
+    "sign_trade": "BANK",
     "world_exit_zone": "zone_district_916_909"
   },
   "grid_x": 917,
@@ -23,7 +25,7 @@
   "grid_z": 0,
   "id": "zone_district_916_910",
   "map_id": "map_world",
-  "marker": "M4",
-  "name": "Unit 4, Marrow Street",
+  "marker": "CF",
+  "name": "Coldwater Financial",
   "parent_zone": null
 }

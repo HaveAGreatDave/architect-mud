@@ -18,13 +18,12 @@
     },
     "owner_npc": "npc_embassy_barkeep",
     "spot": {
-      "along": 3.75,
-      "wall": "front",
-      "y": 2.45
+      "along": 2,
+      "wall": "front"
     },
-    "tuned_channel": 7,
+    "tuned_channel": 5,
     "tv": true,
-    "tv_dial_freq": 7
+    "tv_dial_freq": 5
   },
   "hp": null,
   "hp_max": null,

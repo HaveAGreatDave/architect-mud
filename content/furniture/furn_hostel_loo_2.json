@@ -1,0 +1,31 @@
+{
+  "description": "A cubicle with the cistern lid gone, the ballcock tied up with a bootlace. A burnt spoon lies in the corner behind the pan.",
+  "flags": {
+    "aliases": [
+      "cubicle",
+      "stall",
+      "toilet",
+      "loo",
+      "second toilet"
+    ],
+    "look": {
+      "arche": "stall",
+      "form": "cubicle",
+      "wear": 0.95
+    },
+    "spot": {
+      "along": 2.3,
+      "wall": "left"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_hostel_loo_2",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "second toilet",
+  "object_type": "toilet",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_hostel_kitchen"
+}

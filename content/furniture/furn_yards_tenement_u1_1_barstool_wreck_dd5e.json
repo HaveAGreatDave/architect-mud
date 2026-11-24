@@ -1,0 +1,26 @@
+{
+  "description": "Three legs when it started life. Now two and a half, bridged by industrial epoxy. The seat rotates freely in both directions.",
+  "flags": {
+    "interactions": [
+      "sit"
+    ],
+    "item_id": "item_furn_barstool_wreck",
+    "spot": {
+      "at": [
+        1.05,
+        5.55
+      ],
+      "turn": 90
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_yards_tenement_u1_1_barstool_wreck_dd5e",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "wobbly barstool",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 60,
+  "zone_id": "zone_yards_tenement_u1_1"
+}

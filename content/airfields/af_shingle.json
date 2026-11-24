@@ -1,0 +1,18 @@
+{
+  "charter": false,
+  "charter_vtol_only": false,
+  "dealer": false,
+  "fuels": [
+    "charge",
+    "hydrogen",
+    "jet"
+  ],
+  "id": "af_shingle",
+  "lawless": false,
+  "name": "Shingle Pad",
+  "rental": false,
+  "residents_only": null,
+  "surface": null,
+  "theme": null,
+  "vtol_only": true
+}

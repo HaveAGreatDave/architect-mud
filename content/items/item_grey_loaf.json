@@ -4,6 +4,7 @@
   "id": "item_grey_loaf",
   "name": "grey loaf",
   "tags": {
+    "aisle": "bakery",
     "consumable": true,
     "container": 1400,
     "description": "A dense brick of a loaf, crust the colour of wet cement and a crumb that holds a thumbprint. It keeps for a fortnight, which tells you most of what you need to know about it.",
@@ -12,19 +13,19 @@
     "food_profile": "bread",
     "matter": {
       "form": {
-        "kind": "block",
-        "w": 18,
         "d": 10,
         "h": 9,
-        "round": 0.5
-      },
-      "ramp": {
-        "raw": "#8c8a84",
-        "cook": "#7e786c",
-        "peak": "#6a6052"
+        "kind": "block",
+        "round": 0.5,
+        "w": 18
       },
       "look": {
         "flesh": "#a8a59c"
+      },
+      "ramp": {
+        "cook": "#7e786c",
+        "peak": "#6a6052",
+        "raw": "#8c8a84"
       }
     },
     "perishable": true,

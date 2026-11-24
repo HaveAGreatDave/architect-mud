@@ -49,6 +49,7 @@ import { liveSportsSlot, sportsGamesAhead } from '../broadcast/index.js';
 import { GAMES_AHEAD, soldIn, ticketsOf, ticketFor, ticketById, issue, confirm, tear, seatLabel, forgetBefore } from './tickets.js';
 import { championPieces } from './champions.js';
 import { crewStage, crewVehicles } from './crew.js';
+import { regularStage } from './regulars.js';
 
 // playerId -> { zoneId, section, seat, channelId }
 const seated = new Map();
@@ -675,7 +676,8 @@ export const hooks = {
   'room.pieceState': (zoneId) => championPieces(zoneId),
   // the ice crew's machine in its bay, and the crew themselves through a break (crew.js)
   'room.vehicles': (zoneId) => crewVehicles(zoneId),
-  'room.npcStage': (n, zoneId, pieces) => crewStage(n, zoneId, pieces),
+  // ...and a regular in their own seat on a night they've come (regulars.js)
+  'room.npcStage': (n, zoneId, pieces) => crewStage(n, zoneId, pieces) ?? regularStage(n, zoneId),
   // your tickets, for a seat door's card, in a room that sells them; and the game's channel, in a room at the rink
   'room.viewer': (zoneId, player) => {
     if (!player) return null;

@@ -39,7 +39,14 @@
         "w": 1
       },
       "studio": false,
-      "w": 12
+      "w": 12,
+      "street_door": {
+        "kind": "swing",
+        "w": 1.8,
+        "trim": "#5a3a22",
+        "glass": "#a08a5a",
+        "fanlight": true
+      }
     },
     "window": {
       "description": "A wide pane onto Meltwater Row with a neon boot hung in it, kicking on a two-second cycle. Whatever the weather is doing out there, it's doing it in plain view of everyone at the bar.",

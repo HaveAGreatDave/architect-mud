@@ -11,7 +11,7 @@ import { getNpcChitchat } from '../npc-personality.js';
 
 // Work lines on the clock at the workplace, life lines anywhere else: the same split the AI's own chitchat uses.
 const chitchatMode = (npc) => (isNpcAtWork(npc) ? 'work' : 'life');
-import { fireHook } from '../plugins.js';
+import { fireHook, gatherHookSync } from '../plugins.js';
 import { emit } from '../events.js';
 import { findNpcTransformByName } from '../phantoms.js';
 import { escapeHtml } from '../html.js';
@@ -97,7 +97,8 @@ async function cmdTalk(targetStr, player, broadcast) {
   // Bottom Display Mode rung: no panel, so the conversation is written into the
   // log and answered with `reply <n>` — see openLogTalk below.
   if (loggedPanelsSync(player)) return openLogTalk(player, npc, rendered);
-  return { type:'dialogue', npcId:npc.id, npcName:npc.name, npcSex:npc.sex || null, node:'root', text:rendered.text, options:rendered.options, stage:rendered.stage, mood:rendered.mood };
+  // `parley`: the panel shows a box to answer in your own words (plugins/parley).
+  return { type:'dialogue', npcId:npc.id, npcName:npc.name, npcSex:npc.sex || null, node:'root', text:rendered.text, options:rendered.options, stage:rendered.stage, mood:rendered.mood, parley: !isAnimal(npc) };
 }
 
 // ── Talking, at the bottom Display Mode rung ─────────────────────────────────
@@ -223,6 +224,9 @@ async function cmdSay(text, player, broadcast) {
   // listen here rather than re-deriving it from the say path.
   emit('player.spoke', { player, zoneId: player.current_zone, loud: false });
   for (const npc of npcsNamedInSpeech(text, player.current_zone)) {
+    // A plugin that answers what was actually said (plugins/parley) takes the line; the
+    // stock chitchat is only for somebody nobody answered for.
+    if (gatherHookSync('npc.heard', { player, npc, text, broadcast }).length) continue;
     const lines = getNpcChitchat(npc, chitchatMode(npc)) || DEFAULT_CHITCHAT_LINES;
     broadcast(player.current_zone, formatChitchat(npc.name, lines[Math.floor(Math.random() * lines.length)]));
   }

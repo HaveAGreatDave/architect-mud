@@ -1,0 +1,107 @@
+{
+  "ambient_events": [
+    "The carousel shudders as another slot turns past behind the drum.",
+    "Wind pushes through the mesh and smells of jet fuel.",
+    "Somebody's aircraft ticks as it cools."
+  ],
+  "ambient_theme": "indoors",
+  "bg_color": "#1a2228",
+  "color": "#cfe4ea",
+  "description": "A strip of black concrete along the carousel drum, with a cyan line at the edge and one cradle bay where the drum opens. Feed the terminal your ticket and whatever you parked comes out of the wall on rails. The lift is <b>in</b>.",
+  "exits": {
+    "in": "zone_apark_lift"
+  },
+  "flags": {
+    "building_name": "Airport Parking Plaza",
+    "floor": "concrete",
+    "is_interior": true,
+    "room": {
+      "balcony": false,
+      "d": 4.9,
+      "decor": {
+        "downlights": false,
+        "paint": [
+          {
+            "kind": "line",
+            "from": [
+              -5.8,
+              0.3
+            ],
+            "to": [
+              5.8,
+              0.3
+            ],
+            "hex": "#28c4e4",
+            "t": 0.1
+          },
+          {
+            "kind": "hazard",
+            "rect": [
+              -0.8,
+              6,
+              0.6,
+              4.300000000000001
+            ],
+            "t": 0.2
+          }
+        ],
+        "rug": false,
+        "signs": [
+          {
+            "wall": "back",
+            "along": -3,
+            "y": 2.6,
+            "h": 0.16,
+            "text": "CAROUSEL",
+            "hex": "#28c4e4",
+            "plateHex": "#0d0f12"
+          }
+        ],
+        "strips": [
+          {
+            "along": "u",
+            "at": [
+              0,
+              4.300000000000001
+            ],
+            "len": 8
+          }
+        ]
+      },
+      "doors": {},
+      "finish": "plain",
+      "ground": "concrete",
+      "h": 3.4,
+      "studio": false,
+      "tone": {
+        "accent": "#28c4e4",
+        "ceiling": "#0d0f12",
+        "trim": "#22262b",
+        "wall": "#16191d"
+      },
+      "w": 12,
+      "windowless": true,
+      "face": 90,
+      "stand": {
+        "kind": "sdeck",
+        "at": [
+          2.6,
+          2.45
+        ],
+        "face": "right",
+        "from": "back",
+        "len": 6.4,
+        "wid": 4
+      }
+    },
+    "sdeck_bay": true,
+    "field_zone": "zone_district_923_904"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 1,
+  "id": "zone_apark_l2",
+  "map_id": "map_int_apark",
+  "name": "Airport Parking Plaza, Carousel",
+  "parent_zone": "zone_district_923_904"
+}

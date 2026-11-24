@@ -138,6 +138,16 @@ globalThis.AudioContext = class {
 globalThis.webkitAudioContext = globalThis.AudioContext;
 
 // Import windshield.js with the stub in place. Every shapes script goes through here.
-export async function loadWindshield() {
-  return import('../../client/game/js/panels/windshield.js');
+// The renderer has no 2-D city painter: with no GL hook the world pass draws no city. Under the
+// stub there is no WebGL, so a hook stands in that keeps what the pass was handed (glStubLast) and
+// returns a blank canvas, as a GL pass that drew would. A gate that installs its own hook replaces it.
+export const glStub = { calls: 0, last: null };
+export function installGLStub(ws) {
+  const out = { canvas: stubCanvas('__glstub', 2, 2) };
+  ws.installGLWorld((cells, cam, opts) => { glStub.calls++; glStub.last = { cells, cam, opts }; return out; });
+}
+export async function loadWindshield({ gl = true } = {}) {
+  const ws = await import('../../client/game/js/panels/windshield.js');
+  if (gl && !ws.glWorldInstalled()) installGLStub(ws);
+  return ws;
 }

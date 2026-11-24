@@ -21,6 +21,10 @@
     "naval_ambience": true,
     "region_id": "region_coldwater",
     "vessel": true,
+    "vessel_plan": {
+      "deck_m": 5.53,
+      "fz": 2.77
+    },
     "yacht": true
   },
   "grid_x": 897,

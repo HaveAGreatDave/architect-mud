@@ -3,7 +3,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#3a3550",
   "color": "#e8e0ff",
-  "description": "A grocery with its whole front wall given over to a hand-painted price board, revised by wiping a column off with a rag and writing it again. Three trolleys are chained together by the door, more barricade than service. The window is stacked with vac-packed protein bricks in a pyramid, sun-faded on the side that gets the light, and nobody has turned them in a year. The door is east; Ironside Street runs west.",
+  "description": "A two-storey grocer's with a green and cream awning the width of the front. Stands under it hold oranges, tomatoes and cabbage, each with a price ticket. Over the door a neon disc shows a gold 9 with Ration across it in pink script, and OPEN 24 HOURS glows in the window. The door is east; Ironside Street runs west.",
   "exits": {
     "east": "zone_mq_grocery",
     "west": "zone_district_919_908"
@@ -14,7 +14,7 @@
     "district": "industrial",
     "entrance": "west",
     "facade": true,
-    "floors": 3,
+    "floors": 2,
     "is_building": true,
     "region_id": "region_coldwater",
     "sign_trade": "GROCERY",

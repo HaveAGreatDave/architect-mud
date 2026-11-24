@@ -1,0 +1,9 @@
+{
+  "a": "zone_meridian_floor_7",
+  "b": "zone_meridian_floor_8",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_meridian_floor_7_up_r8qe",
+  "lockable": true,
+  "one_way": false
+}

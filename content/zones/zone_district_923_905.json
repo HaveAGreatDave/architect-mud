@@ -5,7 +5,6 @@
   "description": "A ship-to-shore gantry on rails, four lattice legs with room for a rig between them and a boom that reaches out far enough over the channel to put the water in shade. A container hangs off the trolley halfway up, red once, and nobody has come for it. The name is stencilled on the girder both sides, so the ships can read it too.",
   "exits": {
     "east": "zone_district_924_905",
-    "north": "zone_district_923_904",
     "south": "zone_district_923_906"
   },
   "flags": {

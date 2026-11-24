@@ -7,10 +7,10 @@
   "ambient_theme": "indoors",
   "bg_color": "#1c1218",
   "color": "#ffd9e6",
-  "description": "The owner's private suite, Cyd's quarters. A low black-silk bed the size of a small room, a bar stocked with things that don't exist on any menu, and a wall of screen that can show anything the vessel can reach. Every surface is soft, dark, and worth a fortune. This is the still center of the Echelon, and it answers to exactly one person. The only way out is the hatch (SOUTH) to the landing.",
+  "description": "Cyd's suite, in the bow end of the main deck. A low black-silk bed faces the raked glass over the bow, the bar holds things that aren't on any menu, and a wall of screen shows anything the ship can reach. One wall is all mirrored wardrobe, so the room looks twice its size. The only way out is the hatch (SOUTH) to the foyer.",
   "exits": {
     "in": "zone_echelon_suite_bath",
-    "south": "zone_echelon_landing"
+    "south": "zone_echelon_foyer"
   },
   "flags": {
     "allow_sleep": true,
@@ -24,7 +24,7 @@
     "mis_ok": true,
     "room": {
       "balcony": false,
-      "d": 6.5,
+      "d": 4.6,
       "decor": {
         "ceiling": {
           "band": 0.4,
@@ -38,7 +38,7 @@
         "south": 0
       },
       "ensuite": {
-        "d": 2.4,
+        "d": 2.2,
         "finish": "fine",
         "w": 3
       },
@@ -50,6 +50,21 @@
         "right"
       ],
       "h": 3,
+      "hull": {
+        "rake": 1.34,
+        "sides": [
+          [
+            0,
+            4.37,
+            4.13
+          ],
+          [
+            4.6,
+            4.37,
+            4.13
+          ]
+        ]
+      },
       "studio": false,
       "tone": {
         "accent": "#b8913e",
@@ -57,7 +72,7 @@
         "trim": "#0a080a",
         "wall": "#1e1a1f"
       },
-      "w": 9
+      "w": 8.74
     },
     "window": {
       "description": "A window with a bad seal, letting in a draught and a slice of whatever the weather is doing.",
@@ -70,7 +85,7 @@
   },
   "grid_x": 0,
   "grid_y": -1,
-  "grid_z": 2,
+  "grid_z": 1,
   "id": "zone_echelon_suite",
   "map_id": "map_echelon",
   "name": "Echelon — Owner's Suite",

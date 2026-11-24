@@ -2,7 +2,7 @@
   "description": null,
   "flags": {},
   "id": "item_taser",
-  "name": "Halcyon ComplyMate CM-2 taser",
+  "name": "taser",
   "tags": {
     "__own": {
       "damage": {

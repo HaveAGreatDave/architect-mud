@@ -262,7 +262,7 @@
     "personality": "guard"
   },
   "home_activities": [],
-  "home_zone": "zone_meridian_unit_101",
+  "home_zone": "zone_mq_chrome_101",
   "hp": 80,
   "hp_max": 80,
   "id": "npc_citadel_guard_post",

@@ -17,6 +17,61 @@
     "floor": "linoleum",
     "is_building": true,
     "is_interior": true,
+    "room": {
+      "balcony": false,
+      "d": 5,
+      "decor": {
+        "damp": [
+          {
+            "at": [
+              2.2,
+              4.4
+            ],
+            "r": 0.6
+          }
+        ],
+        "rubbish": [
+          {
+            "at": [
+              -1.2,
+              3.8
+            ],
+            "n": 10,
+            "r": [
+              0.8,
+              0.5
+            ],
+            "seed": 31
+          }
+        ],
+        "rug": false,
+        "strips": [
+          {
+            "along": "u",
+            "at": [
+              0,
+              2.5
+            ],
+            "len": 1.2
+          }
+        ]
+      },
+      "face": 180,
+      "ground": "concrete",
+      "h": 3.4,
+      "studio": false,
+      "tone": {
+        "accent": "#5a4a3a",
+        "ceiling": "#8a8070",
+        "trim": "#2a2420",
+        "wall": "#7a6e5e"
+      },
+      "w": 6,
+      "street_door": {
+        "kind": "single",
+        "w": 1
+      }
+    },
     "window": {
       "description": "A window set too high in the wall to see the ground through, so it offers the sky and nothing else. On a bad day that's more information than you want.",
       "light": 0.7,

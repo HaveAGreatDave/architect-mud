@@ -902,6 +902,13 @@ export function createDecalLayer(gl) {
     // fail its own test at every one of that board's pixels and the sign would simply not be drawn.
     gl.depthFunc(gl.LEQUAL);
     gl.depthMask(false);        // a sign is on a wall, not a wall
+    // ⚠ A SLOPE-SCALED BIAS, BECAUSE THE PULL FADES AT A GRAZING ANGLE. Every producer wins the tie
+    // with its own wall by a homothety about the eye (unprojQuad, emitSurfaceText's `deep`), which
+    // clears the wall by `pull·|n·r̂|` and so falls to nothing as the wall turns edge-on: a tag or
+    // sign still on screen lost the depth test to its brickwork past some angle and vanished whole.
+    // polygonOffset's factor grows with the depth slope, which is exactly that case, and moves no pixel.
+    gl.enable(gl.POLYGON_OFFSET_FILL);
+    gl.polygonOffset(-2, -2);
     gl.disable(gl.CULL_FACE);
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
@@ -940,6 +947,7 @@ export function createDecalLayer(gl) {
     }
     multi(tex0);
     gl.bindVertexArray(null);
+    gl.disable(gl.POLYGON_OFFSET_FILL);
     gl.depthMask(true);
     return n;
   }

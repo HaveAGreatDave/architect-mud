@@ -6,7 +6,7 @@
 //
 // It paints a cockpit frame 54 tiles south of the Spire, facing it, with a skyline list naming the
 // Spire and a three-storey shop at the same range, and checks what reached the GL pass and the
-// canvas. Then the same frame with GLASS 2 off, for the 2-D path.
+// canvas. Then frames with no list, to show the list is kept and the reach is honoured.
 import { loadWindshield, stubCanvas } from './dom-stub.mjs';
 import { skylineFar, SKYLINE_BASE_FAR } from '../../client/shared/skyline-tall.js';
 
@@ -60,12 +60,14 @@ ws.paintWindshield('__sky', view(900, 1000, { skyline: [[899, 910, 0, null, null
 if (!curtain || !curtain.length) out.push('the Curtain, 90 tiles out, never reached the GL pass');
 if (cells && cells.some((it) => it.c.cur)) out.push('a Curtain tile was handed to the GL pass as a building');
 
-// GLASS 2 off: the canvas draws it. Compare against the same frame with no list.
-ws.RENDER_TUNE.gl = 0;
-ws.installGLWorld(null);
-draws = 0; ws.paintWindshield('__sky', view(892, 1040)); const bareDraws = draws;   // nothing known out there
-draws = 0; ws.paintWindshield('__sky', view(892, 960)); const withDraws = draws;    // list kept from the frame above
-if (withDraws <= bareDraws) out.push(`with GLASS 2 off the Spire drew nothing (${withDraws} draws against ${bareDraws} with it out of reach)`);
+// The list is kept between frames: a frame that sends none still knows the Spire, and a seat past
+// its reach leaves it out. (This was the GLASS 1 canvas control; the GL cells now carry the same proof.)
+cells = null; ws.paintWindshield('__sky', view(892, 1040));
+const farHas = !!(cells && cells.some((it) => it.c.bn === 'The Spire'));
+cells = null; ws.paintWindshield('__sky', view(892, 960));
+const nearHas = !!(cells && cells.some((it) => it.c.bn === 'The Spire'));
+if (farHas) out.push('the Spire reached the GL pass from 134 tiles out, past its reach');
+if (!nearHas) out.push('a frame with no skyline list lost the Spire: the list was not kept');
 
 if (out.length) { console.log('✗ skyline — ' + out.length + ' problem(s):'); for (const m of out) console.log('  ✗ ' + m); process.exit(1); }
-console.log('✓ skyline: the Spire draws 54 tiles out on both renderers; a shop does not; the Curtain draws 90 out');
+console.log('✓ skyline: the Spire draws 54 tiles out and the list is kept; a shop does not; the Curtain draws 90 out');

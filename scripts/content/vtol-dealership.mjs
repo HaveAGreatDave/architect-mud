@@ -142,6 +142,11 @@ const room = {
   ],
   tone: { wall: '#2b2e34', ceiling: '#e9eaec', trim: '#aab2ba', accent: '#d6e8ff' },
   display,
+  // the showroom's computer beside the sales desk (room-hangar-kiosk.js): every car for sale or hire turning on its
+  // glass, with Buy and Rent; the flight plugin's `aircraft_desk` stand kind answers it
+  kiosk: { at: [-1.9, 9.2], face: 'front', label: 'SHOWROOM', kept: 'On the roof pad' }
+  // ⚠ the lift (zone_dealer_marrow_lift), its connections and the facade's `delivers_to` were written by hand after
+  //    this script ran: a bought or hired car is parked on Marrow Street Parking's roof, not this building's,
   decor: {
     rug: false,
     strips: [-4.6, 0, 4.6].flatMap((u) => [2.6, 7.4].map((v) => ({ along: 'u', at: [u, v], len: 2.4 }))),
@@ -176,7 +181,7 @@ const spec = {
 
   rooms: [
     { key: 'showroom', name: 'Showroom', floor: 'stone',
-      description: 'A white floor under a high ceiling, with glass on two sides. Four hover cars stand on low turntables, one from each maker, each ringed in its maker\'s colour. The sales desk is at the back, beside the lift up to the roof pad. Marrow Street is <b>south</b> through the glass doors.',
+      description: 'A white floor under a high ceiling, with glass on two sides. Four hover cars stand on low turntables, one from each maker, each ringed in its maker\'s colour. The sales desk is at the back, beside the glass lift, <b>in</b>, which goes up to the roof of Marrow Street Parking next door, where the cars wait. Marrow Street is <b>south</b> through the glass doors.',
       window: {
         name: 'the showroom glass',
         description: 'Floor-to-ceiling glass along Marrow Street and round the corner onto Meltwater Row. People slow down on the pavement to look at the cars, and the cars are angled so they can.',

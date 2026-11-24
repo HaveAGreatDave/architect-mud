@@ -114,7 +114,12 @@ export function openKitchenStage(data) {
   // which pauses underneath and is still there, where you stood, when the Stage closes. setAreaPane
   // would throw the room away.
   const roomHost = document.querySelector('#room-stage .rs-host');
-  mountStage(roomHost, `<div id="ks-root" class="ks-root" role="region" aria-label="Kitchen">
+  // ⚠ AND A ROOM WALKED IN GLASS (one-world, docs/proposals/one-world-interiors.md phase F) IS A ROOM TOO: the Stage goes
+  // over the street view, which is still there, where you stood, when it closes. setAreaPane would throw the street
+  // away. The street view answers 'kitchen:open' as the Room Stage does (freelook-view.js owCookOpen), so the kitchen is
+  // drawn there into the room, at its own hob.
+  const glassHost = !roomHost ? document.querySelector('#area-content .fl-root') : null;
+  mountStage(roomHost || glassHost, `<div id="ks-root" class="ks-root" role="region" aria-label="Kitchen">
     <canvas class="ks-gl" aria-hidden="true"></canvas>
     <canvas class="ks-fx" aria-hidden="true"></canvas>
     <div class="ks-top">
@@ -141,7 +146,7 @@ export function openKitchenStage(data) {
   const root = document.getElementById('ks-root');
   // the room answers with its kitchen gear (roomKitchenKit), so the set is the stove you walked up to
   let room = null, host = null;
-  if (roomHost) {
+  if (roomHost || glassHost) {
     root.classList.add('ks-in-room');
     const ask = new CustomEvent('kitchen:open', { detail: { kit: null, host: null } });
     window.dispatchEvent(ask);
@@ -180,6 +185,8 @@ export function openKitchenStage(data) {
     coldMix: createLoopMixer({ engine: () => window.AudioEngine, cueOf: (id) => window.SFXCatalog?.get(id) }),
   };
   if (S.oven) S.cam = { ...shotOf('hob') };
+  // the ring you last used on this hob (ringTo), if it has rings
+  if (host?.setRing && host.frame?.rings?.length > 1) { const k = ringKey(); let i = null; try { i = k ? Number(localStorage.getItem(k)) : null; } catch { /* private window */ } if (Number.isInteger(i) && i >= 0 && i < host.frame.rings.length && i !== host.frame.ring) host.setRing(i); }
   coverWithVeil(root, 'kitchen-stage');
   root.addEventListener('click', onClick);
   gl.addEventListener('pointerdown', onDown);
@@ -191,7 +198,7 @@ export function openKitchenStage(data) {
   window.addEventListener('pointerup', onUp);
   window.addEventListener('keydown', onKey);
   window.addEventListener('kitchen:walkaway', onWalkAway);
-  if (!roomHost) window.dispatchEvent(new Event('pane:claimed'));
+  if (!roomHost && !glassHost) window.dispatchEvent(new Event('pane:claimed'));
   claimSeatKeyboard(root, { label: 'KITCHEN' });
   sendCmdSilent('kitchenstage on');
   refreshKitchenStage(data);
@@ -522,7 +529,15 @@ function paintMix() {
   el.dataset.done = e > 0.92 ? '1' : '';
 }
 
+function followRing() {
+  const rs = RINGS(), pan = rs && panOf(S.data);
+  if (!pan) return;
+  const want = S.ringOf?.get(String(pan.id));
+  if (want != null && want !== S.host.frame.ring && want < rs.length) { S.host.setRing(want); try { const k = ringKey(); if (k) localStorage.setItem(k, String(want)); } catch { /* private window */ } }
+  else if (want == null) (S.ringOf ||= new Map()).set(String(pan.id), S.host.frame.ring);
+}
 function moveCamera(now) {
+  followRing();
   // on your own feet in the room: the picture is the room's, from your eye, and the kitchen picks with it.
   // Coming back out of a close-up, it eases from the shot to your eye before it lets go.
   const mine = walking() && !cine() ? S.host.view() : null;
@@ -584,6 +599,12 @@ function build(dt) {
   }
   buildFog(b);
   if (ring && (ringBusy || level > 0)) KS.flames(b, ringBusy ? level : 0, S.t, KS.BURNER, KS.PAN_Z - 0.2);
+  // on a hob of the room's own, a pan in hand over a ring lights it, and any other pan on the heat has its flame
+  const rs = RINGS();
+  if (rs) {
+    if (S.dropRing != null && rs[S.dropRing]) { const g = rs[S.dropRing]; KS.ring(b, [KS.STATIONS.hob + g.at[0], g.at[1], 0.4], g.r + 1.5, 0.5 + 0.15 * Math.sin(S.t * 6), PICKED, 28); }
+    for (const v of vesselsOf(d)) if (v.hot && v !== pan && level > 0) { const at = PAN_AT(v); KS.flames(b, level, S.t, [at[0], at[1], 0], KS.PAN_Z - 0.2); }
+  }
   if (S.oven) buildOven(b, dt);
   buildOtherPans(b);
   // the pan you're working with: on the ring, or on the rack beside it; in a microwave, going round
@@ -1004,6 +1025,9 @@ function onDown(e) {
     S.drag = { kind: 'knob', x0: e.clientX, y0: e.clientY, l0: dial.level, level: dial.level };
   } else if (atSt('hob') && pan && !(S.oven && (pan.hot || mwHolds(pan.id))) && near(e, PAN_AT(pan), 120) && otherPanAt(e) == null) {
     S.drag = { kind: 'pan', x0: e.clientX, y0: e.clientY, t0: performance.now(), ang: 0, last: null };
+  } else if (atSt('hob') && RINGS() && otherPanAt(e)) {
+    // another pan, picked up to put on a ring (carryTo); a click on it still picks it to work with
+    S.drag = { kind: 'carry', id: otherPanAt(e).id, x0: e.clientX, y0: e.clientY };
   } else if (atSt('board') && S.board && near(e, [KS.STATIONS.board, 0, KS.BOARD.h], 90)) {
     S.drag = { kind: 'food', x0: e.clientX, y0: e.clientY, at: [KS.STATIONS.board, 0, KS.BOARD.h + 3], moved: false };
   } else {
@@ -1021,6 +1045,9 @@ function onMove(e) {
   if (!S) return;
   if (!S.drag) return hoverAt(e);
   const g = S.drag;
+  // over a ring with a pan in hand: that ring lights up (build)
+  if (g.kind === 'pan' || g.kind === 'carry') S.dropRing = RINGS() && Math.hypot(e.clientX - g.x0, e.clientY - g.y0) > 12 ? ringAt(planeHit(e, KS.PAN_Z)) : null;
+  if (g.kind === 'carry') return;
   if (g.kind === 'cold') {
     const h = planeHit(e, g.z);
     if (h) g.at = [h[0], h[1], g.z + 3];
@@ -1028,6 +1055,8 @@ function onMove(e) {
     return;
   }
   if (g.kind === 'look') {
+    // on your own feet in the room, the drag turns your own eye (the host's `turn`), as dragging does in the room
+    if (walking() && !cine() && S.host?.turn) { S.host.turn(e.clientX - g.x, e.clientY - g.y); g.x = e.clientX; g.y = e.clientY; return; }
     S.orbit.yaw -= (e.clientX - g.x) * 0.006;
     S.orbit.pitch = Math.max(-0.9, Math.min(0.9, S.orbit.pitch + (e.clientY - g.y) * 0.004));
     g.x = e.clientX; g.y = e.clientY;
@@ -1093,7 +1122,15 @@ function onUp(e) {
   const g = S.drag, d = S.data;
   S.drag = null;
   const still = g.x0 != null && Math.hypot(e.clientX - g.x0, e.clientY - g.y0) < 6;
+  S.dropRing = null;
   if (g.kind === 'cold') return dropCold(g);
+  // a pan let go over a ring goes onto it (ringTo, carryTo)
+  if ((g.kind === 'pan' || g.kind === 'carry') && !still && RINGS()) {
+    const i = ringAt(planeHit(e, KS.PAN_Z)), pan = panOf(d);
+    if (i != null && g.kind === 'carry') return carryTo(g.id, i);
+    if (i != null && i !== S.host.frame.ring && pan) return ringTo(i);
+  }
+  if (g.kind === 'carry') { if (still) pickPan(g.id); return; }
   if (g.kind === 'tap') {
     if (!still) return;
     if (g.hit.kind === 'mwkey') return mwKey(g.hit.key);
@@ -1166,10 +1203,74 @@ const RACK = [[17, 21, 3.6], [-17, 21, 3.6], [24, -4, 0], [-26, -6, 0]];
 function PAN_AT(pan) {
   if (S.oven) return ovenPanAt(pan);
   if (!pan) return [KS.STATIONS.hob, 0, KS.PAN_Z];
+  // a room's hob with rings of its own (room-cook.js): each pan on one of them, the one you're working with on the live
+  // ring, the burner; any past the rings wait on the counter beside it
+  const seats = ringSeats();
+  if (seats) {
+    const i = seats.get(String(pan.id)), rs = RINGS();
+    if (i != null) return [KS.STATIONS.hob + rs[i].at[0], rs[i].at[1], KS.PAN_Z];
+    const over = vesselsOf(S.data).filter((v) => !seats.has(String(v.id))), j = Math.max(0, over.findIndex((v) => String(v.id) === String(pan.id)));
+    const r = RACK[2 + (j % 2)];
+    return [KS.STATIONS.hob + r[0] + (j >> 1) * 6, r[1], r[2]];
+  }
   if (pan.hot) return [KS.STATIONS.hob, 0, KS.PAN_Z];
   const cold = vesselsOf(S.data).filter((v) => !v.hot), i = Math.max(0, cold.findIndex((v) => String(v.id) === String(pan.id)));
   const r = RACK[i % RACK.length], camp = S.hobKind === 'camp' || S.hobKind === 'room' || S.hobKind === 'bench';
   return [KS.STATIONS.hob + r[0], r[1], camp ? 0 : r[2]];
+}
+// ── THE HOB'S OWN RINGS (room-cook.js hobRings, as the room's model draws them) ──
+// Which ring a pan's on is yours to choose: drag the pan you're working with, or any other, onto the ring you want, and
+// it goes there; the one that was there takes its place. The pan you're working with is on the burner, so the knob, the
+// flame and the shots go with it (ringTo, the host's setRing). The server knows one heat a cooker whatever ring a pan's
+// on, so none of this is sent: it's the picture, kept for the hob while you're here, and its burner's ring after.
+const RINGS = () => (S?.host?.frame?.rings?.length > 1 && S.host.setRing && !S.oven && S.hobKind !== 'microwave' && S.hobKind !== 'bench' ? S.host.frame.rings : null);
+const ringKey = () => (S?.host?.frame?.piece != null ? 'architect_cook_ring:' + S.host.frame.piece : null);
+function ringSeats() {
+  const rs = RINGS();
+  if (!rs) return null;
+  S.ringOf ||= new Map();
+  const pan = panOf(S.data), live = S.host.frame.ring, seats = new Map(), taken = new Set();
+  if (pan) { seats.set(String(pan.id), live); taken.add(live); }
+  const rest = vesselsOf(S.data).filter((v) => v !== pan);
+  for (const v of rest) { const want = S.ringOf.get(String(v.id)); if (want != null && want < rs.length && !taken.has(want)) { seats.set(String(v.id), want); taken.add(want); } }
+  for (const v of rest) {
+    if (seats.has(String(v.id))) continue;
+    const free = rs.findIndex((_, i) => !taken.has(i));
+    if (free < 0) break;
+    seats.set(String(v.id), free); taken.add(free); S.ringOf.set(String(v.id), free);
+  }
+  return seats;
+}
+// the ring a point on the hob's top is on (the kitchen's frame, cm), or null
+function ringAt(h) {
+  const rs = RINGS();
+  if (!rs || !h) return null;
+  let best = null, bd = Infinity;
+  rs.forEach((g, i) => { const d = Math.hypot(h[0] - (KS.STATIONS.hob + g.at[0]), h[1] - g.at[1]); if (d < g.r + 7 && d < bd) { bd = d; best = i; } });
+  return best;
+}
+// The burner onto ring i: the pan you're working with goes there, and whoever was on it takes the ring it left.
+function ringTo(i) {
+  const rs = RINGS(), pan = panOf(S.data);
+  if (!rs || i == null || i === S.host.frame.ring) return;
+  const was = S.host.frame.ring, seats = ringSeats();
+  for (const [id, j] of seats) if (j === i && (!pan || id !== String(pan.id))) S.ringOf.set(id, was);
+  if (pan) S.ringOf.set(String(pan.id), i);
+  S.host.setRing(i);
+  try { const k = ringKey(); if (k) localStorage.setItem(k, String(i)); } catch { /* private window */ }
+  ksfx('kitchen-tap');
+}
+// Another pan onto ring i: it goes there, and whoever was on it takes the ring it left (or the counter).
+function carryTo(id, i) {
+  const pan = panOf(S.data), seats = ringSeats();
+  if (!seats || i == null) return;
+  if (pan && String(pan.id) === String(id)) return ringTo(i);
+  const from = seats.get(String(id)) ?? null;
+  // onto the burner's own ring: the two pans change places, and the burner stays where it is
+  if (i === S.host.frame.ring && pan) { if (from != null) ringTo(from); S.ringOf.set(String(id), i); return; }
+  for (const [o, j] of seats) if (j === i && o !== String(id)) { if (from != null) S.ringOf.set(o, from); else S.ringOf.delete(o); }
+  S.ringOf.set(String(id), i);
+  ksfx('kitchen-tap');
 }
 // ── the room's microwave ──
 // Cooking in a room whose microwave is what heats (room-stage.js cookFrame `oven`), the kitchen draws
@@ -2527,8 +2628,12 @@ function closeSheet() {
 // The server's catalogue arrived (plugins/cooking/stock.js).
 export function kitchenStock(msg) {
   if (!S) return;
-  const shelf = S.sheet?.kind === 'stock' ? S.sheet.shelf : 'food';
-  S.sheet = { kind: 'stock', items: msg.items || [], credits: msg.credits ?? 0, markup: msg.markup ?? 5, shelf };
+  // The aisles come from the server (plugins/cooking/pantry.js); an empty one gets no tab.
+  const items = msg.items || [];
+  const shelves = (msg.shelves || [['food', 'Food'], ['kit', 'Pans and kit']]).filter(([k]) => items.some((it) => it.shelf === k));
+  const was = S.sheet?.kind === 'stock' ? S.sheet.shelf : null;
+  const shelf = shelves.some(([k]) => k === was) ? was : (shelves[0]?.[0] || 'kit');
+  S.sheet = { kind: 'stock', items, shelves, credits: msg.credits ?? 0, markup: msg.markup ?? 5, shelf };
   paintSheet();
 }
 
@@ -2540,7 +2645,7 @@ function paintSheet() {
   const list = sh.items.filter((it) => it.shelf === sh.shelf);
   el.innerHTML = `<div class="ks-stock-box">
     <div class="ks-sheet-head"><span>Stock the kitchen</span><span class="ks-stock-cash">₵${sh.credits}</span><button class="ks-btn" data-sheet="close" aria-label="Close">Done</button></div>
-    <div class="ks-stock-tabs">${[['food', 'Food'], ['kit', 'Pans and kit']].map(([k, l]) => `<button class="ks-tab${sh.shelf === k ? ' on' : ''}" data-shelf="${k}">${l}</button>`).join('')}</div>
+    <div class="ks-stock-tabs">${sh.shelves.map(([k, l]) => `<button class="ks-tab${sh.shelf === k ? ' on' : ''}" data-shelf="${k}">${l}</button>`).join('')}</div>
     <div class="ks-stock-note">Delivered to you here, at ${sh.markup}% over the shop price. Walk out to a shop, or further for a deal, and it costs less.</div>
     <div class="ks-stock-grid">${list.length ? list.map((it) => `<div class="ks-stock-card">
       <div class="ks-stock-name">${esc(it.name)}</div>

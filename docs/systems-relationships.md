@@ -153,7 +153,7 @@ One key in that map is **not a tier**. `first` plays on the single render where 
 {
   "text": "He clocks you over the top of a crate. \"What do you need.\"",
   "text_by_relation": {
-    "first": "\"Name's Grady. Folks call me Two-Cell.\"",
+    "first": "\"I'm Rusty. Kettle's on.\"",
     "known": "\"You again.\" He almost sounds pleased about it."
   }
 }

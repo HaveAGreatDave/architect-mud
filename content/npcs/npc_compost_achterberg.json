@@ -238,10 +238,6 @@
     {
       "item_id": "item_seedling_tray",
       "price": 21
-    },
-    {
-      "item_id": "item_lamp_greens",
-      "price": 5
     }
   ],
   "vendor_restock_rate": 2,

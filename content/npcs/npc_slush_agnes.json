@@ -239,10 +239,6 @@
     {
       "item_id": "item_drug_coffee",
       "price": 4
-    },
-    {
-      "item_id": "item_steam_bun",
-      "price": 3
     }
   ],
   "vendor_restock_rate": 3,

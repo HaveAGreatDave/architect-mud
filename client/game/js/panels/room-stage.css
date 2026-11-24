@@ -180,51 +180,7 @@ body:has(#dialogue-panel.active) #room-stage :is(.rs-card, .rs-tip) { display: n
 #room-stage .rs-tvbar[hidden] { display: none; }
 #room-stage .rs-ch { max-width: 220px; padding: 6px 8px; border-radius: 4px; background: var(--rs-btn); color: var(--text); border: 1px solid var(--border); font: inherit; }
 
-/* The set on the wall (room-tv.js): the broadcast's page, laid out off the side of the window and
-   painted from there onto the set as a texture (page-paint.js). It has to stay laid out, so no
-   display: none and no visibility: hidden. Sized by the script. */
-#room-stage .rs-tv {
-	--tv-bg: #080c10; --tv-border: rgba(0, 220, 180, 0.45); --tv-text: #b8d4c8;
-	--tv-header-color: #00dbb4; --tv-live-color: #ff4455; --tv-ticker-color: #ffc940;
-	position: fixed; left: -20000px; top: 0; pointer-events: none;
-	display: flex; flex-direction: column; overflow: hidden; background: var(--tv-bg); color: var(--tv-text);
-}
-/* the page is never hovered, so the set says when the pointer is on its picture (room-tv.js) */
-#room-stage .rs-tv.tv-touch .view-fs, #room-stage .rs-tv.tv-touch .gds-cam { opacity: 1; }
-#room-stage .rs-tv-screen { position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden; background: var(--tv-bg); font-weight: 600; }
-#room-stage .rs-tv-screen [data-tv="content"] { position: absolute; inset: 0; overflow: hidden; padding: 18px 22px; transition: opacity .25s; }
-#room-stage .rs-tv-screen [data-tv="content"].tv-hidden { opacity: 0; }
-#room-stage .rs-tv-screen [data-tv="messages"] { display: flex; flex-direction: column; gap: 8px; }
-#room-stage .rs-tv-screen .tv-msg { font-size: 1.375rem; line-height: 1.38; }
-#room-stage .rs-tv-screen [data-tv="static"] { position: absolute; inset: 0; z-index: 40; opacity: 0;
-	background-image: repeating-linear-gradient(0deg, rgba(255,255,255,.06) 0 1px, transparent 1px 3px), repeating-linear-gradient(90deg, rgba(255,255,255,.05) 0 1px, transparent 1px 2px); }
-#room-stage .rs-tv-screen [data-tv="static"].tv-static-on { opacity: 1; }
-#room-stage .rs-tv-screen [data-tv="static"].tv-static-loop { animation: rs-tv-static 0.28s steps(2) infinite; }
-#room-stage .rs-tv-screen [data-tv="static"].tv-static-fade { animation: rs-tv-staticout .45s ease-out forwards; }
-@keyframes rs-tv-static { 0% { background-position: 0 0, 0 0; } 100% { background-position: 0 4px, 3px 0; } }
-@keyframes rs-tv-staticout { to { opacity: 0; } }
-#room-stage .rs-tv-screen [data-tv="overlay-container"] { position: absolute; inset: 0; z-index: 47; }
-#room-stage .rs-tv-screen [data-tv="schedule"],
-#room-stage .rs-tv-screen [data-tv="standings-panel"],
-#room-stage .rs-tv-screen [data-tv="gameday"] { position: absolute; inset: 0; z-index: 48; display: none; flex-direction: column; overflow: hidden;
-	background: var(--tv-bg); color: var(--tv-text); font-family: var(--font-mono, 'Courier New', monospace); padding: 10px 12px; }
-#room-stage .rs-tv-screen [data-tv="schedule"].on,
-#room-stage .rs-tv-screen [data-tv="standings-panel"].on,
-#room-stage .rs-tv-screen [data-tv="gameday"].on { display: flex; }
-#room-stage .rs-tv-screen [data-tv="standings-panel"] { z-index: 50; }
-#room-stage .rs-tv-screen [data-tv="scorebug"] { position: absolute; right: 12px; bottom: 12px; z-index: 45; display: none; background: rgba(0,0,0,.82);
-	border: 1px solid var(--tv-border); border-left: 3px solid var(--tv-header-color); border-radius: 2px; padding: 6px 10px; font-size: 1rem; }
-#room-stage .rs-tv-screen [data-tv="scorebug"].on { display: flex; gap: 9px; align-items: center; }
-#room-stage .rs-tv-screen [data-tv="standings"] { position: absolute; top: 10px; right: 10px; z-index: 46; display: none; flex-direction: column; min-width: 240px;
-	background: rgba(0,0,0,.85); border: 1px solid var(--tv-border); border-radius: 2px; padding: 6px 10px; font-size: 0.875rem; }
-#room-stage .rs-tv-screen [data-tv="standings"].on { display: flex; }
-#room-stage .rs-tv-screen [data-tv="fx"] { position: absolute; inset: 0; z-index: 49; display: none; }
-#room-stage .rs-tv-screen [data-tv="fx"].on { display: block; }
-#room-stage .rs-tv-strip { flex: none; display: flex; align-items: center; gap: 12px; padding: 6px 14px; background: rgba(0,0,0,.55);
-	color: var(--tv-header-color); font: 700 0.9375rem/1.2 var(--font-ui, system-ui, sans-serif); letter-spacing: 1px; text-transform: uppercase; }
-#room-stage .rs-tv-prog { flex: 1; min-width: 0; text-align: right; opacity: .75; font-style: italic; text-transform: none; letter-spacing: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-#room-stage .rs-tv-live { flex: none; color: var(--tv-live-color); font-size: 0.8125rem; }
-#room-stage .rs-tv-ticker { flex: none; overflow: hidden; white-space: nowrap; padding: 4px 14px; background: rgba(0,0,0,.7); color: var(--tv-ticker-color); font: 600 0.9375rem/1.2 var(--font-ui, system-ui, sans-serif); min-height: 18px; }
+/* the set on the wall: room-tv.css, room-tv.js's own sheet */
 
 /* cooking: the Kitchen Stage is over the room (kitchen-stage.js) */
 #room-stage.rs-cooking .rs-card, #room-stage.rs-cooking .rs-tip, #room-stage.rs-cooking .rs-hover { display: none; }
@@ -468,16 +424,44 @@ body:has(#dialogue-panel.active) #room-stage :is(.rs-card, .rs-tip) { display: n
 #room-stage .pkh-grp > span { font-size: 0.65em; letter-spacing: 0.22em; color: var(--pk-dim); }
 #room-stage .pkh-row { display: flex; gap: 0.3em; }
 #room-stage .pkh-c {
-	width: 2.3em; height: 3.2em; border-radius: 0.25em; display: grid; place-items: center;
-	font: 700 1.05em/1 var(--cy-head); text-transform: none; letter-spacing: 0;
-	background: #f4f1ea; color: #15171c; box-shadow: 0 0.1em 0.3em rgba(0, 0, 0, 0.5);
+	position: relative; width: 2.7em; height: 3.8em; border-radius: 0.3em; display: block; overflow: hidden;
+	font: 700 1em/1 var(--cy-head); text-transform: none; letter-spacing: 0; font-style: normal;
+	background: linear-gradient(160deg, #fffdf6, #ece6d6); color: #15171c;
+	box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18), 0 0.15em 0.45em rgba(0, 0, 0, 0.55), 0 0.02em 0 rgba(255, 255, 255, 0.6);
 }
+#room-stage .pkh-c > b { position: absolute; left: 0.22em; top: 0.18em; display: flex; flex-direction: column; align-items: center; font-size: 0.95em; line-height: 0.95; }
+#room-stage .pkh-c > b s { text-decoration: none; font-size: 0.85em; }
+#room-stage .pkh-c > b.far { left: auto; top: auto; right: 0.22em; bottom: 0.18em; rotate: 180deg; }
+#room-stage .pkh-c > u { position: absolute; inset: 0; display: grid; place-items: center; text-decoration: none; font-size: 1.7em; }
 #room-stage .pkh-c.red { color: #c8202f; }
-#room-stage .pkh-c.won { box-shadow: 0 0 0 2px var(--pk-go), 0 0.1em 0.3em rgba(0, 0, 0, 0.5); }
-#room-stage .pkh-c.empty { background: transparent; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pk-a) 35%, transparent); }
+#room-stage .pkh-c.won { box-shadow: 0 0 0 2px var(--pk-go), 0 0 0.8em color-mix(in srgb, var(--pk-go) 60%, transparent), 0 0.15em 0.45em rgba(0, 0, 0, 0.55); }
+#room-stage .pkh-c.empty { background: transparent; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22); }
 #room-stage .pkh-c.back {
-	background: repeating-linear-gradient(45deg, #7a1424 0 0.25em, #5c0e1b 0.25em 0.5em); box-shadow: inset 0 0 0 0.18em #f4f1ea, 0 0.1em 0.3em rgba(0, 0, 0, 0.5);
+	background: radial-gradient(circle at 50% 50%, #e0c070 0 0.35em, transparent 0.37em), repeating-linear-gradient(45deg, #8a1826 0 0.22em, #5c0e1b 0.22em 0.44em);
+	box-shadow: inset 0 0 0 0.2em #f4f1ea, inset 0 0 0 0.26em #e0c070, 0 0.15em 0.45em rgba(0, 0, 0, 0.55);
 }
+#room-stage .pkh-c.dealt { animation: pkh-deal 0.35s cubic-bezier(.2,.8,.3,1.2) both; }
+#room-stage .pkh-c.flip { animation: pkh-flip 0.3s ease-out both; }
+@keyframes pkh-deal { from { opacity: 0; transform: translateY(-0.8em) rotate(-8deg) scale(0.85); } }
+@keyframes pkh-flip { from { transform: perspective(20em) rotateY(90deg); } }
+/* the board as the ceiling sees it: a patch of baize under a lamp */
+#room-stage .pkh-felt {
+	cursor: pointer; padding: 0.4em 0.7em 0.35em; border-radius: 1.6em / 1.2em;
+	background: radial-gradient(ellipse at 50% 40%, #2f8a52, #155a32 70%, #0d3c22);
+	box-shadow: inset 0 0 0 0.22em #3a2414, inset 0 0 0 0.3em #c9a25a, inset 0 0.6em 1.4em rgba(0, 0, 0, 0.35), 0 0.3em 1em rgba(0, 0, 0, 0.5);
+}
+#room-stage .pkh-felt > span { color: #e9dfb8; }
+#room-stage .pkh-felt > span em { font-style: normal; color: color-mix(in srgb, #e9dfb8 60%, transparent); margin-left: 0.5em; }
+#room-stage .pkh-felt:hover > span em { color: #fff; }
+#room-stage .pkh-pot { font: 700 0.8em var(--cy-head); letter-spacing: 0.12em; color: #f5d77a; }
+#room-stage .pkh-mine.up .pkh-row { filter: drop-shadow(0 0 0.5em color-mix(in srgb, var(--pk-a) 45%, transparent)); }
+#room-stage .pkt-figs { display: grid; grid-template-columns: repeat(3, auto); gap: 0.2em 0.9em; width: 100%; }
+#room-stage .pkt-figs span { display: flex; flex-direction: column; font-size: 0.65em; letter-spacing: 0.18em; color: var(--pk-dim); }
+#room-stage .pkt-figs b { font: 700 1.45em/1.1 var(--cy-head); color: var(--pk-text); letter-spacing: 0.02em; }
+#room-stage .pkt-raise { display: flex; flex-direction: column; align-items: stretch; gap: 0.35em; width: 100%; padding: 0.4em 0; border-block: 1px solid color-mix(in srgb, var(--pk-a) 25%, transparent); }
+#room-stage .pkt-raise .pkt-size { justify-content: space-between; }
+#room-stage .pkt-pre button { flex: 1; font-size: 0.8em; padding: 0.35em 0.3em; }
+#room-stage .pkt-slide input { width: 100%; accent-color: var(--pk-a); cursor: pointer; }
 #room-stage .pkh-mine { cursor: pointer; touch-action: none; user-select: none; }
 #room-stage .pkh-hand { font-size: 0.75em; color: var(--pk-a); min-height: 1.2em; text-transform: none; letter-spacing: 0.04em; }
 @media (max-width: 600px) { #room-stage .pkt[data-dock="cards"] { font-size: 0.8em; gap: 0.6em; } }

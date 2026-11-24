@@ -17,8 +17,7 @@
       "light": 0.98,
       "name": "the north light",
       "visibility": 0.5
-    },
-    "world_exit_zone": "zone_district_895_904"
+    }
   },
   "grid_x": 0,
   "grid_y": 0,
@@ -26,5 +25,5 @@
   "id": "zone_negeq_studio",
   "map_id": "map_int_negeq",
   "name": "Negative Equity — The Studio",
-  "parent_zone": "zone_district_895_904"
+  "parent_zone": null
 }

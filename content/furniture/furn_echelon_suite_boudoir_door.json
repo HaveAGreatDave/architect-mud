@@ -1,8 +1,9 @@
 {
-  "description": "A mirrored wardrobe built flush into the suite's panelling, its glass gone soft and dark at the edges. It looks entirely ordinary.",
+  "description": "A mirrored wardrobe built flush into the suite's panelling, five tall panels of smoked glass. With the lamps on it shows the whole suite back at you. It looks entirely ordinary.",
   "flags": {
     "concealed": true,
     "interactions": [],
+    "opens_dark": true,
     "teleport_target": "zone_echelon_suite_boudoir",
     "teleporter": true
   },

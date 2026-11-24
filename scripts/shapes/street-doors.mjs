@@ -63,6 +63,15 @@ const world = JSON.parse(fs.readFileSync(path.join(ROOT, 'client', 'game', 'flig
 const EDGE = { north: [0, -1], south: [0, 1], east: [1, 0], west: [-1, 0] };
 const METRE = 0.09 / 1.6;   // freelook-view.js METRE: FPS_EYE is 1.6 m
 const fits = [];
+// A door that falls back to the room's width (fit 'room') is drawn on a guessed opening and can float or clip, so it
+// fails unless it's listed here with the reason the model can't record its doorway yet. Shrink this list; never grow it.
+const ROOM_FIT_OK = {
+  zone_solenne_lobby: 'the 2x2 Solenne model draws its doors 1.4 m high; record the middle bay once the model is finished',
+  // `vtol_park` has no GLASS arm at all (no TYPE_MODEL row, so doorBayAt's modelFor is null): there is no model to
+  // record a doorway in. Take these off when the parking deck gets its arm.
+  zone_apark_lobby: 'Airport Parking Plaza is a vtol_park, which has no GLASS model yet',
+  zone_sdeck_lobby: 'Marrow Street Parking is a vtol_park, which has no GLASS model yet',
+};
 for (const r of rooms) {
   const sd = r.flags.room.street_door, kind = streetDoorKind(sd);
   if (!DOOR_KINDS[kind]) { fail(`${r.id}: street_door kind '${sd.kind}' isn't one of ${Object.keys(DOOR_KINDS).join(', ')}`); continue; }
@@ -78,6 +87,7 @@ for (const r of rooms) {
   const g = measureDoorway(f.grid_x, f.grid_y, cell, E, Number(sd.w) || 1.2, W.groundObstructionAt, METRE, cx, bay, look?.h || 0);
   const wide = (2 * g.half) / METRE, high = (g.top - g.sill) / METRE;
   fits.push(`${r.id.padEnd(28)} ${kind.padEnd(9)} ${g.fit.padEnd(5)} ${wide.toFixed(2)} m wide, ${high.toFixed(2)} m high, ${g.cx.toFixed(3)} along`);
+  if (g.fit === 'room' && !ROOM_FIT_OK[r.id]) fail(`${r.id}: its door falls back to the room's width; record the doorway in its model (markDoorway or a windowBay door)`);
   if (!g.leaves) fail(`${r.id}: its doorway at ${f.grid_x},${f.grid_y} found no wall, so its door is drawn nowhere`);
   else if (!(wide > 0.7 && wide < 8)) fail(`${r.id}: its doorway is ${wide.toFixed(2)} m wide`);
   else if (!(high > 1.6 && high < 9)) fail(`${r.id}: its doorway is ${high.toFixed(2)} m high`);

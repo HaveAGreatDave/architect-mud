@@ -410,7 +410,152 @@
       "a shirt collar turned out over it, which he is aware of",
       "trousers that have been in salt water and recovered",
       "deck shoes gone grey"
-    ]
+    ],
+    "parley": {
+      "topics": {
+        "berths": [
+          "berth",
+          "berths",
+          "bay",
+          "mooring",
+          "dock"
+        ],
+        "boats": [
+          "boat",
+          "boats",
+          "hull",
+          "skiff",
+          "hire"
+        ],
+        "twin": [
+          "brother",
+          "sister",
+          "twin",
+          "sabbatini",
+          "ninian",
+          "odile"
+        ],
+        "water": [
+          "water",
+          "basin",
+          "sea",
+          "fairway"
+        ],
+        "fifth": [
+          "fifth question",
+          "other questions",
+          "four questions"
+        ]
+      },
+      "react": {
+        "greet": {
+          "stranger": [
+            "Morning. Buying, hiring, or looking for your own?"
+          ],
+          "close": [
+            "{name}. *nearly smiles.* None of the four, then?"
+          ]
+        },
+        "farewell": [
+          "Bye."
+        ],
+        "thank": [
+          "Welcome."
+        ],
+        "praise": [
+          "Thank you. I'll tell the desk."
+        ],
+        "insult": [
+          "Noted.",
+          "*squares the berth book.* Next question?"
+        ],
+        "insult_last": [
+          "The desk is closed to you. Please go."
+        ],
+        "flirt": [
+          "*looks at you, then at the berth book.* No."
+        ],
+        "apologise": [
+          "Fine."
+        ],
+        "joke": [
+          "*does not laugh.* I see."
+        ],
+        "complain": [
+          "Write it in the book. The book doesn't lock."
+        ],
+        "ask_feeling": [
+          "Standing. I decided against the stool."
+        ],
+        "order_drink": [
+          "There is a vending machine. It does not work."
+        ],
+        "ask_name": [
+          "Sabbatini. Ninian. Days."
+        ],
+        "ask_job": [
+          "I answer four questions. You're on the fifth."
+        ],
+        "ask_origin": [
+          "Here. The marina."
+        ],
+        "ask_news": [
+          "A hull came up the fairway too fast this morning. That's all."
+        ],
+        "ask_advice": [
+          "Buy a berth before you buy a boat."
+        ],
+        "ask_about:berths": [
+          "Bays are numbered. The number is on the card. Keep the card."
+        ],
+        "ask_about:boats": [
+          "Buy one, hire one, or berth your own. Those are the three."
+        ],
+        "ask_about:twin": [
+          "My sister has nights. We see each other at six, briefly."
+        ],
+        "ask_about:water": [
+          "*watches a hull go past until it's gone.* Calm today."
+        ],
+        "defer:boats": [
+          "For hulls, ask Keel. He builds them."
+        ],
+        "gossip_rude": [
+          "{other} says you were rude. Mind yourself at the desk."
+        ],
+        "gossip_story": [
+          "{other} says you're all right. Good."
+        ],
+        "overheard": [
+          "*looks up from the berth book.* Yes?"
+        ]
+      },
+      "deflect": [
+        "That isn't one of the four questions.",
+        "*writes a bay number, then writes it again more clearly.*",
+        "Buying, hiring, or looking for your own?"
+      ],
+      "beats": [
+        {
+          "id": "questions",
+          "topic": "fifth",
+          "tier": "known",
+          "warmth": 5,
+          "steps": [
+            "The four questions are buying, hiring, berthing, and where the toilet is.",
+            "The fifth one, the one nobody asks, is whether I like boats.",
+            "*looks at the fairway.* I don't. I like watching them leave. I like it more when they come back."
+          ]
+        }
+      ],
+      "circle": [
+        "npc_marina_desk_night",
+        "npc_shipwright"
+      ],
+      "defer": {
+        "boats": "npc_shipwright"
+      }
+    }
   },
   "home_activities": [],
   "home_zone": "zone_apt_10",

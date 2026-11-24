@@ -24,8 +24,8 @@
       "wear": 0.95
     },
     "spot": {
-      "along": 4.2,
-      "wall": "right"
+      "wall": "back",
+      "along": 0.2
     },
     "water_source": true
   },
@@ -38,5 +38,5 @@
   "object_type": "fixture",
   "power_draw_kw": null,
   "price": 0,
-  "zone_id": "zone_hostel_kitchen"
+  "zone_id": "zone_hostel_dorm"
 }

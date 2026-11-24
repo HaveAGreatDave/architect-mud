@@ -14,7 +14,48 @@
   "flags": {
     "cell_block": true,
     "floor": "concrete",
-    "is_interior": true
+    "is_interior": true,
+    "room": {
+      "balcony": false,
+      "d": 6.2,
+      "decor": {
+        "rug": false,
+        "signs": [
+          {
+            "along": 0,
+            "h": 0.3,
+            "style": "paint",
+            "text": "IIII IIII IIII IIII IIII IIII",
+            "wall": "back",
+            "y": 1.7
+          }
+        ],
+        "strips": [
+          {
+            "at": [
+              0,
+              3.1
+            ],
+            "cage": true
+          }
+        ]
+      },
+      "doors": {
+        "east": 0
+      },
+      "face": 90,
+      "ground": "concrete",
+      "h": 3.2,
+      "studio": false,
+      "tone": {
+        "accent": "#4a4e52",
+        "ceiling": "#6a6c6e",
+        "trim": "#2e3032",
+        "wall": "#7c7e80"
+      },
+      "w": 7,
+      "windowless": true
+    }
   },
   "grid_x": -1,
   "grid_y": 0,

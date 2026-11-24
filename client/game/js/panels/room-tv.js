@@ -16,6 +16,14 @@ import { sendCmdSilent } from '../net.js';
 import { createPagePaint } from './page-paint.js';
 import { paintScreen } from './gl/room-mesh.js';
 import { tvLine } from './npc-bubbles.js';
+import { loadCss } from '../../../shared/dom.js';
+
+// the page's own sheet (room-tv.css): off the side of the window wherever a set is made, the Stage or GLASS
+const TV_CSS = await loadCss(new URL('./room-tv.css', import.meta.url));
+function ensureTvStyles() {
+  if (!TV_CSS || document.getElementById('room-tv-css')) return;
+  const st = document.createElement('style'); st.id = 'room-tv-css'; st.textContent = TV_CSS; document.head.appendChild(st);
+}
 
 // the size the page is laid out at, and the texture it's painted to: a 16:9 screen
 const PAGE_W = 800, PAGE_H = 450, TEX_W = 1024, TEX_H = 576;
@@ -33,6 +41,8 @@ const BUTTON_REACH = 14;
 // across the middle that opens into a dark field with two slow glows, the wordmark closing up as it fades in
 // and a glint across it, a ring filling under it, then the picture opening out from the middle.
 export const BOOT_S = 3.2;
+// (where a point of the picture falls on a set's screen: client/shared/quad-uv.js, which the street view asks too)
+export { quadUV } from '../../../shared/quad-uv.js';
 const ease = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
 export function paintBoot(dst, src, t, mark) {
   const g = dst.getContext('2d'), W = dst.width, H = dst.height, cx = W / 2, cy = H / 2;
@@ -99,6 +109,7 @@ export function paintBoot(dst, src, t, mark) {
 
 // `onChange(info)` hears the channel change: { on, number, station, list }.
 export function createWallTv(host, { onChange }) {
+  ensureTvStyles();
   const el = document.createElement('div');
   el.className = 'rs-tv';
   el.dataset.tv = 'window';
@@ -231,7 +242,7 @@ export function createWallTv(host, { onChange }) {
       const slow = size >= 1 ? 1 : 1 + (SMALL_SLOW - 1) * Math.min(1, (1 - size) / (1 - SMALL_SIZE));
       if (now - paintAt < paintGap * slow) return false;
       // (gone full screen: the picture is the whole window, and nobody's looking at the wall)
-      if (document.fullscreenElement && gameday.contains(document.fullscreenElement)) return false;
+      if (document.fullscreenElement && el.contains(document.fullscreenElement)) return false;
       paintAt = now;
       const t0 = performance.now(), drawn = painter.paint();
       paintGap = Math.max(PAINT_MS, (performance.now() - t0) * PAINT_SHARE);

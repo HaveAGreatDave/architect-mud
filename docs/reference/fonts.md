@@ -19,6 +19,8 @@ set in its own sample, with your own text and a wall, night or paper ground.
 - **The Google Fonts files are the latin subset**, which covers English, the `₵` sign excepted.
   Check a glyph you need is there before relying on it; every font stack ends in a generic family
   (see [world-rendering.md](world-rendering.md#sign-styles-faces-and-fascia-kinds-as-built)).
+- **ROOM's wall signs and marks ask for a face by name** from `MARK_FONTS` in
+  `client/game/js/panels/room-marks.js` ([wall-signs.md](wall-signs.md)); add a face there to offer it.
 - **Load a face when its view opens**, with `new FontFace(...)` as `loadNeonFaces` and
   `stadium-signs.js` do, never from a global stylesheet. Most of these are display faces that one
   view uses.

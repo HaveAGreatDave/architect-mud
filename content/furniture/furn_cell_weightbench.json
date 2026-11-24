@@ -4,7 +4,20 @@
     "interactions": [
       "lie",
       "lift"
-    ]
+    ],
+    "look": {
+      "arche": "bed",
+      "dress": "concrete",
+      "form": "pressbench",
+      "wear": 0.9
+    },
+    "spot": {
+      "at": [
+        0,
+        3
+      ],
+      "turn": 0
+    }
   },
   "hp": null,
   "hp_max": null,

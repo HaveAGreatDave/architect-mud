@@ -21,7 +21,7 @@ import { unlockedLiveries, unlockKeysFor, liveriesFor, aircraftLiveryModel } fro
 import { getFlagsIn } from '../../server/engine/flags.js';
 import { fieldStocks } from './acquisition.js';
 import { indexAircraft, unindexAircraft } from './access.js';
-import { getZoneFurniture, addPlayerToZone, removePlayerFromZone, getMinimapData, getAllLivePlayers } from '../../server/engine/world.js';
+import { getZoneFurniture, addPlayerToZone, removePlayerFromZone, getMinimapData, getAllLivePlayers, getZonePlayers } from '../../server/engine/world.js';
 import { giveItemById } from '../../server/engine/inventory.js';
 import { sendToZone } from '../../server/engine/messaging.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
@@ -1391,6 +1391,15 @@ function garageHere(player) {
   }
   return null;
 }
+// Everyone's GLASS plays the pad going down (or coming up) on the pad's tile, inside its guard glass
+// (world-feed.js padLiftAt). The sky garage has no ride overlay, so this is the whole picture.
+const GARAGE_LIFT_MS = 9000;
+function padLiftAll(field, dir) {
+  const x = Number(field?.grid_x), y = Number(field?.grid_y);
+  if (!Number.isFinite(x) || !Number.isFinite(y) || field.grid_x == null) return;
+  const push = { type: 'pad_lift', x, y, dir, ms: GARAGE_LIFT_MS };
+  for (const pl of getAllLivePlayers()) sendToPlayer(pl.id, push);
+}
 async function cmdGarage(args, raw, player) {
   const term = garageHere(player);
   if (!term) return undefined;
@@ -1425,7 +1434,8 @@ async function cmdGarage(args, raw, player) {
     const { rows: put } = await query('UPDATE aircraft SET hangar_id=$1 WHERE id=$2 AND hangar_id IS NULL RETURNING id', [bay, pick.id]);
     if (!put[0]) return { type: 'emote', message: 'The lift won\'t take her right now.' };
     unindexAircraft(pick.id);
-    return { type: 'emote', message: `You tap STORE. Klaxon, then the whole pad sinks into the roof with "${clean(pick.name)}" on it. A minute later it rises again, empty.` };
+    padLiftAll(field, 'down');
+    return { type: 'emote', message: `You tap STORE. Glass panels rise round the pad, a klaxon, then the whole pad sinks into the roof with "${clean(pick.name)}" on it. A minute later it rises again, empty.` };
   }
   if (sub === 'pull') {
     const pick = want ? ours.find((r) => r.id.includes(want) || (r.name || '').toLowerCase().includes(want)) : ours[0];
@@ -1434,7 +1444,8 @@ async function cmdGarage(args, raw, player) {
     if (busy[0]) return { type: 'emote', message: 'The pad has to be clear before the lift will bring anything up.' };
     const { rows: rolled } = await query('UPDATE aircraft SET hangar_id=NULL, parked_zone_id=$1 WHERE id=$2 RETURNING id, name, owner_id, rental, parked_zone_id, hangar_id, is_wreck, airborne, custom_data', [field.id, pick.id]);
     if (rolled[0]) indexAircraft(rolled[0]);
-    return { type: 'emote', message: `The pad drops away and comes back up with "${clean(pick.name)}" on it, ready to fly.` };
+    padLiftAll(field, 'up');
+    return { type: 'emote', message: `The guard glass comes up, the pad drops away and comes back up with "${clean(pick.name)}" on it, ready to fly.` };
   }
   const list = ours.length ? ours.map((a) => `· "${clean(a.name)}" ${link('garage pull ' + a.id.slice(0, 8), 'bring up')}`).join('\n') : '· (nothing of yours)';
   return { type: 'output', message: `<span class="text-cyan">SKY GARAGE</span>: ${inside.length}/${term.slots} slots in use. Free to residents; small VTOLs only.\n${list}\n${link('garage store', 'store what\'s on the pad')}` };
@@ -1455,7 +1466,8 @@ export const _setRideMs = (ms) => { RIDE_MS = ms; };
 const CRADLE_MS = 4500;
 const cdOf = (r) => (typeof r.custom_data === 'string' ? (() => { try { return JSON.parse(r.custom_data); } catch { return {}; } })() : (r.custom_data || {}));
 const slotLevel = (f, slot) => (Array.isArray(f.levels) ? f.levels : [])[Math.floor((slot - 1) / SLOTS_PER_LEVEL)];
-const slotZoneOf = (f, slot) => (f.slot_prefix ? `${f.slot_prefix}${slot}` : null);
+// a car park's one carousel room (`bay_zone`), or a bay a slot (`slot_prefix` + slot)
+const slotZoneOf = (f, slot) => f.bay_zone || (f.slot_prefix ? `${f.slot_prefix}${slot}` : null);
 const riding = new Map();   // player id -> until, while a ride is playing
 
 function moveTo(player, zoneId, others) {
@@ -1504,16 +1516,17 @@ function rideThen(player, msg, zoneId, narration, others, after) {
 // The cradle in a slot bay is a vehicle stand (server/engine/vehicle-stand.js): your craft stands in it while it's
 // parked there, and climbing in is `garage pull`, which rides it back up to the roof.
 registerStandKind('sdeck', {
-  isBay: (zone) => !!zone?.flags?.sdeck_slot,
+  isBay: (zone) => !!(zone?.flags?.sdeck_slot || zone?.flags?.sdeck_bay),
   from: 'back', label: 'CRADLE', moveMs: CRADLE_MS,
   board: (id) => `garage pull ${id}`,
   busy: (player) => (player.aircraftId ? "You're aboard already." : null),
   list: async (player, zone) => {
-    const slot = zone?.flags?.sdeck_slot;
-    if (!slot) return [];
+    const slot = zone?.flags?.sdeck_slot, field = zone?.flags?.sdeck_bay ? zone.flags.field_zone : null;
+    if (!slot && !field) return [];
+    // a carousel room (`sdeck_bay`) has one cradle for the whole drum: whatever of yours is parked under its field
     const { rows } = await query(
       `SELECT a.id, a.name, a.custom_data, t.name tname, t.class, t.hardpoints FROM aircraft a JOIN aircraft_types t ON t.id = a.type_id
-       WHERE a.owner_id = $1 AND a.hangar_id IS NOT NULL AND a.is_wreck = 0 AND (a.custom_data->>'garage_slot')::int = $2`, [player.id, slot]);
+       WHERE a.owner_id = $1 AND a.hangar_id IS NOT NULL AND a.is_wreck = 0 AND ${field ? 'a.hangar_id IN (SELECT id FROM hangars WHERE field_zone = $2)' : "(a.custom_data->>'garage_slot')::int = $2"}`, [player.id, field || slot]);
     return rows.map((r) => ({ id: r.id, name: r.name || r.tname, look: lookOf(r) }));
   },
   words: {
@@ -1525,13 +1538,15 @@ registerStandKind('sdeck', {
 });
 
 // Walk into the slot your craft is parked in and it's standing in its cradle (stands are RAM, so after a restart
-// or half an hour the floor is empty until you come back). One query, only on entering a slot bay.
+// or half an hour the floor is empty until you come back). One query, only on entering a slot bay. A carousel room
+// has one cradle: it shows yours unless somebody still in the room has theirs out.
+const cradleBusy = (zone) => { const S = standAt(zone); return !!S && getZonePlayers(zone).some((p) => p.id === S.ownerId); };
 on('zone.entered', async ({ actor, zone }) => {
   const z = getZone(zone);
-  if (!actor || !z?.flags?.sdeck_slot || standAt(zone)) return;
+  if (!actor || !(z?.flags?.sdeck_slot || z?.flags?.sdeck_bay) || cradleBusy(zone)) return;
   const def = standKindDef('sdeck');
   const list = await def.list(actor, z).catch(() => []);
-  if (list[0] && !standAt(zone)) {
+  if (list[0] && !cradleBusy(zone)) {
     raiseStand(zone, actor.id, { kind: 'sdeck', id: list[0].id, name: list[0].name, look: list[0].look });
     // already there: no cradle run to watch
     const S = standAt(zone); if (S) S.since -= CRADLE_MS;

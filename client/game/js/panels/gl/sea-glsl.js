@@ -268,6 +268,27 @@ vec2 seaSurfLeanD(vec2 p, float t, float A) {
   float c = A * ${f(2 * SURF_LEAN)} * cos(2.0 * th);
   return vec2(c * 0.2090, c * 0.1280);
 }
+// ── THE BREAKER'S FACE (RENDER_TUNE.glSeaFace) ───────────────────────────────────────────────────
+// Before it goes over, a shoaling wave stands up: the crest gets taller and sharper and runs ahead
+// of its base, and the water in front of it is drawn up the face, leaving a scooped hollow under
+// the lip. Written in the swell's phase u (seaSurfPhase: 0 the crest, negative the front face):
+// a peak a little forward of the crest and a hollow about a third of a wave in front of it.
+// 'A' is the swell's amplitude there, 'z' how far into the surf zone (0..1), 'amt' the tune.
+float seaSurfFace(vec2 p, float t, float A, float z, float amt) {
+  float u = seaSurfPhase(p, t);
+  float pk = exp(-(u + 0.15) * (u + 0.15) / 0.18);
+  float ho = exp(-(u + 0.75) * (u + 0.75) / 0.08);
+  return A * z * amt * (0.55 * pk - 0.45 * ho);
+}
+// d/dp of the above, for the light. One derivative for one height.
+vec2 seaSurfFaceD(vec2 p, float t, float A, float z, float amt) {
+  float u = seaSurfPhase(p, t);
+  float pk = exp(-(u + 0.15) * (u + 0.15) / 0.18);
+  float ho = exp(-(u + 0.75) * (u + 0.75) / 0.08);
+  float du = 0.55 * pk * (-2.0 * (u + 0.15) / 0.18) - 0.45 * ho * (-2.0 * (u + 0.75) / 0.08);
+  float c = A * z * amt * du;
+  return vec2(c * 0.2090, c * 0.1280);
+}
 float seaRoll(vec2 p, float t, float A, float sp) {
   float h = seaStokes(p.x * 0.2090 + p.y * 0.1280 + t * 0.18, 0.2451, A * (1.0 - ${f(1 - SEA_SWELL_PEAK)} * sp));
   ${SEA_SWELL_SIDE.map((T) => band(T, false)).join('\n  ')}

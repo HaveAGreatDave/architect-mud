@@ -1,6 +1,6 @@
 # Street people: one look, four levels
 
-**Status: steps 1 to 3 built (one look on the wire, the crowd dressed from it, the close-up level in GLASS), the same close-up level in the stands at the park and the rink, and smokers; steps 4 to 6 are design.** It answers the "street's own close-ups" question in [hd-figure.md](hd-figure.md#open-questions) and replaces the token rule in [street-figure-heads.md](street-figure-heads.md#what-doesnt-change).
+**Status: steps 1 to 3 built (one look on the wire, the crowd dressed from it, the close-up level in GLASS), the same close-up level in the stands at the park and the rink, smokers, and the crowd's own body of each outfit; steps 4 to 6 are design.** It answers the "street's own close-ups" question in [hd-figure.md](hd-figure.md#open-questions) and replaces the token rule in [street-figure-heads.md](street-figure-heads.md#what-doesnt-change).
 
 ## Why
 
@@ -20,13 +20,12 @@ Every level is drawn from one look, so a person crossing from one level to the n
 
 | Level | Drawn by | When | Cost a person |
 |---|---|---|---|
-| close-up `hd` | the Room Stage's figure ([gl/figure-hd.js](../../client/game/js/panels/gl/figure-hd.js)) through [gl/street-hd.js](../../client/game/js/panels/gl/street-hd.js) | over `STREET_HD.px` (100 device px tall) and within `FIGURE_LOD.near` (3.1 m), at most `STREET_HD.max` (16) | about 28,000 triangles, posed on the CPU, one draw and its ink |
-| close-up `lite` | the same | over 100 px, past 3.7 m | about 5,000 vertices |
-| crowd | the baked body and the street's heads ([gl/actors.js](../../client/game/js/panels/gl/actors.js)) | over `actorMeshPx` (8 px) | 1,961 vertices, instanced, no CPU |
+| close-up `hd` | the Room Stage's figure ([gl/figure-hd.js](../../client/game/js/panels/gl/figure-hd.js)) through [gl/street-hd.js](../../client/game/js/panels/gl/street-hd.js) | over `STREET_HD.px` (100 device px tall), at most `STREET_HD.max` (16) | about 28,000 triangles, posed on the CPU, one draw and its ink |
+| crowd | the person's own outfit body, or their silhouette's baked body till it's built, with the street's heads ([gl/actors.js](../../client/game/js/panels/gl/actors.js)) | over `actorMeshPx` (8 px) | about 2,000 vertices, instanced, no CPU |
 | far | the far body | 1.5 to 8 px | 387 vertices, instanced |
 | billboard | the canvas card in the coat's tone | under 1.5 px | a quad |
 
-At the street's 1.776 m a 260 px figure has a head about 34 px tall, where the crowd's head reaches its finest level (L0). The close-up level started there until 2026-11-15, and the change from the crowd's body to the figure showed as somebody walked up. It now starts at 100 px (a head about 13 px tall), where the two are too small to tell apart, with up to 16 people at once, most of them at the lite level.
+At the street's 1.776 m a 260 px figure has a head about 34 px tall, where the crowd's head reaches its finest level (L0). The close-up level started there until 2026-11-15, and the change from the crowd's body to the figure showed as somebody walked up. It now starts at 100 px (a head about 13 px tall), where the two are too small to tell apart, with up to 16 people at once. Since 2026-11-23 everybody drawn close up is the full figure (`STREET_HD.hdPx` 0), and so is everybody in a room at any distance (`FIGURE_LOD.on` 0): David asked that nobody near you be drawn at low detail. The lite level is still built for the stands and the TV sets.
 
 ## One look (built)
 
@@ -35,7 +34,19 @@ At the street's 1.776 m a 260 px figure has a head about 34 px tall, where the c
 - **The crowd's dressing.** `streetLook(t, female, figure)` runs `lookOf` as the Room Stage does (sculpted, the person's sex and settled look) and hands back `actorOutfit`'s shape in sRGB: coat, trousers, skin, hair and shoes from the close-up slots, the cut, the face's layout, makeup, hair style, lips and iris, and `hd`, what the close-up level draws them with. windshield.js `streetActorPose` dresses everyone with it, and a changed `s` or `g` dresses them again.
 - **Height.** A settled `flags.figure.height` sets the crowd's own scale (over the crowd's 1.776 m) as well as the close-up figure's; anybody else keeps the crowd's five per cent either way, which the close-up level copies.
 
-- **Bare legs.** The crowd's body is always in trousers. Where the close-up look has shorts or a skirt, its trousers lean toward the skin by the share of leg between the hem and the boot (`bare`, up to 0.75), so a figure in shorts doesn't turn into one in dark trousers as it walks off. About three in eight people roll short bottoms.
+- **Bare legs.** A silhouette's body is always in trousers. Where the close-up look has shorts or a skirt, its trousers lean toward the skin by the share of leg between the hem and the boot (`bare`, up to 0.75), so a figure in shorts doesn't turn into one in dark trousers as it walks off. About three in eight people roll short bottoms. An outfit body has the bare leg itself, so it takes the colours with no lean (`coatOwn`, `legsOwn`).
+
+## Outfit bodies (built)
+
+Asked for on 2026-11-23: the crowd's body as a level of detail of each person's own figure, so the switch to the close-up figure isn't jarring. Before, the crowd had four silhouettes (coat, jacket, tee, long coat), each baked a vertex a frame at about 8 MB, so a skirt, shorts or a hat had no crowd body and showed up only when the close-up figure took over.
+
+- **The shape.** `streetLook` hands over `shape`, the look's `{ cut, bottoms, hat }`. Colours stay per person on the instance, so a few dozen shapes cover the street.
+- **The body.** actor3d.js `actorOutfitBody(shape)` is the close-up figure in that shape, cut down to the crowd's 3,600 triangles as `hdBody` cuts a silhouette, with the same four body-type offsets. Head, hair and face are left out as before; actor-head.js's head rides on it.
+- **Posed on the GPU.** The bake now keeps every bone's matrix for every frame (`bk.skel`, 19 bones, about 390 KB), and gl/actors.js skins an outfit body from them in the crowd's own program (`uSkin`), two bones a vertex, so it plays every clip and blend the silhouettes do. The coat's outfit body lands within half a millimetre of the coat silhouette's baked vertices.
+- **Built off the page.** One is about 2 s of work (five close-up figures and a simplify), so [actor-outfit-worker.js](../../client/game/js/panels/actor-outfit-worker.js) builds them one at a time (`actorOutfitReady`), and whoever wears one still waiting is drawn in their silhouette. `OUTFIT_BODY.keep` (64) caps how many are kept. The far body stays the silhouette's.
+- **Sixteen attributes.** ANGLE counts `gl_VertexID` among WebGL's sixteen vertex inputs, so the outfit's bones and weight share `aMat` with the material, the bind position is `aRest`, and the garments' materials share `iLit`.
+
+`OUTFIT_BODY.on = 0` from the console goes back to the silhouettes, and `OUTFIT_BODY.hats = 0` leaves hats off. `actorOutfitStats()` says how many are built and waiting.
 
 Not carried: the occasion and weather changes the Room Stage adds (`figure_work`, `figure_cold` and `wear`). On the street a person wears their own look.
 
@@ -50,7 +61,7 @@ Not carried: the occasion and weather changes the Room Stage adds (`figure_work`
 - **The crowd hides them** in the main pass only: a record drawn close up goes up with its brightness negative, and `uHideHD` puts it off the screen. The mirror and the ink's depth prepass still draw the crowd's body for them, so a puddle reflects them and the city's ink lines don't draw through them.
 - **Nobody blinks out.** figure-hd.js is imported the first time somebody is close enough, not with GLASS, because it declares its ~114k-character lit shader for the prewarm of every new room and rink context (last, behind their own programs; `gl/programs.js` scenes). Until the program has linked (about a minute cold on Direct3D, a couple of seconds from the driver's cache), the crowd draws everybody.
 - **Built off the page.** A person's figure is 50 to 180 ms to build and 20 to 40 ms more for its occlusion, at each level. Built on the frame somebody first came close (and again when they dropped to `lite`), that was a hitch a passer-by. `pick` now draws close up only somebody whose two figures are built (`figureLooks` in gl/room-people.js names them); anybody else is asked for ([figure-ahead.js](../../client/game/js/panels/figure-ahead.js)), built and occluded in [figure-worker.js](../../client/game/js/panels/figure-worker.js), and stays in the crowd meanwhile. With no worker (Node, the gates, a GLASS inside a worker) the figure is built on the spot as before.
-- **Phones** keep the crowd: GLASS Lite leaves street life out there already.
+- **Phones** draw it too since 2026-11-23, at half resolution (`createFigureLayer`'s `half`).
 
 **Measured (2026-11-12).** Posing costs about 0.4 ms of CPU a person a frame (`figurePeople`, six people 2.4 ms in Node on a loaded machine), which is why `max` is 6 and why step 4 comes next: GLASS is CPU-bound. In headless Chrome on SwiftShader the program linked 12 to 55 s after first use; until then the crowd drew everybody, and once it had, the close-up figure stood exactly where the crowd's had, facing the same way at the same height.
 

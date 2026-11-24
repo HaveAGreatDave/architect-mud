@@ -9,15 +9,16 @@
     "food_noun": "tallow",
     "food_profile": "fat_or_oil",
     "matter": {
+      "look": {
+        "label": "#4a4a4a",
+        "pack": "tub"
+      },
       "ramp": {
         "raw": "#9a968e"
-      },
-      "look": {
-        "pack": "tub",
-        "label": "#4a4a4a"
       }
     },
     "restore_hunger": 8,
+    "shelved": true,
     "spreadable": true,
     "stackable": true
   },

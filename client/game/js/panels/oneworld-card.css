@@ -1,0 +1,27 @@
+/* ONE WORLD · THE CARD (oneworld-card.js): what the piece you're facing offers, walking a building's rooms in GLASS.
+   The Room Stage's card (room-stage.css .rs-card) in the text game's theme, at the foot of the street view. */
+.ow-card {
+	position: absolute; left: 50%; bottom: 48px; transform: translateX(-50%); z-index: 5;
+	width: max-content; max-width: min(560px, calc(100% - 32px));
+	padding: 8px 10px; border-radius: 6px; cursor: default; text-align: center;
+	background: color-mix(in srgb, var(--bg) 86%, transparent); color: var(--text); border: 1px solid var(--border);
+	font: 0.8125rem var(--font-mono);
+}
+.ow-card[hidden] { display: none; }
+.ow-card-name { display: block; margin-bottom: 6px; color: var(--accent); font-weight: 600; }
+.ow-card-name:empty { display: none; }
+.ow-card-acts { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.ow-card-acts button {
+	display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 4px 10px; border-radius: 4px; cursor: pointer;
+	background: color-mix(in srgb, var(--text) 8%, var(--bg)); color: var(--text); border: 1px solid var(--border); font: inherit;
+}
+.ow-card-acts button:first-child { border-color: var(--accent); }
+.ow-card-acts button:hover { background: color-mix(in srgb, var(--accent) 18%, var(--bg)); }
+.ow-card-acts kbd { font: 0.75rem var(--font-mono); color: var(--accent); }
+/* a conversation takes the bottom of the picture */
+body:has(#dialogue-panel.active) .ow-card { display: none; }
+@media (pointer: coarse) { .ow-card-acts kbd { display: none; } }
+/* the street view's hint ("drag looks, left thumb walks") gives way to the card, as the Stage's tip does to its own */
+.fl-root:has(.ow-card:not([hidden])) .fl-hint { display: none; }
+/* the compact layout's walking ring (freecam.js .fc-ring) takes the bottom left: the card stands above it */
+html[data-density="compact"] .fl-root:has(.fc-ring) .ow-card { bottom: 160px; }

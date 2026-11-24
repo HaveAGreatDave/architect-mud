@@ -270,7 +270,304 @@
     "mis_willing": false,
     "personality": "bartender",
     "post": "furniture_embassy_bar_counter",
-    "post_gap": 0.3
+    "post_gap": 0.3,
+    "parley": {
+      "topics": {
+        "embassy": [
+          "embassy",
+          "hotel",
+          "this place",
+          "lounge",
+          "the building",
+          "concierge",
+          "closed",
+          "closing",
+          "last day"
+        ],
+        "vest": [
+          "vest",
+          "uniform",
+          "waistcoat"
+        ],
+        "glass": [
+          "glass",
+          "polishing",
+          "polish"
+        ],
+        "rooms": [
+          "room",
+          "rooms",
+          "flat",
+          "rent",
+          "upstairs",
+          "stay"
+        ],
+        "drinks": [
+          "menu",
+          "drinks",
+          "good stuff",
+          "house special"
+        ],
+        "poker": [
+          "poker",
+          "cards",
+          "the table"
+        ],
+        "city": [
+          "coldwater",
+          "the city",
+          "town",
+          "outside",
+          "the street"
+        ],
+        "imogen": [
+          "imogen",
+          "night shift",
+          "the night girl",
+          "cardew"
+        ],
+        "wife": [
+          "wife",
+          "married",
+          "family",
+          "alone"
+        ],
+        "orion": [
+          "orion",
+          "thale",
+          "the dealer"
+        ]
+      },
+      "react": {
+        "greet": {
+          "stranger": [
+            "*looks up from the glass.* Evening, valued guest.",
+            "Welcome to the Embassy. Mind the carpet, it bites."
+          ],
+          "known": [
+            "You again. Good. The regulars keep me honest.",
+            "*nods.* Evening, {name}."
+          ],
+          "familiar": [
+            "{name}. Your stool missed you.",
+            "*already reaching for a glass.* Evening, {name}."
+          ],
+          "hostile": [
+            "*doesn't look up.* Oh. It's you."
+          ],
+          "close": [
+            "{name}. Your glass is already poured. Don't argue."
+          ]
+        },
+        "farewell": {
+          "stranger": [
+            "Mind how you go, valued guest.",
+            "Doors lock at nobody knows when. Come back."
+          ],
+          "familiar": [
+            "Night, {name}. Don't do anything I'd have to hear about."
+          ],
+          "hostile": [
+            "Good."
+          ]
+        },
+        "thank": [
+          "Don't mention it. Really, don't. It ruins the mystique.",
+          "*inclines his head, the old concierge bow.* A pleasure, valued guest."
+        ],
+        "praise": [
+          "*stands up a little straighter.* We do try. Within reason.",
+          "Kind of you. I'll put it in the guest book. We lost the guest book."
+        ],
+        "praise:glass": [
+          "Kind of you. It was clean when I started on it."
+        ],
+        "praise:vest": [
+          "Original issue. They stopped making the buttons before they stopped making the hotel."
+        ],
+        "insult": {
+          "stranger": [
+            "*keeps polishing.* I've been called worse by better dressed people.",
+            "Noted, valued guest. Sincerity optional."
+          ],
+          "known": [
+            "That's not like you. Or it is, and I wasn't paying attention."
+          ]
+        },
+        "insult_last": [
+          "*sets the glass down.* That's three. Drink somewhere else tonight."
+        ],
+        "flirt": [
+          "*a long, polite pause.* I'm married to the bar. It doesn't know.",
+          "Flattery's on the house. Everything else isn't."
+        ],
+        "apologise": [
+          "Water under the bridge. Most of Coldwater is.",
+          "*waves the cloth.* Forgotten. Mostly."
+        ],
+        "joke": [
+          "*the corner of his mouth twitches.* Don't. I'm on shift.",
+          "Ha. I'll steal that for the night crowd."
+        ],
+        "complain": [
+          "Complaints go to the front desk. The front desk went to the Basin years ago.",
+          "*sniffs the glass.* Blame the water. Everyone does."
+        ],
+        "ask_feeling": {
+          "stranger": [
+            "Upright and paid. That's a good day here.",
+            "Long shift. They're all long shifts."
+          ],
+          "familiar": [
+            "Honestly? My knees hate this floor. Don't tell the floor."
+          ],
+          "known": [
+            "Same as yesterday. Better now there's someone to talk to."
+          ],
+          "close": [
+            "Honestly, {name}? Lonely, some nights. The bar helps. You help."
+          ]
+        },
+        "order_drink": [
+          "Say the word and it's poured. Check the menu option if you want names.",
+          "*reaches under the counter.* Pay first, trust later. That's policy."
+        ],
+        "ask_about:embassy": [
+          "Used to be the best hotel north of the Basin. Diplomats, chandeliers. Now it's flats and me.",
+          "The Embassy had standards once. I'm what's left of them."
+        ],
+        "ask_about:vest": [
+          "Concierge vest. Head of the front desk, right to the end. I never handed it back."
+        ],
+        "ask_about:glass": [
+          "It's already clean. It's the polishing I need, not the glass."
+        ],
+        "ask_about:rooms": [
+          "Upstairs. Walk into an empty one and rent it. Pick the option for the long version."
+        ],
+        "ask_about:drinks": [
+          "We're out of the good stuff. We were always out of the good stuff."
+        ],
+        "ask_about:poker": [
+          "There's a game most nights. The dealer's honest. The players aren't."
+        ],
+        "ask_about:city": [
+          "Coldwater's all right if you stay indoors and don't look at it."
+        ],
+        "agree": [
+          "*nods.* Quite.",
+          "Just so."
+        ],
+        "disagree": [
+          "Agree to disagree. I agree to it, anyway.",
+          "*shrugs.* You're the guest."
+        ],
+        "ask_name": {
+          "stranger": [
+            "Cormack. Lowry Cormack. Head of the front desk, retired. Barkeep, not."
+          ],
+          "familiar": [
+            "You know my name, {name}. You just like hearing it."
+          ]
+        },
+        "ask_job": [
+          "I pour, I polish, I listen. Used to be keys and complaints.",
+          "Concierge, once. Now the same job with worse tips."
+        ],
+        "ask_origin": [
+          "Born on the fourth floor of this hotel. Room 412. Long story, very little of it mine."
+        ],
+        "ask_news": {
+          "stranger": [
+            "Nothing I'd repeat to a valued guest."
+          ],
+          "known": [
+            "The night girl reads the same book twice a week. That's the news.",
+            "Somebody upstairs is cooking something that isn't food. Not my business."
+          ]
+        },
+        "ask_advice": [
+          "Pay your rent before your tab. The tab forgives. The landlord doesn't.",
+          "Never trust a man who tips before he drinks."
+        ],
+        "ask_about:imogen": [
+          "Imogen has the night. She reads, I polish. We don't overlap much.",
+          "Good woman. Never finishes a book, never loses her place."
+        ],
+        "ask_about:wife": {
+          "stranger": [
+            "*the polishing stops, then starts again.* Another time, valued guest."
+          ]
+        },
+        "defer:poker": [
+          "*nods toward the table.* Ask Orion. Cards are his department.",
+          "That's Orion's table, valued guest. Ask the man."
+        ],
+        "overheard": [
+          "*doesn't look up from the glass.* I can hear you, valued guest.",
+          "Talking about me? Kindly, I hope."
+        ],
+        "overheard_insult": [
+          "*sets the glass down.* I heard that. The vest has excellent ears."
+        ],
+        "overheard_praise": [
+          "*straightens the vest, very slightly.* Noted with thanks."
+        ],
+        "gossip_rude": [
+          "{other} tells me you were rude. We maintain certain standards here, within reason.",
+          "Word from {other} is you've got a mouth on you. Behave, valued guest."
+        ],
+        "gossip_story": [
+          "{other} says you're a good listener. High praise from that quarter."
+        ],
+        "ask_about:orion": [
+          "Orion? Honest dealer. Rarest thing in Coldwater.",
+          "He tips in exact change. I respect it."
+        ],
+        "praise:orion": [
+          "*nods.* He's good. Don't tell him I said so."
+        ]
+      },
+      "deflect": [
+        "*polishes the glass harder.* I'll pretend you said something nice.",
+        "Valued guest, I have no idea what that means and I'm too old to ask.",
+        "*nods slowly, the way he nods at drunks.* Quite.",
+        "Hm. Is that a drinks order? It sounded like a drinks order."
+      ],
+      "beats": [
+        {
+          "id": "closing",
+          "topic": "embassy",
+          "tier": "known",
+          "warmth": 6,
+          "steps": [
+            "*sets the glass down for once.* You want the real story? The Embassy didn't close. It just stopped having guests.",
+            "The diplomats left first. Then the staff. I kept the front desk open for nine more months. Nobody came to it.",
+            "They turned the rooms into flats and the lobby into this. I asked to stay on. They gave me a bar and kept the vest.",
+            "*polishes the glass again.* I still say valued guest because it's the last thing the place taught me. Don't tell anyone I told you."
+          ]
+        },
+        {
+          "id": "wife",
+          "topic": "wife",
+          "tier": "familiar",
+          "warmth": 8,
+          "mood": "sad",
+          "steps": [
+            "There was a Mrs Cormack. Head of housekeeping. She ran this building better than the manager did.",
+            "She went out to the Basin market one morning and the weather came in. That was that.",
+            "*quiet.* I keep the glasses clean because she would have. That's all it is."
+          ]
+        }
+      ],
+      "circle": [
+        "npc_embassy_barkeep_night",
+        "npc_orion_dex"
+      ],
+      "defer": {
+        "poker": "npc_orion_dex"
+      }
+    }
   },
   "home_activities": [],
   "home_zone": "zone_apt_7",

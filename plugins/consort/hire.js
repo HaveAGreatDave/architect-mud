@@ -202,6 +202,9 @@ export function spawnConsort(row) {
       no_banter: true,                 // their conversations belong to this plugin
     },
     _appearance: appearance,
+    // life.js's stamps: when they last ate and last had their keeper's company
+    _fedAt: Number(row.last_fed_at) || Date.now(),
+    _seenAt: Number(row.last_seen_at) || Date.now(),
     _archetype: arch,
     _consortRow: row,
     _ai: { currentNode: null, waitUntil: null, patrolPath: [], patrolTarget: null, patrolMode: 'walk', patrolIndex: 0, alertCooldown: 0, lastSay: 0, flags: {} },

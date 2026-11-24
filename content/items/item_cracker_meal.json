@@ -10,20 +10,21 @@
     "food_profile": "batter",
     "matter": {
       "form": {
-        "kind": "grain",
-        "w": 8,
         "d": 8,
-        "h": 2
-      },
-      "ramp": {
-        "raw": "#e3cf9a"
+        "h": 2,
+        "kind": "grain",
+        "w": 8
       },
       "look": {
         "pack": "sack"
+      },
+      "ramp": {
+        "raw": "#e3cf9a"
       }
     },
     "needs_cooking": true,
     "restore_hunger": 9,
+    "shelved": true,
     "stackable": true,
     "status_chance": {
       "food_poisoning": 0.1

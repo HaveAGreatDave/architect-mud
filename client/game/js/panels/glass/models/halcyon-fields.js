@@ -10,7 +10,7 @@
 import {
   DECO_PULL, TR, bakeSignText, blinkLight, clamp, draw3DBoxAt, drawFacetDrum, emitLightRunner,
   emitSurfaceText, emitWire, faceYaw, frac, glowPool, helixRunner, hfChrome, hfGlass, hoistLine,
-  latticeBoom, mast, motionPhase, moveSeg, movingBox, neonBlade, roofClutter,
+  latticeBoom, markDoorway, mast, motionPhase, moveSeg, movingBox, neonBlade, roofClutter,
 } from '../../windshield.js';
 import { drawEntrance } from '../entrance.js';
 
@@ -1700,6 +1700,8 @@ export const HALCYON_ARMS = {
     drawFacetDrum(ctx, cam, dx, dy, cope, mast, fh * 0.06, fh * 0.03, 8, alpha, hfChrome([84, 100, 116], [222, 234, 242], 2.4), null, 'ty_hf_chrome_dk');
     { const [cx1, cy1] = F(0, fh * 0.60);
       drawFacetDrum(ctx, cam, cx1, cy1, h * 0.055, h * 0.072, fh * 0.28, fh * 0.28, 12, alpha, hfChrome([122, 138, 152], [242, 248, 252], 1.7), hfChrome([132, 148, 162], [214, 228, 236], 1.3), 'ty_hf_ice'); }
+      // The street door (zone_hf_topmarket_lift's), in the plinth's face under that canopy: 1.6 m wide.
+      markDoorway(F, 0, fh * 0.80, 0.045, 0, h * 0.055, fh * 0.80 + 0.004);
     if (night) {
       blinkLight(ctx, cam, dx, dy, mast, '255,90,120', now, seed + 3, alpha, 1.5);
       // ⚠ LIT UNDER THE OVERHANG. A cantilever this deep is a soffit, and a soffit nobody

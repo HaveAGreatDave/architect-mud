@@ -114,7 +114,9 @@ function render(text, extra = {}) {
   // rolled 101: at 91 the third harmonic sits on IY's F1 (274Hz), at 101 the F1 falls
   // between harmonics and the peak picker finds the second. The F1 checks read one voice.
   const res = A.speak(text, { seed: 'Vox Rime', backend: 'worklet', trace, fresh: true, ...extra,
-    voice: { f0: 91.2, ...(extra.voice || {}) } });
+    // base 0: these checks read the renderer against the PH table, not the base vowels
+    // (BASE_VOWELS put IY's F1 between this voice's harmonics).
+    voice: { f0: 91.2, base: 0, ...(extra.voice || {}) } });
   const wn = made.filter(m => m.name === 'oracle-voice').pop();
   const line = wn?.posted.find(m => m.type === 'line');
   if (!line) return { res, wn };
@@ -274,6 +276,18 @@ function cycles(text, extra) {
   check('natural 0 evens vowel lengths out', s0 < s1, `longest/shortest ${s1.toFixed(2)} at 1, ${s0.toFixed(2)} at 0`);
 }
 
+// ── The base vowels (BASE_VOWELS): GA and Canadian voices take them, RP doesn't ─────
+{
+  const f2 = (r) => Array.from({ length: r.line.frames }, (_, i) => r.line.tracks[i * TRACK.length + TRACK.indexOf('f2')]);
+  const same = (a, b) => a.length === b.length && a.every((v, i) => Math.abs(v - b[i]) < 1e-6);
+  const none = render('The cat had a hat.', { voice: { base: 0 } });
+  const full = render('The cat had a hat.', { voice: { base: 1 } });
+  const rp0 = render('The cat had a hat.', { accent: 'rp', voice: { base: 0 } });
+  const rp1 = render('The cat had a hat.', { accent: 'rp', voice: { base: 1 } });
+  check('a GA voice with the base vowels moves its formants', !same(f2(none), f2(full)));
+  check('an RP voice ignores the base vowels', same(f2(rp0), f2(rp1)));
+}
+
 // ── The source as it speaks: tension (Rd) and creak ───────────────────────────
 // The worklet's alone. Tension is set per syllable from stress, place in the phrase, pitch
 // and delivery, so across a stressed line it moves; at natural 0 it is one value. Creak
@@ -314,6 +328,38 @@ function cycles(text, extra) {
   // A question doesn't creak.
   const q = render('Is it over there?');
   check('a question asks for no creak', absMax(trackOf(q.line, 'creak')) === 0);
+  // Hard onset: a vowel-initial word after a break starts on a few creaky pulses; a
+  // word that starts on a consonant, and the same line at natural 0, don't.
+  const ho = render('The day ended. And it was over.'), ho0 = render('The day ended. And it was over.', { voice: { natural: 0 } });
+  const onAnd = ho.trace.find((x, k) => x.p === 'AE' || (x.p === 'AX' && ho.trace[k - 1]?.p?.startsWith('_') && k > 4));
+  const onDay = ho.trace.find(x => x.p === 'EY');
+  const peak = (r, at) => Math.max(...[0, 0.01, 0.02, 0.03].map(d => col(r.line, 'creak', at + d)));
+  check('a vowel-initial word after a break starts creaky', onAnd && peak(ho, onAnd.at) > 0.3, onAnd ? `creak ${peak(ho, onAnd.at).toFixed(2)}` : ho.trace.map(x => x.p).join(' '));
+  check('a consonant-initial word does not', onDay && peak(ho, onDay.at) === 0, onDay ? `creak ${peak(ho, onDay.at)}` : 'no EY');
+  check('and no hard onset at natural 0', absMax(trackOf(ho0.line, 'creak')) === 0);
+  // Loudness falls across a sentence (LOUD): the last accent is voiced more softly than
+  // the first, and a voice's own loudFall makes the fall bigger.
+  const lf = (extra) => {
+    const r = render('Bright red boats sailed past the long grey harbour wall.', extra);
+    const acc = r.trace.filter(x => x.acc && /^[A-Z]{2}$/.test(x.p));
+    return 20 * Math.log10(col(r.line, 'av', acc[0].at + 0.04) / col(r.line, 'av', acc.at(-1).at + 0.04));
+  };
+  const fall = lf(), steep = lf({ voice: { loudFall: 9 } });
+  check('loudness falls from the first accent to the last', fall > 1, `${fall.toFixed(1)} dB`);
+  check('and a voice that falls further does', steep > fall + 2, `${steep.toFixed(1)} dB against ${fall.toFixed(1)}`);
+  // A list rises on each item and falls on the last; a tag question falls; a laugh is
+  // its pulses, not the word; "he" is a pronoun.
+  const ph = (t) => A._phonemesFor(t).join(' ');
+  check('a list marks its items', /_L .*_LA/.test(ph('We bought apples, pears, plums and grapes.')), ph('We bought apples, pears, plums and grapes.'));
+  check('and two clauses with commas are not a list', !/_L/.test(ph('Well, I think so, but not today.')));
+  check("a tag question falls (_QW)", ph("It's cold, isn't it?").endsWith('_QW') && ph('You saw him, right?').endsWith('_QW'));
+  check('and a real question still rises', ph('Well, is it?').endsWith('_Q') && ph('Is it cold?').endsWith('_Q'));
+  check('a laugh is breathy pulses', ph('Hahaha.') === 'HH * HA HH HA HH HA __', ph('Hahaha.'));
+  check('and "he" is still a word', !/HE/.test(ph('He left.')), ph('He left.'));
+  // Öhman: the schwa of "a pit" is fronter (higher F2) than the schwa of "a pat".
+  const schwaF2 = (t) => { const r = render(t); const x = r.trace.find(q => q.p === 'AX'); return col(r.line, 'f2', x.at + 0.03); };
+  const pit = schwaF2('a pit'), pat = schwaF2('a pat');
+  check('an unstressed vowel leans toward the stressed one after it', pit > pat + 20, `schwa F2 ${pit.toFixed(0)} before pit, ${pat.toFixed(0)} before pat`);
 }
 
 // ── Source-tract interaction ──────────────────────────────────────────────────

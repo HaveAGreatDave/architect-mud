@@ -1,14 +1,14 @@
 {
   "ambient_events": [
-    "The fridge shudders, hums, and shudders again.",
-    "A tap drips into the washing-up. Nobody has turned it off properly in years.",
-    "Somebody opens the fridge, looks for a long time at a carton with someone else's name on it, and drinks from it.",
-    "The hotplate ticks as it cools."
+    "A cistern refills with a long, complaining hiss.",
+    "Somebody in the end cubicle has been very quiet for a long time.",
+    "A tap drips into the trough.",
+    "The strip light flickers at its ends and steadies."
   ],
   "ambient_theme": "indoors",
   "bg_color": "#241f19",
   "color": "#c9a86a",
-  "description": "A narrow kitchen made out of the locking room's old battery store. A worktop on breeze blocks, a hotplate and a sink full of washing-up run down the west wall. A long table takes up the rest, with a bin beside it that nobody empties. The desk is east.",
+  "description": "The locking room's old battery store, tiled white once and grey now, with a drain in the middle the floor slopes to. Three cubicles stand down the west wall and a trough of a sink runs under a mirror nobody has cleaned. The sharps bin on the wall is full, so people use the floor. The desk is east.",
   "exits": {
     "east": "zone_trackmarks_shop"
   },
@@ -26,46 +26,57 @@
         "damp": [
           {
             "at": [
-              1,
-              4.4
+              0.8,
+              4.2
+            ],
+            "r": 0.6
+          },
+          {
+            "at": [
+              -0.9,
+              1.4
             ],
             "r": 0.4
           }
         ],
-        "mags": [
-          {
-            "at": [
-              -1.1,
-              0.7
-            ],
-            "n": 4,
-            "seed": 2
-          }
+        "grates": [
+          [
+            0.3,
+            2.4,
+            0.4,
+            0.3
+          ]
         ],
         "rubbish": [
           {
             "at": [
-              -0.9,
-              3.9
-            ],
-            "n": 14,
-            "r": [
               0.6,
-              0.5
+              3.6
             ],
-            "seed": 3
-          },
-          {
-            "at": [
-              0.4,
-              2.8
-            ],
-            "n": 6,
+            "n": 10,
             "r": [
               0.5,
-              0.4
+              0.6
             ],
-            "seed": 4
+            "seed": 81
+          }
+        ],
+        "kit": [
+          {
+            "at": [
+              0.5,
+              1.4
+            ],
+            "seed": 82
+          }
+        ],
+        "torn": [
+          {
+            "wall": "front",
+            "along": 0.4,
+            "y": 1.5,
+            "n": 5,
+            "seed": 83
           }
         ],
         "rug": false,
@@ -85,10 +96,10 @@
       "h": 3,
       "studio": false,
       "tone": {
-        "accent": "#6a5a3a",
-        "ceiling": "#b8ac8a",
-        "trim": "#3a3026",
-        "wall": "#b0a47e"
+        "accent": "#4a5a5a",
+        "ceiling": "#a8a898",
+        "trim": "#2a3030",
+        "wall": "#b4b6a6"
       },
       "w": 3.4,
       "windowless": true
@@ -101,6 +112,6 @@
   "grid_z": 0,
   "id": "zone_hostel_kitchen",
   "map_id": "map_int_trackmarks",
-  "name": "Hostel Takeover, the kitchen",
+  "name": "Hostel Takeover, the toilets",
   "parent_zone": "zone_district_917_903"
 }

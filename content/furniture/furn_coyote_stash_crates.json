@@ -1,0 +1,23 @@
+{
+  "description": "Crates stencilled with names of companies that went under before you were born, none of them holding what they say.",
+  "flags": {
+    "look": {
+      "arche": "prop",
+      "form": "crate"
+    },
+    "spot": {
+      "along": -1.2,
+      "wall": "back"
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_coyote_stash_crates",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "stacked crates",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_bld_899_1171_store"
+}

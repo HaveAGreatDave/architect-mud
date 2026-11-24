@@ -114,7 +114,7 @@ const zoneRow = (id, name, description, exits, flags = {}) => ({
 const NEWZ = [
   zoneRow(BAY, 'The Gardens — Zamboni Bay',
     "A concrete garage behind the west end boards, smelling of diesel and wet rubber. Its east side is the boards themselves, and the gate in them opens straight onto the ice. The resurfacer is parked nose to the gate, dripping into a drain, and there's a stool by the boards with a cup of coffee on the ledge. A door at the north end goes through to rinkside.",
-    { east: R }, { floor: 'concrete', room: { ...base, face: 90, w: 20, d: 8, h: 3.4, ground: 'concrete', doors: { east: 8.2 }, decor: { rug: false, walls: { kind: 'brick', hex: '#6a4a3a', y1: 1.0, trim: '#d8b030' }, strips: [...strips([-7.5, -2.5, 2.5, 7.5], [3.4], { cage: true }), ...strips([-3], [6.9])] }, tone: { wall: '#a9aca8', trim: '#d8b030', ceiling: '#7c807e', accent: '#d8b030' },
+    { east: R }, { floor: 'concrete', room: { ...base, face: 90, w: 20, d: 8, h: 3.2, ground: 'concrete', doors: { east: 8.2 }, decor: { rug: false, walls: { kind: 'brick', hex: '#6a4a3a', y1: 1.0, trim: '#d8b030' }, strips: [...strips([-7.5, -2.5, 2.5, 7.5], [3.4], { cage: true }), ...strips([-3], [6.9])] }, tone: { wall: '#a9aca8', trim: '#d8b030', ceiling: '#7c807e', accent: '#d8b030' },
       stadium: style([
         { wall: 'front', at: -1.6, y: 2.5, w: 2.6, h: 0.42, kind: 'stencil', text: 'Gate Keep Clear', tint: '#d8b030' },
         { wall: 'left', at: 3, y: 2.3, w: 2.4, h: 0.5, kind: 'stencil', text: 'Ice Crew Only', tint: '#e8e4d8' },

@@ -5,7 +5,7 @@
   ],
   "ambient_theme": "indoors",
   "bg_color": "#c9a884",
-  "description": "The landing still behaves like a hotel. Rose wallpaper with a little gold crest, lifting at the seams, and two flights side by side down the middle, one up from the lobby and one on up. Four doors, 2A to 2D, brass numbers square, brass paper slots that haven't seen a paper since the Handoff. A sconce by every door. Every second sconce works.",
+  "description": "The landing still behaves like a hotel. Rose wallpaper with a little gold crest, lifting at the seams, and the spiral stair turning up through the middle of it, on toward the floors above. Four doors, 2A to 2D, brass numbers square, brass paper slots that haven't seen a paper since the Handoff. A sconce by every door. Every second sconce works.",
   "exits": {
     "down": "zone_residential_lobby",
     "east": "zone_apt_3",
@@ -82,8 +82,8 @@
       },
       "doors": {
         "down": [
-          -0.55,
-          1.44
+          0,
+          5
         ],
         "east": -3.15,
         "north": -1.47,
@@ -95,11 +95,12 @@
       "h": 4.13,
       "stair": {
         "at": [
-          0.55,
-          1
+          -1.55,
+          7
         ],
-        "climb": "back",
+        "climb": "front",
         "going": 0.22,
+        "headroom": 2.25,
         "w": 1.1
       },
       "studio": false,

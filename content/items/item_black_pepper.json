@@ -4,26 +4,27 @@
   "id": "item_black_pepper",
   "name": "peppercorns",
   "tags": {
+    "aisle": "seasoning",
     "consumable": true,
     "description": "A twist of hard black corns that were worth more than gold once and are worth a day's wage now. Crack them fresh or don't bother.",
     "food_noun": "peppered",
     "food_profile": "aromatic",
     "matter": {
       "form": {
-        "kind": "grain",
-        "w": 3,
         "d": 3,
-        "h": 1
-      },
-      "ramp": {
-        "raw": "#2a2420",
-        "cook": "#262020",
-        "peak": "#221c1c"
+        "h": 1,
+        "kind": "grain",
+        "w": 3
       },
       "look": {
-        "pack": "pouch",
         "label": "#e9e2cf",
+        "pack": "pouch",
         "size": 0.5
+      },
+      "ramp": {
+        "cook": "#262020",
+        "peak": "#221c1c",
+        "raw": "#2a2420"
       }
     },
     "restore_hunger": 0,

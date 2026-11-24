@@ -1,0 +1,33 @@
+{
+  "description": "Four desks from four different decades pushed into one block, each buried in case files. Nobody has seen the wood of the middle two in years.",
+  "flags": {
+    "aliases": "desks,desk,files,case files",
+    "look": {
+      "arche": "surface",
+      "dims": [
+        2.8,
+        1.6,
+        0.76
+      ],
+      "form": "desk",
+      "wear": 0.8
+    },
+    "spot": {
+      "at": [
+        0,
+        4
+      ],
+      "turn": 90
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_precinct_desks",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "shoved-together desks",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_mq_precinct_bullpen"
+}

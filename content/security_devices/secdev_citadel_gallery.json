@@ -3,7 +3,7 @@
   "battery_max": 1,
   "concealment": 3,
   "device_kind": "sticky_cam",
-  "direction": "south",
+  "direction": "north",
   "hack_difficulty": 9,
   "id": "secdev_citadel_gallery",
   "is_damaged": 0,

@@ -23,6 +23,7 @@ const SLIDE = 0.12;   // m/s: a dance's free foot swivelling on its ball is abou
 const FLOAT = 0.006;  // m
 // Clips that take a foot off the floor on purpose, and why. Anything else that lifts one fails.
 const LIFTS = {
+  undress: 'a foot lifted out of each trouser leg',
   poleKick: 'the left leg kicks up in a fan',
   poleLean: 'the right leg is hooked round the pole',
   stumble: 'the right foot catches and comes up',
@@ -30,9 +31,10 @@ const LIFTS = {
   vatFloat: 'floating in the vat',
   sprawl: 'sprawled on the floor, the legs out',
   leanSmoke: 'leaning on a wall, the left foot up flat on it behind',
+  dealerLean: 'leaning on a wall, the left foot up flat on it behind, its heel tapping',
 };
-// Not standing on the soles: seated, lying, and the walks, which have their own gates (actors.mjs, gaits.mjs).
-const SKIP = /^(sit|lie|sleep|walk)|Wide$/;
+// Not standing on the soles: seated, lying (sunbathing too), swimming, and the walks, which have their own gates (actors.mjs, gaits.mjs).
+const SKIP = /^(sit|lie|sleep|walk|sunbathe|swim)|Wide$/;
 
 const B = {};
 FIGURE_BONES.forEach((b, i) => { B[b[0]] = i; });

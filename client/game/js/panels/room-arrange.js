@@ -196,7 +196,9 @@ function pinch(b, L, outer) {
 // `admin` is the staff mode on a local server (plugins/roomstage adminHere): every piece moves (red refuses it as it
 // does a player: nothing overlaps or stands in a way through), the Furniture menu adds any furniture item, and Remove takes one out.
 // `sendSilent(cmd)` asks for the menu's catalog without a line in the log.
-export function createArrange({ root, host, S, R, rebuild, repaint = () => {}, opts, send, sendSilent = send, admin = false, done }) {
+// `ray` (optional): the host's own ray under a point of the picture ((sx, sy) as shares of its box, to { eye, dir } in the
+// room's frame), for a host whose lens isn't this one's FOV (a room walked in GLASS, freelook-view.js owArrangeStart)
+export function createArrange({ root, host, S, R, rebuild, repaint = () => {}, opts, send, sendSilent = send, admin = false, done, ray = null }) {
   ensureStyles();
   const draft = new Map(), undo = [];
   // the admin mode's new pieces (a temporary id to the piece, with `itemId`) and the pieces it's taking out
@@ -459,10 +461,14 @@ export function createArrange({ root, host, S, R, rebuild, repaint = () => {}, o
   }
   // the ray under a point of the picture, in the room's frame: from [u, v, y] along [du, dv, dy]
   function rayAt(x, y) {
-    const w = host.clientWidth || 1, h = host.clientHeight || 1, { eye, f } = eyeNow();
-    const t = Math.tan((FOV * Math.PI / 180) / 2), nx = (2 * x / w - 1) * t * (w / h), ny = (1 - 2 * y / h) * t;
-    const rl = Math.hypot(f[2], f[0]) || 1, r = [-f[2] / rl, 0, f[0] / rl], up = [r[1] * f[2] - r[2] * f[1], r[2] * f[0] - r[0] * f[2], r[0] * f[1] - r[1] * f[0]];
-    const d = [0, 1, 2].map((i) => f[i] + r[i] * nx + up[i] * ny);
+    const w = host.clientWidth || 1, h = host.clientHeight || 1, hr = ray ? ray(x / w, y / h) : null;
+    let eye, d;
+    if (hr) { eye = hr.eye; d = hr.dir; } else {
+      const en = eyeNow(), f = en.f; eye = en.eye;
+      const t = Math.tan((FOV * Math.PI / 180) / 2), nx = (2 * x / w - 1) * t * (w / h), ny = (1 - 2 * y / h) * t;
+      const rl = Math.hypot(f[2], f[0]) || 1, r = [-f[2] / rl, 0, f[0] / rl], up = [r[1] * f[2] - r[2] * f[1], r[2] * f[0] - r[0] * f[2], r[0] * f[1] - r[1] * f[0]];
+      d = [0, 1, 2].map((i) => f[i] + r[i] * nx + up[i] * ny);
+    }
     const L = S.L, o = L.local(eye), dl = [d[0] * L.r[0] + d[2] * L.r[2], -(d[0] * L.f[0] + d[2] * L.f[2]), d[1]];
     return { o, d: dl };
   }

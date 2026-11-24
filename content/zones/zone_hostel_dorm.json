@@ -1,27 +1,24 @@
 {
   "ambient_events": [
-    "Somebody in a top bunk says a name in their sleep, then says it again as a question.",
-    "The stove pipe ticks as it cools.",
-    "A bunk frame creaks through a long, careful turn.",
-    "Down on the street a clone facility door bangs, and someone new walks out into the air.",
+    "The fridge shudders, hums, and shudders again.",
+    "A tap drips into the washing-up. Nobody has turned it off properly in years.",
+    "Somebody opens the fridge, looks for a long time at a carton with someone else's name on it, and drinks from it.",
+    "The hotplate ticks as it cools.",
     "The sign on the roof buzzes, cuts out, and comes back."
   ],
   "ambient_theme": "indoors",
   "bg_color": "#221d18",
   "color": "#c9a86a",
-  "description": "The signal box's old operating floor, windowed on three sides, the lever frame long gone for scrap. Cots stand in rows where the levers were, numbered in marker, with the floor between them lost under cans, wrappers and other people's socks. A stove pipe runs up the middle to the floors above. A board on the stair says NO FIGHTING. NO DYING. WARDEN'S ORDERS.",
+  "description": "The signal box's old operating floor, glass on three sides, made over as the kitchen. Two hotplates, a sink and a fridge run along the back wall under a shelf of tins with names on them. Two long tables stand in the light, ringed with mugs and burns. The bin overflowed some time ago, and the bags round it have been there since. A board on the stair says NO FIGHTING. NO DYING. WARDEN'S ORDERS.",
   "exits": {
     "down": "zone_trackmarks_shop",
     "up": "zone_hostel_dorm_2"
   },
   "flags": {
-    "allow_sleep": true,
     "building_name": "Hostel Takeover",
     "building_type": "hostel",
     "floor": "boards",
-    "guest_home": true,
     "is_building": true,
-    "is_dwelling": true,
     "is_interior": true,
     "region_id": "region_coldwater",
     "room": {
@@ -74,27 +71,39 @@
         "rubbish": [
           {
             "at": [
-              0.3,
-              5.6
+              0.2,
+              4.6
             ],
-            "n": 26,
+            "n": 40,
             "r": [
-              2.6,
-              0.5
+              3.2,
+              1.6
             ],
             "seed": 6
           },
           {
             "at": [
               -2.4,
-              2.2
+              7.6
+            ],
+            "n": 16,
+            "r": [
+              1.4,
+              0.6
+            ],
+            "seed": 7
+          },
+          {
+            "at": [
+              2.4,
+              1.6
             ],
             "n": 12,
             "r": [
               1.2,
               0.8
             ],
-            "seed": 7
+            "seed": 8
           }
         ],
         "rug": false,
@@ -112,6 +121,49 @@
               6.4
             ],
             "cage": true
+          }
+        ],
+        "torn": [
+          {
+            "wall": "back",
+            "along": 4.3,
+            "y": 1.6,
+            "n": 7,
+            "seed": 11
+          },
+          {
+            "wall": "back",
+            "along": -4.3,
+            "y": 1.7,
+            "n": 5,
+            "seed": 12
+          }
+        ],
+        "bags": [
+          {
+            "at": [
+              3.9,
+              8
+            ],
+            "n": 6,
+            "seed": 2
+          },
+          {
+            "at": [
+              -4.2,
+              6.8
+            ],
+            "n": 3,
+            "seed": 5
+          }
+        ],
+        "kit": [
+          {
+            "at": [
+              -3.6,
+              1.3
+            ],
+            "seed": 3
           }
         ]
       },
@@ -154,6 +206,6 @@
   "grid_z": 1,
   "id": "zone_hostel_dorm",
   "map_id": "map_int_trackmarks",
-  "name": "Hostel Takeover, first floor",
+  "name": "Hostel Takeover, the mess",
   "parent_zone": "zone_district_917_903"
 }

@@ -1,0 +1,49 @@
+/* THE SET ON THE WALL (room-tv.js): the broadcast's page, laid out off the side of the window and painted from there
+   onto the set as a texture (page-paint.js), wherever a set is made: the Room Stage, or a room walked in GLASS
+   (freelook-view.js owTvTick). It has to stay laid out, so no display: none and no visibility: hidden. Sized by the
+   script. ⚠ Its own sheet, unscoped: kept in room-stage.css under #room-stage, it laid out over the street view as a
+   page the moment GLASS made a set. */
+.rs-tv {
+	--tv-bg: #080c10; --tv-border: rgba(0, 220, 180, 0.45); --tv-text: #b8d4c8;
+	--tv-header-color: #00dbb4; --tv-live-color: #ff4455; --tv-ticker-color: #ffc940;
+	position: fixed; left: -20000px; top: 0; pointer-events: none;
+	display: flex; flex-direction: column; overflow: hidden; background: var(--tv-bg); color: var(--tv-text);
+}
+/* the page is never hovered, so the set says when the pointer is on its picture (room-tv.js) */
+.rs-tv.tv-touch .tv-corner, .rs-tv.tv-touch .gds-cam { opacity: 1; }
+/* full screen (the corner's button), the page is the whole window and takes the pointer */
+.rs-tv:fullscreen { pointer-events: auto; }
+.rs-tv-screen { position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden; background: var(--tv-bg); font-weight: 600; }
+.rs-tv-screen [data-tv="content"] { position: absolute; inset: 0; overflow: hidden; padding: 18px 22px; transition: opacity .25s; }
+.rs-tv-screen [data-tv="content"].tv-hidden { opacity: 0; }
+.rs-tv-screen [data-tv="messages"] { display: flex; flex-direction: column; gap: 8px; }
+.rs-tv-screen .tv-msg { font-size: 1.375rem; line-height: 1.38; }
+.rs-tv-screen [data-tv="static"] { position: absolute; inset: 0; z-index: 40; opacity: 0;
+	background-image: repeating-linear-gradient(0deg, rgba(255,255,255,.06) 0 1px, transparent 1px 3px), repeating-linear-gradient(90deg, rgba(255,255,255,.05) 0 1px, transparent 1px 2px); }
+.rs-tv-screen [data-tv="static"].tv-static-on { opacity: 1; }
+.rs-tv-screen [data-tv="static"].tv-static-loop { animation: rs-tv-static 0.28s steps(2) infinite; }
+.rs-tv-screen [data-tv="static"].tv-static-fade { animation: rs-tv-staticout .45s ease-out forwards; }
+@keyframes rs-tv-static { 0% { background-position: 0 0, 0 0; } 100% { background-position: 0 4px, 3px 0; } }
+@keyframes rs-tv-staticout { to { opacity: 0; } }
+.rs-tv-screen [data-tv="overlay-container"] { position: absolute; inset: 0; z-index: 47; }
+.rs-tv-screen [data-tv="schedule"],
+.rs-tv-screen [data-tv="standings-panel"],
+.rs-tv-screen [data-tv="gameday"] { position: absolute; inset: 0; z-index: 48; display: none; flex-direction: column; overflow: hidden;
+	background: var(--tv-bg); color: var(--tv-text); font-family: var(--font-mono, 'Courier New', monospace); padding: 10px 12px; }
+.rs-tv-screen [data-tv="schedule"].on,
+.rs-tv-screen [data-tv="standings-panel"].on,
+.rs-tv-screen [data-tv="gameday"].on { display: flex; }
+.rs-tv-screen [data-tv="standings-panel"] { z-index: 50; }
+.rs-tv-screen [data-tv="scorebug"] { position: absolute; right: 12px; bottom: 46px; z-index: 45; display: none; background: rgba(0,0,0,.82);
+	border: 1px solid var(--tv-border); border-left: 3px solid var(--tv-header-color); border-radius: 2px; padding: 6px 10px; font-size: 1rem; }
+.rs-tv-screen [data-tv="scorebug"].on { display: flex; gap: 9px; align-items: center; }
+.rs-tv-screen [data-tv="standings"] { position: absolute; top: 10px; right: 10px; z-index: 46; display: none; flex-direction: column; min-width: 240px;
+	background: rgba(0,0,0,.85); border: 1px solid var(--tv-border); border-radius: 2px; padding: 6px 10px; font-size: 0.875rem; }
+.rs-tv-screen [data-tv="standings"].on { display: flex; }
+.rs-tv-screen [data-tv="fx"] { position: absolute; inset: 0; z-index: 49; display: none; }
+.rs-tv-screen [data-tv="fx"].on { display: block; }
+.rs-tv-strip { flex: none; display: flex; align-items: center; gap: 12px; padding: 6px 14px; background: rgba(0,0,0,.55);
+	color: var(--tv-header-color); font: 700 0.9375rem/1.2 var(--font-ui, system-ui, sans-serif); letter-spacing: 1px; text-transform: uppercase; }
+.rs-tv-prog { flex: 1; min-width: 0; text-align: right; opacity: .75; font-style: italic; text-transform: none; letter-spacing: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rs-tv-live { flex: none; color: var(--tv-live-color); font-size: 0.8125rem; }
+.rs-tv-ticker { flex: none; overflow: hidden; white-space: nowrap; padding: 4px 14px; background: rgba(0,0,0,.7); color: var(--tv-ticker-color); font: 600 0.9375rem/1.2 var(--font-ui, system-ui, sans-serif); min-height: 18px; }

@@ -1,0 +1,9 @@
+{
+  "a": "zone_echelon_foyer",
+  "b": "zone_echelon_suite",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_echelon_foyer_north_cyd1",
+  "lockable": true,
+  "one_way": false
+}

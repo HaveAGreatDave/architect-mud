@@ -21,6 +21,8 @@ import { SEA_GLSL } from './sea-glsl.js';
 import { SEA_DETAIL_GLSL, SEA_DETAIL_AMT, bindSeaDetail } from './sea-detail.js';
 import { seaSlopeVariance, SEA_FOAM_LEAD, SEA_FOAM_RAMP, SEA_FOAM_A, SURF_DEPTH_Q, SEA_K } from '../../../../shared/sea-swell.js';
 import { declareProgram, layerProgram } from './programs.js';
+import { createSeaFoam } from './sea-foam.js';
+import { createSeaLip } from './sea-lip.js';
 import { linearOut, applyLinOut } from './colour.js';
 
 // ⚠ THE SAME SIX AS THE SHADER'S OWN 'NEON_MAX', AND THEY HAVE TO AGREE — the GLSL one is inside a
@@ -160,6 +162,7 @@ uniform float uRefract;  // refraction over the whole shelf (seaRefract); 0 = th
 uniform vec2  uSeaRot;   // (cos, sin) of the sea's heading: it runs downwind; (1, 0) is as shipped
 uniform sampler2D uDepthT; // the seabed depth, metres x 4 in r (client/shared/seabed.js)
 uniform float uSurf;     // 0 = waves fade out toward the beach as shipped, 1 = they shoal, lean and break
+uniform float uFace;     // the breaker's steep face and hollow (seaSurfFace); 0 is the lean alone, as shipped
 uniform float uChopR;    // tiles within which the chop is real geometry rather than a normal
 uniform float uAmp;      // the chop's own amplitude, in tiles
 uniform float uSpread;   // 0 = the single-train sea that shipped, 1 = the full spectral band
@@ -320,6 +323,8 @@ void main() {
   h += rwH * deep;
   // The breaker's forward pitch, on the swell, in the surf zone only.
   h += seaSurfLean(swR, uT, uRoll * gate * shel) * seaSurfZone(hM, H0) * smoothstep(0.0, 0.5, deep) * uSurf;
+  // And the face it stands up into before it goes over.
+  if (uFace > 0.0) h += seaSurfFace(swR, uT, uRoll * gate * shel, seaSurfZone(hM, H0) * smoothstep(0.0, 0.5, deep) * uSurf, uFace);
 
   // ── AND WHAT THE BOATS HAVE DONE TO IT ──────────────────────────────────────────────────────
   //
@@ -383,6 +388,8 @@ uniform float uWind;      // the wind sea's amplitude
 uniform float uState;     // 0 glass, 1 gale — the spindrift rides on this
 uniform float uFoam;      // the wv above which water is breaking, solved from Monahan coverage
 uniform float uSurf;      // the surf zone, as in the vertex shader
+uniform float uFace;      // the breaker's face, as in the vertex shader
+uniform float uBore;      // the broken wave's bore of white water; 0 is the thin lip that shipped
 uniform float uTear;      // how torn the foam's edge is; 0 is the smooth threshold that shipped
 // ⚠ UNITS 3 AND 4. The floor holds 0 and 1 for its two LUTs, this layer holds 2 for the one it
 // borrows, and mirror.js already clears a unit before its prepass because ground.js leaves a
@@ -408,6 +415,11 @@ uniform vec4  uFoamP[FOAM_MAX];
 uniform vec4  uFoamBox;   // minx, miny, maxx, maxy — the loop is skipped outside it
 uniform float uFoamBeam;  // the widest hull in the buffer, in tiles
 uniform float uFoamSpread;
+// The foam left on the water (gl/sea-foam.js): r = how much, over a square uFoamFS tiles wide from uFoamFO.
+uniform sampler2D uFoamF;
+uniform vec2  uFoamFO;
+uniform float uFoamFS;
+uniform float uFoamMatte;  // 1 lays foam over the water as a matte surface; 0 adds it as light, as shipped
 // The city's own lights, for the streak each one lays down the water toward you. xyz = ground
 // point and height in the frame vWorld uses, w = reach in tiles.
 #define NEON_MAX 6
@@ -497,6 +509,7 @@ void main() {
   vec2 dd = seaSlope(spR, uT, ph, ampW, uRoll * gate * vShelter, windW * gate * vShelter, uSpread);
   // ⚠ THE LEAN IS IN THE SLOPE TOO, or the lighting describes a symmetric wave the mesh is not.
   if (zone > 0.0) dd += seaSurfLeanD(spR, uT, uRoll * gate * vShelter) * zone;
+  if (zone > 0.0 && uFace > 0.0) dd += seaSurfFaceD(spR, uT, uRoll * gate * vShelter, zone, uFace);
   // Cat's paws: visible from a light air up to a strong breeze; in a gale the whole sea is rough
   // and a gust has nothing left to change. Sheltered water gets the gust too, which is right: a
   // paw needs no fetch, so it's the one sign of wind on a harbour.
@@ -831,6 +844,12 @@ void main() {
     float lip = exp(-pow((fp + 0.22) / edge, 2.0)) * lift;
     float broken = smoothstep(0.75, 1.0, zone);
     float face = smoothstep(-1.5, -0.35, fp) * (1.0 - smoothstep(-0.05, 0.15, fp)) * broken;
+    // The bore: once broken, the wave comes in as a wall of churned white water on its front, wider
+    // than the lip and torn by the froth, the same shape gl/sea-foam.js lays into the field.
+    if (uBore > 0.0) {
+      float bore = broken * exp(-pow((fp + 0.6) / 0.55, 2.0));
+      face = max(face, uBore * bore * smoothstep(0.1, 0.6, froth + 0.6 * bore));
+    }
     float behind = fp > 0.0 ? exp(-fp * 1.1) : 0.0;
     float lace = smoothstep(0.35 + 0.45 * (1.0 - behind), 1.0, froth + 0.35 * behind);
     float surfFoam = max(lip * (0.80 + 0.20 * froth), max(face * (0.55 + 0.45 * froth), lace * 0.70));
@@ -840,6 +859,20 @@ void main() {
     // torn at its edge by the froth so it isn't a ruled line.
     surfFoam = max(surfFoam, smoothstep(0.62, 0.22, vJ + 0.12 * (froth - 0.5)));
     cap = max(cap, zone * seaK * surfFoam);
+  }
+
+  // ── FOAM LEFT BEHIND (gl/sea-foam.js) ─────────────────────────────────────────────────────────
+  // What the breakers and whitecaps made in the last few seconds, drifted in and fading. Dense where
+  // it is fresh and a torn net where it is thinning: the chop's own froth decides which strands stay.
+  {
+    vec2 fuv = (vWorld - uFoamFO) / uFoamFS;
+    float fin = step(0.0, fuv.x) * step(fuv.x, 1.0) * step(0.0, fuv.y) * step(fuv.y, 1.0);
+    float fs = texture(uFoamF, fuv).r * fin;
+    if (fs > 0.002) {
+      float froth2 = clamp(0.5 + 0.8 * wvF, 0.0, 1.0);
+      float net = smoothstep(0.35, 0.75, fs * 0.9 + (froth2 - 0.5) * (1.1 - fs));
+      cap = max(cap, net * (0.55 + 0.4 * fs));
+    }
   }
 
   // ── STAGE A AND STAGE B (Monahan & Lu 1990) ─────────────────────────────────────────────────
@@ -866,7 +899,15 @@ void main() {
     float capB = clamp(cap, 0.0, 1.0);
     float capA = smoothstep(${SEA_FOAM_A.toFixed(2)}, 1.0, capB);
     vec3 foamCol = mix(vec3(150.0, 168.0, 182.0), vec3(240.0, 246.0, 250.0), capA) / 255.0;
-    col += foamCol * (capB * 0.82 + capA * 0.52) * (0.45 + 0.55 * uNm);
+    if (uFoamMatte > 0.0) {
+      // Foam is a matte white surface lying ON the water, not light added to it. Added, it climbed
+      // past 1.0 over a bright sea and the bloom made every patch glow. Laid over the water, it is
+      // as bright as the sun and sky light it (half lit from the sky, the rest by the sun's height).
+      float lit = (0.62 + 0.38 * clamp(uSunDir3.z * 2.0, 0.0, 1.0)) * (0.45 + 0.55 * uNm);
+      col = mix(col, foamCol * lit, clamp(capB * 0.85 + capA * 0.3, 0.0, 0.95));
+    } else {
+      col += foamCol * (capB * 0.82 + capA * 0.52) * (0.45 + 0.55 * uNm);
+    }
   } else {
     col += vec3(cap * 205.0 / 255.0) * (0.45 + 0.55 * uNm);
   }
@@ -988,6 +1029,7 @@ export function createWaterLayer(gl) {
     lut1: U('uLut1'), shelter: U('uShelter'), shoal: U('uShoal'), refract: U('uRefract'), seaRot: U('uSeaRot'), surf: U('uSurf'), depthT: U('uDepthT'), chopR: U('uChopR'),
     foamN: U('uFoamN'), foamP: U('uFoamP'), foamBox: U('uFoamBox'),
     foamBeam: U('uFoamBeam'), foamSpread: U('uFoamSpread'),
+    bore: U('uBore'), face: U('uFace'), foamMatte: U('uFoamMatte'), foamF: U('uFoamF'), foamFO: U('uFoamFO'), foamFS: U('uFoamFS'),
     sunDir3: U('uSunDir3'), moonDir3: U('uMoonDir3'), night: U('uNight'), nm: U('uNm'),
     hor: U('uHor'), body: U('uBody'), eye: U('uEye'),
     hz: U('uHz'), hazeMax: U('uHazeMax'), depth: U('uDepth'),
@@ -998,6 +1040,7 @@ export function createWaterLayer(gl) {
   // Tile offsets from the camera's ground point, as a triangle list. Built on first draw and never
   // touched again — see the note at the top about why nothing here is per-frame.
   let vao = null, buf = null, count = 0, cells = 0;
+  let foamSim = null, lip = null;
   // ⚠ THE GRADING IS SEPARABLE AND THE FINE ZONE IS THEREFORE A SQUARE, which is what makes the
   // knee land on an exact index in both axes and keeps every cell a clean quad. It costs a little
   // waste on the diagonals (the fine square reaches 8.5 tiles at its corners against the 6 it owes)
@@ -1057,8 +1100,15 @@ export function createWaterLayer(gl) {
     const roll = s.seaRoll || 0;
     if (roll <= 0.0001 || !(s.swell > 0)) return 0;   // no swell, no mesh — the flat floor is the whole sea
     if (!vao) build();
+    // The foam field steps first: it draws into its own target, and the water reads the result. Off,
+    // it binds a black texel and the sea is as it shipped.
+    const fOn = (s.seaFoamSim || 0) > 0;
+    if (!foamSim) foamSim = createSeaFoam(gl);
+    if (fOn) foamSim.step(s, lut);
     gl.useProgram(prog); applyLinOut(gl, prog);
-    gl.uniformMatrix4fv(loc.viewProj, false, mat4f(viewProjMatrix(cam, cssH)));
+    foamSim.bind(fOn, loc.foamF, loc.foamFO, loc.foamFS);
+    const vpM = mat4f(viewProjMatrix(cam, cssH));
+    gl.uniformMatrix4fv(loc.viewProj, false, vpM);
     gl.uniform2f(loc.a, s.ax || 0, s.ay || 0);
     gl.uniform1f(loc.t, s.t || 0);
     gl.uniform1f(loc.roll, roll);
@@ -1118,6 +1168,9 @@ export function createWaterLayer(gl) {
     const rot = s.seaRot || [1, 0];
     gl.uniform2f(loc.seaRot, rot[0], rot[1]);
     gl.uniform1f(loc.surf, s.seaSurf == null ? 0 : s.seaSurf);
+    gl.uniform1f(loc.bore, s.seaBore || 0);
+    gl.uniform1f(loc.face, s.seaFace || 0);
+    gl.uniform1f(loc.foamMatte, (s.seaFoamSim || 0) > 0 ? 1 : 0);
     gl.uniform1f(loc.chopR, s.seaChopR == null ? 0 : s.seaChopR);
     // ⚠ A ZERO COUNT IS NOT ENOUGH ON ITS OWN — a uniform holds its last value, so a frame with
     // no trail must still SET the count or the shader goes on walking the buffer it was handed
@@ -1236,8 +1289,11 @@ export function createWaterLayer(gl) {
     gl.bindVertexArray(vao);
     gl.drawArrays(gl.TRIANGLES, 0, count);
     gl.bindVertexArray(null);
+    // The curling lip over the breaking crests (gl/sea-lip.js), on the textures still bound above.
+    let lipTris = 0;
+    if ((s.seaLip || 0) > 0) lipTris = (lip || (lip = createSeaLip(gl))).draw(vpM, s, lut.mh);
     gl.activeTexture(gl.TEXTURE0);
-    return count / 3;
+    return count / 3 + lipTris;
   }
 
   return { draw, get tris() { return count / 3; } };

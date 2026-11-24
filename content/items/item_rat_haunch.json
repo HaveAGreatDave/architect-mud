@@ -10,21 +10,22 @@
     "food_profile": "dense_meat",
     "matter": {
       "form": {
-        "kind": "log",
-        "w": 14,
         "d": 5,
         "h": 4,
-        "round": 0.8
+        "kind": "log",
+        "round": 0.8,
+        "w": 14
       },
       "ramp": {
-        "raw": "#7a2a2a",
         "cook": "#6a3a2a",
-        "peak": "#4e2a1c"
+        "peak": "#4e2a1c",
+        "raw": "#7a2a2a"
       }
     },
     "needs_cooking": true,
     "perishable": true,
     "restore_hunger": 14,
+    "shelved": true,
     "spoil_rate": "fast",
     "stackable": true,
     "status_chance": {

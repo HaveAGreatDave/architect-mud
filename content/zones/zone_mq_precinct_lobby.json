@@ -19,6 +19,91 @@
     "floor": "linoleum",
     "is_building": true,
     "is_interior": true,
+    "room": {
+      "balcony": false,
+      "d": 5.2,
+      "decor": {
+        "paint": [
+          {
+            "from": [
+              -2.4,
+              3.3
+            ],
+            "kind": "line",
+            "to": [
+              2.6,
+              3.3
+            ]
+          }
+        ],
+        "rug": false,
+        "screens": [
+          {
+            "along": 2.6,
+            "h": 0.9,
+            "show": "ad",
+            "text": "WANTED",
+            "w": 1.6,
+            "wall": "right",
+            "y": 1.9
+          }
+        ],
+        "signs": [
+          {
+            "along": 0,
+            "h": 0.22,
+            "style": "cut",
+            "text": "PRECINCT 9",
+            "wall": "back",
+            "y": 2.7
+          }
+        ],
+        "strips": [
+          {
+            "along": "u",
+            "at": [
+              0,
+              1.6
+            ],
+            "len": 1.2
+          },
+          {
+            "along": "u",
+            "at": [
+              0,
+              3.8
+            ],
+            "len": 1.2
+          }
+        ]
+      },
+      "doors": {
+        "down": [
+          -2.09,
+          3.6
+        ],
+        "east": 1.8,
+        "north": 0
+      },
+      "face": 90,
+      "glass": [],
+      "ground": "terrazzo",
+      "h": 3.3,
+      "street_door": {
+        "glass": "#6f8494",
+        "kind": "single",
+        "trim": "#26304a",
+        "w": 1.2
+      },
+      "studio": false,
+      "tone": {
+        "accent": "#36446a",
+        "ceiling": "#b4b8bc",
+        "trim": "#26304a",
+        "wall": "#9a9ea2"
+      },
+      "w": 5.6
+    },
     "window": {
       "description": "A window behind a welded grille, which lets in the light in strips and the view in pieces. Better than nothing, which was the brief.",
       "light": 0.55,

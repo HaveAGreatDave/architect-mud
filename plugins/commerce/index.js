@@ -251,9 +251,12 @@ on('vendor.purchase', async ({ player, npcId, itemId }) => {
 // second copy of that answer is the thing this repo keeps having to un-write.
 const SHOP_IDX_TTL = 60_000;
 
-registerMoveGate(({ player, to, direction }) => {
+registerMoveGate(({ player, from, to, direction }) => {
   const shut = shopClosedFor(to);
   if (!shut) return;
+  // The lock is on the way IN. Anyone already inside the building (a resident's
+  // guest, a drinker at last orders) walks between its rooms and out freely.
+  if (from?.flags?.is_interior) return;
   if (livesHere(player, to)) return;   // you live here; the hours aren't about you
 
   // ⚠ THE DOOR OUTRANKS THE HOURS. A shop's entrance carries a real `lock:shoplock`
@@ -334,7 +337,9 @@ async function closingSweep() {
     sendToPlayer(player.id, { type: 'output', message: `<span class="text-dim">The door locks behind you.</span>` });
   }
 }
-schedule('30s', closingSweep);
+// Retired 2026-11-23: a closed door locks the way in only; people inside stay and
+// leave when they like. Kept for reference; not scheduled.
+void closingSweep;
 
 // ── Self-service: unpaid goods, the counter, and the door ────────────────────
 // Some shops let you handle the stock yourself — a cooler on the sales floor

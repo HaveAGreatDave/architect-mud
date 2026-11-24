@@ -23,7 +23,8 @@
 import { FIGURE_BONES, FIGURE_BONE, FIGURE_BONE_COUNT, SCULPT_BUILDS } from '../figure.js';
 import { BONE, BONES, FRAME_FLOATS, boneFrames } from './rig.js';
 import { FT_M } from '../../../../shared/world-scale.js';
-import { HANDS, BAT_HANDS } from './hands.js';
+import { HANDS, BAT_HANDS, GLOVE_SHUT } from './hands.js';
+import { GLOVE_REST } from './glove-flex.js';
 
 const FT = 1 / FT_M;   // feet in a metre
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
@@ -103,8 +104,10 @@ export const FIG_ROW_FLOATS = FIGURE_BONE_COUNT * 12;
 // the grip before (whose hole was fitted only so no finger went into the handle: from behind the batter you saw
 // the bat across his hands). The hand is turned about the handle so the line from the handle to the wrist points
 // at Deadball's wrist; the figure's wrist, 4.9 cm out, is a centimetre short of it, and the forearm is drawn to it
-// (gripWrist).
-export const GRIP_HOLE = Object.freeze({ in: 0.024, down: 0.043, z: 0.0, tilt: -0.3 });
+// (gripWrist). Refitted 2026-11-23 with hands.js bat when the hand came down from 1.1 to 0.97 of its size
+// (figure.js handScaleOf): 3 mm toward the little finger. The tilt stays: steeper reached further round but
+// turned bat_strikeout's wrist past what the gate allows.
+export const GRIP_HOLE = Object.freeze({ in: 0.024, down: 0.043, z: -0.003, tilt: -0.3 });
 // The hole and the handle's line in the left hand's bind space, and the wrist off the line (its foot on the line
 // and how far out it is), for side S.
 function gripBind(S) {
@@ -276,8 +279,9 @@ export const gripOf = (type) => PITCH_GRIPS[String(type || '').toLowerCase()] ||
 // the fingers, about 7 cm off the palm and toward the thumb, where the four-seamer's index and middle fingertips
 // and the thumb's pad all touch it and nothing goes in. Fitted on the built hand's skin, 2026-11-15. The director
 // had it as Deadball's old hand did, 4.6 cm out of the palm on the hand's line, which on the figure put its middle
-// 2 cm off the palm and the ring and little fingers 2 to 3 cm into it.
-export const BALL_HOLD = Object.freeze([0.108, 0.792, 0.052]);
+// 2 cm off the palm and the ring and little fingers 2 to 3 cm into it. Refitted 2026-11-23 when the hand came down
+// from 1.1 to 0.97 of its size (figure.js handScaleOf): a little nearer the palm and further down the fingers.
+export const BALL_HOLD = Object.freeze([0.111, 0.78, 0.04]);
 const HOLD_FRAMES = new Float32Array(BONES.length * FRAME_FLOATS);
 // That point in the park (feet) for a solved pose (rig.js solvePose's { J, s }), on hand S, as figureRows hangs a
 // free hand: for diamond/director.js pitcherBall, which puts the pitcher's ball in his fingers.
@@ -299,6 +303,11 @@ export function handHolds(J, glove, ball = null, grip = null, keyed = null) {
   const of = (S) => {
     const base = J['grip' + S] ? HAND_HOLD.bat : glove === S ? HAND_HOLD.glove : near(S) ? grip || HAND_HOLD.ball : HAND_HOLD.free;
     const list = keyed?.[S];
+    // a gloved hand folds with its glove as it shuts (keyed.gloveOpen, glove-flex.js)
+    if (glove === S && !J['grip' + S] && keyed?.gloveOpen != null && keyed.gloveOpen < GLOVE_REST) {
+      const k = (GLOVE_REST - keyed.gloveOpen) / GLOVE_REST;
+      return [[base, 1 - k], [GLOVE_SHUT, k]];
+    }
     if (!list || glove === S || (!J['grip' + S] && near(S))) return [[base, 1]];
     const ok = (n) => n && HANDS[n] && (!J['grip' + S] || BAT_HANDS.includes(n));
     return list.map(([n, w]) => [ok(n) ? HANDS[n] : base, w]);

@@ -107,7 +107,7 @@ storey instead, so floor 30 stands on the model's 30th floor.
    everything round it, so it went back to one tile: a 28-storey stem with a crown and terrace standing 3.6 m out
    over every side (`solenne-profile.js`), the pad on the tile's middle. The three sealed tiles are the Solenne's
    forecourt and gardens (`scripts/content/solenne-forecourt.mjs`). The rooms stay as they were fitted below and
-   no longer match the outside, on purpose. What follows is the 2 by 2 build, kept as the record. Built ahead of phases 1 to 3
+   no longer match the outside, on purpose. On 2026-11-21 the arm went back to the original narrowing spire (three tapering setback tiers, gold corner runners) at its first scale, with a wider roof deck: the pad in the middle is the sky garage lift (`liftPad`, which now raises guard glass round the opening while it moves), a stair house goes down one floor to the lift, and a small terrace with benches looks over the street. `solenne-profile.js` is no longer drawn; only `solenne-upper.mjs` reads it. What follows is the 2 by 2 build, kept as the record. Built ahead of phases 1 to 3
    the way the Coliseum was:
    - Every tile of the footprint runs the `solenne` arm (glass/models/downtown.js), and its registry row's `q` says
      where the block's centre is from that tile. A block-centred square turned by less than 45 degrees splits into

@@ -1425,14 +1425,14 @@ const LOOT = {
     ['item_slag_glass', 2], ['item_salvaged_wiring', 3], ['item_depleted_battery', 2],
     ['item_cracked_circuit', 1], ['item_glowing_scrap', 2], ['item_industrial_tape', 1],
     ['item_catalyst_pellets', 1], ['item_pressure_gauge', 1], ['item_valve_assembly', 1],
-    ['item_pain_pills', 1], ['item_scrap_shiv', 1], ['item_control_relay', 1],
+    ['item_pain_pills', 1], ['item_combat_knife', 1], ['item_control_relay', 1],
     ['item_field_splint', 1], ['item_scrap_helmet', 1], ['item_rad_band', 1], ['item_gun_oil_kit', 1],
   ] },
   // What people actually cross for. Kept DELIBERATELY narrow and high — widening this
   // tier with ₵20-ish odds and ends would dilute the scrap-pistol roll, i.e. quietly
   // nerf the payoff for the hardest check while appearing to add rewards.
   3: { diff: 12, items: [
-    ['item_scrap_pistol', 1], ['item_buried_strongbox', 1], ['item_mystery_component', 1],
+    ['item_ferris_model9', 1], ['item_buried_strongbox', 1], ['item_mystery_component', 1],
     ['item_copper_nodule', 2], ['item_rad_pills', 2], ['item_busted_datapad', 1],
   ] },
 };
@@ -1453,7 +1453,7 @@ function packItems(pack) {
 // seeded shared-trunk room, kept globally scarce by a claim trace — first crosser to
 // loot it takes it (the async race). Everyone this window sees the same wreck at the
 // same room; whoever gets there first wins.
-const BIGSCORE_POOL = ['item_scrap_pistol', 'item_mystery_component', 'item_glowing_scrap'];
+const BIGSCORE_POOL = ['item_ferris_model9', 'item_mystery_component', 'item_glowing_scrap'];
 function bigScoreSalt(voidKey, window, trunk) {
   const span = Math.max(1, trunk - 2);
   return `t${1 + (hashSeed(`${voidKey}|${window}|bigscore`) % span)}`;

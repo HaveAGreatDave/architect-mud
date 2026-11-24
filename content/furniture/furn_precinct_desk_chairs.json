@@ -1,0 +1,31 @@
+{
+  "description": "Office chairs with the springs gone, each one tipped back at the angle its owner gave up at.",
+  "flags": {
+    "aliases": "chair,chairs,office chair",
+    "interactions": [
+      "sit"
+    ],
+    "look": {
+      "arche": "seat",
+      "form": "office",
+      "wear": 0.85
+    },
+    "spot": {
+      "at": [
+        -1.2,
+        4
+      ],
+      "turn": 180
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_precinct_desk_chairs",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "office chairs",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_mq_precinct_bullpen"
+}

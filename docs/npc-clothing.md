@@ -18,6 +18,22 @@ text only — NPCs have no real inventory/equip system.
 - NPCs **without** `clothing_layers` get no clothing line — their static
   `description` is assumed to cover their appearance.
 
+## The figure follows the words
+
+The close-up figure (Room Stage, street, TV) used to roll its clothes off the NPC's id, so somebody written in a red sweater could walk about in a blue coat. Now an NPC with no `flags.figure` is drawn from `figureFromText` ([client/shared/figure-text.js](../client/shared/figure-text.js)): the outermost layer that names a garment gives the cut, its colour and its cloth; the layer naming trousers or a skirt gives the legs; boots, a hat, a scarf and glasses are read from the outfit and the description; the hair colour, facial hair, build, height and age from the description. What the words don't say still rolls off the id. Every screen asks `npcFigure(npc)`, so the person is dressed alike everywhere. An authored `flags.figure` stands alone as before; give it `text: 1` to lay it over the words instead.
+
+## What they've changed into
+
+The examine line follows what the Room Stage dresses them for (the `npc.dressedFor` hook, roomstage `occasionOf`): at home off shift the outer coat, apron or tabard is off and the next layer is named; undressed for bed, in bed or in the shower they're "down to" the last layer. The bedtime undress is `_undressed` (RAM), set in `AT_HOME_LIFE` and cleared by `wakeNpc`.
+
+## Summer clothes
+
+On a warm day most people leave the coat at home. [client/shared/summer-wear.js](../client/shared/summer-wear.js) `summerLayers(npc, layers)` is the outfit they wear today: from 20°C out of doors (off again below 17) the bulky layers (coats, jackets, sweaters, hoodies, thermals, anything knitted or quilted, scarves) come off, and if no top is left they put on a light fitted one from `SUMMER` (tees, tank tops, polos, linen shirts, sundresses), picked off the id. From 26°C (off below 23) half also swap heavy trousers for shorts, capris or a skirt, keeping the rest of that line (the boots, the underwear); a sundress drops the trousers. Workwear stays on (aprons, tabards, hi-vis, lab coats, uniforms, armour), and one in six keeps their coat whatever the weather.
+
+At the beach ([plugins/beach](../plugins/beach/README.md)) it's swimwear instead: a swimsuit or bikini, or swim shorts under a white vest top (the figure has no bare chest).
+
+Nothing is stored: `flags.clothing_layers` stays the ordinary-day outfit. Examine and `npcFigure` both read it, so the words and the figure agree. The server sets the temperature from `outdoorTempC()` once a minute (environment.js); until then nobody changes. Dancers, anyone with layers peeled, and an NPC with `flags.dress_for_weather: false` are left alone.
+
 ## Re-dressing (any undressed NPC covers back up)
 
 `_clothingPeeled > 0` means an NPC is showing skin. The strippers plugin's 15s

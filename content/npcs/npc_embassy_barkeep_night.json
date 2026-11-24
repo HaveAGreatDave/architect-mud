@@ -273,7 +273,250 @@
     "mis_willing": false,
     "personality": "bartender",
     "post": "furniture_embassy_bar_counter",
-    "post_gap": 0.3
+    "post_gap": 0.3,
+    "parley": {
+      "topics": {
+        "book": [
+          "book",
+          "paperback",
+          "reading",
+          "novel"
+        ],
+        "night": [
+          "night",
+          "late",
+          "four in the morning",
+          "sleep",
+          "insomnia"
+        ],
+        "lowry": [
+          "lowry",
+          "day shift",
+          "cormack",
+          "concierge"
+        ],
+        "bar": [
+          "bar",
+          "lounge",
+          "tap",
+          "taps",
+          "last call"
+        ],
+        "poker": [
+          "poker",
+          "cards",
+          "the table"
+        ],
+        "glasses": [
+          "glasses",
+          "cardigan",
+          "specs"
+        ],
+        "ending": [
+          "ending",
+          "finish",
+          "last page",
+          "who did it",
+          "killer",
+          "detective"
+        ],
+        "orion": [
+          "orion",
+          "thale",
+          "the dealer"
+        ]
+      },
+      "react": {
+        "greet": {
+          "stranger": [
+            "*glances up over her glasses.* Evening. Or morning.",
+            "*turns the book face-down.* Go on then."
+          ],
+          "known": [
+            "*marks her page with a finger.* You again."
+          ],
+          "familiar": [
+            "{name}. Sit. The book can wait, it always does."
+          ],
+          "hostile": [
+            "*doesn't put the book down.* No."
+          ],
+          "close": [
+            "*closes the book on her finger.* {name}. Sit with me a bit."
+          ]
+        },
+        "farewell": [
+          "*is already back in the book.* Mind the step.",
+          "Night. Or whatever it is."
+        ],
+        "thank": [
+          "Mm.",
+          "*a small nod, eyes back on the page.*"
+        ],
+        "praise": [
+          "*almost smiles.* Don't tell anyone. I have a reputation.",
+          "That's kind. Suspiciously kind at this hour."
+        ],
+        "praise:glasses": [
+          "Older than you, and they see fine."
+        ],
+        "insult": {
+          "stranger": [
+            "*turns a page.* Heard it at four in the morning already.",
+            "You'll want to be nicer to the person holding the bottles."
+          ]
+        },
+        "insult_last": [
+          "*closes the book.* Out. I mean it, and I've lost my page."
+        ],
+        "flirt": [
+          "*peers at you over the glasses.* Love, I've got a book.",
+          "Flattering. Still not a free drink."
+        ],
+        "apologise": [
+          "Fine. Forgotten. I've a terrible memory after midnight."
+        ],
+        "joke": [
+          "*a short laugh through the nose.* That's the best one tonight. Low bar."
+        ],
+        "complain": [
+          "Complaints after midnight go in the sink.",
+          "*shrugs.* It's the only bar open. That's the standard."
+        ],
+        "ask_feeling": {
+          "stranger": [
+            "Awake. That's the job."
+          ],
+          "familiar": [
+            "Tired in the eyes, fine everywhere else. You?"
+          ],
+          "close": [
+            "Tired, {name}. Glad you came in, though."
+          ]
+        },
+        "order_drink": [
+          "Name it. If we've got it, it's poured. If not, you're having the other thing.",
+          "Pick from the menu option, love. My eyes are on chapter nine."
+        ],
+        "ask_name": [
+          "Imogen. Cardew if you're writing it down. Don't write it down."
+        ],
+        "ask_job": [
+          "Night shift. I pour, I read, I keep people from falling off stools."
+        ],
+        "ask_origin": [
+          "Out past the Basin. Came for a week, stayed for a shift. That was a while ago."
+        ],
+        "ask_news": {
+          "stranger": [
+            "Nothing that'd keep you up. Unlike me."
+          ],
+          "known": [
+            "Lowry's started talking to the glasses. Says they listen better.",
+            "Somebody won big at Orion's table and lost it by three. Usual."
+          ]
+        },
+        "ask_advice": [
+          "Go to bed before the sun does. Nobody does.",
+          "Drink water between. You won't, but I said it."
+        ],
+        "ask_about:book": [
+          "Same one I've been reading for a year. Every time I finish it, I start it again.",
+          "It's a detective story. He's worked it out. I haven't."
+        ],
+        "ask_about:night": [
+          "Nights are honest. Day people are all pretending to be busy.",
+          "I stopped sleeping proper years ago. The bar didn't mind."
+        ],
+        "ask_about:lowry": [
+          "Lowry? Good man. Lives in that vest.",
+          "He leaves me clean glasses and a note that says \"valued guests.\" Every night."
+        ],
+        "ask_about:bar": [
+          "It doesn't close. It just changes hands.",
+          "No last call. There's never a last call."
+        ],
+        "ask_about:poker": [
+          "Orion's table. He's honest and nobody likes him for it."
+        ],
+        "agree": [
+          "*nods, finger on the page.*",
+          "Mm. Yes."
+        ],
+        "disagree": [
+          "Suit yourself.",
+          "*shrugs.* You're the one awake."
+        ],
+        "ask_about:ending": [
+          "Don't you dare tell me.",
+          "*covers the last pages with her hand.* No."
+        ],
+        "defer:poker": [
+          "*points over her glasses at the table.* Orion. Ask him, not me."
+        ],
+        "overheard": [
+          "*over the top of the book.* I'm right here, love.",
+          "Mm? Was that my name?"
+        ],
+        "overheard_insult": [
+          "*closes the book on her finger.* I heard that."
+        ],
+        "overheard_praise": [
+          "*hides a smile behind the paperback.*"
+        ],
+        "gossip_rude": [
+          "{other} left me a note about you. It says \"rude\". Underlined.",
+          "{other} says you were rude. I've got a long memory after midnight."
+        ],
+        "gossip_story": [
+          "{other} says you listened. Not many do."
+        ],
+        "ask_about:orion": [
+          "Orion's all right. Quiet. Leaves before the sun, like a vampire with a deck."
+        ],
+        "praise:orion": [
+          "He is. Tell him. He won't say anything, but he'll hear it."
+        ]
+      },
+      "deflect": [
+        "*looks at you for a while over her glasses.* Right.",
+        "Love, it's too late for riddles.",
+        "*turns a page.* I'll take that as an order.",
+        "Mm. Hold that thought, I'm at a good bit."
+      ],
+      "beats": [
+        {
+          "id": "book",
+          "topic": "book",
+          "tier": "known",
+          "warmth": 6,
+          "steps": [
+            "*holds it up.* My husband's copy. His notes are in the margins. That's why I keep reading it.",
+            "He used to read the last page first. Said it saved time. I never let him tell me the ending.",
+            "He's been gone six years. The bookmark's still where he left it, about forty pages from the end.",
+            "*turns the book face-down.* I read up to his bookmark and start again. I'm not ready to know how it ends."
+          ]
+        },
+        {
+          "id": "sleep",
+          "topic": "night",
+          "tier": "familiar",
+          "warmth": 6,
+          "steps": [
+            "I stopped sleeping at night when he got ill. Somebody had to be awake.",
+            "After, the nights stayed. Lowry offered me the shift. Kindest thing anyone did that year.",
+            "*small smile.* So now I'm awake on purpose, with a bar. It's better than being awake on my own."
+          ]
+        }
+      ],
+      "circle": [
+        "npc_embassy_barkeep",
+        "npc_orion_dex"
+      ],
+      "defer": {
+        "poker": "npc_orion_dex"
+      }
+    }
   },
   "home_activities": [],
   "home_zone": "zone_apt_7",

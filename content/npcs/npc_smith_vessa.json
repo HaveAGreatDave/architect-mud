@@ -233,26 +233,6 @@
       "item_id": "item_gun_oil_kit",
       "price": 28,
       "stock": 10
-    },
-    {
-      "item_id": "item_orme_shortsword",
-      "price": 630,
-      "stock": 6
-    },
-    {
-      "item_id": "item_tidewell_speargun",
-      "price": 1090,
-      "stock": 3
-    },
-    {
-      "item_id": "item_redlaw_sabre",
-      "price": 1345,
-      "stock": 4
-    },
-    {
-      "item_id": "item_blackvane_longsword",
-      "price": 1765,
-      "stock": 2
     }
   ],
   "vendor_restock_rate": 1,

@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mesh Reference</title>
+<link rel="stylesheet" href="/nav.css">
+<script type="module" src="/nav.js"></script>
+<!--
+  An image-to-mesh reference (tools/mesh-gen/out/<name>/) beside its source picture, with a GLASS building
+  model ghosted over it. Something to trace while writing an arm or a concept script; never a game asset.
+  docs/proposals/mesh-reference-pipeline.md has the plan.
+
+  ?ref=<name>&model=type:clinic opens on one. Drop a .glb, .obj or picture anywhere on the page to look at it.
+  Drag to orbit, wheel to zoom, F to re-frame. __meshRef.shot(name) writes the frame via /api/shot.
+-->
+<style>
+  :root { --bg: #0b0d14; --panel: #10131c; --fg: #d8d4c8; --dim: #8a8678; --line: #23263a; --on: #e8c070; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font: 13px/1.4 ui-monospace, Menlo, Consolas, monospace; }
+  body { display: flex; flex-direction: column; }
+  header { border-bottom: 1px solid var(--line); padding: 6px 12px; display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; }
+  header b { color: var(--on); letter-spacing: 0.2em; }
+  select, button { background: var(--panel); color: var(--fg); border: 1px solid var(--line); border-radius: 4px; padding: 2px 8px; font: inherit; cursor: pointer; max-width: 260px; }
+  button.on { border-color: var(--on); color: var(--on); }
+  main { flex: 1; min-height: 0; display: flex; }
+  aside { width: 280px; flex: none; overflow-y: auto; background: var(--panel); border-right: 1px solid var(--line); padding: 10px 12px; box-sizing: border-box; }
+  aside h3 { margin: 12px 0 4px; font-size: 12px; color: var(--dim); font-weight: normal; letter-spacing: 0.15em; text-transform: uppercase; }
+  aside label { display: grid; grid-template-columns: 56px 1fr 40px; gap: 6px; align-items: center; color: var(--dim); }
+  aside label.tick { display: block; }
+  aside input[type=range] { width: 100%; }
+  #image { width: 100%; border: 1px solid var(--line); border-radius: 4px; background: #000; }
+  #meta { white-space: pre-wrap; color: var(--dim); font-size: 11px; margin: 6px 0 0; }
+  #status { color: var(--dim); }
+  .stage { flex: 1; min-width: 0; position: relative; }
+  #view { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; }
+  .hint { position: absolute; left: 10px; bottom: 8px; color: var(--dim); pointer-events: none; }
+</style>
+</head>
+<body>
+<header>
+  <b>REFERENCE</b>
+  <button id="open" title="Open a .glb, .obj or picture (or several at once)">Open…</button>
+  <input type="file" id="file" accept=".glb,.obj,image/*" multiple hidden>
+  <button id="paste" title="Paste a picture or OBJ text from the clipboard (Ctrl+V works anywhere on the page)">Paste</button>
+  <select id="ref" title="A reference from tools/mesh-gen/out"></select>
+  <select id="model" title="The GLASS model to ghost it over"></select>
+  <span>
+    <button data-mode="ghost" class="on" title="The reference see-through over the model">Ghost</button>
+    <button data-mode="side" title="The two side by side">Side</button>
+    <button data-mode="ref" title="The reference alone">Ref</button>
+    <button data-mode="game" title="The model alone">Model</button>
+  </span>
+  <label class="tick"><input type="checkbox" id="wire"> wire</label>
+  <button id="reframe" title="F">Frame</button>
+  <span id="status"></span>
+</header>
+<main>
+  <aside>
+    <h3>Source picture</h3>
+    <img id="image" alt="The image the mesh was made from" hidden>
+    <pre id="meta"></pre>
+    <h3>Placement</h3>
+    <label class="tick"><input type="checkbox" id="fit" checked> fit to the model's height</label>
+    <label>scale <input type="range" id="scale" min="0.25" max="3" step="0.01" value="1"><span id="scaleOut"></span></label>
+    <label>turn <input type="range" id="yaw" min="-180" max="180" step="1" value="0"><span id="yawOut"></span></label>
+    <label>x <input type="range" id="ox" min="-2" max="2" step="0.01" value="0"><span id="oxOut"></span></label>
+    <label>y <input type="range" id="oy" min="-2" max="2" step="0.01" value="0"><span id="oyOut"></span></label>
+    <label>z <input type="range" id="oz" min="-1" max="1" step="0.01" value="0"><span id="ozOut"></span></label>
+    <h3>Making one</h3>
+    <p style="color:var(--dim)">Run <code>tools/mesh-gen/generate.py</code> on a picture. Or open, drop or paste (Ctrl+V) a .glb, .obj or picture.</p>
+  </aside>
+  <div class="stage">
+    <canvas id="view"></canvas>
+    <div class="hint">drag to orbit · wheel to zoom · F to frame · open, drop or paste a .glb, .obj or picture</div>
+  </div>
+</main>
+<script type="module" src="/mesh-ref.js"></script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+{
+  "charter": false,
+  "charter_vtol_only": false,
+  "dealer": false,
+  "fuels": [
+    "charge"
+  ],
+  "id": "af_apark",
+  "lawless": false,
+  "name": "Airport Parking Plaza",
+  "rental": false,
+  "residents_only": null,
+  "surface": null,
+  "theme": null,
+  "vtol_only": true
+}

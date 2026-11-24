@@ -13,7 +13,7 @@
 // The keyboard is claimed through seat-keys.js, like every other seat, so the room shows which of
 // it and the command bar has the keys and a click on the picture gives them back.
 
-import { roomStep, roomSeatNear, roomFree } from '../../../shared/room-layout.js';
+import { roomStep, roomSeatNear, roomFree, roomAim } from '../../../shared/room-layout.js';
 import { getDrugFx } from './flight-drugfx.js';
 import { claimSeatKeyboard, endSeatKeyboard } from './seat-keys.js';
 
@@ -187,15 +187,7 @@ export function createRoomWalk(opts) {
       if (sat) return sat.piece;
       const y = seat.yaw || 0, wx = Math.sin(y), wz = Math.cos(y);
       const fu = wx * L.r[0] + wz * L.r[2], fv = -(wx * L.f[0] + wz * L.f[2]);
-      let best = null, score = Infinity;
-      for (const t of [...(L.stations || []), ...L.seats]) {
-        if (opts.aimable && !opts.aimable(t.piece)) continue;
-        const du = t.u - at[0], dv = t.v - at[1], dist = Math.hypot(du, dv), facing = dist ? (du * fu + dv * fv) / dist : 1;
-        if (dist > (t.reach ? t.reach + 4 * ft : 8 * ft) || facing < 0.55) continue;
-        const s = dist * (2 - facing);
-        if (s < score) { score = s; best = t.piece; }
-      }
-      return best;
+      return roomAim(L, at, fu, fv, opts.aimable);
     },
     // how squarely a point in the room is in front of you and within reach, lower being better, or
     // Infinity. For what isn't a piece: the host's people

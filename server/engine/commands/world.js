@@ -30,7 +30,7 @@ import { escAttr } from '../text.js';
 import { statusLabels, applyEffect } from '../effects.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../sift.js';
 import { carryCapacity, formatWeight, freshnessLine } from './inventory.js';
-import { fireHook, gatherHook } from '../plugins.js';
+import { fireHook, gatherHook, gatherHookSync } from '../plugins.js';
 import { emit } from '../events.js';
 import { zoneAir } from '../bodily.js';
 import { conditionReport } from '../condition.js';
@@ -40,6 +40,7 @@ import { getMutations } from '../mutations.js';
 import { cap, withArticle } from '../util.js';
 import { npcMoodOf } from '../npc-mood.js';
 import { moodTell } from '../../../client/shared/expressions.js';
+import { summerLayers } from '../../../client/shared/summer-wear.js';
 import { isAnimal } from './social.js';
 
 // Naked body descriptions shown when every clothing layer is peeled. Split by sex
@@ -103,13 +104,25 @@ function nakedDescLine(npc, viewer) {
 // are currently off. Others see only the outermost still-on garment — or, once
 // every layer is peeled, a sex- and MIS-appropriate naked description. NPCs
 // without the flag get no line at all (their static description covers them).
+// What they've changed into follows what the Room Stage dresses them in (`npc.dressedFor`, sync: plugins/roomstage
+// occasionOf): at home the coat or the work tabard is off, and in bed or the shower they're down to the last layer.
+const OUTERWEAR = /\b(?:coat|jacket|duster|parka|anorak|mac|raincoat|oilskin|trench|overcoat|greatcoat|blazer|bomber|body-?warmer|gilet|tabard|hi-?vis|apron|smock|poncho|cloak|cape|robes?|uniform|vest|waistcoat|overalls|coveralls?|scarf|gloves)\b/i;
 function npcClothingLine(npc, viewer) {
-  const layers = Array.isArray(npc.flags?.clothing_layers) ? npc.flags.clothing_layers : null;
+  // on a warm day the coats and sweaters come off (client/shared/summer-wear.js); never while peeled
+  const layers = summerLayers(npc, Array.isArray(npc.flags?.clothing_layers) ? npc.flags.clothing_layers : null);
   if (!layers || !layers.length) return '';
   const peeled = Math.max(0, Math.min(layers.length, npc._clothingPeeled || 0));
   const visible = layers.slice(peeled);
   if (!visible.length) return `\n<span class="text-dim">${nakedDescLine(npc, viewer)}</span>`;
-  return `\n<span class="text-dim">${npc.name} is wearing ${visible[0]}.</span>`;
+  let occ = null;
+  try { occ = gatherHookSync('npc.dressedFor', npc)[0] || null; } catch { occ = null; }
+  if ((occ === 'sleep' || occ === 'bath') && visible.length > 1) {
+    const where = occ === 'bath' ? 'in the shower' : npc.posture === 'lying' ? 'in bed' : 'undressed for bed';
+    return `\n<span class="text-dim">${npc.name} is ${where}, down to ${visible[visible.length - 1]}.</span>`;
+  }
+  // off duty at home, whatever goes over the top comes off, as long as something's left under it
+  const under = occ === 'home' ? visible.findIndex((l) => !OUTERWEAR.test(l)) : 0;
+  return `\n<span class="text-dim">${npc.name} is wearing ${visible[under > 0 ? under : 0]}.</span>`;
 }
 
 export async function cmdStats(player) {

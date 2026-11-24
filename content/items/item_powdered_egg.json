@@ -10,23 +10,24 @@
     "food_profile": "egg",
     "matter": {
       "form": {
-        "kind": "grain",
-        "w": 6,
         "d": 6,
-        "h": 1.5
-      },
-      "ramp": {
-        "raw": "#f2d870",
-        "cook": "#f4e4a0",
-        "peak": "#f6eab8"
+        "h": 1.5,
+        "kind": "grain",
+        "w": 6
       },
       "look": {
-        "pack": "pouch",
-        "label": "#b8bcc0"
+        "label": "#b8bcc0",
+        "pack": "pouch"
+      },
+      "ramp": {
+        "cook": "#f4e4a0",
+        "peak": "#f6eab8",
+        "raw": "#f2d870"
       }
     },
     "needs_cooking": true,
     "restore_hunger": 7,
+    "shelved": true,
     "stackable": true,
     "status_chance": {
       "food_poisoning": 0.1

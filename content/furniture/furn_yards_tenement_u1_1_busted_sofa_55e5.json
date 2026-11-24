@@ -1,0 +1,27 @@
+{
+  "description": "Cracked pleather in a brown that was probably beige originally. There's a spring that'll find you.",
+  "flags": {
+    "interactions": [
+      "sit",
+      "lie"
+    ],
+    "item_id": "item_furn_busted_sofa",
+    "spot": {
+      "at": [
+        -2.05,
+        5.9
+      ],
+      "turn": 270
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_yards_tenement_u1_1_busted_sofa_55e5",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "busted sofa",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 120,
+  "zone_id": "zone_yards_tenement_u1_1"
+}

@@ -18,7 +18,7 @@ import { adjustCredits } from '../../server/engine/economy.js';
 import { effectiveSkill, awardSkillUse, skillCheck } from '../../server/engine/skills.js';
 import { grantSkillIp } from '../../server/engine/ip.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
-import { registerStandKind, standTaken, standVehicles } from '../../server/engine/vehicle-stand.js';
+import { registerStandKind, standKindDef, standTaken, standVehicles } from '../../server/engine/vehicle-stand.js';
 import { registerZoneReloadHook } from '../../server/engine/world.js';
 import { invalidateCoordIndex, crewedAircraft, standTileFor, clearHangarTiles, hangarHeading, gearRetracts } from './state.js';
 
@@ -46,8 +46,9 @@ import {
   isContinuous, reconcile, pushContext, contextPayload, bandFromAltitude, effLoadout,
   RENTAL_BILL_MS, rentalOpFee, fieldFor, nearestAirfield, listAirfields, listRegions, gpsDirectory, worldTerrainMap, craftIsVtol, runwayFor, airfieldForRunway, yachtFieldNear, isGroundRolling,
   isWalkableCabin, isCabinZone, boardCabin, lookPayload, pushWindowTo, closeHud,
-  airfieldOf, fieldOpenTo, fieldName, PILOT_IP,
+  airfieldOf, fieldOpenTo, fieldName, PILOT_IP, acquirableTypes,
 } from './state.js';
+import { lineName, lineVariant } from './livery.js';
 import './hvac.js';   // registers a running cockpit as a climate-controlled cabin — see the file header
 import { boardCompanions } from './companions.js';
 import { describeExterior, rampColorWord, conspicuousnessMult, normalizeLivery } from './livery.js';
@@ -132,6 +133,9 @@ async function resolveBoard(zoneId, nameArg) {
   const pool = await parkedPool(zoneId);
   if (!pool.length) return { none: true };
   if (!nameArg) return pool.length === 1 ? { found: pool[0] } : { ambiguous: pool };
+  // an exact id (a link's `embark <id>`: the delivery prompt, the kiosk) before any name matching
+  const exact = pool.find((r) => String(r.id).toLowerCase() === nameArg);
+  if (exact) return { found: exact };
   const r = siftResolve(nameArg, pool);
   if (r.type === 'match') return { found: r.candidate };
   if (r.type === 'ambiguous') return { ambiguous: r.candidates };
@@ -388,9 +392,24 @@ setHangarBoarder(boardIntoHangar);
 // of yours parked at this field out onto the floor, where the Room Stage draws it; climbing in is `hangaract launch`,
 // the counter's Fly. A hangar room is a bay when its spec carries a stand, or when it's a hangar interior with a spec.
 registerStandKind('aircraft', {
-  isBay: (zone) => !!(zone?.flags?.hangar_interior && zone.flags.room),
-  from: 'back', label: 'TUG', moveMs: 11000,
+  // a room with a display but no stand (a showroom) has no floor to bring one out onto: that's the desk's below
+  isBay: (zone) => !!(zone?.flags?.hangar_interior && zone.flags.room && !(zone.flags.room.kiosk && !zone.flags.room.stand)),
+  // a room whose stand says `from: 'below'` brings her up on the floor lift (room-hoist.js plays the carousel:
+  // the floor parts, the turntable rises turning, the deck locks); the tug's from the back otherwise
+  from: 'back', label: 'TUG', moveMs: 14000,
   board: (id) => `hangaract launch ${id}`,
+  // what the field's dealer sells, for the hangar's display (`callup list`). One query, on that verb only
+  shop: async (player) => {
+    const field = fieldFor(player);
+    const af = airfieldOf(field);
+    if (!field || !(af?.dealer || af?.rental)) return null;
+    const types = await acquirableTypes(field), cr = player.credits || 0;
+    return types.map((t) => ({ id: t.id, name: lineName(t), seats: t.seats, fuel: t.fuel_type,
+      ...(af.dealer ? { price: t.price_buy, afford: cr >= t.price_buy, cmd: `buy ${t.id}` } : {}),
+      ...(af.rental && t.price_rent_hourly > 0 ? { rent: t.price_rent_hourly, affordRent: cr >= t.price_rent_hourly, rentCmd: `rent ${t.id}` } : {}),
+      look: { cls: t.class, variant: lineVariant(t), armed: t.class === 'heli' && (t.hardpoints || 0) > 0,
+        livery: normalizeLivery({}, aircraftLiveryModel(t.class, t.hardpoints)) } }));
+  },
   busy: (player) => (player.aircraftId ? "You're aboard already." : null),
   list: async (player) => {
     const field = fieldFor(player);
@@ -407,11 +426,46 @@ registerStandKind('aircraft', {
   },
   words: {
     noun: 'aircraft',
-    up: (name) => `The tug backs in under the ${name}'s nose, takes the weight and pulls her out onto the hangar floor.`,
-    down: (name) => `The tug hooks on and pushes the ${name} back into the hangar's far bay.`,
+    up: (name, zone) => (zone?.flags?.room?.stand?.from === 'below'
+      ? `A klaxon goes. The deck plates draw back, and the turntable comes up out of the floor with the ${name} on it, turning, and locks with a bang.`
+      : `The tug backs in under the ${name}'s nose, takes the weight and pulls her out onto the hangar floor.`),
+    down: (name, zone) => (zone?.flags?.room?.stand?.from === 'below'
+      ? `The locks let go with a bang and the turntable takes the ${name} down into the floor. The deck closes over her.`
+      : `The tug hooks on and pushes the ${name} back into the hangar's far bay.`),
     none: "Nothing of yours is parked at this field. Buy or hire one at the counter.",
   },
 });
+
+// THE TERMINAL'S DISPLAY: the same display as the hangar's (room-hangar-kiosk.js) in a room of the field that has
+// one (`flags.room.kiosk`) but no floor to bring an aircraft out onto, a check-in hall, an arrivals hall. It lists
+// and sells what the hangar does; `callup` here sends you to the hangar, since nothing is raised in a terminal.
+{
+  const hangar = standKindDef('aircraft');
+  registerStandKind('aircraft_desk', {
+    // a terminal's hall, or a showroom: a field's room with a display (`flags.room.kiosk`) and no stand to raise one on
+    isBay: (zone) => !!(zone?.flags?.room?.kiosk && !zone.flags.room.stand && zone.flags.hangar_ramp),
+    desk: true, label: 'DESK', shop: hangar.shop, board: hangar.board,
+    // a dealer that delivers to another field's roof (`flags.delivers_to`) lists the cars waiting there too, each
+    // with where it is and the way to it (the screen's TO THE LIFT key sends `lift`, the room's own exit to it)
+    list: async (player, zone) => {
+      const mine = await hangar.list(player, zone);
+      const field = fieldFor(player), to = getZone(field?.flags?.delivers_to);
+      if (!to) return mine;
+      const { rows } = await query(
+        `SELECT a.id, a.name, a.custom_data, t.name tname, t.class tclass, t.hardpoints
+         FROM aircraft a JOIN aircraft_types t ON t.id = a.type_id
+         WHERE a.parked_zone_id = $1 AND a.owner_id = $2 AND a.is_wreck = 0 ORDER BY a.id DESC`, [to.id, player.id]);
+      const lift = Object.entries(zone?.exits || {}).find(([, z]) => getZone(Array.isArray(z) ? z[0] : z)?.flags?.elevator)?.[0] || null;
+      return [...rows.map((r) => ({ id: r.id, name: r.name || r.tname, away: `Waiting on the roof of ${fieldName(to)}. Proceed to the lift.`,
+        ...(lift ? { go: lift } : {}),
+        look: { cls: r.tclass, armed: false, livery: normalizeLivery(r.custom_data, aircraftLiveryModel(r.tclass, r.hardpoints)) } })), ...mine];
+    },
+    call: (player, words, zone) => ({ type: 'emote', message: zone?.flags?.hangar_interior
+      ? "Nothing is brought down onto this floor. Yours stand out on the field's pad; go out to them to fly."
+      : "Your aircraft are kept in the hangar. Walk through to it and bring her up on the floor lift there." }),
+    words: { noun: 'aircraft', none: hangar.words.none },
+  });
+}
 
 // The latch trucking's `lock`/`unlock` router turns (vehicle-access.js). Guarded on owner_id, so it
 // only ever turns your own key; the live row is set too, or the next persist() writes the old one back.
@@ -2621,7 +2675,7 @@ export const specializedActions = [
 export const hooks = {
   'zone.describeRoom': describeAirfield,
   // One of yours pulled out onto a hangar's floor by the tug, for the Room Stage (server/engine/vehicle-stand.js). Sync, RAM.
-  'room.vehicles': (zoneId, player) => standVehicles(zoneId, player, 'aircraft') ?? standVehicles(zoneId, player, 'sdeck'),
+  'room.vehicles': (zoneId, player) => standVehicles(zoneId, player, 'aircraft') ?? standVehicles(zoneId, player, 'aircraft_desk') ?? standVehicles(zoneId, player, 'sdeck'),
   // Where our crewed machines are, for anything that needs to reach a vehicle at
   // a coordinate rather than a player in a zone. One consumer today — the EMP
   // pulse, which lands somewhere and takes the electronics of whatever was in

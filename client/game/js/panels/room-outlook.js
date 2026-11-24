@@ -190,7 +190,6 @@ export function createOutlook(msg, { host, onEye, onFail, onPano, feed, live = f
       else if (m.type === 'placed') { base = { x: m.eyeX, y: m.eyeY, z: m.eye, paint: m.paint || null }; onEye?.({ eye: m.eye, eyeX: m.eyeX, eyeY: m.eyeY, paint: base.paint }); }
       else if (m.type === 'painted') { painted++; if (postedAt) lag += (performance.now() - postedAt - lag) * 0.3; free = true; fresh.get(sentFace)?.close(); fresh.set(sentFace, m.bitmap); freshAt.set(sentFace, sentFace === LOOK ? { at: sentCap.at, pose: sentLook } : sentCap.at); send(); }
       else if (m.type === 'peeked') peek?.(m.blob);
-      else if (m.type === 'gl') { gl = m.on; if (m.on) console.info('[room] the view from the window is back on GLASS 2'); else console.warn('[room] the view from the window dropped to GLASS 1:', m.why || 'no reason given', '- trying GLASS 2 again shortly'); }
       else if (m.type === 'failed') { console.warn('[room] the view\'s worker failed:', m.why); here(); }
     };
     worker.onerror = (e) => { console.warn('[room] the view\'s worker failed:', e?.message); e?.preventDefault?.(); if (worker) here(); };

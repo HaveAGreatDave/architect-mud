@@ -14,7 +14,7 @@ import {
 } from '../../windshield.js';
 import { drawEntrance } from '../entrance.js';
 
-// ── Two-Cell Supply's faces and its mark ──────────────────────────────────────────────────────
+// ── Shared flat faces for the small shop arms ──────────────────────────────────────────────────────
 // Newell's normal, turned to point along `out` — the sum `emitFlat` shades a lit face off.
 function tcFacing(q, out) {
   let nx = 0, ny = 0, nz = 0;
@@ -51,37 +51,86 @@ function tcGlow(ctx, cam, W3, pts, out, day, lit, dn, alpha) {
   emitFlat(ctx, cam, tcFacing(pts.map((p) => W3(p[0], p[1], p[2])), [ox, oy, oz]), rgb(c), alpha,
     { lift: DETAIL_LIFT, cullN: Math.abs(oz / ol) < 0.8 ? [ox, oy] : undefined });
 }
-// Two-Cell's mark: two upright cells side by side on a lightbox, with their charge bars. Baked per
-// number of bars lit and per day or night. By day the box is a painted panel and every bar is full;
-// after dark it is lit from inside (`_lit` makes the decal emissive) and the bars fill in turn.
-// ⚠ ITS OWN CANVAS, NOT A `picto:` SIGN. Pictograms are off city-wide (`bakeSignText` has
-// `draw = null`), so a picto plate bakes an empty roundel with no error.
-const _tcLogo = new Map();
-function twoCellLogoTex(bars, lit) {
-  const k = bars + (lit ? 10 : 0);
-  if (_tcLogo.has(k)) return _tcLogo.get(k);
+// O'Toole's Surplus's badge: a brass-ringed green roundel with O'Toole's above a pair of stars and
+// Surplus below them, both in one script on one rising slant, and a stitched red ribbon across the
+// foot carrying EST. 1924. Baked per day/night; by night the decal is lit ('_lit'), as its lamp is.
+// ⚠ BAKED ONLY ONCE THE FACES HAVE ARRIVED. Before Yellowtail and Playfair Display SC load, the
+// fallbacks set different widths, and a cached bake would keep them. Until then it bakes fresh, at
+// most every two seconds, and nothing is cached.
+const _otBadge = new Map();
+let _otTry = 0, _otPending = null;
+function otooleBadgeTex(lit) {
+  const k = lit ? 1 : 0;
+  if (_otBadge.has(k)) return _otBadge.get(k);
   if (typeof document === 'undefined') return null;
-  const S = 128, c = document.createElement('canvas'); c.width = S; c.height = S;
+  const ready = !!document.fonts?.check?.('40px Yellowtail') && !!document.fonts?.check?.('700 20px "Playfair Display SC"');
+  const t = Date.now();
+  if (!ready && _otPending && t - _otTry < 2000) return _otPending;
+  // ⚠ BAKED WIDE ON PURPOSE. The sign fit makes the quad the texture's shape in WORLD units, and a
+  // world height draws about 1.65 times a world width on this face, so a 320 by 256 roundel came out
+  // a tall oval. The art is laid out at 320 by 256 and stretched across by OT_STRETCH to come out round.
+  const OT_STRETCH = 1.65, W = 320, H = 256, c = document.createElement('canvas'); c.width = Math.round(W * OT_STRETCH); c.height = H;
   const g = c.getContext('2d');
   if (g) {
-    const ink = lit ? '#9fe8ff' : '#f2c94c', dim = lit ? 'rgba(159,232,255,0.16)' : 'rgba(242,201,76,0.20)';
-    const rr = (x, y, w, hh, r) => {
-      g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + hh, r); g.arcTo(x + w, y + hh, x, y + hh, r);
-      g.arcTo(x, y + hh, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
-    };
-    rr(4, 4, S - 8, S - 8, 14); g.fillStyle = lit ? '#0e1c22' : '#1a1e20'; g.fill();
-    g.lineWidth = 5; g.strokeStyle = lit ? '#c4f2ff' : '#c9d1d4'; g.stroke();
-    g.shadowColor = ink; g.shadowBlur = lit ? 10 : 0;
-    for (const x0 of [24, 72]) {
-      const w = 32, y0 = 34, hh = 78;
-      g.fillStyle = ink; g.fillRect(x0 + 9, y0 - 10, 14, 10);   // the terminal
-      rr(x0, y0, w, hh, 6); g.lineWidth = 5; g.strokeStyle = ink; g.stroke();
-      for (let i = 0; i < 4; i++) { g.fillStyle = i < bars ? ink : dim; g.fillRect(x0 + 8, y0 + hh - 20 - i * 17, w - 16, 12); }
+    g.scale(OT_STRETCH, 1);
+    const cx = W / 2, cy = 118, R = 112;
+    const GREEN = lit ? '#24543f' : '#1f4a38', BRASS = lit ? '#f0c66a' : '#c89a46', CREAM = lit ? '#fff1cf' : '#efe2c2';
+    const RED = lit ? '#b8322a' : '#9c2a22', RED_DK = lit ? '#7a1e18' : '#661812';
+    // The roundel: a brass ring, the green field, a thin cream line inside the ring.
+    g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.fillStyle = BRASS; g.fill();
+    g.beginPath(); g.arc(cx, cy, R - 9, 0, Math.PI * 2); g.fillStyle = GREEN; g.fill();
+    g.beginPath(); g.arc(cx, cy, R - 15, 0, Math.PI * 2); g.lineWidth = 2.5; g.strokeStyle = CREAM; g.stroke();
+    // Two small stars on the ring's horizontal, which is all the ornament it gets.
+    for (const sx of [-1, 1]) {
+      const x = cx + sx * (R - 30), y = cy - 4;
+      g.beginPath();
+      for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 3.2 : 8; g.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r); }
+      g.closePath(); g.fillStyle = BRASS; g.fill();
     }
-    g.shadowBlur = 0;
+    // O'Toole's above the stars and Surplus under them, both in the script and on one rising slant.
+    const ang = -0.22, FACE = 'Yellowtail,"Brush Script MT","Segoe Script",cursive';
+    const line = (word, px, x, y, maxW) => {
+      g.save(); g.translate(x, y); g.rotate(ang);
+      g.font = px + 'px ' + FACE; g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+      const sc = Math.min(1, maxW / g.measureText(word).width); g.scale(sc, sc);
+      g.lineJoin = 'round'; g.lineWidth = 7; g.strokeStyle = GREEN; g.strokeText(word, 0, 0);
+      g.fillStyle = CREAM; g.fillText(word, 0, 0);
+      g.restore();
+    };
+    line("O'Toole's", 76, cx - 4, cy - 26, 2 * R - 60);
+    line('Surplus', 62, cx + 4, cy + 34, 2 * R - 84);
+    // The ribbon along the foot: a red band wider than the roundel with a cream stitch along each edge,
+    // a shaded fold where it turns back, notched tails behind, and the year on it.
+    const ry = cy + 66, rh = 34, rx0 = 18, rx1 = W - 18;
+    for (const side of [-1, 1]) {   // the tails, darker, behind
+      const xa = side < 0 ? rx0 : rx1, xb = xa - side * 30, xo = xa + side * 16;
+      g.beginPath(); g.moveTo(xb, ry + 9); g.lineTo(xo, ry + 9); g.lineTo(xo - side * 9, ry + 9 + rh / 2); g.lineTo(xo, ry + 9 + rh); g.lineTo(xb, ry + 9 + rh); g.closePath();
+      g.fillStyle = RED_DK; g.fill(); g.lineWidth = 1.5; g.strokeStyle = BRASS; g.stroke();
+      // the fold: a dark wedge where the band turns under into its tail
+      const xf = side < 0 ? rx0 + 14 : rx1 - 14;
+      g.beginPath(); g.moveTo(xf, ry + rh); g.lineTo(xf, ry + rh + 9); g.lineTo(xf - side * 14, ry + rh + 9); g.closePath();
+      g.fillStyle = '#3e0e0a'; g.fill();
+    }
+    const band = (dy) => { g.beginPath(); g.moveTo(rx0 + 14, ry + dy); g.quadraticCurveTo(cx, ry - 10 + dy, rx1 - 14, ry + dy); };
+    band(0); g.lineTo(rx1 - 14, ry + rh); g.quadraticCurveTo(cx, ry + rh - 10, rx0 + 14, ry + rh); g.closePath();
+    g.fillStyle = RED; g.fill(); g.lineWidth = 3; g.strokeStyle = BRASS; g.stroke();
+    // a lighter sheen along the upper third, as silk catches the light
+    g.save(); g.clip(); g.globalAlpha = 0.18; g.fillStyle = '#ffffff'; g.fillRect(rx0, ry - 12, rx1 - rx0, rh * 0.42); g.restore();
+    // the stitches, a dashed cream line just inside each edge
+    g.save(); g.setLineDash([5, 4]); g.lineWidth = 1.4; g.strokeStyle = CREAM; g.globalAlpha = 0.85;
+    for (const dy of [5, rh - 5]) { g.beginPath(); g.moveTo(rx0 + 20, ry + dy); g.quadraticCurveTo(cx, ry - 10 + dy, rx1 - 20, ry + dy); g.stroke(); }
+    g.restore();
+    // EST. 1924, in serif capitals, sat on the band's curve, with a small diamond either side
+    g.save(); g.translate(cx, ry + rh / 2 - 4);
+    g.font = '700 21px "Playfair Display SC",Georgia,serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    if (g.letterSpacing !== undefined) g.letterSpacing = '3px';
+    g.fillStyle = CREAM; g.fillText('EST. 1924', 0, 0);
+    const tw = g.measureText('EST. 1924').width / 2 + 16;
+    for (const sx of [-1, 1]) { g.beginPath(); g.moveTo(sx * tw, -5); g.lineTo(sx * tw + 5, 0); g.lineTo(sx * tw, 5); g.lineTo(sx * tw - 5, 0); g.closePath(); g.fillStyle = BRASS; g.fill(); }
+    g.restore();
   }
   c._lit = lit ? 1 : 0;
-  _tcLogo.set(k, c);
+  if (ready) _otBadge.set(k, c); else { _otPending = c; _otTry = t; }
   return c;
 }
 
@@ -352,158 +401,211 @@ export const TWIN_PASS_ARMS = {
       const [tx, ty] = F(0, TY); glowPool(ctx, cam, tx, ty, S * 0.02, '255,206,140', 16, alpha * 0.30);
     }
   },
-  twocell(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // TWO-CELL SUPPLY — a corrugated shed with a lean-to front room on posts,
-    // a tall false front carrying the name and the mark, and a roof that charges its own stock.
-    // ⚠ THE STRIP IS STILL THE POINT. Its salvaged emergency lighting stays on when the block is
-    // dark, so after dark this is the one front on Ironside still lit. It is drawn at every hour and
-    // only its strength follows the night.
-    // ⚠ IT WAS A GREY BOX WITH SIX CRATES HUNG ACROSS IT AND NO NAME ON IT. The kit painted the name
-    // on the wall behind the crates and the crates hid most of it. The name has its own board above
-    // the lean-to now, and the stock hangs on boards under the lean-to where it can't cover anything.
+  otoole(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // O'TOOLE'S SURPLUS: a narrow two-storey brick shop from 1924,
+    // the year the Meridian went up, in the plain end of the same style: fluted stone piers, a stepped
+    // parapet, the name in brass on a green band, two plate windows and a door under a sunburst.
+    // ⚠ RESTRAINT IS THE BRIEF. A family surplus shop, not a picture house: one band of chevrons on
+    // the parapet, one fanlight, and the name once. The plaque says EST. 1924 and nothing else.
     // Local frame: +y is the street.
     const yaw = faceYaw(E), dn = night ? clamp(night, 0, 1) : 0, near = nearOrMesh();
-    const TIN = [130, 134, 136], STRIP = [214, 246, 238];
-    const shedTop = h * 0.46, roofF = h * 0.55, roofB = h * 0.47, frontTop = h * 0.78;
-    const leanHi = h * 0.47, leanLo = h * 0.35;
-    const sx = fh * 0.92, yB = -fh * 0.90, yW = fh * 0.30, yFF = fh * 0.36, yL = fh * 1.10;
-    const lx0 = -fh * 0.98, lx1 = fh * 0.98;
-    // 1) THE SHED and its tall false front, both galvanised corrugated sheet, and the shed's own
-    //    roof, one sheet falling to the back.
-    { const [cx, cy] = F(0, (yB + yW) / 2); draw3DBoxAt(ctx, cam, cx, cy, sx, 0, shedTop, pal, seed, night, alpha, true, yaw, (yW - yB) / 2); }
-    { const [cx, cy] = F(0, (yW - fh * 0.02 + yFF) / 2); draw3DBoxAt(ctx, cam, cx, cy, fh * 0.96, 0, frontTop, pal, seed + 1, night, alpha, true, yaw, (yFF - yW + fh * 0.02) / 2); }
-    tcFlat(ctx, cam, W3, [[-fh * 0.97, yFF + 0.003, frontTop], [fh * 0.97, yFF + 0.003, frontTop], [fh * 0.97, yFF + 0.003, frontTop - h * 0.02], [-fh * 0.97, yFF + 0.003, frontTop - h * 0.02]], [0, 1, 0], [168, 172, 170], 'metal', alpha, dn);   // the flashing along the top
-    const yR = yB - fh * 0.04, roofZ = (y) => roofF + (roofB - roofF) * (y - yW) / (yR - yW);
-    tcFlat(ctx, cam, W3, [[-sx - fh * 0.03, yW, roofF], [sx + fh * 0.03, yW, roofF], [sx + fh * 0.03, yR, roofB], [-sx - fh * 0.03, yR, roofB]], [0, -0.12, 1], TIN, 'metal', alpha, dn);
-    for (const s of [-1, 1]) tcFlat(ctx, cam, W3, [[s * sx, yW, shedTop], [s * sx, yW, roofF], [s * sx, yB, roofB], [s * sx, yB, shedTop]], [s, 0, 0], TIN, 'metal', alpha, dn);
-    // ⚠ WIRES ON TOP OF A ROOF ARE DRAWN ONLY FROM ABOVE IT. A stroke is pulled toward the eye to win
-    // its depth tie, and from under the lean-to that pull takes a seam through the sheet and across
-    // the board on its front edge (`signfit`).
-    const above = (z) => (cam.EH || 0) > z;
-    if (near && above(roofF)) for (let k = 1; k < 8; k++) {
-      const x = -sx + 2 * sx * k / 8;
-      emitWire(ctx, cam, W3(x, yW, roofF + 0.002), W3(x, yR, roofB + 0.002), 1, 'rgba(92,96,98,0.85)', alpha, { pull: 0.01 });
+    const BRASS = [196, 158, 82], GREEN = [34, 70, 56], STONE = [204, 190, 158], DARK = [40, 34, 30];
+    const WARM_D = [70, 62, 52], WARM_N = [255, 206, 140];
+    const sx = fh * 0.90, yB = -fh * 0.88, yF = fh * 0.62, top = h * 0.62;
+    const yf = yF + 0.003;   // the face plane
+    // 1) THE MASS: one brick box, two storeys, flat roof behind the parapet.
+    { const [cx, cy] = F(0, (yB + yF) / 2); draw3DBoxAt(ctx, cam, cx, cy, sx, 0, top, 'ty_otoole_brick', seed, night, alpha, true, yaw, (yF - yB) / 2); }
+    // 2) THE PARAPET, stepped three times up to the middle, brick with a stone coping on each step.
+    const steps = [[0.90, h * 0.66], [0.60, h * 0.71], [0.30, h * 0.86]];
+    for (const [i, [w, z1]] of steps.entries()) {
+      const [cx, cy] = F(0, yF - fh * 0.05);
+      draw3DBoxAt(ctx, cam, cx, cy, fh * w, top - h * 0.002, z1, 'ty_otoole_brick', seed + 1 + i, night, alpha, true, yaw, fh * 0.05);
+      draw3DBoxAt(ctx, cam, cx, cy, fh * (w + 0.015), z1, z1 + h * 0.012, 'ty_otoole_stone', seed + 4 + i, night, alpha, true, yaw, fh * 0.06);
     }
-    // 2) THE LEAN-TO: sheets off the false front on three timber posts, which is the front room
-    //    the prose is about. Five sheets from five places: galvanised, a rusted one, an older one
-    //    gone dull, and one somebody painted green for something else. Its underside is dark, and
-    //    the strip is screwed to it.
-    const leanZ = (y) => leanHi + (leanLo - leanHi) * (y - yFF) / (yL - yFF);
-    const SHEETS = [TIN, [128, 86, 60], [112, 114, 110], [72, 98, 76], TIN];
-    for (let i = 0; i < 5; i++) {
-      const a = lx0 + (lx1 - lx0) * i / 5, b = lx0 + (lx1 - lx0) * (i + 1) / 5;
-      tcFlat(ctx, cam, W3, [[a, yFF, leanHi], [b, yFF, leanHi], [b, yL, leanLo], [a, yL, leanLo]], [0, 0.35, 1], SHEETS[i], 'metal', alpha, dn);
-      if (near && above(leanHi)) for (const t of [0.25, 0.5, 0.75]) {
-        const x = a + (b - a) * t;
-        emitWire(ctx, cam, W3(x, yFF, leanHi + 0.002), W3(x, yL, leanLo + 0.002), 1, 'rgba(70,72,74,0.7)', alpha, { pull: 0.01 });
+    // 3) THE PIERS: four stone pilasters, three reeds cut in each, rising to the step above them.
+    for (const [u, z1] of [[-0.86, h * 0.66], [-0.32, h * 0.86], [0.32, h * 0.86], [0.86, h * 0.66]]) {
+      const [px, py] = F(fh * u, yF + fh * 0.015);
+      draw3DBoxAt(ctx, cam, px, py, fh * 0.045, 0, z1, 'ty_otoole_stone', seed + 8, night, alpha, true, yaw, fh * 0.018);
+      if (near) for (const k of [-1, 0, 1]) {
+        const x = fh * (u + k * 0.022), y = yF + fh * 0.034;
+        tcFlat(ctx, cam, W3, [[x - fh * 0.004, y, z1 - h * 0.03], [x + fh * 0.004, y, z1 - h * 0.03], [x + fh * 0.004, y, h * 0.36], [x - fh * 0.004, y, h * 0.36]], [0, 1, 0], [150, 138, 112], 'plain', alpha, dn);
       }
     }
-    tcFlat(ctx, cam, W3, [[lx0, yFF, leanHi - 0.004], [lx1, yFF, leanHi - 0.004], [lx1, yL, leanLo - 0.004], [lx0, yL, leanLo - 0.004]], [0, -0.35, -1], [62, 64, 66], 'metal', alpha, dn);
-    for (const u of [-0.92, 0.34, 0.92]) { const [px, py] = F(fh * u, yL - fh * 0.05); draw3DBoxAt(ctx, cam, px, py, fh * 0.028, 0, leanLo, 'ty_2cell_crate', seed + 3, night, alpha, true); }
-    // 3) THE BOARD over the door, hand-lettered, along the front edge of the lean-to, which is where
-    //    "over the door" is from the pavement.
-    { const z0 = h * 0.295, z1 = leanLo + h * 0.008, y = yL + 0.004;
-      tcFlat(ctx, cam, W3, [[lx0, y, z1], [lx1, y, z1], [lx1, y, z0], [lx0, y, z0]], [0, 1, 0], [198, 186, 152], 'timber', alpha, dn);
+    // 4) THE BADGE on the raised middle of the parapet, where the street sees it first: the roundel,
+    //    the script, the ribbon (otooleBadgeTex). Lit by night, with a lamp under it washing it up.
+    // It is mounted proud of the piers, so it can overhang them like a sign hung on the face.
+    { const zc = h * 0.77, y = yF + fh * 0.05, hb = h * 0.11, wb = fh * 0.6;   // the fit trims the width to the bake
       if (frontVis) {
         const P = (u, z) => { const [wx, wy] = F(u, y + FACE_EPS); return cam.proj(wx, wy, z); };
-        const q = [P(lx0 + fh * 0.05, z1 - h * 0.006), P(lx1 - fh * 0.05, z1 - h * 0.006), P(lx1 - fh * 0.05, z0 + h * 0.006), P(lx0 + fh * 0.05, z0 + h * 0.006)];
-        const tex = bakeSignText("IF IT KEEPS YOU BREATHING, WE'VE GOT IT", '#8c2a1c', 0, false, true, true, { font: 'marker' });
+        const q = [P(-wb, zc + hb), P(wb, zc + hb), P(wb, zc - hb), P(-wb, zc - hb)];
+        const tex = otooleBadgeTex(dn > 0.5);
         if (tex && q.every((p) => p.f > 0.12)) emitSurfaceText(ctx, cam, q, tex, false, alpha, DETAIL_LIFT * 2, false, DETAIL_LIFT * 2.5);
-      } }
-    // 4) THE NAME, once, and the mark: yellow stencil on a sheet painted black and bolted across the
-    //    false front, and the two cells beside it on a salvaged lightbox. After dark the box is lit
-    //    and its charge bars fill one at a time, which is a charger doing its job.
-    { const z0 = h * 0.52, z1 = h * 0.74, y = yFF + 0.003, x0 = -fh * 0.90, x1 = fh * 0.90, e = fh * 0.02;
-      tcFlat(ctx, cam, W3, [[x0 - e, y, z1 + h * 0.01], [x1 + e, y, z1 + h * 0.01], [x1 + e, y, z0 - h * 0.01], [x0 - e, y, z0 - h * 0.01]], [0, 1, 0], [150, 156, 158], 'metal', alpha, dn);
-      tcFlat(ctx, cam, W3, [[x0, y + 0.001, z1], [x1, y + 0.001, z1], [x1, y + 0.001, z0], [x0, y + 0.001, z0]], [0, 1, 0], [24, 26, 28], 'plain', alpha, dn);
-      const m0 = z0 + (z1 - z0) * 0.06, m1 = z1 - (z1 - z0) * 0.06, L = m1 - m0, a = x0 + fh * 0.03, b = a + L;
-      if (frontVis) {
-        const P = (u, z) => { const [wx, wy] = F(u, y + 0.002 + FACE_EPS); return cam.proj(wx, wy, z); };
-        const lit = dn > 0.5, bars = lit && motionOn() ? Math.floor((now || 0) / 650) % 5 : 4;
-        const logo = twoCellLogoTex(bars, lit);
-        const ql = [P(a, m1), P(b, m1), P(b, m0), P(a, m0)];
-        if (logo && ql.every((p) => p.f > 0.12)) emitSurfaceText(ctx, cam, ql, logo, false, alpha, DETAIL_LIFT * 2, false, DETAIL_LIFT * 2.5);
-        const n0 = b + fh * 0.05, n1 = x1 - fh * 0.03;
-        const tex = bakeSignText(sign || 'TWO-CELL SUPPLY', '#f2c94c', 0, false, true, true, { font: 'stencil', fit: (n1 - n0) / L });
-        const qn = [P(n0, m1), P(n1, m1), P(n1, m0), P(n0, m0)];
-        if (tex && qn.every((p) => p.f > 0.12)) emitSurfaceText(ctx, cam, qn, tex, false, alpha, DETAIL_LIFT * 2, false, DETAIL_LIFT * 2.5);
       }
-      if (dn > 0.5) { const [gx, gy] = F((a + b) / 2, y + fh * 0.03); glowPool(ctx, cam, gx, gy, (m0 + m1) / 2, '159,232,255', 9, alpha * 0.5 * dn, { air: true }); }
-      // Two lamps on goosenecks over the board, so the name can be read after dark.
-      for (const u of [-0.10, 0.62]) {
-        if (near) emitWire(ctx, cam, W3(fh * u, y, z1 + h * 0.03), W3(fh * u, y + fh * 0.07, z1 + h * 0.022), 1.6, 'rgba(48,50,52,0.95)', alpha, { pull: 0.02 });
-        if (dn > 0) { const [gx, gy] = F(fh * u, y + fh * 0.07); glowPool(ctx, cam, gx, gy, z1 + h * 0.01, '150,160,170', 8, alpha * 0.45 * dn); }
+      if (dn > 0) { const [gx, gy] = F(0, y + fh * 0.05); glowPool(ctx, cam, gx, gy, zc - hb, '255,214,150', 10, alpha * 0.55 * dn, { air: true }); } }
+    // 5) THE UPPER FLOOR: three sash windows of the flat over the shop, six lights each, a stone sill,
+    //    curtains drawn back to the sides, and the sky caught in the glass by day. Lit some nights.
+    // ⚠ THE GLAZING BARS ARE FACES, NOT WIRES: a wire is near-tier only, and the windows read as blank
+    // panels down the street without them.
+    const CURTAIN = [[226, 212, 178], [150, 52, 44], [70, 112, 84]];
+    for (const [i, u] of [-0.58, 0, 0.58].entries()) {
+      const x0 = fh * (u - 0.13), x1 = fh * (u + 0.13), z0 = h * 0.44, z1 = h * 0.58, yg = yf + 0.001;
+      tcFlat(ctx, cam, W3, [[x0 - fh * 0.015, yf, z1 + h * 0.01], [x1 + fh * 0.015, yf, z1 + h * 0.01], [x1 + fh * 0.015, yf, z0 - h * 0.012], [x0 - fh * 0.015, yf, z0 - h * 0.012]], [0, 1, 0], STONE, 'stone', alpha, dn);
+      const on = frac(seed * 0.37 + i * 0.29) < 0.6 ? dn : dn * 0.15;
+      tcGlow(ctx, cam, W3, [[x0, yg, z1], [x1, yg, z1], [x1, yg, z0], [x0, yg, z0]], [0, 1, 0], [56, 66, 74], [236, 190, 128], on, alpha);
+      // the sky in the glass: a pale diagonal sheen across the upper sash, gone after dark
+      { const k = Math.max(0, 1 - dn / 0.6);   // drawn by night too, gone to the dark glass, so day and night pair by index
+        tcGlow(ctx, cam, W3, [[x0 + fh * 0.03, yg + 0.0005, z1], [x0 + fh * 0.11, yg + 0.0005, z1], [x0 + fh * 0.04, yg + 0.0005, z0 + (z1 - z0) * 0.45], [x0, yg + 0.0005, z0 + (z1 - z0) * 0.45]], [0, 1, 0], [110 + 40 * k, 128 + 40 * k, 142 + 40 * k], [56, 66, 74], dn, alpha); }
+      // curtains, gathered to each side and tied back, one colour per flat
+      const cc = CURTAIN[(i + Math.floor(seed)) % 3];
+      for (const sd of [-1, 1]) {
+        const xo = sd < 0 ? x0 : x1, xi = xo - sd * fh * 0.065, xt = xo - sd * fh * 0.03;
+        tcFlat(ctx, cam, W3, [[xo, yg + 0.001, z1], [xi, yg + 0.001, z1], [xt, yg + 0.001, z0], [xo, yg + 0.001, z0]], [0, 1, 0], cc, 'plain', alpha, dn);
+      }
+      // the glazing bars: one upright, a meeting rail and a bar in each sash, in white-painted timber
+      const bar = (ax, az, bx, bz) => tcFlat(ctx, cam, W3, [[ax, yg + 0.002, az], [bx, yg + 0.002, az], [bx, yg + 0.002, bz], [ax, yg + 0.002, bz]], [0, 1, 0], [212, 206, 190], 'plain', alpha, dn);
+      const xm = (x0 + x1) / 2, t = fh * 0.006, zm = (z0 + z1) / 2;
+      bar(xm - t, z1, xm + t, z0);
+      bar(x0, zm + h * 0.004, x1, zm - h * 0.004);
+      for (const zz of [z0 + (z1 - z0) * 0.25, z0 + (z1 - z0) * 0.75]) bar(x0, zz + h * 0.002, x1, zz - h * 0.002);
+      // the sill, stone, standing proud
+      { const [bx, by] = F((x0 + x1) / 2, yF + fh * 0.015); draw3DBoxAt(ctx, cam, bx, by, fh * 0.15, z0 - h * 0.016, z0 - h * 0.006, 'ty_otoole_stone', seed + 40 + i, night, alpha, true, yaw, fh * 0.03); }
+    }
+    // 6) THE BAND: green enamel between the floors, carried across the face of the piers, with the
+    //    year on it in brass. The name is the badge's; it is said once.
+    { const x0 = -fh * 0.82, x1 = fh * 0.82, z0 = h * 0.335, z1 = h * 0.405, yf = yF + fh * 0.045;   // proud of the piers, which it crosses
+      tcFlat(ctx, cam, W3, [[x0 - fh * 0.02, yf, z1 + h * 0.008], [x1 + fh * 0.02, yf, z1 + h * 0.008], [x1 + fh * 0.02, yf, z0 - h * 0.008], [x0 - fh * 0.02, yf, z0 - h * 0.008]], [0, 1, 0], BRASS, 'metal', alpha, dn);
+      tcFlat(ctx, cam, W3, [[x0, yf + 0.001, z1], [x1, yf + 0.001, z1], [x1, yf + 0.001, z0], [x0, yf + 0.001, z0]], [0, 1, 0], GREEN, 'plain', alpha, dn);
+      if (frontVis) {
+        const P = (u, z) => { const [wx, wy] = F(u, yf + 0.002 + FACE_EPS); return cam.proj(wx, wy, z); };
+        const q = [P(x0 + fh * 0.04, z1 - h * 0.008), P(x1 - fh * 0.04, z1 - h * 0.008), P(x1 - fh * 0.04, z0 + h * 0.008), P(x0 + fh * 0.04, z0 + h * 0.008)];
+        const tex = bakeSignText('FAMILY RUN SINCE 1924', '#e2bc62', 0, false, true, true, { font: 'deco', fit: (x1 - x0 - fh * 0.08) / (z1 - z0 - h * 0.016) });
+        if (tex && q.every((p) => p.f > 0.12)) emitSurfaceText(ctx, cam, q, tex, false, alpha, DETAIL_LIFT * 2, false, DETAIL_LIFT * 2.5);
+      }
+      // Two brass lamps on short arms over the band, so the name reads after dark.
+      for (const u of [-0.50, 0.50]) {
+        if (near) emitWire(ctx, cam, W3(fh * u, yf, z1 + h * 0.03), W3(fh * u, yf + fh * 0.06, z1 + h * 0.024), 1.6, 'rgba(120,96,50,0.95)', alpha, { pull: 0.02 });
+        if (dn > 0) { const [gx, gy] = F(fh * u, yf + fh * 0.06); glowPool(ctx, cam, gx, gy, z1 + h * 0.01, '255,206,140', 8, alpha * 0.5 * dn); }
       } }
-    // 5) THE DOOR, standing open, and the room behind it lit by the strip whatever the hour.
-    { const x0 = -fh * 0.20, x1 = fh * 0.20, top = h * 0.29, y = yFF + 0.003, e = fh * 0.025;
-      tcFlat(ctx, cam, W3, [[x0 - e, y, top + h * 0.02], [x1 + e, y, top + h * 0.02], [x1 + e, y, 0.002], [x0 - e, y, 0.002]], [0, 1, 0], [96, 78, 54], 'timber', alpha, dn);
-      tcGlow(ctx, cam, W3, [[x0, y + 0.001, top], [x1, y + 0.001, top], [x1, y + 0.001, 0.002], [x0, y + 0.001, 0.002]], [0, 1, 0], [58, 66, 64], [176, 222, 210], dn, alpha);
-      const [gx, gy] = F(0, y + fh * 0.06); glowPool(ctx, cam, gx, gy, top * 0.6, '196,240,226', 10, alpha * (0.18 + 0.40 * dn), { air: true }); }
-    // 6) THE STOCK: a pegboard either side of the door hung with torches, cell packs and coils,
-    //    and crates stacked in front of it, which is "every nail in reach" from the street.
-    for (const [b0, b1] of [[-0.88, -0.28], [0.28, 0.88]]) {
-      const y = yFF + 0.003, z0 = h * 0.10, z1 = h * 0.28;
-      tcFlat(ctx, cam, W3, [[fh * b0, y, z1], [fh * b1, y, z1], [fh * b1, y, z0], [fh * b0, y, z0]], [0, 1, 0], [150, 128, 96], 'timber', alpha, dn);
-      if (!near) continue;
-      for (let r = 0; r < 3; r++) for (let c = 0; c < 5; c++) {
-        const u = fh * (b0 + (b1 - b0) * (c + 0.5) / 5), z = z0 + (z1 - z0) * (r + 0.5) / 3, kind = (c + r * 2 + (b0 > 0 ? 1 : 0)) % 3;
-        const yi = y + 0.002, w = fh * 0.035, hh = h * 0.022;
-        if (kind === 0) {   // a torch, hung by its lanyard, lens down
-          tcFlat(ctx, cam, W3, [[u - w * 0.5, yi, z + hh], [u + w * 0.5, yi, z + hh], [u + w * 0.5, yi, z - hh], [u - w * 0.5, yi, z - hh]], [0, 1, 0], [40, 42, 46], 'metal', alpha, dn);
-          tcFlat(ctx, cam, W3, [[u - w * 0.7, yi + 0.001, z - hh * 0.6], [u + w * 0.7, yi + 0.001, z - hh * 0.6], [u + w * 0.7, yi + 0.001, z - hh * 1.1], [u - w * 0.7, yi + 0.001, z - hh * 1.1]], [0, 1, 0], [196, 200, 196], 'metal', alpha, dn);
-        } else if (kind === 1) {   // a blister of cells, yellow over black
-          tcFlat(ctx, cam, W3, [[u - w, yi, z + hh], [u + w, yi, z + hh], [u + w, yi, z], [u - w, yi, z]], [0, 1, 0], [214, 172, 44], 'plain', alpha, dn);
-          tcFlat(ctx, cam, W3, [[u - w, yi, z], [u + w, yi, z], [u + w, yi, z - hh], [u - w, yi, z - hh]], [0, 1, 0], [34, 34, 36], 'plain', alpha, dn);
-        } else {   // a coil of cell cable, copper
-          const R = fh * 0.032;
-          for (let i = 0; i < 6; i++) {
-            const a0 = i / 6 * 6.2832, a1 = (i + 1) / 6 * 6.2832;
-            emitWire(ctx, cam, W3(u + Math.cos(a0) * R, yi + 0.002, z + Math.sin(a0) * R), W3(u + Math.cos(a1) * R, yi + 0.002, z + Math.sin(a1) * R), 1.6, 'rgba(184,112,58,0.95)', alpha, { pull: 0.015 });
-          }
-        }
+    // 7) THE BAY WINDOWS either side of the door: shallow brass-framed bays standing out from the
+    //    front on a stone stall riser, a band of small leaded panes across the head, and three things
+    //    from his stock on the display floor in each, as solids, so they turn as you walk past.
+    //    Left: a dress form in the kevlar raincoat, a pair of steel-toe boots, a pick on the back wall.
+    //    Right: a hand lamp on a crate (lit after dark), a stack of cell packs, the rebreather.
+    //    ⚠ NO GLASS FACE: a flat face is opaque here, so the bay is open between its posts, and the
+    //    window reads as glass by its frame, its head and one sheen strip across a corner.
+    for (const [wi, [a, b]] of [[-0.80, -0.36], [0.36, 0.80]].entries()) {
+      const x0 = fh * a, x1 = fh * b, z0 = h * 0.06, z1 = h * 0.29, zt = h * 0.245, W = x1 - x0;
+      const yb = yF + fh * 0.10, ym = (yF + yb) / 2, xm = (x0 + x1) / 2;
+      const box = (u, v, hw, za, zb, p, hd, sd = 0, turn = 0) => { const [bx, by] = F(u, v); draw3DBoxAt(ctx, cam, bx, by, hw, za, zb, p, seed + 50 + sd, night, alpha, true, yaw + turn, hd); };
+      // the back of the bay: the shop seen through it, warm after dark, with the trade in gilt
+      tcGlow(ctx, cam, W3, [[x0, yf + 0.001, zt], [x1, yf + 0.001, zt], [x1, yf + 0.001, z0], [x0, yf + 0.001, z0]], [0, 1, 0], [74, 58, 42], WARM_N, 0.2 + 0.8 * dn, alpha);
+      if (frontVis) {
+        const P = (u, z) => { const [wx, wy] = F(u, yf + 0.003 + FACE_EPS); return cam.proj(wx, wy, z); };
+        const za = zt - h * 0.012, zb = zt - h * 0.042;
+        const q = [P(x0 + fh * 0.03, za), P(x1 - fh * 0.03, za), P(x1 - fh * 0.03, zb), P(x0 + fh * 0.03, zb)];
+        const tex = bakeSignText(wi ? 'LAMPS & CELLS' : 'BOOTS & COATS', '#e8c46a', 0, false, true, true, { font: 'deco' });
+        if (tex && q.every((p) => p.f > 0.12)) emitSurfaceText(ctx, cam, q, tex, false, alpha, DETAIL_LIFT * 2, false, DETAIL_LIFT * 2.5);
+      }
+      // the riser and its display floor, the four brass posts and the head over them
+      box(xm, ym, W / 2 + fh * 0.01, 0, z0, 'ty_otoole_stone', (yb - yF) / 2, 1);
+      for (const [u, v] of [[x0, yb], [x1, yb], [x0, yF + fh * 0.01], [x1, yF + fh * 0.01]]) box(u, v, fh * 0.008, z0, zt, 'ty_ot_brass', fh * 0.008, 2);
+      box(xm, ym, W / 2 + fh * 0.012, zt, z1 + h * 0.01, 'ty_ot_brass', (yb - yF) / 2 + fh * 0.004, 3);
+      for (let k = 0; k < 8; k++) {   // the leaded panes on the head's face, amber and clear by turns
+        const ua = x0 + W * k / 8 + fh * 0.004, ub = x0 + W * (k + 1) / 8 - fh * 0.004, yy = yb + fh * 0.006;
+        tcGlow(ctx, cam, W3, [[ua, yy, z1 - h * 0.002], [ub, yy, z1 - h * 0.002], [ub, yy, zt + h * 0.008], [ua, yy, zt + h * 0.008]], [0, 1, 0], k % 2 ? [150, 118, 64] : [120, 134, 140], k % 2 ? [255, 196, 110] : [250, 226, 180], dn, alpha);
+      }
+      const vy = yF + fh * 0.05;   // where the stock stands, midway into the bay
+      if (wi === 0) {
+        // a dress form in the kevlar raincoat: a stand, the skirt of the coat, the shoulders, a collar
+        { const u = x0 + W * 0.28;
+          box(u, vy, fh * 0.006, z0, z0 + h * 0.03, 'ty_ot_dark', fh * 0.006, 4);
+          box(u, vy, fh * 0.05, z0 + h * 0.03, z0 + h * 0.10, 'ty_ot_olive', fh * 0.028, 5);
+          box(u, vy, fh * 0.042, z0 + h * 0.10, z0 + h * 0.135, 'ty_ot_olive_dk', fh * 0.026, 6);
+          box(u, vy, fh * 0.055, z0 + h * 0.135, z0 + h * 0.15, 'ty_ot_olive', fh * 0.03, 7);
+          box(u, vy, fh * 0.016, z0 + h * 0.15, z0 + h * 0.165, 'ty_ot_olive_dk', fh * 0.016, 8); }
+        // a pair of steel-toe boots on the floor, turned a little toward the door
+        for (const [k, du] of [[0, 0], [1, 0.035]]) { const u = x0 + W * 0.66 + fh * du;
+          box(u, vy - fh * 0.005, fh * 0.012, z0, z0 + h * 0.05, 'ty_ot_leather', fh * 0.012, 9 + k, 0.25);
+          box(u, vy + fh * 0.014, fh * 0.012, z0, z0 + h * 0.018, 'ty_ot_leather', fh * 0.016, 11 + k, 0.25); }
+        // the pick, hung on the back wall above the boots: a handle and a steel head
+        if (near) { const u = x0 + W * 0.80, yw = yf + 0.004;
+          emitWire(ctx, cam, W3(u - fh * 0.02, yw, z0 + h * 0.07), W3(u + fh * 0.03, yw, z0 + h * 0.18), 2.2, 'rgba(130,92,52,1)', alpha, { pull: 0.01 });
+          emitWire(ctx, cam, W3(u - fh * 0.03, yw, z0 + h * 0.19), W3(u + fh * 0.07, yw, z0 + h * 0.165), 3, 'rgba(110,116,122,1)', alpha, { pull: 0.012 }); }
+      } else {
+        // a hand lamp on a crate, its lens toward the street, lit after dark
+        { const u = x0 + W * 0.26;
+          box(u, vy, fh * 0.04, z0, z0 + h * 0.05, 'ty_2cell_crate', fh * 0.03, 13);
+          box(u, vy, fh * 0.016, z0 + h * 0.05, z0 + h * 0.072, 'ty_ot_brass', fh * 0.02, 14);
+          box(u, vy, fh * 0.004, z0 + h * 0.072, z0 + h * 0.09, 'ty_ot_dark', fh * 0.004, 15);
+          tcGlow(ctx, cam, W3, [[u - fh * 0.012, vy + fh * 0.021, z0 + h * 0.068], [u + fh * 0.012, vy + fh * 0.021, z0 + h * 0.068], [u + fh * 0.012, vy + fh * 0.021, z0 + h * 0.054], [u - fh * 0.012, vy + fh * 0.021, z0 + h * 0.054]], [0, 1, 0], [214, 206, 180], [255, 240, 180], dn, alpha);
+          if (dn > 0) { const [gx, gy] = F(u, vy + fh * 0.04); glowPool(ctx, cam, gx, gy, z0 + h * 0.06, '255,236,170', 5, alpha * 0.6 * dn); } }
+        // three cell packs stacked, yellow over black, the top one turned
+        for (let k = 0; k < 3; k++) { const u = x0 + W * 0.56;
+          box(u, vy, fh * 0.03, z0 + h * 0.022 * k, z0 + h * 0.022 * k + h * 0.012, 'ty_ot_yellow', fh * 0.02, 16 + k, k === 2 ? 0.4 : 0);
+          box(u, vy, fh * 0.03, z0 + h * 0.022 * k + h * 0.012, z0 + h * 0.022 * (k + 1), 'ty_ot_dark', fh * 0.02, 19 + k, k === 2 ? 0.4 : 0); }
+        // the rebreather: a tall yellow cylinder with a red band and a black valve
+        { const u = x0 + W * 0.82;
+          box(u, vy, fh * 0.018, z0, z0 + h * 0.06, 'ty_ot_yellow', fh * 0.018, 22, 0.785);
+          box(u, vy, fh * 0.0185, z0 + h * 0.06, z0 + h * 0.068, 'ty_ot_red', fh * 0.0185, 23, 0.785);
+          box(u, vy, fh * 0.018, z0 + h * 0.068, z0 + h * 0.10, 'ty_ot_yellow', fh * 0.018, 24, 0.785);
+          box(u, vy, fh * 0.008, z0 + h * 0.10, z0 + h * 0.112, 'ty_ot_dark', fh * 0.008, 25); }
+      }
+      // one sheen strip across the bay's outer corner, which is how the eye knows there's glass there
+      { const k = Math.max(0, 1 - dn / 0.6), yy = yb + 0.001;   // by night too: day/night pair by index
+        tcGlow(ctx, cam, W3, [[x0 + W * 0.72, yy, zt], [x0 + W * 0.80, yy, zt], [x0 + W * 0.62, yy, zt - h * 0.07], [x0 + W * 0.54, yy, zt - h * 0.07]], [0, 1, 0], [170 + 30 * k, 176 + 30 * k, 180 + 30 * k], [96, 80, 60], dn, alpha * 0.35); }
+    }
+    // 8) THE DOOR, set back in a stone surround, oak with a glass panel, under a sunburst fanlight.
+    { const x0 = -fh * 0.17, x1 = fh * 0.17, zt = h * 0.27, y = yf;
+      tcFlat(ctx, cam, W3, [[x0 - fh * 0.04, y, zt + h * 0.065], [x1 + fh * 0.04, y, zt + h * 0.065], [x1 + fh * 0.04, y, 0.002], [x0 - fh * 0.04, y, 0.002]], [0, 1, 0], STONE, 'stone', alpha, dn);
+      tcFlat(ctx, cam, W3, [[x0, y + 0.001, zt], [x1, y + 0.001, zt], [x1, y + 0.001, 0.002], [x0, y + 0.001, 0.002]], [0, 1, 0], [98, 66, 40], 'timber', alpha, dn);
+      tcGlow(ctx, cam, W3, [[x0 + fh * 0.05, y + 0.002, zt - h * 0.02], [x1 - fh * 0.05, y + 0.002, zt - h * 0.02], [x1 - fh * 0.05, y + 0.002, h * 0.13], [x0 + fh * 0.05, y + 0.002, h * 0.13]], [0, 1, 0], WARM_D, WARM_N, 0.3 + 0.7 * dn, alpha);
+      const cx = 0, cz = zt + h * 0.004, R = fh * 0.15, rays = 7;   // a quad per ray: a lone triangle is dropped by the flat path
+      for (let i = 0; i < rays; i++) {   // the fan, lit from inside, in seven glazed rays
+        const a0 = Math.PI * i / rays, a1 = Math.PI * (i + 1) / rays;
+        tcGlow(ctx, cam, W3, [[cx + Math.cos(a0) * R * 0.12, y + 0.004, cz + Math.sin(a0) * R * 0.042 * (h / fh) * 0.35], [cx + Math.cos(a0) * R, y + 0.004, cz + Math.sin(a0) * R * (h / fh) * 0.35], [cx + Math.cos(a1) * R, y + 0.004, cz + Math.sin(a1) * R * (h / fh) * 0.35], [cx + Math.cos(a1) * R * 0.12, y + 0.004, cz + Math.sin(a1) * R * 0.042 * (h / fh) * 0.35]], [0, 1, 0], [88, 78, 60], [255, 214, 150], 0.3 + 0.7 * dn, alpha);
+        if (near) emitWire(ctx, cam, W3(cx, y + 0.002, cz), W3(cx + Math.cos(a0) * R, y + 0.002, cz + Math.sin(a0) * R * (h / fh) * 0.35), 1, 'rgba(150,120,64,0.95)', alpha, { pull: 0.01 });
+      }
+      const [gx, gy] = F(0, y + fh * 0.06); glowPool(ctx, cam, gx, gy, zt * 0.6, '255,206,140', 10, alpha * (0.15 + 0.35 * dn), { air: true }); }
+    // 9) A STONE STEP the width of the door, worn in the middle.
+    { const [sx0, sy0] = F(0, yF + fh * 0.06); draw3DBoxAt(ctx, cam, sx0, sy0, fh * 0.22, 0, h * 0.012, 'ty_otoole_stone', seed + 12, night, alpha, true, yaw, fh * 0.05); }
+    // 10) THE AWNINGS: green and cream striped canvas over both plate windows, rolled out, with a
+    //     scalloped valance. What makes the front look open from across the street.
+    for (const [a0, b0] of [[-0.82, -0.34], [0.34, 0.82]]) {
+      const za = h * 0.325, zb = h * 0.265, ya = yF + fh * 0.05, yb = yF + fh * 0.20, n = 6;
+      for (let i = 0; i < n; i++) {
+        const x0 = fh * (a0 + (b0 - a0) * i / n), x1 = fh * (a0 + (b0 - a0) * (i + 1) / n), col = i % 2 ? [226, 214, 182] : [38, 92, 66];
+        tcFlat(ctx, cam, W3, [[x0, ya, za], [x1, ya, za], [x1, yb, zb], [x0, yb, zb]], [0, 0.45, 1], col, 'plain', alpha, dn);
+        tcFlat(ctx, cam, W3, [[x0, yb, zb], [x1, yb, zb], [x1, yb, zb - h * 0.022], [x0, yb, zb - h * 0.022]], [0, 1, 0], col, 'plain', alpha, dn);
+      }
+      tcFlat(ctx, cam, W3, [[fh * a0, ya, za], [fh * b0, ya, za], [fh * b0, yb, zb], [fh * a0, yb, zb]], [0, -0.45, -1], [40, 46, 40], 'plain', alpha, dn);
+    }
+    // 11) WINDOW BOXES under the upper windows, painted green, with geraniums in them.
+    for (const u of [-0.58, 0, 0.58]) {
+      const x0 = fh * (u - 0.14), x1 = fh * (u + 0.14), z0 = h * 0.415, z1 = h * 0.43, y0 = yF, y1 = yF + fh * 0.05;
+      { const [bx, by] = F(fh * u, (y0 + y1) / 2); draw3DBoxAt(ctx, cam, bx, by, fh * 0.14, z0, z1, 'ty_otoole_stone', seed + 20, night, alpha, true, yaw, (y1 - y0) / 2); }
+      tcFlat(ctx, cam, W3, [[x0, y1 + 0.002, z1], [x1, y1 + 0.002, z1], [x1, y1 + 0.002, z0], [x0, y1 + 0.002, z0]], [0, 1, 0], [44, 96, 70], 'plain', alpha, dn);
+      if (near) for (let k = 0; k < 6; k++) {
+        const x = x0 + (x1 - x0) * (k + 0.5) / 6, zz = z1 + h * (0.008 + 0.006 * frac(seed + k * 0.37)), r = fh * 0.016;
+        tcFlat(ctx, cam, W3, [[x - r, y1 - fh * 0.01, zz + h * 0.01], [x + r, y1 - fh * 0.01, zz + h * 0.01], [x + r, y1 - fh * 0.01, z1], [x - r, y1 - fh * 0.01, z1]], [0, 1, 0], k % 3 === 1 ? [62, 112, 52] : [206, 52, 48], 'plain', alpha, dn);
       }
     }
-    { const [cx, cy] = F(-fh * 0.62, yFF + fh * 0.20);
-      draw3DBoxAt(ctx, cam, cx, cy, fh * 0.15, 0, h * 0.11, 'ty_2cell_crate', seed + 4, night, alpha, true);
-      draw3DBoxAt(ctx, cam, cx, cy, fh * 0.11, h * 0.11, h * 0.20, 'ty_2cell_crate', seed + 5, night, alpha, true, yaw + 0.3); }
-    { const [cx, cy] = F(fh * 0.60, yFF + fh * 0.18);
-      draw3DBoxAt(ctx, cam, cx, cy, fh * 0.13, 0, h * 0.09, 'ty_2cell_crate', seed + 6, night, alpha, true, yaw - 0.15); }
-    // An A-board by the right-hand post, chalked with the shop's one guarantee. ⚠ NOT ON THE NEAR
-    // TIER: its board is in the mesh at every distance, so lettering it only up close leaves a blank
-    // board down the street (`signrange`).
-    { const ya = yL - fh * 0.14, yb = yL - fh * 0.06, xa = fh * 0.50, xb = fh * 0.74, zt = h * 0.11;
-      tcFlat(ctx, cam, W3, [[xa, ya, zt], [xb, ya, zt], [xb, yb, 0.002], [xa, yb, 0.002]], [0, 0.6, 0.3], [38, 44, 40], 'timber', alpha, dn);
+    // 12) CARRIAGE LAMPS either side of the door, brass and glass, lit at dusk.
+    for (const u of [-0.25, 0.25]) {
+      const [lx, ly] = F(fh * u, yF + fh * 0.04), z0 = h * 0.17, z1 = h * 0.215;
+      draw3DBoxAt(ctx, cam, lx, ly, fh * 0.022, z0, z1, 'ty_otoole_stone', seed + 30, night, alpha, true, yaw, fh * 0.022);
+      tcGlow(ctx, cam, W3, [[fh * (u - 0.018), yF + fh * 0.063, z1 - h * 0.006], [fh * (u + 0.018), yF + fh * 0.063, z1 - h * 0.006], [fh * (u + 0.018), yF + fh * 0.063, z0 + h * 0.006], [fh * (u - 0.018), yF + fh * 0.063, z0 + h * 0.006]], [0, 1, 0], [196, 170, 110], [255, 222, 160], dn, alpha);
+      if (dn > 0) glowPool(ctx, cam, lx, ly, (z0 + z1) / 2, '255,206,140', 7, alpha * 0.6 * dn, { air: true });
+    }
+    // 13) THE A-BOARD on the pavement, chalked with the one offer every new clone hears.
+    // ⚠ NOT ON THE NEAR TIER: the board is in the mesh at every distance, so it is lettered at every
+    // distance too, or it is a blank board down the street (`signrange`).
+    { const ya = yF + fh * 0.26, yb = yF + fh * 0.33, xa = fh * 0.42, xb = fh * 0.62, zt = h * 0.11;
+      tcFlat(ctx, cam, W3, [[xa, ya, zt], [xb, ya, zt], [xb, yb, 0.002], [xa, yb, 0.002]], [0, 0.6, 0.3], [34, 40, 36], 'timber', alpha, dn);
       if (frontVis) {
         const P = (u, t) => { const [wx, wy] = F(u, ya + (yb - ya) * t + FACE_EPS); return cam.proj(wx, wy, zt * (1 - t)); };
-        const q = [P(xa + fh * 0.02, 0.12), P(xb - fh * 0.02, 0.12), P(xb - fh * 0.02, 0.88), P(xa + fh * 0.02, 0.88)];
-        const tex = bakeSignText('TORCHES', '#e8e6dc', 0, false, true, true, { font: 'marker', sub: 'TESTED. MOSTLY.' });
+        const q = [P(xa + fh * 0.015, 0.12), P(xb - fh * 0.015, 0.12), P(xb - fh * 0.015, 0.88), P(xa + fh * 0.015, 0.88)];
+        const tex = bakeSignText('FIRST CUP FREE', '#efe8d6', 0, false, true, true, { font: 'marker', sub: 'HOT CHICORY. COME IN.' });
         if (tex && q.every((p) => p.f > 0.12)) emitSurfaceText(ctx, cam, q, tex, false, alpha, DETAIL_LIFT * 2, false, DETAIL_LIFT * 2.5);
       } }
-    // 7) THE STRIP: salvaged emergency fittings screwed to the underside of the lean-to. They are
-    //    drawn lit by day as well, because they are.
-    for (const u of [-0.66, -0.22, 0.22, 0.66]) {
-      const y0 = fh * 0.74, y1 = fh * 0.80, za = leanZ(y0) - 0.008, zb = leanZ(y1) - 0.008;
-      tcGlow(ctx, cam, W3, [[fh * (u - 0.09), y0, za], [fh * (u + 0.09), y0, za], [fh * (u + 0.09), y1, zb], [fh * (u - 0.09), y1, zb]], [0, 0, -1], STRIP, STRIP, dn, alpha);
-    }
-    // ⚠ THE HALO IS `air` AND THE WASH IS A DIM COLOUR, because a glow's reach on the GPU comes from
-    // how bright its colour is. At full strength the strip's own glow lit the road white for three
-    // tiles; this lights the front room, the crates and the posts, and stops at the kerb.
-    { const [gx, gy] = F(0, fh * 0.86), z = leanZ(fh * 0.86) - h * 0.05;
-      glowPool(ctx, cam, gx, gy, z, '196,240,226', 14, alpha * (0.22 + 0.48 * dn), { air: true });
-      glowPool(ctx, cam, gx, gy, z, '84,112,104', 10, alpha * (0.30 + 0.60 * dn)); }
-    // 8) THE ROOF CHARGES THE STOCK: three salvaged solar panels on angle frames tilted at the
-    //    street, and a wind wheel on a pole in the back corner, wired down into the shed.
-    for (const u of [-0.58, 0.0, 0.58]) {
-      const ya = -fh * 0.06, yb = -fh * 0.50, za = roofZ(ya) + h * 0.012, zb = roofZ(yb) + h * 0.07;
-      tcFlat(ctx, cam, W3, [[fh * (u - 0.26), ya, za], [fh * (u + 0.26), ya, za], [fh * (u + 0.26), yb, zb], [fh * (u - 0.26), yb, zb]], [0, 0.6, 1], [40, 58, 96], 'glass', alpha, dn);
-      if (near && above(roofF)) {
-        for (const t of [1 / 3, 2 / 3]) emitWire(ctx, cam, W3(fh * (u - 0.26), ya + (yb - ya) * t, za + (zb - za) * t + 0.002), W3(fh * (u + 0.26), ya + (yb - ya) * t, za + (zb - za) * t + 0.002), 1, 'rgba(176,186,196,0.85)', alpha, { pull: 0.01 });
-        for (const s of [-0.22, 0.22]) emitWire(ctx, cam, W3(fh * (u + s), yb, zb), W3(fh * (u + s), yb, roofZ(yb)), 1.4, 'rgba(88,92,96,0.95)', alpha, { pull: 0.02 });
-      }
-    }
-    { const wx = fh * 0.74, wy = -fh * 0.76, top = h * 1.02, [px, py] = F(wx, wy);
-      emitWire(ctx, cam, W3(wx, wy, roofZ(wy)), W3(wx, wy, top), 2, 'rgba(84,88,92,0.95)', alpha, { pull: 0.02 });
-      emitWire(ctx, cam, W3(wx, wy, top - h * 0.04), W3(fh * 0.58, -fh * 0.50, roofZ(-fh * 0.50) + h * 0.07), 1, 'rgba(30,30,32,0.9)', alpha, { pull: 0.02 });
-      windWheel(ctx, cam, px, py, top, fh * 48, now, alpha, seed); }   // radius in the same px·tile units The Reach's mill uses
   },
   fallow(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // FALLOW PROVISIONS — a roadside stand on ground that has gone back to
     // grassland, on the buried kerb of a road that used to matter. It has no interior and no walls;

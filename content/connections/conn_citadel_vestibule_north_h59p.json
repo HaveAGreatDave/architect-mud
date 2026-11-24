@@ -2,7 +2,7 @@
   "a": "zone_citadel_vestibule",
   "b": "zone_citadel_gallery",
   "blocked": false,
-  "dir": "north",
+  "dir": "south",
   "id": "conn_citadel_vestibule_north_h59p",
   "lockable": true,
   "one_way": false

@@ -2416,8 +2416,19 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     L.sync(list, INTERIOR_TUNE.budget);
     const day = 1 - Math.max(0, Math.min(1, light.night || 0)), sd = light.sun && light.sun.dir;
     const el = (light.sun && light.sun.elev) || 0.5, sun = sd ? [sd[0] * day, sd[1] * day, Math.max(0, el) * day] : [0, 0, day];   // dir is flat [x, y]; elev lifts it
-    return L.draw(w.cam, cssH, w.ox, w.oy, { amb: [0.08 + 0.5 * day, 0.08 + 0.52 * day, 0.1 + 0.55 * day], sun }, list && list.portals);
+    return L.draw(w.cam, cssH, w.ox, w.oy, { amb: [0.08 + 0.5 * day, 0.08 + 0.52 * day, 0.1 + 0.55 * day], sun, figures: roomFigures }, list && list.portals);
   }
+  // somebody posed in a room's own frame, drawn in that room by the street's close-up figure (the vat hall's sleepers,
+  // gl/interiors.js vatDraw): its layer, its light, its censor's panels (gl/street-hd.js drawRoom)
+  const roomFigures = {
+    draw: (VP, R, env) => streetHD().roomReady() && streetHD().drawRoom(VP, R, env),
+    censor: (VP, R, eye) => streetHD().censorRoom(VP, R, eye),
+    cats: (VP, list, env) => (catl ? catl.draw(VP, list, env) : false),
+  };
+  // A cat in a room walked in GLASS (gl/cat-layer.js), made the first time one's asked for and loaded then, not with
+  // GLASS: freelook-view.js hands it to the Stage's catDrawer, which uploads the cat's meshes into it.
+  let catl = null, catLoading = null;
+  const roomCats = () => catl || (catLoading ??= import('./cat-layer.js').then((m) => { catl = m.createCatLayer(gl); }, (e) => { console.warn('[glass] no cats:', e && e.message); }), null);
 
   // Ground scatter, on the same depth buffer. Lazy like the others.
   let bbs = null;
@@ -2736,7 +2747,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   const drawFishShadows = (cam, s, cssH) => (s && s.n > 0 ? (fsh || (fsh = createFishShadowLayer(gl))).draw(cam, s, cssH) : 0);
   // The window's cells and the eye in the mesh frame (gl/skyline.js). Called before draw, which reads it.
   function setSkyline(cells, eye, facesOf) { try { skylineLayer().update(cells, eye, facesOf); } catch { /* no strip is the flat environment, which is the picture that shipped */ } }
-  const api = { murmurGPU: () => mg, gl, massDrawn: () => [massDrawn, count], setNightPage, setSkyline, upload, uploadGroups, uploadKept, setMassShift, massDebug, draw, drawFade, beginTarget, hdrLive, composite, hdrPeak, setMatPage, setSurfPage, drawSeabed, drawSeabedPoints, drawFishShadows, drawSprites, drawCurtain, drawDecals, decalCost, drawStrokes, drawInteriors, drawBillboards, billboardTextures, drawGround, groundGrid: () => (grd ? grd.grid : null), wallGrid: () => massGrid, setLightGrid, taaSplit, drawFloor, drawWater, drawCloudDeck, drawCloudVolume, cloudShadowFrame: () => (cloudVol ? cloudVol.shadowFrame() : null), drawMirror, mirrorPeak, uploadSolids, uploadShip, drawSolids, drawActors, uploadInterior, drawInterior, drawInteriorAlone, setAtlas, lost: () => gl.isContextLost(),
+  const api = { murmurGPU: () => mg, gl, massDrawn: () => [massDrawn, count], setNightPage, setSkyline, upload, uploadGroups, uploadKept, setMassShift, massDebug, draw, drawFade, beginTarget, hdrLive, composite, hdrPeak, setMatPage, setSurfPage, drawSeabed, drawSeabedPoints, drawFishShadows, drawSprites, drawCurtain, drawDecals, decalCost, drawStrokes, drawInteriors, interiorProject: (x, y, z) => (rooms ? rooms.project(x, y, z) : null), interiorVP: () => (rooms && rooms.lastVp ? { vp: rooms.lastVp, o: rooms.lastO } : null), roomCats, drawBillboards, billboardTextures, drawGround, groundGrid: () => (grd ? grd.grid : null), wallGrid: () => massGrid, setLightGrid, taaSplit, drawFloor, drawWater, drawCloudDeck, drawCloudVolume, cloudShadowFrame: () => (cloudVol ? cloudVol.shadowFrame() : null), drawMirror, mirrorPeak, uploadSolids, uploadShip, drawSolids, drawActors, uploadInterior, drawInterior, drawInteriorAlone, setAtlas, lost: () => gl.isContextLost(),
     maxTexture: gl.getParameter(gl.MAX_TEXTURE_SIZE), get triangles() { return count / 3; },
     // The mesh's box in the window's frame (for the light projection) and the shadow map size (0: refused).
     get bounds() { return boundsInWindow(); }, get shadowSize() { return shadow ? shadow.size : 0; },

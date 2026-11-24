@@ -16,6 +16,7 @@
 
 import { loadCss } from '../../../shared/dom.js';
 import { doorwaysOf, roomSees, WALL_T } from '../../../shared/room-layout.js';
+import { lockActs, DOOR_WORD } from '../../../shared/room-locks.js';
 import { buildLocks, lockHue } from './gl/room-lock.js';
 import { liftDoorBatch } from './gl/room-mesh.js';
 import { comicOn } from './gl/house-style.js';
@@ -42,7 +43,7 @@ const REACH = 2.3, SEEN = 11;
 const OPEN_S = 0.32, SHUT_S = 0.8, PUSH_MS = 1600, BEHIND_MS = 900;
 // how far shut a door can be and still let you through: `enter`'s 'wait' and the fence agree on it
 const GAP = 0.35;
-const WORD = { north: 'North', south: 'South', east: 'East', west: 'West', up: 'Upper', down: 'Lower', in: 'Inner', out: 'Outer' };
+const WORD = DOOR_WORD;
 
 // Whether anything placed in the room (L.placed) stands across the line from a to b, each [u, v, y] in the room's
 // frame. The card is a page over the picture, so the picture's depth can't hide it: this does, so a wardrobe
@@ -90,24 +91,8 @@ export function quadMatrix(w, h, p) {
   return m.every(Number.isFinite) ? `matrix3d(${m.map((v) => +v.toFixed(7)).join(',')})` : null;
 }
 
-// What a door offers you.
-//   standing open: Close.
-//   shut and unlocked: Open, and Lock where it has a lock.
-//   locked, and the lock knows you: Open, which unlocks it and then opens it (`then`).
-//   locked otherwise: Unlock, and Hack where the lock can be hacked.
-// ⚠ A DOOR IS SHUT UNTIL SOMEBODY OPENS IT. Nothing here opens one because you walked up to it: each of these is
-// a verb sent to the server, and the leaves follow the door's own `open` when it comes back.
-export function lockActs(k) {
-  const d = `door ${k.dir}`;
-  // a shop shut for the night (plugins/roomstage locksOf): nothing to press, the hours are the card
-  if (k.shop) return [];
-  if (k.open) return [{ verb: 'close', label: 'Close', cmd: `close ${d}` }];
-  if (!k.locked) return [{ verb: 'open', label: 'Open', cmd: `open ${d}` }, ...(k.lock !== false ? [{ verb: 'lock', label: 'Lock', cmd: `lock ${d}` }] : [])];
-  // staff at a lock that doesn't know them: the unlock is an override, and the card plays it as one
-  if (k.staff) return [{ verb: 'unlock', label: 'Unlock', cmd: `unlock ${d}`, then: `open ${d}` }];
-  if (k.pass) return [{ verb: 'unlock', label: 'Unlock', cmd: `unlock ${d}`, then: `open ${d}` }];
-  return [{ verb: 'unlock', label: 'Unlock', cmd: `unlock ${d}` }, ...(k.hack && !k.yours ? [{ verb: 'hack', label: 'Hack', cmd: `hack ${d}` }] : [])];
-}
+// What a door offers you: client/shared/room-locks.js, which GLASS's card reads too. Re-exported for the gates.
+export { lockActs };
 // how the card is drawn: 'shut' (locked to you), 'pass' (locked, and it knows you), 'open' (unlocked), 'ajar' (standing open)
 // A locked door reads LOCKED, in the locked colour, even one that knows you: reading UNLOCKED in the open blue,
 // your own flat looked as if Lock had done nothing.
@@ -465,7 +450,7 @@ export function createRoomLocks({ host, project, send, setBatch, glass = null })
   }
 
   // Each hologram laid over its four points, every frame. `at` is where you stand, to walk off a bypass.
-  function draw(w, h, eye, at, bodies) {
+  function draw(w, h, eye, at, bodies, vis) {
     if (game && at && Math.hypot(at[0] - game.pn.g.door[0], at[1] - game.pn.g.door[1]) > REACH + 0.8) endGame();
     const comic = comicOn();
     for (const pn of panels) {
@@ -481,7 +466,7 @@ export function createRoomLocks({ host, project, send, setBatch, glass = null })
       const here = at || L.local(eye);
       // nor through anything standing in front of it: each corner and the middle, eye to card
       const E = L.local(eye), pts3 = [pn.g.mid, ...(board ? pn.g.board : pn.g.card)].map((p) => L.local(p));
-      const seen = (!here || (roomSees(L, here, pn.g.door) && roomSees(L, here, pts3[0]))) && !pts3.some((p) => piecesBlock(L, E, p) || (!board && peopleBlock(bodies, E, p)));
+      const seen = (!here || (roomSees(L, here, pn.g.door, vis) && roomSees(L, here, pts3[0], vis))) && !pts3.some((p) => piecesBlock(L, E, p) || (!board && peopleBlock(bodies, E, p)));
       if (front && seen && q.every(Boolean) && dist < SEEN) {
         let pts = q.map((p) => [p.x, p.y]);
         // seen the other way round (the wall's `along` runs right to left from here): turn it to read

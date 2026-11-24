@@ -399,7 +399,7 @@ function circuitAt(f, t, clear, span = 1, now = null) {
  * ⚠ Rolled from the declared min/max: the bird strike's radius is derived from MAX_FLOCK, so the
  * flock must never outgrow it.
  */
-export const MIN_FLOCK = 3, MAX_FLOCK = 6;
+export const MIN_FLOCK = 4, MAX_FLOCK = 6;
 export const flockSize = (f, opts = null) => {
   const sp = spOf(f);
   const u = frac(f.ax * 4.11 + f.ay * 9.73);
@@ -1048,7 +1048,7 @@ export const SPECIES = {
     dense: 0.09, sparse: 0.012, areaBias: 0.38,
     // Set by speed (about 13 m/s). ⚠ The fauna gate holds it wider than the goose on a shorter cycle.
     period: 79000, uGround: 0.08, z: 1.6, r: M(105),
-    minFlock: 4, maxFlock: 12,
+    minFlock: 7, maxFlock: 12,
     // No V: gulls go in a loose cloud.
     forms: ['loose'],
     dayStart: 5, dayEnd: 21,
@@ -1076,7 +1076,7 @@ export const SPECIES = {
     // Mostly down and up often: the flush. Period set by speed (about 12 m/s); the 0.78 ground
     // share sets how many pigeons are airborne, which framecost pays for.
     period: 63600, uGround: 0.78, z: 0.9, r: M(18),
-    minFlock: 4, maxFlock: 10,
+    minFlock: 6, maxFlock: 10,
     forms: ['loose'],
     dayStart: 6, dayEnd: 20,
     callEvery: 82000, callBurst: [2, 3], callGap: 950,

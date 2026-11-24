@@ -2,18 +2,20 @@
 // archetype each sold furniture item is drawn as, the spot stamped when a piece lands, the layout's
 // seats and stations, the `room` verb's gating, the position relay and `arrange`. Every row it makes is in a
 // throwaway zone and removed in the finally.
-import { emit } from '../../server/engine/events.js';
+import { emit, on, off } from '../../server/engine/events.js';
 import { world, setApartmentCache, getZoneFurniture, deleteFurnitureWhere, insertFurniture, deleteFurniture, setDoorCache, deleteDoorCache, doorOnLink } from '../../server/engine/world.js';
 import { getBroadcast, setBroadcast } from '../../server/engine/messaging.js';
 import { getItem, getItemCache } from '../../server/engine/items-cache.js';
 import { giveItemById } from '../../server/engine/inventory.js';
 import { query } from '../../server/models/db.js';
-import { layRows, seatsClash, archetypeOf, roomLayout, resolveSpot, dimsOf, roomFree, onFoot, roomNearFree, roomPath, seatApproach, rowDrawn, formOf, roomSpecOf, FLAT_ROOM, openingCrossed, openingInside, placeSpot, spotFits, cleanSpot, pieceHangs } from '../../client/shared/room-layout.js';
+import { layRows, seatsClash, archetypeOf, roomLayout, resolveSpot, dimsOf, roomFree, onFoot, roomNearFree, roomPath, seatApproach, rowDrawn, coverOf, formOf, roomSpecOf, FLAT_ROOM, openingCrossed, openingInside, placeSpot, spotFits, cleanSpot, pieceHangs } from '../../client/shared/room-layout.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { _test } from './index.js';
 import { pieceActs } from '../../client/shared/room-acts.js';
 import { ritualOf, actOfDrug } from './acts.js';
 import { fillLevel, fillOf, noteView, _fillTest } from './fill.js';
+import { decorOf, decorPieces, isDecorId, _decorTest } from './decor-pieces.js';
+import { spotFits as fitsByHand } from '../../client/shared/room-layout.js';
 
 // what each kind of sold piece should be drawn as
 const EXPECT = {
@@ -48,6 +50,21 @@ async function residents(check) {
       } finally { zone.enemies.delete(E); zone.enemies.delete(E2); world.enemies.delete(E); world.enemies.delete(E2); }
     }
     delete npc.flags.figure;
+    // no settled look: the figure is read off their own words, and the examine line and the Stage agree on bed
+    {
+      npc.sex = 'male'; npc.description = 'A huge man with a grey beard.';
+      npc.flags.clothing_layers = ['a red wool sweater', 'black work trousers and steel-capped boots', 'boxer shorts'];
+      const fig = _test.peopleIn(Z, []).find((p) => p.id === N)?.figure;
+      check('figure from text: the sweater, its colour and cloth', fig?.text === 1 && fig.cut === 'sweater' && fig.top?.[0] > 150 && fig.fabric_top === 'knit', JSON.stringify(fig));
+      check('figure from text: legs, boots, beard and build', fig?.legs?.[0] < 40 && fig.boots === 'steeltoe' && fig.facial && fig.weight >= 0.7, JSON.stringify(fig));
+      npc.flags.figure = { head: 2 };
+      check('figure from text: an authored look stands alone', _test.peopleIn(Z, []).find((p) => p.id === N)?.figure?.cut === undefined);
+      delete npc.flags.figure;
+      npc._undressed = true;
+      check('undressed for bed at home is dressed for sleep', _test.occasionOf(npc, Z, false) === 'sleep');
+      npc._undressed = false;
+      delete npc.flags.clothing_layers; delete npc.description;
+    }
     // a mood: the base one from content, a transient one over it, and nothing asleep
     {
       const { setNpcMood } = await import('../../server/engine/npc-mood.js');
@@ -338,8 +355,30 @@ async function vatArrivals(check, getPlayer) {
   }
 }
 
+// A room's decor objects (decor-pieces.js): taken out of the decor as pieces, the owner's spot laid over the file's.
+function decorMoves(check) {
+  const Z = '__roomstage_test_decor__', decor = {
+    art: [{ wall: 'left', at: 1, w: 0.8, h: 0.6, y: 1.6 }], signs: [{ wall: 'back', along: 0, y: 2, text: 'EXIT' }], standards: [{ at: [1, 2], k: 0.4 }],
+    rubbish: [{ at: [0, 3], n: 5, r: [0.5, 0.4], seed: 2 }], hatstand: [[-1, 1]], columns: [[0, 2, 0.3]], walls: { kind: 'walnut' },
+  };
+  const was = _decorTest.MOVED.get(Z);
+  try {
+    _decorTest.MOVED.delete(Z);
+    const { decor: kept, list } = decorOf(Z, decor), ps = decorPieces(list, true);
+    check('decor: the objects come out as pieces and the finish stays', ps.length === 5 && ps.every((q) => isDecorId(q.id) && q.placed) && kept.columns.length === 1 && kept.walls.kind === 'walnut' && kept.art.length === 0, JSON.stringify(ps.map((q) => q.id)));
+    const art = ps.find((q) => q.id === 'decor:art:0'), sign = ps.find((q) => q.id === 'decor:signs:0');
+    check('decor: a wall object hangs where its entry says', art.form === 'walldecor' && art.spot.wall === 'left' && art.spot.along === 1 && sign.spot.wall === 'back' && sign.spot.along === 0);
+    _decorTest.MOVED.set(Z, { 'art:0': { wall: 'right', along: -0.5 }, 'standards:0': { at: [-1, 3], turn: 0 } });
+    const moved = decorOf(Z, decor).list;
+    check('decor: an owner\'s spot is laid over the file\'s', moved.find((d) => d.key === 'art').entry.wall === 'right' && moved.find((d) => d.key === 'art').entry.at === -0.5 && moved.find((d) => d.key === 'standards').entry.at[0] === -1);
+    const spec = { w: 4, d: 5, h: 2.6 }, rub = ps.find((q) => q.id === 'decor:rubbish:0'), hat = ps.find((q) => q.id === 'decor:hatstand:0');
+    check('decor: rubbish lies flat (a piece stands on it) and a picture only hangs', rub.flat && fitsByHand(spec, [rub], hat, { at: [0, 3], turn: 0 }, { byHand: true }) && !fitsByHand(spec, [], art, { at: [0, 2], turn: 0 }, { byHand: true }) && fitsByHand(spec, [], art, { wall: 'left', along: 2 }, { byHand: true }));
+  } finally { if (was) _decorTest.MOVED.set(Z, was); else _decorTest.MOVED.delete(Z); }
+}
+
 export default async function regress({ run, check, getPlayer }) {
   fills(check);
+  decorMoves(check);
   await vatArrivals(check, getPlayer);
   await residents(check);
   await comings(check);
@@ -360,6 +399,13 @@ export default async function regress({ run, check, getPlayer }) {
   check('a wardrobe is a wardrobe, not a fridge', archetypeOf({ container: 120000, wardrobe: true }, 0, 'container') === 'wardrobe');
   check('a shelf of a cabinet is not a second cabinet', !rowDrawn({ object_type: 'container', flags: { container: 20000, compartment_of: 'x' } }));
   check('a concealed piece is not drawn until it is found', !rowDrawn({ object_type: 'container', flags: { concealed: true } }));
+  {
+    const dd = { id: 'dd', name: 'dead mailbox', object_type: 'container', flags: { dead_drop: true, concealed: true, container: 2000, look: { arche: 'store', form: 'locker', cover: 'mailboxes' } } };
+    check('an authored dead drop with a cover is drawn', rowDrawn(dd) && coverOf(dd) === 'mailboxes');
+    check('a dead drop with no cover, or one a player placed, is not drawn', !rowDrawn({ ...dd, flags: { ...dd.flags, look: {} } }) && !rowDrawn({ ...dd, flags: { ...dd.flags, dead_drop_placed: true } }));
+    const [p] = layRows([dd], FLAT_ROOM).pieces;
+    check('a covered dead drop says nothing of the cache', p?.name === 'mailboxes' && p.container === false && p.verbs.length === 0 && !p.keypad);
+  }
   check('a sink, a toilet and a shower each have a shape', ['sink', 'toilet', 'shower'].every((t) => archetypeOf({}, 0, t) === t && rowDrawn({ object_type: t, flags: {} })));
   check('a hob fixture is drawn and a bare fixture is not', rowDrawn({ object_type: 'fixture', flags: { stove_tier: 'mid' } }) && !rowDrawn({ object_type: 'fixture', flags: {} }));
   check('a freezer paired with a fridge is a column', formOf('cold', { preserves: 'frozen', paired_container: 'x' }) === 'column');
@@ -559,6 +605,24 @@ export default async function regress({ run, check, getPlayer }) {
         await new Promise((res) => setTimeout(res, 30));
         const ahead = sent.find((m) => m.type === 'room_ahead'), a2 = ahead?.rooms?.find((x) => x.zone === H2);
         const seen2 = sent.find((m) => m.type === 'room_view' && m.zone === H1)?.building?.neighbours?.find((x) => x.zone === H2);
+        // the room button on a desktop is the way into the 3-D world (`room world`): the street view at the building's door
+        // first (plugins/freelook answers roomstage.worldin), then the room's view, flagged for the street view to take it
+        {
+          const ST = '__roomstage_test_bstreet__', heard = [], hear = (e) => heard.push(e);
+          mkb(ST, 'map_world', {}, { north: T }); world.zones.get(T).exits.south = ST;
+          on('roomstage.worldin', hear);
+          try {
+            sent.length = 0;
+            const rw = await run('room world');
+            await new Promise((res) => setTimeout(res, 30));
+            const wv = sent.find((m) => m.type === 'room_view' && m.zone === H1);
+            check('the room button on a desktop opens the 3-D world at the building\'s door, then the room for it to take', rw?.type === 'noop' && heard.length === 1 && heard[0].zone === ST && heard[0].facade === T && wv?.world === true && _test.viewers.get(H1)?.has(p.id), JSON.stringify({ rw, heard: heard.map((h) => [h.zone, h.facade]), world: wv?.world }));
+            sent.length = 0;
+            await run('room');
+            await new Promise((res) => setTimeout(res, 30));
+            check('and plain `room` (a phone) still opens the Stage, unflagged', !sent.find((m) => m.type === 'room_view')?.world);
+          } finally { off('roomstage.worldin', hear); delete world.zones.get(T).exits.south; world.zones.delete(ST); }
+        }
         sent.length = 0;
         await walkTo('north', H2);
         await new Promise((res) => setTimeout(res, 30));

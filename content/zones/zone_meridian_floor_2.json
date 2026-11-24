@@ -2,21 +2,19 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#8f9a7e",
-  "description": "The same claret runner as downstairs, cleaner. Someone on this floor polishes the bronze: the numbers on 201 to 204 shine, and the lift dials have been rubbed back to gold. Every shell lamp works. A doormat outside 202 says WELCOME. The fire door to the stairs is on the north wall.",
+  "description": "A short landing with a claret runner. Someone on this floor polishes the bronze: 201 to the north and 203 to the south both shine. The lift dial has been rubbed back to gold. Stairs on the east wall.",
   "exits": {
     "down": "zone_meridian_floor_1",
-    "east": "zone_meridian_unit_202",
     "north": "zone_meridian_unit_201",
     "south": "zone_meridian_unit_203",
-    "up": "zone_meridian_floor_3",
-    "west": "zone_meridian_unit_204"
+    "up": "zone_meridian_floor_3"
   },
   "flags": {
     "floor": "carpet",
     "is_interior": true,
     "room": {
       "balcony": false,
-      "d": 3.2,
+      "d": 3,
       "decor": {
         "ceiling": {
           "band": 0.35,
@@ -27,27 +25,19 @@
         },
         "doors": [
           {
-            "at": -5,
+            "at": 1.5,
             "finish": "steel",
             "label": "Stairs",
             "w": 1,
-            "wall": "front"
+            "wall": "right"
           },
           {
-            "at": 3,
+            "at": 1.5,
             "dial": 60,
             "finish": "bronze",
             "pair": true,
             "w": 1,
-            "wall": "back"
-          },
-          {
-            "at": 5.4,
-            "dial": 0,
-            "finish": "bronze",
-            "pair": true,
-            "w": 1,
-            "wall": "back"
+            "wall": "left"
           }
         ],
         "downlights": false,
@@ -57,70 +47,28 @@
           "line": "#c49a52",
           "y": 2.8
         },
-        "pilasters": {
-          "hex": "#e8dfcc",
-          "points": [
-            [
-              "back",
-              2.26
-            ],
-            [
-              "back",
-              4.2
-            ],
-            [
-              "back",
-              6.7
-            ]
-          ],
-          "trim": "#c49a52",
-          "w": 0.3,
-          "y1": 3.04
-        },
         "plaques": {
           "zone_meridian_unit_201": "201",
-          "zone_meridian_unit_202": "202",
-          "zone_meridian_unit_203": "203",
-          "zone_meridian_unit_204": "204"
+          "zone_meridian_unit_203": "203"
         },
         "rug": false,
         "runner": {
           "along": "u",
           "border": "#b08a48",
-          "end": 0.6,
+          "end": 0.4,
           "hex": "#5a1a24",
-          "w": 1.3
+          "w": 1.1
         },
         "sconces": {
           "kind": "fan",
           "points": [
             [
-              "front",
-              -6.8
+              "left",
+              1.5
             ],
             [
-              "front",
-              -2.6
-            ],
-            [
-              "front",
-              2.6
-            ],
-            [
-              "front",
-              6
-            ],
-            [
-              "back",
-              -6
-            ],
-            [
-              "back",
-              -2.6
-            ],
-            [
-              "back",
-              1.8
+              "right",
+              0.6
             ]
           ],
           "y": 1.9
@@ -133,10 +81,14 @@
           "y1": 1
         }
       },
+      "doors": {
+        "north": -1,
+        "south": -1
+      },
       "face": 0,
       "finish": "fine",
       "ground": "terrazzo",
-      "h": 3.2,
+      "h": 3.28,
       "studio": false,
       "tone": {
         "accent": "#c49a52",
@@ -144,7 +96,7 @@
         "trim": "#1e1c1a",
         "wall": "#e6dcc8"
       },
-      "w": 16,
+      "w": 5,
       "windowless": true
     },
     "terrain": "grass"
@@ -154,6 +106,6 @@
   "grid_z": 2,
   "id": "zone_meridian_floor_2",
   "map_id": "map_int_meridian",
-  "name": "The Meridian - Floor 2 Hallway",
+  "name": "The Meridian - Floor 2 Landing",
   "parent_zone": "zone_district_918_908"
 }

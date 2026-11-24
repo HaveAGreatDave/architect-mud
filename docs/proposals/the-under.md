@@ -26,7 +26,7 @@ Two things make the sewer read as *the sewer* and give the flashlight a real job
   `getZoneVisibility` resolves them to `pitch_dark`. Without a light you can only feel for
   exits; creatures and ground loot are hidden, and every swing you throw eats the −5 darkness
   to-hit penalty.
-- **The flashlight is the key.** Grady's gift (`item_lucky_flashlight`, already the reward for
+- **The flashlight is the key.** Rusty's gift (`item_lucky_flashlight`, already the reward for
   `quest_first_hour`) floors the holder's *perceived* light to `clear` via the flashlight
   plugin's `visibility.perceive` hook — cancelling the penalty and revealing the room. Monsters
   still eat the raw zone darkness on their swings, so a lit player has a decisive edge and a
@@ -81,10 +81,10 @@ landing/re-entry). Danger auto-infers low.
 and a rare **live `item_battery`** (difficulty-gated "cache" find that feeds the flashlight).
 Enemy `loot_table`s drop scrap/wire/credits.
 
-**Quest — "Down the Drain"** (`quest_down_the_drain`). Offered by Grady **after** `quest_first_hour`
+**Quest — "Down the Drain"** (`quest_down_the_drain`). Offered by Rusty **after** `quest_first_hour`
 turns in (gated on `grady_regular` set): descend the Ironside drain, cull **6 sewer creatures**,
 return. Reward: ~100 credits + **3 batteries** (keeps the flashlight fed) + jerky + bandages.
-Grady's dialogue gains the offer, the send-off pointing at the drain, and the `TURN_IN` node
+Rusty's dialogue gains the offer, the send-off pointing at the drain, and the `TURN_IN` node
 (which is how the quest auto-discovers him as the turn-in NPC).
 
 **Engine note:** Phase 1 is **pure content** — zones + exits + spawns + scav + quest + one item,
@@ -101,7 +101,7 @@ drain snake) — but no quests pulled players there. That gap is now filled:
 - **Dredge** (`npc_dredge`, she/her) — a stationary scavenger camped in the safe
   **Old Cistern** (`zone_under_cistern`), the deepest safe air, one step east of the
   Throat. She's the Under's own quest hub, discovered by pushing past the beginner
-  pocket (Grady plants a breadcrumb after `grady_sewer_cleared`). Neutral, non-ideology.
+  pocket (Rusty plants a breadcrumb after `grady_sewer_cleared`). Neutral, non-ideology.
 - **3-quest descent** (`category: "The Under"`), gated in sequence off reward flags:
   1. **Deep Cuts** (`quest_under_deepcuts`, gate `grady_sewer_cleared`) — cull 3 deep
      mutants (Rust Gallery) + 2 gutter hounds (Groaning Main). → sets `dredge_proven`.
@@ -111,7 +111,7 @@ drain snake) — but no quests pulled players there. That gap is now filled:
      kill the **Midden** (`enemy_under_midden`, hp 55, kinetic-soak tank; fixed
      `max_count 1` spawn in the Deep Reach), the capstone. → sets `under_deep_cleared`.
 
-Content-only (quests + 1 NPC + 1 enemy + 1 item + 1 spawn + a Grady dialogue edit +
+Content-only (quests + 1 NPC + 1 enemy + 1 item + 1 spawn + a Rusty dialogue edit +
 the diner work_venue flag). Lint/import/regress green. Future rungs hang off Dredge
 (she hints at "always more the water gives up") and the `under_deep_cleared` flag.
 

@@ -141,7 +141,7 @@
           "next": "root"
         }
       ],
-      "text": "\"He owned the ground. Halcyon wanted it for offices, three times, and three times he sent the cheque back with two tickets in the envelope. So they built the whole estate round him.\"\n\nHe looks past you at the rotunda. \"He used to stand at the gate on opening day and shake every hand that came through. Mine too. I was nine. Nobody knows who started calling him Sir. He never asked anybody to stop.\""
+      "text": "\"He owned the ground. Halcyon wanted it for offices, three times, and three times he sent the cheque back with two tickets in the envelope. So they built the whole estate round him.\"\n\nHe looks past you at the rotunda. \"He used to stand at the gate on opening day and shake every hand that came through. Mine too. I was nine. Nobody knows who started calling him Sir. He never asked anybody to stop.\"\n\n\"He's still about. Top of the Meridian, on Marrow Street. He's in his seat one night in four, and he never misses an opener.\""
     },
     "games": {
       "options": [
@@ -168,7 +168,7 @@
           "next": "__shop__"
         },
         {
-          "label": "Who was Sir Charles?",
+          "label": "Who is Sir Charles?",
           "next": "charles"
         },
         {

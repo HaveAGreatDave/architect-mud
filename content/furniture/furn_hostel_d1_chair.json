@@ -1,5 +1,5 @@
 {
-  "description": "A wooden chair at the end of the row, buried under the coats of everybody on this floor. Nobody has sat on it since winter.",
+  "description": "An office chair with no wheels, set at the table like it belongs there. The seat has been mended with parcel tape.",
   "flags": {
     "aliases": "chair",
     "interactions": [
@@ -12,8 +12,8 @@
     },
     "spot": {
       "at": [
-        -3.2,
-        3
+        -2.4,
+        4.6
       ],
       "turn": 90
     }
@@ -23,7 +23,7 @@
   "id": "furn_hostel_d1_chair",
   "light_type": null,
   "lumen_output": null,
-  "name": "clothes chair",
+  "name": "odd chair",
   "object_type": "furniture",
   "power_draw_kw": null,
   "price": 0,

@@ -28,7 +28,7 @@ It also carries `work` (the shop name, or the building their work zone is in) an
 
 ## How much they tell you
 
-Three levels: they won't say, the short answer ("Going to work."), or the whole of it ("Off to work. I'm at Two-Cell Supply.").
+Three levels: they won't say, the short answer ("Going to work."), or the whole of it ("Off to work. I'm at O'Toole's Surplus.").
 
 The level is a sum, with no dice in it, so the same person gives you the same level until something between you changes:
 

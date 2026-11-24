@@ -64,6 +64,12 @@ function _esc(str) {
 let _readAloud = false;
 try { _readAloud = localStorage.getItem('tvReadAloud') === '1'; } catch { /* storage blocked */ }
 
+// The corner's icons (_mountCorner): a speaker with its sound or struck through, and full screen in and out.
+const TV_ICON_SOUND = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M2 6h3l4-3v10l-4-3H2z" fill="currentColor"/><path d="M11 5.5a3.5 3.5 0 0 1 0 5M12.6 3.6a6 6 0 0 1 0 8.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
+const TV_ICON_MUTED = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M2 6h3l4-3v10l-4-3H2z" fill="currentColor"/><path d="M11 6l4 4M15 6l-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
+const TV_ICON_FS_ON = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>';
+const TV_ICON_FS_OFF = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M6 2v4H2M14 6h-4V2M10 14v-4h4M2 10h4v4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>';
+
 // Every live instance, so dispatch.js can fan a server message out to whichever
 // surface(s) are actually tuned to that channel.
 const _views = new Set();
@@ -1225,8 +1231,9 @@ export function createTvView(root, opts = {}) {
     // The view's full-screen button takes the whole set, so its buttons (3D, Gameday, the guide,
     // the channels) are still there to press. Not the wall's: that set is a page painted into ROOM.
     // (the tablet hands over the set itself as the root)
-    const fullscreen = chassis === 'wall' ? null : root?.matches?.('[data-tv="window"]') ? root : el('window');
-    _gamedayView = want === 'hockey' ? createRinkView(_gamedayBox, { commentary: _commentary, fullscreen, ...live, ...opts.gameday }) : createGrandstandView(_gamedayBox, { station: _networkLabel() || _stationName, commentary: _commentary, fullscreen, ...live, ...opts.gameday });
+    // (the set's own corner has full screen, so the view draws no button of its own: false)
+    const fullscreen = false, onTv = true;
+    _gamedayView = want === 'hockey' ? createRinkView(_gamedayBox, { commentary: _commentary, fullscreen, onTv, ...live, ...opts.gameday }) : createGrandstandView(_gamedayBox, { station: _networkLabel() || _stationName, commentary: _commentary, fullscreen, ...live, ...opts.gameday });
     return _gamedayView;
   }
   // Take the mounted view out of the page and keep it for its sport's next game.
@@ -2731,9 +2738,59 @@ export function createTvView(root, opts = {}) {
   }
 
   // ── wiring ────────────────────────────────────────────────────────────────
+  // ── the corner: mute and full screen ──────────────────────────────────────
+  // Every set has the two at the bottom right of its picture, whatever's on: the popup, the tablet and
+  // the set on the wall (whose page is painted, so a click on the picture reaches them through
+  // room-tv.js buttonAt). Mute is AudioEngine.setTvMuted, one switch for every set on the page and never
+  // saved; full screen takes the whole set, header and buttons with the picture. A browser that can't
+  // take an element full screen (an iPhone) gets mute alone.
+  function _mountCorner() {
+    const win = root?.matches?.('[data-tv="window"]') ? root : el('window');
+    const into = el('content')?.parentElement;
+    if (!win || !into || into.querySelector(':scope > .tv-corner')) return;
+    const doc = win.ownerDocument, ae = () => window.AudioEngine;
+    const box = doc.createElement('div');
+    box.className = 'tv-corner';
+    const button = (cls) => { const b = doc.createElement('button'); b.type = 'button'; b.className = cls; box.appendChild(b); return b; };
+    const label = (b, text, on) => { b.title = text; b.setAttribute('aria-label', text); b.setAttribute('aria-pressed', String(on)); b.classList.toggle('on', on); };
+
+    const mute = button('tv-corner-mute');
+    const paintMute = () => {
+      const on = !!ae()?.tvMuted?.();
+      mute.innerHTML = on ? TV_ICON_MUTED : TV_ICON_SOUND;
+      label(mute, on ? 'Unmute' : 'Mute', on);
+      box.classList.toggle('muted', on);
+    };
+    mute.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const a = ae(); if (a?.setTvMuted) a.setTvMuted(!a.tvMuted());
+      paintMute();
+    });
+
+    let fs = null;
+    const full = () => { const f = doc.fullscreenElement; return !!f && (f === win || win.contains(f)); };
+    const paintFs = () => { if (!fs) return; const on = full(); fs.innerHTML = on ? TV_ICON_FS_OFF : TV_ICON_FS_ON; label(fs, on ? 'Leave full screen (Esc)' : 'Full screen', on); };
+    if (doc.fullscreenEnabled && typeof win.requestFullscreen === 'function') {
+      fs = button('tv-corner-fs');
+      fs.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (full()) doc.exitFullscreen?.().catch(() => {});
+        else win.requestFullscreen().catch(() => {});
+      });
+    }
+    paintMute(); paintFs();
+    // the tablet rebuilds its set on a fresh mount, so the listeners go when the corner does
+    const onMute = () => { if (!box.isConnected) window.removeEventListener('tv-mute', onMute); else paintMute(); };
+    const onFs = () => { if (!box.isConnected) doc.removeEventListener('fullscreenchange', onFs); else paintFs(); };
+    window.addEventListener('tv-mute', onMute);
+    doc.addEventListener('fullscreenchange', onFs);
+    into.appendChild(box);
+  }
+
   function init() {
     if (_inited) return;
     _inited = true;
+    _mountCorner();
 
     // The sub-screens (Gameday, Rinkside) sit between the header and the footer, and
     // neither has a fixed height: both are in rem, and the phone layout shrinks the
