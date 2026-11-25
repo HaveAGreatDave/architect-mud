@@ -3604,7 +3604,7 @@ async function regressBody({ run, check, getPlayer }) {
       fitSuffix({ fits: ['rampl'] }) === '^rp' && fitByCode('rp').id === 'rampl');
 
     // EVERY FITTING ACTUALLY DRAWS SOMETHING. This is the case that catches the real failure mode —
-    // a code in the catalogue that no branch in `buildTruck` matches — which is silent in every
+    // a code in the catalogue that no fitting group in the truck files matches — which is silent in every
     // other way: the truck renders, the money is taken, and nothing appears. Tested against the
     // CONTINENTAL because it is the only rig with every feature a fitting can hang off (two stacks,
     // a bonnet, a sleeper); a stack sleeve on a scrapper legitimately draws nothing.
@@ -5352,7 +5352,7 @@ async function regressBody({ run, check, getPlayer }) {
       && read.bright === PAINT_DEFAULT.bright && read.glow === PAINT_DEFAULT.glow && read.glass === PAINT_DEFAULT.glass
       && read.finish === PAINT_DEFAULT.finish && read.art === PAINT_DEFAULT.art);
     // ⚠ AND THOSE DEFAULTS ARE THE MESH'S OWN HARDCODED ARRAYS, TO THE BYTE. The brightwork, the
-    // beltline strip and the door glass were literals in buildTruck that no paint job could reach;
+    // beltline strip and the door glass were literals in the truck builder that no paint job could reach;
     // making them buyable is only invisible to an existing truck if the default IS the literal.
     // Get one of these wrong and every rig in the game changes colour on deploy day.
     check('the new colours default to exactly what the mesh already drew',

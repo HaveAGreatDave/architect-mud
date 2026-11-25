@@ -38,7 +38,7 @@ and a city that resolves out of the haze at the end of it.
 | The bench — condition, tuning, kits, paint, and the ONE place a tune becomes physics | [plugins/trucking/rig.js](../plugins/trucking/rig.js) |
 | The depot app: the counter of cards in the pane, and the bay over the cab in the shed, on the depot shell ([depot-shell.md](reference/depot-shell.md)) | [client/game/js/panels/truck-depot.js](../client/game/js/panels/truck-depot.js) |
 | The bench's preview bars: `kitStats` (each unfitted kit on) and `tuneEnds` (each dial at either end) per fleet row | `axesFor` / `tuneEnds` in [plugins/trucking/index.js](../plugins/trucking/index.js) |
-| The truck meshes (four files, every state in each) | `content/vehicle_models/mesh_truck_<type>.json`, drawn by `truckMeshFaces` and centred by `finishTruck` in [aircraft3d.js](../client/game/js/panels/aircraft3d.js). `buildTruck` / `TRUCK_SHAPES` is the legacy A/B until it's retired ([proposals/hover-rigs.md](proposals/hover-rigs.md)) |
+| The truck meshes (four files, every state in each) | `content/vehicle_models/mesh_truck_<type>.json`, drawn by `truckMeshFaces` and centred by `finishTruck` in [aircraft3d.js](../client/game/js/panels/aircraft3d.js). `buildTruck` / `TRUCK_SHAPES` were retired 2026-11-11 ([proposals/hover-rigs.md](proposals/hover-rigs.md)); `meshes.mjs` holds each file to a fingerprint |
 | The dispatcher | [content/npcs/npc_kessler_dispatcher.json](../content/npcs/npc_kessler_dispatcher.json) |
 | Commodities + prices | [plugins/trucking/market.js](../plugins/trucking/market.js) |
 | Zone flags | `truck_depot` / `truck_yard` / `truck_fuel` / `weigh_station` / `gate_lock` / `loading_dock` in [tagCatalog.js](../client/shared/tagCatalog.js) |
@@ -4978,7 +4978,7 @@ remaining plan:
 - **The hover rigs.** The four trucks draw from mesh files now, and since 2026-11-12 the dealer sells
   each one only in its 2076 body and cab, at the list price. The stock bodies are semi-retired: the hire
   line and the driving school still run them, and an owner can swap back at the bench (`rig edition`).
-  Trailer bodies and retiring `buildTruck` are next, in
+  Trailer bodies are next (`buildTruck` was retired 2026-11-11), in
   [proposals/hover-rigs.md](proposals/hover-rigs.md).
 - **The Coldwater checkpoint recipe.** `flags.checkpoint_cfg` on the yard would search the DRIVER on
   foot, complementing the scale that weighs the trailer. It is a content recipe, not a build.

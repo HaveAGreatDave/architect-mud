@@ -19,7 +19,7 @@
 import { aircraftFaces } from '../../client/game/js/panels/aircraft3d.js';
 import { _setBlitEnabled } from '../../client/game/js/panels/model-raster.js';
 
-// The lens tints, straight off the mesh (`buildTruck`'s headlamp block). Matching by colour rather
+// The lens tints, straight off the mesh (the truck file's headlamp parts). Matching by colour rather
 // than by walking the face list is deliberate: it tests what reached the CANVAS, which is the
 // thing that was wrong both times.
 // The last is the Drayman 2076's cool white LED (concepts/drayman-2076.mjs), the one edition whose

@@ -1,17 +1,17 @@
 // truck-fittings — the 38 truck fittings (plugins/trucking/fittings.js) as mesh parts, placed off a
-// truck's anchors. buildTruck drew them inline off its proportion row; a truck that is a mesh file
-// carries them as parts (`when: fit_<code>`), and every body has to put them somewhere that body has.
-// So the geometry lives here once, and a body says where its roof, screen, mascot and racks are.
+// truck's anchors. The retired truck builder drew them inline off its proportion row; a truck mesh
+// file carries them as parts (`when: fit_<code>`), and every body has to put them somewhere that body
+// has. So the geometry lives here once, and a body says where its roof, screen, mascot and racks are.
 //
 //   import { truckFittingParts, vintageAnchors } from './truck-fittings.mjs';
-//   truckFittingParts(vintageAnchors(row))   // what buildTruck drew for that row, part for part
+//   truckFittingParts(vintageAnchors(doc.params.truck, pods))   // a stock truck's fittings group
 //
-// scripts/shapes/meshes.mjs holds vintageAnchors(row) to the ported file's fittings, number for
-// number, so this can't drift from what the four stock trucks wear.
+// scripts/shapes/meshes.mjs holds vintageAnchors(truck block) to each stock file's fittings, number
+// for number, so this can't drift from what the four stock trucks wear.
 //
-// Every part is a box or a one-face poly in buildTruck's own shape, in buildTruck's order, named for
-// its fitting, with `minDetail: 1` on what only the near detail drew. Nothing here moves a pod, a
-// lamp, the door or the kingpin, which is the rule buildTruck kept for fittings.
+// Every part is a box or a one-face poly in the builder's own shape and order, named for its
+// fitting, with `minDetail: 1` on what only the near detail drew. Nothing here moves a pod, a lamp,
+// the door or the kingpin, which is the rule the builder kept for fittings.
 import { FITTINGS } from '../../plugins/trucking/fittings.js';
 
 const NAME = Object.fromEntries(Object.values(FITTINGS).map((f) => [f.code, f.name]));
@@ -19,25 +19,26 @@ const CHROME = [226, 232, 240];
 const ACCENT = [96, 196, 214];
 const PK = (t) => (t === CHROME ? 'bright' : t === ACCENT ? 'glow' : null);
 
-// A stock truck's anchors, from its proportion row (content/vehicle_models/truck_<type>.json), by
-// buildTruck's own sums. `pods` are the tractor's [f, g] lifter positions, in order.
-export function vintageAnchors(S, pods) {
-  const nose1 = 0.40, nose0 = nose1 - S.nose, cab1 = nose0, cab0 = cab1 - S.cab;
-  const PLATE_BACK = 0.06, SWING_MARGIN = 1.15, NOSE_TAPER = 0.70;
-  const frame0 = cab0 - (PLATE_BACK + S.w * 1.02 * NOSE_TAPER * SWING_MARGIN);
-  const roofZ = S.hi + S.sleeper;
-  const scr = { F0: nose0 - 0.004, F1: nose0 + 0.038, Lo: S.hi * 0.52, Hi: S.hi * 0.985 };
+// A stock truck's anchors, off the `truck` block of its file (content/vehicle_models/
+// mesh_truck_<type>.json), by the builder's own sums: the cab and nose stations and the frame from
+// `geom`, the roof from `hi` and `sleeper`, and the stacks from `stacks` (their lateral stations).
+// `pods` are the tractor's [f, g] lifter positions, in order.
+export function vintageAnchors(T, pods) {
+  const { nose1, nose0, cab1, cab0, frame0 } = T.geom;
+  const roofZ = T.hi + T.sleeper;
+  const scr = { F0: nose0 - 0.004, F1: nose0 + 0.038, Lo: T.hi * 0.52, Hi: T.hi * 0.985 };
   const SD = 0.010;
   return {
-    w: S.w, hi: S.hi, nose0, nose1, cab0, cab1, frame0, roofZ, barF: nose1 + 0.014,
+    w: T.w, hi: T.hi, nose0, nose1, cab0, cab1, frame0, roofZ, barF: nose1 + 0.014,
     // The screen: a point at fraction t up it, at lateral g (in units of scrW), pushed proud by SD.
-    scrW: S.w * 0.94,
+    scrW: T.w * 0.94,
     scrP: (t, g) => [scr.F0 + (scr.F1 - scr.F0) * t + SD, g, scr.Lo + (scr.Hi - scr.Lo) * t],
     cage: [cab1 - 0.150, cab0 + 0.010], parapet: [cab1 - 0.150, cab0 + 0.008],
     lightBarF: cab1 - 0.062, beaconF: cab0 - 0.006, totemF: cab0 - 0.004, aerialF: cab0 + 0.006,
-    stacks: Array.from({ length: S.stacks }, (_, i) => (S.stacks === 1 ? 0 : (i ? 1 : -1)) * S.w * 0.94),
+    stacks: (T.stacks || []).slice(),
     stackF: cab0, stackTop: roofZ + 0.062,
-    mascot: S.nose > 0.02 ? [nose1 - 0.030, 0.128] : [cab1 - 0.020, S.hi * 0.96],
+    // A conventional's mascot stands on the bonnet; a cab-over's on the cab front.
+    mascot: nose1 - nose0 > 0.02 ? [nose1 - 0.030, 0.128] : [cab1 - 0.020, T.hi * 0.96],
     pods,
   };
 }

@@ -14,7 +14,11 @@
 //   4. The rotor spec in a converted file draws exactly what the hardcoded rotor code drew.
 //   5. The comparison in (2) can fail: nudge one number in a copy of a converted file and it must.
 //      A gate that cannot go red is not a gate.
-import { readFileSync, readdirSync } from 'node:fs';
+//   6. A stock truck draws what its fingerprint says, its fittings are truck-fittings.mjs's, and the
+//      renderer reads its file. 7. A truck edition keeps the stock truck's frame.
+//
+//   node scripts/shapes/meshes.mjs --fingerprint   takes a new truck fingerprint (section 6)
+import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 
 const A3D = '../../client/game/js/panels/aircraft3d.js';
 const VM = '../../client/shared/vehicle-mesh.js';
@@ -37,8 +41,7 @@ for (const { file, doc } of docs) {
     const st = meshStats(faces);
     if (detail === 1) faceTotal += faces.length;
     if (st.ngons) notes.push(file + ': ' + st.ngons + ' faces of 5+ points at detail ' + detail + ' (the hull texture only maps 3- and 4-point faces)');
-    // A truck file is held state by state in section 6, not as one face list.
-    if (doc.params.portedFrom && !doc.params.truck) {
+    if (doc.params.portedFrom) {
       const legacy = m.legacyMeshFaces(doc.id, detail);
       if (!legacy) { problems.push(file + ': portedFrom ' + doc.params.portedFrom + ' but there is no builder to hold it against'); continue; }
       // The builder drew geometry and never declared a finish or a paint slot, so the file is held
@@ -94,7 +97,7 @@ if (m.rotorTraceLegacy && m.rotorTrace) {
 
 // 5 — the comparison can go red. Take the first converted file, nudge one number deep in it, and
 // demand a difference.
-const first = docs.find((d) => d.doc.params.portedFrom && !d.doc.params.truck);
+const first = docs.find((d) => d.doc.params.portedFrom);
 if (first) {
   const bent = JSON.parse(JSON.stringify(first.doc.params));
   const walk = (o) => { for (const k of Object.keys(o)) { if (typeof o[k] === 'number' && k !== 'sides' && k !== 'n') { o[k] += 1e-9; return true; } if (o[k] && typeof o[k] === 'object' && walk(o[k])) return true; } return false; };
@@ -102,45 +105,86 @@ if (first) {
   if (!meshDiff(compileMesh(bent, { detail: 1 }).faces, m.legacyMeshFaces(first.doc.id, 1))) problems.push('self-test: a nudged copy of mesh_' + first.doc.id + '.json still compares identical, so the identity check is not checking');
 }
 
-// 6 — a truck file (mesh_truck_<type>.json, written by truck-meshes.mjs) is the truck buildTruck drew,
-// in every state a variant string asks for: bobtail and hitched, running and parked, a dropped box,
-// each fitting alone and all of them at once (which puts the interleaved ones in their real order),
-// at both details. The faces AND the meta the lamps, door art and articulation read. Then the renderer
-// is shown to read the file: nudge one number through the Modelshop override and the truck must move.
+// 6 — a stock truck file (mesh_truck_<type>.json) is the truck. It was ported from a builder that held
+// it exact until the builder was retired (docs/proposals/hover-rigs.md), so what holds it now is:
+//   a. A fixed fingerprint (truck-fingerprint.json): what the file draws in every state a variant string
+//      asks for (bobtail and hitched, running and parked, a dropped box, each fitting alone and
+//      hitched, all of them at once), at both details, faces and the meta the lamps, door art and
+//      articulation read. It's keyed on the file, so an unchanged file that draws differently means
+//      the code that draws it moved (compileMesh, truckMeshFaces, finishTruck). An edited file asks
+//      for a new fingerprint: look at the truck in the Modelshop first, then
+//        node scripts/shapes/meshes.mjs --fingerprint
+//   b. Its fittings are truck-fittings.mjs off its own truck block, part for part.
+//   c. The renderer reads the file: nudge one number through the Modelshop override and the truck moves.
 const { FITTINGS } = await import('../../plugins/trucking/fittings.js');
 const CODES = Object.values(FITTINGS).map((f) => f.code), EVERY = '^' + CODES.join('.');
 const STATES = ['', '+t', '~p', '+t~p', '~s', '~s~p', EVERY, '+t' + EVERY, '+t~p' + EVERY, '~p' + EVERY, '~s' + EVERY,
   ...CODES.map((c) => '^' + c), ...CODES.map((c) => '+t^' + c)];
+const { createHash } = await import('node:crypto');
+const sha = (s, n) => createHash('sha1').update(s).digest('hex').slice(0, n);
+const FP_URL = new URL('./truck-fingerprint.json', import.meta.url);
+// What a file draws from: everything but its name, its note and the editions it names.
+const fileHash = (p) => { const q = { ...p }; delete q.name; delete q.note; delete q.variants; return sha(canon(q), 16); };
+const stateHash = (params, v, detail) => { const b = m.truckFileBuild(params, v, detail); return sha(b.faces.map(canon).join('\n') + '\n' + canon(b.meta), 10); };
+const statesHash = sha(STATES.join('|'), 10);
+const stockTrucks = docs.filter((d) => d.doc.params.truck && !variantOf.has(d.doc.id));
+const takeFp = process.argv.includes('--fingerprint');
+let fp = null;
+try { fp = JSON.parse(readFileSync(FP_URL, 'utf8')); } catch { fp = null; }
+if (takeFp) {
+  const trucksFp = {};
+  for (const { doc } of stockTrucks) {
+    const type = doc.id.replace(/^truck_/, '');
+    trucksFp[type] = { file: fileHash(doc.params), d1: STATES.map((s) => stateHash(doc.params, type + s, 1)), d0: STATES.map((s) => stateHash(doc.params, type + s, 0)) };
+  }
+  fp = { states: statesHash, trucks: trucksFp };
+  // One line per truck and detail, so a new fingerprint is a readable diff.
+  const lines = ['{', '  "note": "What each stock truck file draws, state by state (meshes.mjs section 6). Taken by node scripts/shapes/meshes.mjs --fingerprint; never edit by hand.",',
+    '  "states": ' + JSON.stringify(statesHash) + ',', '  "trucks": {'];
+  Object.entries(trucksFp).forEach(([type, t], i, all) => {
+    lines.push('    ' + JSON.stringify(type) + ': {', '      "file": ' + JSON.stringify(t.file) + ',',
+      '      "d1": ' + JSON.stringify(t.d1) + ',', '      "d0": ' + JSON.stringify(t.d0), '    }' + (i < all.length - 1 ? ',' : ''));
+  });
+  lines.push('  }', '}', '');
+  writeFileSync(FP_URL, lines.join('\n'));
+  console.log('meshes: took a new truck fingerprint, ' + stockTrucks.length + ' trucks in ' + STATES.length + ' states at both details');
+}
+const NEW_FP = 'look at it in the Modelshop, then take a new fingerprint: node scripts/shapes/meshes.mjs --fingerprint';
 let trucks = 0;
 const { truckFittingParts, vintageAnchors } = await import('./truck-fittings.mjs');
-const { TRUCK_ROWS } = await import('../../client/shared/vehicle-models.js');
-for (const { file, doc } of docs) {
-  if (!doc.params.truck || !doc.params.portedFrom) continue;
+if (!fp) problems.push('scripts/shapes/truck-fingerprint.json is missing or unreadable: ' + NEW_FP);
+else if (fp.states !== statesHash) problems.push('the truck states have changed since the fingerprint was taken (a fitting added or removed?): ' + NEW_FP);
+for (const { file, doc } of stockTrucks) {
   const type = doc.id.replace(/^truck_/, '');
   let ok = true;
-  for (const detail of [1, 0]) for (const s of STATES) {
-    const a = m.truckFileBuild(doc.params, type + s, detail), b = m.truckLegacyBuild(type + s, detail);
-    const d = meshDiff(a.faces, b.faces);
-    if (d) { problems.push(file + ' ' + JSON.stringify(type + s) + ' detail ' + detail + ': differs from buildTruck at face ' + d.index + ' (' + d.field + ')'); ok = false; break; }
-    if (canon(a.meta) !== canon(b.meta)) { problems.push(file + ' ' + JSON.stringify(type + s) + ' detail ' + detail + ': its TRUCK_META differs from buildTruck\'s'); ok = false; break; }
+  // a. The fingerprint.
+  const want = fp?.states === statesHash ? fp.trucks?.[type] : null;
+  if (fp && fp.states === statesHash && !want) { problems.push(file + ': no fingerprint for it: ' + NEW_FP); ok = false; }
+  else if (want && want.file !== fileHash(doc.params)) { problems.push(file + ' has changed since its fingerprint was taken: ' + NEW_FP); ok = false; }
+  else if (want) {
+    for (const detail of [1, 0]) {
+      const i = STATES.findIndex((s, k) => stateHash(doc.params, type + s, detail) !== want['d' + detail][k]);
+      if (i >= 0) {
+        problems.push(file + ' ' + JSON.stringify(type + STATES[i]) + ' detail ' + detail + ': draws differently from its fingerprint with the file unchanged, so compileMesh, truckMeshFaces or finishTruck changed what it draws');
+        ok = false; break;
+      }
+    }
   }
-  if (!ok) continue;
-  trucks++;
-  // The fittings generator (truck-fittings.mjs) off this truck's own anchors draws the file's fittings.
-  if (TRUCK_ROWS[type]) {
-    const want = doc.params.parts.find((p) => p.name === 'fittings')?.parts || [];
-    const got = truckFittingParts(vintageAnchors(TRUCK_ROWS[type], doc.params.truck.pods.filter((q) => !q[3]).map(([f, g]) => [f, g])));
-    const at = want.findIndex((p, i) => canon(p) !== canon(got[i]));
-    if (at >= 0 || want.length !== got.length) problems.push(file + ': truck-fittings.mjs no longer draws its fittings (first difference at part ' + (at >= 0 ? at : Math.min(want.length, got.length)) + ')');
-  }
+  // b. The fittings generator (truck-fittings.mjs) off this truck's own anchors draws the file's fittings.
+  const fits = doc.params.parts.find((p) => p.name === 'fittings')?.parts || [];
+  const got = truckFittingParts(vintageAnchors(doc.params.truck, doc.params.truck.pods.filter((q) => !q[3]).map(([f, g]) => [f, g])));
+  const at = fits.findIndex((p, i) => canon(p) !== canon(got[i]));
+  if (at >= 0 || fits.length !== got.length) { problems.push(file + ': truck-fittings.mjs no longer draws its fittings (first difference at part ' + (at >= 0 ? at : Math.min(fits.length, got.length)) + ')'); ok = false; }
+  // c. The renderer reads the file.
   const bent = JSON.parse(JSON.stringify(doc.params));
   bent.parts[0].parts[0].f[0] += 1e-9;
   m.setMeshOverride(doc.id, bent);
-  const moved = meshDiff(m.aircraftFaces('truck', 1, false, type), m.truckLegacyBuild(type, 1).faces);
+  const live = m.aircraftFaces('truck', 1, false, type);
+  const moved = meshDiff(live, m.truckFileBuild(doc.params, type, 1).faces) && !meshDiff(live, m.truckFileBuild(bent, type, 1).faces);
   m.setMeshOverride(doc.id, null);
-  if (!moved) problems.push(file + ': a nudged copy draws the same truck, so the renderer is not reading the file (or the check is not checking)');
+  if (!moved) { problems.push(file + ': a nudged copy draws the same truck, so the renderer is not reading the file (or the check is not checking)'); ok = false; }
+  if (ok) trucks++;
 }
-if (trucks) ported += trucks;
 
 // 7 — a truck edition (a file a stock truck names in `variants`, written by a concepts/ generator)
 // keeps the stock truck's frame, so it hitches any trailer in the yard and swings it the same way:
@@ -188,4 +232,5 @@ if (problems.length) {
   for (const p of problems) console.error('  ✗ ' + p);
   process.exit(1);
 }
-console.log('meshes: ' + docs.length + ' authored mesh(es), ' + faceTotal + ' faces at full detail; ' + ported + ' converted and identical to their builders at both details.');
+console.log('meshes: ' + docs.length + ' authored mesh(es), ' + faceTotal + ' faces at full detail; ' + ported + ' converted and identical to their builders at both details; '
+  + trucks + ' stock trucks held to their fingerprint in ' + STATES.length + ' states.');

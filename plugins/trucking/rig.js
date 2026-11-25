@@ -373,7 +373,7 @@ export const PAINT_PRESETS = [
 const idsOf = (rows) => new Set(rows.map(r => r.id));
 const FLASH_IDS = idsOf(FLASHES), FINISH_IDS = idsOf(FINISHES), ART_IDS = idsOf(ARTS);
 // ⚠ THE DEFAULTS ARE THE MESH'S OWN HARDCODED ARRAYS, TO THE BYTE. `bright` is the CHROME const
-// in buildTruck (226,232,240), `glow` is the beltline strip (96,196,214) and `glass` is the door
+// in the truck files (226,232,240), `glow` is the beltline strip (96,196,214) and `glass` is the door
 // pane (50,74,92) every other pane is scaled against. That is what makes the widening invisible:
 // a truck nobody has repainted comes out of `sanitizePaint` wearing exactly the colours the
 // renderer was already drawing it in, so no row is rewritten and nothing changes on deploy day.

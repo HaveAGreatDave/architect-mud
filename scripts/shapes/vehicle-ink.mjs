@@ -52,7 +52,8 @@ const kinds = (edges) => edges.reduce((m, e) => { m[e.kind] = (m[e.kind] || 0) +
 // 2. Every vehicle the renderer draws
 const classes = [];
 for (const id of VEHICLE_IDS.fw) classes.push([id, false, '']);
-for (const id of VEHICLE_IDS.truck) classes.push(['truck', false, id]);
+// The stock trucks: each `mesh_truck_<type>.json` (an edition's id carries its year, `truck_hauler_2076`).
+for (const id of VEHICLE_IDS.mesh) if (/^truck_[a-z]+$/.test(id)) classes.push(['truck', false, id.slice(6)]);
 for (const id of VEHICLE_IDS.boat) classes.push([id, false, '']);
 for (const id of ['heli', 'ultralight', 'grasshopper', 'drake', 'merlin', 'hornet', 'wolverine', 'wraith', 'wreck', 'podracer']) classes.push([id, false, '']);
 classes.push(['heli', true, '']);

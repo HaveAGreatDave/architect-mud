@@ -31,10 +31,7 @@
 // (`cen`), which the truck renderers cull and light by.
 import { readFileSync, writeFileSync } from 'node:fs';
 import { truckFittingParts, vintageAnchors } from '../truck-fittings.mjs';
-import { TRUCK_ROWS } from '../../../client/shared/vehicle-models.js';
 const { formatMesh, validateMesh, compileMesh } = await import('../../../client/shared/vehicle-mesh.js');
-// The stock Continental's proportion row: the fittings' anchors start from it.
-const ROW = TRUCK_ROWS.continental;
 
 const BASE_URL = new URL('../../../content/vehicle_models/mesh_truck_continental.json', import.meta.url);
 const BASE_DOC = JSON.parse(readFileSync(BASE_URL, 'utf8'));
@@ -431,7 +428,7 @@ const chassis = [
 const SD = 0.010;
 const BEACON_F = 0.236, MASCOT_F = 0.398;
 const A = {
-  ...vintageAnchors(ROW, []),
+  ...vintageAnchors(T, []),
   roofZ: ROOF,
   scrW: 1,
   scrP: (t, gf) => { const h = SG0 + 0.004 + (SG1 - SG0 - 0.008) * t, e = edge(1, h, 0); return [e[0] + SN[0] * SD, gf * e[1] * 0.96, h + SN[1] * SD]; },
@@ -469,7 +466,7 @@ const doc = {
       gunmetal: { rgb: [58, 62, 70], livery: 'fixed', mat: 'steel', tex: 'cast', note: 'the lift pads' },
     },
     partIds: true,
-    truck: { ...T, geom: { ...L, markF: MARK_F, markZ: MARK_Z }, beacon: [BEACON_F, ROOF + 0.034],
+    truck: { ...T, stacks: A.stacks, geom: { ...L, markF: MARK_F, markZ: MARK_Z }, beacon: [BEACON_F, ROOF + 0.034],
       pods: [...padRows, ...T.pods.filter((q) => q[3])] },
     parts: [
       { kind: 'group', name: 'tractor', parts: tractor },

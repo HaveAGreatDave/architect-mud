@@ -79,7 +79,7 @@ export const posed = (t) => t && t.x != null && t.y != null;
 // or on the depot floor — reads it from there.
 //
 // ⚠ AND `deck` IS THE FIELD, NOT `base`. The solo mesh is the whole rig with the tractor spliced
-// off, and every face left over is stamped `deck` (see buildTruck) — so a livery that set only
+// off, and every face left over is stamped `deck` (see finishTruck in aircraft3d.js) — so a livery that set only
 // `base` would paint a box that is entirely made of deck faces exactly nothing. Both are set,
 // because nothing downstream should have to know which one a given mesh happens to read.
 //
@@ -179,7 +179,7 @@ export async function dropTrailer(trailerId, zoneId, pose = null) {
 // ⚠ THE CACHE IS PER ZONE AND DELIBERATELY NOT GLOBAL. A yard nobody is standing in does not need
 // to be in memory, and a stale row for a zone with no driver in it can hurt nobody.
 // WHICH BOX TO DRAW. The mesh's trailer length is a property of the TRUCK SHAPE it was authored
-// against (`deck` in TRUCK_SHAPES), and a trailer row carries no shape of its own — so the drawn
+// against (`truck.deck` in the mesh file), and a trailer row carries no shape of its own — so the drawn
 // length is derived from the one number that already says how big the thing is, its rated capacity.
 // A flatbed is short, a tanker is long, and nobody had to author a second table to say so.
 const meshShapeFor = (t) => {

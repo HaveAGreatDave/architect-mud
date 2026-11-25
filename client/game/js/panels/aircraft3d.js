@@ -7,7 +7,7 @@
 const clampN = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
 const mix3 = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 export const hex2rgb = (h) => { if (typeof h !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(h)) return null; const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
-import { FW_ROWS, TRUCK_ROWS, BOAT_ROWS } from '../../../shared/vehicle-models.js';
+import { FW_ROWS, BOAT_ROWS } from '../../../shared/vehicle-models.js';
 // Shared with interior-shell.js: a retuned beam, sill or roofline moves the room you sit in too. Never redeclare these here.
 import { boatGeom } from '../../../shared/boat-house.js';
 import { rasterFaces, blitRaster, depthAt, maskRaster, depthWinAt } from './model-raster.js';
@@ -19,7 +19,7 @@ import { paintRain2D, paintSnow2D, paintFogBand, paintFlash2D, precipKind } from
 import {
   cross3, norm3, lerp3 as _lerp3, addTube, addStrut, pushWheel, addSpat, addFaired, pushPanel,
   pushCtrlSurface, addMissileBody, ceFoil, cubFoil, CP_TW as _CP_TW, CP_TH as _CP_TH,
-  compileMesh, resolveRotors, wingTipStation, animFacePoints,
+  compileMesh, resolveRotors, wingTipStation, animFacePoints, carryMeshSource,
 } from '../../../shared/vehicle-mesh.js';
 import { MESH_ROWS } from '../../../shared/vehicle-meshes.js';
 import { defaultLivery, aircraftLiveryModel } from '../../../shared/livery-sets.js';
@@ -163,7 +163,7 @@ export function faceBaseRgb(face, pal) {
 }
 function paintRgb(face, pal) {
   const role = face.role;
-  // `pk` is a paint key buildTruck stamps by identity against its CHROME/GLOW consts. Absent on aircraft.
+  // `pk` is a paint key a truck file's parts carry on their brightwork and running light. Absent on aircraft.
   if (face.pk === 'bright') return pal.chrome === 0 ? (pal.hw || [44, 48, 54]) : (pal.bright || face.tint || [226, 232, 240]);
   if (face.pk === 'glow') return pal.glow || face.tint || [96, 196, 214];
   // A hull bottom wears trim (stamped by buildBoat).
@@ -1912,20 +1912,20 @@ function sinkDisc(at, mdl, r, spin, disc, spool, parked, blades, lead, bladeFade
 
 // ── Tuning the parameter tables from outside ──
 // The Modelshop overrides a row with setVehicleParams() and gets the real builder back.
-// Every read goes through fwParams()/truckShape()/boatShape(), or a slider moves half the vehicle.
+// Every read goes through fwParams()/boatShape(), or a slider moves half the vehicle. Trucks have no
+// row: they're mesh files, and the Modelshop edits them through setMeshOverride.
 // ⚠ A change must bust the mesh cache: aircraftFaces' memo key doesn't include the params.
 // Design-time only: an override lives in one tab until cleared or reloaded.
-const _vehOverride = { fw: new Map(), truck: new Map(), boat: new Map() };
+const _vehOverride = { fw: new Map(), boat: new Map() };
 function overrideTable(kind) {
   const t = _vehOverride[kind];
   if (!t) throw new Error('unknown vehicle parameter table: ' + kind);
   return t;
 }
 // The one place that names the tables.
-const KIND_TABLE = () => ({ fw: FW_PARAMS, truck: TRUCK_SHAPES, boat: BOAT_SHAPES });
+const KIND_TABLE = () => ({ fw: FW_PARAMS, boat: BOAT_SHAPES });
 function baseRow(kind, id) { return (KIND_TABLE()[kind] || {})[id] || null; }
 function fwParams(cls) { return _vehOverride.fw.get(cls) || FW_PARAMS[cls] || null; }
-function truckShape(id) { return _vehOverride.truck.get(id) || TRUCK_SHAPES[id] || null; }
 function boatShape(id) { return _vehOverride.boat.get(id) || BOAT_SHAPES[id] || null; }
 // A hull that floats: the renderer fits it to the drawn sea and keeps a cast shadow off the water.
 export function isBoatClass(cls) { return !!boatShape(cls); }
@@ -1979,14 +1979,14 @@ export function wingtipStation(cls) {
   return [(tip[0] + tipB[0]) / 2, p.span, tip[2]];
 }
 
-// A road vehicle's lamp stations, in mesh space. ⚠ Every number comes from truckLampGeom (carried into a
-// truck's mesh file as `truck.geom`), which the lenses are built from: a second opinion drifts off it.
+// A road vehicle's lamp stations, in mesh space. ⚠ Every number comes from the truck file's `truck.geom`,
+// which the lenses were laid out from: a second opinion drifts off it.
 export function vehicleLamps(cls, variant = '') {
   if (cls !== 'truck') return null;
   // Same variant strip as the mesh, so a fitted rig doesn't read as another type.
   const typeId = String(variant).replace(/[~^].*$/, '').split('+')[0];
   const FITS = new Set(String(variant).match(/\^([a-z.]+)/)?.[1].split('.') || []);
-  // From the mesh file's `truck` block, or the builder row's same numbers (truckDims).
+  // From the mesh file's `truck` block (truckDims).
   const S = truckDims(variant || 'hauler');
   const L = S.geom;
   // Into the mesh's drawn frame: build (or hit the cache for) the variant so its shift and settle are known.
@@ -2018,33 +2018,6 @@ export function vehicleLamps(cls, variant = '') {
     // The beacon: a station and no cone.
     // A body that moves the beacon fitting says where (`truck.beacon`); the stock trucks have it on the cab back.
     beacon: FITS.has('bc') ? (S.beacon ? at(S.beacon[0], 0, S.beacon[1]) : at(L.cab0 - 0.006, 0, S.hi + S.sleeper + 0.034)) : null,
-  };
-}
-
-// ── Fifth-wheel gap ──
-// Derived from the box's swing so its nose corner clears the cab at every angle (reach = noseHalf * sin phi
-// peaks at 90 degrees). ⚠ Bought with a tapered nose (NOSE_TAPER), not length: a longer frame makes the
-// depot's painter's sort lose a headlamp (shapes:smoke catches it).
-const NOSE_TAPER = 0.70;                  // the box's front face, as a fraction of its body width
-
-const PLATE_BACK = 0.06;                  // the plate's centre, aft of the frame's front end
-// The margin is what gives the smoke check something to measure.
-const SWING_MARGIN = 1.15;
-const boxNoseHalf = (S) => S.w * 1.02 * NOSE_TAPER;
-const frameBack = (S) => PLATE_BACK + boxNoseHalf(S) * SWING_MARGIN;
-
-// Lamp stations from a truck's shape; buildTruck and vehicleLamps both read this.
-function truckLampGeom(S) {
-  const nose1 = 0.40, nose0 = nose1 - S.nose, cab1 = nose0, cab0 = cab1 - S.cab;
-  const BUMP_TOP = 0.058, BUMP_F = nose1 + 0.012;
-  const lampF = BUMP_F + 0.004, lampZ = BUMP_TOP + 0.010;
-  const scrF1 = nose0 + 0.038, scrHi = S.hi * 0.985;
-  return {
-    nose1, nose0, cab1, cab0, frame0: cab0 - frameBack(S),
-    BUMP_TOP, BUMP_F, lampF, lampZ, lampG: S.w * 0.86,
-    // One glow between the two stacked lenses.
-    lampMidZ: lampZ + 0.019,
-    markF: scrF1 + 0.026, markZ: scrHi + 0.005,
   };
 }
 
@@ -2290,27 +2263,6 @@ export function clearVehicleFacesCache() {
 }
 const TRUCK_CACHE_MAX = 96;
 const _truckKeys = [];
-
-// ── Trucks (THE LONG HAUL) ──
-// Ground vehicles in the same normalised [fore, right, up] box, so CONTACT_SIZE scales them.
-// Each row is a proportion set: the same builder runs per type, so a new truck is a row, never a function.
-//  cab     , how far forward the cab box runs (a cab-over has almost no nose; a conventional does)
-//  nose    , bonnet length; 0 makes it a cab-over, which is what the little ones are
-//  hi      , cab roof height, the single strongest read of size at distance
-//  sleeper , 0 for a day cab; the long-haul rigs get a hump you can see from a mile off
-//  axles   , rear axle groups under the tractor
-//  stacks  , vertical exhaust behind the cab: nothing says heavy truck faster
-//  w       , half-width
-//  aero    , 0..1 how much roof fairing the cab wears (0 is a bare flat-top, 1 a full wind kit)
-//  skirt   , 1 if the tractor has side fairings between the steps and the drives
-//  lamps   , 0..1 how much LIGHT the thing wears: marker rows, a bar on the bumper, beltline strip
-//  rig     , what a BOBTAIL carries on its bare deck ('cage' scrap hauler, 'rack' strapped load,
-//             null for the long-haul tractors, which run clean because they are built to pull)
-// ⚠ `hi` against `2w` sets how tall a rig reads; trailers read against `deck` (length), and `tTop` derives from `hi`.
-// ⚠ Collision is unaffected: the CFIT sweep probes its own `clearZ` (windshield.js), so this table stays a visual dial.
-// ⚠ `trim` (money spent, identity) gates brightwork; `fine` (distance, LOD) gates structure every rig has.
-// Rows are authored in content/vehicle_models/truck_*.json.
-const TRUCK_SHAPES = TRUCK_ROWS;
 
 // ── Race boats (THE BASIN) ──
 // Rows in content/vehicle_models/boat_*.json, built from boxes and lofted stations.
@@ -3493,721 +3445,9 @@ function buildBoat(id = 'hydro', detail = 1) {
   }
   return faces;
 }
-// `variant` is `<typeId>[+t]` (trailer); `~p` parked, `~s` solo trailer, `^...` fittings.
-// `fine` (detail 1) adds detail; the silhouette is the same at detail 0.
-function buildTruck(variant = 'hauler', detail = 1) {
-  const str = String(variant);
-  // Parked: the rig settles onto its lifters and the emitters go out.
-  const parked = str.includes('~p');
-  // Solo: a dropped trailer, built as the whole rig with the tractor spliced off so it can't drift from the towed one.
-  const solo = str.includes('~s');
-  // ⚠ Strip the fitting suffix before reading the type, or every fitted rig renders bobtail.
-  const [typeId, tail] = str.replace(/[~^].*$/, '').split('+');
-  const S = truckShape(typeId) || truckShape('hauler');
-  const hitched = tail === 't' || solo;   // solo IS a trailer: the box gets built, the tractor is spliced off after
-  const fine = detail >= 1;
-  // Trim ladder: rich(n) asks whether money went on this truck.
-  const TRIM = S.trim ?? 0.5;
-  const rich = (n) => fine && TRIM >= n;
-  const faces = [];
-  const podAt = [];                        // filled by pod(); published through TRUCK_META below
-  let partSeq = 0;                         // see the ⚠ in `box` — one id per convex sub-object
-  const V = (f, g, h) => [f, g, h];
-  // A box as six quads with baked top-lit shades. `gc` is its lateral centre.
-  const box = (f0, f1, w, z0, z1, role = 'body', tint = null, gc = 0) => {
-    const gl = gc - w, gr = gc + w;
-    const A = [V(f0, gl, z0), V(f0, gr, z0), V(f0, gr, z1), V(f0, gl, z1)];
-    const B = [V(f1, gl, z0), V(f1, gr, z0), V(f1, gr, z1), V(f1, gl, z1)];
-    // ⚠ Every box is one part, assigned here at emission; the renderer sorts parts (see sortTruckFaces).
-    const part = ++partSeq;
-    // ⚠ And each face carries its box's centre `cen`, for backface culling and the sun normal. Measured from the
-    // model origin instead, boxes forward of the axle were lit backwards. A box is convex, so away from `cen` is outward.
-    const cen = [(f0 + f1) / 2, gc, (z0 + z1) / 2];
-    const quad = (p, sh) => { const q = { role, sh, p, part, cen }; if (tint) { q.tint = tint; const k = PK(tint); if (k) q.pk = k; } faces.push(q); };
-    quad([A[3], A[2], B[2], B[3]], 1.00);                    // roof
-    quad([A[0], B[0], B[1], A[1]], 0.42);                    // underside
-    quad([A[0], A[3], B[3], B[0]], 0.72);                    // left flank
-    quad([A[1], B[1], B[2], A[2]], 0.62);                    // right flank
-    quad([B[0], B[3], B[2], B[1]], 0.80);                    // front face
-    quad([A[0], A[1], A[2], A[3]], 0.55);                    // back face
-    // The port (scripts/shapes/truck-meshes.mjs) records each box as the mesh part that draws it.
-    if (_truckRec) {
-      const r = { kind: 'box', f: [f0, f1], w, z: [z0, z1] };
-      if (!Object.is(gc, 0)) r.g = gc;
-      if (role !== 'body') r.role = role;
-      if (tint) { r.tint = tint.slice(); const k = PK(tint); if (k) r.pk = k; }
-      _truckRec.parts.push(r);
-    }
-  };
-  // A free polygon (screen, fairing wedge, chin spoiler), its own part. `uv`/`art` feed drawCanopyGlass.
-  const poly = (role, sh, pts, tint = null, uv = null, art = null) => {
-    const q = { role, sh, p: pts.map(p => V(p[0], p[1], p[2])), part: ++partSeq };
-    if (tint) { q.tint = tint; const k = PK(tint); if (k) q.pk = k; }
-    if (uv) { q.uv = uv; q.art = art || 'truckcab'; }
-    faces.push(q);
-    if (_truckRec) {
-      const fc = { role, sh, p: q.p.map((v) => v.slice()) };
-      if (q.tint) { fc.tint = q.tint.slice(); if (q.pk) fc.pk = q.pk; }
-      if (q.uv) { fc.uv = q.uv.map((u) => u.slice()); fc.art = q.art; }
-      _truckRec.parts.push({ kind: 'poly', faces: [fc] });
-    }
-  };
-  const UV_FULL = [[0, 1], [1, 1], [1, 0], [0, 0]];
-  // ── The lifters ── Hover pods, not wheels: chamfered housing, a lit emitter band, hung off an arm.
-  // `len` stretches a pod fore-aft. GLOW matches the road wash the lamp layer paints.
-  const GLOW = [128, 226, 255];
-  const CHROME = [226, 232, 240];        // bright plate — `window` role so it takes the specular pass
-  // CHROME and ACCENT are paint-keyed by identity (PK), so the booth can recolour brightwork and the running
-  // light. The lifter emitter keeps GLOW: it's propulsion, and the road wash shares its colour.
-  const ACCENT = [96, 196, 214];         // the decorative running light — beltline strip, roof scanner
-  const PK = (t) => (t === CHROME ? 'bright' : t === ACCENT ? 'glow' : null);
-  const HOVER = TRUCK_HOVER;
-  // Lifter half-width, published for the snow tracks (`trackGauge` in windshield.js).
-  const PW = 0.024;
-  const pod = (f, g, r = 0.048, len = 1, deck = false) => {
-    const s = Math.sign(g || 1), L = r * len;
-    podAt.push([f, g, r * len, deck, PW]);  // where a lifter ended up, how wide it is, and on WHICH body — the lamp layer pools light under each one and has to swing the trailer's with the trailer
-    const z0 = 0.016, z1 = z0 + r * 1.24;                                                       // the pod floats clear of the road
-    box(f - L * 0.20, f + L * 0.20, 0.009, z1 - 0.006, 0.066, 'strut', null, g - s * 0.013);    // swing arm up into the frame
-    box(f - L, f + L, PW, z0 + r * 0.34, z1, 'gear', null, g);                                  // housing
-    box(f - L * 0.88, f + L * 0.88, 0.018, z0, z0 + r * 0.36, 'gear', null, g);                 // shroud, drawn in under it
-    if (!fine) return;
-    // Chrome hubcap band.
-    box(f - L * 0.86, f + L * 0.86, 0.0255, z0 + r * 0.72, z0 + r * 0.92, 'window', CHROME, g);
-    if (!parked) box(f - L * 0.80, f + L * 0.80, 0.025, z0 + r * 0.26, z0 + r * 0.38, 'window', GLOW, g);   // the emitter band
-    box(f - L * 0.62, f + L * 0.62, 0.026, z0 + r * 0.50, z0 + r * 0.64, 'strut', null, g);     // intake louvre on the flank
-    // ⚠ No ground patch here: geometry under a pod reads as a slab on the road. Light goes through `podGlow` in vehicleLamps.
-  };
-  // ── Retro-future ornament ── A chrome bullet: three shrinking boxes.
-  const bullet = (f0, len, g, r, z) => {
-    for (let i = 0; i < 3; i++) {
-      const t0 = f0 + (len * i) / 3, k = 1 - i * 0.3;
-      box(t0, t0 + len / 3, r * k, z - r * k, z + r * k, 'window', CHROME, g);
-    }
-  };
-  // A raked fin with a lens.
-  const fin = (f0, f1, g, z0, z1, lens) => {
-    poly('body', 0.94, [[f0, g, z0], [f1, g, z0], [f1, g, z0 + (z1 - z0) * 0.25], [f0, g, z1]]);
-    if (lens) box(f0 + 0.004, f0 + 0.016, 0.006, z1 - 0.020, z1 - 0.006, 'window', lens, g);
-  };
-
-  // Laid out backwards from the nose, so a bigger truck grows from one anchor.
-  const nose1 = 0.40, nose0 = nose1 - S.nose;              // bonnet
-  const cab1 = nose0, cab0 = cab1 - S.cab;                 // cab box
-  const frame0 = cab0 - frameBack(S);                      // frame rails behind the cab — see frameBack
-  const deckTop = 0.115;
-
-  // ── Chassis ── Two rails with daylight between.
-  for (const g of [-1, 1]) box(frame0 - 0.01, cab1 - 0.02, 0.016, 0.028, 0.072, 'strut', null, g * S.w * 0.62);
-  box(frame0, cab0 + 0.02, S.w * 0.80, 0.050, 0.070, 'body');                 // deck plate over the rails
-  // Fifth wheel. ⚠ It reaches under the box: the articulation pivots on this plate's middle.
-  const PIN_F0 = frame0 - 0.01, PIN_F1 = frame0 + 0.13;
-  box(PIN_F0, PIN_F1, S.w * 0.62, 0.070, 0.082, 'strut');
-
-  // ── Cab ────────────────────────────────────────────────────────────────────
-  box(cab0, cab1, S.w, 0.02, S.hi, 'body');                // cab
-  if (S.sleeper) {
-    box(cab0 + 0.005, cab1 - 0.055, S.w * 0.95, S.hi, S.hi + S.sleeper, 'body');
-    for (const g of [-1, 1]) box(cab0 + 0.045, cab0 + 0.075, 0.003, S.hi + 0.012, S.hi + S.sleeper - 0.008, 'glass', [44, 66, 84], g * S.w * 0.95);
-  }
-  // The screen is a raked quad with a UV ('truckcab' canopy art).
-  const scrLo = S.hi * 0.52, scrHi = S.hi * 0.985;
-  const scrF0 = nose0 - 0.004, scrF1 = nose0 + 0.038;       // bottom station, top station
-  const scrW = S.w * 0.94;
-  poly('glass', 0.92, [[scrF0, -scrW, scrLo], [scrF0, scrW, scrLo], [scrF1, scrW, scrHi], [scrF1, -scrW, scrHi]],
-    [58, 84, 104], UV_FULL, 'truckcab');
-  for (const g of [-1, 1]) poly('strut', 0.78, [[scrF0, g * scrW, scrLo], [scrF0, g * S.w, scrLo], [scrF1, g * S.w, scrHi], [scrF1, g * scrW, scrHi]]);
-  // ⚠ The raked screen leans past the cab, so three quads close the wedge behind it. No `cen`: two-sided sheets.
-  const scrT = (cab1 - scrF0) / (scrF1 - scrF0), scrZc = scrLo + (scrHi - scrLo) * scrT;
-  poly('body', 0.90, [[scrF1, -S.w, scrHi], [scrF1, S.w, scrHi], [cab1, S.w, S.hi], [cab1, -S.w, S.hi]]);   // the header roof, glass top back to the roof lip
-  for (const g of [-1, 1]) poly('body', 0.70, [[scrF1, g * S.w, scrHi], [cab1, g * S.w, S.hi], [cab1, g * S.w, scrZc]]);   // and the gusset that shuts each end of it
-  // Sun visor.
-  poly('body', 0.96, [[scrF1, -S.w, scrHi], [scrF1, S.w, scrHi], [scrF1 + 0.030, S.w * 0.94, scrHi + 0.004], [scrF1 + 0.030, -S.w * 0.94, scrHi + 0.004]]);
-  // Marker lamps, `window` role so they read lit after dark.
-  if (fine && S.lamps > 0.2) {
-    for (let i = -2; i <= 2; i++) {
-      box(scrF1 + 0.022, scrF1 + 0.030, 0.008, scrHi + 0.001, scrHi + 0.009, 'window', [236, 176, 96], i * S.w * 0.34);
-    }
-  }
-  // Side glass: door window plus quarter light.
-  for (const g of [-1, 1]) {
-    box(cab1 - 0.105, cab1 - 0.048, 0.004, S.hi * 0.54, S.hi * 0.88, 'glass', [50, 74, 92], g * S.w);
-    box(cab1 - 0.040, cab1 - 0.014, 0.004, S.hi * 0.54, S.hi * 0.84, 'glass', [46, 68, 86], g * S.w);
-    if (!fine) continue;
-    box(cab1 - 0.048, cab1 - 0.040, 0.006, S.hi * 0.50, S.hi * 0.90, 'strut', null, g * S.w);   // the B-post between them
-    // Grab handle and steps.
-    box(cab1 - 0.048, cab1 - 0.042, 0.005, S.hi * 0.16, S.hi * 0.48, 'strut', null, g * (S.w + 0.006));
-    box(cab1 - 0.100, cab1 - 0.030, 0.014, 0.030, 0.044, 'strut', null, g * (S.w * 0.92));
-  }
-  // Beltline running-light strip.
-  if (fine && S.lamps > 0.5) {
-    for (const g of [-1, 1]) box(cab0 + 0.02, cab1 - 0.02, 0.003, S.hi * 0.47, S.hi * 0.505, 'window', ACCENT, g * S.w);
-  }
-  // ── Roof fairing ──
-  if (S.aero > 0.05) {
-    const rTop = S.hi + S.sleeper, fh = rTop + 0.030 * S.aero;
-    poly('body', 1.00, [[cab0 - 0.055 * S.aero, -S.w * 0.92, fh], [cab0 - 0.055 * S.aero, S.w * 0.92, fh],
-                        [cab1 - 0.06, S.w * 0.9, rTop], [cab1 - 0.06, -S.w * 0.9, rTop]]);
-    const aeroBack = cab0 - 0.055 * S.aero, aeroLow = 0.02 + rTop * 0.4;
-    for (const g of [-1, 1]) poly('body', 0.66, [[aeroBack, g * S.w * 0.92, fh], [cab1 - 0.06, g * S.w * 0.9, rTop],
-                        [cab1 - 0.06, g * S.w * 0.9, rTop - 0.02], [aeroBack, g * S.w * 0.92, aeroLow]]);
-    // ⚠ The fairing's back is closed, or you see into the hollow from behind the cab.
-    poly('body', 0.52, [[aeroBack, -S.w * 0.92, fh], [aeroBack, S.w * 0.92, fh],
-                        [aeroBack, S.w * 0.92, aeroLow], [aeroBack, -S.w * 0.92, aeroLow]]);
-    // Road-scanner pod.
-    box(cab1 - 0.10, cab1 - 0.07, 0.016, rTop, rTop + 0.012, 'strut');
-    box(cab1 - 0.095, cab1 - 0.078, 0.010, rTop + 0.012, rTop + 0.018, 'window', ACCENT);
-  }
-  // ── Nose ───────────────────────────────────────────────────────────────────
-  if (S.nose > 0.001) {
-    box(nose0, nose1 - 0.012, S.w * 0.93, 0.045, 0.135, 'body');    // bonnet
-    // Chamfered bonnet top.
-    poly('body', 1.00, [[nose0, -S.w * 0.93, 0.135], [nose0, S.w * 0.93, 0.135],
-                        [nose1 - 0.012, S.w * 0.88, 0.126], [nose1 - 0.012, -S.w * 0.88, 0.126]]);
-    box(nose1 - 0.014, nose1, S.w * 0.84, 0.050, 0.124, 'strut');   // the grille surround
-    // Vertical chrome teeth. ⚠ Nothing on the face may share a fore-aft slice with the panel behind it: the
-    // painter's sort gives each face one depth, so the panel lands among them.
-    for (let i = -3; fine && i <= 3; i++) {
-      box(nose1 + 0.001, nose1 + 0.006, 0.006, 0.060, 0.118, 'window', CHROME, i * S.w * 0.20);
-    }
-    if (fine) bullet(nose1 + 0.001, 0.030, 0, 0.030, 0.090);        // the nose cone in the grille's mouth, ahead of it for the same reason
-  }
-  // Cab-over face: recessed radiator, chrome surround and teeth standing clear of it (same rule), and a bullet.
-  if (S.nose <= 0.001) {
-    const gz0 = 0.070, gz1 = scrLo - 0.012;             // the aperture, floor to the screen's sill
-    box(nose1 - 0.002, nose1 + 0.004, S.w * 0.80, gz0, gz1, 'strut');            // the recess, dark and behind everything
-    if (fine) {
-      for (const g of [-1, 1]) box(nose1 + 0.005, nose1 + 0.010, 0.007, gz0, gz1, 'window', CHROME, g * S.w * 0.80);
-      box(nose1 + 0.005, nose1 + 0.010, S.w * 0.81, gz1 - 0.008, gz1, 'window', CHROME);
-      box(nose1 + 0.005, nose1 + 0.010, S.w * 0.81, gz0, gz0 + 0.007, 'window', CHROME);
-    }
-    for (let i = -3; fine && i <= 3; i++) {
-      box(nose1 + 0.006, nose1 + 0.011, 0.006, gz0 + 0.008, gz1 - 0.009, 'window', CHROME, i * S.w * 0.19);
-    }
-    if (fine) bullet(nose1 + 0.006, 0.026, 0, 0.026, (gz0 + gz1) / 2);
-  }
-  box(nose1 - 0.006, nose1 + 0.012, S.w * 1.02, 0.030, 0.058, 'strut');
-  // The chin's lower lip sits above parked ride height, or the nose goes through the shed floor.
-  poly('body', 0.5, [[nose1 + 0.012, -S.w, 0.030], [nose1 + 0.012, S.w, 0.030],
-                     [nose1 - 0.010, S.w, 0.019], [nose1 - 0.010, -S.w, 0.019]]);
-  // Headlamps: a stacked pair in a chromed pod. ⚠ A lens must clear the bumper in z and stand ahead of it in f on
-  // every variant; shapes:smoke checks all four. Positions are shared with vehicleLamps (truckLampGeom).
-  const LG = truckLampGeom(S);
-  const BUMP_TOP = LG.BUMP_TOP, BUMP_F = LG.BUMP_F;
-  const lampG = LG.lampG, lampF = LG.lampF, lampZ = LG.lampZ;
-  for (const g of [-1, 1]) {
-    box(lampF - 0.016, lampF, 0.030, lampZ - 0.006, lampZ + 0.042, 'strut', null, g * lampG);           // the pod
-    // Brow starts at the pod's front plane (same rule as the teeth).
-    box(lampF, lampF + 0.009, 0.032, lampZ + 0.040, lampZ + 0.048, 'window', CHROME, g * lampG); // its chrome brow
-    box(lampF, lampF + 0.007, 0.026, lampZ + 0.020, lampZ + 0.038, 'window', [242, 234, 196], g * lampG); // upper lens
-    box(lampF, lampF + 0.007, 0.026, lampZ, lampZ + 0.017, 'window', [238, 228, 182], g * lampG);        // lower lens
-    // ⚠ ACCENT, not GLOW: this strip is decoration, so it takes the livery's `glow`.
-    if (fine && S.lamps > 0.4) box(lampF + 0.002, lampF + 0.008, 0.028, lampZ - 0.008, lampZ - 0.002, 'window', ACCENT, g * lampG);
-  }
-  // Dagmars, on trucks somebody paid for.
-  if (rich(0.4)) for (const g of [-1, 1]) bullet(BUMP_F - 0.004, 0.026, g * S.w * 0.44, 0.013, 0.044);
-  // Tow hooks, on every truck.
-  if (fine) for (const g of [-1, 1]) {
-    box(BUMP_F - 0.002, BUMP_F + 0.008, 0.010, 0.034, 0.040, 'strut', null, g * S.w * 0.62);
-    box(BUMP_F + 0.006, BUMP_F + 0.010, 0.004, 0.030, 0.044, 'strut', null, g * S.w * 0.62);
-  }
-  // The plate. ⚠ Not an off-white: truckLampSmoke finds lenses by colour.
-  if (fine) box(BUMP_F + 0.001, BUMP_F + 0.004, 0.024, 0.036, 0.052, 'window', [158, 168, 152], -S.w * 0.16);
-  if (fine && S.lamps > 0.7) {
-    for (let i = -1; i <= 1; i++) box(nose1 + 0.006, nose1 + 0.013, 0.013, 0.030, 0.042, 'window', [220, 226, 236], i * S.w * 0.20);
-  }
-  // ── Stacks, tanks, mirrors ──
-  for (let i = 0; i < S.stacks; i++) {
-    const g = (S.stacks === 1 ? 0 : (i ? 1 : -1)) * S.w * 0.94;
-    const top = S.hi + S.sleeper + 0.062;
-    box(cab0 - 0.013, cab0 + 0.013, 0.012, 0.055, top, 'strut', null, g);
-    box(cab0 - 0.016, cab0 + 0.016, 0.015, 0.085, 0.135, 'strut', null, g);      // the perforated heat shield
-    // A flared chrome mouth with three fins.
-    box(cab0 - 0.018, cab0 + 0.018, 0.017, top - 0.014, top, 'window', CHROME, g);
-    if (fine) for (const s of [-1, 1]) {
-      poly('strut', 0.7, [[cab0 + s * 0.013, g - 0.012, top - 0.052], [cab0 + s * 0.013, g + 0.012, top - 0.052],
-                          [cab0 + s * 0.024, g + 0.012, top - 0.030], [cab0 + s * 0.024, g - 0.012, top - 0.030]]);
-    }
-  }
-  for (const g of [-1, 1]) {
-    box(cab0 - 0.082, cab0 - 0.012, 0.021, 0.034, 0.088, 'strut', null, g * S.w * 0.88);      // saddle tank
-    box(cab0 - 0.082, cab0 - 0.012, 0.023, 0.056, 0.064, 'strut', null, g * S.w * 0.88);      // its chrome strap
-    if (S.skirt) box(frame0 + 0.02, cab0 - 0.085, 0.010, 0.032, 0.078, 'body', null, g * S.w * 0.9);   // side fairing
-  }
-  // Mirrors with glass.
-  for (const g of [-1, 1]) {
-    box(cab1 - 0.034, cab1 - 0.012, 0.005, S.hi * 0.54, S.hi * 0.90, 'strut', null, g * (S.w + 0.024));
-    box(cab1 - 0.032, cab1 - 0.016, 0.002, S.hi * 0.58, S.hi * 0.86, 'glass', [70, 92, 108], g * (S.w + 0.028));
-    box(cab1 - 0.030, cab1 - 0.024, 0.024, S.hi * 0.70, S.hi * 0.74, 'strut', null, g * (S.w + 0.012));   // the arm itself
-  }
-
-  // Air horns: three boxes of growing radius (a bell), lying fore-aft.
-  if (fine && S.stacks > 0) {
-    const hz = S.hi + S.sleeper + 0.010, hF = cab1 - 0.150;
-    for (const g of [-1, 1]) {
-      const gg = g * S.w * 0.34;
-      for (let i = 0; i < 3; i++) {
-        const r = 0.008 + i * 0.005, f0 = hF + i * 0.026;
-        box(f0, f0 + 0.026, r, hz - r, hz + r, 'window', CHROME, gg);
-      }
-      box(hF - 0.006, hF + 0.014, 0.005, hz - 0.014, hz - 0.004, 'strut', null, gg);   // the mount it sits in
-    }
-  }
-  // Cab steps.
-  if (fine) {
-    for (const g of [-1, 1]) {
-      const gg = g * (S.w * 0.92);
-      for (let i = 0; i < 2; i++) {
-        const z = 0.030 + i * 0.026;
-        // Chromed on a rich rig, bare steel otherwise.
-        box(cab1 - 0.070, cab1 - 0.022, 0.014, z, z + 0.005, rich(0.7) ? 'window' : 'strut', rich(0.7) ? CHROME : null, gg);
-        box(cab1 - 0.068, cab1 - 0.064, 0.003, z + 0.005, z + 0.028, 'strut', null, gg);   // the hanger up to the sill
-      }
-    }
-  }
-  // Lifters: a steering pod, then one long or two shorter drive pods.
-  const gOut = S.w * 1.02, driveLen = S.axles > 1 ? 0.95 : 1.5;
-  for (const g of [-gOut, gOut]) {
-    pod(nose0 + 0.035, g, 0.046, 1.05);
-    for (let a = 0; a < S.axles; a++) pod(frame0 + 0.055 + a * 0.105, g, 0.052, driveLen);
-  }
-  // ── The chrome ── Spear, tail fins, whip aerial. ⚠ `rich`, not `fine`: it's the money on the truck.
-  if (rich(0.4)) {
-    for (const g of [-1, 1]) {
-      // The spear tapers aft.
-      box(cab1 - 0.020, cab0 + 0.010, 0.004, S.hi * 0.36, S.hi * 0.40, 'window', CHROME, g * (S.w + 0.002));
-      box(cab0 + 0.010, frame0 + 0.02, 0.004, S.hi * 0.33, S.hi * 0.355, 'window', CHROME, g * (S.w * 0.92));
-    }
-  }
-  if (rich(0.7)) {
-    for (const g of [-1, 1]) {
-      const fTop = S.hi + S.sleeper;
-      fin(cab0 - 0.014, cab0 + 0.030, g * S.w * 0.99, fTop * 0.62, fTop * 0.62 + 0.052 + S.sleeper, [214, 74, 58]);
-    }
-    const aTop = S.hi + S.sleeper + 0.085;
-    box(cab1 - 0.030, cab1 - 0.026, 0.003, S.hi * 0.9, aTop, 'strut', null, -(S.w + 0.020));
-    bullet(cab1 - 0.032, 0.012, -(S.w + 0.020), 0.006, aTop);
-  }
-
-  // ── Hardware every truck has ── On `fine`, not `rich`: hinges, hoses, mudflaps.
-  if (fine) {
-    for (const g of [-1, 1]) {
-      const gw = g * S.w;
-      // Door shut lines, hinges, handle.
-      for (const f of [cab1 - 0.112, cab1 - 0.008]) box(f - 0.002, f + 0.002, 0.003, S.hi * 0.14, S.hi * 0.90, 'strut', null, gw + g * 0.001);
-      for (const z of [S.hi * 0.28, S.hi * 0.74]) box(cab1 - 0.116, cab1 - 0.106, 0.004, z, z + 0.014, 'strut', null, gw + g * 0.003);   // hinges
-      box(cab1 - 0.030, cab1 - 0.014, 0.004, S.hi * 0.44, S.hi * 0.48, 'strut', null, gw + g * 0.004);                                    // handle
-      const flapF = frame0 + 0.055 + (S.axles - 1) * 0.105 + 0.075;
-      // Mudflap. ⚠ Its bottom clears the lifters when parked (shapes:smoke checks).
-      box(flapF, flapF + 0.004, 0.030, 0.018, 0.052, 'strut', null, g * (S.w * 1.02));
-      box(cab0 - 0.040, cab0 - 0.030, 0.008, 0.088, 0.093, 'strut', null, g * S.w * 0.88);
-    }
-    // Wipers.
-    for (const g of [-1, 1]) {
-      const wg = g * S.w * 0.40;
-      poly('strut', 0.62, [[scrF0 + 0.004, wg - 0.030, scrLo + 0.006], [scrF0 + 0.004, wg + 0.030, scrLo + 0.006],
-                           [scrF0 + 0.010, wg + 0.030, scrLo + 0.020], [scrF0 + 0.010, wg - 0.030, scrLo + 0.020]]);
-    }
-    // Air and electrical lines off the back of the cab, three segments.
-    for (const g of [-1, 1]) {
-      const gg = g * S.w * 0.30;
-      for (let i = 0; i < 3; i++) {
-        const f0 = frame0 + 0.004 + i * 0.016;
-        box(f0, f0 + 0.016, 0.004, 0.086 - i * 0.010, 0.092 - i * 0.010, 'strut', null, gg);
-      }
-    }
-    // Catwalk grating.
-    for (let i = 0; i < 4; i++) {
-      const f = frame0 + 0.016 + i * 0.018;
-      box(f, f + 0.006, S.w * 0.74, 0.070, 0.073, 'strut');
-    }
-    // Deck-corner markers.
-    for (const g of [-1, 1]) box(frame0 + 0.004, frame0 + 0.012, 0.006, 0.072, 0.078, 'window', [236, 176, 96], g * S.w * 0.78);
-  }
-  // ── Hardware only the expensive ones have ──
-  if (rich(0.7)) {
-    for (const g of [-1, 1]) {
-      const gw = g * S.w;
-      box(cab0 - 0.082, cab0 - 0.012, 0.024, 0.072, 0.078, 'window', CHROME, g * S.w * 0.88);
-      box(cab0 - 0.041, cab0 - 0.029, 0.009, 0.093, 0.096, 'window', CHROME, g * S.w * 0.88);
-      box(cab1 - 0.030, cab1 - 0.022, 0.020, S.hi * 0.58, S.hi * 0.60, 'window', CHROME, g * (S.w + 0.012));
-      // Window visor over the door glass.
-      poly('body', 0.90, [[cab1 - 0.108, gw, S.hi * 0.90], [cab1 - 0.012, gw, S.hi * 0.90],
-                          [cab1 - 0.016, gw + g * 0.016, S.hi * 0.93], [cab1 - 0.104, gw + g * 0.016, S.hi * 0.93]]);
-    }
-    for (let i = 0; i < S.stacks; i++) {
-      const g = (S.stacks === 1 ? 0 : (i ? 1 : -1)) * S.w * 0.94;
-      box(cab0 - 0.017, cab0 + 0.017, 0.016, 0.138, 0.146, 'window', CHROME, g);
-    }
-  }
-
-  // Back of the tractor.
-  for (const g of [-1, 1]) box(frame0 - 0.012, frame0 - 0.004, 0.016, 0.052, 0.070, 'window', [196, 66, 54], g * S.w * 0.66);
-  if (fine) box(frame0 - 0.011, frame0 - 0.004, S.w * 0.30, 0.074, 0.080, 'window', [230, 210, 140]);
-  // ⚠ No underglow geometry: a box reads as a slab. It's a glow pool at the lamp layer (`vehicleLamps().under`).
-  // Roof beacon on rigs without a wind kit.
-  if (fine && S.aero < 0.5) {
-    const bTop = S.hi + S.sleeper;
-    box(cab1 - 0.078, cab1 - 0.056, 0.014, bTop, bTop + 0.006, 'strut');
-    box(cab1 - 0.075, cab1 - 0.059, 0.011, bTop + 0.006, bTop + 0.017, 'window', [244, 168, 64]);
-  }
-  // What a bobtail carries on its bare deck.
-  if (!hitched && S.rig === 'cage') {
-    for (const g of [-1, 1]) {
-      for (const f of [frame0 + 0.014, cab0 - 0.014]) box(f - 0.004, f + 0.004, 0.005, 0.070, 0.150, 'strut', null, g * S.w * 0.74);
-      for (const z of [0.106, 0.146]) box(frame0 + 0.010, cab0 - 0.010, 0.004, z, z + 0.005, 'strut', null, g * S.w * 0.74);
-    }
-    if (fine) box(frame0 + 0.024, cab0 - 0.024, S.w * 0.56, 0.084, 0.118, 'body');            // the load in it
-  } else if (!hitched && S.rig === 'rack') {
-    box(frame0 + 0.030, cab0 - 0.020, S.w * 0.66, 0.084, 0.112, 'body');
-    if (fine) for (const f of [frame0 + 0.052, frame0 + 0.088]) box(f - 0.003, f + 0.003, S.w * 0.68, 0.112, 0.116, 'strut');   // ratchet straps
-  }
-
-  // ── Fittings ── (plugins/trucking/fittings.js), as a `^ab.cd` suffix on the variant.
-  // ⚠ Built inside buildTruck, before the centring and settle transforms, and before `tractorFaces` so a
-  // dropped trailer doesn't keep them. Colours only via CHROME/ACCENT/strut/body, so the livery reaches them.
-  // A fitting is faces only: it never moves a pod, lamp, decal or the kingpin.
-  const FITS = new Set(String(str).match(/\^([a-z.]+)/)?.[1].split('.') || []);
-  const fitStart = faces.length;
-  if (_truckRec) _truckRec.fitStart = _truckRec.parts.length;
-  if (FITS.size) {
-    const roofZ = S.hi + S.sleeper;
-    const barF = nose1 + 0.014;                 // just ahead of the bumper, where a bar bolts on
-    // ── FRONT BAR ──
-    if (FITS.has('rp')) {                        // Ram Plate — a ploughed wedge across the whole nose
-      box(barF - 0.006, barF + 0.028, S.w * 1.02, 0.030, 0.150, 'strut');
-      poly('strut', 0.86, [[barF + 0.028, -S.w * 1.02, 0.150], [barF + 0.028, S.w * 1.02, 0.150],
-                           [barF + 0.062, S.w * 0.42, 0.104], [barF + 0.062, -S.w * 0.42, 0.104]]);
-      for (const g of [-1, 1]) box(barF - 0.030, barF + 0.004, 0.008, 0.052, 0.070, 'strut', null, g * S.w * 0.7);   // braces back to the frame
-    }
-    if (FITS.has('tu')) {                        // Tusk Bar — four lengths of pipe, sharpened
-      box(barF - 0.004, barF + 0.010, S.w * 0.96, 0.058, 0.074, 'strut');
-      for (const g of [-0.72, -0.24, 0.24, 0.72]) {
-        for (let i = 0; i < 3; i++) {
-          const k = 1 - i * 0.3;
-          box(barF + 0.010 + i * 0.020, barF + 0.030 + i * 0.020, 0.011 * k, 0.066 - 0.011 * k, 0.066 + 0.011 * k, 'strut', null, g * S.w);
-        }
-      }
-    }
-    if (FITS.has('pb')) {                        // Chrome Push Bar — a hoop with two lamps in it
-      for (const g of [-1, 1]) box(barF - 0.002, barF + 0.010, 0.007, 0.048, 0.132, 'window', CHROME, g * S.w * 0.72);
-      box(barF - 0.002, barF + 0.010, S.w * 0.74, 0.124, 0.136, 'window', CHROME);
-      box(barF - 0.002, barF + 0.010, S.w * 0.74, 0.070, 0.080, 'window', CHROME);
-      for (const g of [-1, 1]) box(barF + 0.008, barF + 0.016, 0.014, 0.096, 0.122, 'glass', [212, 208, 176], g * S.w * 0.34);
-    }
-    if (FITS.has('wn')) {                        // Recovery Winch — drum, fairlead, and cable on it
-      box(barF - 0.004, barF + 0.026, 0.030, 0.052, 0.086, 'strut');
-      box(barF + 0.002, barF + 0.020, 0.034, 0.060, 0.078, 'gear');                       // the drum, wider than its cradle
-      box(barF + 0.024, barF + 0.030, 0.016, 0.058, 0.076, 'window', CHROME);             // the fairlead plate
-    }
-    if (FITS.has('sx')) {                        // Spike Rack — rebar, cut, sharpened, stood up in a row
-      box(barF - 0.004, barF + 0.008, S.w * 0.98, 0.050, 0.060, 'strut');
-      for (const g of [-0.84, -0.50, -0.17, 0.17, 0.50, 0.84]) {
-        for (let i = 0; i < 3; i++) {
-          const k = 1 - i * 0.3;
-          box(barF - 0.003, barF + 0.007, 0.005 * k, 0.060 + i * 0.016, 0.076 + i * 0.016, 'strut', null, g * S.w);
-        }
-      }
-    }
-    if (FITS.has('gb')) {                        // Grader Blade — a mouldboard on an angle, so what it catches goes SIDEWAYS
-      // A raked blade: the two long edges at different heights.
-      poly('strut', 0.80, [[barF + 0.004, -S.w * 1.10, 0.024], [barF + 0.004, S.w * 1.10, 0.050],
-                           [barF + 0.036, S.w * 1.06, 0.106], [barF + 0.036, -S.w * 1.06, 0.080]]);
-      poly('gear', 0.52, [[barF + 0.004, -S.w * 1.10, 0.024], [barF + 0.004, S.w * 1.10, 0.050],
-                          [barF - 0.006, S.w * 1.06, 0.058], [barF - 0.006, -S.w * 1.06, 0.032]]);   // the mouth, under the lip
-      box(barF + 0.030, barF + 0.040, S.w * 1.05, 0.098, 0.108, 'window', CHROME);        // the top edge, polished by use and nothing else
-      for (const g of [-1, 1]) box(barF - 0.028, barF + 0.006, 0.008, 0.044, 0.068, 'strut', null, g * S.w * 0.66);   // the rams back to the frame
-    }
-
-    // ── Screen ── ⚠ Quads in the windscreen's raked plane, pushed ahead by `SD`: nothing may share the glass's fore-aft slice.
-    if (FITS.has('zm') || FITS.has('zp') || FITS.has('zb')) {
-      const SD = 0.010;
-      const scrP = (t, g) => [scrF0 + (scrF1 - scrF0) * t + SD, g, scrLo + (scrHi - scrLo) * t];
-      const scrQ = (role, sh, t0, t1, g0, g1, tint) =>
-        poly(role, sh, [scrP(t0, g0), scrP(t0, g1), scrP(t1, g1), scrP(t1, g0)], tint);
-      if (FITS.has('zm')) {                      // Screen Mesh — rebar bent to the rake, welded at every crossing
-        for (let i = -3; i <= 3; i++) scrQ('strut', 0.86, 0.03, 0.97, (i - 0.10) * scrW * 0.27, (i + 0.10) * scrW * 0.27);
-        for (const t of [0.26, 0.54, 0.82]) scrQ('strut', 0.92, t - 0.030, t + 0.030, -scrW, scrW);
-        for (const t of [0.03, 0.97]) scrQ('strut', 0.74, t - 0.026, t + 0.026, -scrW * 1.02, scrW * 1.02);   // the frame it is hung on
-      }
-      if (FITS.has('zp')) {                      // Slit Plate — boiler plate, and a hand's width of daylight
-        scrQ('gear', 0.88, 0.02, 0.44, -scrW * 1.02, scrW * 1.02);
-        scrQ('gear', 0.88, 0.60, 0.98, -scrW * 1.02, scrW * 1.02);
-        for (const g of [-1, 1]) scrQ('gear', 0.78, 0.44, 0.60, g * scrW * 0.58, g * scrW * 1.02);   // the cheeks either side of the slot
-        if (fine) for (const t of [0.09, 0.93]) for (let i = -2; i <= 2; i++)                        // the weld line
-          scrQ('strut', 1.00, t - 0.018, t + 0.018, i * scrW * 0.40 - scrW * 0.05, i * scrW * 0.40 + scrW * 0.05);
-      }
-      if (FITS.has('zb')) scrQ('window', 0.94, 0.80, 0.98, -scrW, scrW, [122, 70, 42]);   // Sun Strip — a band of dark tint, and the oldest thing a driver does
-    }
-
-    // ── ROOF ──
-    if (FITS.has('rc')) {                        // Roof Cage — bar, cans, a rolled tarp
-      const f0 = cab1 - 0.150, f1 = cab0 + 0.010;
-      for (const g of [-1, 1]) box(f0, f1, 0.005, roofZ + 0.004, roofZ + 0.040, 'strut', null, g * S.w * 0.92);
-      for (const f of [f0, (f0 + f1) / 2, f1]) box(f - 0.004, f + 0.004, S.w * 0.94, roofZ + 0.034, roofZ + 0.040, 'strut');
-      if (fine) {
-        for (const g of [-0.5, 0.5]) box(f0 + 0.014, f0 + 0.048, 0.018, roofZ + 0.006, roofZ + 0.036, 'body', null, g * S.w);   // cans
-        box(f1 - 0.052, f1 - 0.006, S.w * 0.5, roofZ + 0.008, roofZ + 0.032, 'gear');                                           // the rolled tarp
-      }
-    }
-    if (FITS.has('lb')) {                        // Halogen Light Bar — eight lamps on a chrome rail
-      const f = cab1 - 0.062;
-      box(f - 0.008, f + 0.008, S.w * 0.92, roofZ + 0.004, roofZ + 0.012, 'window', CHROME);
-      for (let i = -3; i <= 3; i += 2) {
-        box(f - 0.010, f + 0.010, 0.017, roofZ + 0.012, roofZ + 0.044, 'window', CHROME, i * S.w * 0.24);
-        box(f + 0.008, f + 0.013, 0.014, roofZ + 0.016, roofZ + 0.040, 'glass', [216, 210, 178], i * S.w * 0.24);
-      }
-    }
-    if (FITS.has('bc')) {                        // Amber Beacon — one lamp on a stalk
-      const f = cab0 - 0.006;
-      box(f - 0.004, f + 0.004, 0.005, roofZ, roofZ + 0.022, 'strut');
-      box(f - 0.012, f + 0.012, 0.013, roofZ + 0.022, roofZ + 0.046, 'glass', [236, 158, 48]);
-      box(f - 0.013, f + 0.013, 0.014, roofZ + 0.018, roofZ + 0.024, 'window', CHROME);
-    }
-    if (FITS.has('tm')) {                        // Totem Rack — everything on it was taken off something
-      const f = cab0 - 0.004;
-      box(f - 0.003, f + 0.003, S.w * 0.86, roofZ + 0.002, roofZ + 0.008, 'strut');
-      // Irregular on purpose: evenly spaced reads as bought.
-      for (const [g, h, w] of [[-0.78, 0.030, 0.010], [-0.30, 0.046, 0.007], [0.16, 0.024, 0.012], [0.66, 0.038, 0.008]]) {
-        box(f - 0.004, f + 0.004, w, roofZ + 0.008, roofZ + 0.008 + h, 'gear', null, g * S.w);
-      }
-    }
-    if (FITS.has('np')) {                        // Roof Parapet — plate up round the sleeper, CUT LOW at the front
-      // The low front wall is what makes it a firing position.
-      const f0 = cab1 - 0.150, f1 = cab0 + 0.008;
-      for (const g of [-1, 1]) box(f0, f1, 0.005, roofZ + 0.002, roofZ + 0.032, 'gear', null, g * S.w * 0.90);
-      box(f0, f0 + 0.007, S.w * 0.90, roofZ + 0.002, roofZ + 0.017, 'gear');
-      box(f1 - 0.007, f1, S.w * 0.90, roofZ + 0.002, roofZ + 0.032, 'gear');
-      if (fine) {
-        box(f0 + 0.026, f0 + 0.034, 0.008, roofZ + 0.017, roofZ + 0.050, 'strut', null, -S.w * 0.34);   // a stanchion
-        box(f0 + 0.024, f0 + 0.074, 0.010, roofZ + 0.006, roofZ + 0.020, 'gear', null, S.w * 0.36);     // and something rolled up against the wall
-      }
-    }
-    if (FITS.has('af')) {                        // Aerial Farm — five whips, none of them the same length
-      const f = cab0 + 0.006;
-      box(f - 0.004, f + 0.004, S.w * 0.82, roofZ, roofZ + 0.007, 'strut');
-      for (const [g, h] of [[-0.86, 0.086], [-0.42, 0.052], [0.04, 0.106], [0.50, 0.066], [0.88, 0.040]]) {
-        box(f - 0.002, f + 0.002, 0.002, roofZ + 0.007, roofZ + 0.007 + h, 'strut', null, g * S.w);
-        if (fine) box(f - 0.003, f + 0.003, 0.004, roofZ + 0.005 + h, roofZ + 0.009 + h, 'window', CHROME, g * S.w);   // the tip
-      }
-    }
-
-    // ── Stacks ── Only on trucks that have them.
-    if (S.stacks > 0) {
-      const stackTop = roofZ + 0.062;
-      for (let i = 0; i < S.stacks; i++) {
-        const g = (S.stacks === 1 ? 0 : (i ? 1 : -1)) * S.w * 0.94;
-        if (FITS.has('cs')) {                    // Straight Cut — the flare gone, the pipe cut square
-          box(cab0 - 0.019, cab0 + 0.019, 0.018, stackTop, stackTop + 0.030, 'gear', null, g);
-        }
-        if (FITS.has('ft')) {                    // Flame Tips — split, flared, heat-blued
-          for (let k = 0; k < 3; k++) box(cab0 - 0.018 - k * 0.003, cab0 + 0.018 + k * 0.003, 0.017 + k * 0.004,
-            stackTop - 0.004 + k * 0.010, stackTop + 0.006 + k * 0.010, 'glass', [84, 96, 150], g);
-        }
-        if (FITS.has('sn')) {                    // Stack Sleeves — lit tubing wound up the pipe
-          for (let k = 0; k < 4; k++) box(cab0 - 0.020, cab0 + 0.020, 0.019, 0.090 + k * 0.038, 0.100 + k * 0.038, 'window', ACCENT, g);
-        }
-        if (FITS.has('so')) {                    // Soot Pipes — tarred to the shield, and a rain flap sitting crooked
-          box(cab0 - 0.021, cab0 + 0.021, 0.020, stackTop - 0.034, stackTop + 0.004, 'gear', null, g);
-          box(cab0 - 0.026, cab0 + 0.010, 0.022, stackTop + 0.004, stackTop + 0.010, 'gear', null, g);
-        }
-      }
-    }
-
-    // ── FLANKS ──
-    for (const g of [-1, 1]) {
-      const gw = g * S.w;
-      if (FITS.has('ap')) {                      // Riveted Plate — mismatched sheet over the doors
-        box(cab1 - 0.118, cab1 - 0.040, 0.006, S.hi * 0.16, S.hi * 0.56, 'gear', null, gw + g * 0.005);
-        box(cab1 - 0.046, cab1 - 0.004, 0.006, S.hi * 0.24, S.hi * 0.50, 'gear', null, gw + g * 0.005);
-        if (fine) for (const z of [S.hi * 0.20, S.hi * 0.52]) for (let i = 0; i < 4; i++)   // the rivet line
-          box(cab1 - 0.112 + i * 0.024, cab1 - 0.108 + i * 0.024, 0.003, z, z + 0.004, 'strut', null, gw + g * 0.010);
-      }
-      if (FITS.has('jc')) {                      // Jerry Rack — range you can see
-        box(cab0 - 0.078, cab0 - 0.020, 0.020, 0.086, 0.094, 'strut', null, gw + g * 0.016);
-        for (let i = 0; i < 3; i++) box(cab0 - 0.074 + i * 0.020, cab0 - 0.058 + i * 0.020, 0.018, 0.094, 0.126, 'body', null, gw + g * 0.016);
-      }
-      if (FITS.has('sw')) {                      // Saw-Blade Skirt — teeth outward
-        box(cab1 - 0.120, cab0 - 0.010, 0.004, 0.028, 0.036, 'strut', null, gw + g * 0.010);
-        for (let i = 0; i < 5; i++) {
-          const f = cab1 - 0.112 + i * 0.026;
-          box(f - 0.014, f + 0.014, 0.003, 0.024, 0.030, 'window', CHROME, gw + g * 0.014);
-          box(f - 0.004, f + 0.004, 0.003, 0.014, 0.040, 'window', CHROME, gw + g * 0.014);
-        }
-      }
-      if (FITS.has('sr')) {                      // Chrome Runner — the show-truck answer
-        box(cab1 - 0.108, cab0 - 0.006, 0.012, 0.040, 0.047, 'window', CHROME, gw + g * 0.018);
-        box(cab1 - 0.104, cab0 - 0.010, 0.010, 0.036, 0.040, 'window', ACCENT, gw + g * 0.018);   // lit underneath
-        for (const f of [cab1 - 0.100, cab0 - 0.020]) box(f - 0.003, f + 0.003, 0.010, 0.047, 0.062, 'strut', null, gw + g * 0.014);
-      }
-      if (FITS.has('xr')) {                      // Spear Rack — pipe racked where a ladder would go
-        for (const f of [cab1 - 0.096, cab0 + 0.024]) box(f - 0.004, f + 0.004, 0.013, S.hi * 0.28, S.hi * 0.42, 'strut', null, gw + g * 0.013);
-        // Two ground to a point, two plain pipe.
-        for (let i = 0; i < 4; i++) {
-          const z = S.hi * 0.29 + i * 0.009, gg = gw + g * (0.009 + i * 0.0025);
-          box(cab1 - 0.104, cab0 + 0.030, 0.004, z, z + 0.005, 'gear', null, gg);
-          if (fine && i < 2) for (let k = 0; k < 3; k++) {
-            const kk = 1 - k * 0.3;
-            box(cab1 - 0.104 - (k + 1) * 0.009, cab1 - 0.104 - k * 0.009, 0.004 * kk, z + 0.0025 - 0.0025 * kk, z + 0.0025 + 0.0025 * kk, 'strut', null, gg);
-          }
-        }
-      }
-      if (FITS.has('hd')) {                      // Hide Drape — skins on a rail, weighted at the hem
-        box(cab1 - 0.118, cab1 - 0.022, 0.004, S.hi * 0.60, S.hi * 0.645, 'strut', null, gw + g * 0.008);        // the rail
-        box(cab1 - 0.112, cab1 - 0.028, 0.005, S.hi * 0.20, S.hi * 0.61, 'body', [98, 76, 56], gw + g * 0.006);  // the skins
-        if (fine) for (let i = 0; i < 4; i++)                                                                    // the weights, one per panel
-          box(cab1 - 0.108 + i * 0.022, cab1 - 0.100 + i * 0.022, 0.004, S.hi * 0.165, S.hi * 0.205, 'gear', null, gw + g * 0.008);
-      }
-    }
-
-    // ── Underlights ── `ug` light is drawn at the lamp layer; only the fixture is geometry here.
-    if (FITS.has('ug')) for (const g of [-1, 1]) box(nose0 + 0.020, frame0 + 0.06, 0.006, 0.022, 0.028, 'window', ACCENT, g * S.w * 0.86);
-    if (FITS.has('hl')) for (const [f, g] of podAt.filter(([, , , deck]) => !deck).map(([f, g]) => [f, g])) {
-      box(f - 0.030, f + 0.030, 0.027, 0.030, 0.034, 'window', ACCENT, g);
-      box(f - 0.032, f - 0.026, 0.026, 0.030, 0.052, 'window', ACCENT, g);
-      box(f + 0.026, f + 0.032, 0.026, 0.030, 0.052, 'window', ACCENT, g);
-    }
-    if (FITS.has('bn')) for (const g of [-1, 1]) box(cab0 + 0.014, cab1 - 0.014, 0.004, S.hi * 0.425, S.hi * 0.455, 'window', ACCENT, g * S.w);
-    if (FITS.has('dc')) for (const g of [-1, 1]) {   // Drag Chains — hung off both rails, sweeping
-      box(frame0 + 0.020, cab1 - 0.060, 0.004, 0.026, 0.030, 'strut', null, g * S.w * 0.64);
-      const span = (cab1 - 0.060) - (frame0 + 0.020);
-      for (let i = 0; i < 5; i++) {
-        // Uneven lengths so they read as separate chains.
-        const drop = [0.020, 0.006, 0.017, 0.009, 0.014][i];
-        box(frame0 + 0.028 + i * (span - 0.016) / 4 - 0.003, frame0 + 0.028 + i * (span - 0.016) / 4 + 0.003,
-          0.003, 0.026 - drop, 0.028, 'gear', null, g * S.w * 0.64);
-      }
-    }
-
-    // ── BACK END ──
-    if (FITS.has('ch')) {                        // Chain Rack — loops of load chain, swinging
-      for (const g of [-1, 1]) for (let i = 0; i < 3; i++) {
-        const gg = g * S.w * (0.42 + i * 0.22);
-        box(cab0 - 0.012, cab0 - 0.006, 0.006, 0.070, 0.090, 'strut', null, gg);
-        box(cab0 - 0.011, cab0 - 0.007, 0.010, 0.058, 0.072, 'gear', null, gg);
-      }
-    }
-    if (FITS.has('sp')) {                        // Spare Pod Cradle — a whole lifter, stood on end
-      box(cab0 - 0.030, cab0 - 0.008, 0.048, 0.076, 0.086, 'strut');
-      box(cab0 - 0.028, cab0 - 0.010, 0.044, 0.086, 0.150, 'gear');
-      box(cab0 - 0.029, cab0 - 0.009, 0.046, 0.104, 0.118, 'window', CHROME);   // its hubcap band, the tell that it is a pod
-    }
-    if (FITS.has('bp')) {                        // Banner Pole — a whip with a rag on it
-      const g = S.w * 0.9;
-      box(cab0 - 0.006, cab0 - 0.002, 0.003, 0.070, roofZ + 0.070, 'strut', null, g);
-      box(cab0 - 0.006, cab0 + 0.022, 0.002, roofZ + 0.020, roofZ + 0.062, 'body', null, g);
-    }
-    if (FITS.has('ct')) {                        // Scrap Hopper — a bin on the headboard, and a chute out the back of it
-      box(cab0 - 0.046, cab0 - 0.012, 0.052, 0.076, 0.124, 'gear');
-      box(cab0 - 0.050, cab0 - 0.008, 0.056, 0.124, 0.131, 'strut');                       // the lip round the mouth
-      box(cab0 - 0.056, cab0 - 0.036, 0.028, 0.054, 0.078, 'strut');                       // the chute, and where it is aimed is the joke
-      if (fine) {
-        for (const g of [-1, 1]) box(cab0 - 0.042, cab0 - 0.016, 0.005, 0.131, 0.146, 'gear', null, g * 0.038);   // what is standing proud of the load
-        box(cab0 - 0.034, cab0 - 0.022, 0.020, 0.131, 0.140, 'gear');
-      }
-    }
-    if (FITS.has('wb')) {                        // Water Bowser — four hundred litres, and a tap at the bottom
-      box(cab0 - 0.062, cab0 - 0.010, 0.058, 0.076, 0.126, 'body');
-      for (const z of [0.086, 0.114]) box(cab0 - 0.064, cab0 - 0.008, 0.060, z, z + 0.005, 'strut');   // the straps holding it upright
-      box(cab0 - 0.038, cab0 - 0.028, 0.011, 0.126, 0.136, 'strut');                                   // the filler
-      if (fine) box(cab0 - 0.070, cab0 - 0.060, 0.006, 0.062, 0.080, 'window', CHROME);
-    }
-
-    // ── Mascot ── On the bonnet, or the cowl on a cab-over.
-    if (FITS.has('sk') || FITS.has('cb') || FITS.has('dh') || FITS.has('wi')) {
-      const mF = S.nose > 0.02 ? nose1 - 0.030 : cab1 - 0.020;
-      const mZ = S.nose > 0.02 ? 0.128 : S.hi * 0.96;
-      if (FITS.has('sk')) {                      // Bleached Skull
-        box(mF - 0.010, mF + 0.010, 0.011, mZ, mZ + 0.016, 'body', [216, 208, 186]);
-        box(mF + 0.008, mF + 0.020, 0.007, mZ + 0.001, mZ + 0.010, 'body', [216, 208, 186]);   // the muzzle
-        for (const g of [-1, 1]) box(mF + 0.004, mF + 0.009, 0.003, mZ + 0.008, mZ + 0.012, 'glass', [18, 16, 14], g * 0.005);
-      }
-      if (FITS.has('cb')) bullet(mF - 0.014, 0.034, 0, 0.009, mZ + 0.010);   // Chrome Bird, at this scale a chromed dart
-      if (FITS.has('dh')) {                      // Doll Head
-        box(mF - 0.008, mF + 0.008, 0.009, mZ, mZ + 0.016, 'body', [222, 196, 176]);
-        for (const g of [-1, 1]) box(mF + 0.006, mF + 0.009, 0.002, mZ + 0.008, mZ + 0.011, 'glass', [30, 40, 60], g * 0.004);
-      }
-      if (FITS.has('wi')) {                      // Wheel Idol — a steering wheel stood upright, FACING THE ROAD
-        // Stands across the truck, facing the road.
-        box(mF - 0.005, mF + 0.005, 0.007, mZ, mZ + 0.009, 'strut');                                  // the plinth
-        for (const z of [mZ + 0.009, mZ + 0.045]) box(mF - 0.002, mF + 0.002, 0.021, z, z + 0.004, 'window', CHROME);
-        for (const g of [-1, 1]) box(mF - 0.002, mF + 0.002, 0.003, mZ + 0.009, mZ + 0.049, 'window', CHROME, g * 0.019);
-        box(mF - 0.003, mF + 0.003, 0.005, mZ + 0.025, mZ + 0.033, 'window', CHROME);                 // the boss
-        if (fine) for (const g of [-1, 1]) box(mF - 0.002, mF + 0.002, 0.010, mZ + 0.027, mZ + 0.031, 'strut', null, g * 0.010);   // and its spokes
-      }
-    }
-  }
-
-  // ⚠ Fitting faces are marked so the bounds scan skips them: a bolt-on must never shift the centring
-  // (lamps, decal and kingpin are placed through it).
-  for (let i = fitStart; i < faces.length; i++) faces[i].fit = 1;
-  const tractorFaces = faces.length;   // the split point: everything before here is the tractor
-  if (_truckRec) _truckRec.tractorEnd = _truckRec.parts.length;
-  if (hitched) {
-    // The trailer, a separate body behind the tractor (the articulation seam). ⚠ Its nose is the fifth wheel's
-    // centre: further aft reads as a drawbar, further forward runs into the cab.
-    const t1 = frame0 + 0.06, t0 = t1 - S.deck;
-    const tTop = deckTop + S.hi * 0.95;
-    // The box, with stepped (radiused) front corners for swing clearance (NOSE_TAPER). Height derives from `hi`.
-    const tBev = t1 - 0.030;
-    box(t0, tBev, S.w * 1.02, 0.075, tTop, 'body');                 // the box
-    box(tBev, tBev + 0.016, S.w * 1.02 * ((1 + NOSE_TAPER) / 2), 0.075, tTop, 'body');   // first step in
-    box(tBev + 0.016, t1, boxNoseHalf(S), 0.075, tTop, 'body');     // the nose face itself
-    box(t0 + 0.01, tBev, S.w * 0.99, tTop, tTop + 0.010, 'body');   // roof cap, stopping at the taper
-    // Ribs on the flank.
-    for (let i = 0; fine && i < 6; i++) {
-      const f = t0 + 0.03 + i * (S.deck - 0.06) / 5;
-      for (const g of [-1, 1]) box(f - 0.004, f + 0.004, 0.004, 0.085, tTop - 0.008, 'strut', null, g * S.w * 1.03);
-    }
-    // Conspicuity tape low on the flank, and the rear doors with their lock bars.
-    for (const g of [-1, 1]) box(t0 + 0.02, t1 - 0.02, 0.003, 0.086, 0.098, 'window', [216, 168, 72], g * S.w * 1.04);
-    box(t0, t0 + 0.006, S.w * 1.0, 0.075, tTop - 0.005, 'strut');     // the doors, at the back
-    for (const g of [-1, 1]) box(t0 - 0.001, t0 + 0.002, 0.004, 0.080, tTop - 0.010, 'strut', null, g * S.w * 0.5);   // lock bars
-    for (const g of [-1, 1]) box(t0 - 0.002, t0 + 0.004, 0.014, 0.088, 0.104, 'window', [186, 62, 52], g * S.w * 0.78);   // tail lamps
-    // Landing legs.
-    for (const g of [-1, 1]) box(t1 - 0.09, t1 - 0.075, 0.010, 0.005, 0.078, 'strut', null, g * S.w * 0.72);
-    for (const g of [-gOut, gOut]) {                                   // lifter bogie under the tail
-      pod(t0 + 0.075, g, 0.050, 1.0, true); pod(t0 + 0.185, g, 0.050, 1.0, true);
-    }
-    if (S.skirt) for (const g of [-1, 1]) box(t0 + 0.20, t1 - 0.03, 0.008, 0.040, 0.078, 'body', null, g * S.w * 0.98);   // trailer skirt
-    for (const g of [-1, 1]) box(t0 - 0.012, t0 - 0.004, 0.026, 0.01, 0.06, 'strut', null, g * S.w * 0.7);  // mudflaps
-    // Back of the box: structural detail on `fine`, so every trailer gets it.
-    if (fine) {
-      for (const g of [-1, 1]) for (let i = 0; i < 3; i++) {
-        const z = 0.092 + i * (tTop - 0.115) / 2;
-        box(t0 - 0.003, t0 + 0.004, 0.010, z, z + 0.012, 'strut', null, g * S.w * 0.92);
-      }
-      // DOT underrun bar.
-      box(t0 - 0.010, t0 - 0.002, S.w * 0.92, 0.048, 0.058, 'strut');
-      for (const g of [-1, 1]) box(t0 - 0.008, t0 - 0.004, 0.006, 0.058, 0.075, 'strut', null, g * S.w * 0.60);
-      box(t0 - 0.001, t0 + 0.002, 0.020, tTop * 0.62, tTop * 0.62 + 0.026, 'window', [210, 198, 160], S.w * 0.42);
-      box(t0 - 0.002, t0 + 0.001, S.w * 0.86, 0.078, 0.086, 'window', [222, 154, 62]);
-      box(t0 + 0.002, t0 + 0.006, 0.004, 0.086, tTop * 0.55, 'strut', null, -S.w * 0.86);
-      box(t0 + 0.004, t0 + 0.020, 0.012, 0.046, 0.051, 'strut', null, -S.w * 0.78);
-      for (let i = 0; i < 5; i++) {
-        const f = t0 + 0.05 + i * (S.deck - 0.10) / 4;
-        box(f - 0.003, f + 0.003, S.w * 0.98, tTop + 0.010, tTop + 0.013, 'body');
-      }
-      // Air and electrical couplings on the box's nose.
-      for (const g of [-1, 1]) box(t1 - 0.004, t1 + 0.004, 0.007, 0.088, 0.098, 'strut', null, g * S.w * 0.28);
-    }
-  }
-  if (_truckRec) _truckRec.pods = podAt.map((q) => q.slice());
-  return finishTruck(faces, { str, detail, solo, parked, tractorFaces, pods: podAt, D: truckDimsOf(S) });
-}
-
-// The numbers a truck's renderers read besides its faces, in the frame its parts are written in: the
-// lamp stations (truckLampGeom), the fifth wheel, the box's swinging nose corner. A truck mesh file
-// carries exactly this as its `truck` block; for a builder row it's derived here, by the same sums.
-function truckDimsOf(S) {
-  const L = truckLampGeom(S);
-  return { w: S.w, hi: S.hi, sleeper: S.sleeper, deck: S.deck, lamps: S.lamps, boxHalf: boxNoseHalf(S),
-    pin: [L.frame0 - 0.01, L.frame0 + 0.13], geom: L };
-}
-
-// What both a built and a filed truck go through once their faces are drawn: mark the trailer, splice
-// off the tractor for a dropped box, centre the rig on its own origin, settle it if parked, and publish
-// TRUCK_META. One copy, so a mesh file and buildTruck can't centre the same truck two ways.
+// What a truck goes through once its faces are drawn: mark the trailer, splice off the tractor for a
+// dropped box, centre the rig on its own origin, settle it if parked, and publish TRUCK_META. `D` is the
+// file's `truck` block.
 function finishTruck(faces, { str, detail, solo, parked, tractorFaces, pods, D }) {
   const HOVER = TRUCK_HOVER;
   // Mark the trailer's faces (`deck`, its own livery colour). ⚠ Before the solo splice, or there's no boundary left.
@@ -4263,14 +3503,14 @@ function finishTruck(faces, { str, detail, solo, parked, tractorFaces, pods, D }
   TRUCK_META.set(str + ':' + detail, {
     shift, drop, pods,
     pin: solo ? null : (D.pin[0] + D.pin[1]) / 2 - shift,
-    // The clearance check's inputs, published so a test can catch the frameBack relation breaking.
+    // The clearance check's inputs, published so a test can catch the gap behind the cab closing up.
     cabBack: solo ? null : cab0 - shift,
-    boxHalf: D.boxHalf,   // the corner that swings is the NOSE corner — see NOSE_TAPER
+    boxHalf: D.boxHalf,   // the corner that swings is the NOSE corner, which the box tapers in to clear
     door: solo ? null : { f0: doorF0, f1: doorF1, z0: doorZ0, z1: doorZ1, g: D.w },
   });
   return faces;
 }
-// variant+detail → { shift, drop, pods, pin, cabBack, boxHalf, door }. See the ⚠ at the end of buildTruck.
+// variant+detail → { shift, drop, pods, pin, cabBack, boxHalf, door }, written by finishTruck.
 const TRUCK_META = new Map();
 // Read-only, for the regress suite.
 export const truckMeta = (key) => TRUCK_META.get(key) || null;
@@ -4278,8 +3518,8 @@ export const truckMeta = (key) => TRUCK_META.get(key) || null;
 const TRUCK_HOVER = 0.014;
 
 // ── Trucks as mesh files ── (content/vehicle_models/mesh_truck_<type>.json, docs/proposals/hover-rigs.md)
-// A truck file is every part buildTruck can draw, each stamped with the state it needs, in the frame
-// buildTruck lays them out in (from the nose anchor at f 0.40). The variant string picks the state:
+// A truck file is every part the truck can draw, each stamped with the state it needs, laid out from the
+// nose anchor at f 0.40 (finishTruck centres it per variant). The variant string picks the state:
 //   +t  → channel `trailer`   (the box: `when: trailer`; what a bobtail carries: `whenNot: trailer`)
 //   ~p  → channel `parked`    (the lifter emitter bands: `whenNot: parked`)
 //   ^xx → channel `fit_xx`    (each fitting's parts: `when: fit_xx`)
@@ -4287,7 +3527,6 @@ const TRUCK_HOVER = 0.014;
 //   ~e<name> → the edition the base file names in `variants` (`hauler+t~e2076`: the Courier 2076).
 //               ⚠ After the type and any +t: every reader strips the type off at the first ~ or ^.
 // The state is applied here, once per variant, not per frame: the face list is memoised per variant.
-let _truckRec = null;
 function truckMeshFaces(row, variant, detail) {
   const str = String(variant);
   const parked = str.includes('~p'), solo = str.includes('~s');
@@ -4301,12 +3540,12 @@ function truckMeshFaces(row, variant, detail) {
   for (const f of all) {
     if (f.when && !on(f.when)) continue;
     if (f.whenNot && on(f.whenNot)) continue;
-    // A fitting's faces are skipped by the centring, as buildTruck marks them.
+    // A fitting's faces are skipped by the centring, so a bolt-on never moves the lamps, door or pin.
     if (f.when && f.when.startsWith('fit_')) f.fit = 1;
     // The trailer is last in the file, so its first face is where the tractor ends.
     if (f.when === 'trailer' && tractorFaces < 0) tractorFaces = faces.length;
     delete f.when; delete f.whenNot;
-    // Parts are numbered in the order drawn, over what this variant draws, as buildTruck counted them.
+    // Parts are numbered in the order drawn, over what this variant draws (the painter's part sort).
     if (!ids.has(f.part)) ids.set(f.part, ids.size + 1);
     f.part = ids.get(f.part);
     faces.push(f);
@@ -4314,49 +3553,33 @@ function truckMeshFaces(row, variant, detail) {
   if (tractorFaces < 0) tractorFaces = faces.length;
   const T = row.truck;
   const pods = T.pods.filter((q) => hitched || !q[3]).map((q) => q.slice());
-  return finishTruck(faces, { str, detail, solo, parked, tractorFaces, pods, D: T });
+  finishTruck(faces, { str, detail, solo, parked, tractorFaces, pods, D: T });
+  carryMeshSource(all, faces);   // the Modelshop's picking: after the solo splice, so indices line up
+  return faces;
 }
-// Where a truck type's body comes from: its mesh file, or buildTruck off its proportion row. The
-// builder answers for the legacy A/B (setLegacyMeshes), for a row the Modelshop is overriding, and for
-// a type with a row and no file. An unknown type draws as the Courier, as it always did.
-function truckMeshRow(typeId, edition = null) {
-  if (_legacyMeshes || _vehOverride.truck.has(typeId)) return null;
-  const row = meshRow('truck_' + typeId);
-  if (row) {
-    // An edition the file doesn't name draws the stock body rather than nothing.
-    const ed = edition && row.variants?.[edition];
-    return (ed && meshRow(ed)) || row;
-  }
-  return truckShape(typeId) ? null : truckMeshRow('hauler', edition);
-}
+// Which file a truck variant draws from: its type's mesh file, or the edition that file names in
+// `variants`. An unknown type draws as the Courier, as it always did, and an edition the file doesn't
+// name draws the stock body rather than nothing. The Modelshop's mesh editor opens the same file.
+// ⚠ setLegacyMeshes doesn't reach trucks: the builder they were ported from is gone (hover-rigs.md).
 const truckTypeOf = (variant) => String(variant).replace(/[~^].*$/, '').split('+')[0];
 const truckEditionOf = (variant) => String(variant).match(/~e([a-z0-9]+)/)?.[1] || null;
+export function truckMeshIdFor(variant) {
+  const typeId = truckTypeOf(variant || 'hauler');
+  const id = meshRow('truck_' + typeId) ? 'truck_' + typeId : 'truck_hauler';
+  const ed = truckEditionOf(variant), eid = ed && meshRow(id)?.variants?.[ed];
+  return eid && meshRow(eid) ? eid : id;
+}
 function truckFaces(variant, detail) {
-  const row = truckMeshRow(truckTypeOf(variant), truckEditionOf(variant));
-  return row ? truckMeshFaces(row, variant, detail) : buildTruck(variant, detail);
+  return truckMeshFaces(meshRow(truckMeshIdFor(variant)), variant, detail);
 }
-// The lamp stations and dimensions for a variant, from the same place its faces come from.
+// The lamp stations and dimensions for a variant, from the same file its faces come from.
 function truckDims(variant) {
-  const typeId = truckTypeOf(variant);
-  const row = truckMeshRow(typeId, truckEditionOf(variant));
-  return row ? row.truck : truckDimsOf(truckShape(typeId) || truckShape('hauler'));
-}
-// ── For the port and the gate (scripts/shapes/truck-meshes.mjs, scripts/shapes/meshes.mjs) ──
-// What buildTruck draws for a variant, as mesh parts, with where its fittings and its trailer start.
-export function recordTruckBuild(variant, detail = 1) {
-  _truckRec = { parts: [], fitStart: -1, tractorEnd: -1, pods: [] };
-  try { buildTruck(variant, detail); return _truckRec; } finally { _truckRec = null; }
-}
-// The same truck built and filed, each with the meta it published. Neither touches the face cache.
-export function truckLegacyBuild(variant, detail = 1) {
-  const faces = buildTruck(variant, detail);
-  return { faces, meta: TRUCK_META.get(String(variant) + ':' + detail) };
+  return meshRow(truckMeshIdFor(variant)).truck;
 }
 export function truckFileBuild(row, variant, detail = 1) {
   const faces = truckMeshFaces(row, variant, detail);
   return { faces, meta: TRUCK_META.get(String(variant) + ':' + detail) };
 }
-export function truckDimsForShape(typeId) { const S = truckShape(typeId); return S ? truckDimsOf(S) : null; }
 // A wreck: a stripped default hull.
 function buildWreck() {
   if (_cache.wreck) return _cache.wreck;

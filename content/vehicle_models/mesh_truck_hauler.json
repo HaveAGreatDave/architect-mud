@@ -3,8 +3,7 @@
   "kind": "mesh",
   "params": {
     "name": "Ostrek Courier",
-    "note": "Ported from buildTruck by scripts/shapes/truck-meshes.mjs. Laid out from the nose anchor at f 0.40; aircraft3d.js centres it per variant. Channels: trailer (+t), parked (~p), fit_<code> (^code).",
-    "portedFrom": "buildTruck:hauler",
+    "note": "The stock Ostrek Courier. Ported from the proportion builder, which is retired (docs/proposals/hover-rigs.md), so this file is the truck. Laid out from the nose anchor at f 0.40; aircraft3d.js centres it per variant. Channels: trailer (+t), parked (~p), fit_<code> (^code). The fittings group is scripts/shapes/truck-fittings.mjs off the truck block, and scripts/shapes/meshes.mjs holds it there.",
     "variants": { "2076": "truck_hauler_2076" },
     "partIds": true,
     "truck": {
@@ -13,6 +12,7 @@
       "sleeper": 0,
       "deck": 0.44,
       "lamps": 0.55,
+      "stacks": [0],
       "boxHalf": 0.10709999999999999,
       "pin": [-0.07316499999999991, 0.06683500000000009],
       "geom": {

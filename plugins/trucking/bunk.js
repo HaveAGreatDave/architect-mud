@@ -1,7 +1,7 @@
 // THE LONG HAUL — the bunk.
 //
 // The two big rigs have been DRAWN with a sleeper since the mesh was written (`sleeper` in
-// TRUCK_SHAPES, the raised box behind the cab on a Drayman and an Orlov) and it has never been
+// the truck file's sleeper, the raised box behind the cab on a Drayman and an Orlov) and it has never been
 // anything. This makes it a bed.
 //
 // It is deliberately a small file, because the whole design is "reuse the sleep system":

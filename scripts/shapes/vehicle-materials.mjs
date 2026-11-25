@@ -24,7 +24,7 @@ const NO_FINISH = {
   drake: 'her slots carry their own materials and the livery coat covers the rest, as she shipped',
   wreck: 'a wreck is drawn without materials (drawAircraftModel skips metalKOf for c.wreck)',
   // A truck's finish is the booth's (truck-livery.js), and its file is compiled with finish off so it
-  // draws what buildTruck drew (truckMeshFaces in aircraft3d.js).
+  // draws the truck file (truckMeshFaces in aircraft3d.js).
   truck_scrapper: 'a truck takes its finish from the paint booth, not the file',
   truck_hauler: 'a truck takes its finish from the paint booth, not the file',
   truck_drayman: 'a truck takes its finish from the paint booth, not the file',

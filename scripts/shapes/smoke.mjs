@@ -531,12 +531,10 @@ async function main() {
       // a number belongs is legal JSON and legal content, and it reaches the builder as NaN,
       // which paints nothing and throws nothing. Same rule as the adornments' NaN gate: build
       // every authored vehicle and fail on a single non-finite vertex.
-      // ⚠ A TRUCK'S ID IS A VARIANT AND EVERY OTHER KIND'S ID IS THE CLASS. That is the only thing
-      // the kinds disagree about here, so it stays one ternary rather than a table of builders.
       for (const [kind, id] of VEHICLE_KINDS.flatMap((k) => Object.keys(rows[k] || {}).map((id) => [k, id]))) {
         // A mesh id is not always a class (`heli_armed` is what `heli` draws armed), so a mesh is built
         // by id rather than through aircraftFaces.
-        const faces = kind === 'truck' ? veh.aircraftFaces('truck', 1, false, id) : kind === 'mesh' ? veh.meshFacesById(id, 1) : veh.aircraftFaces(id, 1);
+        const faces = kind === 'mesh' ? veh.meshFacesById(id, 1) : veh.aircraftFaces(id, 1);
         if (!faces.length) { problems.push(`vehicle row ${kind}/${id} builds no faces at all`); continue; }
         const bad = faces.some((f) => f.p.some((pt) => pt.some((n) => !Number.isFinite(n))));
         if (bad) problems.push(`vehicle row ${kind}/${id} builds a mesh with non-finite vertices — a field is the wrong type`);

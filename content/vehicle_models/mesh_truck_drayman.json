@@ -3,8 +3,7 @@
   "kind": "mesh",
   "params": {
     "name": "Vachon Drayman",
-    "note": "Ported from buildTruck by scripts/shapes/truck-meshes.mjs. Laid out from the nose anchor at f 0.40; aircraft3d.js centres it per variant. Channels: trailer (+t), parked (~p), fit_<code> (^code).",
-    "portedFrom": "buildTruck:drayman",
+    "note": "The stock Vachon Drayman. Ported from the proportion builder, which is retired (docs/proposals/hover-rigs.md), so this file is the truck. Laid out from the nose anchor at f 0.40; aircraft3d.js centres it per variant. Channels: trailer (+t), parked (~p), fit_<code> (^code). The fittings group is scripts/shapes/truck-fittings.mjs off the truck block, and scripts/shapes/meshes.mjs holds it there.",
     "variants": { "2076": "truck_drayman_2076" },
     "partIds": true,
     "truck": {
@@ -13,6 +12,7 @@
       "sleeper": 0.04,
       "deck": 0.58,
       "lamps": 0.8,
+      "stacks": [-0.1551, 0.1551],
       "boxHalf": 0.11781,
       "pin": [-0.10548149999999994, 0.03451850000000006],
       "geom": {
