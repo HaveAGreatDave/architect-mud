@@ -1791,6 +1791,10 @@ export function roomSpecOf(flags, isFlat, { storey = null } = {}) {
   const hl = hullSpecOf(base.hull, w, d, h, glass);
   if (hl) out.hull = hl;
   if (base.windowless) { out.windowless = true; out.windows = []; }
+  // a room with no shell (`void`): no walls, floor or ceiling are built (gl/room-mesh.js), and gl/room-void.js draws the
+  // field round it and a floor only where something stands. 'white' is the In Between (docs/proposals/the-inbetween.md)
+  // The kinds are gl/room-void.js KIND_LOOK's: the In Between's white, the Lattice's blue, the Broadcast's black, the Collapse.
+  if (['white', 'lattice', 'black', 'collapse'].includes(base.void)) { out.void = base.void; out.windowless = true; out.windows = []; }
   // a club: painted dark, bills on the walls, and a rig of moving lights and strobes (gl/room-mesh.js clubRig)
   if (base.club === true) out.club = true;
   // a club's VIP room: dark, velvet and slow, with a pole and lamps of its own (gl/room-mesh.js vipRig)

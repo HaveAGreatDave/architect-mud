@@ -380,6 +380,10 @@ export function createInteriorLayer(gl) {
   // ⚠ STATE THE FUNCTIONS BELOW THE RETURN USE IS DECLARED HERE, ABOVE IT. Functions hoist past a return; a let or
   // const after it is never set, and the vat hall in GLASS threw on every frame and took the whole 3-D pass down.
   let vatMod = null, vatLayer, vatList = null;
+  // a place's void (gl/room-void.js): the field behind its rooms and the floor where something stands, made the first
+  // time a room with no shell is drawn whole
+  let voidMod = null, voidLayer, voidSeen = -Infinity, voidHeld = null;
+  const VOID_AWAY_MS = 5000;   // a place not drawn for this long arrives again when it's next drawn
   const vatP = new Float32Array(24), vatC = new Float32Array(24);
   const glowP = new Float32Array(24), glowC = new Float32Array(24);
   let haloProg = null, haloBuf = null;
@@ -430,6 +434,11 @@ export function createInteriorLayer(gl) {
       const vr = ready.find((e) => e.r.vatLive && open(e)), V = vr ? vatPrep(vr, vp, ox, oy) : null;
       // and the room whose close-up figures are up (the vat hall's own frame when it's that one)
       const fr = ready.find((e) => (e.r.figLive || e.r.catLive) && open(e)), FV = fr ? (V && V.e === fr ? V : roomFrame(fr, vp, ox, oy)) : V;
+      // a place's void: its field first, behind every room, and nothing of the city was drawn under it (gl/world.js PLACE)
+      const PV = voidPrep(ready.filter((e) => e.r.voidNow && open(e)), vp, ox, oy);
+      // (its people held back while it arrives: liveDraw skips these rooms)
+      voidHeld = PV && PV.hideFigs ? PV.rooms : null;
+      if (PV) voidLayer.field(PV.vp, PV.eye, PV.now, PV.o);
       begin(vp, light, LIN_ON);
       let tris = 0;
       for (const e of ready) if (!through || !through.has(e.r.tile)) tris += drawRoom(e, ox, oy, null, V && V.e === e ? V.light : glowLight(e.r, ox, oy));
@@ -437,6 +446,8 @@ export function createInteriorLayer(gl) {
       for (const e of ready) if (e.r.haloLive && e.r.haloLive.batch && e.r.haloLive.batch.n && open(e)) tris += haloDraw(e, vp, ox, oy);
       if (V && FV !== V) tris += liveDraw(V, light);
       if (through) tris += drawPortals(vp, ox, oy, light, portals, ready);
+      // and its floor, only where something stands, over the rooms' pieces' feet
+      if (PV) { voidLayer.floor(PV.vp, PV.eye, PV.now, PV.o); voidLayer.points(PV.vp, PV.eye, PV.now); gl.useProgram(prog); gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); }
       gl.bindVertexArray(null);
       // `globalThis.__interiorStats = {}` in the console fills it each frame: what was drawn and how
       if (globalThis.__interiorStats) Object.assign(globalThis.__interiorStats, { rooms: ready.length, portals: portals ? portals.length : 0,
@@ -456,6 +467,8 @@ export function createInteriorLayer(gl) {
       extras.clear();
       if (vatLayer) { try { vatLayer.dispose(); } catch { /* the context may be gone already */ } }
       vatLayer = undefined; vatList = null;
+      if (voidLayer) { try { voidLayer.dispose(); } catch { /* the context may be gone already */ } }
+      voidLayer = undefined;
       stills.clear(); dropTarget();
       if (pbuf) { gl.deleteVertexArray(pbuf.vao); gl.deleteBuffer(pbuf.buf); }
       gl.deleteProgram(prog); if (pprog) gl.deleteProgram(pprog);
@@ -531,6 +544,50 @@ export function createInteriorLayer(gl) {
     const eye = [Mi[0] * E[0] + Mi[4] * E[1] + Mi[8] * E[2] + Mi[12], Mi[1] * E[0] + Mi[5] * E[1] + Mi[9] * E[2] + Mi[13], Mi[2] * E[0] + Mi[6] * E[1] + Mi[10] * E[2] + Mi[14]];
     return { e, M, eye, eyeW: E, vp: multiply(vp, M, new Float32Array(16)) };
   }
+  // A PLACE'S VOID (docs/proposals/the-inbetween.md): drawn in the frame of the first of its rooms (by key, so it's the same
+  // room every frame), with every room's pieces brought into that frame, and its look blended between the rooms' kinds by
+  // how near you are to each, so walking north the white goes to the Lattice's blue, the Broadcast's black, the Collapse.
+  function voidPrep(list, vp, ox, oy) {
+    const VOID_REACH = 9;   // metres: how far a room's look carries
+    const vs = list.map((e) => ({ e, v: e.r.voidNow() })).filter((x) => x.v).sort((a, b) => (a.e.r.key < b.e.r.key ? -1 : 1));
+    if (!vs.length) return null;
+    if (!voidMod) { voidMod = import('./room-void.js').then((m) => { voidMod = m; }, (err) => { voidMod = false; console.warn('[interiors] no void:', err && err.message); }); return null; }
+    if (voidMod instanceof Promise || voidMod === false) return null;
+    if (voidLayer === undefined) { try { voidLayer = voidMod.createVoidLayer(gl, {}); } catch (err) { voidLayer = null; console.warn('[interiors] no void:', err && err.message); } }
+    if (!voidLayer) return null;
+    const F = roomFrame(vs[0].e, vp, ox, oy);
+    if (!F) return null;
+    const Fi = invert(F.M, new Float32Array(16));
+    if (!Fi) return null;
+    // a point of room i's frame into the first room's: through i's matrix about the window, then back through the first's
+    const into = (e, x, y, z) => {
+      const M = e.r.M, X = M[0] * x + M[4] * y + M[8] * z + M[12] - ox, Y = M[1] * x + M[5] * y + M[9] * z + M[13] - oy, Z = M[2] * x + M[6] * y + M[10] * z + M[14];
+      return [Fi[0] * X + Fi[4] * Y + Fi[8] * Z + Fi[12], Fi[1] * X + Fi[5] * Y + Fi[9] * Z + Fi[13], Fi[2] * X + Fi[6] * Y + Fi[10] * Z + Fi[14]];
+    };
+    const now = performance.now(), eye = F.eye, pieces = [], K = voidMod.KIND_LOOK, look = { dark: 0, blue: 0, rush: 0 };
+    let wsum = 0;
+    for (const { e, v } of vs) {
+      for (const [x, z, r] of v.pieces || []) { const p = into(e, x, v.floor || 0, z); pieces.push([p[0], p[2], r]); }
+      const c = into(e, v.centre[0], v.centre[1], v.centre[2]), d = Math.hypot(eye[0] - c[0], eye[2] - c[2]), w = Math.exp(-((d / VOID_REACH) ** 2)) + 1e-6, k = K[v.kind] || K.white;
+      look.dark += k.dark * w; look.blue += k.blue * w; look.rush += k.rush * w; wsum += w;
+    }
+    look.dark /= wsum; look.blue /= wsum; look.rush /= wsum;
+    voidLayer.step(now, eye);
+    const v0 = vs[0].v;
+    // THE ARRIVAL (gl/room-void.js): the first frame a place is drawn after it's been away a while starts it, and while it
+    // runs, every room of the place is printed in from the floor up (its mesh cut at the sweep, interiors.js uTop) and its
+    // people are held back
+    if (now - voidSeen > VOID_AWAY_MS) voidLayer.arrive(now, eye, F.vp, v0.floor || 0);
+    voidSeen = now;
+    const A = voidLayer.arrival(now);
+    // (the frame's own cut kept aside, so a room object drawn again next frame gets it back when the print's done)
+    for (const { e, v } of vs) {
+      if (!('topBase' in e.r)) e.r.topBase = e.r.top;
+      const base = Number.isFinite(e.r.topBase) ? e.r.topBase : Infinity;
+      e.r.top = A && A.print < 1 ? Math.min(base, (v.floor || 0) + A.print * voidLayer.PRINT_H - 0.01) : e.r.topBase;
+    }
+    return { vp: F.vp, eye, now, hideFigs: !!(A && !A.people), rooms: new Set(vs.map((x) => x.e)), o: { kind: v0.kind, north: v0.north, floor: v0.floor || 0, pieces, look } };
+  }
   function vatPrep(e, vp, ox, oy) {
     const r = e.r, live = r.vatLive, list = live && r.vatsNow ? r.vatsNow() : null;
     if (!live || !list || !list.length) return null;
@@ -560,6 +617,7 @@ export function createInteriorLayer(gl) {
   // ray) and its glass over them, then the censor's panels over the picture as it then stands. `V` is the vat hall's
   // frame (vatPrep), or the figures' room's own (roomFrame).
   function liveDraw(V, light) {
+    if (voidHeld && voidHeld.has(V.e)) return 0;
     const fig = V.e.r.figLive, F = light.figures, recs = fig && fig.recs;
     let tris = 0;
     const dim = (light.amb || [0.3, 0.3, 0.3]).map((c) => c * 0.4);

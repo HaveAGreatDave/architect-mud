@@ -5,7 +5,19 @@
     "cosmetic_machine": true,
     "interactions": [
       "use"
-    ]
+    ],
+    "look": {
+      "arche": "prop",
+      "form": "morphex",
+      "pod": true
+    },
+    "spot": {
+      "at": [
+        1.4,
+        6.5
+      ],
+      "turn": 180
+    }
   },
   "hp": null,
   "hp_max": null,

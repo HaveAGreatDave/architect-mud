@@ -374,18 +374,43 @@ vec3 hairSway(vec3 p, vec3 r, float slot, float aux, vec2 uv) {
   return p + d;
 }`;
 
+const FACELESS_GLSL = `
+// A CHROME FIGURE HAS NO FACE (uChrome, docs/proposals/the-inbetween.md): "only a smooth curve where one should be".
+// Every vertex of the head (face, ears, eyes, lids, hair) above the jaw is put on one ellipsoid round the skull, in rest
+// space before the skinning, and its normal is the ellipsoid's, so the head is an unbroken egg of mirror. The neck
+// below the jaw keeps its own shape.
+uniform float uChrome;
+const vec3 FL_C = vec3(0.0, 1.635, 0.012), FL_R = vec3(0.088, 0.118, 0.102);
+void faceless(inout vec3 p, inout vec3 nrm, inout vec3 nf, float slot) {
+  int sl = int(slot + 0.5);
+  if (uChrome < 0.5 || p.y < 1.47) return;
+  if (sl != ${FIG_SLOT.face} && sl != ${FIG_SLOT.ear} && sl != ${FIG_SLOT.eye} && sl != ${FIG_SLOT.lid} && sl != ${FIG_SLOT.hair} && sl != ${FIG_SLOT.card}) return;
+  vec3 q = (p - FL_C) / FL_R;
+  float l = length(q);
+  if (l < 1e-4) { q = vec3(0.0, 0.0, 1.0); l = 1.0; }
+  // the jaw eased in, so the egg meets the neck without a step
+  float k = smoothstep(1.47, 1.53, p.y);
+  vec3 e = FL_C + q / l * FL_R;
+  p = mix(p, e, k);
+  vec3 en = normalize((e - FL_C) / (FL_R * FL_R));
+  nrm = normalize(mix(nrm, en, k)); nf = normalize(mix(nf, en, k));
+}
+`;
+
 const VS = `#version 300 es
-layout(location = 0) in vec3 aPos;
-layout(location = 1) in vec3 aNor;
+layout(location = 0) in vec3 aPos0;
+layout(location = 1) in vec3 aNor0;
 layout(location = 2) in vec2 aUv;
 layout(location = 5) in float aSlot;
 layout(location = 6) in float aAux;
-layout(location = 7) in vec3 aNorF;
+layout(location = 7) in vec3 aNorF0;
 layout(location = 8) in float aAo;     // how shut in the vertex is (figure-occlusion.js): 1 open, 0 shut
 ${SKIN_VS_GLSL}
 uniform mat4 uVP;
 out vec3 vPos; out vec3 vNor; out vec3 vNorF; out vec3 vRest; out vec3 vMouthP; out vec2 vUv; out float vAux; out float vAo; flat out float vSlot;
-void main() {
+${FACELESS_GLSL}void main() {
+  vec3 aPos = aPos0, aNor = aNor0, aNorF = aNorF0;
+  faceless(aPos, aNor, aNorF, aSlot);
   mat3 hR; vec3 hO;
   handXf(aPos, aAux, hR, hO);
   vMouthP = mouthMorph(flexPush(holdPush(hR * aPos + hO, aPos, aAux), aPos, aNor), aSlot, aUv);
@@ -433,6 +458,15 @@ uniform float uMantleHem;    // a mantle's hem, or 0
 uniform vec4 uWild;          // Wildblood: dressed so, which face marks, a thornhide right arm, a seed
 uniform vec3 uMark;          // their marks' pigment
 uniform vec3 uWrap;          // their wraps' linen
+// MIRROR CHROME (a record's 'chrome', docs/proposals/the-inbetween.md): the body reflects the world round it, worked
+// out in the shader, not from a probe. The world is a void's (its field's whites and its floor where something
+// stands), with what stands in it as upright capsules: uChromeYou (base xyz, radius; height in uChromeH.x) is the
+// viewer as they stood a moment ago, so the light on it moves late, and uChromeObj (height uChromeH.y) the piece
+// beside it. uChromeDark takes the light out for a black void.
+uniform float uChrome, uChromeDark, uChromeT;
+uniform vec4 uChromeYou, uChromeObj;
+uniform vec2 uChromeH;
+uniform vec3 uChromeYouC;
 uniform float uSculpt;       // the sculpted figure (docs/proposals/sculpted-figure.md): its paint, three tones and warm skin
 uniform vec4 uFaceV;         // its face: brow weight, mouth width, beard, soft
 uniform float uAge;          // how far its face has aged: 0 none, 1 old
@@ -2568,9 +2602,50 @@ void main() {
   }
   if (mat == 3.0 || mat == 4.0 || mat == 6.0) c += step(0.35, dot(spec, vec3(0.333))) * lit * (mat == 6.0 ? base * 1.6 + 0.2 : vec3(0.75));
   // the line always darker than the cloth it is drawn on: the house ink, or a third of a dark cloth
+  // mirror chrome: what the body reflects, in place of its paint and its comic light
+  if (uChrome > 0.5) {
+    vec3 rd = reflect(-v, normalize(n + nf * 0.15));
+    // the void: drifting warm and cool whites, a band of light at eye height, and under the horizon the pale floor
+    // only near the feet, white further out
+    float dr = 0.5 + 0.5 * sin(rd.x * 3.1 + uChromeT * 0.05) * sin(rd.z * 2.7 - uChromeT * 0.04 + rd.y * 2.0);
+    vec3 env = mix(vec3(0.93, 0.955, 1.0), vec3(1.0, 0.985, 0.955), dr) * (0.9 + 0.1 * exp(-rd.y * rd.y * 9.0));
+    if (rd.y < -0.02) {
+      float tf = -(vPos.y - uChromeYou.y) / rd.y;
+      vec2 hit = vPos.xz + rd.xz * tf;
+      float near = 1.0 - smoothstep(0.5, 1.4, length(hit - vPos.xz));
+      env = mix(env, vec3(0.8, 0.82, 0.85), near * 0.8);
+    }
+    // what stands in it: the nearer hit of two upright capsules
+    float best = 1e9; vec3 hitC = env;
+    for (int k = 0; k < 2; k++) {
+      vec4 C = k == 0 ? uChromeYou : uChromeObj;
+      float H = k == 0 ? uChromeH.x : uChromeH.y;
+      if (C.w <= 0.0) continue;
+      vec2 o2 = vPos.xz - C.xz, d2 = rd.xz;
+      float a = dot(d2, d2), b = dot(o2, d2), cc = dot(o2, o2) - C.w * C.w, disc = b * b - a * cc;
+      if (a < 1e-5 || disc < 0.0) continue;
+      float t = (-b - sqrt(disc)) / a;
+      float y = vPos.y + rd.y * t;
+      if (t > 0.02 && t < best && y > C.y && y < C.y + H) {
+        best = t;
+        // the viewer as a dark figure lit cool at its edge; the piece a deep carbon
+        float rim = pow(1.0 - abs(dot(normalize(vec2(vPos.xz + d2 * t - C.xz)), normalize(-d2))), 2.0);
+        hitC = k == 0 ? mix(uChromeYouC, vec3(0.7, 0.9, 1.0), rim * 0.6) : mix(vec3(0.05, 0.055, 0.065), vec3(0.4, 0.85, 1.0), rim * 0.35);
+      }
+    }
+    if (best < 1e8) env = mix(env, hitC, 0.92);
+    // a mirror goes dark at its grazing edge in a white room, or there's no silhouette at all
+    float graze = 1.0 - max(dot(n, v), 0.0);
+    env = mix(env, vec3(0.06, 0.065, 0.08), smoothstep(0.45, 0.92, graze) * 0.9);
+    // the lamp's highlight, hard, as the house draws metal
+    env += step(0.5, dot(spec, vec3(0.333))) * vec3(0.9);
+    // and the black void's light taken out with the rest of it
+    c = mix(env * vec3(1.0, 0.985, 0.96), env * 0.05, uChromeDark);
+    glow = vec3(0.0);
+  }
   c += glow;
   c = mix(c, min(uLine, c * 0.32), 0.85 * ink);
-  if (eyeHole) discard;
+  if (eyeHole && uChrome < 0.5) discard;
   outColor = vec4(finish(c), 1.0);
 }`;
 
@@ -2580,8 +2655,8 @@ void main() {
 // 0.0004 is centimetres on a wall across the room and 3 mm on a face at arm's length, less than
 // a grazing cheek falls away across the line's few pixels, and the ink came through the cheek.
 const INK_VS = `#version 300 es
-layout(location = 0) in vec3 aPos;
-layout(location = 1) in vec3 aNor;
+layout(location = 0) in vec3 aPos0;
+layout(location = 1) in vec3 aNor0;
 ${SKIN_VS_GLSL}
 uniform mat4 uVP;
 uniform vec2 uRes;
@@ -2622,7 +2697,9 @@ float trunkWidth(float slot, float aux, vec3 r, vec3 nr) {
   float ln = max(length(nr), 1e-4), side = smoothstep(0.3, 0.65, sign(r.x) * nr.x / ln), notTop = 1.0 - smoothstep(0.35, 0.75, nr.y / ln);
   return 1.0 - smoothstep(1.27, 1.33, r.y) * max(smoothstep(0.11, 0.14, abs(r.x)) * max(side, notTop), smoothstep(0.15, 0.17, abs(r.x)));
 }
-void main() {
+${FACELESS_GLSL}void main() {
+  vec3 aPos = aPos0, aNor = aNor0, aNorF = aNor0;
+  faceless(aPos, aNor, aNorF, aSlot);
   mat3 hR; vec3 hO;
   handXf(aPos, aAux, hR, hO);
   vec3 p = hairSway(drape(skinAll(vec4(faceLift(mouthMorph(flexPush(holdPush(hR * aPos + hO, aPos, aAux), aPos, aNor), aSlot, aUv), aSlot), 1.0)), aPos, aSlot, aAux), aPos, aSlot, aAux, aUv), sn = skinAll(vec4(hR * aNor, 0.0));
@@ -2746,6 +2823,7 @@ declareProgram(INK_VS, INK_FS, null, { scenes: FIGURE_SCENES });
 // skipped, and the room compiles them as it always did. Resolves true once they've linked.
 const WARM_POLL_MS = 2000, WARM_GIVE_UP_MS = 10 * 60 * 1000;
 let warming = null;
+const NO_CAP = new Float32Array([0, 0, 0, 0]);   // no capsule in a chrome figure's reflection
 export function warmFigure() {
   return (warming ??= new Promise((done) => {
     const canvas = document.createElement('canvas');
@@ -3018,6 +3096,8 @@ export function createFigureLayer(gl, { half = false, panels = false } = {}) {
       for (const r of recs) {
         const m = meshOf(keyOf(r));
         pose(INK, r);
+        // a chrome figure's line follows its faceless head (FACELESS_GLSL)
+        gl.uniform1f(INK.u('uChrome'), r.chrome ? 1 : 0);
         // the sculpted figure's forms and paint carry the drawing, so its outline is lighter
         gl.uniform1f(INK.u('uInkK'), r.key.sculpt ? 0.72 : 1);
         gl.bindVertexArray(m.vao);
@@ -3103,6 +3183,9 @@ export function createFigureLayer(gl, { half = false, panels = false } = {}) {
         gl.uniform3fv(LIT.u('uWrap'), r.wrapCol || [0.4, 0.35, 0.25]);
         gl.uniform3fv(LIT.u('uGlove'), r.glove || [0.03, 0.025, 0.02]);
         gl.uniform1f(LIT.u('uSculpt'), r.key.sculpt ? 1 : 0);
+        // mirror chrome (docs/proposals/the-inbetween.md): { you: [x, y, z, r], youH, youC, obj, objH, dark, t }, or none
+        { const M = r.chrome; gl.uniform1f(LIT.u('uChrome'), M ? 1 : 0);
+          if (M) { gl.uniform4fv(LIT.u('uChromeYou'), M.you || NO_CAP); gl.uniform4fv(LIT.u('uChromeObj'), M.obj || NO_CAP); gl.uniform2f(LIT.u('uChromeH'), M.youH || 1.75, M.objH || 2); gl.uniform3fv(LIT.u('uChromeYouC'), M.youC || [0.12, 0.14, 0.18]); gl.uniform1f(LIT.u('uChromeDark'), M.dark || 0); gl.uniform1f(LIT.u('uChromeT'), M.t || 0); } }
         gl.uniform4fv(LIT.u('uFaceV'), r.faceV || [1, 1, 0.8, 0]);
         gl.uniform1f(LIT.u('uAge'), r.age || 0);
         gl.uniform1f(LIT.u('uGrit'), r.grit || 0);

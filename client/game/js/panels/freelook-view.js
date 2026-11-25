@@ -52,7 +52,7 @@ import { cookFrame, cookersIn, coldIn } from './room-cook.js';   // where the ki
 import { multiply as mat4Mul, invert as mat4Inv } from './gl/core/mat4.js';   // a depot's vehicle, written for the interiors layer
 import { createOneWorldSound } from './oneworld-sound.js';   // inside, the outside through the windows (phase D)
 import { state } from '../state.js';   // the room the server last said you're in (owGoingTick)
-import { roomPeopleRecords, lyingBodies, placePeople, facedPerson, noteMoves, routesOf, walking as walkingNow } from './oneworld-people.js';
+import { roomPeopleRecords, lyingBodies, closeupBodies, placePeople, facedPerson, noteMoves, routesOf, walking as walkingNow } from './oneworld-people.js';
 import { personActs } from '../../../shared/room-acts.js';
 import { token as personToken } from '../../../shared/person-token.js';   // inside, what somebody you face offers
 import { litOf, switchOf, saveSwitch } from '../../../shared/room-lights.js';   // inside, each room's lamps (phase D)   // inside, the room's people (phase C)   // a locked doorway inside   // inside, what the piece you face offers
@@ -1622,7 +1622,7 @@ function owVesselTick(s, now) {
   const I = s.inside, fv = s.freeCam.view(), poses = new Map();
   let cut = null;
   for (const r of s.interiors) {
-    if (!r.vessel) continue;
+    if (!r.vessel || r.place) continue;
     const k = r.gx + ',' + r.gy;
     if (!poses.has(k)) poses.set(k, vesselPose(s, r.gx, r.gy, now));
     const P = poses.get(k);
@@ -2437,13 +2437,17 @@ function owFigTick(s, now) {
   if (!r) return;
   const lying = lyingBodies(r.L, I.people, I.you), vat = s.owVat?.room === r ? s.owVat : null;
   const me = s.owMorph?.room === r && s.owMorph.ui?.on ? s.owMorph.ui.self(now) : null;
-  const want = [...lying, ...(vat?.bodies || []), ...(me ? [me] : [])];
+  // and whoever's drawn close up standing (the In Between's attendant), watching you: your eye in the room's frame
+  const eyeR = owEyeInRoom(s, r), close = closeupBodies(r.L, I.people, I.you).map((b) => (eyeR ? { ...b, watch: eyeR, watchHold: true } : b));
+  const want = [...lying, ...close, ...(vat?.bodies || []), ...(me ? [me] : [])];
   if (!want.length) { r.figLive = null; r.heldExtra = null; return; }
   if (!figMods) { figMods = Promise.all([import('./gl/room-people.js'), import('./figure-ahead.js'), import('./room-vat-sleepers.js'), import('./gl/room-held.js'), import('./gl/ballpark-mesh.js')]).then(([rp, fa, sl, rh, bm]) => { figMods = { rp, fa, sl, rh, bm }; }).catch((e) => { console.warn('[one-world] the close-up figures would not load:', e?.message); figMods = null; }); return; }
   if (figMods instanceof Promise) return;
   const { rp, fa, sl, rh, bm } = figMods, t = now / 1000;
   const bodies = want.filter((b) => rp.figureLooks(b).every((k) => fa.figureAhead(k)));
   const recs = bodies.length ? rp.figurePeople(r.L, bodies, t, { level: 'hd' }) : [];
+  // mirror chrome (flags.figure.chrome): what it reflects (gl/figure-hd.js uChrome), you as you stood a moment ago
+  if (bodies.some((b) => b.figure?.chrome)) { const C = owChromeScene(s, r, eyeR, now); recs.forEach((q, i) => { if (q && bodies[i].figure?.chrome) q.chrome = C; }); }
   if (r.vatLive) r.vatLive.bodies = recs.map((q, i) => (bodies[i].vat != null ? { id: bodies[i].vat, ...sl.sleeperCapsules(q.rows) } : null)).filter(Boolean);
   // their light: the room's own lamps, and in the vat hall each vat's crown first
   const lamps = vat?.lamps || (r.lampsNow?.() || []).map((l) => ({ p: l.p, k: (l.k ?? 1) * 0.6 }));
@@ -2451,6 +2455,28 @@ function owFigTick(s, now) {
   // what's in their hands that the figure doesn't draw (a barbell on a press bench: gl/room-held.js), built every frame
   // while somebody holds it, hung on the room ('heldExtra') as the Stage puts it in its props
   if (recs.some((q) => q?.hold?.L || q?.hold?.R)) { const b = bm.createBatch(2048); rh.heldProps(b, bodies, recs); r.heldExtra = b.n ? { batch: b, ver: (r.heldExtra?.ver || 0) + 1 } : null; } else r.heldExtra = null;
+}
+// Your eye in a room's own frame (room-layout.js L.world's metres), or null: where a close-up figure looks to watch you.
+function owEyeInRoom(s, r) {
+  const fv = s.freeCam?.view?.();
+  if (!fv) return null;
+  const uv = roomUV(s, r, fv.x, fv.y);
+  return uv ? r.L.world(uv[0], uv[1], OW_EYE_M) : null;
+}
+const OW_EYE_M = 1.62;
+// WHAT A CHROME FIGURE REFLECTS (gl/figure-hd.js uChrome, docs/proposals/the-inbetween.md): you, as an upright capsule
+// where you stood OW_CHROME_LAG ago, so the light on it moves a half-second late, as its description says; the tallest
+// piece in the room (the MORPHEX terminal beside it); and whether the room's void is the black one.
+const OW_CHROME_LAG = 0.5, owChromeTrail = [];
+function owChromeScene(s, r, eyeR, now) {
+  const t = now / 1000;
+  if (eyeR) { owChromeTrail.push([t, eyeR[0], eyeR[2]]); while (owChromeTrail.length > 2 && t - owChromeTrail[1][0] > OW_CHROME_LAG) owChromeTrail.shift(); }
+  const was = owChromeTrail[0], fl = r.L.world(0, 0, 0)[1];
+  const tall = (r.L.placed || []).reduce((a, p) => (!a || (p.h || 0) > (a.h || 0) ? p : a), null);
+  const obj = tall ? r.L.world(tall.u, tall.v, 0) : null;
+  return { you: was ? [was[1], fl, was[2], 0.24] : [0, 0, 0, 0], youH: OW_EYE_M + 0.12, youC: [0.12, 0.14, 0.18],
+    obj: obj ? [obj[0], fl, obj[2], Math.max(0.3, Math.min(tall.w || 0.6, tall.d || 0.6) * 0.6)] : [0, 0, 0, 0], objH: tall?.h || 2,
+    dark: r.L.spec?.void === 'black' ? 1 : 0, t };
 }
 // A PET CAT (phase C, docs/proposals/pets.md), as on the Stage: his day from his id and the clock (client/shared/
 // cat-life.js through gl/room-beasts.js catsFrame), posed in the room's frame and skinned on the GPU by the Stage's own

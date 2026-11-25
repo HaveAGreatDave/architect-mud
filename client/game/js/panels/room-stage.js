@@ -221,7 +221,7 @@ function keepMesh(key, mesh) {
 // same cache, so the crossing finds it as before. A room asked for before its reply is built here, as a miss always
 // was, and the late reply is dropped. Null when there's no worker, and the caller builds it here.
 // ⚠ MESH_FIELDS IS EVERYTHING THE STAGE READS OFF A MESH; the rest of buildRoom's return can't be posted.
-const MESH_FIELDS = ['solid', 'glass', 'screen', 'textured', 'view', 'mats', 'screens', 'lamps', 'windows', 'spin', 'slideDoors', 'liftDoors', 'dials', 'vats', 'gantries'];
+const MESH_FIELDS = ['solid', 'glass', 'screen', 'textured', 'view', 'mats', 'screens', 'lamps', 'windows', 'spin', 'slideDoors', 'liftDoors', 'dials', 'vats', 'gantries', 'voidRoom'];
 let meshWorker = null, meshAsked = 0;
 const meshWaits = new Map(), meshPending = new Map();
 function bakeOffThread(spec, pieces, opts) {

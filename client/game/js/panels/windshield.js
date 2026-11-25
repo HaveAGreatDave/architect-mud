@@ -132,6 +132,8 @@ function interiorUploadNow(v, cam) {
   // the street doors of these buildings, as windows onto their rooms (gl/interiors.js drawPortals): the opening
   // glass/street-doors.js stands its leaves in, at the back of its reveal, about the same centre as the rooms
   if (!v.interiorInside && v.streetDoors) list.portals = streetPortals(v.streetDoors, list, ox, oy);
+  // a place (docs/proposals/the-inbetween.md): no city round its rooms, so gl/world.js draws none (and no ground or sky)
+  if (rooms.some((r) => r.place)) list.place = true;
   // and the rooms' own windows (step 2): the shell is solid, so each pane facing you is filled from its room
   const rel = [eye[0] - ox, eye[1] - oy, eye[2]];
   // `__interiorPanes = false` in the console turns them off to compare

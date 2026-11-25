@@ -130,7 +130,43 @@
       "articulated underplating that shifts like muscle when it moves"
     ],
     "no_attack": true,
-    "no_attack_message": "Your arm begins to rise. The attendant watches it rise with mild interest. Your arm doesn't rise. \"That isn't one of the things you get to do here,\" it says, without reproach."
+    "no_attack_message": "Your arm begins to rise. The attendant watches it rise with mild interest. Your arm doesn't rise. \"That isn't one of the things you get to do here,\" it says, without reproach.",
+    "figure": {
+      "closeup": true,
+      "chrome": true,
+      "height": 2.3,
+      "limb": 1.08,
+      "build": "average",
+      "hat": false,
+      "scarf": false,
+      "gear": false,
+      "bottoms": false,
+      "boots": false,
+      "facial": "",
+      "beard": 0,
+      "smile": 0,
+      "skin": [
+        200,
+        205,
+        212
+      ],
+      "top": [
+        200,
+        205,
+        212
+      ],
+      "legs": [
+        200,
+        205,
+        212
+      ],
+      "shoes": [
+        200,
+        205,
+        212
+      ],
+      "hair_style": 0
+    }
   },
   "home_activities": [],
   "home_zone": "zone_the_inbetween",

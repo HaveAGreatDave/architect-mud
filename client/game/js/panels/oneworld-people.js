@@ -147,6 +147,8 @@ export function roomPeopleRecords(room, people, you = null, walks = null, now = 
   const placed = placePeople(L, people, you).filter((q) => !moving.has(q.p.id));
   for (const q of [...placed, ...moving.values()]) {
     if (q.pose === 'lie') continue;
+    // somebody drawn close up even standing (flags.figure.closeup: the In Between's attendant) is closeupBodies'
+    if (q.p.figure?.closeup && !q.walk) continue;
     const g0 = L.groundAt ? L.groundAt(q.at[0], q.at[1]) || 0 : 0;
     const W = L.world(q.at[0], q.at[1], g0 + (q.lift || 0)), P = roomPt(room.M, W);
     const Q = roomPt(room.M, [W[0] + Math.sin(q.yaw), W[1], W[2] + Math.cos(q.yaw)]);
@@ -167,6 +169,18 @@ export function lyingBodies(L, people, you = null) {
     return { id: p.id, seat: s, at: q.at, yaw: q.yaw, pose: 'lie', head: s.head, top: s.top, sculpt: true, sex: p.sex,
       figure: p.figure || (p.look ? playerFigure(p.look) : undefined), wear: p.wear, feel: p.feel,
       rest: p.asleep ? 'sleep' : p.out ? 'out' : undefined, manner: p.manner, mood: p.mood, ...(p.clip ? { clip: p.clip } : {}), ...(p.bar ? { bar: p.bar } : {}) };
+  });
+}
+
+// THE ROOM'S PEOPLE DRAWN CLOSE UP STANDING (flags.figure.closeup, docs/proposals/the-inbetween.md): a figure the
+// street's crowd body can't be, a 2.3 m attendant in mirror chrome, posed by figurePeople in the room's frame like the
+// people lying down. Somebody walking a route stays in the crowd till they've stopped.
+export function closeupBodies(L, people, you = null) {
+  if (!L) return [];
+  return placePeople(L, people, you).filter((q) => q.p.figure?.closeup && q.pose !== 'lie').map((q) => {
+    const p = q.p;
+    return { id: p.id, at: q.at, yaw: q.yaw, pose: q.pose === 'sit' ? 'sit' : 'stand', sculpt: true, sex: p.sex, figure: p.figure, wear: p.wear, feel: p.feel,
+      manner: p.manner, mood: p.mood, ...(q.seat ? { seat: q.seat } : {}), ...(p.clip ? { clip: p.clip } : {}) };
   });
 }
 

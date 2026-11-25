@@ -279,6 +279,33 @@ export function buildingRoomsNear(gx, gy, r) {
   return out;
 }
 
+// A PLACE (docs/proposals/the-inbetween.md): rooms with no building and no street, walked in GLASS on their own patch of
+// empty ground far from any region (PLACE_AT), the prologue's first. A map is a place when its entry room says so
+// (`flags.room.place`). Its rooms go as a vessel's do, where each stands in its plan's frame, so the rooms of the walk
+// stand on one line through their doorways; the client places them once and never moves them (room-interiors.js).
+export const PLACE_AT = Object.freeze({ gx: 200, gy: 200 });
+export function isPlace(zoneId) {
+  const z = getZone(mainOf(zoneId)), bld = z ? buildingOfRoom(z.id) : null;
+  return !!(bld && getZone(bld.b.entry)?.flags?.room?.place);
+}
+export function placeRooms(zoneId) {
+  const bld = isPlace(zoneId) ? buildingOfRoom(mainOf(zoneId)) : null;
+  if (!bld) return null;
+  let kept = roomsKept.get(bld);
+  if (!kept || Date.now() - kept.at > ROOMS_KEEP_MS) {
+    const rooms = [];
+    for (const id of Object.keys(bld.plan.rooms)) {
+      const spec = stageSpec(id), R = bld.plan.rooms[id];
+      if (!spec || !R) continue;
+      const pieces = layRows(getZoneFurniture(id), spec, { finish: spec.finish, itemOf: (x) => (x.flags?.item_id ? getItem(x.flags.item_id) : null) }).pieces;
+      rooms.push({ zone: id, spec, pieces, frame: { vessel: { sx: R.at[0], fz: R.at[1], face: R.face, floor: R.floor, deck: 0 } } });
+    }
+    kept = { at: Date.now(), rooms };
+    roomsKept.set(bld, kept);
+  }
+  return { tile: { x: PLACE_AT.gx, y: PLACE_AT.gy }, vessel: true, place: true, rooms: kept.rooms };
+}
+
 // Both rooms on one building's walk: going between them is walking across the Stage.
 const sameWalk = (a, b) => { const x = buildingOfRoom(a); return !!x && x === buildingOfRoom(b); };
 // A room's spec as its Stage draws it: with its building's doorways when it's on a walk, so a piece
@@ -1090,7 +1117,9 @@ async function cmdRoom(args, raw, player) {
   // answers `roomstage.worldin`), and the room's view after it carries `world`, so the client waits for that view
   // to take it, as walking in off the street does. A room it doesn't take still opens as the Room Stage.
   let worldIn = false;
-  if (a0 === 'world') {
+  // a place has no street and no tile: its own patch of ground (plugins/freelook answers `roomstage.placein`)
+  if (a0 === 'world' && isPlace(zoneId)) { emit('roomstage.placein', { player, zone: zoneId }); worldIn = true; }
+  else if (a0 === 'world') {
     // a vessel has no street: the view goes up over her own tile (buildingRoomsNear sends her rooms)
     const facade = getMap(getZone(zoneId)?.map_id)?.parent_zone_id, fz = facade ? getZone(facade) : null, street = fz ? (fz.flags?.vessel ? facade : facadeStreetTile(fz)) : null;
     if (street && buildingOfRoom(zoneId)) { emit('roomstage.worldin', { player, zone: street, facade }); worldIn = true; }
@@ -1107,6 +1136,13 @@ async function cmdRoom(args, raw, player) {
   sendAhead(player, view);
   return { type: 'noop' };
 }
+
+// Another plugin opening a room's 3-D view for somebody, as if they'd pressed the room button (`world` for the desktop's
+// GLASS, which a phone takes as the Stage): the prologue does it as the cold open ends (plugins/prologue beginArrival).
+on('roomstage.open', ({ player, world }) => {
+  const p = player?.id ? getLivePlayer(player.id) : null;
+  if (p) cmdRoom(world ? ['world'] : [], '', p).catch((e) => console.error('[roomstage] open:', e.message));
+});
 
 // ── arrange <piece> [wall] ──────────────────────────────────────────────────────────────────────
 // Moves one player piece to another wall, or with no wall back to the spot `place` would pick now.

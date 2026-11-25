@@ -115,7 +115,9 @@ export function buildingGraph({ zones, maps, specOf = () => null, world = 'map_w
     }
     const inWalk = new Set(b.walk);
     for (const d of b.doors) if (d.kind === 'bent' && inWalk.has(d.from) && inWalk.has(d.to)) b.problems.push({ kind: 'bent', zone: d.from, dir: d.dir, to: d.to });
-    if (b.walk.length && !b.front.some((f) => inWalk.has(f.from))) b.problems.push({ kind: 'walk_no_front_door' });
+    // (a map with no facade isn't on a street, so there's no front door to walk to: the prologue's rooms lead on to
+    // the Clone Facility, docs/proposals/the-inbetween.md)
+    if (b.walk.length && b.facade && !b.front.some((f) => inWalk.has(f.from))) b.problems.push({ kind: 'walk_no_front_door' });
     // A building whose facade was set aside (docs/proposals/stored-buildings.md) is off the map
     // with its interior kept whole. Nobody can walk into it, so nothing holds it to a plan.
     b.stored = Z.get(b.facade)?.map_id === SET_ASIDE_MAP;

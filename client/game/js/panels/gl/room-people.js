@@ -398,6 +398,30 @@ const UPPER = ['chest', 'neck', 'head', 'uarmL', 'farmL', 'handL', 'uarmR', 'far
 // back, between the shoulder blades, the back of the skull (figurePeople's seat-back check)
 const BACK_PROBES = [[FIGURE_BONE.pelvis, [0, 0.95, -0.13]], [FIGURE_BONE.spine, [0, 1.1, -0.12]], [FIGURE_BONE.chest, [0, 1.32, -0.13]], [FIGURE_BONE.head, [0, 1.6, -0.1]]];
 const at = (m, p) =>[0, 1, 2].map((r) => m[r] * p[0] + m[4 + r] * p[1] + m[8 + r] * p[2] + m[12 + r]);
+// LIMBS A TOUCH LONG (a body's `limb`, or flags.figure.limb: 1.08 is the In Between's attendant, "tall and wrong"):
+// each arm scaled about its shoulder and each leg about its hip, where the clip has put them, so the hands hang lower and
+// the hips stand higher. Done before the soles are found, so the feet still land on the floor. Each limb's bones are its
+// root and everything below it (the grown bones off a hand or a foot too).
+const LIMB_ROOTS = [['uarmL', JOINT.uarmL], ['uarmR', JOINT.uarmR], ['thighL', [0.095, 0.92, 0]], ['thighR', [-0.095, 0.92, 0]]];
+const parentOf = (b) => (b < FIGURE_BONES.length ? FIGURE_BONES[b][1] : XPARENT[b - FIGURE_BONES.length]);
+const LIMB_BONES = LIMB_ROOTS.map(([name]) => {
+  const root = BN[name], out = [];
+  for (let b = 0; b < NBONE; b++) { let p = b; while (p >= 0 && p !== root) p = parentOf(p); if (p === root) out.push(b); }
+  return out;
+});
+function longLimbs(S, k) {
+  LIMB_ROOTS.forEach(([name, joint], i) => {
+    const J = at(S[BN[name]], joint);
+    for (const b of LIMB_BONES[i]) {
+      const m0 = S[b];
+      if (!m0) continue;
+      const m = m0 instanceof Float32Array ? new Float32Array(m0) : Float64Array.from(m0);
+      for (let c = 0; c < 4; c++) for (let r = 0; r < 3; r++) m[c * 4 + r] *= c === 3 ? 1 : k;
+      for (let r = 0; r < 3; r++) m[12 + r] = J[r] + k * (m0[12 + r] - J[r]);
+      S[b] = m;
+    }
+  });
+}
 // turn bone matrices about an axis (a, b are the two axes the turn mixes) through pivot p
 function turn(M, bones, a, b, ang, p) {
   const c = Math.cos(ang), s = Math.sin(ang);
@@ -798,6 +822,7 @@ export function figurePeople(L, bodies, t = 0, { level: asked = 'hd', eye = null
     const playing = mx ? (mx.k > 0.5 ? mx.b : mx.a) : now ? now.c : clip;
     const arms = finishArms(S2, { clip: playing, key: o.key, grip: holding(gripOf(playing), o.key.prop), props: propsOf(o.key.prop || ''), holds: body.holds || {}, meal: body.meal || false, t, id: body.id, lift: body.lift || 0, table: Array.isArray(body.meal?.at) && L.world ? L.world(0, 0, body.meal.at[2])[1] - L.world(0, 0, 0)[1] : null });
     const S = arms.S;
+    { const lk = +(body.limb || body.figure?.limb || 1); if (lk > 1.001 && lk < 1.3) longLimbs(S, lk); }
     // stood on the floor: the lowest sole point at zero, as the bake drops its frames. Lying, the feet are where
     // placeOf puts them, and a knee drawn up mustn't slide the whole body up the bed
     let drop = lying || ragged ? 0 : Infinity;

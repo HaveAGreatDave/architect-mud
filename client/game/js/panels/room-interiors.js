@@ -63,6 +63,8 @@ const MESH_FIELDS = ['solid', 'screen', 'textured', 'lamps', 'screens'];
 // and a clone vat hall's (gl/room-decor.js `vat` and `gantry`): its glass, its vats and its gantries, for the vats' fluid,
 // machines and sleepers drawn in GLASS as on the Stage (gl/interiors.js, one-world phase F)
 const VAT_FIELDS = [...MESH_FIELDS, 'glass', 'vats', 'gantries'];
+// and a room with no shell's (spec.void, gl/room-mesh.js voidRoom): what gl/room-void.js draws round it
+const VOID_FIELDS = [...MESH_FIELDS, 'voidRoom'];
 const built = new Map();      // zone|lamp|seed -> mesh, or null once the worker couldn't (built on the page then)
 const BUILT_KEEP = 32;
 let worker = null, asked = 0;
@@ -116,7 +118,7 @@ export function interiorRoomsOf(data, { lampOn = () => true, lampLevel = () => 1
     const seed = hashOf(r.zone), on = !!lampOn(r.zone), bk = (r.key || r.zone) + '|' + (on ? 1 : 0) + '|' + seed + (r.ver ? '|v' + r.ver : '');
     const old = was?.get(r.key || r.zone)?.baseKey?.() || null;
     const opts = { seed, lampOn: on, joined: all }, vatRoom = (L.placed || []).some((p) => p.form === 'vat');
-    const fields = vatRoom ? VAT_FIELDS : MESH_FIELDS;
+    const fields = vatRoom ? VAT_FIELDS : r.spec?.void ? VOID_FIELDS : MESH_FIELDS;
     // a mesh asked of the worker once: `k` its key in the cache, `ps` the pieces it's built from
     const want = (k, ps, o = opts) => {
       if (built.has(k) || !workerUp() || waiting.has(k)) return;
@@ -135,6 +137,9 @@ export function interiorRoomsOf(data, { lampOn = () => true, lampLevel = () => 1
       // a lift car comes once for each landing it stops at (plugins/roomstage buildingRoomsNear): `key` the car and the
       // landing, `stop` the landing, so each copy is its own room here, its mesh kept apart (bk) since its doors differ
       key: r.key || r.zone, zone: r.zone, stop: r.stop || null, gx: data.tile.x, gy: data.tile.y, M, L, bearing, vessel: V,
+      // a place's room (plugins/roomstage placeRooms, docs/proposals/the-inbetween.md): laid out as a vessel's, on its own
+      // patch of empty ground, and never moved after (freelook-view.js owVesselTick leaves it alone)
+      place: !!data.place,
       box: roomBounds(L, M, data.tile.x, data.tile.y),
       panes: roomPanes(r.spec, L, M),
       // a room's own dimmer (flags.room.dim: a cell lit by its high windows, a vat hall by its vats) as the Stage has it
@@ -177,6 +182,8 @@ export function interiorRoomsOf(data, { lampOn = () => true, lampLevel = () => 1
       // a vat hall's vats and gantries in the room's frame, once its whole mesh is built (null in any other room)
       vatsNow: () => (vatRoom ? built.get(cur())?.vats || null : null),
       gantriesNow: () => (vatRoom ? built.get(cur())?.gantries || [] : []),
+      // a room with no shell (spec.void): what gl/room-void.js draws round it, in the room's frame, once its mesh is built
+      voidNow: r.spec?.void ? () => built.get(cur())?.voidRoom || null : null,
       // the room as seen from its street door, if it has one and there's a picture of it (lobby-still.js)
       still: () => bakedStill(r.zone),
       parts(lod) {

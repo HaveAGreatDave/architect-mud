@@ -46,7 +46,7 @@ import { schedule } from '../../server/engine/scheduler.js';
 import { on } from '../../server/engine/events.js';
 import { mapWindow, skyState, FLIGHT_RADIUS, skylineNear, nearbyRegions, farRoadsNear, FAR_ROAD_R, worldContactsNear } from '../flight/state.js';
 import { streetActors, token } from '../../server/engine/street-actors.js';
-import { streetDoorsNear, buildingRoomsNear } from '../roomstage/index.js';
+import { streetDoorsNear, buildingRoomsNear, placeRooms, PLACE_AT } from '../roomstage/index.js';
 
 // The same roster the fireworks command takes, and deliberately not the narrower `role === 'admin'`
 // the helm console uses: the helm steers a boat and this looks at a wall, so the people who build
@@ -433,6 +433,18 @@ on('roomstage.worldin', ({ player, zone, facade }) => {
   const [ox, oy] = STEP_OF[out] || [0, 0];
   // `worldin`: only the room's backdrop, so the client keeps the room's loading veil over it (dispatch.js freelook_open)
   sendToPlayer(p.id, { ...viewPayload(step.gx, step.gy, { foot: true, x: -ox * 0.36, y: -oy * 0.36, yaw: YAW_OF[out] ?? 0, leash: 0, label: z.name || 'STREET', step }, p.id), worldin: true });
+});
+// The room button in a place (plugins/roomstage `room world`, docs/proposals/the-inbetween.md): GLASS on the place's own
+// patch of empty ground, with its rooms, for the room's view to be taken into it. `place` tells the view there's no city
+// to draw. Nobody's put on foot and no viewer is kept, as `worldin` above; walking between the place's rooms is the
+// Stage's crossing, and leaving the place for a map with a street takes the view down as usual.
+on('roomstage.placein', ({ player, zone }) => {
+  const p = player?.id ? getLivePlayer(player.id) : null, data = placeRooms(zone);
+  if (!p || !data) return;
+  roomsSent.delete(p.id);
+  const z = getZone(zone), step = { gx: PLACE_AT.gx, gy: PLACE_AT.gy, zone };
+  const view = viewPayload(PLACE_AT.gx, PLACE_AT.gy, { foot: true, x: 0, y: 0, yaw: 0, leash: 0, label: z?.name || 'PLACE', step }, p.id);
+  sendToPlayer(p.id, { ...view, doors: [], here: [], interiors: [data], place: true, worldin: true });
 });
 // The Stage opened on the building you walked into: the street view goes, and the Stage takes the pane.
 on('roomstage.indoors', ({ player }) => {

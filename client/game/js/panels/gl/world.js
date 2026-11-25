@@ -1153,7 +1153,10 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   if (g.view.uploadShip) g.view.uploadShip(own || [], shipModel || null, (opts.ship && opts.ship.shipState) || null);
   if (g.view.uploadSolids) g.view.uploadSolids([rest, opts.bay, opts.fauna]);
   if (g.view.uploadInterior) g.view.uploadInterior(room, (opts.ship && opts.ship.interiorModel) || null, (opts.ship && opts.ship.interiorLight) || null, (opts.ship && opts.ship.interiorAtt) || null);
-  const mirrorGain = opts.glMirror > 0 ? opts.glMirror : 0;
+  // A PLACE (docs/proposals/the-inbetween.md): rooms on their own patch of empty ground, with no city, ground, sea or
+  // sky round them. gl/room-void.js draws the field behind them instead (gl/interiors.js), so none of those passes run.
+  const PLACE = !!(opts.interiors && opts.interiors.place);
+  const mirrorGain = opts.glMirror > 0 && !PLACE ? opts.glMirror : 0;
   // The mirror runs for wet roads and for the sea. ⚠ Only with water in the window (`waterTiles`);
   // inland it re-rendered the city into a buffer nothing read.
   const seaWants = opts.floor && opts.floor.swell > 0 && opts.floor.seaRefl > 0 && opts.floor.seaRoll > 0
@@ -1166,7 +1169,7 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
         // ⚠ The band (`opts.fogBand`), never massOpts' `fog`, which is a colour array and threw.
         fog: opts.fogBand })
     : null;
-  if (SUB) drawOpts.skipMass = true;   // see skipMass in context.js
+  if (SUB || PLACE) drawOpts.skipMass = true;   // see skipMass in context.js
   // TAA (glTaa; gl/taa.js): layers until the split below are jittered. The reprojection matrix is
   // taken unjittered, first. Last frame's float target gates it.
   let taaJit = null, taaVP = null, taaDone = false;
@@ -1215,10 +1218,10 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     sgl.scissor(vp[0], vp[1] + Math.round(vp[3] * (1 - splitF)), vp[2], Math.round(vp[3] * splitF));
   }
   // The linear level rides in the same copy (gl/floor.js reads it with LIN.out, as the city does).
-  const floor = SUB ? 0 : g.view.drawFloor(opts.floor ? { ...opts.floor, fogHScale: FOG_H_SCALE, linear: drawOpts.linear } : opts.floor, cam.near);
+  const floor = SUB || PLACE ? 0 : g.view.drawFloor(opts.floor ? { ...opts.floor, fogHScale: FOG_H_SCALE, linear: drawOpts.linear } : opts.floor, cam.near);
   // ⚠ The sea mesh draws after the floor, which writes a flat plane's depth that would hide every
   // trough. Shifted camera: its vertices are map-window tiles.
-  const water = opts.floor && g.view.drawWater
+  const water = opts.floor && !PLACE && g.view.drawWater
     ? g.view.drawWater(camAt, opts.floor, cssH, reflTex ? {
         tex: reflTex, sky: opts.skyStrip || null,
         w: g.canvas ? g.canvas.width : 1, h: g.canvas ? g.canvas.height : 1,
@@ -1232,7 +1235,7 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   const fish = !SUB && opts.floor && opts.floor.fishShadows && g.view.drawFishShadows
     ? g.view.drawFishShadows(camAt, opts.floor.fishShadows, cssH) : 0;
   // ⚠ Road quads are map-window tiles, so the shifted camera, after the floor (eps ladder in windshield.js).
-  const ground = SUB ? 0 : g.view.drawGround(camAt, opts.ground, cssH, {
+  const ground = SUB || PLACE ? 0 : g.view.drawGround(camAt, opts.ground, cssH, {
     // No haze band: per-quad alpha already fades the road.
     fog: opts.fogBand,
     // The sky's two ends, for water where the city doesn't cover it (see `uSkyHor` in ground.js).
@@ -1281,7 +1284,7 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   });
   // ⚠ The far dissolve after floor, sea and roads: a translucent block drawn with the mass claimed
   // its whole silhouette in depth and left a dark cut-out. Before people, lights and signs.
-  const hazeFade = g.view.drawFade ? g.view.drawFade(camAt, drawOpts) : 0;
+  const hazeFade = g.view.drawFade && !PLACE ? g.view.drawFade(camAt, drawOpts) : 0;
   // People after the ground: the pavement band is translucent paint above road level and would
   // blend over their feet. The mirror draws them with the solids (context.js).
   const actors = g.view.drawActors ? g.view.drawActors(camAt, cssH, { fog: opts.fogBand, lights: lightList,

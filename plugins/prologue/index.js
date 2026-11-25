@@ -840,9 +840,14 @@ const INTRO_FALLBACK_MS = 110000;
 // player standing in a silent room forever. Generous, because a first-timer
 // reading every tour card genuinely can take minutes.
 const TOUR_FALLBACK_MS = 480000;
+// how long the interface question waits for the place's arrival in 3-D (gl/room-void.js ARRIVAL_S, 12 s, and a breath)
+const ARRIVAL_HOLD_MS = 13500;
 async function beginArrival(player) {
   if (player._prologueArrivalStarted) return;
   player._prologueArrivalStarted = true;
+  // the place itself, in 3-D, as the cold open's logo leaves (docs/proposals/the-inbetween.md): GLASS on a desktop, the
+  // Room Stage on a phone. Not at the `log` rung, whose player reads the room.
+  if (!loggedPanelsSync(player)) emit('roomstage.open', { player, world: true });
   // Before any fiction: the interface question, and NOTHING ELSE. The prose used
   // to start 900ms behind the offer, which meant a new player answering it — or
   // walking the tour — came back to a log they'd already scrolled past. The
@@ -857,11 +862,12 @@ async function beginArrival(player) {
     // At the `log` rung the offer is asked IN THE LOG and answered by verb — the
     // client's version dims an interface this player isn't looking at, and walks
     // them round panels that aren't drawn (see speakLogTour).
+    // With the place drawn in 3-D, after its arrival (about 12 s, gl/room-void.js ARRIVAL_S), not over it.
     setTimeout(() => {
       const p = getLivePlayer(player.id) || player;
       if (loggedPanelsSync(p)) logTourOffer(p);
       else sendToPlayer(p.id, { type: 'tour_offer' });
-    }, 1200);
+    }, loggedPanelsSync(player) ? 1200 : ARRIVAL_HOLD_MS);
     setTimeout(() => { const p = getLivePlayer(player.id) || player; speakArrival(p); }, TOUR_FALLBACK_MS);
     return;
   }

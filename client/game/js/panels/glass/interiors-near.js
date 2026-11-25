@@ -160,6 +160,8 @@ export function interiorsFrame(picks, ox, oy, { inside = false, floorZ = null } 
       // (and a locked doorway's leaves, freelook-view.js owLockTick, and a vending machine, owVendTick)
       extra: !lod && (room.extra || room.lockExtra || room.vendExtra || room.cookExtra || room.beastExtra || room.morphExtra || room.arrangeExtra || room.underExtra || room.machineExtra || room.heldExtra) ? [room.extra, room.lockExtra, room.vendExtra, room.cookExtra, room.beastExtra, room.morphExtra, room.morphGlass, room.arrangeExtra, room.underExtra, room.machineExtra, room.heldExtra].filter(Boolean) : null,
       // and a vat hall's vats, live (freelook-view.js owVatTick, gl/interiors.js vatPrep), whole rooms only
+      // a room with no shell, whole: the field and the floor gl/room-void.js draws for it
+      voidNow: !lod && room.voidNow ? room.voidNow : null,
       vatLive: !lod && room.vatLive ? room.vatLive : null, figLive: !lod && room.figLive ? room.figLive : null, catLive: !lod && room.catLive ? room.catLive : null, glowLive: !lod && room.glowLive ? room.glowLive : null, haloLive: !lod && room.haloLive ? room.haloLive : null, vatsNow: room.vatsNow || null, gantriesNow: room.gantriesNow || null,
       // its panes about the window's centre, for windshield.js panePortals
       // a room drawn as its box (lod 1, or its mesh not built yet) shows its panes fogged, not the box (panePortals)

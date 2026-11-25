@@ -14,14 +14,20 @@
   "flags": {
     "always_lit": true,
     "building_name": "The Inbetween",
-    "floor": "boards",
     "is_interior": true,
     "prologue": true,
-    "window": {
-      "description": "A full-height pane onto the street, kept just clean enough to trade through. Whatever the weather is doing out there, it's doing it in plain view.",
-      "light": 0.85,
-      "name": "the shopfront window",
-      "visibility": 0.9
+    "room": {
+      "w": 12,
+      "d": 12,
+      "h": 4,
+      "void": "white",
+      "studio": false,
+      "balcony": false,
+      "windowless": true,
+      "decor": {
+        "rug": false
+      },
+      "place": true
     }
   },
   "grid_x": 0,

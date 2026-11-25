@@ -31,6 +31,7 @@ import { timeMethods } from './core/timer.js';
 import { multiply } from './core/mat4.js';
 import { createRoomPost, ROOM_POST } from './room-post.js';
 import { createVatLayer } from './room-vat.js';
+import { createVoidLayer } from './room-void.js';
 // the city's faces round a room (room-outlook.js): how many, and the down and up faces' pitch
 const PANO_FACES = 6, PANO_TILT = 1.45, PANO_POLE = 1.4,   // room-outlook.js TILT and POLE
   PANO_FADE_MS = 180;
@@ -695,7 +696,7 @@ export function createRoomRenderer(canvas, { phone = false, see = false } = {}) 
     const uploadRoom = (m, paint) => {
       const one = (b) => { const L = layer(); upload(L, b); L.kit = b.kit || []; return L; };
       for (const key of m.textured.keys()) if (!tex.has(key)) tex.set(key, texture(paint(key)));
-      return { solid: one(m.solid), screen: one(m.screen), glass: one(m.glass), view: one(m.view), mats: [...m.textured].map(([key, b]) => ({ key, ...one(b) })), probeAt: measureProbe([m.solid, ...m.textured.values()]), mirrors: measureMirrors(m.solid), vats: m.vats || [], gantries: m.gantries || [] };
+      return { solid: one(m.solid), screen: one(m.screen), glass: one(m.glass), view: one(m.view), mats: [...m.textured].map(([key, b]) => ({ key, ...one(b) })), probeAt: measureProbe([m.solid, ...m.textured.values()]), mirrors: measureMirrors(m.solid), vats: m.vats || [], gantries: m.gantries || [], voidRoom: m.voidRoom || null };
     };
     // a clone vat's fluid (gl/room-vat.js), made the first time a room has one: simulated near you, and the static
     // fluid room-decor.js baked into the glass skipped while it draws. Null when it can't be made, and the glass as it was.
@@ -705,6 +706,15 @@ export function createRoomRenderer(canvas, { phone = false, see = false } = {}) 
       if (!room?.vats?.length) { if (vatLayer) vatLayer.setVats([]); return; }
       if (vatLayer === undefined) { try { vatLayer = createVatLayer(gl, { phone }); } catch (err) { console.warn('[room] no fluid in the vats:', err && err.message); vatLayer = null; } }
       if (vatLayer) { vatLayer.setVats(room.vats); vatLayer.setGantries(room.gantries || []); }
+    }
+    // a room with no shell (gl/room-void.js): the field round it and a floor only where something stands, made the
+    // first time a room has one. Null when it can't be made, and the room is drawn on the clear colour.
+    let voidLayer;
+    const voidOn = () => !!(voidLayer && room?.voidRoom);
+    function voidSet() {
+      if (!room?.voidRoom) { if (voidLayer) voidLayer.setRoom(null); return; }
+      if (voidLayer === undefined) { try { voidLayer = createVoidLayer(gl, { phone }); } catch (err) { console.warn('[room] no void:', err && err.message); voidLayer = null; } }
+      if (voidLayer) voidLayer.setRoom(room.voidRoom);
     }
     // the room's glass, less each vat's static fluid when the layer is drawing it
     const drawGlass = () => {
@@ -734,6 +744,7 @@ export function createRoomRenderer(canvas, { phone = false, see = false } = {}) 
       ready.delete(m);
       placeProbe(room.probeAt);
       vatRoom();
+      voidSet();
     }
     // ── the chrome's probe ──────────────────────────────────────────────────────────────────────
     // A room with chrome in it (material 45) gets a cube of itself to reflect: placed between the chrome and the
@@ -1229,10 +1240,13 @@ export function createRoomRenderer(canvas, { phone = false, see = false } = {}) 
         }
         // the vats' fluid run on a step, once a frame and before any of it is drawn
         if (vatsOn()) vatLayer.step(light.now ?? now, cam.eye);
+        if (voidOn()) voidLayer.step(light.now ?? now, cam.eye);
         // THE SCENE, drawn through `vp` from `eye` into a target `w` by `h`: the picture, or (mirror pass) the room
         // seen in the mirror `mir` is null for. `mir` is the mirror this frame, read back by the glass in the picture.
         const scene = (vp, eye, w, h, figures, mir) => {
           const opaque = [room.solid, ...room.mats, people, locks, beasts];
+          // a room with no shell: its field first, behind everything (gl/room-void.js)
+          if (voidOn()) voidLayer.field(vp, eye, light.now ?? now);
 
           if (comic) {
             gl.useProgram(INK.p);
@@ -1415,6 +1429,8 @@ export function createRoomRenderer(canvas, { phone = false, see = false } = {}) 
             }
             gl.disable(gl.BLEND); gl.depthMask(true); gl.depthFunc(gl.LESS);
           }
+          // its floor, only where something stands, over what's drawn and under the glass
+          if (voidOn()) { voidLayer.floor(vp, eye, light.now ?? now); gl.useProgram(LIT.p); }
           gl.uniform1i(LIT.u('uMode'), 2);
           if (screen) {
             const ons = !live || !light.tvOn ? [] : (Array.isArray(light.tvOn) ? light.tvOn : [light.tvOn]).filter((o) => o && o.count > 0).sort((a, b) => a.first - b.first);
@@ -1544,6 +1560,7 @@ export function createRoomRenderer(canvas, { phone = false, see = false } = {}) 
         try { dropProbe(); } catch { /* the context may be gone already */ }
         try { dropMirror(); } catch { /* the context may be gone already */ }
         try { vatLayer?.dispose(); } catch { /* the context may be gone already */ }
+        try { voidLayer?.dispose(); } catch { /* the context may be gone already */ }
         try { gl.getExtension('WEBGL_lose_context')?.loseContext(); } catch { /* already gone */ }
       },
     }, [['render', 'room']]);
