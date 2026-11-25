@@ -27,7 +27,9 @@
       "decor": {
         "rug": false
       },
-      "place": true
+      "place": true,
+      "self_look": "outline",
+      "self_look_until": "morphex_close"
     }
   },
   "grid_x": 0,

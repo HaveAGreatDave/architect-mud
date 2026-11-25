@@ -26,3 +26,13 @@ export function registerSelfLook(name, skin) {
   if (skin) SKINS.set(String(name), skin); else SKINS.delete(String(name));
 }
 export function selfSkin(name) { return (name && SKINS.get(String(name))) || null; }
+
+// A LOOK THAT ENDS (the In Between's outline ends when MORPHEX makes you flesh): a room names the message type that ends
+// its look (`flags.room.self_look_until`), and once that message has come the look is over for this page.
+//   endSelfLookOn(name, type)  `name` ends when a message of `type` comes
+//   selfLookMessage(type)      the client had a message of `type` (dispatch.js)
+//   selfLookEnded(name)        whether it's over
+const ENDS = new Map(), ENDED = new Set();
+export function endSelfLookOn(name, type) { if (name && type) ENDS.set(String(name), String(type)); }
+export function selfLookMessage(type) { for (const [n, t] of ENDS) if (t === type) ENDED.add(n); }
+export function selfLookEnded(name) { return !!name && ENDED.has(String(name)); }

@@ -124,7 +124,7 @@ function doorShift(s, tile) {
   const along = g.cx || 0, deep = (g.back ?? g.wall) - PLAN_EDGE;
   return [along * E[1] + deep * E[0], -along * E[0] + deep * E[1]];
 }
-import { selfLookFor } from '../../../shared/self-look.js';   // a zone's own look for your body (the In Between's outline)
+import { selfLookFor, endSelfLookOn, selfLookEnded } from '../../../shared/self-look.js';   // a zone's own look for your body (the In Between's outline)
 import { suppressWeatherFx } from './weather-fx.js';   // the 2-D overlay would paint its rain and rainbow over the 3-D scene   // the ground or seabed under the camera (plugins/submersible)
 
 // Live world clock/weather through the shared env system — loaded OPTIONALLY, exactly as helm-view
@@ -1406,9 +1406,20 @@ function fpSelf(s, now) {
   const Y = v.yaw * Math.PI / 180, b = m2tf(FP_BODY.back), ground = Math.max(0, v.z - FPS_EYE * (s.foot.eyeK ?? 1));
   P.drawn = true;
   look.fpO ??= { ...look.o, hd: { ...look.o.hd, noHead: FP_BODY.cut } };   // one object per outfit: street-hd keys its builds on it
+  // a room's own look for you (flags.room.self_look): 'outline' is a figure of light (gl/figure-hd.js uOutline), its own
+  // object per outfit too
+  const sl = selfLookIn(s);
+  if (sl === 'outline') look.fpLine ??= { ...look.fpO, hd: { ...look.fpO.hd, outline: true } };
   return { x: s.gx + v.x - Math.sin(Y) * b, y: s.gy + v.y + Math.cos(Y) * b, z: ground,
-    hd: Math.atan2(-Math.cos(Y), Math.sin(Y)), o: look.fpO, k: look.k,
+    hd: Math.atan2(-Math.cos(Y), Math.sin(Y)), o: sl === 'outline' ? look.fpLine : look.fpO, k: look.k,
     clip: P.mv > 0.02 ? 'walk' : 'idle', gd: P.gd, fp: true, skin: selfLookFor(s.inside?.zone) };   // 0.02 tiles a second is about 0.35 m/s
+}
+// The look the room you're in gives you (flags.room.self_look, or a zone's set by client/shared/self-look.js), or null
+// once what ends it has come (self_look_until)
+function selfLookIn(s) {
+  const sp = s.inside?.room?.L?.spec, name = selfLookFor(s.inside?.zone) || sp?.self_look || null;
+  if (name && sp?.self_look_until) endSelfLookOn(name, sp.self_look_until);
+  return name && !selfLookEnded(name) ? name : null;
 }
 // What the spray session needs of the street: a name for the wall, and brick for its close-up. Where on the facade the
 // paint goes is GLASS's to solve (windshield.js drawWallTags), so there's no aim and no live paint: the window is sent

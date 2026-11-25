@@ -1,4 +1,5 @@
 import { state } from './state.js';
+import { selfLookMessage } from '../../shared/self-look.js';   // a room's look for you that a message ends (MORPHEX's)
 import { saveRememberToken, forgetRememberToken } from './remember.js';
 import { sessionGet, sessionSet, sessionRemove } from './session-store.js';
 import { floatCredits } from './credits-float.js';
@@ -1488,7 +1489,7 @@ const handlers = {
   // Server-side dismissal — the prologue's chargen terminal releases you the
   // moment the attendant accepts your shape, so its reaction isn't delivered to
   // the back of a modal the player is still standing in front of.
-  morphex_close: () => { closeMorphexPanel(); },
+  morphex_close: () => { closeMorphexPanel(); selfLookMessage('morphex_close'); },
   atm_panel: (msg) => { openAtmPanel(msg); },
   // The piano. `instrument_note` is somebody ELSE playing — the server excludes
   // the player from their own broadcast, because their client already sounded

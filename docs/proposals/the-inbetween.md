@@ -1,6 +1,6 @@
 # The In Between in ROOM
 
-**Status: the place in GLASS, the arrival and the chrome attendant (faceless) are built; not yet seen running.** Printing in as a general effect, the glowing outline of you, and the fall into a vat are design.
+**Status: the place in GLASS, the arrival, the chrome attendant (faceless) and your outline of light are built; not yet seen running.** Printing in as a general effect and the fall into a vat are design.
 
 ## As built (2026-11-24)
 
@@ -8,6 +8,7 @@
 - **The four prologue zones are one walk north**, In Between, Lattice, Broadcast, Collapse, each a `void` room (`white`, `lattice`, `black`, `collapse`). The field blends between their looks by how near you are to each (gl/interiors.js `voidPrep`).
 - **It opens itself**: the prologue emits `roomstage.open` as the cold open ends (`beginArrival`), and holds the interface question until the arrival is over (`ARRIVAL_HOLD_MS`).
 - **The attendant** (`flags.figure` on `npc_attendant_inbetween`): 2.3 m, limbs 8% long (`limb`), drawn close up standing (`closeup`) and watching you all the time, in mirror chrome (`chrome`). The chrome's reflection is worked out in the shader (gl/figure-hd.js uChrome): the void's whites, the floor near its feet, the tallest piece in the room, and you as an upright capsule where you stood half a second ago (freelook-view.js owChromeScene), so the light on it catches up as you move. It has no face: on a chrome figure every vertex of the head above the jaw is put on one smooth ellipsoid in both vertex shaders (gl/figure-hd.js FACELESS_GLSL), so the head is an unbroken egg of mirror and its ink follows it.
+- **You, as an outline of light**: a room with `flags.room.self_look: 'outline'` draws your own body in first person as a pale blue figure of light, bright at its rim, scan lines drifting up through it and a glitter of points, with no ink line (gl/figure-hd.js uOutline). It ends when the room's `self_look_until` message comes (`morphex_close`: MORPHEX has made you flesh), through client/shared/self-look.js.
 - **The arrival** (gl/room-void.js, 12 s, Escape skips): black, then points of light gather into a body 2.4 m ahead of you, the white rises from your feet, the floor forms, the room prints in from the floor up with a scan slice at the edge, its people appear at 8 s, and the body rushes into your eyes. A place not drawn for 5 s arrives again.
 
 The In Between (`zone_the_inbetween`) is the first room every new player sees, before the Lattice, the Broadcast, the Collapse and waking in the Coldwater Clone Facility. Today it's a box with the default walls, a boards floor and, by mistake, a shopfront window. This doc makes it the best interior we have. The Clone Facility is the bar on detail. This room has to clear that bar without having walls to hang detail on.

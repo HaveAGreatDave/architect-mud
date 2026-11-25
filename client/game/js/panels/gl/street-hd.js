@@ -174,7 +174,7 @@ export function createStreetHD(gl) {
     });
     recs = figurePeople(FRAME, bodies, now / 1000, { level: 'hd', eye: env.eye });
     // you, under your own eyes, from the neck down (freelook-view.js fpSelf, figure-hd.js uNoHead)
-    for (let i = 0; i < recs.length; i++) { const nh = chosen[i].o.hd.noHead; if (nh && recs[i]) recs[i].noHead = nh; }
+    for (let i = 0; i < recs.length; i++) { const nh = chosen[i].o.hd.noHead; if (nh && recs[i]) recs[i].noHead = nh; if (chosen[i].o.hd.outline && recs[i]) recs[i].outline = true; }
     streetHdStats.poseMs = performance.now() - t0;
     return recs;
   }

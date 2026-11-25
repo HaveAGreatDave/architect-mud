@@ -477,6 +477,9 @@ uniform vec3 uWrap;          // their wraps' linen
 // viewer as they stood a moment ago, so the light on it moves late, and uChromeObj (height uChromeH.y) the piece
 // beside it. uChromeDark takes the light out for a black void.
 uniform float uChrome, uChromeDark, uChromeT;
+// AN OUTLINE OF LIGHT (a record's 'outline', client/shared/self-look.js): you in the In Between before MORPHEX makes you
+// flesh. Pale blue, bright at the rim, scan lines drifting up through it and a glitter of points; no ink line.
+uniform float uOutline, uOutlineT;
 uniform vec4 uChromeYou, uChromeObj;
 uniform vec2 uChromeH;
 uniform vec3 uChromeYouC;
@@ -2673,6 +2676,17 @@ void main() {
     c = mix(env * vec3(1.0, 0.985, 0.96), env * 0.05, uChromeDark);
     glow = vec3(0.0);
   }
+  if (uOutline > 0.5) {
+    float rim = pow(1.0 - max(dot(n, v), 0.0), 1.6);
+    float scan = 1.0 - smoothstep(0.0, 0.16, abs(fract(vRest.y * 11.0 - uOutlineT * 0.35) - 0.5) * 2.0);
+    vec3 cell = floor(vRest * 70.0);
+    float tw = fract(sin(dot(cell, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
+    float glit = step(0.975, fract(tw + uOutlineT * 0.4 * (0.5 + tw)));
+    vec3 core = vec3(0.5, 0.78, 1.0);
+    c = mix(core * 0.45, vec3(0.86, 0.97, 1.0) * 1.7, rim) + core * scan * 0.3 + vec3(1.0) * glit * 0.8;
+    glow = vec3(0.0);
+    ink = 0.0;
+  }
   c += glow;
   c = mix(c, min(uLine, c * 0.32), 0.85 * ink);
   if (eyeHole && uChrome < 0.5) discard;
@@ -3130,8 +3144,9 @@ export function createFigureLayer(gl, { half = false, panels = false } = {}) {
       for (const r of recs) {
         const m = meshOf(keyOf(r));
         pose(INK, r);
-        // a chrome figure's line follows its faceless head (FACELESS_GLSL)
+        // a chrome figure's line follows its faceless head (FACELESS_GLSL); an outline of light has none
         gl.uniform1f(INK.u('uChrome'), r.chrome ? 1 : 0);
+        if (r.outline) continue;
         // the sculpted figure's forms and paint carry the drawing, so its outline is lighter
         gl.uniform1f(INK.u('uInkK'), r.key.sculpt ? 0.72 : 1);
         gl.bindVertexArray(m.vao);
@@ -3218,6 +3233,8 @@ export function createFigureLayer(gl, { half = false, panels = false } = {}) {
         gl.uniform3fv(LIT.u('uGlove'), r.glove || [0.03, 0.025, 0.02]);
         gl.uniform1f(LIT.u('uSculpt'), r.key.sculpt ? 1 : 0);
         // mirror chrome (docs/proposals/the-inbetween.md): { you: [x, y, z, r], youH, youC, obj, objH, dark, t }, or none
+        gl.uniform1f(LIT.u('uOutline'), r.outline ? 1 : 0);
+        if (r.outline) gl.uniform1f(LIT.u('uOutlineT'), (performance.now() / 1000) % 1000);
         { const M = r.chrome; gl.uniform1f(LIT.u('uChrome'), M ? 1 : 0);
           if (M) { gl.uniform4fv(LIT.u('uChromeYou'), M.you || NO_CAP); gl.uniform4fv(LIT.u('uChromeObj'), M.obj || NO_CAP); gl.uniform2f(LIT.u('uChromeH'), M.youH || 1.75, M.objH || 2); gl.uniform3fv(LIT.u('uChromeYouC'), M.youC || [0.12, 0.14, 0.18]); gl.uniform1f(LIT.u('uChromeDark'), M.dark || 0); gl.uniform1f(LIT.u('uChromeT'), M.t || 0); } }
         gl.uniform4fv(LIT.u('uFaceV'), r.faceV || [1, 1, 0.8, 0]);
