@@ -2391,7 +2391,20 @@ function drawPiece(K, p) {
     }
     case 'chair': {
       // four tapered legs, a padded seat, a back that leans a little; steel or wood off the seed
-      const metal = r() < 0.5, frame = metal ? '#8a9098' : null, legM = metal ? frame : wood, sy = 0.44, sd = hd - 0.03;
+      // `look.tone: 'metal'`: bare steel, no cushion, its feet bolted to the floor through plates
+      const coin = r() < 0.5, bare = p.tone === 'metal', metal = bare || coin, frame = metal ? (bare ? '#7c838b' : '#8a9098') : null, legM = metal ? frame : wood, sy = 0.44, sd = hd - 0.03;
+      if (bare) {
+        for (const [x, z] of [[-hw + 0.05, -hd + 0.05], [hw - 0.05, -hd + 0.05], [-hw + 0.05, hd - 0.05], [hw - 0.05, hd - 0.05]]) {
+          lat(x, z, [[0.018, 0], [0.018, sy - 0.03]], frame, 0.9, 8, METAL);
+          pbox(x - 0.045, x + 0.045, 0, 0.008, z - 0.045, z + 0.045, '#4a4f55', 0.9, null, METAL);
+          for (const [bx, bz] of [[-0.03, -0.03], [0.03, -0.03], [-0.03, 0.03], [0.03, 0.03]]) lat(x + bx, z + bz, [[0.007, 0.008], [0.006, 0.016], [0, 0.017]], '#9aa1a8', 1, 6, METAL);
+        }
+        pbox(-hw + 0.02, hw - 0.02, sy - 0.03, sy, -sd, sd, frame, 0.95, null, METAL);
+        pbox(-hw + 0.04, hw - 0.04, sy - 0.12, sy - 0.1, -sd + 0.02, sd - 0.02, '#5a6068', 0.9, null, METAL);
+        for (const x of [-hw + 0.05, hw - 0.05]) rod(P(x, sy, -hd + 0.04), P(x, h - 0.02, -hd + 0.0), 0.014, frame, 0.9, METAL);
+        pbox(-hw + 0.04, hw - 0.04, sy + 0.2, h - 0.03, -hd + 0.01, -hd + 0.03, frame, 0.95, null, METAL);
+        break;
+      }
       for (const [x, z] of [[-hw + 0.05, -hd + 0.05], [hw - 0.05, -hd + 0.05], [-hw + 0.05, hd - 0.05], [hw - 0.05, hd - 0.05]]) lat(x, z, [[0.014, 0], [0.02, sy - 0.03]], legM, 0.9, 8, metal ? METAL : SATIN);
       pbox(-hw + 0.02, hw - 0.02, sy - 0.05, sy - 0.02, -sd, sd, frame || '#5a3a22', 0.85, metal ? null : wood, metal ? METAL : SATIN);
       R(...alongX(), -hw + 0.03, hw - 0.03, -sd, sd, sy - 0.02, sy + 0.06, 0.03, fab, tired(1), CLOTH);

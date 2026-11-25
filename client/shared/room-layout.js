@@ -167,7 +167,7 @@ export const WASH_FORMS = Object.freeze(['basin', 'vanity']);
 export const FORMS = Object.freeze({
   seat: ['stool', 'chair', 'armchair', 'office', 'stools', 'wingback'], bench: ['bench', 'booth', 'banquette', 'slab'], sofa: ['sofa', 'cot', 'lounger', 'chesterfield'], bed: ['bed', 'pod', 'platform', 'mattress', 'pressbench'],
   screen: ['flat', 'crt', 'slab'], cold: ['fridge', 'double', 'chest', 'column'], hob: ['cooktop', 'range', 'microwave', 'seam', 'induction'],
-  surface: ['counter', 'corner', 'desk', 'rail', 'barwall', 'chemwall', 'bar', 'stage', 'runway', 'reception', 'console', 'treadmill', 'pool', 'pcdesk', 'tradecounter', 'boxoffice', 'grill'], small: ['heater', 'box', 'plinth', 'telescope', 'lacquer', 'boombox', 'smoketable', 'petbowl', 'littertray'], prop: ['cabinet', 'piano', 'fountain', 'catstatue', 'lantern', 'rug', 'bonsai', 'vat', 'tank', 'morphex', 'vatrack', 'manifold', 'gantry', 'jukebox', 'easel', 'packs', 'trophy', 'champion', 'seatdoor', 'resurfacer', 'turnstile', 'balustrade', 'towelrail', 'pigeonholes', 'trolley', 'pullup', 'banner', 'smokebooth', 'vendor'], fireplace: ['hearth', 'firetrough'],
+  surface: ['counter', 'corner', 'desk', 'rail', 'barwall', 'chemwall', 'bar', 'stage', 'runway', 'reception', 'console', 'treadmill', 'pool', 'pcdesk', 'tradecounter', 'boxoffice', 'grill'], small: ['heater', 'box', 'plinth', 'telescope', 'lacquer', 'boombox', 'smoketable', 'petbowl', 'littertray'], prop: ['cabinet', 'piano', 'fountain', 'catstatue', 'lantern', 'rug', 'bonsai', 'vat', 'tank', 'morphex', 'holosign', 'vatrack', 'manifold', 'gantry', 'jukebox', 'easel', 'packs', 'trophy', 'champion', 'seatdoor', 'resurfacer', 'turnstile', 'balustrade', 'towelrail', 'pigeonholes', 'trolley', 'pullup', 'banner', 'smokebooth', 'vendor'], fireplace: ['hearth', 'firetrough'],
   urinal: ['urinal', 'urinaltrough'], stall: ['cubicle'],
   wardrobe: ['wardrobe', 'valet'], cabinet: ['cupboard', 'vitrine', 'humidor', 'rack'], store: ['shelves', 'locker', 'crate', 'weights', 'bookcase', 'racking', 'drawers'],
   sink: ['kitchen', 'basin', 'trough', 'vanity'], toilet: ['pan', 'hung'], shower: ['stall', 'wetroom', 'bath', 'soak', 'gang'],
@@ -1978,7 +1978,7 @@ export function rowLook(f, item = null, { annex = false, finish = 'plain' } = {}
   // `look.boot` is the wordmark a set shows as it comes on (panels/room-tv.js paintBoot)
   if (typeof flags.look?.boot === 'string' && flags.look.boot.trim()) dress.boot = flags.look.boot.trim().slice(0, 24);
   // `look.tag` letters a piece's own plate (a vat's number), `look.state` a state it's drawn in (a vat 'drained')
-  if (flags.look?.tone === 'black') dress.tone = 'black';
+  if (flags.look?.tone === 'black' || flags.look?.tone === 'metal') dress.tone = flags.look.tone;
   // `look.fabric` and `look.wood` ('#rrggbb') are what it's upholstered in and made of, over the seed's pick
   for (const k of ['fabric', 'wood']) if (/^#[0-9a-f]{6}$/i.test(flags.look?.[k] || '')) dress[k] = flags.look[k];
   if (typeof flags.look?.tag === 'string') dress.tag = flags.look.tag.slice(0, 12);
