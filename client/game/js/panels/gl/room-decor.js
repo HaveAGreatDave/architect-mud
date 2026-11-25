@@ -1783,6 +1783,28 @@ export function drawDecorForm(K, F, p) {
       rod(K, [u, v, h * 0.4], [...P(0, 0, -hd - 0.05)].slice(0, 2).concat(h * 0.4), 0.06, '#3a3d40', 1, METAL);
       return true;
     }
+    case 'holosign': {
+      // a floating slab of soft light on no stand, at eye height: a pale core, a brighter edge all round it, faint scan
+      // lines across both faces and rows of glyphs off the seed. `look.fluid` ('#rrggbb') tints it; blue otherwise
+      const col = p.fluid || '#6fc4ff', r = rng(p.seed || 11), sw = Math.min(w, 1.1) / 2, y0 = Math.max(1.2, h - 0.75), y1 = h - 0.1, t = 0.012;
+      pbox(-sw, sw, y0, y1, -t, t, col, 1.05, null, GLOW);
+      // the edge glow: a lit frame proud of the slab on every side
+      const e = 0.022;
+      pbox(-sw - e, sw + e, y1, y1 + e, -t - 0.004, t + 0.004, '#d8f0ff', 1.9, null, GLOW);
+      pbox(-sw - e, sw + e, y0 - e, y0, -t - 0.004, t + 0.004, '#d8f0ff', 1.9, null, GLOW);
+      for (const s of [-1, 1]) pbox(s < 0 ? -sw - e : sw, s < 0 ? -sw : sw + e, y0, y1, -t - 0.004, t + 0.004, '#d8f0ff', 1.9, null, GLOW);
+      // scan lines, thin and faint, on both faces
+      for (let y = y0 + 0.02; y < y1 - 0.01; y += 0.035) for (const z of [-1, 1]) pbox(-sw + 0.01, sw - 0.01, y, y + 0.004, z * t, z * (t + 0.002), '#a8dcff', 1.25, null, GLOW);
+      // glyphs: short bright bars in rows, as if a page were written on the light
+      for (let y = y1 - 0.08; y > y0 + 0.06; y -= 0.07) {
+        let x = -sw + 0.06;
+        while (x < sw - 0.08) { const g = 0.02 + r() * 0.07; if (r() < 0.8) for (const z of [-1, 1]) pbox(x, Math.min(x + g, sw - 0.06), y, y + 0.018, z * (t + 0.002), z * (t + 0.005), '#f0faff', 1.7, null, GLOW); x += g + 0.02 + r() * 0.03; }
+      }
+      // a faint pool of the same light on the floor under it, where nothing holds it up
+      const [cu, cv] = P(0, 0, 0);
+      K.lathe(cu, cv, [[0, 0.006], [sw * 0.8, 0.006]], col, 0.55, 28, GLOW);
+      return true;
+    }
     case 'morphex': {
       // the MORPHEX 9000 pod: an iron maiden in carbon fibre and dark metal, lit cyan. A dark metal plinth with a lit
       // ring to stand on, the maiden's back half, its crown with the scan ring parked in it. The two halves that close

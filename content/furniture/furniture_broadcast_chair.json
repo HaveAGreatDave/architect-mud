@@ -4,7 +4,19 @@
     "interactions": [
       "sit"
     ],
-    "prologue_chair": true
+    "prologue_chair": true,
+    "look": {
+      "arche": "seat",
+      "form": "chair",
+      "tone": "metal"
+    },
+    "spot": {
+      "at": [
+        0,
+        6
+      ],
+      "turn": 180
+    }
   },
   "hp": null,
   "hp_max": null,
