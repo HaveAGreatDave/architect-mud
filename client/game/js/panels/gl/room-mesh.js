@@ -521,8 +521,12 @@ export function buildRoom(L, { seed = 1, lampOn = true, doorShut = false, turnin
   if (spec.void) {
     for (const b of [K.solid, K.screen, K.glass, view, ...K.textured.values()]) { b.n = 0; delete b.kit; }
     K.screens.length = 0; K.dials.length = 0;
-    const o = L.world(0, 0, 0), n = L.world(0, D, 0);
-    K.voidRoom = { kind: spec.void, floor: o[1], centre: L.world(0, D / 2, 0), north: [n[0] - o[0], n[2] - o[2]], pieces: L.placed.map((p) => { const c = L.world(p.u, p.v, 0); return [c[0], c[2], Math.max(0.5, Math.hypot(p.w, p.d) * 0.62)]; }) };
+    // north is the way the zone's north exit opens (its opening off the building plan), or the back wall without one
+    const nx = (spec.openings || []).find((q) => q.dir === 'north' && q.wall && Number.isFinite(q.a) && Number.isFinite(q.b));
+    const m = nx ? (nx.a + nx.b) / 2 : 0;
+    const [nu, nv] = !nx ? [0, D] : nx.wall === 'front' ? [m, 0] : nx.wall === 'left' ? [-hu, m] : nx.wall === 'right' ? [hu, m] : [m, D];
+    const o = L.world(0, D / 2, 0), n = L.world(nu, nv, 0);
+    K.voidRoom = { kind: spec.void, floor: o[1], centre: o, north: [n[0] - o[0], n[2] - o[2]], pieces: L.placed.map((p) => { const c = L.world(p.u, p.v, 0); return [c[0], c[2], Math.max(0.5, Math.hypot(p.w, p.d) * 0.62)]; }) };
   }
   const isCar = !!(spec.car || spec.lift);
   if (isCar) drawCar(K, L, { DH, doorways });
