@@ -52,6 +52,7 @@ import { cookFrame, cookersIn, coldIn } from './room-cook.js';   // where the ki
 import { multiply as mat4Mul, invert as mat4Inv } from './gl/core/mat4.js';   // a depot's vehicle, written for the interiors layer
 import { createOneWorldSound } from './oneworld-sound.js';   // inside, the outside through the windows (phase D)
 import { state } from '../state.js';   // the room the server last said you're in (owGoingTick)
+import { lineHeard } from '../heard-lines.js';   // a line a close-up figure acts out (flags.figure.cues)
 import { roomPeopleRecords, lyingBodies, closeupBodies, placePeople, facedPerson, noteMoves, routesOf, walking as walkingNow } from './oneworld-people.js';
 import { personActs } from '../../../shared/room-acts.js';
 import { token as personToken } from '../../../shared/person-token.js';   // inside, what somebody you face offers
@@ -2500,7 +2501,7 @@ function owFigTick(s, now) {
   const lying = lyingBodies(r.L, I.people, I.you), vat = s.owVat?.room === r ? s.owVat : null;
   const me = s.owMorph?.room === r && s.owMorph.ui?.on ? s.owMorph.ui.self(now) : null;
   // and whoever's drawn close up standing (the In Between's attendant), watching you: your eye in the room's frame
-  const eyeR = owEyeInRoom(s, r), close = closeupBodies(r.L, I.people, I.you).map((b) => (eyeR ? { ...b, watch: eyeR, watchHold: true } : b));
+  const eyeR = owEyeInRoom(s, r), close = closeupBodies(r.L, I.people, I.you).map((b) => owFigCues({ ...b, ...(eyeR ? { watch: eyeR, watchHold: true } : {}) }, now));
   const want = [...lying, ...close, ...(vat?.bodies || []), ...(me ? [me] : [])];
   if (!want.length) { r.figLive = null; r.heldExtra = null; return; }
   if (!figMods) { figMods = Promise.all([import('./gl/room-people.js'), import('./figure-ahead.js'), import('./room-vat-sleepers.js'), import('./gl/room-held.js'), import('./gl/ballpark-mesh.js')]).then(([rp, fa, sl, rh, bm]) => { figMods = { rp, fa, sl, rh, bm }; }).catch((e) => { console.warn('[one-world] the close-up figures would not load:', e?.message); figMods = null; }); return; }
@@ -2517,6 +2518,30 @@ function owFigTick(s, now) {
   // what's in their hands that the figure doesn't draw (a barbell on a press bench: gl/room-held.js), built every frame
   // while somebody holds it, hung on the room ('heldExtra') as the Stage puts it in its props
   if (recs.some((q) => q?.hold?.L || q?.hold?.R)) { const b = bm.createBatch(2048); rh.heldProps(b, bodies, recs); r.heldExtra = b.n ? { batch: b, ver: (r.heldExtra?.ver || 0) + 1 } : null; } else r.heldExtra = null;
+}
+// A LINE ACTED OUT (flags.figure.cues: [{ hear, act: 'tilt'|'shift', after, hold }], docs/proposals/the-inbetween.md):
+// when the text of a line shown lately (heard-lines.js) has `hear` in it, the figure does `act`, starting `after`
+// seconds on and held `hold` seconds before it eases back. Only the picture: the line came from the server as always.
+const owCueOn = new Map();   // body id -> { act, t0 (ms, when it starts), hold, seen (ms, the line acted) }
+function owFigCues(b, now) {
+  const cues = b.figure?.cues;
+  if (!Array.isArray(cues) || !cues.length) return b;
+  let c = owCueOn.get(b.id);
+  for (const q of cues) {
+    if (!q?.hear || !q.act) continue;
+    const l = lineHeard(String(q.hear).toLowerCase(), c ? c.seen + 1 : now - 1000);
+    if (l && (!c || l.t > c.seen)) { c = { act: q.act, t0: l.t + (q.after ?? 0.5) * 1000, hold: (q.hold ?? 2) * 1000, seen: l.t }; owCueOn.set(b.id, c); }
+  }
+  if (!c) return b;
+  const e = now - c.t0;
+  if (e < 0) return b;
+  const RISE = 350, FALL = 600;
+  if (e > RISE + c.hold + FALL) return b;
+  const sm = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
+  const k = sm(e / RISE) * (1 - sm((e - RISE - c.hold) / FALL));
+  if (c.act === 'tilt') return { ...b, tilt: 0.24 * k };
+  if (c.act === 'shift') return { ...b, shift: Math.sin(Math.min(1, e / (RISE + c.hold)) * Math.PI) * (1 - sm((e - RISE - c.hold) / FALL)) };
+  return b;
 }
 // Your eye in a room's own frame (room-layout.js L.world's metres), or null: where a close-up figure looks to watch you.
 function owEyeInRoom(s, r) {
