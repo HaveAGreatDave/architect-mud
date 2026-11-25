@@ -1,8 +1,9 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#3f5c3a",
-  "description": "Trees crowd right down to the waterline, roots arched out of the bank where the lake has been quietly eating it. Someone has cut three of them, a long time ago, and left the rounds where they fell. Whoever it was didn't come back for them.",
+  "ambient_theme": "wasteland",
+  "bg_color": "#1f3646",
+  "color": "#4f83a8",
+  "description": "The pond is deeper than it looks. The shallows go gravel to silt and then the bottom just goes.",
   "exits": {
     "east": "zone_district_897_931",
     "north": "zone_district_896_930",
@@ -13,13 +14,13 @@
     "district": "wilds",
     "radiation": 32,
     "region_id": "region_coldwater",
-    "terrain": "forest"
+    "terrain": "water"
   },
   "grid_x": 896,
   "grid_y": 931,
   "grid_z": 0,
   "id": "zone_district_896_931",
   "map_id": "map_world",
-  "name": "The Hush",
+  "name": "Meltwater Pond",
   "parent_zone": null
 }

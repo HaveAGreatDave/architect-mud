@@ -720,6 +720,40 @@ export default async function regress({ check, run, getPlayer }) {
     while (!_test.slateHasGame(script, slot) && slot < 5016) slot++;
     const g = _test.assembleSportsGraph(script, 'reg-bc-hold', slot, null, { slotMs: SLOT });
     check('overflow: a game\'s graph says how long its content runs', g && g._contentMs > SLOT * 0.5 && g._contentMs <= SLOT + 60_000, String(g?._contentMs));
+
+    // ── The sports desk between games ──
+    // A slate game whose content has run out gives the air up; a featured script doesn't.
+    const done = { slot, startMs: T0, endMs: T0 + CONTENT };
+    check('desk: a finished slate game gives the air up', _test.slateGameDone(script, done, slot, T0 + CONTENT) && !_test.slateGameDone(script, done, slot, T0 + CONTENT - 1));
+    check('desk: a featured game still parks its final', !_test.slateGameDone({ ...pools, airSlots: [6] }, done, slot, T0 + CONTENT));
+    // finished: earlier slots by the clock, the held one only once its content's run out
+    const day = 700, d0s = day * 8;
+    check('desk: today\'s earlier slots are finished, the one on air isn\'t',
+      JSON.stringify(_test.magazineFinished(day, d0s + 2, { slot: d0s + 2, endMs: T0 + 10 }, T0)) === JSON.stringify([d0s, d0s + 1]));
+    check('desk: the game on air is finished once its content ends',
+      _test.magazineFinished(day, d0s + 2, { slot: d0s + 2, endMs: T0 }, T0).includes(d0s + 2));
+    check('desk: a game held over into the buffer isn\'t finished till it ends',
+      !_test.magazineFinished(day, d0s + 3, { slot: d0s + 2, endMs: T0 + 10 }, T0).includes(d0s + 2));
+    // the show itself: built from the slate's own games, a result line each, and the next game
+    const hk = { ...JSON.parse(readFileSync(new URL('../../content/media_broadcasts/bc_cluster_puck.json', import.meta.url), 'utf8')).sports_pools, _slate: true, _name: 'Cluster Puck' };
+    const both = [{ ...script, _name: 'Deadball' }, hk];
+    const games = [];
+    for (let s = d0s; s < d0s + 8; s++) if (both.some((sc) => _test.slateHasGame(sc, s))) games.push(s);
+    const fake = (sc, s) => ({ away: { name: `Away ${s}` }, home: { name: `Home ${s}` }, awayScore: 3, homeScore: 1, beats: [] });
+    const next = _test.magazineNext(both, games[0]);
+    const mag = _test.assembleSportsMagazine(both, [games[0]], next, fake);
+    const says = Object.values(mag.nodes).filter((nd) => nd.type === 'say').map((nd) => nd.data);
+    check('desk: the show reads each finished game\'s final with its score bug',
+      says.some((nd) => nd.text.includes(`Away ${games[0]} 3, Home ${games[0]} 1`) && nd.scorebug?.status === 'FINAL'), says.map((nd) => nd.text).join(' | '));
+    check('desk: the show names the next game', !next || says.some((nd) => nd.text.startsWith('Next up')));
+    check('desk: the show is a loop of whole lines', mag._loopMs === says.length * 20000 && says.length >= 3, String(mag._loopMs));
+    // big plays come from the facts, never a new sim
+    const hat = { away: { name: 'A' }, home: { name: 'B' }, awayScore: 3, homeScore: 0, beats: [1, 2, 3].map((k) => ({ type: 'goal', section: '1st', shooter: 'Gus Hale', teamName: 'A', awayScore: k, homeScore: 0 })) };
+    const hkSlot = games.find((s) => _test.slateHasGame(hk, s));
+    if (hkSlot != null) {
+      const m2 = _test.assembleSportsMagazine([hk], [hkSlot], null, () => hat);
+      check('desk: a hat trick makes the show', Object.values(m2.nodes).some((nd) => nd.data?.text === 'Gus Hale got a hat trick for A.'));
+    }
   }
 
   // ── The desk's cast know where work is ─────────────────────────────────────────
@@ -5773,6 +5807,29 @@ export default async function regress({ check, run, getPlayer }) {
       check(`facts: ${sport}'s men have the sweater number the card has`, /^\d+$/.test(end.stars[0]?.num || '') && end.stars[0]?.league === sport);
       if (sport === 'hockey') check('facts: goals on the board are the score', end.goals.length === end.awayScore + end.homeScore || !!game.shootout, `${end.goals.length} goals, ${end.awayScore}-${end.homeScore}`);
       if (sport === 'hockey') check('facts: a break only knows its own period', mid.goals.every((x) => x.period === mid.section));
+      if (sport === 'hockey') check('facts: the period\'s goals are its own, and each names its clip on the reel', mid.periodGoals.every((x) => x.period === mid.section && x.reel === `${x.period}|${x.clock}`) && end.periodGoals.length <= end.goals.length);
+    }
+
+    // A beat with `each` plays once a row, cued on its own, and `roll` names the row's clip.
+    {
+      const { timeline } = await import('../../client/shared/sequence.js');
+      const tl = timeline({ beats: [{ id: 'a', say: { role: 'x', lines: ['Hi.'] } }, { id: 'g', each: 'goals', roll: '{reel}', say: { role: 'x', lines: ['{player} scored.'] } }] }, { goals: [{ player: 'A', reel: '1st|9:00' }, { player: 'B', reel: '1st|2:00' }] });
+      check('sequence: an each beat plays a row at a time, in order', tl.map((x) => x.text).join(' ') === 'Hi. A scored. B scored.');
+      check('sequence: each row is cued apart and keeps its beat', tl[1].i === '1.0' && tl[2].i === '1.1' && tl[2].bi === 1 && tl[0].i === 0);
+      check('sequence: a roll is filled from the row', tl[1].roll === '1st|9:00' && tl[2].roll === '1st|2:00' && !tl[0].roll);
+      check('sequence: an each over nothing plays nothing', timeline({ beats: [{ id: 'g', each: 'goals', say: { role: 'x', lines: ['{player}.'] } }] }, { goals: [] }).length === 0);
+    }
+    // The booth's recap in a break reads every goal of the period, each with its replay rolled.
+    {
+      const row = JSON.parse(readFileSync(new URL('../../content/media_broadcasts/bc_cluster_puck.json', import.meta.url), 'utf8')).sports_pools;
+      const { sport, game, ctx } = sampleGame(row, 3);
+      const { timeline } = await import('../../client/shared/sequence.js');
+      const seqDoc = JSON.parse(JSON.parse(readFileSync(new URL('../../content/media_graphics/seq_cphl_booth_break.json', import.meta.url), 'utf8')).content);
+      const f = factsAt(sport, game, momentBeat(sport, game, 'break'), ctx), data = { ...f, ...f.facts, venue: 'V', show: 'S' };
+      const tl = timeline(seqDoc, data, { cast: { pbp: { name: 'P' }, col: { name: 'C' } }, seed: 'r' });
+      const rolls = tl.filter((x) => x.roll).map((x) => x.roll), want = data.periodGoals.map((x) => x.reel).concat(data.periodInjuries.slice(0, 4).filter((x) => x.player).map((x) => x.reel));
+      check('booth recap: a line and a replay for every goal of the period', data.periodGoalCount > 0 && want.every((k) => rolls.includes(k)), `${rolls.length} rolls, ${data.periodGoalCount} goals`);
+      check('booth recap: the rink is up in a box all the way through', tl.every((x) => (x.beat.gfx || []).some((g) => g.source === 'feed')));
     }
 
     // The stage for a text show: its entry's set, then the room's, then one for its kind, then the default.

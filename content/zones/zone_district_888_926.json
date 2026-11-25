@@ -1,9 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "bg_color": "#1f3646",
-  "color": "#4f83a8",
-  "description": "The current loses its grip here and the water goes broad and shallow. Sandbars lie in grey humps.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "A grassy bank above the water, cut away underneath where the flood has been at it. Mind the edge.",
   "exits": {
     "east": "zone_district_889_926",
     "north": "zone_district_888_925",
@@ -14,13 +13,13 @@
     "district": "wilds",
     "radiation": 27,
     "region_id": "region_coldwater",
-    "terrain": "water"
+    "terrain": "grass"
   },
   "grid_x": 888,
   "grid_y": 926,
   "grid_z": 0,
   "id": "zone_district_888_926",
   "map_id": "map_world",
-  "name": "The Meltwater Mouth",
+  "name": "Meltwater Bank",
   "parent_zone": null
 }

@@ -430,6 +430,14 @@
       "price": 120
     },
     {
+      "item_id": "item_spray_neon",
+      "price": 340
+    },
+    {
+      "item_id": "item_spray_glow",
+      "price": 300
+    },
+    {
       "item_id": "item_pipe_wrench",
       "price": 125
     },

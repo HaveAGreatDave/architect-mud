@@ -1,8 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "The clay here dried a long time ago and cracked as it went. The plates curl slightly at the edges and crumble when stepped on.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "Rough grass on the riverbank, green against the red country behind it. The ground is soft and the river is loud.",
   "exits": {
     "north": "zone_district_884_907",
     "south": "zone_district_884_909",
@@ -12,13 +12,13 @@
     "district": "wilds",
     "radiation": 29,
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "grass"
   },
   "grid_x": 884,
   "grid_y": 908,
   "grid_z": 0,
   "id": "zone_district_884_908",
   "map_id": "map_world",
-  "name": "Mesa Shelf",
+  "name": "Meltwater Bank",
   "parent_zone": null
 }

@@ -6,6 +6,7 @@
     "The terminal hums a chord that resolves into your own name, then loses it."
   ],
   "ambient_theme": null,
+  "audio_theme_id": "song_inbetween",
   "bg_color": "#0b0d1a",
   "description": "No floor, but you're standing. No light, but you can see. White on white in every direction, edges that won't stay put. A chrome attendant waits beside a humming terminal. Its voice arrives in your skull half a second before its mouth moves.",
   "exits": {
@@ -15,6 +16,10 @@
     "always_lit": true,
     "building_name": "The Inbetween",
     "is_interior": true,
+    "music": {
+      "gain": 0.7,
+      "src": "/assets/music/waiting-at-the-threshold.opus"
+    },
     "prologue": true,
     "room": {
       "w": 12,
@@ -29,7 +34,8 @@
       },
       "place": true,
       "self_look": "outline",
-      "self_look_until": "morphex_close"
+      "self_look_until": "morphex_close",
+      "cine": "arrival"
     }
   },
   "grid_x": 0,

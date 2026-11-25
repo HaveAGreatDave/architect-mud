@@ -59,6 +59,7 @@ export const EXPRESSIONS = {
   grimacing: { teeth: 1, wide: 0.6, jaw: 0.14, browIn: 0.7, squint: 0.7, cheek: 0.6, sneer: 0.3, lid: -0.2, headP: 0.1, headR: 0.15 },
   kissing:   { round: 1, pout: 0.8, lid: -0.5, browUp: 0.2, headP: -0.1, headR: 0.2 },
   smirking:  { smirk: 1, squint: 0.25, browR: 0.4, lid: -0.2, cheek: 0.2, headR: -0.25, headP: -0.1 },
+  sarcastic: { smirk: 0.6, browL: 0.55, browR: -0.15, lid: -0.3, squint: 0.2, headR: 0.25, headP: -0.1, gazeX: 0.25, gazeY: 0.15 },
 };
 
 export const MOODS = Object.keys(EXPRESSIONS);
@@ -108,5 +109,6 @@ export const MOOD_TELL = {
   grimacing: ['winces.', 'grimaces, teeth bared.'],
   kissing:   ['purses their lips.', 'blows a kiss.'],
   smirking:  ['is smirking.', 'is smirking openly.'],
+  sarcastic: ['has a dry look about them.', 'wears an openly sarcastic smirk.'],
 };
 export const moodTell = (m, i = 1) => { const t = MOOD_TELL[m]; return t ? t[i >= 0.6 ? 1 : 0] : ''; };

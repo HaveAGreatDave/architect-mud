@@ -117,7 +117,9 @@ export function interiorRoomsOf(data, { lampOn = () => true, lampLevel = () => 1
     const L = roomLayout(r.spec, pieces), M = roomToGlass(L, origin, bearing, Number(r.frame.floor) || 0);
     const seed = hashOf(r.zone), on = !!lampOn(r.zone), bk = (r.key || r.zone) + '|' + (on ? 1 : 0) + '|' + seed + (r.ver ? '|v' + r.ver : '');
     const old = was?.get(r.key || r.zone)?.baseKey?.() || null;
-    const opts = { seed, lampOn: on, joined: all }, vatRoom = (L.placed || []).some((p) => p.form === 'vat');
+    // `doorsIn`: the street's glass doors stay in the room's batches, drawn shut. GLASS moves nothing in them, and
+    // lifted out (as the Stage lifts them, to move them) nobody drew them: a doorway with no door in it
+    const opts = { seed, lampOn: on, joined: all, doorsIn: true }, vatRoom = (L.placed || []).some((p) => p.form === 'vat');
     const fields = vatRoom ? VAT_FIELDS : r.spec?.void ? VOID_FIELDS : MESH_FIELDS;
     // a mesh asked of the worker once: `k` its key in the cache, `ps` the pieces it's built from
     const want = (k, ps, o = opts) => {

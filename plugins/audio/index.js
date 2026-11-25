@@ -235,8 +235,19 @@ on('zone.entered', ({ actor, zone: zoneId }) => {
   if (triggerEventRoute(`zone.entered.${zoneId}`, zoneId, actor?.id)) return;
   if (triggerEventRoute('zone.entered', zoneId, actor?.id)) return;
   const zone = getZone(zoneId);
-  const song = songs.get(zoneThemeSongId(zone));
   const pid = actor?.id;
+  // A recorded track (`flags.music`: { src, gain, loop_start }) beats the tracker theme. `src`
+  // is a URL the client fetches itself, a .qoa under /assets/music/ (scripts/audio/qoa-encode.mjs)
+  // or any format the browser decodes, so the message carries a path, not the audio.
+  const rec = zone?.flags?.music;
+  if (rec?.src) {
+    const id = `rec:${rec.src}`;
+    if (pid) themePlaying.set(pid, id);
+    sendToZone(zoneId, { type: 'audio_music', def: { id, name: id, recording: rec.src, gain: rec.gain ?? 1, loopStart: rec.loop_start || 0 } });
+    emit('audio.music.changed', { zoneId, songId: id });
+    return;
+  }
+  const song = songs.get(zoneThemeSongId(zone));
   if (!song) {
     // Nothing to play here. Before region defaults existed no tile had a theme,
     // so this branch never had anything to undo; now walking out of Coldwater

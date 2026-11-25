@@ -1,8 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
+  "ambient_theme": "forest",
   "color": "#b5744a",
-  "description": "Hard red-brown flats. The prints set into them are old enough that the edges have worn soft.",
+  "description": "Reeds grow thick along the bank, taller than you, and the ground between them is more water than mud.",
   "exits": {
     "east": "zone_district_879_923",
     "north": "zone_district_878_922",
@@ -13,13 +13,13 @@
     "district": "wilds",
     "radiation": 33,
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "marsh"
   },
   "grid_x": 878,
   "grid_y": 923,
   "grid_z": 0,
   "id": "zone_district_878_923",
   "map_id": "map_world",
-  "name": "The Scoured Plain",
+  "name": "Meltwater Reeds",
   "parent_zone": null
 }

@@ -95,8 +95,8 @@ sharp sounds instead: a darker copy 120 ms later.
 | Tier | Plays |
 |---|---|
 | Off | The calls only: the announcer and the umpire |
-| Limited (the default) | And every event: bat, leather, ball, slides, the crowd's reactions, the stings, the fireworks |
-| Full | And the beds, the park's air and its streets, the organ, the public address, the vendor, footsteps and throws, rhythmic claps, the towels in the final |
+| Limited (the default) | Everything, for now: every event, the beds, the park's air and its streets, the organ, the public address, the vendor, the chants, claps, drum, stamping and towels, footsteps and throws |
+| Full | The same as Limited until the tiers are split again |
 
 A fielder creeping in as the pitch comes (`field_ready_*`) is never heard, even at Full.
 
@@ -140,7 +140,7 @@ A fielder creeping in as the pitch comes (`field_ready_*`) is never heard, even 
   `db-sweep`, `db-table`.
 - **Fireworks:** `db-fw-launch`, `db-fw-burst` (with the city answering at 0.38 and 0.85 s),
   `db-fw-crackle`.
-- **The organ:** `db-organ-dirge`, the one song the organist knows (D minor, about drowning, as the
+- **The organ:** a tonewheel organ through a Leslie. Each key is the 8', 4' and 2 2/3' drawbars as sines (a chord's other notes only the first two), the 16' under middle C, a third-harmonic percussion on the first note of a chord, and a key click; each drawbar's vibrato runs at a slightly different rate so they chorus. `db-organ-dirge`, the one song the organist knows (D minor, about drowning, as the
   booth says in `baseball.bsm`), `db-organ-rally`, its first four notes played hopefully, and
   `db-organ-anthem`, the same song in D major for once, before a final's first pitch. A
   note's length is held by its decay at full sustain, so a phrase is one cue.
@@ -172,7 +172,7 @@ from the event and the world's time, so a replayed game sounds the same.
 
 ## Chants and the videoboard
 
-The park starts three chants (`db-chant-letsgo`, `db-chant-defense`, `db-chant-charge` in `client/shared/deadball-sfx.js`) and a noise meter (the stamping, then a cheer). Each chant syllable is `vowel()` noise twice, the second copy 4% higher and 25 ms late, so it sounds like a crowd and not one voice. `hype()` in `diamond/sound.js` starts them and plays one at a time:
+The park starts three chants (`db-chant-letsgo`, `db-chant-defense`, `db-chant-charge` in `client/shared/deadball-sfx.js`) and a noise meter (the stamping, then a cheer). Each chant syllable is shouted on a note: three sawtooths a few cents apart and a few milliseconds late through the vowel's formants, with `vowel()` breath under them and the consonants (s, f, ch) as short bands of noise. LET'S GO falls on its last word, DE-FENSE steps down, and CHARGE rises. `hype()` in `diamond/sound.js` starts them and plays one at a time:
 
 - A home run or walk-off by the home side: the air horn and drum as before, then LET'S GO 4.4 s later.
 - A great play by the home side in the field (a leaping or rail catch, a double or triple play): a roar, and DE-FENSE if the inning isn't over.

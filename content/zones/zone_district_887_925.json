@@ -1,9 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "bg_color": "#1f3646",
-  "color": "#4f83a8",
-  "description": "Shallow water along the shore, the bottom shelving slowly into deeper dark. There are old marks of rooting in the mud.",
+  "ambient_theme": "forest",
+  "color": "#3f5c3a",
+  "description": "Willows lean out over the water with their roots in the bank. The shade under them is cold and full of midges.",
   "exits": {
     "east": "zone_district_888_925",
     "north": "zone_district_887_924",
@@ -14,13 +13,13 @@
     "district": "wilds",
     "radiation": 27,
     "region_id": "region_coldwater",
-    "terrain": "water"
+    "terrain": "forest"
   },
   "grid_x": 887,
   "grid_y": 925,
   "grid_z": 0,
   "id": "zone_district_887_925",
   "map_id": "map_world",
-  "name": "The Meltwater Mouth",
+  "name": "Willow Bank",
   "parent_zone": null
 }

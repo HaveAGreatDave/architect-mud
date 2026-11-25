@@ -1,7 +1,9 @@
 {
   "ambient_events": [],
   "ambient_theme": "wasteland",
-  "description": "Flat red hardpan with a crazed surface. It rings faintly under a boot and gives nothing back but dust.",
+  "bg_color": "#1b3040",
+  "color": "#5f93b8",
+  "description": "The Meltwater runs wide and brown here, deep enough in the middle for a boat if you keep off the bars. Drift sticks out of the banks at the height the spring flood left it.",
   "exits": {
     "east": "zone_district_883_922",
     "north": "zone_district_882_921",
@@ -12,13 +14,13 @@
     "district": "wilds",
     "radiation": 30,
     "region_id": "region_coldwater",
-    "terrain": "cliff"
+    "terrain": "water"
   },
   "grid_x": 882,
   "grid_y": 922,
   "grid_z": 0,
   "id": "zone_district_882_922",
   "map_id": "map_world",
-  "name": "Oxide Barrens",
+  "name": "The Meltwater",
   "parent_zone": null
 }

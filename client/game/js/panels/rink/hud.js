@@ -136,7 +136,8 @@ function drawWipe(ctx, live, w, h, u) {
 // and the `picture` just drawn, for its panels. A comic replay draws its own frame in place of the
 // letterbox and the bug.
 export function drawHud(ctx, W, w, h, u, live = W, o = {}) {
-  if (lapsing(W)) drawLapse(ctx, W, w, h, u);
+  // (no TIME-LAPSE bug: the machine runs at a driver's pace; drawLapse stays for a sped-up short break)
+  if (lapsing(W) && W.zamboni.lapse > 3) drawLapse(ctx, W, w, h, u);
   if (W.replayOn && W.comic && drawComic(ctx, W, w, h, u, o)) { /* the comic's own frame */ }
   else if (W.replayOn) {
     // the replay: letterboxed, with the bug in the corner and its light blinking

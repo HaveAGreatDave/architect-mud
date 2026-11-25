@@ -1,8 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "The ground is baked red clay split into a web of cracks. Grit collects in the seams and the wind lifts it again.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "Tussock grass and rushes, wet underfoot. Geese graze it and don't think much of you.",
   "exits": {
     "east": "zone_district_910_937",
     "north": "zone_district_909_936",
@@ -13,13 +13,13 @@
     "district": "wilds",
     "radiation": 36,
     "region_id": "region_coldwater",
-    "terrain": "scrub"
+    "terrain": "grass"
   },
   "grid_x": 909,
   "grid_y": 937,
   "grid_z": 0,
   "id": "zone_district_909_937",
   "map_id": "map_world",
-  "name": "Slateback Rise",
+  "name": "The Wet Meadow",
   "parent_zone": null
 }

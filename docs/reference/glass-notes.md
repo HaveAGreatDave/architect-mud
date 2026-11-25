@@ -701,6 +701,15 @@ The browser caps contexts at 16. Measured: 24 opens made 24 contexts, and from t
 - `MAX_SCENES = 8` evicts the least-recently-painted scene (not Map insertion order, which would evict the live seat), so a caller that forgets to dispose costs a rebuild.
 - Trap: no headless gate reaches a context (every harness installs a GL hook returning null). Measure in the Modelshop with `HTMLCanvasElement.prototype.getContext` patched to count `webgl2` creations and `texImage2D`/`renderbufferStorage` patched to tally bytes. Branch on arity: the 9-argument overload carries width and height, the 6-argument one format and type enums, and reading 6408×5121 as a size reports 2 GB for one frame.
 
+## A lost context, held over (`glHold`, 2026-11-24)
+
+A context lost mid-session is already recovered: `glWorldPass` sees `view.lost()`, disposes the scene and returns null, and the next frame's `sceneGL` makes a new canvas, context and city. What was missing was the gap. The frame that finds the loss draws nothing, and the new scene's first frames draw before its mass is built, so the city vanished for a few seconds and only what the canvas draws (masts, sign frames, rails, lights) stood in the sky.
+
+- `glHoldKeep` copies the frame so far (sky, ground, the city, just after `glBlit`) into a canvas per `GL_ID`, every good frame. `glHoldShow` lays it down on a frame whose pass returned nothing or threw, and on a frame that drew no faces straight after frames that had some (the new scene still baking), without replacing the held copy. The canvas's own lights then paint over it as usual.
+- `RENDER_TUNE.glHold` is how long it stands in, 3 seconds; 0 turns it off. A pass that never recovers goes back to showing the gap after that.
+- Cost, measured in the game at 669×742: 0.005 ms of CPU and about 0.06 ms of GPU a copy.
+- Trap: test it with `WEBGL_lose_context` on `glLastFrame().canvas` in the game, not the route bench. A loss on the bench's shared canvas takes every later route with it until the page reloads.
+
 ## Fidelity measurement (`__glFidelity()`)
 
 `__glFidelity()` in the Modelshop measures whether GL looks like the same city (replacing a non-reproducible 6.8–12.7% README figure); 1.0% when written, 4.7% now (see first section).

@@ -105,6 +105,9 @@
       help: "How a garment looks worn, where its name can't say: { col: hex, print: 'reaper', cut: 'vatsuit_winter', fabric: 'quilt' }. col is its colour on the paper doll and the close-up figure; print names a top's print; cut names a FIGURE_CUTS cut for a top (figure.js), fabric a FIG_FABRIC cloth. Only a look." },
     can_label: { label: 'Spray Can Label', shape: 'object', scope: 'class', group: 'Core',
       help: "What's printed on a spray can, for the 3-D can in the spray session (client/game/js/panels/spray-can-3d.js). { brand, product, strap, fine, net (text), body, cap (hex), colours: [hex, ...] (the house colours: the prism, the bands, the collar's cells), wear: 0-1 }. Only a look: the can works the same without it. Pair with spray_paint." },
+    paint_finish: { label: 'Paint Finish', shape: 'enum', scope: 'class', group: 'Core',
+      options: ['chrome', 'gold', 'holo', 'glow', 'neon'],
+      help: "The special finish a spray can's paint comes out in (TAG_FINISHES in client/shared/tag-strokes.js): carrying the can unlocks that finish in the can window, and a tag in it spends this can's paint. Pair with spray_paint. Gold has no can: it's earned (plugins/graffiti)." },
     condom: { label: 'Protection', shape: 'flag', scope: 'class', group: 'Core',
       help: 'Consumed at the start of a penetrative MIS act, dropping infection risk to near zero (never zero). MIS only.' },
 
@@ -821,6 +824,8 @@
     speed_mult: { label: 'Speed Multiplier', shape: 'number', scope: 'zone', group: 'Zone: Properties', preset: true, presetFrom: 'terrain',
       help: 'OVERRIDE. Movement pacing on this tile — 2 means you cross it in half the time. Preset by terrain (road and dirt_road are 2, everything else 1). Set it to make one stretch slow (rubble, a rutted lane) without inventing a terrain for it.' },
 
+    music: { label: 'Recorded Music', shape: 'object', scope: 'zone', group: 'Zone: Identity',
+      help: "A recorded track played on entering this zone, ahead of any tracker theme (plugins/audio): { src: '/assets/music/<file>.opus', gain: 0-1, loop_start: seconds }." },
     ambient_pool: { label: 'Ambient Pool', shape: 'text', scope: 'zone', group: 'Zone: Identity',
       help: 'Names the sub-area voice this tile speaks in — the `theme` of a set of global_ambient_events rows written for one stretch of country ("deadwater_the_wide_quiet", "scarletwastes_hardpan"). SECOND KEY, and deliberately not Ambient Theme: that one answers what KIND of place this is and has other readers (ambient-life gates routines on it, knock tests it for indoors), while this one answers which lines get said. Leave it empty on anything hand-authored — a room with prose of its own puts it in Ambient Events. It exists because the region builders used to copy the eleven lines of one sub-area onto all 2,148 of its tiles, which was 9MB of the world load to say 243 things.' },
 

@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "wasteland",
   "color": "#b5744a",
-  "description": "Flat red hardpan with a crazed surface. It rings faintly under a boot and gives nothing back but dust.",
+  "description": "Scrub and thorn where the river's damp gives out and the red rock takes over again.",
   "exits": {
     "north": "zone_district_884_906",
     "south": "zone_district_884_908",
@@ -12,13 +12,13 @@
     "district": "wilds",
     "radiation": 29,
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "scrub"
   },
   "grid_x": 884,
   "grid_y": 907,
   "grid_z": 0,
   "id": "zone_district_884_907",
   "map_id": "map_world",
-  "name": "The Rust Flats",
+  "name": "Meltwater Scrub",
   "parent_zone": null
 }

@@ -1,8 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
+  "ambient_theme": "forest",
   "color": "#b5744a",
-  "description": "A wide plain the color of rust, hard as a road. Old tracks cross it here and there, baked in where the ground was soft once.",
+  "description": "Cattails as thick as a wall, with narrow channels between them where the ducks go. The mud takes your boots and gives them back slowly.",
   "exits": {
     "east": "zone_district_908_932",
     "north": "zone_district_907_931",
@@ -13,13 +13,13 @@
     "district": "wilds",
     "radiation": 33,
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "marsh"
   },
   "grid_x": 907,
   "grid_y": 932,
   "grid_z": 0,
   "id": "zone_district_907_932",
   "map_id": "map_world",
-  "name": "Bloodrock Table",
+  "name": "The Reedbed",
   "parent_zone": null
 }

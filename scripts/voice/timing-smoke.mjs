@@ -135,9 +135,13 @@ const vowel = (r, code, n = 0) => { const v = r.segs.filter(s => s.p === code); 
 // ── Breath in at a long break ──────────────────────────────────────────────────
 {
   const say = (t) => { const r = A.speak(t, { seed: 'Dex Rime', backend: 'graph', fresh: true }); A.cancelSpeech(); return r; };
-  const long = 'The tide came in. We waited by the harbour wall for hours.';
+  const long = 'The tide came in slowly over the flats this morning, grey and cold. We waited by the harbour wall for hours.';
   const on = say(long);
   check('a sentence break mid-passage takes a breath in', on.inhales === 1, `inhales ${on.inhales}`);
+  check('...but not after a short sentence: people breathe every few seconds, not every full stop',
+    say('The tide came in. We waited by the harbour wall for hours.').inhales === 0);
+  const many = say('The tide came in slowly over the flats this morning, grey and cold. We waited. We watched. We waited by the harbour wall for hours, and nobody came.');
+  check('...and not at every full stop in a passage', many.inhales === 1, `inhales ${many.inhales}`);
   check('...but not with too little left to say', say('Go home. Now.').inhales === 0);
   const k = A.voiceTuning.inhale; A.voiceTuning.inhale = 0;
   const off = say(long); A.voiceTuning.inhale = k;

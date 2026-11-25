@@ -176,7 +176,9 @@ const last = (param) => { const l = param.log[param.log.length - 1]; return l ? 
   check('a placed line builds a 3D panner', !!pan);
   check('with no doppler source', !left.made.some(n => n.kind === 'constant'));
   check('it takes the ref and rolloff it was given', pan && pan.refDistance === 1.5 && pan.rolloffFactor === 0.6);
-  check('the panner feeds the tv voice sub-gain', pan && pan.out.some(e => e.dst === G.tvVoice));
+  // An npc-channel line rides the sfx bus now (speak(): people in the world have their own
+  // npcVoices switch, apart from the TV), so the panner feeds the sfx slider, not tvVoice.
+  check('the panner feeds the sfx bus', pan && pan.out.some(e => e.dst === G.buses.sfx.slider[0]));
   const ex = exits(left.made);
   check('the voice leaves only through its panner', ex.length > 0 && ex.every(e => e.from === pan), ex.map(e => `${e.from.kind}->${e.dst.kind}`).join(','));
   check('a speaker to the left is heard on the left', pan && pan.positionX.value < 0 && pan.positionZ.value < 0, `${pan?.positionX.value},${pan?.positionZ.value}`);

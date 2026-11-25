@@ -3379,6 +3379,9 @@ export const SCHEMA_SQL = `
   -- sharp; the list is TAG_FACES in client/shared/tag-strokes.js). NULL means none was
   -- picked and the renderer rolls one off the wall, as it does for the city's own paint.
   ALTER TABLE zone_graffiti ADD COLUMN IF NOT EXISTS face TEXT;
+  -- The special finish a piece was sprayed in (chrome, gold, holo, glow or neon; the list is
+  -- TAG_FINISHES in client/shared/tag-strokes.js). NULL is ordinary paint.
+  ALTER TABLE zone_graffiti ADD COLUMN IF NOT EXISTS finish TEXT;
   -- Where on a room's own wall a tag sprayed in ROOM went: { u, v, y, n } in metres in the
   -- Room Stage's frame, n the wall's inward normal ('u+', 'u-', 'v+', 'v-'). Validated by
   -- safeSpot in plugins/graffiti/paint.js. NULL for a street wall (GLASS solves where on a
@@ -3400,6 +3403,7 @@ export const SCHEMA_SQL = `
   );
   -- A saved design keeps its letterform too, same as the wall.
   ALTER TABLE player_sprays ADD COLUMN IF NOT EXISTS face TEXT;
+  ALTER TABLE player_sprays ADD COLUMN IF NOT EXISTS finish TEXT;
   CREATE INDEX IF NOT EXISTS idx_player_sprays_player ON player_sprays(player_id);
 
   -- Economy ledger (economy-ledger plugin): append-only record of every credit

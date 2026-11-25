@@ -55,6 +55,14 @@ uniform int uWLN;
 uniform vec3 uWLP[12];
 uniform vec3 uWLC[12];
 uniform float uWLR[12];
+// WIND (see windBillboards in windshield.js): how far this batch's species bends (0 for rock,
+// bone, a bird), the wind's strength 0..1, which way it leans across the screen (-1..1), the clock,
+// and the window's world origin, so the phase is the plant's own and doesn't jump on a recentre.
+uniform float uSway;
+uniform float uWind;
+uniform float uLean;
+uniform float uTime;
+uniform vec2 uOrig;
 out vec2 vUV;
 out float vAlpha;
 out float vFog;
@@ -71,9 +79,26 @@ void main() {
     vLamp += uWLC[i] * (att * att * 0.8);
   }
   vec4 clip = uViewProj * vec4(aPos, 1.0);
+  // ONLY THE TOP EDGE MOVES. The two bottom corners hold the ground point, so a plant leans and
+  // springs back from its root and never slides. The bend grows with the card's own height in
+  // pixels (the top corner's offset above the anchor), so a reed and a tree lean the same angle.
+  // With uSway or uWind at 0 the offset is exactly 0 and the card is the one that always shipped.
+  vec2 off = aOff;
+  float top = 1.0 - aUV.y;
+  if (uSway > 0.0 && top > 0.5) {
+    vec2 wp = aPos.xy + uOrig;
+    float ph = wp.x * 1.73 + wp.y * 2.31;
+    float gust = 0.55 + 0.45 * sin(uTime * 0.31 + wp.x * 0.19 - wp.y * 0.13);
+    float sw = uLean * (0.35 + 0.65 * gust) * uWind
+      + sin(uTime * (1.1 + 1.4 * uWind) + ph) * (0.25 + 0.6 * uWind) * gust
+      + sin(uTime * 2.9 + ph * 1.7) * 0.12 * uWind;
+    float h = max(0.0, -aOff.y);
+    off.x += sw * uSway * h * 0.16;
+    off.y += abs(sw) * uSway * h * 0.03;
+  }
   // The corner offset is in PIXELS, applied after the perspective divide — the same trick the
   // lights use, and what makes the billboard exactly the size the 2-D painter draws.
-  clip.xy += aOff * (2.0 / uViewport) * clip.w;
+  clip.xy += off * (2.0 / uViewport) * clip.w;
   gl_Position = clip;
   vUV = aUV;
   vAlpha = aAlpha;
@@ -199,6 +224,11 @@ export function createBillboardLayer(gl) {
     snow: gl.getUniformLocation(prog, 'uSnow'),
     snowHold: gl.getUniformLocation(prog, 'uSnowHold'),
     snowCol: gl.getUniformLocation(prog, 'uSnowCol'),
+    sway: gl.getUniformLocation(prog, 'uSway'),
+    wind: gl.getUniformLocation(prog, 'uWind'),
+    lean: gl.getUniformLocation(prog, 'uLean'),
+    time: gl.getUniformLocation(prog, 'uTime'),
+    orig: gl.getUniformLocation(prog, 'uOrig'),
   };
 
   const vao = gl.createVertexArray();
@@ -280,7 +310,7 @@ export function createBillboardLayer(gl) {
       // per batch instead of a float per vertex, and the vertex buffer every billboard in the
       // frame shares is byte-for-byte the one that always shipped. Unlike `depth`, it therefore
       // cannot force a batch split: two quads sharing a texture cannot disagree.
-      let a = byKey.get(b.key); if (!a) byKey.set(b.key, a = { img: b.img, fresh: !!b.fresh, flipY: !!b.flipY, snow: b.snow || 0, items: [], deep: [] });
+      let a = byKey.get(b.key); if (!a) byKey.set(b.key, a = { img: b.img, fresh: !!b.fresh, flipY: !!b.flipY, snow: b.snow || 0, sway: b.sway || 0, items: [], deep: [] });
       (b.depth ? a.deep : a.items).push(b);
     }
     evict(byKey);
@@ -335,9 +365,9 @@ export function createBillboardLayer(gl) {
       // same species twice and halve a cache whose overflow is already the layer's worst failure.
       const tex = textureFor(key, a.img, a.fresh, a.flipY);
       for (const b of a.items) quad(b);
-      if (a.items.length) { const n = a.items.length * 6; batches.push({ tex, first, count: n, depth: false, snow: a.snow }); first += n; }
+      if (a.items.length) { const n = a.items.length * 6; batches.push({ tex, first, count: n, depth: false, snow: a.snow, sway: a.sway }); first += n; }
       for (const b of a.deep) quad(b);
-      if (a.deep.length) { const n = a.deep.length * 6; batches.push({ tex, first, count: n, depth: true, snow: a.snow }); first += n; }
+      if (a.deep.length) { const n = a.deep.length * 6; batches.push({ tex, first, count: n, depth: true, snow: a.snow, sway: a.sway }); first += n; }
     }
     stream.write(data, verts * STRIDE);
     return quads;
@@ -345,7 +375,7 @@ export function createBillboardLayer(gl) {
 
   const wlP = new Float32Array(36), wlC = new Float32Array(36), wlR = new Float32Array(12);
   const wl = {};
-  function draw(cam, W, H, cssH, fog, snow, lights) {
+  function draw(cam, W, H, cssH, fog, snow, lights, wind) {
     if (!batches.length) return 0;
     gl.useProgram(prog); applyLinOut(gl, prog);
     // ⚠ SET ON EVERY DRAW. The lights arrive in the map-window frame the mass is built in; this
@@ -376,6 +406,13 @@ export function createBillboardLayer(gl) {
     gl.uniform1f(loc.snow, sd);
     const sc = sn.col || SNOW_FALLBACK;
     gl.uniform3f(loc.snowCol, sc[0], sc[1], sc[2]);
+    // WRITTEN EVERY FRAME, for the snow's reason: a uniform keeps its last value. With no wind
+    // handed over the strength is 0 and so is every bend.
+    const wd = wind || {};
+    gl.uniform1f(loc.wind, wd.k > 0 ? Math.min(1, wd.k) : 0);
+    gl.uniform1f(loc.lean, wd.lean || 0);
+    gl.uniform1f(loc.time, (wd.t || 0) % 3600);
+    gl.uniform2f(loc.orig, wd.ox || 0, wd.oy || 0);
     gl.uniform1i(loc.tex, 0);
     gl.activeTexture(gl.TEXTURE0);
     gl.enable(gl.DEPTH_TEST);
@@ -401,6 +438,7 @@ export function createBillboardLayer(gl) {
       gl.depthMask(true);
       for (const b of batches) {
         if (!b.depth) continue;
+        gl.uniform1f(loc.sway, b.sway || 0);
         gl.bindTexture(gl.TEXTURE_2D, b.tex);
         gl.drawArrays(gl.TRIANGLES, b.first, b.count);
       }
@@ -418,6 +456,7 @@ export function createBillboardLayer(gl) {
       // ⚠ PER BATCH, AND NOT ONLY FOR THE SNOWY ONES: a species that skipped the write would take
       // the hold of whichever one happened to draw before it.
       if (sd) gl.uniform1f(loc.snowHold, b.snow || 0);
+      gl.uniform1f(loc.sway, b.sway || 0);
       gl.bindTexture(gl.TEXTURE_2D, b.tex);
       gl.drawArrays(gl.TRIANGLES, b.first, b.count);
       n += b.count / 6;

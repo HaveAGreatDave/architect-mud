@@ -371,6 +371,83 @@
         "5293"
       ],
       "port": 5293
+    },
+    {
+      "name": "oracle-mood",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "tools/voice-fit/ddsp/mood-test.mjs",
+        "serve",
+        "C:/Users/david/datasets/vctk/mood2",
+        "--port",
+        "5654"
+      ],
+      "port": 5654,
+      "autoPort": false
+    },
+    {
+      "name": "oracle-listen",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "tools/voice-fit/ddsp/listen.mjs",
+        "C:/Users/david/datasets/vctk/listen6",
+        "--port",
+        "5651"
+      ],
+      "port": 5651,
+      "autoPort": false
+    },
+    {
+      "name": "oracle-listen-source",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "tools/voice-fit/ddsp/listen.mjs",
+        "C:/Users/david/datasets/vctk/listen8",
+        "--port",
+        "5652"
+      ],
+      "port": 5652,
+      "autoPort": false
+    },
+    {
+      "name": "modelshop-paint",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "tools/modelshop/serve.mjs",
+        "5283"
+      ],
+      "port": 5283
+    },
+    {
+      "name": "oracle-listen-consonant",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "tools/voice-fit/ddsp/listen.mjs",
+        "C:/Users/david/datasets/vctk/listen9",
+        "--port",
+        "5653"
+      ],
+      "port": 5653
+    },
+    {
+      "name": "oracle-listen-prosody",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "tools/voice-fit/ddsp/listen.mjs",
+        "C:/Users/david/datasets/vctk/listen10",
+        "--port",
+        "5654"
+      ],
+      "port": 5654
+    },
+    {
+      "name": "trees-harness",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "C:/Users/david/AppData/Local/Temp/claude/c2d01c6c9c9b9fd8/efd583b6-a967-4170-93a0-b1ef74bd96bd/scratchpad/trees/serve.mjs",
+        "5291"
+      ],
+      "port": 5291
     }
   ]
 }

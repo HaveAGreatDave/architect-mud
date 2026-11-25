@@ -1,8 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
+  "ambient_theme": "forest",
   "color": "#b5744a",
-  "description": "A low fen of silt and sedge, the water beneath it black and slow. Something crossed it recently enough that the reeds are still bent, and the mud hasn't yet closed.",
+  "description": "Reed and cattail stand in black water up to your knees. Every step sinks and something always moves off just ahead of you.",
   "exits": {
     "east": "zone_district_895_930",
     "north": "zone_district_894_929",
@@ -20,6 +20,6 @@
   "grid_z": 0,
   "id": "zone_district_894_930",
   "map_id": "map_world",
-  "name": "The Rust Flats",
+  "name": "The Reedbed",
   "parent_zone": null
 }

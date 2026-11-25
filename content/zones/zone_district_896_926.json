@@ -1,8 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#8f9256",
-  "description": "Grey brush claws up from the cracks, low and dry and barely alive.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "A meadow that floods in spring and dries in summer. Wildflowers come up in the low places.",
   "exits": {
     "east": "zone_district_897_926",
     "north": "zone_district_896_925",
@@ -13,13 +13,13 @@
     "district": "wilds",
     "radiation": 25,
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "grass"
   },
   "grid_x": 896,
   "grid_y": 926,
   "grid_z": 0,
   "id": "zone_district_896_926",
   "map_id": "map_world",
-  "name": "The Grey Bramble",
+  "name": "The Wet Meadow",
   "parent_zone": null
 }

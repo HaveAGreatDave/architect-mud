@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Footsteps</title>
+<!--
+  Audition the street-on-foot footsteps (client/shared/footstep-sfx.js): every surface at a sneak,
+  a walk and a run, dry or in rain, through the real stepper. Served by any of the repo's static
+  servers (npm run modelshop, then /tools/sandbox/footsteps.html).
+-->
+<style>
+  body { background: #111; color: #ddd; font: 14px system-ui, sans-serif; margin: 16px; }
+  table { border-collapse: collapse; } td, th { padding: 4px 8px; }
+  button { background: #2a2a2a; color: #eee; border: 1px solid #555; padding: 6px 10px; cursor: pointer; }
+  button.on { background: #3a6; }
+  #log { font: 12px monospace; white-space: pre; margin-top: 12px; color: #9c9; }
+</style>
+</head>
+<body>
+<h1>Footsteps</h1>
+<p><label><input type="checkbox" id="wet"> rain</label> &nbsp; <button id="stop">stop</button></p>
+<table id="grid"></table>
+<div id="log"></div>
+<script src="/client/shared/audio-engine.js"></script>
+<script type="module">
+import { SURFACES, createFootsteps } from '/client/shared/footstep-sfx.js';
+const SPEED = { sneak: 0.7, walk: 1.4, run: 4.5 };
+const grid = document.getElementById('grid'), log = document.getElementById('log');
+let timer = null, played = [];
+window.__footsteps = { played };
+grid.innerHTML = '<tr><th></th>' + Object.keys(SPEED).map((g) => '<th>' + g + '</th>').join('') + '</tr>'
+  + SURFACES.map((s) => '<tr><td>' + s + '</td>' + Object.keys(SPEED).map((g) => '<td><button data-s="' + s + '" data-g="' + g + '">walk 4 s</button></td>').join('') + '</tr>').join('');
+function stop() { clearInterval(timer); timer = null; document.querySelectorAll('button.on').forEach((b) => b.classList.remove('on')); }
+function go(surface, gait, secs = 4) {
+  stop();
+  const fs = createFootsteps({ seed: 5, play: (d, g) => { played.push([d.id, +g.toFixed(2)]); window.AudioEngine?.playSfx?.(d, g); } });
+  const wet = document.getElementById('wet').checked, dt = 1 / 60, t0 = performance.now();
+  timer = setInterval(() => {
+    const out = fs.tick(dt, SPEED[gait] * dt, { surface, wet, crouched: gait === 'sneak', detail: 'limited' });
+    if (out) log.textContent = (out.surface + ' ' + out.gait + (out.water ? ' ' + out.water : '') + '\n' + log.textContent).slice(0, 600);
+    if (performance.now() - t0 > secs * 1000) stop();
+  }, 1000 / 60);
+  return fs;
+}
+window.__footsteps.go = go;
+grid.addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; go(b.dataset.s, b.dataset.g); b.classList.add('on'); });
+document.getElementById('stop').onclick = stop;
+</script>
+</body>
+</html>

@@ -1,9 +1,9 @@
 {
   "ambient_events": [],
   "ambient_theme": "wasteland",
-  "bg_color": "#1f3646",
-  "color": "#4f83a8",
-  "description": "Shallow shoreline water. The bottom runs from gravel to silt as it deepens, then shelves away. Something has been rooting in the mud along the waterline, though not recently.",
+  "bg_color": "#1b3040",
+  "color": "#5f93b8",
+  "description": "The Meltwater runs wide and brown here, deep enough in the middle for a boat if you keep off the bars. Drift sticks out of the banks at the height the spring flood left it.",
   "exits": {
     "east": "zone_district_882_903",
     "north": "zone_district_881_902",
@@ -21,6 +21,6 @@
   "grid_z": 0,
   "id": "zone_district_881_903",
   "map_id": "map_world",
-  "name": "Coldwater Basin",
+  "name": "The Meltwater",
   "parent_zone": null
 }

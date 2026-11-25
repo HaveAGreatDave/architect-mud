@@ -1,9 +1,8 @@
 {
   "ambient_events": [],
   "ambient_theme": "wasteland",
-  "bg_color": "#1f3646",
-  "color": "#4f83a8",
-  "description": "Dirty shallows with a coloured film on top. Reeds have got a hold in the silt.",
+  "color": "#b5744a",
+  "description": "A spit of soft sand on the inside of the bend, ribbed by the current and printed with birds' feet.",
   "exits": {
     "east": "zone_district_887_925",
     "north": "zone_district_886_924",
@@ -14,13 +13,13 @@
     "district": "wilds",
     "radiation": 28,
     "region_id": "region_coldwater",
-    "terrain": "water"
+    "terrain": "sand"
   },
   "grid_x": 886,
   "grid_y": 925,
   "grid_z": 0,
   "id": "zone_district_886_925",
   "map_id": "map_world",
-  "name": "The Meltwater Mouth",
+  "name": "Meltwater Sand",
   "parent_zone": null
 }

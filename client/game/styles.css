@@ -1027,6 +1027,23 @@ body.seat-hidepanel #look-resize-handle { display: none; }
 	font-style: normal;
 	color: var(--text);
 }
+/* A piece sprayed in a special finish (TAG_FINISHES): the finish is clipped to the letters and
+   wins over their colours, the way it does on the wall. Glow and neon glow; the others shine. */
+.graffiti-finish, .graffiti-finish * {
+	-webkit-background-clip: text; background-clip: text;
+	-webkit-text-fill-color: transparent;
+}
+.graffiti-chrome { background-image: linear-gradient(180deg, #ffffff 0%, #c7ced8 38%, #4c545f 50%, #9aa4b1 66%, #f4f7fa 100%); }
+.graffiti-gold { background-image: linear-gradient(180deg, #fff8d6 0%, #ffd34d 38%, #8a5a00 50%, #d9a22c 66%, #ffeeb0 100%); }
+.graffiti-holo {
+	background-image: linear-gradient(100deg, #ff3b8d, #ffb13b, #f7ff5c, #4dff9a, #3bd8ff, #7a5cff, #ff3bd5, #ff3b8d);
+	background-size: 300% 100%; animation: graffiti-holo 6s linear infinite;
+}
+@keyframes graffiti-holo { to { background-position: 300% 0; } }
+.graffiti-glow { background-image: linear-gradient(#c8ffd9, #c8ffd9); filter: drop-shadow(0 0 4px #7dffb0); }
+.graffiti-neon { background-image: linear-gradient(#ff4fd8, #ff4fd8); filter: drop-shadow(0 0 3px #ff4fd8) drop-shadow(0 0 8px #ff4fd8); }
+.graffiti-finish .graffiti-neon, .graffiti-neon span { -webkit-text-fill-color: currentColor; }
+@media (prefers-reduced-motion: reduce) { .graffiti-holo { animation: none; } }
 /* ── Rainbow sky ─────────────────────────────────────────────────────────────
    While a rainbow hero weather event stands (plugins/weather NAMED_EVENTS), the
    room's own prose takes the colour: a banded gradient clipped to the text and
@@ -16497,19 +16514,71 @@ input.trade-qty { width: 56px; }
 	cursor: pointer; pointer-events: auto;
 	padding: 12px 14px 11px 16px;
 	font-family: var(--font-mono);
-	background: linear-gradient(180deg,
-		color-mix(in srgb, var(--accent) 18%, var(--bg2)),
-		color-mix(in srgb, var(--accent) 6%, var(--bg2)));
-	border: 1px solid var(--border);
+	/* Frosted glass: a thin theme-tinted pane over a blurred, saturated view of
+	   whatever is behind (GLASS, the room, the log). The fill is kept dense enough
+	   that the copy reads where backdrop-filter isn't supported. */
+	border-radius: 10px;
+	background:
+		radial-gradient(120% 90% at 0% 0%, color-mix(in srgb, var(--accent) 30%, transparent), transparent 60%),
+		radial-gradient(90% 80% at 100% 100%, color-mix(in srgb, var(--accent2, var(--accent)) 24%, transparent), transparent 65%),
+		linear-gradient(160deg,
+			color-mix(in srgb, white 10%, color-mix(in srgb, var(--bg2) 62%, transparent)),
+			color-mix(in srgb, var(--bg2) 52%, transparent));
+	-webkit-backdrop-filter: blur(16px) saturate(170%) brightness(1.05);
+	backdrop-filter: blur(16px) saturate(170%) brightness(1.05);
+	border: 1px solid color-mix(in srgb, white 22%, transparent);
 	box-shadow:
-		0 8px 26px rgba(0, 0, 0, 0.45),
-		0 0 24px color-mix(in srgb, var(--accent) 17%, transparent),
-		inset 0 1px 0 color-mix(in srgb, white 55%, transparent),
-		inset 0 -3px 6px color-mix(in srgb, black 45%, transparent);
-	animation: accolade-in 340ms cubic-bezier(0.16, 0.84, 0.44, 1) both;
+		0 12px 34px rgba(0, 0, 0, 0.5),
+		0 0 30px color-mix(in srgb, var(--accent) 32%, transparent),
+		0 0 70px color-mix(in srgb, var(--accent2, var(--accent)) 14%, transparent),
+		inset 0 1px 0 color-mix(in srgb, white 45%, transparent),
+		inset 0 0 18px color-mix(in srgb, var(--accent) 14%, transparent);
+	animation: accolade-in 560ms cubic-bezier(0.16, 0.84, 0.44, 1) both,
+		accolade-glow 2.4s ease-in-out 560ms 2;
 }
 .accolade-card.leaving { animation: accolade-out 520ms ease-out both; }
-@keyframes accolade-in  { from { opacity: 0; transform: translateX(26px); } to { opacity: 1; transform: none; } }
+@keyframes accolade-in {
+	0%   { opacity: 0; transform: translateX(34px) scale(0.92); filter: brightness(2.2) blur(3px); }
+	55%  { opacity: 1; transform: translateX(-3px) scale(1.015); filter: brightness(1.4) blur(0); }
+	100% { opacity: 1; transform: none; filter: none; }
+}
+@keyframes accolade-glow {
+	50% { box-shadow:
+		0 12px 34px rgba(0, 0, 0, 0.5),
+		0 0 44px color-mix(in srgb, var(--accent) 55%, transparent),
+		0 0 90px color-mix(in srgb, var(--accent2, var(--accent)) 26%, transparent),
+		inset 0 1px 0 color-mix(in srgb, white 55%, transparent),
+		inset 0 0 26px color-mix(in srgb, var(--accent) 26%, transparent); }
+}
+/* Iridescent rim: a conic gradient in the theme's colours, masked to a 1px ring,
+   turning slowly round the pane. */
+.accolade-card .accolade-rim {
+	position: absolute; inset: 0; border-radius: inherit; padding: 1px; z-index: 5; pointer-events: none;
+	-webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+	-webkit-mask-composite: xor; mask-composite: exclude;
+	overflow: hidden;
+}
+.accolade-card .accolade-rim::before {
+	content: ''; position: absolute; left: 50%; top: 50%; width: 260%; aspect-ratio: 1;
+	translate: -50% -50%;
+	background: conic-gradient(from 0deg,
+		var(--accent), color-mix(in srgb, white 80%, var(--accent)), var(--accent2, var(--accent)),
+		var(--cyan, var(--accent)), var(--accent), transparent 70%, var(--accent));
+	animation: accolade-spin 3.2s linear infinite;
+}
+@keyframes accolade-spin { to { rotate: 360deg; } }
+/* A specular sweep across the pane on arrival. */
+.accolade-card .accolade-sweep {
+	position: absolute; inset: 0; z-index: 3; pointer-events: none; overflow: hidden; border-radius: inherit;
+}
+.accolade-card .accolade-sweep::before {
+	content: ''; position: absolute; top: -40%; bottom: -40%; width: 38%; left: -50%;
+	background: linear-gradient(100deg, transparent, color-mix(in srgb, white 38%, transparent) 45%,
+		color-mix(in srgb, white 70%, var(--accent)) 50%, color-mix(in srgb, white 38%, transparent) 55%, transparent);
+	transform: skewX(-18deg); mix-blend-mode: screen;
+	animation: accolade-sweep 1.1s cubic-bezier(0.3, 0.7, 0.3, 1) 180ms both;
+}
+@keyframes accolade-sweep { from { left: -50%; } to { left: 130%; } }
 /* Pure opacity — it fades where it stands rather than sliding away. A card that
    slides reads as dismissed; one that fades reads as finished. */
 @keyframes accolade-out { to { opacity: 0; } }
@@ -16534,7 +16603,8 @@ input.trade-qty { width: 56px; }
 
 .accolade-card .accolade-scan {
 	position: absolute; inset: 0; pointer-events: none; z-index: 2;
-	background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.1) 0 1px, transparent 1px 3px);
+	background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.05) 0 1px, transparent 1px 3px);
+	border-radius: inherit;
 }
 .accolade-card .accolade-body { position: relative; z-index: 4; }
 
@@ -16608,6 +16678,7 @@ input.trade-qty { width: 56px; }
 
 @media (prefers-reduced-motion: reduce) {
 	.accolade-card, .accolade-card::before, .accolade-card::after { animation-duration: 1ms; }
+	.accolade-card .accolade-rim::before, .accolade-card .accolade-sweep::before { animation: none; }
 	.accolade-title { animation: none; -webkit-text-fill-color: var(--text); }
 }
 

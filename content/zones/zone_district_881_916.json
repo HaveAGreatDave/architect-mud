@@ -1,8 +1,9 @@
 {
   "ambient_events": [],
   "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "A wide plain the color of rust, hard as a road. Old tracks cross it here and there, baked in where the ground was soft once.",
+  "bg_color": "#1b3040",
+  "color": "#5f93b8",
+  "description": "The Meltwater runs wide and brown here, deep enough in the middle for a boat if you keep off the bars. Drift sticks out of the banks at the height the spring flood left it.",
   "exits": {
     "east": "zone_district_882_916",
     "north": "zone_district_881_915",
@@ -13,13 +14,13 @@
     "district": "wilds",
     "radiation": 31,
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "water"
   },
   "grid_x": 881,
   "grid_y": 916,
   "grid_z": 0,
   "id": "zone_district_881_916",
   "map_id": "map_world",
-  "name": "Mesa Shelf",
+  "name": "The Meltwater",
   "parent_zone": null
 }

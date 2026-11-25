@@ -86,18 +86,18 @@
         "zone": "zone_solenne_hall_38"
       },
       {
-        "label": "Residence 40-A",
-        "n": 40,
+        "label": "Residence 37-A",
+        "n": 37,
         "zone": "zone_solenne_hall_40r"
       },
       {
         "label": "The Penthouse",
-        "n": 44,
+        "n": 39,
         "zone": "zone_solenne_ph_landing"
       },
       {
         "label": "Sky Deck & Pad",
-        "n": 45,
+        "n": 40,
         "zone": "zone_solenne_hall_45"
       }
     ],

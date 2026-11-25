@@ -3,7 +3,7 @@
   "default": true,
   "exterior": {
     "base": "#163e2c",
-    "finish": "gloss",
+    "finish": "metallic",
     "pattern": "factory",
     "trim": "#ece2cc",
     "variant": "racing"

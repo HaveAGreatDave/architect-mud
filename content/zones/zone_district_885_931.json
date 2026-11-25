@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "wasteland",
   "color": "#b5744a",
-  "description": "A rust-colored plain with a surface like fired clay. Faint tracks run across it, left by things that crossed when it was wet.",
+  "description": "A spit of soft sand on the inside of the bend, ribbed by the current and printed with birds' feet.",
   "exits": {
     "east": "zone_district_886_931",
     "north": "zone_district_885_930",
@@ -13,13 +13,13 @@
     "district": "wilds",
     "radiation": 29,
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "sand"
   },
   "grid_x": 885,
   "grid_y": 931,
   "grid_z": 0,
   "id": "zone_district_885_931",
   "map_id": "map_world",
-  "name": "Cinder Mesa",
+  "name": "Meltwater Sand",
   "parent_zone": null
 }

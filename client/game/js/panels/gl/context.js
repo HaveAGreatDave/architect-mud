@@ -35,12 +35,13 @@ import { createPropShadowLayer, PROP_SHADOW_GLSL, PROP_SHADOW_UNIFORMS, bindProp
 import { createLampShadowLayer } from './lampshadow.js';
 import { CLOUD_SHADOW_GLSL, CLOUD_SHADOW_UNIFORMS, bindCloudShadow } from './cloudshadow.js';
 import { createSSAOLayer } from './ssao.js';
+import { createOccReadback, occPublish } from './occ-readback.js';
 import { createHDRLayer } from './hdr.js';
 import { createMirrorLayer } from './mirror.js';
 import { createSkylineStrip } from './skyline.js';
 // SSAO inverts depth back to tiles with the same clip constants the vertices went through.
 import { NEAR, zRow } from './camera.js';
-import { declareProgram, prewarmPrograms, layerProgram } from './programs.js';
+import { declareProgram, prewarmPrograms, prewarmDone, layerProgram } from './programs.js';
 import { passTimer, passTimes, timerFor, timeMethods } from './core/timer.js';
 import { linearOut, applyLinOut, LIN, linRgb, LIN_IN_GLSL } from './colour.js';
 import { LIGHTGRID_GLSL, LIGHTGRID_UNIFORMS, createLightGridTextures, bindNoLightGrid, makeGroundGrid, buildGroundGrid } from './lightgrid.js';
@@ -450,6 +451,12 @@ float sunShadow(vec3 wp, vec3 n) {
              + step(rn, textureLod(uShadowMapN, un + vec2( 0.5,  0.5) * tn, 0.0).r);
     far = mix(far, 1.0 - sn * 0.25, w);
   }
+  // A face turned away from the light is in its own shadow, whatever the map says. A thin slab (an
+  // awning, a sign board) is thinner than the bias, so its underside tested against its own top and
+  // flashed as the sun drifted and the map was redrawn. Eased over a few degrees so a wall turning
+  // past the terminator doesn't step.
+  float away = 1.0 - smoothstep(-0.02, 0.06, dot(n, uSunDir));
+  far = max(far, away * inside);
   return far * uShadowStr;
 }
 ${PROP_SHADOW_GLSL}
@@ -1284,7 +1291,27 @@ export function createGLView(canvas, opts = {}) {
   if (!gl) return null;
   // ⚠ A lost context is silent, and without preventDefault it's permanent. The pass checks `lost()`
   // each frame; see docs/reference/glass-notes.md#a-pass-that-didnt-draw.
-  canvas.addEventListener('webglcontextlost', (e) => e.preventDefault(), false);
+  // ⚠ STICKY. After preventDefault the browser RESTORES the context, isContextLost() reads false
+  // again, and every buffer and program this view made belongs to the dead one ("object does not
+  // belong to this context"): a green field with nothing on it. Once lost, the view stays lost, so
+  // world.js disposes the scene and builds a fresh one.
+  let wasLost = false;
+  // What the view was doing when the GPU went: the last passes it ran, how long its frames took,
+  // and whether the prewarmed shaders had finished compiling. Logged once per loss and kept on
+  // `window.__glLosses`, because a reset gives no reason of its own.
+  const born = performance.now(), trail = [];
+  const probe = { frames: 0, lastFrameAt: 0, worstGap: 0, warmDoneAt: null };
+  canvas.addEventListener('webglcontextlost', (e) => {
+    e.preventDefault(); wasLost = true;
+    const now = performance.now();
+    const rec = { at: new Date().toISOString(), msSinceCreate: Math.round(now - born), frames: probe.frames,
+      msSinceLastFrame: probe.lastFrameAt ? Math.round(now - probe.lastFrameAt) : null, worstFrameGap: Math.round(probe.worstGap),
+      shadersWarmAt: probe.warmDoneAt == null ? 'still compiling' : Math.round(probe.warmDoneAt - born),
+      lastPasses: trail.map(([n, t, ms]) => `${n}@${Math.round(t - born)}+${ms.toFixed(1)}ms`),
+      hidden: typeof document !== 'undefined' ? document.hidden : null };
+    try { (window.__glLosses = window.__glLosses || []).push(rec); } catch { /* no window */ }
+    console.error('[gl] context lost', rec);
+  }, false);
   const timed = timerFor(gl);   // the passes inside `draw` (shadow, ssao, ...), timed apart from it
   // Every declared layer program starts compiling now, side by side, before anything asks for one.
   prewarmPrograms(gl);
@@ -1883,6 +1910,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   // ⚠ Takes the camera's frame height (CSS px), never the canvas's; the error is zero at dpr 1, so
   // headless tests can't see it. See docs/reference/glass-notes.md#projection-matrix-units.
   // The ink lines (RENDER_TUNE.glInk) come out of the same pass. Returns { ao, ink } or null.
+  let occRB = null;
   function ssaoPass(cam, opts, W, H) {
     const wantAo = opts.ssao > 0, wantInk = opts.ink > 0;
     if (!(wantAo || wantInk) || !count || !cam) return null;
@@ -1902,8 +1930,15 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
       // The lines at the full backing store, never at the occlusion's fraction: a line is a pixel wide.
       const inkWH = wantInk ? [W, H] : null;
       const mvp = shiftVP(vp, massShift);
+      // RENDER_TUNE.gpuOcc: the mass's depth reduced and read back late (gl/occ-readback.js), nothing skipped yet
+      const occOn = opts.gpuOcc > 0;
+      if (occOn && !occRB) occRB = createOccReadback(gl);
+      // with the eye it was taken from (the window's frame: x, y, then sinh, cosh, EH), so a caller can tell how far the
+      // camera has gone since and stop trusting it
+      const eye = [(cam.fx || 0) - (cam.back || 0) * (cam.sinh || 0), (cam.fy || 0) + (cam.back || 0) * (cam.cosh || 0), cam.sinh || 0, cam.cosh || 0, cam.EH || 0, cam.pitch || 0];
+      const onMassDepth = occOn ? (tex, DW, DH) => occRB.request(tex, DW, DH, vp, { wc: opts.occWc || [0, 0], id: opts.occId, eye }) : null;
       return timed('ssao', () => ssao.pass(vao, count, new Float32Array(vp), { ...cam, H: camH }, aoWH, inkWH,
-        { A, B, radius: opts.ssaoRadius > 0 ? opts.ssaoRadius : 0.5, bias: opts.ssaoBias > 0 ? opts.ssaoBias : 0.02,
+        { A, B, onMassDepth, radius: opts.ssaoRadius > 0 ? opts.ssaoRadius : 0.5, bias: opts.ssaoBias > 0 ? opts.ssaoBias : 0.02,
           // The mass's depth through the kept buffer's frame (massShift); the tents' stays on `vp`.
           massVP: massShift[0] || massShift[1] ? new Float32Array(mvp) : null,
           // RENDER_TUNE.glMassCull, as the main pass: the tiles in view, with the VAO already bound.
@@ -1979,6 +2014,8 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     // The weather's shadow; the mirror draws without it, as without the prop map.
     const cloudSh = fade ? fadeKept.cloudSh : into ? null : (opts.cloudShadow || null);
     if (!fade && !into) lampPass(opts);
+    // the newest occlusion answer whose readback has landed, for the windshield to ask next frame (never waits)
+    if (!fade && !into && occRB) occPublish(opts.occId, occRB.poll());
     const W = into ? into[0] : canvas.width, H = into ? into[1] : canvas.height;
     const occl = fade ? fadeKept.occl : into ? null : ssaoPass(cam, opts, W, H);
     const ssaoTex = occl ? occl.ao : null, inkTex = occl ? occl.ink : null;
@@ -2435,11 +2472,11 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   const bbLayer = () => (bbs || (bbs = createBillboardLayer(gl)));
   // How many billboard textures the cache holds (an overfull cache looks like corrupted artwork).
   const billboardTextures = () => (bbs ? bbs.textures : 0);
-  function drawBillboards(cam, list, cssH, fog, snow, lights) {
+  function drawBillboards(cam, list, cssH, fog, snow, lights, wind) {
     if (!list || !list.length) return 0;
     const L = bbLayer();
     L.upload(list);
-    return L.draw(cam, canvas.width, canvas.height, cssH, fog, snow, lights);
+    return L.draw(cam, canvas.width, canvas.height, cssH, fog, snow, lights, wind);
   }
 
   // The puddle reflection, a prepass: binds its own framebuffer and restores null, before `beginTarget`.
@@ -2579,6 +2616,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     // copies of the ones in the haze band (.fades), whose alpha changes and so go down the stream.
     for (const l of lists) if (l && (l.sets || l.fades)) {
       if (l.menv) all.menv = l.menv;
+      if (l.metalEnv) all.metalEnv = l.metalEnv;   // the sky for metals kept in groups (windshield.js markMetalKeep)
       if (l.wc) wc = l.wc;
       if (l.sets) for (const s of l.sets) groups.push(s);
       if (l.kitFade) kitFade = { n: groups.length, v: l.kitFade };
@@ -2587,6 +2625,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     for (const l of lists) if (l && l.length) {
       // The marks' frame (marksGPU) rides on the list, once, for the solids layer's uniforms.
       if (l.menv) all.menv = l.menv;
+      if (l.metalEnv) all.metalEnv = l.metalEnv;
       // And the window's centre the retained groups are kept about (retainWorld).
       if (l.wc) wc = l.wc;
       // A retained group (bayGroup) goes over whole; see splitGroups.
@@ -2613,6 +2652,17 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
       }
     }
     if (mg && clouds.length) mg.sweep(clouds[0].now);
+    // `globalThis.__solidsTally = {}` in the console sums what each frame hands the layers, to find which grows
+    const T = globalThis.__solidsTally;
+    if (T) {
+      T.frames = (T.frames || 0) + 1; T.loose = (T.loose || 0) + all.length; T.groups = (T.groups || 0) + groups.length;
+      let gr = 0; for (const g of groups) gr += g.length || 0; T.groupRecs = (T.groupRecs || 0) + gr;
+      T.inst = (T.inst || 0) + instRecs.length; T.actors = (T.actors || 0) + actorRecs.length; T.cloth = (T.cloth || 0) + clothRecs.length;
+      // `__solidsTally = { sig: {} }`: the loose records by their keys, which says which drawer made them
+      if (T.sig) for (const q of all) { const k = Object.keys(q).sort().join(','); T.sig[k] = (T.sig[k] || 0) + 1; }
+      // `__solidsTally = { dist: {} }`: the loose records by how far their first point is from the window's centre, in tiles
+      if (T.dist) for (const q of all) { const p = q.p && q.p[0]; if (!p) continue; const d = Math.floor(Math.hypot(p[0], p[1]) / 4) * 4; const k = (q.film ? 'film ' : q.m0 !== undefined ? 'metal ' : 'other ') + d; T.dist[k] = (T.dist[k] || 0) + 1; }
+    }
     solidQuads = all.length || groups.length || shp ? solidsLayer().upload(all, null, null, null, null, groups, kitFade, wc) : 0;
     faunaInst = (instRecs.length || fnl) ? faunaLayer().upload(instRecs) : 0;
     // who's drawn close up is marked (r.hd) before the crowd uploads, so it can leave them out
@@ -2747,13 +2797,28 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   const drawFishShadows = (cam, s, cssH) => (s && s.n > 0 ? (fsh || (fsh = createFishShadowLayer(gl))).draw(cam, s, cssH) : 0);
   // The window's cells and the eye in the mesh frame (gl/skyline.js). Called before draw, which reads it.
   function setSkyline(cells, eye, facesOf) { try { skylineLayer().update(cells, eye, facesOf); } catch { /* no strip is the flat environment, which is the picture that shipped */ } }
-  const api = { murmurGPU: () => mg, gl, massDrawn: () => [massDrawn, count], setNightPage, setSkyline, upload, uploadGroups, uploadKept, setMassShift, massDebug, draw, drawFade, beginTarget, hdrLive, composite, hdrPeak, setMatPage, setSurfPage, drawSeabed, drawSeabedPoints, drawFishShadows, drawSprites, drawCurtain, drawDecals, decalCost, drawStrokes, drawInteriors, interiorProject: (x, y, z) => (rooms ? rooms.project(x, y, z) : null), interiorVP: () => (rooms && rooms.lastVp ? { vp: rooms.lastVp, o: rooms.lastO } : null), roomCats, drawBillboards, billboardTextures, drawGround, groundGrid: () => (grd ? grd.grid : null), wallGrid: () => massGrid, setLightGrid, taaSplit, drawFloor, drawWater, drawCloudDeck, drawCloudVolume, cloudShadowFrame: () => (cloudVol ? cloudVol.shadowFrame() : null), drawMirror, mirrorPeak, uploadSolids, uploadShip, drawSolids, drawActors, uploadInterior, drawInterior, drawInteriorAlone, setAtlas, lost: () => gl.isContextLost(),
+  const api = { murmurGPU: () => mg, gl, massDrawn: () => [massDrawn, count], setNightPage, setSkyline, upload, uploadGroups, uploadKept, setMassShift, massDebug, draw, drawFade, beginTarget, hdrLive, composite, hdrPeak, setMatPage, setSurfPage, drawSeabed, drawSeabedPoints, drawFishShadows, drawSprites, drawCurtain, drawDecals, decalCost, drawStrokes, drawInteriors, interiorProject: (x, y, z) => (rooms ? rooms.project(x, y, z) : null), interiorVP: () => (rooms && rooms.lastVp ? { vp: rooms.lastVp, o: rooms.lastO } : null), roomCats, drawBillboards, billboardTextures, drawGround, groundGrid: () => (grd ? grd.grid : null), wallGrid: () => massGrid, setLightGrid, taaSplit, drawFloor, drawWater, drawCloudDeck, drawCloudVolume, cloudShadowFrame: () => (cloudVol ? cloudVol.shadowFrame() : null), drawMirror, mirrorPeak, uploadSolids, uploadShip, drawSolids, drawActors, uploadInterior, drawInterior, drawInteriorAlone, setAtlas, lost: () => wasLost || gl.isContextLost(),
     maxTexture: gl.getParameter(gl.MAX_TEXTURE_SIZE), get triangles() { return count / 3; },
     // The mesh's box in the window's frame (for the light projection) and the shadow map size (0: refused).
     get bounds() { return boundsInWindow(); }, get shadowSize() { return shadow ? shadow.size : 0; },
     // This frame's prop map (gl/propshadow.js): size, triangles, and what went in. null when off.
     get propShadow() { return propFrame ? { size: propFrame.size, tris: propFrame.tris, ...(propLayer && propLayer.last) } : null; },
     get lampShadow() { return lampFrame ? { size: lampFrame.size, tris: lampFrame.tris, w: Array.from(lampFrame.W.subarray(0, lampFrame.n)), ...(lampLayer && lampLayer.last) } : null; } };
+  // Each pass leaves its name on the loss log's trail (the last 16), and `draw` counts frames.
+  for (const [k] of TIMED_PASSES) {
+    const fn = api[k]; if (typeof fn !== 'function') continue;
+    api[k] = function (...a) {
+      const t0 = performance.now();
+      if (k === 'draw') {
+        if (probe.lastFrameAt) probe.worstGap = Math.max(probe.worstGap, t0 - probe.lastFrameAt);
+        probe.lastFrameAt = t0; probe.frames++;
+        if (probe.warmDoneAt == null && !wasLost && prewarmDone(gl)) probe.warmDoneAt = t0;
+      }
+      try { return fn.apply(this, a); } finally {
+        trail.push([k, t0, performance.now() - t0]); if (trail.length > 16) trail.shift();
+      }
+    };
+  }
   return timeMethods(gl, api, TIMED_PASSES);
 }
 // The view methods `glPassTimer` reports, by the name it reports them under. `draw` is the city's

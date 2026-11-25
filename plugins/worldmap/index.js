@@ -20,7 +20,7 @@ import { concurrency, typeOf } from '../../client/shared/highways.js';
 // Row characters. Biomes get letters in a fixed order; the three man-made marks get their own.
 const BIOME_CHARS = ['water', 'docks', 'ruins', 'oldcoldwater', 'badlands', 'industrial', 'infra', 'freight', 'marquee',
   'citycore', 'parkland', 'park', 'forest', 'uptown', 'civic', 'airport', 'scrub', 'redrock', 'ash', 'hardpan', 'alkali',
-  'cliff', 'plateau', 'basalt', 'deadwood', 'sinter', 'hotspring', 'asphalt', 'concrete', 'pier'];
+  'cliff', 'plateau', 'basalt', 'deadwood', 'sinter', 'hotspring', 'asphalt', 'concrete', 'pier', 'marsh'];
 const KEY = { R: 'road', B: 'building', A: 'airfield' };
 BIOME_CHARS.forEach((b, i) => { KEY[String.fromCharCode(97 + i)] = b; });   // a, b, c …
 const CHAR_OF = Object.fromEntries(Object.entries(KEY).map(([c, b]) => [b, c]));

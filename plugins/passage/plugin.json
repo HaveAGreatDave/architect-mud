@@ -1,0 +1,8 @@
+{
+  "name": "passage",
+  "version": "1.0.0",
+  "description": "Furniture you go through. A piece flagged `flags.passage: \"<dir>\"` (a sewer grate, a ladder, a hatch) makes `use <it>` take the zone's exit in that direction, through the ordinary move and its gates. Falls through when nothing here matches.",
+  "hooks": [],
+  "commands": [],
+  "specializedActions": [{ "verb": "use", "requiredFlag": "passage" }]
+}

@@ -1181,3 +1181,9 @@ its stand-ins and changes over.
   caught only by `content:lint` failing on 21 unrelated items. Renamed `sound_material`.
 - The pee stream was `sendToPlayer` only, so a character relieving themselves in a crowded room was
   silent to the room. Both it and `flatus` are zone-audible now.
+
+## Footsteps on the street on foot
+
+Walking on foot in GLASS plays your own steps (`client/shared/footstep-sfx.js`, driven from `footSteps` in `freelook-view.js`). There's one SIREN patch per surface (`fs-pave`, `fs-road`, `fs-chrome`, `fs-grate`, `fs-wood`, `fs-dirt`, `fs-grass`), and in rain `fs-wet` plays over the step, or now and then `fs-puddle` on hard ground. `surfaceOf` reads the ground from the map cell GLASS already holds: the street kit's lane is asphalt and its walkways chrome, a footbridge deck is grating, `ft: 'dust'` is dirt, and anything else goes by the cell's biome. It never queries the server.
+
+A step plays each stride, not on a timer, so the rate follows your speed. A walk is 0.75 m a stride, a run (over 2.6 m/s) 1.15 m and louder and brighter, and a crouch 0.55 m and quiet. Each take is seeded from the step count, so neighbouring steps differ. Only your own walking counts: the belt carrying you is silent. Sound Detail `off` plays none. `scripts/audio/footstep-smoke.mjs` in the audio gates holds it, and `tools/sandbox/footsteps.html` auditions every surface and gait.

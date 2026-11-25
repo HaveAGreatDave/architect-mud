@@ -6,6 +6,10 @@
 - `takedown` / `take` — peel one off.
 - `putup` — hang one. `putup kiyo on the left wall` (left, right, window or door) puts it on that wall, and the rest of the run in the room moves there with it.
 
+## Off the walls (2026-11-24)
+
+The seven authored posters are out of the world until their new versions are ready. Their files are parked in `held/`, outside `content/`, so the deploy's deletion pass takes the rows out. To put them back, move them into `content/furniture/` again. The plugin and its verbs still load.
+
 ## Provenance
 
 The seven posters start as authored furniture (`furn_hero_poster_<key>`, one file each in `content/furniture/`), and the content import upserts those files over the DB on every deploy. So:

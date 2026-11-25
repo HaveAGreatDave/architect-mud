@@ -6,7 +6,7 @@ An NPC can be in a mood: happy, sad, angry and so on. The server decides which, 
 
 ## Moods
 
-The list is fixed, in [client/shared/expressions.js](../client/shared/expressions.js) (`EXPRESSIONS`): `neutral`, `happy`, `amused`, `sad`, `angry`, `afraid`, `disgusted`, `surprised`, `tired`, `drunk`, `confused`, `annoyed`, and fourteen a show asks for by name that nothing in the world resolves to yet: `skeptical`, `smug`, `flirty`, `stern`, `laughing`, `crying`, `shocked`, `thinking`, `determined`, `bored`, `pouting`, `grimacing`, `kissing`, `smirking`. It's engine vocabulary, like posture. Adding one means a row in `EXPRESSIONS` and two lines in `MOOD_TELL`.
+The list is fixed, in [client/shared/expressions.js](../client/shared/expressions.js) (`EXPRESSIONS`): `neutral`, `happy`, `amused`, `sad`, `angry`, `afraid`, `disgusted`, `surprised`, `tired`, `drunk`, `confused`, `annoyed`, `sarcastic` (a line tag can set it, [npc-speech.md](proposals/npc-speech.md)), and fourteen a show asks for by name that nothing in the world resolves to yet: `skeptical`, `smug`, `flirty`, `stern`, `laughing`, `crying`, `shocked`, `thinking`, `determined`, `bored`, `pouting`, `grimacing`, `kissing`, `smirking`. It's engine vocabulary, like posture. Adding one means a row in `EXPRESSIONS` and two lines in `MOOD_TELL`.
 
 Each mood is a few of twenty-eight channels, scaled by an intensity from 0 to 1:
 

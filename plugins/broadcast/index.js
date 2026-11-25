@@ -1015,7 +1015,7 @@ function _pickDailySlot(playlist, gameSecs, dayOfWeek) {
 function _relayedItem(state, item, gameSecs, dayOfWeek) {
   const src = item?.sourceChannelId ? channelRuntime.get(item.sourceChannelId) : null;
   if (!src || src.channelId === state?.channelId) return null;
-  const s = _pickDailySlot(src.playlist, gameSecs, dayOfWeek);
+  const s = _pickDailySlot(src.playlist, gameSecs, dayOfWeek) || _slateMagazineItem(src.playlist, gameSecs, dayOfWeek);
   if (!s || s.slotType === 'relay') return null;
   return { ...s, broadcastName: `${s.broadcastName || src.name} · via ${src.name}`, relayedFrom: src.channelId };
 }
@@ -2798,6 +2798,10 @@ function _holdNext(prev, slot, nowMs, byClockSec, contentMs) {
 function sportsAiringSlot(script, slot = sportsSlotIndex(), nowMs = Date.now()) {
   const held = _holdingAt(_sportsHold, slot, nowMs);
   if (held != null) return sportsAiring(script, held) ? held : null;
+  // On the slate a game that's finished gives the air to the sports desk (the magazine,
+  // below) rather than parking its final card to the end of the slot. A featured script
+  // (KSAB-TV's) still parks, or rolls its recap reel.
+  if (_slateGameDone(script, _sportsHold, slot, nowMs)) return null;
   if (sportsAiring(script, slot)) return _gameStarted(script, slot, nowMs) ? slot : null;
   return _finalStillOn(script, slot);
 }
@@ -2840,6 +2844,135 @@ function sportsAiringElapsedSec(slot, graph, nowMs = Date.now()) {
   const { hold, elapsedSec } = _holdNext(_sportsHold, slot, nowMs, byClock, graph?._contentMs || sportsSlotMs());
   _sportsHold = hold;
   return elapsedSec;
+}
+// Pure, for regress: has the slate's game in `slot` finished its content (the hold says so)?
+const _slateGameDone = (script, hold, slot, nowMs) => !!script?._slate && hold?.slot === slot && nowMs >= hold.endMs;
+
+// ── The sports desk: KSAB5's magazine between games ──────────────────────────────
+// When the slate has nothing on air (a game finished with time left in its slot, an empty
+// slot, or what a 09:00 or 21:00 buffer has left once a held-over game ends), KSAB5 shows
+// the desk: today's results with each game's big plays, the top of both tables and the next
+// game. It's built only from what's already decided (each slot's game, which every TV and the
+// standings fold agree on, sports/facts.js boothCuts, the standings caches); nothing is played.
+// It loops until the slate has a game again, and it never holds the air: the picker asks the
+// slate first on every tick, so a held-over game ending, or the next game's title card, takes
+// over at once.
+//
+// A game is FINISHED for the desk when its slot is before the clock's and it isn't held over,
+// or it's the hold's own slot and its content has run out. A slot whose game hasn't been seen
+// on air (no hold) counts by the clock alone.
+const MAGAZINE_LINE_MS = 20000;
+const MAGAZINE_NAME = 'KSAB5 Sports Desk';
+const MAGAZINE_PLAYS_PER_GAME = 2;
+// Pure, for regress: which of today's slate slots (`day`'s) are finished at clock slot `cur`.
+function magazineFinished(day, cur, hold, nowMs) {
+  const out = [];
+  for (let s = day * SPORTS_GAMES_PER_DAY; s < (day + 1) * SPORTS_GAMES_PER_DAY; s++) {
+    if (s > cur) break;
+    const held = hold?.slot === s;
+    if (held ? nowMs >= hold.endMs : s < cur) out.push(s);
+  }
+  return out;
+}
+// What a big play is called on the desk (sports/facts.js boothCuts).
+function _magazinePlayLine(c, game) {
+  const team = c.team || '';
+  switch (c.cut) {
+    case 'hattrick': return `${c.player} got a hat trick for ${team}.`;
+    case 'grandslam': return `${c.player} hit a grand slam for ${team}.`;
+    case 'death': return `${c.player} of ${team} was killed on the ice. He'll be back out of the vat.`;
+    case 'fight': return c.loser ? `${c.player} beat ${c.loser} in a fight.` : `${c.player} won a fight.`;
+    case 'late': return c.tied ? `${c.player} tied it late for ${team}.` : `${c.player} put ${team} ahead late.`;
+    default: return null;
+  }
+}
+// The aired game in `slot` for `script`, played by whoever was fit, as assembleSportsGraph plays it.
+function _airedGame(script, slot) {
+  const sport = sportOf(script).id;
+  return sportsGameForSlot(script, slot, overrideFor(script, slot), ledgerAt(script, slot, injuryWindowStart(sport, slot)))?.game || null;
+}
+// Pure but for the standings caches it reads: the desk's graph. `scripts` are the slate's
+// scripts (with their item names as `_name`), `finished` the slots done, `next` the next game
+// ({ slot, script, away, home, final }) or null. `gameOf(script, slot)` gives a slot's game.
+function assembleSportsMagazine(scripts, finished, next, gameOf = _airedGame) {
+  const nodes = {};
+  let n = 0, prevId = null;
+  const add = (data) => { const id = `mg_${n++}`; nodes[id] = { holdMs: MAGAZINE_LINE_MS, ...data }; if (prevId) nodes[prevId].next = id; prevId = id; return id; };
+  const startId = add({ type: 'start' });
+  const say = (text, extra = {}) => add({ type: 'say', text, style: 'raw', ...extra });
+  const bySport = new Map(scripts.map((s) => [sportOf(s).id, s]));
+  const results = [];
+  for (const slot of finished) {
+    const script = bySport.get(slateSportAt(slotDay(slot), slotSod(slot)));
+    if (!script || !slateHasGame(script, slot)) continue;
+    const game = gameOf(script, slot);
+    if (game) results.push({ script, slot, game });
+  }
+  say(results.length ? "This is the KSAB5 sports desk. Here's how today went." : "This is the KSAB5 sports desk. Nothing's finished yet today, so here's the table.");
+  for (const { script, game } of results) {
+    const sport = sportOf(script).id, { away, home, awayScore: as, homeScore: hs } = game;
+    const win = as === hs ? '' : as > hs ? away.name : home.name;
+    const bug = { sport, away: away.name, home: home.name, awayAbbr: sportsAbbr(away.name), homeAbbr: sportsAbbr(home.name), awayScore: as, homeScore: hs, status: 'FINAL' };
+    const fx = win ? {
+      overlayType: 'sportsfx', kind: 'gamewin', winner: win, loser: win === away.name ? home.name : away.name,
+      winScore: Math.max(as, hs), loseScore: Math.min(as, hs), away: away.name, home: home.name, awayScore: as, homeScore: hs, duration: 4.4,
+    } : null;
+    const where = venueSaid(script);
+    say(`${script._name || 'Final'}${where ? ` at ${where}` : ''}: ${away.name} ${as}, ${home.name} ${hs}.`, { scorebug: bug, ...(fx ? { graphic: fx } : {}) });
+    let plays = 0;
+    for (const c of boothCuts(sport, game)) {
+      const line = _magazinePlayLine(c, game);
+      if (!line) continue;
+      say(line, { scorebug: bug });
+      if (++plays >= MAGAZINE_PLAYS_PER_GAME) break;
+    }
+  }
+  for (const script of scripts) {
+    const sport = sportOf(script).id, rows = ((_standingsCaches.get(sport) || {}).rows || []).slice(0, 3);
+    if (!rows.length) continue;
+    const rec = (r) => sport === 'hockey' ? `${r.wins}, ${r.losses} and ${r.otl || 0}` : `${r.wins} and ${r.losses}`;
+    say(`Top of the ${script._name || 'table'}: ${rows.map((r) => `${r.team}, ${rec(r)}`).join('; ')}.`);
+  }
+  if (next) {
+    const hhmm = _fmtHHMM(slateStartHour(sportOf(next.script).id, next.slot) * 60);
+    const day = slotDay(next.slot) === slotDay(finished.length ? finished[finished.length - 1] : next.slot) ? '' : ' tomorrow';
+    say(next.final ? `Next up${day} at ${hhmm}: the ${sportOf(next.script).season?.finalName || 'final'}, right here.`
+      : `Next up${day} at ${hhmm}: ${next.away} at ${next.home}, ${next.script._name || 'live'}, right here.`);
+  }
+  say("That's the desk. Stay with us.");
+  const graph = _normalizeBroadcastGraph({ _start: startId, nodes });
+  graph._loopMs = Object.values(nodes).reduce((t, nd) => t + (nd.type === 'start' ? 0 : nd.holdMs), 0);
+  return graph;
+}
+// The next game on the slate after clock slot `cur`, up to two days on.
+function _magazineNext(scripts, cur) {
+  const day = slotDay(cur);
+  for (let d = day; d <= day + 1; d++) for (const g of sportsSlateForDay(d, scripts)) {
+    if (g.slot <= cur || (!g.away && !g.final)) continue;
+    const script = scripts.find((s) => sportOf(s).id === g.sport);
+    if (!script || (g.final && !postseasonOverride(g.sport, g.slot))) continue;
+    return { slot: g.slot, script, away: g.away, home: g.home, final: g.final };
+  }
+  return null;
+}
+// The desk as a playlist item, when a slate row covers `gameSecs` and no game of it is on.
+// Rebuilt when the finished set or the next game changes (the tables as they stand then); one per server.
+let _magazineCache = null;
+function _slateMagazineItem(playlist, gameSecs, dayOfWeek, nowMs = Date.now()) {
+  const slate = (playlist || []).filter((i) => i.slotType === 'sports_slate' && i.sportsScript
+    && gameSecs >= i.startTime && gameSecs < i.startTime + i.duration && _slotAirsOn(i, dayOfWeek));
+  if (!slate.length) return null;
+  const scripts = slate.map((i) => ({ ...i.sportsScript, _name: i.broadcastName || '' }));
+  const cur = sportsSlotIndex();
+  const finished = magazineFinished(slotDay(cur), cur, _sportsHold, nowMs);
+  const next = _magazineNext(scripts, cur);
+  const key = `${finished.join(',')}|${next?.slot ?? ''}|${slate.map((i) => i.id).join(',')}`;
+  if (_magazineCache?.key !== key) {
+    const graph = assembleSportsMagazine(scripts, finished, next);
+    graph._broadcastId = `sports_magazine:${key}`;
+    _magazineCache = { key, graph };
+  }
+  return { ...slate[0], id: `${slate[0].id}:magazine`, slotType: 'sports_magazine', playback_mode: 'sports_magazine', broadcastId: null, broadcastName: MAGAZINE_NAME, broadcastGraph: null, magazineGraph: _magazineCache.graph, sportsScript: null };
 }
 
 // Circle-method round-robin: for N teams (padded to even with a BYE), returns N-1
@@ -5914,6 +6047,11 @@ async function getCurrentMessage(state, nowMs) {
     const { minutes, dayOfWeek } = getEnvironmentState();
     const gameSecondsSinceMidnight = minutes * 60;
     let item = _pickDailySlot(playlist, gameSecondsSinceMidnight, dayOfWeek);
+    // no game of the slate on: the sports desk (see _slateMagazineItem)
+    if (!item) {
+      for (const i of playlist) if (i.slotType === 'sports_slate' && i.sportsScript) await refreshStandings(nowMs, sportOf(i.sportsScript).id);
+      item = _slateMagazineItem(playlist, gameSecondsSinceMidnight, dayOfWeek, nowMs);
+    }
     if (item?.slotType === 'relay') {
       item = _relayedItem(state, item, gameSecondsSinceMidnight, dayOfWeek);
       if (!item) return null;   // nothing to relay: the off-air card
@@ -5950,6 +6088,13 @@ async function getCurrentMessage(state, nowMs) {
           if (r) r.programName = item.broadcastName || null;
           return _sportsOnAir(state, item, r);
         }
+      }
+      // The sports desk loops on the wall clock, so every set (and a relay) is on the same line.
+      if (item.playback_mode === 'sports_magazine' && item.magazineGraph) {
+        const g = item.magazineGraph;
+        const r = tickBroadcastGraph(state.channelId, g, state, nowMs, (nowMs / 1000) % Math.max(1, g._loopMs / 1000));
+        if (r) r.programName = item.broadcastName;
+        return r;
       }
       // News — a fresh bulletin assembled from the live news generator each refresh bucket.
       if (item.playback_mode === 'news') {
@@ -7769,7 +7914,7 @@ function nowBroadcastingFor(channelId) {
   const nowMs = Date.now();
   let item = null;
   if (state.scheduleMode === 'daily') {
-    item = _pickDailySlot(state.playlist, gameSecs, dayOfWeek);
+    item = _pickDailySlot(state.playlist, gameSecs, dayOfWeek) || _slateMagazineItem(state.playlist, gameSecs, dayOfWeek, nowMs);
     if (item?.slotType === 'relay') {
       item = _relayedItem(state, item, gameSecs, dayOfWeek);
       if (!item) return { broadcast_id: null, name: 'Relay (source off air)', source: 'relay' };
@@ -12268,7 +12413,9 @@ export const _test = {
   normalizeBroadcastGraph: _normalizeBroadcastGraph, CARD_MIN_HOLD_MS,
   pickDailySlot: _pickDailySlot, dayMask: _dayMask, dayLabel: _dayLabel, slotAirsOn: _slotAirsOn,
   // KSAB5's slate row and KSAB-TV's relay (docs/proposals/daily-slate.md).
-  holdingAt: _holdingAt, holdNext: _holdNext, SLATE_BUFFER_SODS, slateStartOffsetMin, slateStartHour, slateFinalSlot, finalSodOf,
+  holdingAt: _holdingAt, holdNext: _holdNext, slateGameDone: _slateGameDone, SLATE_BUFFER_SODS,
+  // the sports desk between games
+  magazineFinished, assembleSportsMagazine, magazineNext: _magazineNext, slateMagazineItem: _slateMagazineItem, slateStartOffsetMin, slateStartHour, slateFinalSlot, finalSodOf,
   scheduleRowItems: _scheduleRowItems, relayedItem: _relayedItem, slateHasGame, sportsHeartbeat, sportsHeartbeatSeen: _sportsHeartbeat, slateScheduleSlots: _slateScheduleSlots,
   sportsSlotLabel: _sportsSlotLabel, sportsScheduleSlots: _sportsScheduleSlots,
   // The log-rung overlay renderers. Pure over a payload, so the suite can assert

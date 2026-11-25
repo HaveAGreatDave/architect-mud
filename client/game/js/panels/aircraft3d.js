@@ -28,7 +28,7 @@ import { legend } from '../../../shared/legend-font.js';
 // How far down the doorway a strike falls before it's behind the apron (drawInspectDoor's bolt reader).
 const DOOR_BOLT_DROP = 0.66;
 export const shadeRgb = (c, m) => `rgb(${clampN(c[0] * m, 0, 255) | 0},${clampN(c[1] * m, 0, 255) | 0},${clampN(c[2] * m, 0, 255) | 0})`;
-const FINISH_MUL = { gloss: 1.06, satin: 1.0, matte: 0.88, weathered: 0.82 };
+const FINISH_MUL = { gloss: 1.06, metallic: 1.04, flake: 1.04, pearl: 1.06, candy: 1.0, chameleon: 1.02, satin: 1.0, matte: 0.88, weathered: 0.82 };
 
 // ── Livery → colour ────────────────────────────────────────────────────────────
 // Resolve a livery into a working palette (splinter camo drags the base toward drab),
@@ -65,7 +65,9 @@ export function liveryPalette(lv, cls = null, armed = false) {
   // `parts` maps a mesh paint slot name to a colour; a slot the mesh lacks is never read.
   let parts = null;
   if (lv.parts && typeof lv.parts === 'object') for (const [k, v] of Object.entries(lv.parts)) { const c = hex2rgb(v); if (c) (parts ||= {})[k] = c; }
-  return { parts, base, trim, ground, hw, deck, bright, glow, glass, chrome: lv.chrome == null ? 1 : (lv.chrome ? 1 : 0),
+  // The flip colour of a two-colour coat (pearl, chameleon): the livery's accent, picked in the booth.
+  const flip = (lv.finish === 'pearl' || lv.finish === 'chameleon') ? hex2rgb(lv.flip || lv.accent) : null;
+  return { parts, base, trim, ground, hw, deck, bright, glow, glass, flip, chrome: lv.chrome == null ? 1 : (lv.chrome ? 1 : 0),
     finish: lv.finish || 'satin', fmul: FINISH_MUL[lv.finish] ?? 1.0, pat, factory };
 }
 // A stored truck paint becomes a livery here (`flash` -> `truck:` pattern). Shared with the server, which needs it for contacts.
@@ -3626,7 +3628,7 @@ function buildWreck() {
 // ── Procedural hull texture ── A memoised grey panel texture overlaid on hull faces, so it adds detail without
 // shifting the livery. Used by the single-craft turntable only.
 const TEXTURED = new Set(['body', 'wing', 'stab', 'fin', 'nacelle', 'aileron', 'flap', 'elevator', 'rudder']);
-const TEX_STRENGTH = { gloss: 0.32, satin: 0.46, matte: 0.56, weathered: 0.7 };
+const TEX_STRENGTH = { gloss: 0.32, metallic: 0.3, flake: 0.3, pearl: 0.3, candy: 0.28, chameleon: 0.3, satin: 0.46, matte: 0.56, weathered: 0.7 };
 let _hullTex = null;
 function hullTex() {
   if (_hullTex) return _hullTex;

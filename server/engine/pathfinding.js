@@ -43,8 +43,58 @@ function stepCost(zone) {
 // door, a gated apartment) instead of dead-ending at it. The target is never avoided,
 // so "route to a tile behind a locked door" still resolves (and legitimately fails
 // only when there's no other way in).
+//
+// Results without `avoid` are cached (see ROUTE_CACHE below): NPC AI asked for the
+// same routes every 15 s tick and the searches were half the server's idle CPU.
 export function findPath(startId, targetId, { maxDistance = 60, roads = false, avoid = null } = {}) {
   if (startId === targetId) return [startId];
+  if (avoid?.size) return search(startId, targetId, maxDistance, roads, avoid);
+  const key = `${roads ? 'r' : 'b'}${maxDistance}|${targetId}|`;
+  const hit = cachedRoute(key, startId);
+  if (hit !== undefined) return hit;
+  const path = search(startId, targetId, maxDistance, roads, null);
+  storeRoute(key, startId, path);
+  return path ? path.slice() : null;
+}
+
+// ── Route cache ──────────────────────────────────────────────────────────────
+// Exits are edited in place from many sites, so there's no "graph changed" event to
+// key on. Entries expire instead, and a hit is reused only if its first step is
+// still an exit of the start tile. A found route also caches each of its tails
+// (every tail of a least-cost route is least-cost from that tile), so an NPC
+// walking a route hits the cache on every step. Failures are cached longer: an
+// NPC with no way to work used to rerun a 150-room search every tick.
+const ROUTE_TTL_MS = 2 * 60_000;
+const FAIL_TTL_MS = 5 * 60_000;
+const ROUTE_CACHE_MAX = 20_000;
+const routeCache = new Map();   // key + startId → { path, i, until } | { path: null, until }
+
+function cachedRoute(key, startId) {
+  const e = routeCache.get(key + startId);
+  if (!e) return undefined;
+  if (Date.now() > e.until) { routeCache.delete(key + startId); return undefined; }
+  if (!e.path) return null;
+  const next = e.path[e.i + 1];
+  if (next !== undefined && !neighborZoneIds(world.zones.get(startId)).includes(next)) {
+    routeCache.delete(key + startId);
+    return undefined;
+  }
+  return e.path.slice(e.i);
+}
+
+function storeRoute(key, startId, path) {
+  if (routeCache.size > ROUTE_CACHE_MAX) routeCache.clear();
+  const now = Date.now();
+  if (!path) { routeCache.set(key + startId, { path: null, until: now + FAIL_TTL_MS }); return; }
+  const until = now + ROUTE_TTL_MS;
+  for (let i = 0; i < path.length - 1; i++) routeCache.set(key + path[i], { path, i, until });
+}
+
+// Drop every cached route. For anything that rewires the map wholesale (a content
+// reload); a single exit edit is caught by the first-step check or the expiry.
+export function clearRouteCache() { routeCache.clear(); }
+
+function search(startId, targetId, maxDistance, roads, avoid) {
   if (roads) return findRoadPath(startId, targetId, maxDistance, avoid);
 
   const parent = new Map([[startId, null]]);

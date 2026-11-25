@@ -7,7 +7,7 @@
   ],
   "density": {
     "prairie": 2.4, "scrub": 1.5, "badlands": 1.0, "redrock": 0.85, "wash": 1.9, "scree": 0.75,
-    "ramp": 0.9, "cliff": 0.35, "hardpan": 0.3, "alkali": 0.1, "ash": 0.4, "basalt": 0.3, "plateau": 1.0
+    "ramp": 0.9, "cliff": 0.35, "hardpan": 0.3, "alkali": 0.1, "ash": 0.4, "basalt": 0.3, "plateau": 1.0, "marsh": 2.6
   },
   "species": {
     "creosote": {
@@ -141,6 +141,26 @@
       "size": [0.8, 1.2], "where": { "badlands": 1, "redrock": 0.6 },
       "wet": [0, 0.35], "slope": [0, 0.25], "weight": 0.25, "patch": 0.11,
       "line": "A wirethorn, cholla gone green and copper from eating the old cable runs."
+    },
+    "cattail": {
+      "name": "cattail", "form": "grass", "rgb": [88, 104, 50], "accent": [92, 58, 32], "size": [1.4, 2.1], "where": { "marsh": 1 }, "wet": [0.6, 1], "slope": [0, 0.12], "weight": 4, "patch": 0.09,
+      "line": "Cattails stand thick in the shallows, brown heads nodding over the water."
+    },
+    "reed": {
+      "name": "reed", "form": "grass", "rgb": [120, 128, 72], "accent": [170, 150, 110], "size": [1.6, 2.6], "where": { "marsh": 1, "wash": 0.15 }, "wet": [0.55, 1], "slope": [0, 0.15], "weight": 4, "patch": 0.06,
+      "line": "Reed grows here higher than your head, and rattles when the wind comes through it."
+    },
+    "sedge": {
+      "name": "sedge", "form": "grass", "rgb": [96, 112, 58], "size": [0.5, 0.9], "where": { "marsh": 1, "prairie": 0.15 }, "wet": [0.5, 1], "slope": [0, 0.2], "weight": 3, "patch": 0.03,
+      "line": "Sedge and rush cover the wet ground in tussocks you can just about stand on."
+    },
+    "marsh_marigold": {
+      "name": "marsh marigold", "form": "flowers", "rgb": [74, 104, 46], "accent": [232, 196, 48], "size": [0.3, 0.5], "where": { "marsh": 0.6 }, "wet": [0.6, 1], "slope": [0, 0.15], "weight": 1.5, "patch": 0.12,
+      "line": "Yellow marsh marigolds grow in the mud at the edge of the reeds."
+    },
+    "willow": {
+      "name": "willow", "form": "weeping", "rgb": [104, 132, 70], "size": [3.2, 5.5], "where": { "marsh": 0.35, "wash": 0.3 }, "wet": [0.6, 1], "slope": [0, 0.2], "weight": 1.2, "patch": 0.07,
+      "line": "Willows grow out of the wet ground with their roots half in the water."
     }
   }
 }

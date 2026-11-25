@@ -17,12 +17,16 @@ export const ROUTES = {
   'marrow-cab': { seat: 'cab', from: [917, 909], heading: 270, tiles: 10, hour: 13, why: 'an ordinary street, for the ratio' },
   'glasshouse-cab-rain': { seat: 'cab', from: [894, 909], heading: 0, tiles: 8, hour: 21, weather: 'rain', why: 'wet roads, the mirror and the light grid' },
   'halcyon-air': { seat: 'air', from: [888, 916], heading: 90, tiles: 24, hour: 13, why: 'the cockpit over the towers: the window is four times the cab' },
+  // On foot: the street view's eye, its rings (FOOT_TUNE) and near plane, and a crowd. The rooms drawn in the
+  // street (gl/interiors.js) aren't in it yet: they're built at runtime from the server's room data.
+  'marrow-foot': { seat: 'foot', from: [917, 909], heading: 270, tiles: 6, hour: 13, people: 110, why: 'walking the cab route with the crowd the game sends' },
 };
 
 // Per seat: how far the camera moves a frame, in tiles. A real cab at 30 mph covers about a
 // hundredth of a tile a frame; the bench goes faster so a run crosses enough tiles to pay for the
 // map window moving under it, which is a cost a parked camera never sees.
-export const SPEED = { cab: 0.05, air: 0.15 };
+// On foot it's far faster than walking (about 0.0013 a frame) for the same reason, and slower than the cab.
+export const SPEED = { cab: 0.05, air: 0.15, foot: 0.02 };
 
 const DIRS = { n: [0, -1], e: [1, 0], s: [0, 1], w: [-1, 0] };
 const ORDER = ['n', 'e', 's', 'w'];
@@ -34,7 +38,7 @@ const left = (d) => ORDER[(ORDER.indexOf(d) + 3) % 4];
 // { 'x,y': cell } (client/game/flightsim-world.json).
 export function routeTiles(route, cells) {
   const [x0, y0] = route.from;
-  if (route.seat !== 'cab') {
+  if (route.seat !== 'cab' && route.seat !== 'foot') {
     const [dx, dy] = DIRS[dirOf(route.heading)];
     return Array.from({ length: route.tiles + 1 }, (_, i) => [x0 + dx * i, y0 + dy * i]);
   }
@@ -57,6 +61,34 @@ export function routeTiles(route, cells) {
     if (!moved) break;
   }
   return out;
+}
+
+// A route's crowd: `route.people` pedestrians as the server sends them (`{ t, x, y }`, absolute tiles, half of
+// them women: server/engine/street-actors.js), stood on open ground within 8 tiles of the route's tiles. Seeded
+// from the route, so every run draws the same people. No `g`: each takes the look its token gives (streetLook).
+export function routePeople(route, tiles, cells) {
+  const n = route.people || 0;
+  if (!n) return [];
+  const open = [];
+  const seen = new Set();
+  for (const [tx, ty] of tiles) {
+    for (let dy = -8; dy <= 8; dy++) for (let dx = -8; dx <= 8; dx++) {
+      const x = tx + dx, y = ty + dy, k = x + ',' + y;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      const c = cells[k];
+      if (c && c.kind === 'land' && !c.bt) open.push([x, y]);
+    }
+  }
+  if (!open.length) return [];
+  let s = (route.from[0] * 73856093) ^ (route.from[1] * 19349663) ^ n;
+  const rnd = () => { s = (s + 0x6d2b79f5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t ^= t + Math.imul(t ^ (t >>> 7), 61 | t); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  return Array.from({ length: n }, (_, i) => {
+    const [x, y] = open[Math.floor(rnd() * open.length)];
+    const a = { t: 'bench' + i.toString(36), x, y };
+    if (rnd() < 0.5) a.s = 1;
+    return a;
+  });
 }
 
 // The camera along the tiles at the seat's speed: one { x, y, heading } a frame, x and y in tiles.

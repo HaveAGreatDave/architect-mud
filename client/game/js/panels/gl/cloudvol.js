@@ -374,6 +374,7 @@ void main() {
   float jit = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))) + uFrame * 0.618034);
   float T = 1.0, wsum = 0.0, tsum = 0.0;
   vec3 acc = vec3(0.0);
+  float haloAcc = 0.0, iceW = 0.0;
   // The phase, once a ray: the sun's angle to the view doesn't change along it. Two Henyey-
   // Greenstein lobes (Hillaire 2016), forward and a weaker back, divided by their side-on value so
   // a cloud seen across the sun is as bright as it always was; one value per scattering octave,
@@ -458,8 +459,8 @@ void main() {
       vec3 sc = mix(uSunCol, uStormLit, grim);
       float f = sun * powder * uSunStr;
       vec3 col = min(mix(amb, sc, min(f, 1.0)) + sc * max(f - 1.0, 0.0) * 0.5, vec3(1.0));
-      // The halo, on the ice veil only, where the sun reaches it.
-      col += haloCol * (ice * uCirSheet * 0.12 * exp(-ld * 0.5) * uSunStr);
+      // The halo is gathered apart and added once after the march (see below), not per sample.
+      iceW = ice * exp(-ld * 0.5);
       // Lightning: each strike lights the cell around its channel from inside, softest at the top,
       // and the light dies through the cloud between the strike and this point (the optical depth
       // here is roughly the density times the distance).
@@ -478,11 +479,16 @@ void main() {
       }
       float a = 1.0 - exp(-dn * dt * 1.4);
       float w = T * a;
-      acc += w * col; wsum += w; tsum += w * t;
+      acc += w * col; wsum += w; tsum += w * t; haloAcc += w * iceW;
       T *= 1.0 - a;
       if (T < 0.02) break;
     }
   }
+  // ⚠ THE HALO IS ADDED ONCE A RAY. Added per sample it followed each jittered sample's ice and
+  // light depth, so the ring was coloured grain, and where the history was rejected (a turn, a
+  // cloud edge) the grain flashed. Here it follows the veil's ice opacity along the ray, which is
+  // as smooth as the cloud's alpha.
+  acc += haloCol * (haloAcc * uCirSheet * 0.12 * uSunStr);
   float alpha = 1.0 - T;
   // The shaded air is in front of the cloud: black at 'dark' over it, premultiplied.
   vec4 cur = vec4(acc * (1.0 - dark), 1.0 - T * (1.0 - dark));
@@ -500,7 +506,13 @@ void main() {
       vec2 uvp = c.xy / c.w * 0.5 + 0.5;
       if (all(greaterThanEqual(uvp, vec2(0.0))) && all(lessThanEqual(uvp, vec2(1.0)))) {
         vec4 h = texture(uHist, uvp);
-        float w = uHistW * (1.0 - smoothstep(0.15, 0.5, abs(h.a - cur.a)));
+        // ⚠ A REJECTED PIXEL WAS RAW GRAIN. Dropping the history to nothing where coverage changed
+        // showed the bare jittered march, and a thin veil's alpha jumps from frame to frame on its own,
+        // so it flashed. The history is kept at a third instead, pulled toward this frame's colour
+        // first (scaled to its alpha) so what's kept can't ghost a cloud that has gone.
+        float d = abs(h.a - cur.a);
+        float w = uHistW * mix(0.35, 1.0, 1.0 - smoothstep(0.15, 0.5, d));
+        if (d > 0.15 && h.a > 1e-3) h = vec4(h.rgb / h.a, 1.0) * mix(h.a, cur.a, smoothstep(0.15, 0.5, d));
         outCol = mix(cur, h, w);
       }
     }
@@ -525,7 +537,11 @@ uniform float uSlices;   // how many passes share the cloud's alpha
 uniform float uSpread;   // tiles either side of the hit the slices reach
 void main() {
   vec2 uv = gl_FragCoord.xy / uRes;
-  vec4 c = texture(uCol, uv) * uFade;
+  // A tent over the march target: four bilinear taps half a texel either way, so the jitter's grain
+  // that the history didn't settle (a turn, a new cloud) is spread over 4x4 texels, not left per pixel.
+  vec2 hx = 0.5 / uLowRes;
+  vec4 c = (texture(uCol, uv + vec2(-hx.x, -hx.y)) + texture(uCol, uv + vec2(hx.x, -hx.y))
+          + texture(uCol, uv + vec2(-hx.x, hx.y)) + texture(uCol, uv + vec2(hx.x, hx.y))) * (0.25 * uFade);
   if (c.a < 0.003) discard;
   ivec2 q = clamp(ivec2(uv * uLowRes), ivec2(0), ivec2(uLowRes) - 1);
   vec4 dp = texelFetch(uDist, q, 0);

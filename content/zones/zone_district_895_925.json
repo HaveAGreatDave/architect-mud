@@ -1,8 +1,8 @@
 {
   "ambient_events": [],
   "ambient_theme": "wasteland",
-  "color": "#8f9256",
-  "description": "Broken ground with a cover of low, brittle grey brush.",
+  "color": "#b5744a",
+  "description": "Scrub and thorn where the river's damp gives out and the red rock takes over again.",
   "exits": {
     "east": "zone_district_896_925",
     "north": "zone_district_895_924",
@@ -13,13 +13,13 @@
     "district": "wilds",
     "radiation": 25,
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "scrub"
   },
   "grid_x": 895,
   "grid_y": 925,
   "grid_z": 0,
   "id": "zone_district_895_925",
   "map_id": "map_world",
-  "name": "Dead Scrub",
+  "name": "Meltwater Scrub",
   "parent_zone": null
 }

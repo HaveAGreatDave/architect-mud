@@ -3,7 +3,7 @@
   "ambient_theme": "wasteland",
   "bg_color": "#1f3646",
   "color": "#4f83a8",
-  "description": "Shallow brackish water with a rainbow film on it. Reeds stand in the muck along a bank of grit and plastic.",
+  "description": "Open water in the middle of the pond, still and deep. Fish rise at dusk and leave rings that take a long time to settle.",
   "exits": {
     "east": "zone_district_902_939",
     "north": "zone_district_901_938",
@@ -21,6 +21,6 @@
   "grid_z": 0,
   "id": "zone_district_901_939",
   "map_id": "map_world",
-  "name": "The Meltwater Mouth",
+  "name": "Meltwater Pond",
   "parent_zone": null
 }

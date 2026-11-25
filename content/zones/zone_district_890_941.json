@@ -1,8 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
+  "ambient_theme": "forest",
   "color": "#b5744a",
-  "description": "The ground here is flat and hard and the color of rust. A few old trails cross it and none of them go anywhere obvious.",
+  "description": "The marsh around the pond. Sedge, reed, and the smell of rot and iron. Dragonflies hang over the open pools.",
   "exits": {
     "east": "zone_district_891_941",
     "north": "zone_district_890_940",
@@ -13,13 +13,13 @@
     "district": "wilds",
     "radiation": 26,
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "marsh"
   },
   "grid_x": 890,
   "grid_y": 941,
   "grid_z": 0,
   "id": "zone_district_890_941",
   "map_id": "map_world",
-  "name": "Cinder Mesa",
+  "name": "The Reedbed",
   "parent_zone": null
 }

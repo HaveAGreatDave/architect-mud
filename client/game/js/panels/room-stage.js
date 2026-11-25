@@ -1983,7 +1983,7 @@ function openStage(msg) {
     label: 'the wall in here', ground: 'plaster',
     aim: () => (S.L && S.walk?.at ? aimWall(S.L, seat.eye, seat.yaw || 0, seat.pitch || 0) : null),
     // the piece as this room's wall will have it, so what goes on in the session is what stays up
-    bake: (text, runs, face) => bakeRoomTag({ t: text, r: runs, f: face, v: tagVariant(S.here || S.msg.zone) }),
+    bake: (text, runs, face, finish) => bakeRoomTag({ t: text, r: runs, f: face, x: finish, v: tagVariant(S.here || S.msg.zone) }),
     preview(src, fresh, len = 12) {
       if (!src) { S.sprayLive = null; paintTags(); return; }
       if (!S.sprayLive) {
@@ -2538,7 +2538,7 @@ function openStage(msg) {
   // the line being voiced, by speaker: its mouth shapes and when it starts
   const onVoice = (e) => {
     const d = e.detail;
-    lips.set(d.name, { track: d.trace?.length ? mouthTrack(d.trace) : textTrack(d.text), t0: performance.now() + d.delay * 1000 });
+    lips.set(d.name, { track: d.trace?.length ? mouthTrack(d.trace) : textTrack(d.text), t0: performance.now() + d.delay * 1000, effort: +d.effort || 0 });
     if (d.voice?.move) voiced.set(d.voice, d.name);
   };
   window.addEventListener('npc:voice', onVoice);
@@ -2573,6 +2573,11 @@ function openStage(msg) {
     if (!d.sex) {
       const p = (S.people || []).find((q) => q.name === d.name) || (S.next || []).flatMap((n) => n.people || []).find((q) => q.name === d.name);
       if (p?.sex) d.sex = p.sex;
+    }
+    // how they feel, for the voice (client/shared/delivery.js): the mood the face is showing
+    if (!d.mood) {
+      const p = (S.people || []).find((q) => q.name === d.name);
+      if (p?.mood?.m) d.mood = p.mood;
     }
     if (d.place || !S.walk?.at) return;
     const at = speakerSpot(d.name);
@@ -2609,7 +2614,8 @@ function openStage(msg) {
     if (!l) return undefined;
     const m = mouthAt(l.track, (performance.now() - l.t0) / 1000);
     if (!m && performance.now() > l.t0) lips.delete(name);
-    return m || undefined;
+    // how hard the line is said (client/shared/delivery.js): the face widens for a yell
+    return m ? (l.effort ? { ...m, effort: l.effort } : m) : undefined;
   };
   const SIT_DOWN = 1100, SIT_UP = 700;
   function eased(p, pl) {
@@ -3776,6 +3782,11 @@ function openStage(msg) {
     pilots.update(o.contacts || []);
     S.actors = o.actors || [];
     if (phone || !o.map) { if (!o.map) S.noView = true; return; }
+    // ⚠ A ROOM AT A RINK HAS NO CITY TO SEE (room-rink.js). Its openings are onto the ice, drawn under the room, and
+    // the view box round the room is drawn over it: once the outlook's first paint landed there, the stands and the
+    // ice gave way to GLASS's picture of the barn from inside its own walls. lookOut() kept it from painting again,
+    // but not from painting once. So no outlook at all, and one handed on from the last room is stopped.
+    if (S.spec?.rink) { S.outlook?.stop(); S.outlook = null; return; }
     const hooks = {
       host,
       onEye: (l) => { outside.setPlace({ eyeZ: l.eye, eyeX: l.eyeX, eyeY: l.eyeY }); takeFacade(l.paint); },
@@ -3801,7 +3812,7 @@ function openStage(msg) {
   };
   // the last room's view, when this is the next room of its building: shown at once, and moved here when
   // this room's `room_outlook` comes
-  const kept = msg.hasView && !phone ? takeParked(msg.building?.id) : null;
+  const kept = msg.hasView && !phone && !msg.spec?.rink ? takeParked(msg.building?.id) : null;
   if (msg.place) { S.bearing = msg.place.bearing || 0; S.lastPlace = msg.place; }
   if (kept) { S.outlook = kept; if (msg.place) kept.place({ ...msg.place, cut: balconyCut(S.spec) }); kept.adopt(S.viewHooks = { host, onEye: (l) => takeFacade(l.paint), onFail: () => { S.noView = true; }, onPano: (i, pic, lens, at, ap) => (i === 6 ? R.setLook?.(pic, lens, panoEye(at), ap) : R.setPano(i, pic, lens, panoEye(at))), feed: () => ({ actors: S.actors || [], contacts: [] }) }); }
   S.onSky = (m) => {
@@ -4190,7 +4201,7 @@ export function roomVat(msg) {
 function vatCues(S) {
   for (let i = vatWaiting.length - 1; i >= 0; i--) {
     const w = vatWaiting[i];
-    if (Date.now() - w.at > 8000) { vatWaiting.splice(i, 1); continue; }
+    if (Date.now() - w.at > 20000) { vatWaiting.splice(i, 1); continue; }
     if (S.L && w.msg.zone === S.msg.zone) { vatWaiting.splice(i, 1); (S.vatCycle ||= createVatCycle()).arrive(w.msg, S.you); }
   }
 }

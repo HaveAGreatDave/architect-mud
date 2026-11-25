@@ -1,0 +1,30 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_spray_chrome",
+  "name": "Mirrorcoat Spraycan",
+  "tags": {
+    "can_label": {
+      "body": "#2b3038",
+      "brand": "DURA-KROME",
+      "cap": "#d6dde6",
+      "colours": [
+        "#f2f6fa",
+        "#9aa3ae",
+        "#4c545f"
+      ],
+      "fine": "Contents under pressure. Keep away from heat, sparks and open flame. Do not pierce or burn, even when empty. Use in a ventilated place. Shake for one minute before use. Dura-Krome Industrial. Discontinued.",
+      "net": "400 ML",
+      "product": "MIRRORCOAT",
+      "strap": "FACTORY FINISH. NO CLEARCOAT.",
+      "wear": 0.7
+    },
+    "description": "An old Dura-Krome can for touching up bumpers, from before anybody stopped making it. Aluminium flake: the paint dries mirror-bright, light at the top and dark under. Sprays chrome.",
+    "misc": true,
+    "paint_finish": "chrome",
+    "spray_paint": true
+  },
+  "type": "misc",
+  "value": 260,
+  "weight": 340
+}

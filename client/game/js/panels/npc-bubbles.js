@@ -10,6 +10,7 @@
 // `log` rung gets neither bubble nor voice.
 
 import { loadCss } from '../../../shared/dom.js';
+import { voiceDelivery, effortFromLine } from '../../../shared/delivery.js';
 
 const CSS = await loadCss(new URL('./npc-bubbles.css', import.meta.url));
 const MOST = 3, MIN_S = 3.2, PER_CHAR_S = 0.055;
@@ -80,13 +81,15 @@ const knowSex = (name, sex) => {
   SEX.delete(name); SEX.set(name, sex);
   if (SEX.size > 400) SEX.delete(SEX.keys().next().value);
 };
-const say = (name, text, queue) => {
-  const ask = { name, place: null, sex: null };
+// `effort`: -1 a whisper to 2 a yell (client/shared/delivery.js), from the verb and the line.
+// `mood`: the one the server said the line in ({ m, i }, server/engine/npc-speech.js); without it, the face's.
+const say = (name, text, queue, effort = 0, mood = null) => {
+  const ask = { name, place: null, sex: null, mood: null };
   window.dispatchEvent(new CustomEvent('npc:place', { detail: ask }));
   knowSex(name, ask.sex);
   const sex = SEX.get(name);
-  const trace = [], res = window.AudioEngine?.speak?.(text, { channel: 'npc', seed: name, queue, trace, accent: hashOf(name) % 3 === 0 ? 'rp' : undefined, ...(sex ? { sex } : {}), ...(ask.place || {}) });
-  window.dispatchEvent(new CustomEvent('npc:voice', { detail: { name, text, trace: res ? trace : null, delay: res ? res.delay : 0, voice: res?.move ? res : null } }));
+  const trace = [], res = window.AudioEngine?.speak?.(text, { channel: 'npc', seed: name, queue, trace, accent: hashOf(name) % 3 === 0 ? 'rp' : undefined, ...(sex ? { sex } : {}), ...(ask.place || {}), ...((dv) => dv ? { delivery: dv } : {})(voiceDelivery({ effort, mood: (mood || ask.mood)?.m, i: (mood || ask.mood)?.i ?? 0.8 })) });
+  window.dispatchEvent(new CustomEvent('npc:voice', { detail: { name, text, trace: res ? trace : null, effort, delay: res ? res.delay : 0, voice: res?.move ? res : null } }));
   return res;
 };
 
@@ -104,9 +107,14 @@ export function heard(html, rung) {
   }
   // a yell carries from next door, and may be a player's
   if (line.matches('.yell, .distant')) return;
-  const m = /^(.+?) \w+, "([\s\S]*)"$/.exec(line.textContent.trim()) || /^([^:"]+): ([\s\S]+)$/.exec(line.textContent.trim());
+  const said = /^(.+?) (\w+), "([\s\S]*)"$/.exec(line.textContent.trim());
+  const m = said ? [said[0], said[1], said[3]] : /^([^:"]+): ([\s\S]+)$/.exec(line.textContent.trim());
   if (!m || /^you$/i.test(m[1])) return;
-  const [, name, text] = m, res = say(name, text, true);
+  const [, name, text] = m, verb = said ? said[2] : '';
+  const kind = /^(yell|shout|scream|bellow|roar)s$/i.test(verb) ? 'yell' : /^whispers$/i.test(verb) ? 'whisper' : /^(mutter|murmur)s$/i.test(verb) ? 'quiet' : null;
+  // the line's own mood and effort, when the server sent them (npc-speech.js); the verb still wins
+  const dm = /^([a-z]+):([\d.]+)$/.exec(line.dataset.mood || ''), de = line.dataset.effort;
+  const res = say(name, text, true, de != null && !kind ? +de : effortFromLine(text, kind), dm ? { m: dm[1], i: +dm[2] } : null);
   const seconds = Math.max(MIN_S, text.length * PER_CHAR_S, res ? res.delay + res.duration + 0.6 : 0);
   // the Stage sets `over` when it's showing the line over the speaker's head
   const detail = { name, text, ms: Math.max(seconds - 0.6, res ? res.delay + res.duration : 0) * 1000, over: false };

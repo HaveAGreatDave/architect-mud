@@ -47,7 +47,7 @@ import { RINK_CROWD_VS, RINK_CROWD_FS, INST as CROWD_INST, buildBowl, crowdInsta
 import { paintCrest, paintLayers, settCanvas } from '../club-crest.js';
 import { makeVertexStream } from './stream.js';
 import { INK_VS, INK_FS } from './ink.js';
-import { declareProgram, prewarmPrograms, takeWarm } from './programs.js';
+import { declareProgram, prewarmPrograms, prewarmDone, takeWarm } from './programs.js';
 import { createMirrorLayer, MIRROR_SCALE } from './mirror.js';
 import { createRinkHeads, HEAD_VS, HEAD_FS, KEY } from './arena-heads.js';
 import { buildXray } from './arena-xray.js';
@@ -299,6 +299,39 @@ const ATLAS = 1024, SLOT = 128, SLOTS = (ATLAS / SLOT) ** 2;
 const MASK_W = 512, MASK_H = 256, MASK_COLS = 2, MASK_ROWS = 2;
 const GPX = 16;                                   // glass decal texels per foot
 const LIGHTS = [40, 70, 100, 130, 160].map((x) => [x, MID_Y - 4, 46]);
+
+// ⚠ NEVER BUILD THE ARENA ON A COLD COMPILE, as the ballpark learned (gl/ballpark.js prepareBallpark).
+// The rink's programs include the close-up figure's (Ken, the generator heads), two of them over
+// 200k characters, and Chrome's ANGLE runs them through Direct3D's compiler: a room in Golden Goose
+// Gardens froze the page for 46 s on an RTX 2070 SUPER the first time it opened, every LINK_STATUS in
+// build() waiting it out. So the rink view calls this first: the programs compile in a throwaway
+// context with KHR_parallel_shader_compile, polled, and the view draws in 2-D meanwhile; build() then
+// finds them in the browser's shader cache. Once per page. Resolves true once they've compiled, false
+// without the extension (nothing to poll, so the caller builds at once as before). `arenaWarm()` says
+// whether the view can build now.
+const ARENA_WARM_POLL_MS = 250, ARENA_WARM_GIVE_UP_MS = 5 * 60 * 1000;
+let arenaWarming = null, arenaWarmed = false;
+export const arenaWarm = () => arenaWarmed;
+export function warmArena(doc = globalThis.document) {
+  return (arenaWarming ??= new Promise((done) => {
+    const end = (ok) => { arenaWarmed = true; done(ok); };
+    const canvas = doc?.createElement?.('canvas');
+    if (!canvas) { end(false); return; }
+    canvas.width = canvas.height = 1;
+    let gl = null;
+    try { gl = canvas.getContext('webgl2', { antialias: true, alpha: false, premultipliedAlpha: true, depth: true, powerPreference: 'high-performance' }); } catch { gl = null; }
+    if (!gl || !prewarmPrograms(gl, 'rink')) { end(false); return; }
+    const t0 = performance.now();
+    const finish = (ok) => { gl.getExtension('WEBGL_lose_context')?.loseContext(); end(ok); };
+    const poll = () => {
+      if (gl.isContextLost()) { end(false); return; }
+      if (prewarmDone(gl)) { finish(true); return; }
+      if (performance.now() - t0 > ARENA_WARM_GIVE_UP_MS) { finish(false); return; }
+      setTimeout(poll, ARENA_WARM_POLL_MS);
+    };
+    setTimeout(poll, ARENA_WARM_POLL_MS);
+  }));
+}
 
 export function createArenaRenderer(canvas, overlay, W0, ice) {
   // the world it draws: the live one, or the replay's stand-in while a replay runs

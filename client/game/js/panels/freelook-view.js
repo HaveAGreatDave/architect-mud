@@ -25,6 +25,7 @@
 // downloads and parses the whole 3-D stack before they can type `look`. The facade has the same
 // export names, so nothing below this line changed; what changed is that the bytes arrive when the
 // seat is opened. See scripts/client/bake-lazy-view.mjs.
+import { FPS_EYE, METRE, FOOT_NEAR, FOOT_TUNE } from './foot-tune.js';
 import { loadWindshield, isLoaded as windshieldLoaded, paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield, normalizeWx, navMarks, raptorsNow, yachtScopeMount, yachtDeckEye, seaRideAt, modelTopZAt, curtainTopZAt, groundObstructionAt, doorBayAt, parkTopAt, streetKitFootAt, streetKitDeckAt, streetKitLiftPress, streetKitLiftBoard, bayFootSolid, bayDims, ROAD_RIG_MUL, viewFocal, viewLatFocal, GL_TIER, streetActorSpots } from './windshield-lazy.js';
 export { loadWindshield };
 import { createFreeCam, freeCamHint, freeCamTouchUI, bindFreeCamPointer, bindFreeCamIdle } from './freecam.js';
@@ -41,12 +42,17 @@ import { YACHT_SCALE, YACHT_SB, YACHT_BOW, YACHT_LEN } from '../../../shared/yac
 import { noteDoor, noteCarry } from './lobby-still.js';
 import { preVeil, veilReady } from './glass-veil.js';
 import { roomFree, openingCrossed, openingInside, roomNearFree, FT_PER_M, stairsOf, wellBoxes } from '../../../shared/room-layout.js';   // a building's rooms, drawn in the city (docs/proposals/one-world-interiors.md)
-import { FT_M, m2t as m2tf } from '../../../shared/world-scale.js';
+import { FT_M, TILE_M, m2t as m2tf } from '../../../shared/world-scale.js';
+import { createFootsteps, surfaceOf, wetWeather } from '../../../shared/footstep-sfx.js';   // your own steps on the street (footSteps)
+import { loadSettings, sfxDetail } from '../../../shared/settings.js';
 import { measureDoorway } from './glass/doorway-measure.js';   // a street door's opening, read off its building's mass
 import { oneWorldTakes, sameStorey, RINK_IN_GLASS } from './glass/interiors-near.js';   // which rooms leave the Stage, and which share a storey
 import { createOneWorldCard, facedPiece, seatFor, sitCmd, facedLock } from './oneworld-card.js';
 import { lockActs, lockLetsThrough, doorName } from '../../../shared/room-locks.js';
 import { createBatch } from './gl/ballpark-mesh.js';
+import { warmScenes } from './gl/programs.js';   // the street warmed behind a room waits for its programs (frame)
+import { glBakeBudget } from './gl/world.js';   // and bakes its surfaces a few ms a frame (frame)
+const WARM_BAKE_MS = 8;
 import { roomKitchenKit } from './gl/room-mesh.js';   // what a room cooks with, for the kitchen at its hob (phase F)
 import { cookFrame, cookersIn, coldIn } from './room-cook.js';   // where the kitchen stands in the room, shared with the Stage
 import { multiply as mat4Mul, invert as mat4Inv } from './gl/core/mat4.js';   // a depot's vehicle, written for the interiors layer
@@ -126,6 +132,9 @@ function doorShift(s, tile) {
   return [along * E[1] + deep * E[0], -along * E[0] + deep * E[1]];
 }
 import { selfLookFor, endSelfLookOn, selfLookEnded } from '../../../shared/self-look.js';   // a zone's own look for your body (the In Between's outline)
+import { cinePose, CINE_SHOTS } from './cine-cam.js';   // the locked shots a room plays as you arrive (owCineTick)
+import { ACTOR_ROOM_CLIPS } from './actor3d.js';   // a shot's clip's length, for its phase (fpSelf)
+const CLIP_DUR_S = Object.fromEntries(ACTOR_ROOM_CLIPS.map((c) => [c.name, c.dur]));
 import { suppressWeatherFx } from './weather-fx.js';   // the 2-D overlay would paint its rain and rainbow over the 3-D scene   // the ground or seabed under the camera (plugins/submersible)
 
 // Live world clock/weather through the shared env system — loaded OPTIONALLY, exactly as helm-view
@@ -223,12 +232,7 @@ const MOUNTS = {
 // crisper wall for a city with no texture on it at all would be the opposite of this feature.
 const STAND_TUNE = { lodNear: 32, decoFar: 26, glowFar: 20, shadowFar: 26 };
 
-// ON FOOT IS NOT A VANTAGE. On foot is standing too (freeCam.standing), so it picked up STAND_TUNE and drew
-// the telescope's city: full models out to 32 tiles and every ring wider than a cab's, round an eye 1.6 m up
-// a street whose own fronts hide most of that. So walking gets rings between the window view's (room-view.js
-// TUNE) and a cab's: the near street at full detail, the far city as the governor leaves it. The city past
-// 14 tiles is the skyline backdrop (farMax): perf:move --room 0 --gl --lite, turning, 41.7 ms a frame to 35.
-const FOOT_TUNE = { lodNear: 12, decoFar: 12, glowFar: 11, shadowFar: 10, farMax: 14 };
+// On foot, the rings are FOOT_TUNE (foot-tune.js, shared with the Modelshop's on-foot bench route).
 
 // What the hint calls each raptor raptorsNow can report.
 const RAPTOR_NAME = { peregrine: 'peregrine', hawk: 'red-tailed hawk' };
@@ -321,6 +325,7 @@ export function parkFreelook() {
   // and the set: the Stage makes its own and claims tv.js's panel, which this one letting go later would take from it
   if (s.owTv) { s.owTv.stop(); s.owTv = null; }
   owLockStop(s);   // and a locked doorway's hologram
+  owLiftStop(s);   // and a lift car's panel
   if (s.owEnv) { s.owEnv.ui.stop(); s.owEnv.host.remove(); s.owEnv = null; }   // and a control panel's page, likewise
   if (s.owHoist) { s.owHoist.ui.dispose(); if (s.owHoist.room) s.owHoist.room.extra = null; s.owHoist = null; }   // and a depot's vehicle
   // the keys held go through the door with you (room-stage.js takes them for its walker)
@@ -416,6 +421,15 @@ export function uncoverPane(now = false) {
 // `__freeLook()` in the console: the live view state, so a shot can be framed exactly
 // (`__freeLook().freeCam.open({ z, pitch, yaw })`) where the mouse would take a minute of nudging.
 if (typeof window !== 'undefined') window.__freeLook = () => st;
+// The street view's frame in parts, ms summed over `n` frames: `cam` (follow, turn, the camera), `ticks` (everything
+// from watchFoot to the camera's floor clamp: the one-world ticks), `paint` (paintWindshield and the late pages), and
+// `frame` (the whole callback, warm baking included). Off unless asked: `__footPerf(true)`, then `__footPerf()` reads.
+const FOOT_PERF = { on: false, n: 0, cam: 0, ticks: 0, paint: 0, frame: 0 };
+if (typeof window !== 'undefined') window.__footPerf = (on) => {
+  if (on !== undefined) { Object.assign(FOOT_PERF, { on: !!on, n: 0, cam: 0, ticks: 0, paint: 0, frame: 0 }); return FOOT_PERF.on; }
+  const n = FOOT_PERF.n || 1, r = (x) => +(x / n).toFixed(2);
+  return { n: FOOT_PERF.n, cam: r(FOOT_PERF.cam), ticks: r(FOOT_PERF.ticks), paint: r(FOOT_PERF.paint), frame: r(FOOT_PERF.frame) };
+};
 
 // Who is standing in the window (server/engine/street-actors.js), absolute tiles. An empty list is a
 // real answer; only an absent one keeps the last.
@@ -632,7 +646,29 @@ export function openFreelook(ctx = {}) {
     // counter did) left this loop painting a detached canvas at full rate: a blank pane, its GL context and a city's
     // worth of garbage a second held until the tab ran out of memory. A parked view is warm and lives in its holder.
     if (!st.warm && st.root && !st.root.isConnected) { const exit = st.onExit; closeFreelook(); try { exit?.(); } catch { /* the socket may be gone */ } return; }
-    paint(now);
+    // ⚠ WARM, NO PAINT TILL THE PROGRAMS HAVE COMPILED (gl/programs.js warmScenes). The first hidden paint built
+    // GLASS's context and compiled every program it drew, one LINK_STATUS at a time through Direct3D: 9 s of frozen
+    // page under a room in Golden Goose Gardens. They compile off to the side now, and the paint that follows finds
+    // them in the browser's cache. Walked out before then (not warm), it paints at once as it always did.
+    // ⚠ AND TILL THE LITE BAKE ROUND IT HAS LOADED (gl/lite.js liteReady). Its chunks come by fetch, and a paint
+    // before them built every building from its arm (2.6 s of that frame) and then built the city again when they
+    // came (another 3.8 s frame). liteReady gives up after 20 s, and the paint goes ahead as before.
+    if (st.warm && !st.glReady) {
+      if (!st.glWarm) {
+        // (no WebGL to warm, as under the smokes' DOM stub: nothing to wait for, Lite included)
+        const w = warmScenes(['glass', 'room']);
+        let lite = !!w.none;
+        if (!lite) import('./gl/lite.js').then((m) => m.liteReady([[st.gx, st.gy]])).catch(() => {}).then(() => { lite = true; });
+        st.glWarm = { ready: () => lite && w.ready() };
+      }
+      if (!st.glWarm.ready()) { st.raf = requestAnimationFrame(frame); return; }
+      st.glReady = true; st.warmT0 = now;
+    }
+    // warm, GLASS bakes the city's surfaces a few ms a frame rather than all in one (gl/world.js glBakeBudget)
+    if (st.warm) glBakeBudget(WARM_BAKE_MS);
+    const fs0 = FOOT_PERF.on ? performance.now() : 0;
+    try { paint(now); } finally { if (st.warm) glBakeBudget(0); }
+    if (FOOT_PERF.on) FOOT_PERF.frame += performance.now() - fs0;
     // warm, it rests as soon as its loading veil has gone (the builds are done) or after 15 s, until it's woken. Every
     // paint here is main-thread GLASS under somebody's room: it used to keep going for 1.5 s, a dozen paints of 70 to 150 ms.
     if (st.warm && (!document.getElementById(st.id + '-veil') || now - st.warmT0 > 15000)) { st.raf = 0; return; }
@@ -640,19 +676,23 @@ export function openFreelook(ctx = {}) {
   }
   function paint(now) {
     const dt = Math.max(0, Math.min(0.05, (now - st.last) / 1000)); st.last = now;
+    const fp = FOOT_PERF.on ? FOOT_PERF : null, ft0 = fp ? performance.now() : 0;
     // The whole body is guarded for the reason helm-view's is: this loop reschedules itself at the
     // END and paintWindshield has no try/catch of its own, so one throw would freeze the view for
     // good while everything around it carried on.
     try {
       if (follow) followStep();
       if (st.foot) footTurn(st, dt);
+      const fs0 = st.foot ? footAt(st) : null;   // where you stood before this frame's walk (footSteps)
       freeCam.step(dt);
+      const fs1 = fs0 ? footAt(st) : null;
       owVesselTick(st, now);   // a vessel's rooms on her hull as she sits this frame, and you carried with the deck
       if (st.foot) footBelt(st, dt);
       const env = liveEnv();
       const hour = env ? env.hour : st.hour;
       const weather = env ? env.weather : st.weather;
       const moon = env ? env.moon : st.moon;
+      if (fs0 && fs1) footSteps(st, dt, fs0, fs1, weather);
 
       // ⚠ AND THE DECK UNDER A STANDING CAMERA MOVES. The Echelon heaves, pitches and rolls on the
       // same swell her hull is drawn standing in, so her sun deck is at a different height every
@@ -660,15 +700,18 @@ export function openFreelook(ctx = {}) {
       // while the ship rose and fell under it. One call, every frame, to the function that puts
       // her own geometry there.
       if (st.stand) { const s = standSpot(st, now); if (s) freeCam.setEye(st.inside?.talkCam ? st.inside.talkCam.z : st.inside?.vatCam ? st.inside.vatCam.z : st.inside?.joinCam ? st.inside.joinCam.z : st.inside?.cookCam ? st.inside.cookCam.z : st.inside?.morphCam ? st.inside.morphCam.z : st.inside?.arrangeCam ? st.inside.arrangeCam.z : st.inside?.cupCam ? st.inside.cupCam.z : st.inside?.sat ? st.inside.sat.z : s.z * footEye(st, dt) + (st.inside ? owFloorZ(st) : footLift(st, dt))); }   // sat inside (owSit): the seat's eye; inside, off the floor under you (owFloorZ)
+      const ft1 = fp ? performance.now() : 0;
       if (st.foot) watchFoot(st, now, flash);
       if (st.foot) owStairTick(st);   // up or down a flight inside: stood off its far end in the next room
       if (st.foot) owGoingTick(st, flash);   // a step through a doorway the server never answered: put back
       if (st.foot) owSoundTick(st);   // inside, the outside heard through the room's windows (oneworld-sound.js)
       if (st.foot) owTvTick(st, now);   // inside, the set on the wall showing what's on (room-tv.js)
       if (st.foot) owTalkTick(st, now);   // inside, talking to somebody: the camera on their face (room-talk.js's shot)
+      if (st.foot) owCineTick(st, now);   // a locked shot a room plays as you arrive (cine-cam.js)
       st.owLate = null;   // (a frame that threw before laying them mustn't pile them up)
       if (st.foot) owEnvctlTick(st);   // inside, a flat's control panel: its page on its own glass (room-envctl.js)
       if (st.foot) owLockTick(st, now);   // inside, a locked doorway's leaves and the hologram off its reader (room-lock.js)
+      if (st.foot) owLiftTick(st);   // inside a lift car, its panel: the hologram with a button for each floor (room-lift.js)
       if (st.foot) owVendTick(st, now);   // inside, a vending machine sliding out, its plug and its buttons (room-vendor.js)
       if (st.foot) owHoistTick(st, now);   // inside a depot, the vehicle on its stand and its panel (room-hoist.js)
       if (st.foot) owVatTick(st, now);   // inside the clone hall, its vats, sleepers, machines and monitors (gl/room-vat.js)
@@ -703,6 +746,7 @@ export function openFreelook(ctx = {}) {
       // The camera may fly under the sea but not through the bottom of it, or into the ground.
       { const f0 = freeCam.view(); if (f0) freeCam.clampFloor(floorZAt(f0.x, f0.y) + 0.04); }
       const fc = freeCam.view();
+      const ft2 = fp ? performance.now() : 0;
       if (fc && !st.stand && st.onRecenter && !st.want
           && (Math.abs(fc.x) > RECENTER_R || Math.abs(fc.y) > RECENTER_R)) {
         const nx = st.gx + Math.round(fc.x), ny = st.gy + Math.round(fc.y);
@@ -718,7 +762,7 @@ export function openFreelook(ctx = {}) {
         acX: st.gx, acY: st.gy, airport: 'default',
         tune: st.foot ? FOOT_TUNE : (st.stand || freeCam.standing) ? STAND_TUNE : undefined,   // see STAND_TUNE — a seat that cannot move can afford to draw more
         // the Pack open: the camera stands back round you, and you're drawn (packViewNow, packSelf)
-        freeCam: (st.packCam && packViewNow(st, now)) || (st.extView && extViewNow(st, now)) || freeCam.view(),
+        freeCam: (st.packCam && packViewNow(st, now)) || (st.extView && extViewNow(st, now)) || (st.cineNow?.back > 0 && cineViewNow(st)) || freeCam.view(),
         self: st.packCam ? packSelf(st) : st.extView ? extSelf(st, now) : fpSelf(st, now),
         actors: st.actors,   // pavement people; meshes up close (gl/actors.js)
         // ⚠ THE OWN SHIP IS THE WINDOW CENTRE, hidden, so a contact's offset is from there; the camera
@@ -755,6 +799,7 @@ export function openFreelook(ctx = {}) {
       if (wxEl) wxEl.textContent = `${String(weather || 'clear').toUpperCase()} · ${String(Math.floor(hour)).padStart(2, '0')}:${String(Math.floor((hour % 1) * 60)).padStart(2, '0')}`;
       // the pages laid on a room's glass (the control panel, a door's hologram), by the matrix this frame was drawn with
       if (st.owLate) { const late = st.owLate; st.owLate = null; for (const fn of late) fn(); }
+      if (fp) { const ft3 = performance.now(); fp.n++; fp.cam += ft1 - ft0; fp.ticks += ft2 - ft1; fp.paint += ft3 - ft2; }
     } catch (e) {
       if (!st._errLogged) { console.error('[freelook] frame render error (view kept alive — report this stack):', e); st._errLogged = true; }
     }
@@ -1012,6 +1057,7 @@ export function closeFreelook() {
   if (s.owTv) { s.owTv.stop(); s.owTv = null; }   // and the set, which hands tv.js's panel back
   if (s.owHoist) { s.owHoist.ui.dispose(); s.owHoist = null; }   // and a depot's vehicle panel
   owLockStop(s);   // and a locked doorway's hologram
+  owLiftStop(s);   // and a lift car's panel
   if (s.owEnv) { s.owEnv.ui.stop(); s.owEnv.host.remove(); s.owEnv = null; }   // and a control panel's page   // the rain through a room's windows goes with the view
   if (s.woke) suppressWeatherFx(false, 'freelook');
   cancelAnimationFrame(s.raf);
@@ -1036,8 +1082,7 @@ export function closeFreelook() {
 // ⚠ IT MAY ANSWER null — the mount reads the centre cell, and a window whose centre is not what the
 // vantage said it was is a window this camera has no business standing in. The caller falls back to
 // the flying camera rather than putting the eye somewhere invented.
-// A standing eye, 1.6 m against a 3.5 m storey (windshield.js ACTOR_S). It was 0.12, about 2.2 m.
-const FPS_EYE = 0.09;
+// A standing eye is FPS_EYE (foot-tune.js), 1.6 m.
 // On foot, the Room Stage's pace (room-walk.js: 5.5 ft a second, Shift 1.9 times that), in tiles: FPS_EYE
 // is 1.6 m, so a metre is FPS_EYE / 1.6 tiles. Out of the front door you walk as you did in the lobby.
 const FOOT_PACE = { walk: 5.5 * FT_M * FPS_EYE / 1.6, run: 1.9 };
@@ -1394,7 +1439,8 @@ export function setFirstPersonBody(on) { FP_BODY.on = !!on; try { localStorage.s
 function fpSelf(s, now) {
   const P = s.fp || (s.fp = { gd: 0, lx: null, ly: null, mv: 0, t: 0, drawn: false });
   P.drawn = false;
-  if (!FP_BODY.on || !s.foot || !s.freeCam.standing) return null;
+  const C = s.cineNow;   // a locked shot (owCineTick) draws you whatever the setting: the shot is of you
+  if ((!FP_BODY.on && !C) || !s.foot || !s.freeCam.standing) return null;
   const v = s.freeCam.view();
   if (!v) return null;
   needPackLook(s);
@@ -1411,6 +1457,19 @@ function fpSelf(s, now) {
   // object per outfit too
   const sl = selfLookIn(s);
   if (sl === 'outline') look.fpLine ??= { ...look.fpO, hd: { ...look.fpO.hd, outline: true } };
+  if (C) {
+    // in a shot: its clip (phase from when the shot started it), how far the outline has formed, and in third person
+    // the whole of you, head and all, drawn as the view from behind draws you
+    const third = C.back > 0.4;
+    if (sl === 'outline') look.wholeLine ??= { ...look.o, hd: { ...look.o.hd, outline: true } };
+    const o = third ? (sl === 'outline' ? look.wholeLine : look.o) : sl === 'outline' ? look.fpLine : look.fpO;
+    if (o.hd.outline) o.hd.outlineForm = C.form;
+    // (facing where you faced when it started: the camera's own yaw is the shot's)
+    const dur = C.clip ? CLIP_DUR_S[C.clip] || 4 : 0, F = s.cine.yaw0 * Math.PI / 180;
+    return { x: s.gx + v.x - Math.sin(F) * b, y: s.gy + v.y + Math.cos(F) * b, z: ground, hd: Math.atan2(-Math.cos(F), Math.sin(F)), o, k: look.k,
+      clip: C.clip || 'idle', ph: C.clip ? Math.min(0.999, C.clipAt / dur) : undefined, gd: P.gd, fp: !third, skin: selfLookFor(s.inside?.zone) };
+  }
+  for (const o of [look.fpLine, look.wholeLine]) if (o) o.hd.outlineForm = 1;
   return { x: s.gx + v.x - Math.sin(Y) * b, y: s.gy + v.y + Math.cos(Y) * b, z: ground,
     hd: Math.atan2(-Math.cos(Y), Math.sin(Y)), o: sl === 'outline' ? look.fpLine : look.fpO, k: look.k,
     clip: P.mv > 0.02 ? 'walk' : 'idle', gd: P.gd, fp: true, skin: selfLookFor(s.inside?.zone) };   // 0.02 tiles a second is about 0.35 m/s
@@ -1426,6 +1485,21 @@ function selfLookIn(s) {
 // paint goes is GLASS's to solve (windshield.js drawWallTags), so there's no aim and no live paint: the window is sent
 // again when the tag's up (plugins/freelook), and the wall has it.
 const FOOT_SPRAY = Object.freeze({ label: 'the street', ground: 'brick' });
+// YOUR STEPS (client/shared/footstep-sfx.js): a step each stride you walk, by the ground under you and how fast you
+// go. Only your own walking counts, measured across freeCam.step, so the street's belt carrying you is silent. The
+// ground is read off the map cell GLASS holds; nothing is asked of the server.
+const footAt = (s) => { const v = s.freeCam.view(); return v ? { x: s.gx + v.x, y: s.gy + v.y } : null; };
+const LANE_HALF = m2tf(2);   // the kit's lane is 4 m wide
+function footSteps(s, dt, a, b, weather) {
+  const f = s.foot;
+  if (!f || s.inside || !s.map) return;
+  const now = performance.now();
+  if (!f.steps) f.steps = createFootsteps({ seed: (s.gx * 73 + s.gy * 149) >>> 0, play: (d, g) => globalThis.AudioEngine?.playSfx?.(d, g) });
+  if (!f.stepDetailAt || f.stepDetailAt + 5000 < now) { f.stepDetail = sfxDetail(loadSettings()); f.stepDetailAt = now; }
+  const wx = Math.round(b.x), wy = Math.round(b.y), deck = (f.lift || 0) > 0.02;
+  const surface = surfaceOf(cellOf(s, wx, wy), b.x - wx, b.y - wy, { laneHalf: LANE_HALF, deck });
+  f.lastStep = f.steps.tick(dt, Math.hypot(b.x - a.x, b.y - a.y) * TILE_M, { surface, wet: wetWeather(weather), crouched: !!f.crouched, detail: f.stepDetail }) || f.lastStep;
+}
 function footTurn(s, dt) {
   const sp = s.foot.spin, turn = (sp.has('e') ? 1 : 0) - (sp.has('q') ? 1 : 0), v = turn ? s.freeCam.view() : null;
   if (v) s.freeCam.aimAt(v.yaw + turn * FOOT_TURN * dt, v.pitch);
@@ -1519,10 +1593,9 @@ function bindFootPointer(el, cam, onClick = null, onHover = null, onWheel = null
 // ⚠ THE DOORWAY IS READ OFF THE MODEL, NOT WRITTEN DOWN TWICE. Where the front wall stands, how wide the gap
 // between the jambs is and how high the lintel hangs are asked of the building's own mass, so the leaves fit
 // whatever arm draws it. An arm with no jambs or lintel gets a doorway from the room's own width.
-const METRE = FPS_EYE / 1.6;   // a metre in tiles: FPS_EYE is 1.6 m
-// GLASS 2's near plane on foot (makeCam nearMax). The fixed 0.06 tiles is 1.07 m, which cut away anybody you walked up
-// to. 0.3 m is about NEAR_MIN (gl/camera.js), the plane a camera flat on the road already ships with.
-const FOOT_NEAR = 0.3 * METRE;
+// METRE and GLASS 2's near plane on foot, FOOT_NEAR (makeCam nearMax), are in foot-tune.js. The fixed 0.06 tiles is
+// 1.07 m, which cut away anybody you walked up to. 0.3 m is about NEAR_MIN (gl/camera.js), the plane a camera flat on
+// the road already ships with.
 const FOOT_CLIMB = 1.8 * METRE;   // the highest park furniture you climb onto; anything taller (a lamp, a crown) you pass under
 const FOOT_BODY = 0.016, FOOT_STEP = 0.011, DOOR_NEAR = 2.6 * METRE, DOOR_SLIDE_NEAR = 6 * METRE, DOOR_HOLD_MS = 1400, DOOR_OPEN_S = 0.55, DOOR_SHUT_S = 0.9;
 // a hinged glass pair (`swing`) swings in more slowly and lets you through only once it's all the way in, so the
@@ -1746,7 +1819,8 @@ function owCardTick(s, now) {
   // held by a click until you walk off from where you clicked
   if (I.held && Math.hypot(s.gx + v.x - I.held.at[0], s.gy + v.y - I.held.at[1]) > m2tf(OW_HOLD_M)) I.held = null;
   // in a lift car: its panel, a button for every floor it stops at, each the elevator's typed `floor <n>`
-  if (r.L.spec?.car && I.lift?.floors?.length) {
+  // (the hologram, when it's up, is the panel: owLiftTick; the card's buttons only stand in while it loads)
+  if (r.L.spec?.car && I.lift?.floors?.length && !s.owLift?.ui.on) {
     c.show({ id: 'lift:' + r.zone, name: I.lift.brand || 'Lift' }, [], { acts: I.lift.floors.map((f) => ({ verb: 'floor', label: f.n === I.lift.at ? `${f.label || 'Floor ' + f.n} (here)` : f.label || 'Floor ' + f.n, cmd: `floor ${f.n}` })) });
     return;
   }
@@ -2241,6 +2315,35 @@ function owTalkTick(s, now) {
   // back at your own eyes: the shot's over
   if (!q && Math.hypot(c.x - goal.x, c.y - goal.y) < 1e-4 && Math.abs(wrap(c.yaw - goal.yaw)) < 0.2) { I.talkCur = null; I.talkFrom = null; I.talkCam = null; I.talkT = 0; }
 }
+// A LOCKED SHOT (cine-cam.js): a room naming one (`flags.room.cine`) plays it the first time you're drawn in it on
+// this page. While it runs the camera is the shot's: aimed each frame as a conversation aims it (owTalkTick), stood
+// back from you when the shot says so (cineViewNow), your walking held (footBlock) and your body drawn in the shot's
+// clip (fpSelf). Escape ends it, as it skips the void's arrival (gl/room-void.js). `s.cineNow` is the pose this frame.
+const cineSeen = new Set();
+if (typeof window !== 'undefined') window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && st?.cine) st.cine.over = true; });
+function owCineTick(s, now) {
+  const I = s.inside, r = I?.room, name = r?.L?.spec?.cine;
+  if (!s.cine && name && CINE_SHOTS[name] && !cineSeen.has(r.key)) {
+    const v = s.freeCam.view();
+    if (!v) return;
+    cineSeen.add(r.key);
+    s.cine = { keys: CINE_SHOTS[name], t0: now, yaw0: v.yaw, pitch0: v.pitch, room: r.key };
+  }
+  const C = s.cine;
+  if (!C) { s.cineNow = null; return; }
+  const pose = !C.over && I?.room?.key === C.room ? cinePose(C.keys, (now - C.t0) / 1000, { pitch: C.pitch0 * 180 / Math.PI }) : null;
+  if (!pose) { s.cine = null; s.cineNow = null; s.freeCam.aimAt(C.yaw0, C.pitch0); return; }
+  s.cineNow = pose;
+  s.freeCam.aimAt(C.yaw0 + pose.yaw, pose.pitch * Math.PI / 180);   // (yaw in degrees, pitch in radians, as owTalkTick)
+}
+// the shot's camera stood back from you: behind where it's aimed by `back` metres and `up` above your eyes, looking
+// along its own aim, so it's looking at you
+function cineViewNow(s) {
+  const v = s.freeCam.view(), P = s.cineNow;
+  if (!v || !P) return null;
+  const Y = v.yaw * Math.PI / 180, b = m2tf(P.back);
+  return { ...v, x: v.x - Math.sin(Y) * b, y: v.y + Math.cos(Y) * b, z: v.z + m2tf(P.up) };
+}
 // A FLAT'S CONTROL PANEL ON ITS GLASS (phase B): room-envctl.js's own page, bent onto the panel's four corners each
 // frame as on the Stage, the corners put on the picture by the matrix GLASS drew the room with (gl/world.js
 // glInteriorProject). It's made while you're in a room with a panel and let go when you leave; the card's `panel` still
@@ -2344,6 +2447,36 @@ function owLockTick(s, now) {
   if (!at) return;
   const eye = r.L.world(at[0], at[1], (v.z - r.M[14]) / (Math.hypot(r.M[4], r.M[5], r.M[6]) || 1));
   (s.owLate ||= []).push(() => K.ui.draw(K.host.clientWidth, K.host.clientHeight, eye, at, []));   // after the frame (owLate)
+}
+// A LIFT CAR'S PANEL: room-lift.js's own hologram, as on the Stage, its page bent onto the car's right-hand wall by the
+// matrix GLASS drew the car with. A button is the elevator's typed `floor <n>`; the ride itself is the server's, and
+// the room_view at the new floor takes the car's copy there (liftCopy, owRide).
+let liftMod = null;
+function owLiftStop(s) {
+  const K = s.owLift;
+  if (!K) return;
+  K.ui.stop(); K.host.remove();
+  s.owLift = null;
+}
+function owLiftTick(s) {
+  const I = s.inside, r = I?.room;
+  if (!r || !r.L.spec?.car || !I.lift?.floors?.length) { owLiftStop(s); return; }
+  if (!liftMod) { liftMod = Promise.all([import('./room-lift.js'), import('./gl/world.js')]).then(([m, w]) => { liftMod = { m, w }; }).catch(() => { liftMod = null; }); return; }
+  if (liftMod instanceof Promise) return;
+  const wrap = s.root.querySelector('.ws-wrap');
+  if (!wrap) return;
+  if (!s.owLift) {
+    const host = document.createElement('div');
+    host.style.cssText = 'position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:3';
+    wrap.appendChild(host);
+    const K = { host, room: null, fed: null };
+    K.ui = liftMod.m.createRoomLift({ host, press: (n) => s.foot.onMove(`floor ${n}`),
+      project: (p, w, h) => { const rr = s.inside?.room; if (!rr) return null; const q = roomPt(rr.M, p), at = liftMod.w.glInteriorProject(s.id, q[0] + rr.gx - s.gx, q[1] + rr.gy - s.gy, q[2]); return at && at.f > 0 ? { x: at.x * w, y: at.y * h } : null; } });
+    s.owLift = K;
+  }
+  const K = s.owLift;
+  if (K.room !== r || K.fed !== I.lift) { K.room = r; K.fed = I.lift; K.ui.load(r.L, { ...r.L.spec, lift: I.lift }); }
+  (s.owLate ||= []).push(() => K.ui.draw(K.host.clientWidth, K.host.clientHeight, I.lift.at, null));   // after the frame (owLate)
 }
 // A VENDING MACHINE (phase B): room-vendor.js's own, as on the Stage. The room's baked mesh leaves the machine out
 // (gl/room-stadium.js) because it moves: here it's written into a batch hung on the room ('vendExtra', drawn by
@@ -2452,7 +2585,7 @@ function owVatTick(s, now) {
   const S = { L: r.L, mesh: { vats: vs, gantries: r.gantriesNow() }, walk: { at } };
   for (let i = owVatCues.length - 1; i >= 0; i--) {
     const q = owVatCues[i];
-    if (Date.now() - q.at > 8000) { owVatCues.splice(i, 1); continue; }
+    if (Date.now() - q.at > 20000) { owVatCues.splice(i, 1); continue; }
     if (q.msg.zone === I.zone) { owVatCues.splice(i, 1); V.cycle.arrive(q.msg, I.you); }
   }
   const vc = V.cycle.frame(now, S), t = now / 1000;
@@ -2920,7 +3053,9 @@ if (typeof window !== 'undefined') {
 // which plays it in the room it's for when you're in it, or once you walk in within a few seconds.
 export function freelookVat(msg) {
   const I = st?.inside;
-  if (!I) return false;
+  // ⚠ NOT IN THE ROOM YET IS NOT "NOT FOR US". A respawn's cue comes right behind its room_view, before GLASS has taken
+  // the room; dropping it here left you stood at the street door. Kept for whichever of GLASS and the Stage opens it.
+  if (!I) { if (st?.foot) owVatCues.push({ msg, at: Date.now() }); return false; }
   if (msg.zone === I.zone && st.owVat?.room === I.room) st.owVat.cycle.arrive(msg, I.you);
   else owVatCues.push({ msg, at: Date.now() });
   return true;
@@ -3140,7 +3275,7 @@ export function freelookTakeRoom(msg, prev = undefined) {
   // the window has no map for. The Stage keeps it, and the window comes round when you're next on the street.
   const R = s.map ? (s.map.length - 1) / 2 : 0;
   const inWindow = !!room && R > OW_WINDOW_MARGIN && Math.abs(room.gx - s.gx) <= R - OW_WINDOW_MARGIN && Math.abs(room.gy - s.gy) <= R - OW_WINDOW_MARGIN;
-  if (!room || !inWindow || !oneWorldRoom(s, room, fromLift)) { if (s.inside) s.inside = null; owStudioStop(s); owRinkStop(s); if (s.owSound) { s.owSound.stop(); s.owSound = null; } if (s.owTv) { s.owTv.stop(); s.owTv = null; } if (s.owEnv) { s.owEnv.ui.stop(); s.owEnv.host.remove(); s.owEnv = null; } owLockStop(s); owCatStop(s); if (s.owHoist) { s.owHoist.ui.dispose(); if (s.owHoist.room) s.owHoist.room.extra = null; s.owHoist = null; } return false; }
+  if (!room || !inWindow || !oneWorldRoom(s, room, fromLift)) { if (s.inside) s.inside = null; owStudioStop(s); owRinkStop(s); if (s.owSound) { s.owSound.stop(); s.owSound = null; } if (s.owTv) { s.owTv.stop(); s.owTv = null; } if (s.owEnv) { s.owEnv.ui.stop(); s.owEnv.host.remove(); s.owEnv = null; } owLockStop(s); owLiftStop(s); owCatStop(s); if (s.owHoist) { s.owHoist.ui.dispose(); if (s.owHoist.room) s.owHoist.room.extra = null; s.owHoist = null; } return false; }
   if (s.warm) {
     const mount = document.getElementById('area-content');
     if (!mount) return false;
@@ -3190,6 +3325,7 @@ function footBlock(s, x0, y0, x1, y1) {
   const f = s.foot;
   if (!f || !s.map) return null;
   if (s.inside?.sat) return [x0, y0];   // on a seat (owSit): a step gets you up (footKey), it doesn't slide the seat
+  if (s.cine) return [x0, y0];   // a locked shot (owCineTick): you stand where it found you till it's over
   if (s.inside?.talkCam) return [x0, y0];   // in a conversation the camera's on their face (owTalkTick), not walking
   if (s.inside) return insideBlock(s, x0, y0, x1, y1);
   const z = s.freeCam.view()?.z ?? FPS_EYE, a0x = s.gx + x0, a0y = s.gy + y0;

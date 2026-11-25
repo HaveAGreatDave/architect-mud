@@ -8,7 +8,7 @@
 // MESH_SINK); the preview below never runs under a capture, so it calls the bake directly.
 
 import { TAG_GLYPHS } from '../../../shared/tag-glyphs.js';
-import { TAG_STROKES, TAG_FACES } from '../../../shared/tag-strokes.js';
+import { TAG_STROKES, TAG_FACES, TAG_FINISHES } from '../../../shared/tag-strokes.js';
 
 // windshield.js's own one-liners, copied rather than imported, which is what keeps this a leaf.
 const clamp = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
@@ -65,6 +65,13 @@ const TAG_FACE_FILES = [
   ['Operation Napalm', 'operation-napalm.woff2'],
   ['Allerta Stencil', 'allerta-stencil.woff2'],
   ['Bowlby One SC', 'bowlby-one-sc.woff2'],
+  // the throw-up's font letterforms (TAG_FACE_SPEC `font`)
+  ['Graffiti Treat', 'graffiti-treat-front.otf'],
+  ['Degrassi', 'degrassi-front.otf'],
+  ['Rubik Spray Paint', 'rubik-spray-paint.woff2'],
+  ['Rubik Wet Paint', 'rubik-wet-paint.woff2'],
+  ['Knewave', 'knewave.woff2'],
+  ['Lacquer', 'lacquer.woff2'],
 ];
 const _tagFacesIn = new Set();
 let _tagFacesLoad = null;
@@ -809,7 +816,20 @@ const TAG_FACE_SPEC = {
   round: { sw: 0.32, xs: 1.1, smooth: 3, clip: 0, cap: 'round', shear: 0.05, rot: 0.09, bob: 0.07 },
   block: { sw: 0.29, xs: 1.06, smooth: 0, clip: 1.5, cap: 'square', shear: 0, rot: 0.035, bob: 0.03 },
   sharp: { sw: 0.25, xs: 0.94, smooth: 0, clip: 2.8, cap: 'butt', shear: 0.24, chisel: 1, rot: 0.05, bob: 0.04 },
+  // Font letterforms: the letter is the face's own, set at `size` cells and stretched `fat` wide,
+  // then inflated, rimmed and dripped by the same passes as everything else (the font path a
+  // character with no sheet letter already took).
+  treat: { font: 'Graffiti Treat', size: 0.86, fat: 1.08, rot: 0.06, bob: 0.06 },
+  degrassi: { font: 'Degrassi', size: 1.25, fat: 0.8, rot: 0.05, bob: 0.04 },
+  spray: { font: 'Rubik Spray Paint', size: 0.8, fat: 1.06, rot: 0.06, bob: 0.05 },
+  drip: { font: 'Rubik Wet Paint', size: 0.8, fat: 1.06, rot: 0.05, bob: 0.04 },
+  brush: { font: 'Knewave', size: 0.82, fat: 1.08, rot: 0.07, bob: 0.06 },
+  lacquer: { font: 'Lacquer', size: 0.86, fat: 1.1, rot: 0.08, bob: 0.07 },
 };
+// A font letterform's face, or the system stack the throw-up has always used.
+const faceFont = (spec, C) => (spec && spec.font
+  ? `${Math.round(C * (spec.size || 0.78))}px "${spec.font}","Arial Rounded MT Bold","Segoe UI Black","Arial Black",Impact,sans-serif`
+  : TAG_FONT(C));
 
 // Corner cutting: every pass replaces each corner with two points a quarter of the way along its
 // sides. Three passes turn a chamfered O into an oval and a Z into a ribbon. The ends of an open
@@ -1122,7 +1142,8 @@ export function tagLayout(body, lines, face, variant, CELL) {
   const spec = TAG_FACE_SPEC[face] || TAG_FACE_SPEC.bubble;
   const FACE_USED = TAG_FACE_SPEC[face] ? face : 'bubble';
   const probe = texCanvas(8, 8).getContext('2d');
-  probe.font = TAG_FONT(CELL);
+  probe.font = faceFont(spec, CELL);
+  probe.textBaseline = 'middle';        // as the bake draws them, so the ink box is measured from the line's middle
   const R = (salt) => dRand(variant + body.length, 900 + salt);
   const BAND = 2, SPAN = CELL * 1.4, NB = Math.ceil((SPAN * 2) / BAND);
   const glyphs = [];
@@ -1134,18 +1155,27 @@ export function tagLayout(body, lines, face, variant, CELL) {
       const ch = ln[ci];
       if (ch === ' ') { spaces++; continue; }
       const glyph = FACE_USED === 'bubble' ? tagGlyph(ch, CELL) : null;
-      const sk = glyph ? null : tagStrokeGlyph(ch, FACE_USED === 'bubble' ? 'round' : FACE_USED, CELL);
-      const uw = glyph || sk ? 0 : (probe.measureText(ch).width || CELL * 0.5);
-      const fat = (glyph || sk ? 1 : FAT) * (0.96 + R(li * 17 + ci * 7) * 0.08);
+      const sk = glyph || spec.font ? null : tagStrokeGlyph(ch, FACE_USED === 'bubble' ? 'round' : FACE_USED, CELL);
+      // A font letterform is spaced and centred on its INK, not its advance: a display face like
+      // Degrassi carries wide side bearings, and spacing by the advance strung its letters out.
+      // `ox` is where fillText starts so the ink sits centred on the origin.
+      const mt = glyph || sk ? null : probe.measureText(ch);
+      const inkW = mt && spec.font ? (mt.actualBoundingBoxLeft || 0) + (mt.actualBoundingBoxRight || 0) : 0;
+      const uw = glyph || sk ? 0 : inkW > 0 ? inkW : (mt.width || CELL * 0.5);
+      const ox = inkW > 0 ? ((mt.actualBoundingBoxLeft || 0) - (mt.actualBoundingBoxRight || 0)) * 0.5 : -uw * 0.5;
+      const fat = (glyph || sk ? 1 : spec.font ? (spec.fat || 1) : FAT) * (0.96 + R(li * 17 + ci * 7) * 0.08);
       const rot = (R(li * 31 + ci * 3) - 0.5) * 2 * spec.rot;
       const bob = (R(li * 37 + ci * 5) - 0.5) * 2 * spec.bob * CELL;
       let src;
       if (glyph) src = tagPathSegs(TAG_GLYPHS[ch.toUpperCase()].d, CELL * TAG_GLYPH_H);
       else if (sk) src = tagStrokeSegs(sk);
       else {
-        // A font letter is a box a little over cap height, grown by its puff.
-        const hx = uw * 0.5 + PUFF, hy = CELL * 0.30 + PUFF;
-        src = [[-hx, -hy, hx, -hy], [hx, -hy, hx, hy], [hx, hy, -hx, hy], [-hx, hy, -hx, -hy]];
+        // A font letter is a box a little over cap height, grown by its puff; a font letterform's
+        // is its own measured ink, so a bigger or taller face takes the room it needs.
+        const hx = uw * 0.5 + PUFF;
+        const top = spec.font && mt.actualBoundingBoxAscent ? -mt.actualBoundingBoxAscent - PUFF : -(CELL * 0.30 + PUFF);
+        const bot = spec.font && mt.actualBoundingBoxDescent ? mt.actualBoundingBoxDescent + PUFF : CELL * 0.30 + PUFF;
+        src = [[-hx, top, hx, top], [hx, top, hx, bot], [hx, bot, -hx, bot], [-hx, bot, -hx, top]];
       }
       const cr = Math.cos(rot), sr = Math.sin(rot);
       const T = (x, y) => [x * fat * cr - y * sr, x * fat * sr + y * cr + bob];
@@ -1155,7 +1185,7 @@ export function tagLayout(body, lines, face, variant, CELL) {
       for (let r = 0; r < NB; r++) if (bands.hi[r] >= bands.lo[r]) { lo = Math.min(lo, bands.lo[r]); hi = Math.max(hi, bands.hi[r]); }
       if (!(hi > lo)) continue;
       const grown = tagGrow(bands, GAP * 0.5, BAND);
-      const q = { ch, li, ci, glyph, sk, uw, fat, rot, bob, segs, bands, grown, lo, hi, spaces, w: hi - lo };
+      const q = { ch, li, ci, glyph, sk, uw, ox, fat, rot, bob, segs, bands, grown, lo, hi, spaces, w: hi - lo };
       spaces = 0;
       glyphs.push(q);
       lineGlyphs[li].push(q);
@@ -1233,7 +1263,87 @@ export function tagLayout(body, lines, face, variant, CELL) {
   return { glyphs, lineGlyphs, lineY, minX, maxX, minY, maxY, band: BAND, span: SPAN };
 }
 
-export function bakeTagText(text, runs, colour, dn, variant = 0, marks = 3, hand = 'throw', face = null, cache = true) {
+// ── THE SPECIAL FINISHES ─────────────────────────────────────────────────────────────────────────
+//
+// Each is a picture painted into a mask of the letters (their fill, inflated as the bake inflates
+// it) and composited over the paint. Chrome and gold are banded metal, light at the top of every
+// line of letters and dark under it with a bright return, the way a mirror finish reads; holo is a
+// diagonal rainbow over the colours with a glitter of white; neon brightens the letters toward a
+// white core and blooms them in their own colour; glow-in-the-dark is a pale mint by day and, at
+// night (`dn`), a luminous one with its halo. Nothing here reads the clock: `dn` is the bake's.
+function tagFinish(g, W, H, glyphs, puffOf, CELL, finish, dn) {
+  const m = texCanvas(W, H), k = m.getContext('2d');
+  k.font = g.font; k.textAlign = 'left'; k.textBaseline = 'middle'; k.lineJoin = 'round'; k.lineCap = 'round';
+  const put = (ctx, q) => { ctx.save(); ctx.translate(q.x, q.y); ctx.rotate(q.rot); ctx.scale(q.fat, 1);
+    const ox = q.ox ?? -q.uw * 0.5; ctx.lineWidth = puffOf(q) * 2; tagGlyphOp(ctx, q, ox, 'stroke'); tagGlyphOp(ctx, q, ox, 'fill'); ctx.restore(); };
+  k.fillStyle = k.strokeStyle = '#ffffff';
+  for (const q of glyphs) put(k, q);
+  const mask = () => { const c = texCanvas(W, H), x = c.getContext('2d'); x.drawImage(m, 0, 0); x.globalCompositeOperation = 'source-in'; return [c, x]; };
+  const lineTops = [...new Set(glyphs.map((q) => Math.round(q.my)))];
+  const metal = (stops) => {
+    const [c, x] = mask();
+    for (const y of lineTops) {
+      const gr = x.createLinearGradient(0, y - CELL * 0.55, 0, y + CELL * 0.5);
+      stops.forEach(([t, col]) => gr.addColorStop(t, col));
+      x.fillStyle = gr; x.fillRect(0, y - CELL * 0.8, W, CELL * 1.6);
+    }
+    return c;
+  };
+  if (finish === 'chrome' || finish === 'gold') {
+    const c = finish === 'chrome'
+      ? metal([[0, '#ffffff'], [0.3, '#d6dde6'], [0.48, '#6b7480'], [0.52, '#2b3038'], [0.7, '#8c96a3'], [0.86, '#f2f6fa'], [1, '#9aa3ae']])
+      : metal([[0, '#fffbe0'], [0.28, '#ffd75a'], [0.48, '#b07a10'], [0.53, '#5e3a00'], [0.72, '#c9921e'], [0.88, '#ffe9a0'], [1, '#a87410']]);
+    g.save(); g.globalAlpha = 0.92; g.drawImage(c, 0, 0); g.restore();
+    // a sharp streak of light across the upper band
+    const [s, x] = mask();
+    const gr = x.createLinearGradient(0, 0, W, H);
+    for (let i = 0; i < 6; i++) { const t = i / 6; gr.addColorStop(Math.max(0, t), 'rgba(255,255,255,0)'); gr.addColorStop(Math.min(1, t + 0.04), 'rgba(255,255,255,0.75)'); gr.addColorStop(Math.min(1, t + 0.08), 'rgba(255,255,255,0)'); }
+    x.fillStyle = gr; x.fillRect(0, 0, W, H);
+    g.save(); g.globalCompositeOperation = 'screen'; g.globalAlpha = 0.55; g.drawImage(s, 0, 0); g.restore();
+  } else if (finish === 'holo') {
+    const [c, x] = mask();
+    const gr = x.createLinearGradient(0, 0, W, H * 2.2);
+    ['#ff3b8d', '#ffb13b', '#f7ff5c', '#4dff9a', '#3bd8ff', '#7a5cff', '#ff3bd5', '#ff3b8d'].forEach((col, i, a) => gr.addColorStop(i / (a.length - 1), col));
+    x.fillStyle = gr; x.fillRect(0, 0, W, H);
+    g.save(); g.globalCompositeOperation = 'hard-light'; g.globalAlpha = 0.85; g.drawImage(c, 0, 0); g.restore();
+    // glitter: fixed specks, the same every bake of this piece
+    const [s, y] = mask();
+    y.fillStyle = '#ffffff';
+    let seed = (W * 73856093) ^ (H * 19349663);
+    const rnd = () => ((seed = (seed * 1103515245 + 12345) >>> 0) / 4294967296);
+    for (let i = 0; i < (W * H) / 900; i++) { const r = 0.6 + rnd() * 1.6; y.globalAlpha = 0.4 + rnd() * 0.6; y.fillRect(rnd() * W, rnd() * H, r, r); }
+    g.save(); g.globalCompositeOperation = 'screen'; g.drawImage(s, 0, 0); g.restore();
+  } else if (finish === 'neon') {
+    // the letters' own paint, pushed to full saturation and lifted…
+    const [c, x] = mask();
+    x.filter = 'saturate(2.6) brightness(1.3) contrast(1.15)';
+    x.drawImage(g.canvas, 0, 0); x.filter = 'none';
+    g.save(); g.drawImage(c, 0, 0); g.restore();
+    // …bloomed in that colour round every letter, harder after dark…
+    const halo = texCanvas(W, H), hx = halo.getContext('2d');
+    hx.filter = `blur(${Math.round(CELL * 0.2)}px)`; hx.drawImage(c, 0, 0); hx.filter = 'none';
+    g.save(); g.globalCompositeOperation = 'lighter'; g.globalAlpha = dn ? 1 : 0.6; g.drawImage(halo, 0, 0); if (dn) g.drawImage(halo, 0, 0); g.restore();
+    // …and a thin white-hot core along the middle of each line
+    const [k2, y2] = mask();
+    for (const y of lineTops) {
+      const gr = y2.createLinearGradient(0, y - CELL * 0.22, 0, y + CELL * 0.22);
+      gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(0.5, 'rgba(255,255,255,0.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+      y2.fillStyle = gr; y2.fillRect(0, y - CELL * 0.3, W, CELL * 0.6);
+    }
+    g.save(); g.globalCompositeOperation = 'screen'; g.drawImage(k2, 0, 0); g.restore();
+  } else if (finish === 'glow') {
+    const [c, x] = mask();
+    x.fillStyle = dn ? '#b6ffcf' : '#dff5e4'; x.fillRect(0, 0, W, H);
+    g.save(); g.globalAlpha = dn ? 0.95 : 0.6; g.drawImage(c, 0, 0); g.restore();
+    if (dn) {
+      const halo = texCanvas(W, H), hx = halo.getContext('2d');
+      hx.filter = `blur(${Math.round(CELL * 0.3)}px)`; hx.drawImage(c, 0, 0); hx.filter = 'none';
+      g.save(); g.globalCompositeOperation = 'lighter'; g.globalAlpha = 0.9; g.drawImage(halo, 0, 0); g.drawImage(halo, 0, 0); g.restore();
+    }
+  }
+}
+
+export function bakeTagText(text, runs, colour, dn, variant = 0, marks = 3, hand = 'throw', face = null, cache = true, finish = null) {
   const body = String(text || '').trim();
   if (!body) return null;
   loadTagFaces();
@@ -1248,7 +1358,8 @@ export function bakeTagText(text, runs, colour, dn, variant = 0, marks = 3, hand
   const FACE = TAG_FACES.includes(face) ? face : null;
   const HAND = (hasRuns || FACE || !TAG_HANDS.includes(hand)) ? 'throw' : hand;
   const FACE_USED = FACE || tagFaceFor(variant);
-  const key = `${body}|${colour}|${dn}|${variant}|${nMarks}|${HAND}|${HAND === 'throw' ? FACE_USED : ''}|${runKey}`;
+  const FINISH = HAND === 'throw' && TAG_FINISHES.includes(finish) ? finish : null;
+  const key = `${body}|${colour}|${dn}|${variant}|${nMarks}|${HAND}|${HAND === 'throw' ? FACE_USED : ''}|${runKey}|${FINISH || ''}`;
   const hit = cache ? _tagTexCache.get(key) : null;
   if (hit) { _tagTexCache.delete(key); _tagTexCache.set(key, hit); return hit; }   // LRU touch
   // ⚠ CACHED HERE RATHER THAN IN THERE, so there is one table, one cap and one key for every piece
@@ -1311,7 +1422,7 @@ export function bakeTagText(text, runs, colour, dn, variant = 0, marks = 3, hand
   const H = Math.ceil(maxY - minY) + PAD_T + PAD_B;
   const c = texCanvas(W, H);
   const g = c.getContext('2d');
-  g.font = TAG_FONT(CELL);
+  g.font = faceFont(TAG_FACE_SPEC[FACE_USED], CELL);
   g.textAlign = 'left';
   g.textBaseline = 'middle';
   g.lineJoin = 'round';
@@ -1324,7 +1435,7 @@ export function bakeTagText(text, runs, colour, dn, variant = 0, marks = 3, hand
   // ⚠ CENTRED ON THE UNSCALED WIDTH, INSIDE THE SCALE. `fillText` draws the face's own glyph and
   // the transform stretches it, so an origin taken from the STRETCHED width shifts every letter
   // left by half its own stretch — which reads as the whole word drifting off its cloud.
-  const at = (q, fn) => { g.save(); g.translate(q.x, q.y); g.rotate(q.rot); g.scale(q.fat, 1); fn(-q.uw * 0.5); g.restore(); };
+  const at = (q, fn) => { g.save(); g.translate(q.x, q.y); g.rotate(q.rot); g.scale(q.fat, 1); fn(q.ox ?? -q.uw * 0.5); g.restore(); };
 
   // 1. THE CLOUD. One pass, so the overlaps merge into a single field instead of stacking alpha
   //    into a darker patch behind every letter. Loose and half-transparent: this is the paint that
@@ -1364,7 +1475,9 @@ export function bakeTagText(text, runs, colour, dn, variant = 0, marks = 3, hand
 
   // A traced or stroked letter was drawn fat and keeps its own counters; inflating it again fills
   // them in. Only a font fallback gets the full puff.
-  const puffOf = (q) => (q.glyph || q.sk ? PUFF * 0.15 : PUFF);
+  // A font letterform is a drawn face with its own counters too, so it takes only its spec's `puff`.
+  const FSPEC = TAG_FACE_SPEC[FACE_USED];
+  const puffOf = (q) => (q.glyph || q.sk ? PUFF * 0.15 : FSPEC && FSPEC.font ? PUFF * (FSPEC.puff ?? 0.2) : PUFF);
   // 3. The cloud's crisp rim goes round the whole word at once, so it never cuts a letter.
   for (const q of glyphs) at(q, (ox) => { g.strokeStyle = P.halo; g.lineWidth = q.glyph || q.sk ? RIM - OUT : RIM + puffOf(q) * 2; tagGlyphOp(g, q, ox, 'stroke', 'line'); });
 
@@ -1451,7 +1564,7 @@ export function bakeTagText(text, runs, colour, dn, variant = 0, marks = 3, hand
     const sh = texCanvas(W, H), s = sh.getContext('2d');
     s.font = g.font; s.textAlign = 'left'; s.textBaseline = 'middle'; s.lineJoin = 'round'; s.lineCap = 'round';
     const put = (q, dx, dy) => { s.save(); s.translate(q.x + dx, q.y + dy); s.rotate(q.rot); s.scale(q.fat, 1);
-      const ox = -q.uw * 0.5; s.lineWidth = puffOf(q) * 2; tagGlyphOp(s, q, ox, 'stroke'); tagGlyphOp(s, q, ox, 'fill'); s.restore(); };
+      const ox = q.ox ?? -q.uw * 0.5; s.lineWidth = puffOf(q) * 2; tagGlyphOp(s, q, ox, 'stroke'); tagGlyphOp(s, q, ox, 'fill'); s.restore(); };
     for (const q of unshaded) { s.fillStyle = s.strokeStyle = shadeOf(q); put(q, 0, 0); }
     s.globalCompositeOperation = 'destination-out';
     s.fillStyle = s.strokeStyle = '#000000';
@@ -1465,13 +1578,17 @@ export function bakeTagText(text, runs, colour, dn, variant = 0, marks = 3, hand
     const hl = texCanvas(W, H), h = hl.getContext('2d');
     h.font = g.font; h.textAlign = 'left'; h.textBaseline = 'middle'; h.lineJoin = 'round'; h.lineCap = 'round';
     const hat = (q, dx, dy) => { h.save(); h.translate(q.x + dx, q.y + dy); h.rotate(q.rot); h.scale(q.fat, 1);
-      const ox = -q.uw * 0.5; h.lineWidth = puffOf(q) * 1.2; tagGlyphOp(h, q, ox, 'stroke'); tagGlyphOp(h, q, ox, 'fill'); h.restore(); };
+      const ox = q.ox ?? -q.uw * 0.5; h.lineWidth = puffOf(q) * 1.2; tagGlyphOp(h, q, ox, 'stroke'); tagGlyphOp(h, q, ox, 'fill'); h.restore(); };
     h.fillStyle = h.strokeStyle = '#ffffff';
     for (const q of glyphs) hat(q, 0, 0);
     h.globalCompositeOperation = 'destination-out';
     for (const q of glyphs) hat(q, CELL * 0.045, CELL * 0.06);
     g.save(); g.globalAlpha = 0.7; g.drawImage(hl, 0, 0); g.restore();
   }
+
+  // 5b. THE FINISH, if the can had one (TAG_FINISHES): drawn into the letters' own shape and laid
+  //     over the fill, so the keyline, the block and the cloud stay the piece's.
+  if (FINISH) tagFinish(g, W, H, glyphs, puffOf, CELL, FINISH, dn);
 
   // 6. THE SCRAWLS. Placed OUTSIDE the piece's own line boxes, at the four corners of the canvas in
   //    a fixed order — a scrawl over the middle of a throw-up is a thing that happens on a real wall
@@ -1514,6 +1631,14 @@ export function bakeTagText(text, runs, colour, dn, variant = 0, marks = 3, hand
 export const tagHandList = () => TAG_HANDS.slice();
 export const tagFaceList = () => TAG_FACES.slice();
 export const tagWordList = () => TAG_WORDS.slice();
+// The self-hosted font a font letterform is set in, or null for a drawn or stroked face, so
+// tagspace can hold every face to a real hand rather than the system stack.
+export const tagFaceFontOf = (face) => {
+  const F = TAG_FACE_SPEC[face];
+  if (!F || !F.font) return null;
+  const row = TAG_FACE_FILES.find((r) => r[0] === F.font);
+  return { family: F.font, file: row ? row[1] : null };
+};
 // A throw-up's layout without the bake, for `scripts/shapes/tagspace.mjs`: every letter's outline
 // where the bake puts it, plus the spacing it was set to. Needs no canvas beyond a measureText.
 export const tagLayoutOf = (text, face, variant = 0) => {
@@ -1527,5 +1652,6 @@ export const tagLayoutOf = (text, face, variant = 0) => {
 // ⚠ ONLY THE LETTERS ARE THE WALL'S. The colour scheme and the wobble are rolled off the street tile
 // the tag is keyed on, which the dialog does not know, so an unpainted tag can come out silver or
 // bone on the wall where this shows it in the can's own green.
-export const tagPreview = (text, runs, face = null, colour = '#b8f03a') =>
-  bakeTagText(text, runs, colour, 0, 0, 0, 'throw', face || 'bubble', false);
+export const tagPreview = (text, runs, face = null, colour = '#b8f03a', finish = null, dn = 0) =>
+  bakeTagText(text, runs, colour, dn, 0, 0, 'throw', face || 'bubble', false, finish);
+export const tagFinishList = () => TAG_FINISHES.slice();

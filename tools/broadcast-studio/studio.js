@@ -131,7 +131,7 @@ function ensurePlayer() {
   if (player) return player;
   player = createSequencePlayer($('monitor'), {
     mode: 'clock', speak,
-    onBeat: (it) => { paintNow(it.i); },
+    onBeat: (it) => { paintNow(it.bi ?? it.i); },
     onEnd: () => { $('play').textContent = '▶'; },
   });
   if (!player) { status('WebGL2 is needed for the preview', 'bad'); return null; }

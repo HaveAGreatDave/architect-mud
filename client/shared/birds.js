@@ -76,7 +76,7 @@ export function flocksNear(wcx, wcy, R, density = 1, isHabitat = null) {
 // `parkland` are one surface; see TERRAIN_BIOME in plugins/flight/biomes.js).
 // ⚠ No `marsh`: it maps to the `badlands` biome, so geese would land on every dry flat.
 export const GOOSE_HABITAT = {
-  grass: 'walk', parkland: 'walk', park: 'walk',
+  grass: 'walk', parkland: 'walk', park: 'walk', marsh: 'walk',
   water: 'raft',
 };
 export const gooseHabitat = (ground) => GOOSE_HABITAT[ground] || null;
@@ -851,7 +851,7 @@ export function flockOnSegment(ax, ay, bx, by, now, isHabitat, radius = STRIKE_R
 // (Ballerini's 1 : 2.8 : 5.6) at MURMUR_M3_PER_BIRD, and the count is the expected birds swept.
 
 // Masses for a strike's energy (½mv²), in kg.
-export const BIRD_MASS_KG = { goose: 4.0, gull: 1.0, pigeon: 0.35, songbird: 0.08, hawk: 1.0, peregrine: 0.9, vulture: 1.9 };
+export const BIRD_MASS_KG = { goose: 4.0, gull: 1.0, pigeon: 0.35, songbird: 0.08, hawk: 1.0, peregrine: 0.9, vulture: 1.9, heron: 1.5, duck: 1.1 };
 // Space per bird in a murmuration, the median of Ballerini et al. 2008.
 export const MURMUR_M3_PER_BIRD = 2.47;
 // The highest any flock flies, in tiles. ⚠ A function because SPECIES is declared further down.
@@ -1094,7 +1094,7 @@ export const SPECIES = {
     // a jump launch, no run (the GPU flock's own take-off pose)
     takeoff: { run: 0, beat: 1.5, hop: 0 },
     habitat: {
-      grass: 'walk', parkland: 'walk', park: 'walk', forest: 'walk',
+      grass: 'walk', parkland: 'walk', park: 'walk', forest: 'walk', marsh: 'walk',
       citycore: 'walk', concrete: 'walk', uptown: 'walk', civic: 'walk',
     },
     dense: 0.06, sparse: 0.014, areaBias: 0.4,
@@ -1241,6 +1241,49 @@ export const SPECIES = {
     perch: { share: 0.3, high: true },
     // The wing is one tone on purpose: the silver trailing half is on the underside, which the
     // camera almost never sees, and the palette has one `wing` colour (see fauna3d.js).
+  },
+
+  // The grey heron: one bird, standing in the reeds most of the day, flying low and slow on bowed
+  // wings when something puts it up. Marsh only (the Meltwater's pond and backwaters), so it never
+  // takes a tile from the city's birds.
+  heron: {
+    id: 'heron',
+    // a crouch and two deep beats, no run
+    takeoff: { run: 0, beat: 1.2, hop: M(0.1) },
+    habitat: { marsh: 'walk' },
+    dense: 0.03, sparse: 0.012, areaBias: 0.5,
+    // One per stretch of bank: a heron holds its own reach of water.
+    territory: 5,
+    // Mostly standing; a flight is a low lap and back down (about 7 m/s, z under the trees).
+    period: 420000, uGround: 0.9, z: 0.7, r: M(30),
+    minFlock: 1, maxFlock: 1,
+    forms: ['loose'],
+    circuit: 1, turns: 2,
+    groundPitch: M(2),
+    groundSpread: M(1.2),
+    dayStart: 5, dayEnd: 21,
+    // A harsh croak when it lifts, and not much else.
+    callEvery: 300000, callBurst: [1, 2], callGap: 900,
+    drawRange: 12,
+  },
+
+  // The mallard: small parties on open water and in the reeds, dabbling. Water is shared with the
+  // goose and the gull by the tile hash, so a few bay tiles hold ducks now too; mallards do.
+  duck: {
+    id: 'duck',
+    // springs straight up off the water, no run
+    takeoff: { run: 0, beat: 1.6, hop: M(0.05) },
+    landing: { skid: 2 },
+    habitat: { water: 'raft', marsh: 'raft' },
+    dense: 0.06, sparse: 0.01, areaBias: 0.4,
+    // Fast and direct (about 18 m/s), round and back down.
+    period: 150000, uGround: 0.85, z: 0.9, r: M(40),
+    minFlock: 3, maxFlock: 9,
+    forms: ['loose'],
+    groundPitch: M(1.4),
+    dayStart: 5, dayEnd: 21,
+    callEvery: 70000, callBurst: [2, 5], callGap: 300,
+    drawRange: 6,
   },
 };
 

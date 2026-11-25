@@ -17,6 +17,7 @@ import { timeView, skipTime, setClock, setFrozen, setSpeed } from './time.js';
 import { espView, setEsp } from './esp.js';
 import * as unrest from './unrest.js';
 import { setVenueRoof, venueRoofView } from '../broadcast/index.js';
+import { renameNpc } from './rename.js';
 import './tablet-app.js';
 
 export const STAFF_ROLES = ['dev', 'admin', 'builder', 'designer'];
@@ -159,6 +160,7 @@ const USAGE = [
   'sysop time  |  sysop time skip &lt;4|8|12|24&gt;  |  sysop time set &lt;HH:MM&gt;',
   'sysop time freeze  |  sysop time unfreeze  |  sysop time speed &lt;1|2|3|6&gt;',
   'sysop esp  |  sysop esp on [message]  |  sysop esp off',
+  'sysop rename &lt;npc here&gt; to &lt;new name&gt;',
   'sysop roof  |  sysop roof open  |  sysop roof shut  |  sysop roof auto',
   'sysop unrest [block|here]  |  sysop unrest tick  |  sysop unrest calm &lt;block|here|all&gt;  |  sysop unrest stir &lt;block|here&gt;',
   'sysop unrest set &lt;block|here&gt; &lt;grip|heat|pressure&gt; &lt;0-100&gt;  |  sysop unrest stage &lt;block|here&gt; &lt;incident&gt;  |  sysop unrest end &lt;block|here&gt;',
@@ -217,6 +219,7 @@ async function cmdSysop(args, raw, player) {
     return { type: 'error', message: USAGE };
   }
   if (area === 'unrest') return cmdUnrest(player, sub, rest);
+  if (area === 'rename') return out(await renameNpc(player, [sub, ...rest].filter(Boolean)));
   if (area === 'roof') return sub ? out(setRoof(player, sub)) : { type: 'output', message: roofText() };
   if (area !== 'weather') return { type: 'error', message: `Unknown sysop area "${area}".<br>${USAGE}` };
 

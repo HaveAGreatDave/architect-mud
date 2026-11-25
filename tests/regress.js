@@ -1131,6 +1131,59 @@ section('layer 1h2: swing seam');
 // The substrate every social read is about to depend on. Three things are pinned:
 // the tier ladder (hostility outranks familiarity), the ZERO-query read contract,
 // and the fallback rule — an unauthored NPC must render EXACTLY as it does today.
+section('layer 1i0: npc speech funnel (moods on lines)');
+{
+  const { npcSay, readTag, LINE_MOOD } = await import('../server/engine/npc-speech.js');
+  const { setNpcMood, npcMoodOf } = await import('../server/engine/npc-mood.js');
+  const { formatChitchat } = await import('../server/engine/ai-behaviour.js');
+  const mk = (id) => ({ id, name: `Speech Probe ${id}`, flags: {} });
+
+  // Tags are read and stripped; an unknown mood is dropped.
+  const t = readTag('@annoyed|tired|bogus "Make it quick."');
+  check('a tag lists its valid moods', t.moods.join() === 'annoyed,tired', t.moods);
+  check('a tag is stripped from the line', t.text === '"Make it quick."', t.text);
+  check('an untagged line has no moods', readTag('"Evening."').moods.length === 0);
+
+  // Untagged, moodless: plain, and no mood is set.
+  const a = mk('sp_a'), ma = npcSay(a, '"Evening."');
+  check('a plain line carries no mood', !/data-mood/.test(ma.message), ma.message);
+  check('a plain line keeps the old shape', /class="speech-line"[^>]*>Speech Probe sp_a says, "Evening\."<\/span>$/.test(ma.message), ma.message);
+  check('a plain line leaves the NPC moodless', npcMoodOf(a) === null);
+
+  // Tagged, moodless: the tag sets a mild mood that sticks for the next, untagged line.
+  const b = mk('sp_b'), mb = npcSay(b, '@sad "I used to come here with my brother."');
+  check('a tagged line is said in its mood', /data-mood="sad:0\.5"/.test(mb.message), mb.message);
+  check('no player ever sees the tag', !mb.message.includes('@'), mb.message);
+  check('the tag sets the mood on the NPC', npcMoodOf(b)?.m === 'sad' && npcMoodOf(b)?.i === LINE_MOOD.i);
+  check('their next, untagged line carries on sad', /data-mood="sad:/.test(npcSay(b, '"Anyway."').message));
+
+  // Consistency: a mood they already have wins over a line's tag.
+  const c = mk('sp_c'); setNpcMood(c, 'sad', { i: 0.8, secs: 60 });
+  const mc = npcSay(c, '@happy "What a day!"');
+  check('a sad NPC says a happy line sad', /data-mood="sad:0\.8"/.test(mc.message), mc.message);
+  check('the happy tag did not change their mood', npcMoodOf(c)?.m === 'sad');
+
+  // A lever does change it.
+  const ml = npcSay(c, '@!happy "Oh, you found it!"');
+  check('a lever tag changes the mood', /data-mood="happy:/.test(ml.message) && npcMoodOf(c)?.m === 'happy', ml.message);
+
+  // Several options: one of them, and the same NPC picks alike within the hour.
+  const d1 = mk('sp_d'), p1 = /data-mood="(\w+):/.exec(npcSay(d1, '@annoyed|tired "Fine."', { now: 1e12 }).message)?.[1];
+  const d2 = mk('sp_d'), p2 = /data-mood="(\w+):/.exec(npcSay(d2, '@annoyed|tired "Fine."', { now: 1e12 + 60000 }).message)?.[1];
+  check('a pick is one of the options', p1 === 'annoyed' || p1 === 'tired', p1);
+  check('the same NPC picks alike in the hour', p1 === p2, [p1, p2]);
+
+  // Kinds and verbs set the effort; an emote stays an emote with its tag gone.
+  check('an alarm is yelled', /data-effort="2"/.test(npcSay(mk('sp_e'), '"Thief!"', { kind: 'alarm' }).message));
+  check('a whisper is quiet', /data-effort="-1"/.test(npcSay(mk('sp_f'), '"Over here."', { verb: 'whispers' }).message));
+  const em = npcSay(mk('sp_g'), '@tired *rubs their eyes.*');
+  check('a tagged emote loses its tag', em.type === 'zone_event' && em.message === 'Speech Probe sp_g *rubs their eyes.*', em.message);
+
+  // formatChitchat goes through the funnel and still takes a bare name.
+  const fc = formatChitchat('Nobody Here', '@sad "Hm."');
+  check('formatChitchat strips tags for a name with no NPC', fc.message.includes('Nobody Here says, "Hm."') && !fc.message.includes('@'), fc.message);
+}
+
 section('layer 1i: relations substrate');
 {
   const { getRelation, adjustRelation, touchRelation, relationTier, relationAtLeast, hydrateRelations }

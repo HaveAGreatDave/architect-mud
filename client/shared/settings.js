@@ -1,5 +1,5 @@
 const SETTINGS_KEY = 'architect_settings';
-export const DEFAULT_AUDIO_SETTINGS = { enabled: true, music: true, sfx: true, tv: true, welcome: true, masterVolume: 0.40, musicVolume: 0.40, sfxVolume: 0.25, ambientVolume: 0.25, tvVolume: 0.25, muteWhenHidden: true };
+export const DEFAULT_AUDIO_SETTINGS = { enabled: true, music: true, sfx: true, tv: true, npcVoices: true, welcome: true, masterVolume: 0.40, musicVolume: 0.40, sfxVolume: 0.25, ambientVolume: 0.25, tvVolume: 0.25, muteWhenHidden: true };
 // `iron` is the out-of-the-box theme — the one a player who never opens Settings
 // plays the whole game in, and therefore the one the cold open, the wireframe city
 // and every accent-coloured surface are composed against. Changing it changes the
@@ -657,7 +657,7 @@ export function applySettings(settings) {
     }
   }
 
-  for (const toggle of ['music', 'sfx', 'tv', 'muteWhenHidden']) {
+  for (const toggle of ['music', 'sfx', 'tv', 'npcVoices', 'muteWhenHidden']) {
     const container = document.getElementById(`opt-audio-${toggle}`);
     if (!container) continue;
     container.querySelectorAll('.settings-opt').forEach(btn => {

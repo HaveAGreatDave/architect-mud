@@ -206,20 +206,31 @@ function shipHorn(at, len) {
 
 // ═══ THE ORGAN ═════════════════════════════════════════════════════════════════
 // The organist knows one song. It's in a minor key and it's about drowning (data/scripts/
-// baseball.bsm says so). A pitch is a triangle (the hollow, odd-harmonic stops), the tune gets
-// a sine an octave up for the 4' drawbar, everything gets a Leslie's tremolo, and each beat a key
-// click. A note's length is held by its decay at full sustain, so a phrase is one cue.
+// baseball.bsm says so). It's a tonewheel organ through a Leslie, the ballpark kind: each key
+// sounds the 8' drawbar (a sine on the note), the 4' and the 2 2/3' (the octave and the twelfth,
+// quieter), and a key under middle C adds the 16' an octave down. The first note of a chord gets
+// the percussion, a third harmonic that dies away in a quarter of a second, which is the bark a
+// park organ has. The Leslie is a vibrato and a tremolo at its fast speed, each drawbar a little
+// off the others' rate so they chorus, and each key clicks as it closes. A chord's other notes
+// take only the 8' and 4', to keep the voice count down. A note's length is held by its decay at full sustain, so a phrase is one cue.
+const DRAWBARS = [[1, 1, 6.6], [2, 0.55, 6.9], [3, 0.32, 7.2]];
 function organ(notes, bpm, gain = 0.07) {
   const beat = 60 / bpm, layers = [];
   let at = 0;
   for (const [midis, beats] of notes) {
-    const len = beats * beat, delay = +at.toFixed(4), held = { a: 0.008, d: Math.max(0.01, len * 0.92 - 0.02), s: 1, r: 0.08, linear: true, delay, tremolo: { rate: 6.4, depth: 0.12 } };
+    const len = beats * beat, delay = +at.toFixed(4);
     if (![].concat(midis).length) { at += len; continue; } // a rest
+    const held = { a: 0.004, d: Math.max(0.01, len * 0.92 - 0.02), s: 1, r: 0.06, linear: true, delay };
     [].concat(midis).forEach((m, i) => {
-      layers.push(tone({ ...held, wave: 'triangle', hz: N(m), gain: +(gain * (i ? 0.7 : 1)).toFixed(4) }));
-      if (!i) layers.push(tone({ ...held, hz: N(m) * 2, gain: +(gain * 0.45).toFixed(4) }));
+      const k = gain * (i ? 0.6 : 1) * 0.62, hz = N(m);
+      for (const [h, g, rate] of i ? DRAWBARS.slice(0, 2) : DRAWBARS) {
+        if (hz * h > 6000) continue;
+        layers.push(tone({ ...held, hz: hz * h, gain: +(k * g).toFixed(4), vibrato: { rate, depth: 9 }, tremolo: { rate: rate * 0.97, depth: 0.14 } }));
+      }
+      if (m < 60) layers.push(tone({ ...held, hz: hz / 2, gain: +(k * 0.5).toFixed(4) }));
+      if (!i) layers.push(tone({ hz: hz * 3, a: 0.002, d: 0.26, s: 0, r: 0.04, gain: +(k * 0.6).toFixed(4), delay }));
     });
-    layers.push(noise({ hz: 2400, q: 0.8, d: 0.004, r: 0.003, gain: gain * 0.5, delay }));
+    layers.push(noise({ hz: 3200, q: 1.2, d: 0.003, r: 0.002, gain: +(gain * 0.4).toFixed(4), delay }));
     at += len;
   }
   return layers;
@@ -242,7 +253,7 @@ const ANTHEM = [
 // a full count: up the keys a semitone at a time, and he holds the top until the pitch
 const CLIMB = [...Array.from({ length: 12 }, (_, i) => [[60 + i], 0.5]), [[72, 64, 67], 3]];
 // a foul ball into the seats: down the keys, quick, and a low thud at the bottom
-const FOUL = [...Array.from({ length: 10 }, (_, i) => [[79 - i], 0.25]), [[55, 43], 1]];
+const FOUL = [...Array.from({ length: 10 }, (_, i) => [[79 - i], 0.25]), [[55, 43], 1.25]];
 // the riff the park claps to: da-da DAH, a rest, da-da-da-da DAH
 const RIFF = [[[67], 0.5], [[67], 0.5], [[72, 64], 1], [[], 1], [[67], 0.5], [[67], 0.5], [[69], 0.5], [[71], 0.5], [[72, 64, 67], 2]];
 // the manager's walking out to the mound: a stride vamp in F while the new man comes in
@@ -251,28 +262,45 @@ const VAMP = [0, 1, 2].flatMap(() => [[[41], 1], [[65, 69, 72], 1], [[36], 1], [
 const SAYONARA = [[[72, 64], 0.5], [[67], 0.5], [[60, 48], 2]];
 
 // ═══ THE CHANTS ═════════════════════════════════════════════════════════════════
-// The whole park on one vowel at a time: each syllable is vowel()'s formants over pink noise, twice,
-// the second a few percent higher and 25 ms late, so it's thousands of voices not quite together.
-// A pattern is [beat, what]: a vowel's name, 'clap' or 'stomp'. The videoboard (diamond/jumbo.js
-// BEAT) shows the words on the same beat.
+// The whole park on one syllable at a time. A crowd chanting is shouting on a note, so each
+// syllable is a section of voices: sawtooths around a shouted pitch (D3 and up), each a few cents
+// off and a few milliseconds late, through the vowel's formants, with vowel()'s breath under them
+// and the consonants as short bands of noise (s, f, ch).
+// A pattern is [beat, what, length, { st, fall, pre, post }]: a vowel's name, 'clap' or 'stomp';
+// `st` is the note in semitones over D3, `fall` how far it sags by its end, `pre`/`post` a
+// consonant before or after. The videoboard (diamond/jumbo.js BEAT) shows the words on that beat.
 const VOWELS = { eh: [530, 1840, 2480], oh: [470, 880, 2400], ee: [300, 2250, 2950], ah: [720, 1220, 2600] };
+const CONSONANTS = { s: [6200, 1.4, 0.07], f: [3800, 0.6, 0.06], ch: [3000, 1.1, 0.09] };
+const SECTION = [[-22, 0], [6, 0.018], [31, 0.032]]; // cents, ms late
 const claps = (at) => Array.from({ length: 8 }, (_, i) => noise({
   hz: 1300 + (i % 4) * 260, q: 0.9, d: 0.018, r: 0.01, gain: 0.14, delay: +(at + i * 0.0045 + (i % 3) * 0.003).toFixed(4), pan: ((i % 5) - 2) * 0.3,
 }));
 const stomp = (at) => [noise({ type: 'lowpass', hz: 380, q: 0.6, a: 0.003, d: 0.07, r: 0.03, gain: 0.22, colour: 'brown', width: 0.9, delay: at })];
+const consonant = (c, at) => { const [hz, q, d] = CONSONANTS[c]; return noise({ hz, q, a: 0.01, d, r: 0.02, gain: 0.1, colour: 'white', width: 0.9, delay: +Math.max(0, at).toFixed(4) }); };
 function chant(pattern, beat, o = {}) {
   const len = o.len ?? beat * 0.7;
-  return pattern.flatMap(([b, what, k = 1]) => {
+  return pattern.flatMap(([b, what, k = 1, v = {}]) => {
     const at = +(b * beat).toFixed(4);
     if (what === 'clap') return claps(at);
     if (what === 'stomp') return stomp(at);
-    const f = VOWELS[what], held = { a: 0.035, d: len * k, s: 0.45, r: 0.12, gain: 0.3, tremolo: { rate: 5.3, depth: 0.15 } };
-    return [vowel(f, { ...held, delay: at }), vowel(f.map((hz) => hz * 1.04), { ...held, gain: 0.22, delay: +(at + 0.025).toFixed(4) })];
+    const f = VOWELS[what], d = len * k, base = N(50 + (v.st ?? 0));
+    const formants = f.map((hz, i) => ({ freq: hz, q: 6 + i * 2, gain: 1 - i * 0.3 }));
+    const out = [vowel(f, { a: 0.03, d, s: 0.45, r: 0.12, gain: 0.17, tremolo: { rate: 5.3, depth: 0.15 }, delay: at })];
+    for (const [c, late] of SECTION) {
+      const hz = base * Math.pow(2, c / 1200);
+      out.push(tone({
+        wave: 'sawtooth', hz, to: v.fall ? hz * Math.pow(2, -v.fall / 12) : undefined, bend: d * 0.9,
+        a: 0.03, d, s: 0.6, r: 0.1, gain: 0.05, formants, vibrato: { rate: 4.6 + late * 40, depth: 14 }, delay: +(at + late).toFixed(4),
+      }));
+    }
+    if (v.pre) out.push(consonant(v.pre, at - 0.06));
+    if (v.post) out.push(consonant(v.post, at + d * 0.75));
+    return out;
   });
 }
 // let's go (team), clap clap clap, twice; DE-FENSE and two stamps, three times
-const LETSGO = [0, 8].flatMap((o) => [[o, 'eh', 0.5], [o + 1, 'oh'], [o + 2, 'ah', 1.4], [o + 4, 'clap'], [o + 5, 'clap'], [o + 6, 'clap']]);
-const DEFENSE = [0, 4, 8].flatMap((o) => [[o, 'ee'], [o + 1, 'eh', 1.2], [o + 2, 'stomp'], [o + 3, 'stomp']]);
+const LETSGO = [0, 8].flatMap((o) => [[o, 'eh', 0.5, { st: 4, post: 's' }], [o + 1, 'oh', 1, { st: 4, fall: 1 }], [o + 2, 'ah', 1.4, { st: 0, fall: 2 }], [o + 4, 'clap'], [o + 5, 'clap'], [o + 6, 'clap']]);
+const DEFENSE = [0, 4, 8].flatMap((o) => [[o, 'ee', 1, { st: 5 }], [o + 1, 'eh', 1.2, { st: 2, fall: 2, pre: 'f', post: 's' }], [o + 2, 'stomp'], [o + 3, 'stomp']]);
 
 // ═══ THE PATCHES ═══════════════════════════════════════════════════════════════
 export const BUILTINS = [
@@ -474,7 +502,7 @@ export const BUILTINS = [
   // the organ's call to charge, and the park answering it
   def('db-chant-charge', 'Chant: the organ calls, the park shouts CHARGE', 3, [
     ...organ([[[67], 1], [[72], 1], [[76], 1], [[79, 67], 2], [[76], 1], [[79, 64, 72], 3]], 240, 0.08),
-    ...chant([[9.4, 'ah', 1.6]], 0.25, { len: 0.55 }),
+    ...chant([[9.4, 'ah', 1.6, { st: 7, fall: -1, pre: 'ch' }]], 0.25, { len: 0.55 }),
     noise({ type: 'lowpass', hz: 500, q: 0.5, a: 0.08, d: 1, s: 0.4, r: 0.8, gain: 0.1, colour: 'brown', width: 0.8, delay: 2.35 }),
   ], { hold: 0.02, vary: STEADY }),
 
@@ -675,10 +703,10 @@ export const MIX = Object.freeze({
 export const layerOf = (id) => (/^db-organ/.test(id) ? 'music' : /^db-(airhorn|hype|drum|stomp|chant)/.test(id) ? 'hype' : /^db-crowd|^db-clap|^db-towels|^db-horn|^db-foghorn|^db-lamp/.test(id) ? 'crowd'
   : /^db-(crack|bunt|bat-break|foul-tip|mitt|glove|stretch|pickoff)/.test(id) ? 'impact' : 'fx');
 // How much plays at each Sound Detail (client/shared/settings.js sfxDetail): off keeps the
-// calls, limited adds what happens, full adds the beds, the organ, the public address, the
-// vendor, the footsteps and the park.
+// calls; limited (the default) plays everything for now, beds, park, organ, chants, the
+// public address, the vendor and the footsteps included. Full is the same as limited.
 export const DETAIL = Object.freeze({
-  call: 'off', event: 'limited', step: 'full', bed: 'full', music: 'full', pa: 'full', vendor: 'full', park: 'full',
+  call: 'off', event: 'limited', hype: 'limited', music: 'limited', pa: 'limited', step: 'limited', bed: 'limited', vendor: 'limited', park: 'limited',
 });
 export const tierAllows = (detail, what) => {
   const rank = { off: 0, limited: 1, full: 2 };

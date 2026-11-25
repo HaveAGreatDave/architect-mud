@@ -480,6 +480,9 @@ uniform float uChrome, uChromeDark, uChromeT;
 // AN OUTLINE OF LIGHT (a record's 'outline', client/shared/self-look.js): you in the In Between before MORPHEX makes you
 // flesh. Pale blue, bright at the rim, scan lines drifting up through it and a glitter of points; no ink line.
 uniform float uOutline, uOutlineT;
+// how far the outline has formed (a record's 'outlineForm', the In Between's print, cine-cam.js): 0 none of it, 1 all.
+// It comes in point by point from the fingertips back, each grain flaring white as it lands.
+uniform float uOutlineForm;
 uniform vec4 uChromeYou, uChromeObj;
 uniform vec2 uChromeH;
 uniform vec3 uChromeYouC;
@@ -2684,6 +2687,13 @@ void main() {
     float glit = step(0.975, fract(tw + uOutlineT * 0.4 * (0.5 + tw)));
     vec3 core = vec3(0.5, 0.78, 1.0);
     c = mix(core * 0.45, vec3(0.86, 0.97, 1.0) * 1.7, rim) + core * scan * 0.3 + vec3(1.0) * glit * 0.8;
+    if (uOutlineForm < 1.0) {
+      // each grain's turn: its own hash, and later the further it is from the hands (rest x out along the arms)
+      float turn = tw * 0.55 + (1.0 - smoothstep(0.1, 0.75, abs(vRest.x))) * 0.45;
+      float lead = uOutlineForm * 1.15 - turn;
+      if (lead < 0.0) discard;
+      c += vec3(1.0) * (1.0 - smoothstep(0.0, 0.08, lead)) * 2.2;
+    }
     glow = vec3(0.0);
     ink = 0.0;
   }
@@ -3237,6 +3247,7 @@ export function createFigureLayer(gl, { half = false, panels = false } = {}) {
         // mirror chrome (docs/proposals/the-inbetween.md): { you: [x, y, z, r], youH, youC, obj, objH, dark, t }, or none
         gl.uniform1f(LIT.u('uOutline'), r.outline ? 1 : 0);
         if (r.outline) gl.uniform1f(LIT.u('uOutlineT'), (performance.now() / 1000) % 1000);
+        gl.uniform1f(LIT.u('uOutlineForm'), r.outline ? r.outlineForm ?? 1 : 1);
         { const M = r.chrome; gl.uniform1f(LIT.u('uChrome'), M ? 1 : 0);
           if (M) { gl.uniform4fv(LIT.u('uChromeYou'), M.you || NO_CAP); gl.uniform4fv(LIT.u('uChromeObj'), M.obj || NO_CAP); gl.uniform2f(LIT.u('uChromeH'), M.youH || 1.75, M.objH || 2); gl.uniform3fv(LIT.u('uChromeYouC'), M.youC || [0.12, 0.14, 0.18]); gl.uniform1f(LIT.u('uChromeDark'), M.dark || 0); gl.uniform1f(LIT.u('uChromeT'), M.t || 0); } }
         gl.uniform4fv(LIT.u('uFaceV'), r.faceV || [1, 1, 0.8, 0]);

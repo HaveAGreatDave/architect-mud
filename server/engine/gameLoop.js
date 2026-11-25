@@ -11,6 +11,8 @@ import { setStance, DEFAULT_STANCE } from './stance.js';
 import { setFlag } from './flags.js';
 import { tickEntityAI, moveEntity, ensureBehaviourGraph } from './ai-behaviour.js';
 import { npcBanterTick } from './npc-banter.js';
+import { npcDoingNow } from './npc-doing.js';
+import { getNpcStudioZone } from './broadcast-bridge.js';
 import { restockAllVendors } from './vendor.js';
 import { tickEffects, applyEffect, tickMobEffects } from './effects.js';
 import { impairmentOf } from './impairment.js';
@@ -2095,9 +2097,24 @@ async function restRegenTick() {
   }
 }
 
+const NPC_BOOT_STAGGER_MS = 4 * 60 * 1000;
+const NPC_YIELD_EVERY = 20;
+// Set on the first tick that runs, not at module load: the scheduler skips ticks
+// until a player is on, and that first tick is when the walk-out would happen.
+let NPC_BOOT_AT = 0;
+
 async function npcWanderTick() {
   const now = Date.now();
+  if (!NPC_BOOT_AT) NPC_BOOT_AT = now;
+  let sinceYield = 0;
   for (const [id, npc] of world.npcs) {
+    // Hand the event loop back every NPC_YIELD_EVERY NPCs. The whole pass used to run
+    // as one block, and a typed command that arrived during it waited for all of it;
+    // on Render's fraction of a CPU that was seconds.
+    if (++sinceYield >= NPC_YIELD_EVERY) {
+      sinceYield = 0;
+      await new Promise((r) => setImmediate(r));
+    }
     // Respawn dead NPCs at their home zone after 60s
     if (npc._dead) {
       if (npc._respawnAt && now >= npc._respawnAt) {
@@ -2137,6 +2154,27 @@ async function npcWanderTick() {
     // without a graph get their type default so they tick on VINE instead of the
     // dumb wander below (idempotent; skips static 'npc' extras and phantoms).
     ensureBehaviourGraph(npc, 'npc');
+
+    // Boot stagger: every NPC boots at home_zone, so without this the first tick
+    // sends the whole town out of its doors together. Each one waits a random
+    // 0-4 minutes the first time this tick sees it, then runs as normal.
+    // NPCs first seen after the first minute (spawned later) aren't held.
+    if (npc._bootHoldUntil === undefined) {
+      const booting = now - NPC_BOOT_AT < 60_000;
+      npc._bootHoldUntil = booting ? now + Math.random() * NPC_BOOT_STAGGER_MS : 0;
+      // Anyone the clock says is on shift starts at their post, placed quietly, the way
+      // boot placed them at home. Off-shift people start at home and leave on the stagger.
+      if (booting && npcDoingNow(npc).kind === 'to_work') {
+        const post = npc.studio_zone_id || getNpcStudioZone(npc.id) || npc.work_zone_id;
+        if (post && world.zones.has(post)) {
+          world.zones.get(npc.zone_id)?.npcs.delete(id);
+          npc.zone_id = post;
+          world.zones.get(post).npcs.add(id);
+          npc._bootHoldUntil = 0;
+        }
+      }
+    }
+    if (now < npc._bootHoldUntil) continue;
 
     if (npc.behaviour_graph?._start) {
       // Behaviour graph drives this NPC — delegate to AI runtime.

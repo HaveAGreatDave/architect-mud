@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ORACLE Listening Test</title>
+<style>
+  :root { --bg: #f6f5f2; --fg: #1d1d1b; --dim: #6b6a65; --card: #fff; --line: #dedcd5; --accent: #2f5d8a; --on: #fff; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #161615; --fg: #ecebe6; --dim: #9a988f; --card: #222220; --line: #3a3935; --accent: #7fb0e0; --on: #10161c; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.5 system-ui, sans-serif; }
+  main { max-width: 640px; margin: 0 auto; padding: 32px 16px; }
+  h1 { font-size: 1.25rem; margin: 0 0 4px; }
+  .dim { color: var(--dim); font-size: 0.9rem; }
+  .bar { height: 4px; background: var(--line); border-radius: 2px; margin: 16px 0 24px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--accent); width: 0; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 20px; }
+  .text { font-size: 1.1rem; margin: 0 0 20px; }
+  .play { display: flex; gap: 12px; margin-bottom: 20px; }
+  button { font: inherit; border: 1px solid var(--line); background: var(--card); color: var(--fg); border-radius: 8px; padding: 10px 14px; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .play button { flex: 1; font-size: 1.05rem; }
+  .play button.on { background: var(--accent); color: var(--on); border-color: var(--accent); }
+  .pick { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  .pick button.sel { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+  .nav { display: flex; justify-content: space-between; margin-top: 16px; }
+  kbd { font: 0.8rem ui-monospace, monospace; border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
+  .done { text-align: center; padding: 40px 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Which sounds more natural?</h1>
+  <div class="dim">Each pair is the same line twice. Listen to both, then pick. Nothing tells you which is which. Keys: <kbd>1</kbd> play A, <kbd>2</kbd> play B, <kbd>A</kbd> / <kbd>S</kbd> / <kbd>B</kbd> to answer.</div>
+  <div class="bar"><i id="bar"></i></div>
+  <div id="app" class="card">Loading…</div>
+  <div class="nav"><button id="prev">Back</button><span class="dim" id="count"></span><button id="next">Skip</button></div>
+</main>
+<script>
+let pairs = [], answers = {}, i = 0, audio = null, heard = {};
+const $ = (id) => document.getElementById(id);
+
+function play(side) {
+  if (audio) audio.pause();
+  const p = pairs[i];
+  audio = new Audio(p[side]);
+  heard[p.n + side] = true;
+  document.querySelectorAll('.play button').forEach(b => b.classList.toggle('on', b.dataset.side === side));
+  audio.onended = () => document.querySelectorAll('.play button').forEach(b => b.classList.remove('on'));
+  audio.play().catch(() => {});   // switching sides mid-start interrupts play(); that's fine
+  render(false);
+}
+
+async function answer(choice) {
+  const p = pairs[i];
+  answers[p.n] = { choice };
+  await fetch('/answer', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ n: p.n, choice }) });
+  if (audio) audio.pause();
+  const next = pairs.findIndex((q, k) => k > i && !answers[q.n]);
+  i = next >= 0 ? next : Math.min(i + 1, pairs.length);
+  render(true);
+}
+
+function render(fresh) {
+  const done = Object.keys(answers).length;
+  $('bar').style.width = (100 * done / pairs.length) + '%';
+  $('count').textContent = `${done} of ${pairs.length} answered`;
+  if (i >= pairs.length) {
+    $('app').innerHTML = `<div class="done"><b>${done === pairs.length ? 'All done. Thanks.' : 'End of the list.'}</b><br><span class="dim">${done === pairs.length ? 'Your answers are saved.' : 'Use Back to answer the ones you skipped.'}</span></div>`;
+    return;
+  }
+  const p = pairs[i], a = answers[p.n] && answers[p.n].choice;
+  const both = heard[p.n + 'a'] && heard[p.n + 'b'];
+  if (!fresh && $('app').dataset.n == p.n) {
+    document.querySelectorAll('.pick button').forEach(b => b.disabled = !both && !a);
+    return;
+  }
+  $('app').dataset.n = p.n;
+  $('app').innerHTML = `
+    <div class="dim">Pair ${i + 1}</div>
+    <p class="text">${p.text.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]))}</p>
+    <div class="play"><button data-side="a">▶ A</button><button data-side="b">▶ B</button></div>
+    <div class="pick">
+      <button data-c="a" class="${a === 'a' ? 'sel' : ''}">A is better</button>
+      <button data-c="same" class="${a === 'same' ? 'sel' : ''}">No difference</button>
+      <button data-c="b" class="${a === 'b' ? 'sel' : ''}">B is better</button>
+    </div>
+    <div class="dim" style="margin-top:10px">${both || a ? '' : 'Play both to answer.'}</div>`;
+  document.querySelectorAll('.play button').forEach(b => b.onclick = () => play(b.dataset.side));
+  document.querySelectorAll('.pick button').forEach(b => { b.disabled = !both && !a; b.onclick = () => answer(b.dataset.c); });
+}
+
+document.addEventListener('keydown', (e) => {
+  if (i >= pairs.length || e.ctrlKey || e.metaKey || e.altKey) return;
+  const p = pairs[i], ok = (heard[p.n + 'a'] && heard[p.n + 'b']) || answers[p.n];
+  if (e.key === '1') play('a');
+  else if (e.key === '2') play('b');
+  else if (ok && (e.key === 'a' || e.key === 'A')) answer('a');
+  else if (ok && (e.key === 'b' || e.key === 'B')) answer('b');
+  else if (ok && (e.key === 's' || e.key === 'S')) answer('same');
+});
+$('prev').onclick = () => { if (i > 0) { i--; render(true); } };
+$('next').onclick = () => { if (i < pairs.length) { i++; render(true); } };
+
+(async () => {
+  [pairs, answers] = await Promise.all([fetch('pairs.json').then(r => r.json()), fetch('answers.json').then(r => r.json())]);
+  const first = pairs.findIndex(p => !answers[p.n]);
+  i = first >= 0 ? first : pairs.length;
+  render(true);
+})();
+</script>
+</body>
+</html>

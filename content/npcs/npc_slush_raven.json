@@ -17,7 +17,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Yeah, they show me sped up between periods. I look ridiculous.\""
+      "text": "\"They used to show me sped up between periods. Looked ridiculous. Now they just show me driving.\""
     },
     "bulldogs": {
       "options": [
@@ -220,7 +220,193 @@
       "post": "furn_slush_bay_stool",
       "sport": "hockey"
     },
-    "post": "furn_slush_bay_stool"
+    "post": "furn_slush_bay_stool",
+    "parley": {
+      "topics": {
+        "machine": [
+          "zamboni",
+          "resurfacer",
+          "machine",
+          "the tank",
+          "that thing"
+        ],
+        "ice": [
+          "ice",
+          "the sheet",
+          "resurface",
+          "flood",
+          "pattern",
+          "laps"
+        ],
+        "slush": [
+          "slush",
+          "soft ice",
+          "bad ice",
+          "wet ice"
+        ],
+        "fuel": [
+          "fuel",
+          "drum",
+          "mask",
+          "respirator",
+          "what does it run on"
+        ],
+        "highlanders": [
+          "highlanders",
+          "tartan",
+          "scarf"
+        ],
+        "broadcast": [
+          "tv",
+          "telly",
+          "broadcast",
+          "camera",
+          "on screen",
+          "sped up"
+        ],
+        "cup": [
+          "cup",
+          "final",
+          "livery",
+          "paint job",
+          "purple"
+        ],
+        "coffee": [
+          "coffee",
+          "cup of coffee",
+          "your drink"
+        ]
+      },
+      "react": {
+        "greet": {
+          "stranger": [
+            "Hey. Mind the floor, it gets wet back here.",
+            "*looks up from his coffee.* Hi there."
+          ],
+          "known": [
+            "Hey, how's it going?"
+          ],
+          "familiar": [
+            "{name}! Pull up a bit of wall.",
+            "Hey, {name}. You catch that last shift?"
+          ],
+          "hostile": [
+            "*keeps his eyes on the ice.* Yeah?"
+          ]
+        },
+        "farewell": {
+          "stranger": [
+            "See you."
+          ],
+          "familiar": [
+            "Later, {name}. Go Highlanders."
+          ]
+        },
+        "thank": [
+          "No worries.",
+          "Anytime."
+        ],
+        "praise": [
+          "Ha. Tell the league that.",
+          "*grins.* Thanks. Most people only notice the ice when it's bad."
+        ],
+        "insult": [
+          "Okay. I've got a five-tonne machine and nowhere to be, so maybe don't.",
+          "Wow. Alright."
+        ],
+        "insult_last": [
+          "Right, I'm done. Go watch from the stands."
+        ],
+        "joke": [
+          "*snorts into his coffee.*",
+          "Ha. That's a good one."
+        ],
+        "flirt": [
+          "*laughs.* I'm on the clock. Sort of."
+        ],
+        "complain": [
+          "Yeah, I hear you. Try fixing it with water that comes out of that tap."
+        ],
+        "apologise": [
+          "Forget it. We're good."
+        ],
+        "ask_name": [
+          "Ken. Ken Raven. I drive the Zamboni."
+        ],
+        "ask_job": [
+          "I do the ice. Every break, every game. Then I sit here and watch them wreck it."
+        ],
+        "ask_origin": [
+          "Grew up in Coldwater. Been doing this since I was nineteen."
+        ],
+        "ask_feeling": [
+          "Not bad. Back's sore from that seat, but not bad.",
+          "Good. Ice was nice tonight."
+        ],
+        "ask_news": [
+          "They say the league's getting a second machine. They've been saying that for years."
+        ],
+        "ask_advice": [
+          "Don't stand near the gate when it opens. That's my advice."
+        ],
+        "ask_about:machine": [
+          "She's the only one the league's got, so I take her to every game. Bit old, still runs.",
+          "Five tonnes, about eleven feet a second flat out. You don't want to be in front of her."
+        ],
+        "ask_about:ice": [
+          "Big loops, overlap each pass a bit so you don't leave lines. Takes about five and a half minutes.",
+          "You shave it, wash it, lay down hot water. Hot freezes flatter. People don't believe that."
+        ],
+        "ask_about:slush": [
+          "Yeah, I've heard that one. You try making good ice with what comes out of that pipe.",
+          "It's good ice. I'm proud of it. The name's a joke."
+        ],
+        "ask_about:fuel": [
+          "No idea, honestly. It comes in that drum. I just wear the mask."
+        ],
+        "ask_about:highlanders": [
+          "*pulls the scarf out of his collar.* Best team in the league. Don't let anyone tell you different."
+        ],
+        "ask_about:broadcast": [
+          "They used to show me sped up. Looked ridiculous. Now they just show me driving."
+        ],
+        "ask_about:cup": [
+          "Final night they let me paint her. Purple and gold, my name down both sides. Best night of the year."
+        ],
+        "ask_about:coffee": [
+          "It was hot when the period started.",
+          "Want some? It's terrible."
+        ],
+        "sports": [
+          "Highlanders. That's all you need to know about me."
+        ]
+      },
+      "beats": [
+        {
+          "id": "first_flood",
+          "topic": "ice",
+          "tier": "familiar",
+          "steps": [
+            "First flood I ever did, I forgot to put the conditioner down. Did the whole sheet with it up.",
+            "So I'm doing these beautiful loops, nobody notices, and the ice is exactly as bad as when I started.",
+            "Ref skates out, looks at it, looks at me. Didn't say a word. Just pointed at the lever.",
+            "I went round again. Took me eleven minutes. Crowd gave me a standing ovation. Best night of my life, honestly."
+          ],
+          "hint": "*glances at the conditioner lever and laughs to himself.*"
+        }
+      ],
+      "hints": [
+        "*taps the resurfacer's tank with his boot.*",
+        "*tugs at the tartan scarf.*",
+        "*checks the clock over the boards.*"
+      ],
+      "deflect": [
+        "*eyes on the ice.* Sorry, what? There was a hit.",
+        "Huh. Maybe. Hard to hear over the crowd.",
+        "*sips his coffee and nods like he followed that.*"
+      ]
+    },
+    "sports_interest": "fan"
   },
   "home_activities": [],
   "home_zone": "zone_slush_bay",

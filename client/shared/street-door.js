@@ -37,7 +37,7 @@ export function glassDoorOf(sd) {
   const kind = streetDoorKind(sd), K = kind && DOOR_KINDS[kind];
   if (!K || !K.glass) return null;
   const hinge = K.move === 'hinge';
-  return { kind, w: Math.max(1.2, Math.min(3, Number(sd.w) || 1.8)), swing: hinge, hand: sd.hand === true, ...(sd.dark ? { dark: true } : {}), ...(HEX.test(sd.glass || '') ? { glass: sd.glass } : {}) };
+  return { kind, w: Math.max(1.2, Math.min(3, Number(sd.w) || 1.8)), swing: hinge, hand: sd.hand === true, ...(sd.keypad ? { keypad: true } : {}), ...(sd.dark ? { dark: true } : {}), ...(HEX.test(sd.glass || '') ? { glass: sd.glass } : {}) };
 }
 
 // How the door looks from the street, from the same flag: the glass's tint, the trim round each leaf, a monogram

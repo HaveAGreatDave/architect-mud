@@ -1,8 +1,8 @@
 {
   "ambient_events": [],
   "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "Red hardpan under a bleached sky. It's so flat that the horizon seems closer than it is.",
+  "color": "#4a4034",
+  "description": "Dead trees stand in the reeds, grey and barkless, killed when the pond rose. Cormorants dry their wings on the tops.",
   "exits": {
     "east": "zone_district_903_931",
     "north": "zone_district_902_930",
@@ -13,13 +13,13 @@
     "district": "wilds",
     "radiation": 32,
     "region_id": "region_coldwater",
-    "terrain": "scrub"
+    "terrain": "deadwood"
   },
   "grid_x": 902,
   "grid_y": 931,
   "grid_z": 0,
   "id": "zone_district_902_931",
   "map_id": "map_world",
-  "name": "Ferric Wash",
+  "name": "The Drowned Trees",
   "parent_zone": null
 }

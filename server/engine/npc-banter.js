@@ -311,7 +311,7 @@ function endScene(zoneId) {
       const target = world.npcs.get(rand(scene.participants));
       setTimeout(() => {
         if (!isEligible(who, zoneId) || !hasWitness(zoneId)) return;
-        scene.broadcast(zoneId, formatChitchat(who.name, personalise(line[0], who, target, target)));
+        scene.broadcast(zoneId, formatChitchat(who, personalise(line[0], who, target, target), { kind: 'banter' }));
         if (who._ai) who._ai.lastSay = Date.now();
       }, randInt(TURN_GAP_MS[0], TURN_GAP_MS[1]));
     }
@@ -332,7 +332,7 @@ function runTurn(zoneId, broadcast) {
   if (!isEligible(speaker, zoneId)) return endScene(zoneId);
 
   const other = world.npcs.get(scene.participants[(scene.index + 1) % scene.participants.length]);
-  broadcast(zoneId, formatChitchat(speaker.name, personalise(scene.turns[scene.index], speaker, other)));
+  broadcast(zoneId, formatChitchat(speaker, personalise(scene.turns[scene.index], speaker, other), { kind: 'banter' }));
   if (speaker._ai) speaker._ai.lastSay = Date.now(); // share chitchat cooldown so they don't double-talk
   scene.index++;
 

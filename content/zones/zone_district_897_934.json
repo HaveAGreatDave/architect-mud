@@ -1,8 +1,9 @@
 {
   "ambient_events": [],
   "ambient_theme": "wasteland",
-  "color": "#3f7fb0",
-  "description": "The water is grey and wide and goes all the way to the horizon. The swells are long and low.",
+  "bg_color": "#1f3646",
+  "color": "#4f83a8",
+  "description": "Flat green water with a skin of pollen on it. Something big turns over below the surface and is gone.",
   "exits": {
     "east": "zone_district_898_934",
     "north": "zone_district_897_933",
@@ -20,6 +21,6 @@
   "grid_z": 0,
   "id": "zone_district_897_934",
   "map_id": "map_world",
-  "name": "The Meltwater Mouth",
+  "name": "Meltwater Pond",
   "parent_zone": null
 }

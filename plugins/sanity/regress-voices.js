@@ -22,7 +22,10 @@ export default function regressVoices({ check }) {
     `\n    real: ${real.message}\n    fake: ${fake.message}`);
   // The specific things that would give it away if someone "tidied" either side.
   check('the forgery wears the same speech-line wrapper as real speech', /class="speech-line"/.test(fake.message), fake.message);
-  check('the forgery carries no speaker id or data attribute', !/data-|id=/.test(fake.message), fake.message);
+  // Real speech carries data-kind and data-mood (server/engine/npc-speech.js); the forgery may carry
+  // only what the real line does, and never a speaker id.
+  const attrs = (m) => (m.match(/ data-[a-z]+="[^"]*"/g) || []).join('');
+  check('the forgery carries no speaker id, and only the data attributes a real line does', !/\bid=/.test(fake.message) && attrs(fake.message) === attrs(real.message), fake.message);
 
   // Player speech is plain text on a `say` payload — the client renders it with textContent,
   // so any markup at all would both look wrong and prove it was fake.

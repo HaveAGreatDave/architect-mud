@@ -90,7 +90,11 @@ function hockeyFacts(game, beats, at, ctx) {
   const sport = 'hockey', goals = [], penalties = [], fights = [], injuries = [], tally = new Map();
   let shotsAway = 0, shotsHome = 0, hits = 0, deaths = 0, leadChanges = 0, lastLeader = 0, section = '';
   const man = (name, team) => { let m = tally.get(name); if (!m) { m = { name, team, g: 0, a: 0 }; tally.set(name, m); } return m; };
-  const shotBy = (team) => { if (team === game.away.name) shotsAway++; else shotsHome++; };
+  // the period's own counts, for a recap of it in the break (`period*` below)
+  const per = new Map(), perOf = (s) => { let o = per.get(s); if (!o) { o = { shotsAway: 0, shotsHome: 0, hits: 0 }; per.set(s, o); } return o; };
+  const shotBy = (team) => { const o = perOf(section); if (team === game.away.name) { shotsAway++; o.shotsAway++; } else { shotsHome++; o.shotsHome++; } };
+  // `reel` names a moment the way the rink keeps its clip (rink/director.js reelKey): period and clock
+  const reel = (b) => `${b.section || ''}|${b.clockStr || ''}`;
   for (const b of beats) {
     if (b.section && b.section !== 'F') section = b.section;
     if (b.type === 'chance' && ON_GOAL.has(b.kind)) shotBy(b.teamName);
@@ -98,13 +102,14 @@ function hockeyFacts(game, beats, at, ctx) {
       shotBy(b.teamName);
       man(b.shooter, b.teamName).g++;
       if (b.assist) man(b.assist, b.teamName).a++;
-      goals.push({ n: goals.length + 1, player: b.shooter, assist: b.assist || '', team: b.teamName, period: b.section, clock: b.clockStr, strength: b.strength || 'even', awayScore: b.awayScore, homeScore: b.homeScore });
+      goals.push({ n: goals.length + 1, player: b.shooter, assist: b.assist || '', team: b.teamName, period: b.section, clock: b.clockStr, strength: b.strength || 'even', awayScore: b.awayScore, homeScore: b.homeScore,
+        reel: reel(b), score: `${b.awayScore ?? 0}-${b.homeScore ?? 0}`, ...(b.strength && b.strength !== 'even' ? { strengthSaid: b.strength === 'pp' ? 'on the power play' : b.strength === 'sh' ? 'short-handed' : b.strength === 'en' ? 'into the empty net' : '' } : {}) });
       const lead = Math.sign((b.awayScore ?? 0) - (b.homeScore ?? 0));
       if (lead && lead !== lastLeader) { if (lastLeader) leadChanges++; lastLeader = lead; }
     } else if (b.type === 'penalty' && !b.waived) penalties.push({ n: penalties.length + 1, player: b.player, team: b.teamName, infraction: b.infraction, minutes: b.penaltyMin, period: b.section, clock: b.clockStr });
     else if (b.type === 'fight') fights.push({ n: fights.length + 1, winner: b.winner, loser: b.loser, period: b.section });
-    else if (b.type === 'boards') hits++;
-    else if (b.type === 'injury') injuries.push({ n: injuries.length + 1, player: b.player || b.victim || '', team: b.teamName || b.victimTeam || '', wound: b.wound || b.label || '', period: b.section });
+    else if (b.type === 'boards') { hits++; perOf(section).hits++; }
+    else if (b.type === 'injury') injuries.push({ n: injuries.length + 1, player: b.player || b.victim || '', team: b.teamName || b.victimTeam || '', wound: b.wound || b.label || '', period: b.section, clock: b.clockStr || '', reel: reel(b) });
     else if (b.type === 'death') deaths++;
   }
   const end = at === 'end', last = beats[beats.length - 1];
@@ -116,7 +121,18 @@ function hockeyFacts(game, beats, at, ctx) {
   const goalPerson = (g) => (g ? personOf(sport, g.player, g.team, ctx, { clock: g.clock, period: g.period, assist: g.assist, tonight: lineOf(tally.get(g.player)) }) : null);
   const hatTrick = scored.find((m) => m.g >= 3);
   const nextOrd = { '1st': '2nd', '2nd': '3rd' }[section] || 'overtime';
+  // The period just played, on its own: what a recap in its break reads back.
+  const inPer = (r) => r.period === section, P = perOf(section);
+  const pGoals = goals.filter(inPer), pPens = penalties.filter(inPer), pFights = fights.filter(inPer), pHurt = injuries.filter(inPer);
+  const period = {
+    periodGoals: pGoals, periodPenalties: pPens, periodFights: pFights, periodInjuries: pHurt,
+    periodGoalCount: pGoals.length, periodPenaltyCount: pPens.length, periodFightCount: pFights.length, periodInjuryCount: pHurt.length,
+    periodShotsAway: P.shotsAway, periodShotsHome: P.shotsHome, periodShots: P.shotsAway + P.shotsHome, periodHits: P.hits,
+    periodGoalsSaid: said(pGoals.length, 'goal', 'goals'), periodFightsSaid: said(pFights.length, 'fight', 'fights'),
+    periodPenaltiesSaid: said(pPens.length, 'penalty', 'penalties'), periodInjuriesSaid: said(pHurt.length, 'man', 'men'),
+  };
   const facts = {
+    ...period,
     section, nextOrd, shotsAway, shotsHome, shots: shotsAway + shotsHome, hits, deaths,
     penalties, goals, fights, injuries, leadChanges,
     penaltyCount: penalties.length, fightCount: fights.length, goalCount: goals.length, injuryCount: injuries.length,

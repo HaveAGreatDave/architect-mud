@@ -23,7 +23,7 @@
 import {
   SEA_SWELL_SIDE, SEA_WIND_SIDE, SEA_SWELL_PEAK, SEA_WIND_PEAK, SEA_SKEW, SEA_ASYM,
   SEA_FOAM_ALONG, SEA_FOAM_FREQ, SEA_TILE_M, SEA_K, SURF_GAMMA, SURF_REF_M, SURF_KS_MAX,
-  SURF_PEAK, SURF_ZONE_LO, SURF_LEAN, SURF_FOLD_S, SURF_FOLD_P } from '../../../../shared/sea-swell.js';
+  SURF_PEAK, SURF_ZONE_LO, SURF_LEAN, SURF_FOLD_S, SURF_FOLD_P, SEA_FOAM_GROUP, SEA_FOAM_GROUP_K } from '../../../../shared/sea-swell.js';
 
 // ⚠ THE SIDEBANDS ARE GENERATED FROM THE JS TABLE RATHER THAN RETYPED, and that is a change of kind
 // rather than of style: the peak trains above are a hand-written twin held to the original by a
@@ -81,6 +81,16 @@ float seaFoamTear(vec2 p, float t) {
 // runs across it. 'amt' is the live tear gain, 0 putting back the smooth threshold exactly.
 // The twin of 'seaFoamFine'. Added to the FOAM TEST only — never to the surface, which cannot
 // resolve a wave this short and must not be lit as though it could.
+// Whitecaps in groups, not rows: the twin of seaFoamGroup in sea-swell.js, already scaled by
+// SEA_FOAM_GROUP. Both are written from SEA_FOAM_GROUP_K, so they can't drift.
+float seaFoamGroup(vec2 p, float t) {
+  float x = p.x * ${f(SEA_FOAM_GROUP_K.fx)} + p.y * ${f(SEA_FOAM_GROUP_K.fy)};
+  float y = p.x * ${f(SEA_FOAM_GROUP_K.gx)} + p.y * ${f(SEA_FOAM_GROUP_K.gy)} + t * ${f(SEA_FOAM_GROUP_K.w1)};
+  float a = sin(x + ${f(SEA_FOAM_GROUP_K.a1)} * sin(y * ${f(SEA_FOAM_GROUP_K.b1)}));
+  float b = sin(y * ${f(SEA_FOAM_GROUP_K.b2)} + ${f(SEA_FOAM_GROUP_K.a2)} * sin(x * ${f(SEA_FOAM_GROUP_K.c2)} + t * ${f(SEA_FOAM_GROUP_K.w2)}));
+  float c = sin((x + y) * ${f(SEA_FOAM_GROUP_K.c3)} - ${f(SEA_FOAM_GROUP_K.d3)} * a);
+  return ${f(SEA_FOAM_GROUP)} * (a * ${f(SEA_FOAM_GROUP_K.wa)} + b * ${f(SEA_FOAM_GROUP_K.wb)} + c * ${f(SEA_FOAM_GROUP_K.wc)});
+}
 float seaFoamFine(vec2 p, float t) {
   return 0.34 * sin(p.x * 22.6 + p.y * 10.4 + t * 1.88)
        + 0.22 * sin(p.x * -13.1 + p.y * 31.8 - t * 2.31);

@@ -1,8 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "Flat red hardpan with a crazed surface. It rings faintly under a boot and gives nothing back but dust.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "A grassy bank above the water, cut away underneath where the flood has been at it. Mind the edge.",
   "exits": {
     "east": "zone_district_879_920",
     "north": "zone_district_878_919",
@@ -13,13 +13,13 @@
     "district": "wilds",
     "radiation": 33,
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "grass"
   },
   "grid_x": 878,
   "grid_y": 920,
   "grid_z": 0,
   "id": "zone_district_878_920",
   "map_id": "map_world",
-  "name": "Red Hardpan",
+  "name": "Meltwater Bank",
   "parent_zone": null
 }

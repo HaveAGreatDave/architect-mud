@@ -1,8 +1,8 @@
 {
   "ambient_events": [],
   "ambient_theme": "forest",
-  "color": "#3f5c3a",
-  "description": "Deep enough in that the light comes down green and secondhand. The trunks go up straight and unbranched for two storeys before they bother with needles, and the floor between them is a soft brown mat that takes a bootprint and keeps it.",
+  "color": "#b5744a",
+  "description": "Cattails as thick as a wall, with narrow channels between them where the ducks go. The mud takes your boots and gives them back slowly.",
   "exits": {
     "east": "zone_district_895_931",
     "north": "zone_district_894_930",
@@ -13,13 +13,13 @@
     "district": "wilds",
     "radiation": 32,
     "region_id": "region_coldwater",
-    "terrain": "forest"
+    "terrain": "marsh"
   },
   "grid_x": 894,
   "grid_y": 931,
   "grid_z": 0,
   "id": "zone_district_894_931",
   "map_id": "map_world",
-  "name": "The Hush",
+  "name": "The Reedbed",
   "parent_zone": null
 }

@@ -327,8 +327,8 @@ async function packs(check, run, getPlayer) {
   }
 }
 
-// A respawn in the Vat Hall (docs/proposals/clone-facility-depths.md): the engine's `vat.emerging` picks a release vat in
-// turn, stands the body just out of its front, and tells the room which vat and when (`room_vat`), so the Stage plays it.
+// A respawn in the Vat Hall (docs/proposals/clone-facility-depths.md): the engine's `vat.emerging` picks the first free release
+// vat (waiting for one when all are taken), stands the body just out of its front, and tells the room which vat and when (`room_vat`), so the Stage plays it.
 async function vatArrivals(check, getPlayer) {
   const p = getPlayer(), Z = 'zone_start';
   const bays = getZoneFurniture(Z).filter((f) => f.flags?.look?.state === 'release').map((f) => f.id);

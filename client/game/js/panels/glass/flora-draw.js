@@ -18,17 +18,28 @@
 export const FLORA_FORM_H = {
   shrub: 1.3, columnar: 7.5, paddle: 1.5, cholla: 1.7, barrel: 1.1, rosette: 1.2, yucca: 3.6, joshua: 6.2,
   ocotillo: 4.6, juniper: 4.6, broadtree: 7.2, feathery: 3.8, grass: 0.8, flowers: 0.5, snag: 5.2, thorn: 3.2,
+  weeping: 6.4,
 };
 // How wide, as a share of the height, so the texture is big enough for the crown.
 export const FLORA_FORM_W = {
   shrub: 2.2, columnar: 0.9, paddle: 1.8, cholla: 1.3, barrel: 1.2, rosette: 2.4, yucca: 1.2, joshua: 1.4,
   ocotillo: 1.4, juniper: 1.3, broadtree: 1.5, feathery: 1.3, grass: 2.6, flowers: 4.2, snag: 1.1, thorn: 1.5,
+  weeping: 1.6,
 };
 // How much snow each form keeps (see SNOW_HOLD in windshield.js): a flat crown catches it, canes
 // and stems hardly any.
 export const FLORA_FORM_SNOW = {
   shrub: 0.5, columnar: 0.55, paddle: 0.6, cholla: 0.35, barrel: 0.7, rosette: 0.3, yucca: 0.4, joshua: 0.45,
   ocotillo: 0.12, juniper: 0.7, broadtree: 0.8, feathery: 0.35, grass: 0.25, flowers: 0.2, snag: 0.25, thorn: 0.3,
+  weeping: 0.4,
+};
+// How far each form bends in the wind (gl/billboards.js uSway, a share of the card's height). Grass
+// and reed move most, a willow's curtains next, a broad crown a little; a cactus, a rosette and a
+// dead snag not at all, because they don't.
+export const FLORA_FORM_SWAY = {
+  shrub: 0.2, columnar: 0, paddle: 0, cholla: 0, barrel: 0, rosette: 0, yucca: 0.08, joshua: 0.04,
+  ocotillo: 0.25, juniper: 0.14, broadtree: 0.26, feathery: 0.45, grass: 0.75, flowers: 0.5, snag: 0, thorn: 0.12,
+  weeping: 0.5,
 };
 
 // A blob, as an ellipse: the unit most crowns are made of.
@@ -49,6 +60,13 @@ function crown(g, cx, cy, w, h, n, rgb, col, rnd, k0, airy = 0) {
   for (const [x, y, s] of pts) blob(g, x, y, w * s, h * s * 0.9, col(rgb, 0.62));
   for (const [x, y, s] of pts) blob(g, x - w * s * 0.18, y - h * s * 0.22, w * s * 0.62, h * s * 0.55, col(rgb, 1));
   for (const [x, y, s] of pts) if (s > 0.42) blob(g, x - w * s * 0.3, y - h * s * 0.38, w * s * 0.26, h * s * 0.2, col(rgb, 1.22));
+  // Leaf clusters: small flecks, lit up and to the left and shaded down and to the right, so a
+  // crown reads as foliage rather than as a stack of discs. Skipped on a crown too small to show it.
+  if (w > 6) for (let i = 0; i < n * 3; i++) {
+    const a = rnd(k0 + 120 + i) * Math.PI * 2, r = Math.sqrt(rnd(k0 + 160 + i)) * 0.9;
+    const fx = Math.cos(a) * w * 0.6 * r, fy = Math.sin(a) * h * 0.52 * r, lit = fx + fy < 0;
+    blob(g, cx + fx, cy + fy, w * 0.045, h * 0.035, col(rgb, lit ? 1.16 : 0.72));
+  }
 }
 // A ribbed column from (x, y0) up to (x, y1), half-width hw, lit down its left side.
 function column(g, x, y0, y1, hw, rgb, col) {
@@ -212,10 +230,18 @@ const FORMS = {
   // A broad tree: mesquite low and wide, cottonwood tall and round. The scale tells them apart.
   broadtree(g, x, by, S, p, col, rnd) {
     const H = FLORA_FORM_H.broadtree * p.scale * S, bark = p.accent || [86, 70, 54], low = p.scale < 1;
-    const forks = low ? 3 : 1;
+    // A tapered trunk with a flare at the root, then limbs that fork up into the crown, lit down
+    // the left. A mesquite forks low into several stems; a cottonwood carries one trunk high.
+    const tw = S * (low ? 0.22 : 0.4), th = H * (low ? 0.2 : 0.42);
+    g.fillStyle = col(bark, 0.8); g.beginPath();
+    g.moveTo(x - tw * 1.3, by); g.quadraticCurveTo(x - tw * 0.55, by - tw * 0.6, x - tw * 0.45, by - th);
+    g.lineTo(x + tw * 0.45, by - th); g.quadraticCurveTo(x + tw * 0.55, by - tw * 0.6, x + tw * 1.3, by); g.closePath(); g.fill();
+    line(g, [[x - tw * 0.25, by - tw * 0.2], [x - tw * 0.22, by - th]], tw * 0.25, col(bark, 1.15));
+    const forks = low ? 3 : 3;
     for (let i = 0; i < forks; i++) {
-      const a = (i - (forks - 1) / 2) * 0.5 + (rnd(10 + i) - 0.5) * 0.2;
-      line(g, [[x, by], [x + Math.sin(a) * H * 0.3, by - H * (low ? 0.38 : 0.45)]], S * (low ? 0.16 : 0.34), col(bark, 0.85));
+      const a = (i - (forks - 1) / 2) * (low ? 0.6 : 0.45) + (rnd(10 + i) - 0.5) * 0.25;
+      const ex = x + Math.sin(a) * H * (low ? 0.42 : 0.3), ey = by - H * (low ? 0.48 : 0.66);
+      line(g, [[x, by - th], [(x + ex) / 2, (by - th + ey) / 2 - S * 0.1], [ex, ey]], tw * (low ? 0.7 : 0.45), col(bark, 0.85));
     }
     crown(g, x, by - H * (low ? 0.6 : 0.64), H * (low ? 0.66 : 0.48), H * (low ? 0.42 : 0.62), low ? 9 : 11, p.rgb, col, rnd, 30, low ? 0.5 : 0.1);
   },
@@ -229,6 +255,24 @@ const FORMS = {
       blob(g, (mx + ex) / 2, (my + ey) / 2, S * 0.38, S * 0.6, col(p.rgb, 0.75));
       blob(g, (mx + ex) / 2 - S * 0.06, (my + ey) / 2 - S * 0.1, S * 0.26, S * 0.4, col(p.rgb, 1.08));
       if (p.accent && rnd(20 + i) < 0.65) blob(g, ex, ey + S * 0.1, S * 0.2, S * 0.3, col(p.accent, 1));
+    }
+  },
+  // A weeping willow: a leaning trunk, a few arching limbs, and curtains of hanging strands that
+  // fall nearly to the ground, darker inside and lit on the outer fringe.
+  weeping(g, x, by, S, p, col, rnd) {
+    const H = FLORA_FORM_H.weeping * p.scale * S, bark = p.accent || [92, 80, 62], lean = (rnd(1) - 0.5) * H * 0.18;
+    const tx = x + lean, ty = by - H * 0.62;
+    line(g, [[x, by], [x + lean * 0.4, by - H * 0.3], [tx, ty]], S * 0.3, col(bark, 0.8));
+    line(g, [[x - S * 0.08, by], [x + lean * 0.4 - S * 0.08, by - H * 0.3]], S * 0.1, col(bark, 1.15));
+    // The dome the curtains hang from.
+    crown(g, tx, ty - H * 0.1, H * 0.42, H * 0.28, 7, p.rgb, col, rnd, 60, 0.2);
+    const n = 26;
+    for (let i = 0; i < n; i++) {
+      const u = i / (n - 1) - 0.5, sx = tx + u * H * 0.95 + (rnd(80 + i) - 0.5) * S * 0.4;
+      const sy = ty - H * 0.14 * (1 - u * u * 3.2) + rnd(110 + i) * S * 0.3;
+      const ey = by - H * (0.05 + rnd(140 + i) * 0.2), ex = sx + u * S * 0.8;
+      const outer = Math.abs(u) > 0.3, lit = u < 0;
+      line(g, [[sx, sy], [(sx + ex) / 2 + u * S * 0.4, (sy + ey) / 2], [ex, ey]], S * 0.16, col(p.rgb, outer ? (lit ? 1.2 : 0.75) : 0.58));
     }
   },
   // Bunchgrass: three or four tufts of fine blades, pale at the tips.

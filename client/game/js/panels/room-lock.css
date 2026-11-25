@@ -261,6 +261,7 @@ body:has(#dialogue-panel.active) :is(#room-stage, .fl-root) .rl-layer { display:
    the floor's name beside it. It ignores comic and the theme on purpose; it's the building's fitting,
    not the game's. Sizes are page px. */
 @font-face { font-family: 'RL Michroma'; src: url('../../../shared/fonts/michroma.woff2') format('woff2'); font-display: swap; }
+@font-face { font-family: 'RL Digit14'; src: url('../../../shared/fonts/digit-tech-14.woff2') format('woff2'); font-display: swap; }
 @font-face { font-family: 'RL Orbitron'; src: url('../../../shared/fonts/orbitron.woff2') format('woff2'); font-display: swap; }
 :is(#room-stage, .fl-root) .rl-holo.rl-ipod {
 	--g: #d8b25a; --g-hi: #f5dc9a; --g-lo: #8a6a24;
@@ -301,7 +302,17 @@ body:has(#dialogue-panel.active) :is(#room-stage, .fl-root) .rl-layer { display:
 :is(#room-stage, .fl-root) .rl-ipod .rl-state strong { font: 700 2.75rem/1 'RL Orbitron', 'RL Michroma', sans-serif; letter-spacing: 0.06em; color: inherit; -webkit-text-stroke: 0; transform: none; }
 :is(#room-stage, .fl-root) .rl-ipod.rl-lift .rl-state strong::before { font-size: 1rem; vertical-align: 0.6em; margin-right: 10px; }
 :is(#room-stage, .fl-root) .rl-ipod .rl-note { min-height: 0; padding: 0; background: none; border: 0; rotate: none; font: 0.5625rem 'RL Michroma', sans-serif; letter-spacing: 0.25em; text-transform: uppercase; color: var(--g); }
-:is(#room-stage, .fl-root) .rl-ipod .rl-floors { flex: none; padding: 0; gap: 8px 12px; }
+/* the lift's screen: up and down triangles, lit the way it's going, beside the floor in fourteen-segment figures and its name under */
+:is(#room-stage, .fl-root) .rl-ipod .rl-lcd { flex-direction: row; align-items: center; gap: 12px; padding: 8px 14px; }
+:is(#room-stage, .fl-root) .rl-ipod .rl-dir { flex: none; display: flex; flex-direction: column; gap: 6px; font-style: normal; }
+:is(#room-stage, .fl-root) .rl-ipod .rl-dir i { font: 1.125rem/1 'RL Michroma', sans-serif; font-style: normal; color: var(--g-lo); opacity: 0.35; text-shadow: none; transition: opacity 0.2s, color 0.2s; }
+:is(#room-stage, .fl-root) .rl-ipod.rl-up .rl-tri-up, :is(#room-stage, .fl-root) .rl-ipod.rl-down .rl-tri-dn { color: var(--g-hi); opacity: 1; text-shadow: 0 0 10px rgba(245, 200, 110, 0.8); animation: rl-tri 1.2s ease-in-out infinite; }
+@keyframes rl-tri { 50% { opacity: 0.45; } }
+:is(#room-stage, .fl-root) .rl-ipod .rl-read { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; }
+:is(#room-stage, .fl-root) .rl-ipod .rl-num { font: 3rem/1 'RL Digit14', 'RL Orbitron', monospace; letter-spacing: 0.08em; color: var(--g-hi); }
+:is(#room-stage, .fl-root) .rl-ipod .rl-name { max-width: 100%; white-space: nowrap; font: 1rem/1.1 'RL Digit14', 'RL Orbitron', monospace; letter-spacing: 0.08em; color: var(--g); }
+:is(#room-stage, .fl-root) .rl-ipod .rl-floors { flex: none; padding: 0; gap: 8px 12px; justify-items: center; }
+:is(#room-stage, .fl-root) .rl-ipod .rl-floors .rl-fl { justify-content: center; padding: 0; }
 /* a key is the gold-rimmed button and the floor's name beside it; the whole row presses */
 :is(#room-stage, .fl-root) .rl-ipod .rl-fl { height: 44px; min-height: 44px; padding: 0 4px; gap: 10px; justify-content: flex-start; text-transform: uppercase; text-shadow: none;
 	color: var(--g); background: none; border: 0; border-radius: 0; box-shadow: none; }

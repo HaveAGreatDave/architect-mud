@@ -44,6 +44,9 @@ export async function world() {
 export const SEATS = {
   cab: { cls: 'truck', height: 0, eyeH: 0.12, speed: 0.15, r: 14 },
   air: { cls: 'prop', height: 0.5, eyeH: undefined, speed: 0.4, r: 36 },
+  // the street on foot: a free camera at standing height (route.js builds its view), and the window the
+  // freelook plugin sends, 36 tiles
+  foot: { cls: 'truck', height: 0, eyeH: undefined, speed: 0, r: 36 },
 };
 
 // Everywhere worth standing, as the district landmarks in content/districts/*.json.

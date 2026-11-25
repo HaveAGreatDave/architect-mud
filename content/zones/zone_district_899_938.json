@@ -1,8 +1,9 @@
 {
   "ambient_events": [],
   "ambient_theme": "wasteland",
-  "color": "#3f7fb0",
-  "description": "The water here is deep, and the cold comes up from below. Far out, something breaks the surface and is gone.",
+  "bg_color": "#1f3646",
+  "color": "#4f83a8",
+  "description": "The pond is deeper than it looks. The shallows go gravel to silt and then the bottom just goes.",
   "exits": {
     "east": "zone_district_900_938",
     "north": "zone_district_899_937",
@@ -20,6 +21,6 @@
   "grid_z": 0,
   "id": "zone_district_899_938",
   "map_id": "map_world",
-  "name": "The Meltwater Mouth",
+  "name": "Meltwater Pond",
   "parent_zone": null
 }

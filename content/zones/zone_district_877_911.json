@@ -1,8 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "The plain is packed hard and stained red-brown. Tracks from some long-ago crossing are set into it like fossils.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "Rough grass on the riverbank, green against the red country behind it. The ground is soft and the river is loud.",
   "exits": {
     "east": "zone_district_878_911",
     "north": "zone_district_877_910",
@@ -13,13 +13,13 @@
     "district": "wilds",
     "radiation": 33,
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "grass"
   },
   "grid_x": 877,
   "grid_y": 911,
   "grid_z": 0,
   "id": "zone_district_877_911",
   "map_id": "map_world",
-  "name": "Ochre Draw",
+  "name": "Meltwater Bank",
   "parent_zone": null
 }

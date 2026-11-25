@@ -45,6 +45,7 @@ bake, with the old Windows stacks (Segoe Script, Arial Narrow, Arial Black) as t
   so the bake only cuts random ones over the fallback.
 - `roller` is Bowlby One SC, stretched 1.75 wide rather than Arial Black's 2.1.
 - The scrawls round a throw-up and on a buff are Sedgwick Ave.
+- Six throw-up letterforms set a face's own letters (`TAG_FACE_SPEC` `font`): Graffiti Treat Front, Degrassi Front, Rubik Spray Paint, Rubik Wet Paint, Knewave and Lacquer.
 - The throw-up's own letters come from `tag-glyphs.js` and `tag-strokes.js`, not a font. Its font
   fallback, for `&`, `@` and `#`, stays a system face: Rubik Bubbles under the bake's inflation
   closed an `&` into a blob.
@@ -61,6 +62,8 @@ bake, with the old Windows stacks (Segoe Script, Arial Narrow, Arial Black) as t
 | Lacquer | `lacquer.woff2` | OFL | Wobbly painted capitals with the odd run |
 | Drybrush | `drybrush.ttf` | CC0 | A dry brush or roller, streaks showing. 285 KB: the only `.ttf`, the largest file here |
 | Rainbow 2000 | `rainbow-2000.woff2` | CC0 | Hand-written marker capitals |
+| Graffiti Treat | `graffiti-treat.otf`, `-front.otf`, `-back.otf` | CC0 | Staggered, angular piece letters by Ray Larabie, in three layers (whole, fill, shadow). The `treat` throw-up uses the Front |
+| Degrassi | `degrassi.otf`, `-front.otf`, `-back.otf` | CC0 | A wildstyle-ish display face by Ray Larabie, same three layers. The `degrassi` throw-up uses the Front |
 
 Already here: Permanent Marker (marker), UnifrakturMaguntia (the `gothic` placa).
 

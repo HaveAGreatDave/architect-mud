@@ -576,6 +576,7 @@ const handlers = {
     // walking a room in GLASS: a reconnect lost the server's note that you're watching it, so ask for it again
     if (wasReconnect && freelookInside()) sendCmdSilent('room');
     else playWelcomeVoice(state.player.handle, state.player);   // spoken login greeting (fresh logins only)
+    if (!wasReconnect) glassOnLoadPending = true;   // room_avail opens GLASS once (below)
     // The people in a room are drawn by a shader that takes over a minute to compile the first time
     // (gl/figure-hd.js warmFigure). Start it in the background now, so the first room or TV has it.
     // Not on a text rung, which never draws one.
@@ -1542,7 +1543,17 @@ const handlers = {
   stands_close: () => { standsMod?.then((m) => m.closeStands()).catch(() => {}); },
   // a box's menu, or a machine's in a flat (plugins/vending), which opens the same card over the Room Stage
   stands_menu: (msg) => { if (msg.buy && document.getElementById('room-stage')) loadStands().then((m) => m.openStandsMenu(msg, { root: document.getElementById('room-stage') })).catch(() => {}); else standsMod?.then((m) => m.openStandsMenu(msg)).catch(() => {}); },
-  room_avail: (msg) => setRoomButton({ avail: !!msg.on }),
+  room_avail: (msg) => {
+    setRoomButton({ avail: !!msg.on });
+    // On the visual rung a fresh login opens the 3-D world where it can (the room button's own
+    // 'room world'), and stays in the text view where it can't. Once per login, desktop only:
+    // a phone's room button is the Stage, not GLASS.
+    if (!glassOnLoadPending) return;
+    glassOnLoadPending = false;
+    const rung = state.player?.displayRung;
+    const phone = (() => { try { return matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 600; } catch { return false; } })();
+    if (msg.on && rung !== 'textgames' && rung !== 'log' && !phone && typeof WebGL2RenderingContext !== 'undefined' && !freelookInside()) sendCmdSilent('room world');
+  },
   // one world: a room the street view on foot has drawn is walked into in GLASS (freelook-view.js freelookTakeRoom)
   // a depot room's Stage (one with a stand, room-hoist.js) takes the pane from its counter: Call it up opens it
   // (a landing stepped out onto from the Stage's lift ride: GLASS takes the pane and the Stage goes, as at the street door)

@@ -100,7 +100,7 @@ export function tagQuad(L, spot, aspect, lenChars = 8) {
 // the room, as the server rolls `v` off the room's id (tagVariant). Lit paint, so the night palette never
 // applies indoors, and none of the scrawls GLASS puts round a piece on a street wall.
 export function bakeRoomTag(t) {
-  return bakeTagText(t.t, t.r || null, '#b8f03a', 0, t.v | 0, 0, 'throw', t.f || null);
+  return bakeTagText(t.t, t.r || null, '#b8f03a', 0, t.v | 0, 0, 'throw', t.f || null, true, t.x || null);
 }
 
 // The variant the server gives a room's tag (plugins/graffiti roomTags): the same hash of the zone id.

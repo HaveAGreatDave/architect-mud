@@ -34,10 +34,10 @@ export function createRoomLift({ host, project, press }) {
   // the floors lowest first, as the keys count them; on the card the top floor is the top row
   function paint() {
     comic = comicOn();
-    // a real lift's panel: one column, or two side by side, never a keypad grid
-    const n = bs.length, cols = n <= 6 ? 1 : 2, rows = [];
+    // the keys are the gold discs alone, in rows of up to four; a floor's name is on the screen, never cut off under its key
+    const n = bs.length, cols = n <= 4 ? 2 : n <= 9 ? 3 : 4, rows = [];
     for (let i = 0; i < n; i += cols) rows.unshift(bs.slice(i, i + cols).map((b, j) => ({ b, i: i + j })));
-    const btn = ({ b }) => `<button type="button" class="rl-act rl-fl${b.n === at ? ' rl-here' : ''}" data-n="${b.n}" title="${esc(b.label || '')}"><b>${esc(b.tag)}</b><span>${esc(b.label || '')}</span></button>`;
+    const btn = ({ b }) => `<button type="button" class="rl-act rl-fl${b.n === at ? ' rl-here' : ''}" data-n="${b.n}" title="${esc(b.label || '')}" aria-label="${esc(b.tag + (b.label ? ', ' + b.label : ''))}"><b>${esc(b.tag)}</b></button>`;
     // padding 20+20, the badge 56, the screen 112, two gaps of 16, and a row of buttons 44 with 8 between
     size = [PAGE_W, 256 + rows.length * 52 - 8];
     // the building's mark: its initials in a disc, never its name written out
@@ -46,8 +46,8 @@ export function createRoomLift({ host, project, press }) {
     el.style.setProperty('--rl-hue', HUE);
     el.style.width = size[0] + 'px'; el.style.height = size[1] + 'px';
     el.innerHTML = `<div class="rl-badge"><span${mono ? '' : ' class="rl-badge-arrows"'}>${mono ? esc(mono) : '&#9650;&#9660;'}</span></div>
-      <div class="rl-lcd"><div class="rl-head"><b>LIFT</b><span></span></div><div class="rl-state"><strong></strong></div><p class="rl-note"></p></div>
-      <div class="rl-acts rl-floors" style="--rl-cols:${cols}">${rows.flat().map(btn).join('')}</div>`;
+      <div class="rl-lcd"><div class="rl-dir"><i class="rl-tri-up">&#9650;</i><i class="rl-tri-dn">&#9660;</i></div><div class="rl-read"><strong class="rl-num"></strong><span class="rl-name"></span></div></div>
+      <div class="rl-acts rl-floors" style="--rl-cols:${cols}">${rows.map((r, i) => r.map(btn).join('') + (i ? '' : '<i class="rl-gap"></i>'.repeat(cols - r.length))).join('')}</div>`;
     shown = null;
   }
 
@@ -78,9 +78,13 @@ export function createRoomLift({ host, project, press }) {
     if (key !== shown) {
       shown = key;
       const stop = bs.find((b) => b.n === floor);
-      el.querySelector('.rl-state strong').textContent = tagOf(floor);
-      el.querySelector('.rl-head span').textContent = ride ? `to ${tagOf(ride.to)}` : stop?.label || '';
-      el.querySelector('.rl-note').textContent = going > 0 ? 'Going up.' : going < 0 ? 'Going down.' : 'Pick a floor.';
+      // the number it's at or passing, and a name: the floor's own when it stops here, else where it's going
+      const name = String((stop || bs.find((b) => b.n === ride?.to))?.label || '').toUpperCase();
+      el.querySelector('.rl-num').textContent = tagOf(floor);
+      const nm = el.querySelector('.rl-name');
+      nm.textContent = name;
+      // sized to fit the glass on one line (Digit Tech 14 is about 0.72 em a letter with its spacing), never cut off
+      nm.style.fontSize = Math.max(11, Math.min(22, 196 / Math.max(1, name.length * 0.72))) + 'px';
       el.classList.toggle('rl-up', going > 0); el.classList.toggle('rl-down', going < 0);
       for (const b of el.querySelectorAll('.rl-fl')) b.classList.toggle('rl-going', !!ride && Number(b.dataset.n) === ride.to);
     }

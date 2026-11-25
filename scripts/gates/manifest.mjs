@@ -128,7 +128,7 @@ export const GROUPS = [
   },
   {
     name: 'docs',
-    // The six doc checks: status headers, verbs, links, READMEs, hooks, prose.
+    // The seven doc checks: status headers, verbs, links, READMEs, hooks, prose, and the bibliography JSON the tablet reads.
     gates: [
       'scripts/docs/lint.mjs',
       'scripts/docs/verbs.mjs',
@@ -136,6 +136,7 @@ export const GROUPS = [
       'scripts/docs/readmes.mjs',
       'scripts/docs/hooks.mjs',
       'scripts/docs/prose.mjs',
+      'scripts/docs/bibliography-client.mjs --check',
     ],
   },
   {
@@ -201,6 +202,7 @@ export const GROUPS = [
       'scripts/shapes/signfit.mjs',
       'scripts/shapes/signswim.mjs',
       'scripts/shapes/sea.mjs',
+      'scripts/shapes/breakers.mjs',   // open-sea breakers: deterministic, on the crests, Monahan's share of the sea
       // Every hull rides the drawn sea with the water off her deck, leaning the right way.
       'scripts/shapes/boatride.mjs',
       'scripts/shapes/seabed.mjs',
@@ -384,6 +386,8 @@ export const GROUPS = [
       'scripts/voice/contour-smoke.mjs',   // what the accents sound like: nuclear fall, downstep, minor-break reset
       'scripts/voice/timing-smoke.mjs',    // segment durations against Klatt's rules; estimateDuration matches the schedule
       'scripts/voice/fm-smoke.mjs',
+      'scripts/voice/formant-smoke.mjs',   // the formant controller: JS matches PyTorch, every phone covered, only F1-F3 move
+      'scripts/voice/heads-smoke.mjs',     // the source and consonant controllers: the same checks, on their own tracks
       'scripts/voice/worklet-smoke.mjs',   // the worklet back end: track list, fallback, stability, formants; synthiness; tension and creak
       'scripts/voice/fitted-smoke.mjs',    // the fitted voice (data/voice/fitted-voice.json) still sounds like its speaker
     ],
@@ -398,6 +402,7 @@ export const GROUPS = [
       'scripts/audio/murmur-smoke.mjs',
       'scripts/audio/hockey-smoke.mjs',
       'scripts/audio/deadball-smoke.mjs',
+      'scripts/audio/footstep-smoke.mjs',  // your own steps on the street on foot, by surface and gait
       'scripts/audio/limiter-smoke.mjs',   // 1: the master limiter, and nothing around it
       'scripts/audio/duck-smoke.mjs',      // 2: duck gains per bus, and duck()'s schedule
       'scripts/audio/speech-channels-smoke.mjs',  // 3: a typed command stops Read Aloud, not the TV

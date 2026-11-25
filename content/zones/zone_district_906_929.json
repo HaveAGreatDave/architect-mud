@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "wasteland",
   "color": "#b5744a",
-  "description": "Red hardpan, cracked into plates the size of dinner tables, runs flat to a rust-colored horizon.",
+  "description": "Scrub and thorn where the river's damp gives out and the red rock takes over again.",
   "exits": {
     "east": "zone_district_907_929",
     "north": "zone_district_906_928",
@@ -13,13 +13,13 @@
     "district": "wilds",
     "radiation": 31,
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "scrub"
   },
   "grid_x": 906,
   "grid_y": 929,
   "grid_z": 0,
   "id": "zone_district_906_929",
   "map_id": "map_world",
-  "name": "Slateback Rise",
+  "name": "Meltwater Scrub",
   "parent_zone": null
 }

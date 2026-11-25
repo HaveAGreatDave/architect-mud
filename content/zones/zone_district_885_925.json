@@ -1,9 +1,8 @@
 {
   "ambient_events": [],
   "ambient_theme": "wasteland",
-  "bg_color": "#1f3646",
-  "color": "#4f83a8",
-  "description": "A wide, slow reach of water with low grey sandbars showing. Birds feed in the shallows.",
+  "color": "#b5744a",
+  "description": "A spit of soft sand on the inside of the bend, ribbed by the current and printed with birds' feet.",
   "exits": {
     "east": "zone_district_886_925",
     "north": "zone_district_885_924",
@@ -14,13 +13,13 @@
     "district": "wilds",
     "radiation": 29,
     "region_id": "region_coldwater",
-    "terrain": "water"
+    "terrain": "sand"
   },
   "grid_x": 885,
   "grid_y": 925,
   "grid_z": 0,
   "id": "zone_district_885_925",
   "map_id": "map_world",
-  "name": "The Meltwater Mouth",
+  "name": "Meltwater Sand",
   "parent_zone": null
 }

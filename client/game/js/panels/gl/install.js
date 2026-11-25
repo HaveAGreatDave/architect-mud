@@ -258,6 +258,8 @@ export function installGL(hostFor) {
       // shader multiplies by a strength that never left the windshield, so __glSsao() reports 0.0%
       // moved at every radius and every strength.
       glSsao: opts.glSsao, glSsaoRes: opts.glSsaoRes,
+      // Sixth: the occlusion readback off that prepass (gl/occ-readback.js, RENDER_TUNE.gpuOcc).
+      gpuOcc: opts.gpuOcc,
       // The cel look, banded light and ink lines (RENDER_TUNE.glToon, glInk).
       glToon: opts.glToon, glToonBands: opts.glToonBands, glInk: opts.glInk, glInkPx: opts.glInkPx, glInkFar: opts.glInkFar,
       // ⚠ AND THIS ONE. Sixth. Dropped here, the working light count silently falls back to the
@@ -323,7 +325,7 @@ export function installGL(hostFor) {
       // the slider moves, the shader declares the uniform, the species all carry their hold — and
       // every tree in a blizzard stays green, which reads as the deposition term not working
       // rather than as a line missing from an allowlist. `gl:opts` is the gate.
-      snowBB: opts.snowBB, snowCol: opts.snowCol ? u(opts.snowCol) : null,
+      snowBB: opts.snowBB, snowCol: opts.snowCol ? u(opts.snowCol) : null, windBB: opts.windBB || null,
       fogBand: opts.fog ? { col: u(opts.fog.col), amt: opts.fog.amt, near: opts.fogNear, far: opts.fogFar } : null,
       // ⚠ AND THE SKY BESIDE IT, WHICH IS THIS FILE'S OWN NUMBERED FAILURE AGAIN. Dropped here the
       // water goes on reflecting one flat colour: the uniform is declared, the shader reads it, the

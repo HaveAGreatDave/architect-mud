@@ -35,6 +35,7 @@
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { getZoneNpcs, getZonePlayers, world } from '../../server/engine/world.js';
 import { pick } from '../../server/engine/util.js';
+import { npcSay } from '../../server/engine/npc-speech.js';
 
 // ── What the voices say ──────────────────────────────────────────────────────
 // Ordered by how far gone you have to be to hear them. The early ones are MUNDANE on
@@ -92,8 +93,9 @@ const fill = (line, player) => line.replace(/\{you\}/g, player.handle || 'you');
 // Kept as one-liners next to each other precisely so a future edit to either one is
 // obviously a pair. If `formatChitchat` or `cmdSay` ever changes shape, these must follow it
 // in the same commit or the illusion breaks and nobody will know why.
-const asNpcLine = (name, text) =>
-  ({ type: 'output', message: `<span class="speech-line">${name} says, "${text}"</span>` });
+// The NPC line goes through the same funnel a real one does (npc-speech.js), so it carries the
+// same kind and, for a real NPC, the same mood.
+const asNpcLine = (name, text) => npcSay(name, `"${text}"`);
 const asPlayerLine = (handle, text) =>
   ({ type: 'say', message: `${handle} says, "${text}"` });
 

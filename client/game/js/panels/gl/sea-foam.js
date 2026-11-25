@@ -15,6 +15,7 @@
 // (the fade per frame is smaller than one 8-bit step); RGBA8 otherwise, stepped at 15 Hz so each fade
 // is big enough to register.
 import { SEA_GLSL } from './sea-glsl.js';
+import { BREAK_GLSL } from '../../../../shared/sea-breakers.js';
 import { layerProgram } from './programs.js';
 import { texture2D } from './core/texture.js';
 import { SEA_FOAM_LEAD, SURF_DEPTH_Q, SEA_K } from '../../../../shared/sea-swell.js';
@@ -50,6 +51,7 @@ uniform float uRoll, uWind, uState, uFoam, uSurf, uShelter, uShoal, uRefract, uB
 uniform vec2  uSeaRot, uWindDir;
 
 ${SEA_GLSL}
+${BREAK_GLSL}
 
 // The same clamped bilinear read the water layer's vertex shader uses, so the foam is made on the
 // water the mesh draws and not a texel beside it.
@@ -95,11 +97,13 @@ void main() {
   float inj = zone * seaK * max(lip * 0.9, face);
   vec2 spF = sw - uWindDir * ${SEA_FOAM_LEAD.toFixed(3)};
   float wvF = seaChop(seaFrame(spF, uSeaRot), uT, seaPh(swR, uT));
-  inj = max(inj, clamp((wvF - uFoam) * 4.0, 0.0, 1.0) * deep * 0.8);
+  inj = max(inj, clamp((wvF + seaFoamGroup(seaFrame(spF, uSeaRot), uT) - uFoam) * 4.0, 0.0, 1.0) * deep * 0.8);
   // Where the breaker's fold squeezes the surface toward nothing, the lip is going over: foam there
   // whatever the phase says (Crest makes its crest foam off the same pinch, the Jacobian).
   float J = seaBreakFold(swR, uT, zone).y;
   inj = max(inj, smoothstep(0.6, 0.2, J) * zone * seaK);
+  // The open sea's breakers, laid down where they break so the white stays in the water behind them.
+  if (uNBrk > 0) inj = max(inj, seaBreakerFoam(w, clamp(0.5 + 0.8 * wvF, 0.0, 1.0), deep));
 
   // Drift: shoreward with the broken wave (the swell runs toward -k), and a little downwind.
   vec2 drift = -normalize(kdir) * (0.05 + 0.55 * broken * seaK) + uWindDir * 0.04 * uState;
@@ -114,7 +118,9 @@ void main() {
              + texture(uPrev, uv + vec2(0.0, bt.y)).r + texture(uPrev, uv - vec2(0.0, bt.y)).r) / 8.0 * inside;
   // Spent foam thins over seconds; in the surf zone the water stays churned longer. It runs a little
   // way up the sand with the swash and dies there.
-  float tau = mix(5.0, 11.0, zone);
+  // Out at sea it lasts longer the harder it blows, which is what turns a gale white: breakers lay it
+  // down faster than it thins. About 5 s on a fresh day, 12 s in a full gale.
+  float tau = mix(5.0 + 7.0 * uState, 11.0, zone);
   float keep = exp(-uDt / tau) * smoothstep(0.3, 0.48, water);
   o = vec4(max(prev * keep, inj), 0.0, 0.0, 1.0);
 }`;
@@ -123,7 +129,7 @@ export function createSeaFoam(gl) {
   const prog = layerProgram(gl, VERT, FRAG, 'sea-foam');
   const U = (n) => gl.getUniformLocation(prog, n);
   const names = ['uPrev', 'uLut0', 'uLut1', 'uDepthT', 'uMh', 'uR', 'uO', 'uPO', 'uSize', 'uT', 'uDt', 'uRoll', 'uWind',
-    'uState', 'uFoam', 'uSurf', 'uShelter', 'uShoal', 'uRefract', 'uBore', 'uSeaRot', 'uWindDir'];
+    'uState', 'uFoam', 'uSurf', 'uShelter', 'uShoal', 'uRefract', 'uBore', 'uSeaRot', 'uWindDir', 'uNBrk', 'uBrkP', 'uBrkS'];
   const loc = Object.fromEntries(names.map((n) => [n, U(n)]));
   const float = !!gl.getExtension('EXT_color_buffer_float');
   const fmt = float ? { format: gl.RGBA16F, type: gl.HALF_FLOAT } : {};
@@ -189,6 +195,10 @@ export function createSeaFoam(gl) {
     const rot = s.seaRot || [1, 0], wd = s.seaWindDir || [1, 0];
     gl.uniform2f(loc.uSeaRot, rot[0], rot[1]);
     gl.uniform2f(loc.uWindDir, wd[0], wd[1]);
+    // Every step, like the water's own: a stale count leaves a breaker laying foam after it's gone.
+    const bk = s.breakers;
+    gl.uniform1i(loc.uNBrk, bk ? bk.n : 0);
+    if (bk) { gl.uniform4fv(loc.uBrkP, bk.P); gl.uniform4fv(loc.uBrkS, bk.S); }
     gl.bindVertexArray(vao);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     gl.bindVertexArray(null);

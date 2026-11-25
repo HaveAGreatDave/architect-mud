@@ -1,8 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
+  "ambient_theme": "forest",
   "color": "#b5744a",
-  "description": "A tumble of flat-topped ledges in red and ochre. The dry washes between them act like chimneys for the wind.",
+  "description": "Cattails as thick as a wall, with narrow channels between them where the ducks go. The mud takes your boots and gives them back slowly.",
   "exits": {
     "east": "zone_district_905_933",
     "north": "zone_district_904_932",
@@ -13,13 +13,13 @@
     "district": "wilds",
     "radiation": 33,
     "region_id": "region_coldwater",
-    "terrain": "scrub"
+    "terrain": "marsh"
   },
   "grid_x": 904,
   "grid_y": 933,
   "grid_z": 0,
   "id": "zone_district_904_933",
   "map_id": "map_world",
-  "name": "The Rust Flats",
+  "name": "The Reedbed",
   "parent_zone": null
 }

@@ -1183,6 +1183,28 @@ const VULTURE_AIR_LINES = [
 	(n) => `A ring of ${n} hangs over the waste ahead, wheeling. They have found something, or they are about to.`,
 ];
 
+// ── THE POND BIRDS ───────────────────────────────────────────────────────────
+// The heron is one bird and always one; the ducks are a party. Neither is remarkable to anyone who
+// lives here, so they are said plainly.
+const HERON_GROUND_LINES = [
+	() => `A grey heron stands in the reeds up to its knees, dead still, looking at the water.`,
+	() => `A heron is wading the shallows a step at a time. It stops, waits, and stabs, and comes up with nothing.`,
+	() => `A heron watches you from the edge of the reeds with one yellow eye and decides you can stay for now.`,
+];
+const HERON_AIR_LINES = [
+	() => `A heron goes over low and slow, neck folded back, legs trailing, and croaks once like a door.`,
+	() => `Something big lifts out of the reeds on bowed grey wings, complains about it, and settles further along.`,
+];
+const DUCK_WATER_LINES = [
+	(n) => `${n === 1 ? "A mallard paddles" : `${n} mallards paddle`} about on the water, tipping up every so often with their tails in the air.`,
+	(n) => `${n === 1 ? "A duck is" : `${n} ducks are`} out on the water, quacking at each other about nothing much.`,
+	(n) => `${n === 1 ? "A drake sits" : `${n} ducks sit`} along the edge of the reeds, green heads shining when the light catches them.`,
+];
+const DUCK_AIR_LINES = [
+	(n) => `${n} ducks come over fast and low, wings whistling, and drop onto the water in a spray.`,
+	() => `A party of mallards gets up off the water all at once, quacking, and goes round.`,
+];
+
 const BIRD_LINES = {
 	goose: { walk: GOOSE_GROUND_LINES, raft: GOOSE_WATER_LINES, air: GOOSE_AIR_LINES },
 	gull: { walk: GULL_GROUND_LINES, raft: GULL_WATER_LINES, air: GULL_AIR_LINES, inland: GULL_INLAND_LINES, perch: GULL_PERCH_LINES },
@@ -1198,6 +1220,8 @@ const BIRD_LINES = {
 	// ⚠ NO `raft`, for the hawk's reason: nothing in the habitat table is water, so
 	// `habitatState` only ever answers 'walk' and a water pool could never be reached.
 	vulture: { walk: VULTURE_GROUND_LINES, air: VULTURE_AIR_LINES },
+	heron: { walk: HERON_GROUND_LINES, air: HERON_AIR_LINES },
+	duck: { walk: DUCK_WATER_LINES, raft: DUCK_WATER_LINES, air: DUCK_AIR_LINES },
 };
 // The grounds a gull is only on because the weather drove it there — see GULL_WEATHER in birds.js.
 const INLAND_GROUND = new Set(["concrete", "asphalt", "citycore", "marquee", "freight"]);

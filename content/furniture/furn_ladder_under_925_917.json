@@ -1,0 +1,14 @@
+{
+  "description": "Rusted iron rungs bolted into the wall, slick with damp. Grey street light shows at the top.",
+  "flags": { "passage": "up", "passage_emote": "{who} climbs the ladder up to the street." },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_ladder_under_925_917",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "iron ladder",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_under_925_917"
+}

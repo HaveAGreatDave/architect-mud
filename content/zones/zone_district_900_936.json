@@ -1,8 +1,9 @@
 {
   "ambient_events": [],
   "ambient_theme": "wasteland",
-  "color": "#3f7fb0",
-  "description": "Open water in every direction, grey and cold, heaving slowly. There's nothing to fix your eye on.",
+  "bg_color": "#1f3646",
+  "color": "#4f83a8",
+  "description": "The pond is deeper than it looks. The shallows go gravel to silt and then the bottom just goes.",
   "exits": {
     "east": "zone_district_901_936",
     "north": "zone_district_900_935",
@@ -20,6 +21,6 @@
   "grid_z": 0,
   "id": "zone_district_900_936",
   "map_id": "map_world",
-  "name": "The Meltwater Mouth",
+  "name": "Meltwater Pond",
   "parent_zone": null
 }

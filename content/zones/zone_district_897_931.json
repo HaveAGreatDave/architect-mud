@@ -1,8 +1,9 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#3f5c3a",
-  "description": "The wood thins out into iron-stained reed again, the last trunks standing apart like people who have decided not to go any further east. Behind you it's green and close. Ahead it's the flats, and you can see for a mile, and everything can see you.",
+  "ambient_theme": "wasteland",
+  "bg_color": "#1f3646",
+  "color": "#4f83a8",
+  "description": "Flat green water with a skin of pollen on it. Something big turns over below the surface and is gone.",
   "exits": {
     "east": "zone_district_898_931",
     "north": "zone_district_897_930",
@@ -13,13 +14,13 @@
     "district": "wilds",
     "radiation": 32,
     "region_id": "region_coldwater",
-    "terrain": "forest"
+    "terrain": "water"
   },
   "grid_x": 897,
   "grid_y": 931,
   "grid_z": 0,
   "id": "zone_district_897_931",
   "map_id": "map_world",
-  "name": "The Hush",
+  "name": "Meltwater Pond",
   "parent_zone": null
 }

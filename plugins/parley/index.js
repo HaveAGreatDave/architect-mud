@@ -23,6 +23,9 @@ import { isAnimal } from '../../server/engine/commands/social.js';
 import { parse } from './parse.js';
 import { react, PARLEY_MS } from './react.js';
 import { converse, named } from './company.js';
+import { isStaff } from '../admin/index.js';
+import { namingIn, renameNpcTo } from '../admin/rename.js';
+import { npcSay } from '../../server/engine/npc-speech.js';
 
 const partners = new Map();   // playerId → { npcId, zone, at }
 
@@ -132,6 +135,23 @@ async function cmdParley(args, _raw, player, broadcast) {
   // Other plugins still hear it (a dealer's passphrase works from the box too).
   fireHook('player.say', { player, text, zoneId: player.current_zone, broadcast, parleyHandled: true }).catch(() => {});
   emit('player.spoke', { player, zoneId: player.current_zone, loud: false });
+  // Staff naming somebody ("your name is ..."): rename them, and they take it in.
+  const newName = isStaff(player) ? namingIn(text) : null;
+  if (newName) {
+    const r = await renameNpcTo(player, npc, newName, { inPanel: true });
+    if (r.ok) {
+      remember(player, npc, false);
+      const said = npcSay(npc, r.line, { kind: 'dialogue' });
+      broadcast(player.current_zone, { type: 'zone_event', message: `${npc.name} ${r.beat}` }, player.id);
+      broadcast(player.current_zone, said, player.id);
+      return {
+        type: 'parley_line', npcId: npc.id, npcName: npc.name, npcSex: npc.sex || null,
+        say: r.line.replace(/^@!?\S+\s+/, '').replace(/^"|"$/g, ''), stage: `${npc.name} ${r.beat}`,
+        mood: npcMoodOf(npc)?.m || 'surprised', ended: false,
+      };
+    }
+    broadcast(null, { type: 'error', message: r.error }, null, player.id);
+  }
   const { out } = talkInCompany(player, npc, text, broadcast, { direct: true });
   toRoom(npc, out.line, player.current_zone, broadcast, player.id);
   return {

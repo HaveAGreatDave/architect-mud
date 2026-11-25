@@ -1,8 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#8f9256",
-  "description": "Low grey brush pushes up through broken ground, brittle and half dead. It shivers even when there's no wind.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "A meadow that floods in spring and dries in summer. Wildflowers come up in the low places.",
   "exits": {
     "east": "zone_district_906_927",
     "north": "zone_district_905_926",
@@ -13,13 +13,13 @@
     "district": "wilds",
     "radiation": 25,
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "grass"
   },
   "grid_x": 905,
   "grid_y": 927,
   "grid_z": 0,
   "id": "zone_district_905_927",
   "map_id": "map_world",
-  "name": "Dead Scrub",
+  "name": "The Wet Meadow",
   "parent_zone": null
 }

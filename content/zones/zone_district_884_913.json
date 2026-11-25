@@ -1,8 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "A wide plain the color of rust, hard as a road. Old tracks cross it here and there, baked in where the ground was soft once.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "A grassy bank above the water, cut away underneath where the flood has been at it. Mind the edge.",
   "exits": {
     "north": "zone_district_884_912",
     "south": "zone_district_884_914",
@@ -12,13 +12,13 @@
     "district": "wilds",
     "radiation": 29,
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "grass"
   },
   "grid_x": 884,
   "grid_y": 913,
   "grid_z": 0,
   "id": "zone_district_884_913",
   "map_id": "map_world",
-  "name": "Rustwind Flat",
+  "name": "Meltwater Bank",
   "parent_zone": null
 }

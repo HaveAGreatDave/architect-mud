@@ -36,6 +36,8 @@ export const BIOME_GROUND = {
   // dock planking. Deliberately NOT in GRASS_BIOMES, so they take the concrete-checker
   // material and read as pavement instead of turf.
   asphalt: [58, 60, 66], concrete: [108, 112, 116], pier: [96, 78, 54],
+  // Reed and sedge standing in black water: olive, darker than parkland and never the bay's blue.
+  marsh: [77, 90, 48],
   // The wildlands (client/shared/wildlands.js). scarlet is the Scarletwastes' own red, deeper than
   // the rust mesa it spreads into; lava is Mount Cinder's crater and live flows, the one ground in
   // the game brighter in red than anything a sign paints.

@@ -3,7 +3,7 @@
   "default": true,
   "exterior": {
     "base": "#b2162a",
-    "finish": "gloss",
+    "finish": "candy",
     "pattern": "factory",
     "trim": "#ece8e0",
     "variant": "rosso"

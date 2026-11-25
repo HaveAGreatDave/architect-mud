@@ -59,6 +59,10 @@ import { createReplay } from './replay.js';
 import { comicSpecOf, comicPlan, comicExtra, periodOf, RINK_COMIC, COMIC_CHANCES } from './comic.js';
 import { KEN_COMIC, kenComicDue, startKenComic, stepKenComic, stopKenComic } from './ken-comic.js';
 import { createRinkCamera } from './camera.js';
+import { CREW } from '../../../../shared/stadium.js';
+// Ken Raven walks to the machine, climbs on and drives it out of the bay (plugins/stands/crew.js) before it
+// comes through the gate: the one machine, never one parked in the bay and another on the ice.
+const CREW_OUT_S = (CREW.walk + CREW.climb + CREW.drive) / 1000;
 import { clubOf } from '../club-crest.js';
 
 // What each outcome is called on screen. The broadcast regress checks every save kind the
@@ -1579,6 +1583,8 @@ export function createDirector(W, opts = {}) {
       // (the recording stops a moment after the goal, so the run-up is still there however
       // long the booth takes to call the replay)
       D.recordUntil = W.t + (comicOn() ? RINK_COMIC.goalAfter + 0.4 : 2);
+      // and onto the night's reel, for the booth's segment in the break (keepReel)
+      { const gT = W.t; W.schedule(1.4, () => keepReel(reelKey(p), replay.save(gT - 5, gT + 1.2), null, `${String(p.shooter || '').toUpperCase()} · ${periodOf(p)} ${p.clock || ''}`.trim())); }
       if (rc != null) {
         const goalT = W.t, seq = D.seq, wait = Math.max(1.7, B.t0 + rc - W.t);
         // (a comic replay freezes on the shot that went in, the action, not the puck crossing the
@@ -2534,6 +2540,9 @@ export function createDirector(W, opts = {}) {
   }
 
   function stageInjury(p) {
+    // the hit that did it, if one was kept in the last twenty seconds, goes on the reel under this injury
+    if (D.foulPending) saveFoul();
+    if (D.lastHit && W.t - D.lastHit.t < 20) keepReel(reelKey(p), D.lastHit.clip, D.lastHit.follow, String(p.victim || p.player || '').toUpperCase());
     const prev = D.beat;
     const vs = tagSide(p.victimSide) || sideOfTeam(p.victimTeam, p) || 'h';
     // (a man the fight before it put down is still lying where he fell)
@@ -3343,6 +3352,32 @@ export function createDirector(W, opts = {}) {
     const h = D.foulPending; D.foulPending = null;
     const clip = replay.save(h.t - 3.2, Math.min(W.t, h.t + 1.2));
     D.foulClip = clip ? { ...h, clip } : null;
+    if (D.foulClip) D.lastHit = D.foulClip;
+  }
+  // THE REEL. A clip of every goal and of each hit that put a man down, kept for the night by the
+  // payload's period and clock (`reelKey`, which the broadcast's facts give each row as `reel`), so
+  // a booth segment in a break can roll them (sequence.js `roll`, tv-desk.js). A frame is never
+  // changed once taken, so a clip is a list of references; twenty at most, the oldest dropped.
+  const REEL_MAX = 20;
+  const reelKey = (p) => `${p.section || ''}|${p.clock || ''}`;
+  function keepReel(key, clip, follow, label) {
+    if (!clip) return;
+    D.reel = D.reel || new Map();
+    D.reel.delete(key); D.reel.set(key, { clip, follow, label });
+    while (D.reel.size > REEL_MAX) D.reel.delete(D.reel.keys().next().value);
+  }
+  // Run a kept clip on the feed at two-thirds speed; back to the world behind a wipe when it's done
+  // or the next play comes in. False when there's nothing kept by that name.
+  function rollReel(key) {
+    const c = D.reel && D.reel.get(key);
+    if (!c || !replay.play(c.clip, 0.65, c.follow, `REPLAY · ${c.label || ''}`.replace(/ · $/, ''))) return false;
+    const seq = D.seq;
+    wipe(0.5);
+    W.schedule(Math.max(0.5, replay.left() - WIPE / 2), () => {
+      if (D.seq !== seq || !replay.active) return;
+      wipe(); W.schedule(WIPE / 2, () => { if (D.seq === seq) replay.stop(); });
+    });
+    return true;
   }
   // A call with no hit or slash behind it (holding, hooking, interference: the sim calls those
   // at a stoppage) has no foul kept, so it runs back the last few seconds of play on the man
@@ -3469,13 +3504,16 @@ export function createDirector(W, opts = {}) {
       // sees it at a driver's pace, sped up only if a short slot's break can't hold that. The
       // broadcast shows a time-lapse, at least three times over, and holds on the clean sheet.
       // (the officials off too: the linesman skating off with the puck behind it cut the fresh ice)
-      if (!W.zamboni && !B.zam && W.netsOut() && ((W.skaters().length === 0 && !lin.active && !ref.active) || W.t - B.t0 > 7.5)) {
+      // Not before Ken is out of the bay with it (CREW_OUT_S into the break), and at a driver's pace on
+      // the broadcast as in the seats: no time-lapse. Sped up only if a short break can't hold the sheet.
+      const into = aired + (W.t - B.t0);
+      if (!W.zamboni && !B.zam && W.netsOut() && into >= CREW_OUT_S && ((W.skaters().length === 0 && !lin.active && !ref.active) || W.t - B.t0 > 7.5)) {
         B.zam = true;
-        const left = back != null ? back - 7.5 - (W.t - B.t0) : null, least = opts.zamboniReal ? 1 : 3;
+        const left = back != null ? back - 7.5 - (W.t - B.t0) : null;
         // (joining late, it's as far round as it would have got; past the end, it has been and gone)
-        const mt = aired > 20 ? (aired - 20) * least : 0;
+        const mt = Math.max(0, aired - CREW_OUT_S);
         if (mt >= W.zamboniTime()) W.netsOn();
-        else W.startZamboni(opts.zamboniLapse || (left != null ? clamp((W.zamboniTime() - mt) / Math.max(1, left), least, 60) : 10), mt);
+        else W.startZamboni(opts.zamboniLapse || (left != null ? clamp((W.zamboniTime() - mt) / Math.max(1, left), 1, 60) : 10), mt);
         W.cam.mode = 'zam';
         B.zamAt = W.t;
       }
@@ -3860,6 +3898,7 @@ export function createDirector(W, opts = {}) {
     busy: () => !!D.beat && !D.beat.waiting,
     kind: () => (D.beat ? D.beat.kind : null),
     reset() { if (D.beat) { D.beat.cleanup?.(); D.beat = null; } releaseAll(); },
+    rollReel,
     state: D,
     // the Cup night's clock, for the view's cards
     CROWN,

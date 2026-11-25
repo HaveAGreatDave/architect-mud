@@ -18,7 +18,11 @@
 //
 // Covers A-Z, 0-9 and the punctuation a tag uses. The traced sheet (tag-glyphs.js) wins for the
 // letters it has in the bubble style; anything in neither table falls back to TAG_FONT.
-export const TAG_FACES = ['bubble', 'round', 'block', 'sharp'];
+// The special finishes a piece can be sprayed in, on top of its colours: a can that carries one
+// (an item's `paint_finish` tag) or a finish earned (plugins/graffiti) unlocks it. The graffiti
+// plugin checks a payload against this list; tag-bake.js draws each over the letters' fill.
+export const TAG_FINISHES = ['chrome', 'gold', 'holo', 'glow', 'neon'];
+export const TAG_FACES = ['bubble', 'round', 'block', 'sharp', 'treat', 'degrassi', 'spray', 'drip', 'brush', 'lacquer'];
 
 export const TAG_STROKES = {
   // An arch with legs in the upright faces, because a pointed apex at this weight closes the

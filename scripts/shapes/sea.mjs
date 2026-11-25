@@ -43,10 +43,15 @@ import {
   SEA_TRAINS, SEA_PH, SEA_ROLL, SEA_WIND, SEA_AMP,
   SEA_SWELL_SIDE, SEA_WIND_SIDE, SEA_SWELL_PEAK, SEA_WIND_PEAK, SEA_SPREAD,
   seaChop, seaHeight, seaSlope, seaAmpsFor, whitecapFraction, seaFoamThreshold, seaSubmersion, seaFoamTear, seaFoamFine, SEA_FOAM_TEAR,
+  seaFoamGroup, SEA_FOAM_GROUP, seaToFrame,
   surfGain, surfBreaking, SURF_GAMMA, surfHullGain,
   seaChopGain, SEA_CHOP_CALM, SEA_FULL_KT, SEA_KA_LIMIT, SEA_K,
 } from '../../client/shared/sea-swell.js';
 import { seabedDepth, shoreDistance } from '../../client/shared/seabed.js';
+
+// The whitecap groups at a world point: seaChop moves (u, v) into the sea's frame itself, and the
+// shaders read the groups in that same frame, so this does too.
+const foamGroupAt = (u, v, t) => { const q = seaToFrame(u, v); return SEA_FOAM_GROUP * seaFoamGroup(q[0], q[1], t); };
 
 const GLSL = 'client/game/js/panels/gl/sea-glsl.js';
 const RASTER = 'client/game/js/panels/windshield.js';
@@ -517,7 +522,7 @@ if (glslSrc) {
         // ⚠ EVERY TERM THE SHADER TESTS, or this is measuring its own mismatch again — which it did
         // once already when the tear landed and it went on sampling the smooth chop. The fine
         // trains ride the same switch as the tear in both the shader and the inversion.
-        a.push(seaChop(u, v, 3.0)
+        a.push(seaChop(u, v, 3.0) + foamGroupAt(u, v, 3.0)
           + (tear ? seaFoamFine(u, v, 3.0) + tear * seaFoamTear(u, v, 3.0) : 0));
       }
       a.sort((x, y) => x - y);
@@ -1833,7 +1838,7 @@ if (glslSrc) {
     let hit = 0; const N = 40000;
     for (let i = 0; i < N; i++) {
       const u = (((i + 1) * 0.6180339887) % 1) * 70 - 35, v = (((i + 1) * 0.4142135624) % 1) * 70 - 35;
-      if (seaChop(u, v, 7.3) > thr) hit++;
+      if (seaChop(u, v, 7.3) + foamGroupAt(u, v, 7.3) > thr) hit++;
     }
     worst = Math.max(worst, Math.abs(hit / N - want) / Math.max(want, 1e-3));
   }
@@ -1842,7 +1847,7 @@ if (glslSrc) {
   const fl = read('client/game/js/panels/gl/floor.js');   // RAW: the shader is a template literal, which blank() wipes
   const ws = blank(rasterSrc || '');
   const bad = [];
-  if (!fl.includes('wv > uFoamFar')) bad.push('gl/floor.js does not test uFoamFar');
+  if (!fl.includes('wvG > uFoamFar') || !/wvG = wv \+ seaFoamGroup\(/.test(fl)) bad.push('gl/floor.js does not test uFoamFar against the chop and its groups');
   if (!fl.includes('gl.uniform1f(loc.foamFar,')) bad.push('gl/floor.js never sets uFoamFar');
   if (!ws.includes('seaFoamFar: SEA_NOW.foamFar')) bad.push('windshield.js does not hand the floor SEA_NOW.foamFar');
   if (!ws.includes('foamFar: seaFoamThreshold(kt, 0)')) bad.push('windshield.js: foamFar is not the tear-0 inversion');

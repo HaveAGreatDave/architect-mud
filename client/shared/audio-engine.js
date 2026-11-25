@@ -38,7 +38,7 @@
   let _rendering = 0;   // > 0 while renderSfx or renderSong builds into an offline context
   let masterGain, musicGain, sfxGain, ambientGain, tvGain, uiGain;
   let _noiseBuffer = null;
-  let _settings = { enabled: true, music: true, sfx: true, tv: true, masterVolume: 0.40, musicVolume: 0.7, sfxVolume: 0.9, ambientVolume: 0.3, tvVolume: 0.6, muteWhenHidden: true };
+  let _settings = { enabled: true, music: true, sfx: true, tv: true, npcVoices: true, masterVolume: 0.40, musicVolume: 0.7, sfxVolume: 0.9, ambientVolume: 0.3, tvVolume: 0.6, muteWhenHidden: true };
   let _hiddenDucked = false;
   let _monoNode = null, _mono = false;
   let echoNodes = null; // global master-bus echo send (weed): { wet, delay, fb }
@@ -2656,8 +2656,67 @@
   let activeSongId = null;
   let activeOwner = null;
 
+  // A recorded track in the music slot: `def.recording` is a URL to a .qoa file
+  // (client/shared/qoa.js, fetched on first use) or anything decodeAudioData reads.
+  // Same face as makeSongPlayer (start, stop, pause, resume, gainNode), so the zone
+  // theme, the TV and fadeTo treat it as a song. Decoded buffers are kept by URL.
+  const _recordingCache = new Map();   // url -> Promise<AudioBuffer>
+  function _loadQoaCodec() {
+    if (global.QOA) return Promise.resolve();
+    return new Promise((ok, fail) => {
+      const s = document.createElement('script');
+      s.src = '/shared/qoa.js'; s.onload = ok; s.onerror = () => fail(new Error('qoa.js failed to load'));
+      document.head.appendChild(s);
+    });
+  }
+  function loadRecording(url) {
+    if (_recordingCache.has(url)) return _recordingCache.get(url);
+    const p = (async () => {
+      const bytes = new Uint8Array(await (await fetch(url)).arrayBuffer());
+      if (/\.qoa(\?|$)/i.test(url)) {
+        await _loadQoaCodec();
+        const d = global.QOA.decode(bytes);
+        const buf = ctx.createBuffer(d.channels, d.samples, d.sampleRate);
+        d.channelData.forEach((data, k) => buf.copyToChannel(data, k));
+        return buf;
+      }
+      return ctx.decodeAudioData(bytes.buffer);
+    })();
+    p.catch(() => _recordingCache.delete(url));
+    _recordingCache.set(url, p);
+    return p;
+  }
+  function makeRecordingPlayer(def, outputGain, opts = {}) {
+    const c = ctx;
+    let buf = null, src = null, startedAt = 0, offset = 0, stopped = false, paused = false;
+    const level = c.createGain();
+    level.gain.value = def.gain ?? 1;
+    level.connect(outputGain);
+    const begin = () => {
+      if (stopped || paused || !buf) return;
+      src = c.createBufferSource();
+      src.buffer = buf;
+      src.loop = !opts.once;
+      if (def.loopStart) src.loopStart = def.loopStart;
+      src.connect(level);
+      src.onended = () => { if (!src.loop && !paused && !stopped) { stopped = true; opts.onEnd?.(); } };
+      startedAt = c.currentTime - offset;
+      src.start(0, offset % buf.duration);
+    };
+    const halt = () => { if (src) { try { src.onended = null; src.stop(); } catch { /* not started */ } src.disconnect(); src = null; } };
+    return {
+      gainNode: outputGain,
+      start() { loadRecording(def.recording).then((b) => { buf = b; begin(); }, (e) => console.warn('[audio] recording failed:', def.recording, e.message)); },
+      stop() { stopped = true; halt(); level.disconnect(); },
+      pause() { if (!src || paused) return; offset = c.currentTime - startedAt; paused = true; halt(); },
+      resume() { if (!paused) return; paused = false; begin(); },
+      setChannelWeight() {},
+    };
+  }
+  const _musicPlayer = (def, gain, opts) => (def.recording ? makeRecordingPlayer(def, gain, opts) : makeSongPlayer(def, gain, opts));
+
   // The caller attaches def._instrumentsById = {id: instrumentRow} before
-  // playMusic/fadeTo; this engine fetches nothing.
+  // playMusic/fadeTo; this engine fetches nothing (a recording fetches its own file).
   function playMusic(def, opts = {}) {
     const c = init();
     if (!c || !def) return;
@@ -2675,7 +2734,7 @@
     const gain = c.createGain();
     gain.connect(activeOwner === 'tv' ? _tvGate('music') : musicGain);   // a TV's song follows the TV mute
     // once: the player is let go, so asking again restarts rather than skips
-    const player = makeSongPlayer(def, gain, {
+    const player = _musicPlayer(def, gain, {
       once: !!opts.once,
       onEnd: () => { if (activePlayer === player) { activePlayer = null; activeSongId = null; activeOwner = null; } },
     });
@@ -2736,7 +2795,7 @@
     const newGain = c.createGain();
     newGain.gain.setValueAtTime(0, c.currentTime);
     newGain.connect(musicGain);
-    const next = makeSongPlayer(def, newGain);
+    const next = _musicPlayer(def, newGain);
     next.onLoopWrap_ = () => {
       if (pendingNext) { const n = pendingNext; pendingNext = null; fadeTo(n); }
     };
@@ -2886,27 +2945,27 @@
       // `df` is dark /l/ (not before a vowel): F2 near a back vowel
       L:{f:[360,1300,2600],df:[430,760,2700],t:'L',d:70,tc:0.020}, R:{f:[330,1060,1450],t:'L',d:80,tc:0.020},
       W:{f:[300,610,2200],t:'L',d:70,tc:0.022},  Y:{f:[270,2290,3010],t:'L',d:60,tc:0.022},
-      // `ng`: per-phoneme noise level; sibilants sit low or they shout. Low `nq`
+      // `ng`, `nf`, `bg`, `bq`: levels and centres set against VCTK's 110 speakers (docs/proposals/oracle-teacher.md, consonants). `ng`: per-phoneme noise level; sibilants sit low or they shout. Low `nq`
       // keeps /s/ broadband (a narrow band whistles). `fl`: the share of the noise
       // that is flat (high-passed, no peak) beside the band, as Klatt's bypass path:
       // /f v θ ð/ are mostly flat, /ʃ ʒ/ peak at F3 with energy on above it, /s z/
       // are nearly all peak. setNoiseBand keeps each phoneme's level as `ng` set it.
-      S:{t:'F',d:100,nf:5600,nq:1.3,ng:0.18,vd:0,lf:ALV,sib:1,fl:0.05},  Z:{t:'F',d:95,nf:5600,nq:1.3,ng:0.12,vd:.5,lf:ALV,sib:1,fl:0.05},
-      SH:{t:'F',d:115,nf:3000,nq:1.2,ng:0.16,vd:0,lf:PAL,sib:1,fl:0.4},   ZH:{t:'F',d:100,nf:3000,nq:1.2,ng:0.13,vd:.5,lf:PAL,sib:1,fl:0.4},
-      F:{t:'F',d:100,nf:5000,nq:0.6,ng:0.03,vd:0,lf:LAB,fl:0.85},  V:{t:'F',d:90,nf:5000,nq:0.6,ng:0.02,vd:.5,lf:LAB,fl:0.85},
-      TH:{t:'F',d:100,nf:5500,nq:0.6,ng:0.024,vd:0,lf:DEN,fl:0.75}, DH:{t:'F',d:80,nf:5000,nq:0.6,ng:0.012,vd:.5,lf:DEN,fl:0.75},
-      HH:{t:'H',d:80,nf:1500,nq:1,vd:0},
+      S:{t:'F',d:100,nf:6700,nq:1.3,ng:0.11,vd:0,lf:ALV,sib:1,fl:0.05},  Z:{t:'F',d:95,nf:5600,nq:1.3,ng:0.12,vd:.5,lf:ALV,sib:1,fl:0.05},
+      SH:{t:'F',d:115,nf:4000,nq:1.2,ng:0.07,vd:0,lf:PAL,sib:1,fl:0.4},   ZH:{t:'F',d:100,nf:4000,nq:1.2,ng:0.07,vd:.5,lf:PAL,sib:1,fl:0.4},
+      F:{t:'F',d:100,nf:5000,nq:0.6,ng:0.013,vd:0,lf:LAB,fl:0.85},  V:{t:'F',d:90,nf:4000,nq:0.6,ng:0.011,vd:.5,lf:LAB,fl:0.85},
+      TH:{t:'F',d:100,nf:6000,nq:0.6,ng:0.011,vd:0,lf:DEN,fl:0.75}, DH:{t:'F',d:80,nf:3200,nq:0.6,ng:0.008,vd:.5,lf:DEN,fl:0.75},
+      HH:{t:'H',d:80,nf:2200,nq:0.4,vd:0},
       // A laugh's pulses (laughPhones): a short, breathy vowel after each /h/. HA for "ha",
       // HE for "heh" and "hee".
       HA:{f:[700,1220,2600],t:'V',d:85,laugh:1}, HE:{f:[540,1780,2550],t:'V',d:80,laugh:1},
-      CH:{t:'F',d:95,nf:3000,nq:1.2,ng:0.14,vd:0,stopFirst:1,lf:PAL,sib:1,fl:0.4}, JH:{t:'F',d:85,nf:3000,nq:1.2,ng:0.09,vd:.4,stopFirst:1,lf:PAL,sib:1,fl:0.4},
+      CH:{t:'F',d:95,nf:3800,nq:1.2,ng:0.08,vd:0,stopFirst:1,lf:PAL,sib:1,fl:0.4}, JH:{t:'F',d:85,nf:3800,nq:1.2,ng:0.05,vd:.4,stopFirst:1,lf:PAL,sib:1,fl:0.4},
       // asp: voice-onset time, ms (the voiced/voiceless cue). bq: burst Q (low
       // diffuse, high compact; velars compact). bd: burst ms. bg: burst level.
       // see docs/systems-procedural-audio.md#the-burst-had-a-frequency-but-no-shape
       // A labial's burst is diffuse, nothing in front of the lips to ring: part flat (`fl`).
-      P:{t:'S',d:90,nf:1100,vd:0,lf:LAB,asp:55,bq:0.7,bd:10,bg:0.55,fl:0.5}, B:{t:'S',d:80,nf:900,vd:.4,lf:LAB,asp:8,bq:0.7,bd:8,bg:0.35,fl:0.5},
-      T:{t:'S',d:90,nf:4600,vd:0,lf:ALV,asp:65,bq:1.2,bd:12,bg:1.3}, D:{t:'S',d:80,nf:4000,vd:.4,lf:ALV,asp:10,bq:1.2,bd:10,bg:0.8},
-      K:{t:'S',d:90,nf:2000,vd:0,lf:VEL,asp:75,bq:3.5,bd:22,bg:1.8}, G:{t:'S',d:80,nf:1800,vd:.4,lf:VEL,asp:14,bq:3.5,bd:18,bg:1.1},
+      P:{t:'S',d:90,nf:700,vd:0,lf:LAB,asp:55,bq:0.7,bd:10,bg:0.16,fl:0.2}, B:{t:'S',d:80,nf:550,vd:.4,lf:LAB,asp:8,bq:0.7,bd:8,bg:0.19,fl:0.2},
+      T:{t:'S',d:90,nf:4000,vd:0,lf:ALV,asp:65,bq:1.2,bd:12,bg:0.52}, D:{t:'S',d:80,nf:3300,vd:.4,lf:ALV,asp:10,bq:1.2,bd:10,bg:0.26},
+      K:{t:'S',d:90,nf:2400,vd:0,lf:VEL,asp:75,bq:1.5,bd:22,bg:0.3}, G:{t:'S',d:80,nf:2000,vd:.4,lf:VEL,asp:14,bq:1.5,bd:18,bg:0.24},
       // Flap: a stop (for the loci) with a voiced tap's timing.
       // glottalised final /t/ before a consonant ("tha' man"): held, never released
       TQ:{t:'S',d:60,nf:4600,vd:0,lf:ALV,asp:0,bd:0,bg:0,gq:1},
@@ -3388,8 +3447,68 @@ return out;
         });
     }
 
+    // Flite's token rules (us_text.c) as a checklist: money, decades, fractions,
+    // am/pm, phone numbers, ranges, units, regnal numerals. Each pass needs a digit
+    // (or a numeral after a name), so prose is untouched.
+    const pluralWord = (s) => s.replace(/(\w+)$/, w => /y$/.test(w) ? w.slice(0, -1) + 'ies' : /x$/.test(w) ? w + 'es' : w + 's');
+    const plu = (n, one, many) => (n === '1' || n === 1 ? one : many);
+    const MONEY = { '$': ['dollar', 'dollars', 'cent', 'cents'], '£': ['pound', 'pounds', 'penny', 'pence'], '€': ['euro', 'euros', 'cent', 'cents'] };
+    const UNIT = { km: ['kilometre', 'kilometres'], kg: ['kilogram', 'kilograms'], mph: ['mile per hour', 'miles per hour'],
+      kph: ['kilometre per hour', 'kilometres per hour'], cm: ['centimetre', 'centimetres'], mm: ['millimetre', 'millimetres'],
+      m: ['metre', 'metres'], ft: ['foot', 'feet'], lb: ['pound', 'pounds'], lbs: ['pound', 'pounds'] };
+    const SCALE = { k: 'thousand', K: 'thousand', M: 'million', B: 'billion' };
+    const FRAC = { 2: ['half', 'halves'], 4: ['quarter', 'quarters'] };
+    const MONTH = { jan: 'January', feb: 'February', mar: 'March', apr: 'April', jun: 'June', jul: 'July', aug: 'August',
+      sep: 'September', sept: 'September', oct: 'October', nov: 'November', dec: 'December' };
+    const ROMAN_V = { I: 1, V: 5, X: 10, L: 50 };
+    const romanValue = (r) => { let n = 0; for (let i = 0; i < r.length; i++) { const v = ROMAN_V[r[i]], nx = ROMAN_V[r[i + 1]] || 0; n += v < nx ? -v : v; } return n; };
+    // After these a numeral is a count ("Chapter Four"); after any other name it's a regnal ("Henry the Eighth").
+    const ROMAN_COUNT = /^(?:chapter|part|act|book|volume|vol|war|phase|section|level|mark|mk|scene|stage|season|episode|unit|block|wing|tier|class|type)$/i;
+    function flitePasses(t){
+      return t
+        .replace(/\b(\d{1,2})\/(\d{1,2})\/(\d{2,4})\b/g, ' $1 $2 $3 ')                         // a date: its numbers in turn
+        .replace(/\b24\/7\b/g, ' twenty four seven ')
+        .replace(/\b(\d{1,2})\/(\d{1,2})\b/g, (m, a, b) => {
+          const n = +a, d = +b;
+          if (!(d >= 2 && d <= 12 && n >= 1 && n < d)) return ' ' + a + ' over ' + b + ' ';
+          const den = FRAC[d] || [ordinalToWords(d), pluralWord(ordinalToWords(d))];
+          if (n === 1 && d === 2) return ' half ';
+          return ' ' + intToWords(n) + ' ' + plu(n, den[0], den[1]) + ' ';
+        })
+        .replace(/([$£€])\s*(\d[\d,]*)(?:\.(\d\d))?(?![\d.]*[kKMB]\b)/g, (m, c, d, cc) => {
+          const [one, many, cOne, cMany] = MONEY[c], n = d.replace(/,/g, '');
+          let s = ' ' + n + ' ' + plu(n, one, many);
+          if (cc && +cc) s += ' ' + (+cc) + ' ' + plu(+cc, cOne, cMany);
+          return s + ' ';
+        })
+        .replace(/([$£€])\s*(\d+(?:\.\d+)?)\s*([kKMB])\b/g, (m, c, d, k) => ' ' + d + ' ' + SCALE[k] + ' ' + MONEY[c][1] + ' ')
+        .replace(/(\d+)\s*¢/g, (m, d) => ' ' + d + ' ' + plu(d, 'cent', 'cents') + ' ')
+        .replace(/\b(\d{1,2})(?::([0-5]\d))?\s*([ap])\.?m\.?(?![a-z])/gi, (m, h, mm, ap) =>
+          ' ' + intToWords(+h) + (mm && mm !== '00' ? ' ' + (+mm < 10 ? 'oh ' + intToWords(+mm) : intToWords(+mm)) : '') + (/a/i.test(ap) ? ' ay em ' : ' pee em '))
+        .replace(/\b(\d{3})-(\d{3})-(\d{4})\b|\b(\d{3})-(\d{4})\b/g, (m) => ' ' + m.replace(/-/g, ' ').split('').map(c => c === ' ' ? ',' : _ONES[+c]).join(' ') + ' ')
+        // a rising range before a word ("10-15 people"); a score ("won 3-2") keeps its dash
+        .replace(/(?<![-\d])\b(\d+)\s*[-–]\s*(\d+)\b(?![-\d])(?=\s+[a-z])/g, (m, a, b) => (+a < +b ? ' ' + a + ' to ' + b + ' ' : m))
+        .replace(/(^|[\s(])[-−](?=\d)/g, '$1 minus ')
+        .replace(/\b(\d+(?:\.\d+)?)\s*([kKMB])\b/g, (m, d, k) => ' ' + d + ' ' + SCALE[k] + ' ')
+        .replace(/\b(\d+(?:\.\d+)?)\s?(km|kg|mph|kph|cm|mm|ft|lbs?|m)\b(?!['’]?\w)/g, (m, d, u) => ' ' + d + ' ' + plu(d, UNIT[u][0], UNIT[u][1]) + ' ')
+        // decades and plural numbers: the 1990s, the '90s, 1000s
+        .replace(/\b(1[0-9]|20)(\d)0['’]?s\b/g, (m, c, d) => ' ' + pluralWord(yearToWords(+(c + d + '0')).replace(/^one (?=thousand)/, '')) + ' ')
+        .replace(/(?:['’]|\b)([1-9])0['’]?s\b/g, (m, d) => ' ' + pluralWord(_TENS[+d] || 'ten') + ' ')
+        .replace(/\b(\d+)['’]?s\b/g, (m, d) => ' ' + pluralWord(numToWords(d).replace(/^one (?=hundred|thousand|million|billion)/, '')) + ' ')
+        .replace(/\bNo\.?\s*(?=\d)/g, ' number ')
+        .replace(/\b(Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sept?|Oct|Nov|Dec)\.?\s+(?=\d)/g, (m, mo) => ' ' + MONTH[mo.toLowerCase()] + ' ')
+        .replace(/\b(Ave|Rd|Blvd)\./g, (m, a) => ' ' + { Ave: 'Avenue', Rd: 'Road', Blvd: 'Boulevard' }[a] + ' ')
+        .replace(/\b([A-Z][a-z]+)\s+([IVXL]{1,6})\b(?![a-z'’])/g, (m, name, r) => {
+          if (!/^(?:X{0,3})(?:IX|IV|V?I{0,3})$/.test(r) && !/^L?X{0,3}(?:IX|IV|V?I{0,3})$/.test(r)) return m;
+          const n = romanValue(r); if (!n) return m;
+          if (ROMAN_COUNT.test(name)) return name + ' ' + intToWords(n);
+          if (r.length < 2) return m;   // "Plan X", "Vitamin C" stay letters
+          return name + ' the ' + ordinalToWords(n);
+        });
+    }
+
     function expandNumbers(text){
-      return expandAbbrev(text)
+      return flitePasses(expandAbbrev(text))
         .replace(/°\s*([CF])\b/g, (m,u)=>' degrees '+(u==='C'?'celsius':'fahrenheit')+' ')   // 72°F → "degrees fahrenheit"
         .replace(/°/g, ' degrees ')
         .replace(/%/g, ' percent ')
@@ -3576,9 +3695,23 @@ return out;
       loudFall:    1.0,    // scales the sentence's fall in loudness and the post-nuclear drop (LOUD); 0 is level
       vvCoart:     1.0,    // an unstressed vowel leaning toward the next stressed one across a consonant; 0 is off
       hardOnset:   1.0,    // the glottal catch on a vowel-initial word (see hardOnset); 0 fades every vowel in
+      // Intonation and rhythm against VCTK's North American readers (oracle-teacher.md, "Intonation
+      // and rhythm"). glide, downstep, nucFall and stressLen at 1, declFront and preHead at 0, give the
+      // rules as they were before 2026-11-24.
+      glide:       1.5,    // how slowly pitch moves to each target (accent rises, the nuclear fall)
+      declFront:   1,      // 0 declines evenly over a phrase; 1 front-loads it (most of the fall in the first third, as read speech does)
+      downstep:    0.6,    // scales how far each accent steps down from the one before
+      preHead:     0.5,      // lifts the unstressed syllables before a phrase's first accent, in units of lilt
+      nucFall:     0.35,   // scales the nuclear fall (H* L) at a phrase end and how low what follows it sits
+      stressLen:   1.8,    // scales the length contrast between stressed and unstressed vowels
       relax:       1.0,    // graph only: darker, breathier, softer toward each phrase end; 0 disables
       smack:       1.0,    // chance of a lip smack before a line that starts from quiet (1 is about a third); 0 disables
-      inhale:      1.0,    // the quiet breath in at a sentence or paragraph break mid-passage; 0 disables
+      formantNet:  1,      // the formant controller (oracle-formant.json); 0 speaks the rules alone
+      sourceNet:   1,      // the source controller (oracle-source.json)
+      consonantNet: 1,     // the consonant controller (oracle-consonant.json)
+      inhale:      0.35,   // the quiet breath in at a sentence or paragraph break mid-passage; 0 disables.
+                           // At 1.0 it peaked 21-25 dB under the vowels on dead silence and stood out;
+                           // a recorded breath sits on room noise about 31 dB under (2026-11-24)
       finalTaper:  0.6,    // level and release of word-final noise (else a sigh after every word); 1 is off
       baseVowels:  1.0,    // scales every voice's mix of BASE_VOWELS into PH; 0 is PH alone
       undershoot:  0.2,    // EXPLICIT coarticulation only — see the note in the loop
@@ -3643,6 +3776,7 @@ return out;
     const BREATH_K = ASP_H / 0.11;   // voices' `breath` was tuned against an /h/ of 0.11
     const SMACK = 0.12;          // a lip smack's tick, on the frication bus
     const ASP_BREATH_IN = 0.035; // the breath before a big call
+    const BREATH_GAP = 3.5;      // seconds of speech between breaths in, at the least
     const AFFRICATE_CLOSURE = 0.05;  // s; the stop half of /tʃ dʒ/
     // Drawn-out sounds (s): V0 plus V per extra letter; the C pair for consonants.
     const LONG_V0 = 0.14, LONG_V = 0.16, LONG_V_MAX = 2.6;
@@ -3669,6 +3803,9 @@ return out;
         f1:     1 + 0.06 * e,                   // a louder voice opens the jaw
         jitter: 1 + 0.5 * e,                    // and strains it
         longK:  1 + 0.25 * e,                   // a drawn-out sound, held a little longer when sold
+        // Factors on the neutral intonation (TUNING.glide * D.glide ... stressLen, the voice's final), which a
+        // mood bends per line through opt.delivery (client/shared/delivery.js). 1 is the neutral reading.
+        glide: 1, declFront: 1, downstep: 1, preHead: 1, nucFall: 1, stressLen: 1, finalK: 1,
       };
     }
 
@@ -4804,8 +4941,9 @@ return out;
       if (p.t === 'V') {
         dur *= ev(ctx.wordScale);
         // AX is already reduced: don't shorten it again.
+        const sl = TUNING.stressLen * (ctx.stressLen ?? 1);
         dur *= ev(ctx.stress === 2 ? 1 + (ctx.shout ? 1.15 : 0.65) * TUNING.emphasis
-             : ctx.stress ? 1.12 : (code === 'AX' ? 1 : 0.8));
+             : ctx.stress ? 1 + 0.12 * sl : (code === 'AX' ? 1 : Math.max(0.5, 1 - 0.2 * sl)));
         // Postvocalic context (Klatt rule 9, "bad" vs "bat"): full effect when stressed
         // or phrase-final, half elsewhere. AX only ever lengthens.
         const n = ctx.nxt;
@@ -4912,7 +5050,7 @@ return out;
         let j = i + 1; while (isMark(phon[j])) j++;
         const nxtCode = phon[j], nxt = PH[nxtCode];
         if (p.t === 'P') wordScale = sylScale(sylFrom(phon, i + 1));
-        const ctx = { nxtCode, nxt, nxtStress: phon.slice(i + 1, j).some(c => c === '*' || c === '!'), prevCode, stress, shout, wordScale, speed, held, hold: dl && dl.hold, pause: dl && dl.pause, durs: dl && dl.durs, final: dl && dl.final, long, longK: dl && dl.longK, nat: dl && dl.nat, fin: fins[i], sfin: sfins[i], gap: gaps[i], quick: quick[i], foot: feet[i], sonClip: clips[i], pos: shape.pos[i], aside: shape.aside[i], tempo: tempo ? tempo[i] : 1 };
+        const ctx = { nxtCode, nxt, nxtStress: phon.slice(i + 1, j).some(c => c === '*' || c === '!'), prevCode, stress, shout, wordScale, speed, held, hold: dl && dl.hold, pause: dl && dl.pause, durs: dl && dl.durs, final: dl && dl.final, stressLen: dl && dl.stressLen, long, longK: dl && dl.longK, nat: dl && dl.nat, fin: fins[i], sfin: sfins[i], gap: gaps[i], quick: quick[i], foot: feet[i], sonClip: clips[i], pos: shape.pos[i], aside: shape.aside[i], tempo: tempo ? tempo[i] : 1 };
         const dur = segmentDuration(p, code, ctx);
         long = 0;
         if (p.t === 'V') { stress = 0; held = false; }
@@ -5106,6 +5244,7 @@ return out;
         key: 2 ** ((s.key + para) * amt / 12), range: Math.exp(s.range * amt), rate: Math.exp(s.rate * amt) };
     }
     const READER_DUCK_DB = -12;
+    const NPC_DUCK_DB = -10;     // the TV under a person in the room
     const stopAll = (nodes) => nodes.forEach(n => { try { n.stop(); } catch { /* already stopped */ } });
     function cancel(channel){
       const names = channel ? [channel === 'reader' ? 'ui' : channel] : Object.keys(CHANNELS);
@@ -5172,8 +5311,9 @@ return out;
       }
       return out;
     }
-    // Cents per phone: `at` holds each phone's start and, last, the line's end (s).
-    function pitchCents(doc, codes, at, acc) {
+    // The GRU's last layer per phone, for a phone head (pitch or formant): `at` holds each
+    // phone's start and, last, the line's end (s).
+    function headRun(doc, codes, at, acc) {
       const N = pitchNetOf(doc), W = N.W, H = doc.hidden, n = codes.length;
       const emb = W['emb.weight'], E = emb.shape[1];
       let xs = codes.map((c, i) => {
@@ -5189,8 +5329,16 @@ return out;
         const f = gruRun(W, 'l' + l, xs, H, false), b = gruRun(W, 'l' + l + '_reverse', xs, H, true);
         xs = f.map((v, i) => { const o = new Float32Array(2 * H); o.set(v); o.set(b[i], H); return o; });
       }
-      const ow = W['out.weight'].a, ob = W['out.bias'].a, K = 2 * H;
-      return xs.map(x => { let a = ob[1]; for (let j = 0; j < K; j++) a += ow[K + j] * x[j]; return Math.tanh(a) * doc.cents; });
+      return xs;
+    }
+    // The output layer's row o for each phone, through tanh.
+    function headOut(doc, xs, o) {
+      const W = pitchNetOf(doc).W, ow = W['out.weight'].a, ob = W['out.bias'].a, K = 2 * doc.hidden;
+      return xs.map(x => { let a = ob[o]; for (let j = 0; j < K; j++) a += ow[o * K + j] * x[j]; return Math.tanh(a); });
+    }
+    // Cents per phone.
+    function pitchCents(doc, codes, at, acc) {
+      return headOut(doc, headRun(doc, codes, at, acc), 1).map(v => v * doc.cents);
     }
     // The f0 track (column 0) times the vowels' corrections, joined between vowel centres.
     function applyPitchNet(doc, plist, tracks, frames, frame, NP) {
@@ -5208,6 +5356,91 @@ return out;
         tracks[f * NP] *= Math.pow(2, c / 1200);
       }
     }
+    // The formant controller (docs/proposals/oracle-teacher.md): one network for every voice,
+    // trained on VCTK's 108 speakers with each one's vocal-tract length taken out, so it moves
+    // formants the way people do from sound to sound and leaves where a voice's sit alone.
+    // Per phone it gives F1 to F3 at 20, 50 and 80% through each sonorant, as log ratios on
+    // the rules'; the correction is joined through those points and back to none at each
+    // obstruent's middle, so nothing wobbles inside a sound. It cut Whisper's word error on
+    // the 200-line gate set from 68% to 54%. Loaded with the worklet (oracle-formant.json);
+    // until then, and with TUNING.formantNet 0, the rules speak alone. Worklet back end only.
+    let _fnUrl = _SELF_SRC ? new URL('oracle-formant.json', _SELF_SRC).href : '', _formantNet = null, _fnLoading = false;
+    // The source controller beside it (oracle-source.json): per vowel, rd, tilt and ah, as the
+    // people in VCTK vary their breathiness and press from syllable to syllable where ORACLE's
+    // source holds still. TUNING.sourceNet 0 turns it off.
+    let _snUrl = _SELF_SRC ? new URL('oracle-source.json', _SELF_SRC).href : '', _sourceNet = null, _snLoading = false;
+    // And the consonant controller (oracle-consonant.json): per fricative, affricate and stop,
+    // the noise band's centre (nf), level (af) and width (nq), as context moves them in VCTK:
+    // /k/ before /iy/ brighter than before /uw/, an onset /t/ louder than one in a cluster.
+    let _cnUrl = _SELF_SRC ? new URL('oracle-consonant.json', _SELF_SRC).href : '', _consonantNet = null, _cnLoading = false;
+    function loadFormantNet() {
+      if (typeof global.fetch !== 'function') return;
+      const get = (url, set, what) => global.fetch(url).then(r => (r.ok ? r.json() : null)).then(d => { if (d) set(d); },
+        (e) => console.warn('[voice] ' + what + ' controller unavailable:', e && e.message));
+      if (!_formantNet && !_fnLoading && _fnUrl) { _fnLoading = true; get(_fnUrl, d => { _formantNet = d; }, 'formant'); }
+      if (TUNING.sourceNet > 0 && !_sourceNet && !_snLoading && _snUrl) { _snLoading = true; get(_snUrl, d => { _sourceNet = d; }, 'source'); }
+      if (TUNING.consonantNet > 0 && !_consonantNet && !_cnLoading && _cnUrl) { _cnLoading = true; get(_cnUrl, d => { _consonantNet = d; }, 'consonant'); }
+    }
+    // rd, tilt and ah times each vowel's correction, joined between vowel centres as pitch is.
+    function applySourceNet(doc, plist, tracks, frames, frame, NP) {
+      const at = plist.map(q => q.at).concat(frames * frame);
+      const codes = plist.map(q => doc.alias[q.p] || q.p);
+      const xs = headRun(doc, codes, at, plist.map(q => q.acc));
+      const outs = doc.tracks.map((_, o) => headOut(doc, xs, o).map(v => v * doc.lim[o]));
+      const vow = pitchNetOf(doc).vow, cs = [], vs = [];
+      codes.forEach((c, i) => { if (vow.has(c)) { cs.push((at[i] + at[i + 1]) / 2); vs.push(outs.map(o => o[i])); } });
+      if (!cs.length) return;
+      const col = doc.tracks.map(k => WK_TRACK.indexOf(k));
+      for (let f = 0, j = 1; f < frames; f++) {
+        const t = f * frame;
+        let v;
+        if (t <= cs[0]) v = vs[0];
+        else if (t >= cs[cs.length - 1]) v = vs[vs.length - 1];
+        else { while (cs[j] < t) j++; const u = (t - cs[j - 1]) / (cs[j] - cs[j - 1]); v = vs[j].map((b, k) => vs[j - 1][k] + (b - vs[j - 1][k]) * u); }
+        for (let k = 0; k < col.length; k++) tracks[f * NP + col[k]] *= Math.exp(v[k]);
+      }
+    }
+    // nf, af and nq times each obstruent's correction, held flat over the phone: obstruents don't glide.
+    function applyConsonantNet(doc, plist, tracks, frames, frame, NP) {
+      const at = plist.map(q => q.at).concat(frames * frame);
+      const codes = plist.map(q => doc.alias[q.p] || q.p);
+      const ob = new Set(doc.obstruents);
+      if (!codes.some(c => ob.has(c))) return;
+      const xs = headRun(doc, codes, at, plist.map(q => q.acc));
+      const outs = doc.tracks.map((_, o) => headOut(doc, xs, o));
+      const col = doc.tracks.map(k => WK_TRACK.indexOf(k));
+      codes.forEach((c, i) => {
+        if (!ob.has(c)) return;
+        const m = col.map((_, k) => Math.exp(outs[k][i] * doc.lim[k]));
+        for (let f = Math.floor(at[i] / frame), e = Math.min(frames, Math.floor(at[i + 1] / frame)); f < e; f++)
+          for (let k = 0; k < col.length; k++) tracks[f * NP + col[k]] *= m[k];
+      });
+    }
+    function formantLogs(doc, codes, at, acc) {
+      const xs = headRun(doc, codes, at, acc);
+      const cols = [0, 1, 2, 3, 4, 5, 6, 7, 8].map(o => headOut(doc, xs, o));
+      return codes.map((_, i) => cols.map(c => c[i] * doc.flim));   // 9 per phone: point-major, F1..F3
+    }
+    function applyFormantNet(doc, plist, tracks, frames, frame, NP) {
+      const at = plist.map(q => q.at).concat(frames * frame);
+      const codes = plist.map(q => doc.alias[q.p] || q.p);
+      const out = formantLogs(doc, codes, at, plist.map(q => q.acc));
+      const son = new Set(doc.sonorants), ts = [], vs = [];
+      codes.forEach((c, i) => {
+        if (son.has(c)) doc.points.forEach((u, j) => { ts.push(at[i] + u * (at[i + 1] - at[i])); vs.push(out[i].slice(3 * j, 3 * j + 3)); });
+        else if (c[0] !== '_') { ts.push((at[i] + at[i + 1]) / 2); vs.push([0, 0, 0]); }
+      });
+      if (!ts.length) return;
+      const col = [WK_TRACK.indexOf('f1'), WK_TRACK.indexOf('f2'), WK_TRACK.indexOf('f3')];
+      for (let f = 0, j = 1; f < frames; f++) {
+        const t = f * frame;
+        let v;
+        if (t <= ts[0]) v = vs[0];
+        else if (t >= ts[ts.length - 1]) v = vs[vs.length - 1];
+        else { while (ts[j] < t) j++; const u = (t - ts[j - 1]) / (ts[j] - ts[j - 1]); v = [0, 1, 2].map(k => vs[j - 1][k] + (vs[j][k] - vs[j - 1][k]) * u); }
+        for (let k = 0; k < 3; k++) tracks[f * NP + col[k]] *= Math.exp(v[k]);
+      }
+    }
     const WK_TRACK = ['f0', 'jitA', 'jitB', 'av', 'ah', 'af', 'f1', 'f2', 'f3', 'f4', 'q1', 'q2', 'q3', 'q4',
       'nf', 'nq', 'nzf', 'nzdb', 'tilt', 'closure', 'rd', 'creak', 'fb', 'ff'];   // ⚠ the same list, in the same order, as TRACK in oracle-worklet.js
     const WK = {
@@ -5216,6 +5449,11 @@ return out;
       srcK: 1, aspK: 1, fricK: 1, closureK: 1,
       fricPulse: 0.6,   // a voiced fricative's noise drops this far in the closed phase (scaled by `natural`)
       bwK: 1,           // every formant bandwidth, scaled
+      bwF: [0.75, 1, 1.5, 1],   // F1-F4 bandwidths each, against VCTK's men (Praat, mid-vowel): F1 rang wide, F3 narrow
+      // The higher-pole correction (worklet `Shelf`): VCTK's men sit 10-15 dB over the
+      // cascade from 3 kHz up and 5 dB under 250 Hz (docs/proposals/oracle-teacher.md, timbre)
+      hpcHz: 2800, hpcDb: 16, lowHz: 200, lowDb: 0,   // a low shelf blurs /iy/'s F1, and VCTK's close mics lift the bass anyway
+      hbHz: 4500, hbK: 0.006, hbH: 0.035,  // breath above 4.5 kHz on voicing, and on /h/ and aspiration (worklet `hb1`/`hb2`)
       tiltK: 1,         // the graph's tilt corner, scaled, becomes the LF return phase
       emph: 0.88,       // pre-emphasis into the cascade, unity at 500 Hz (else 6-11 dB dark at F3)
       cycJitter: 0.5,   // per-cycle random jitter, as a share of the LFO jitter depth
@@ -5250,6 +5488,7 @@ return out;
       c = c || ensureContext();
       if (!c || !c.audioWorklet || !_wkUrl) return Promise.resolve(false);
       if (_wkState.has(c)) return Promise.resolve(_wkState.get(c));
+      loadFormantNet();
       const p = c.audioWorklet.addModule(_wkUrl).then(() => { _wkState.set(c, true); return true; },
         (e) => { _wkState.set(c, false); console.warn('[voice] worklet back end unavailable:', e && e.message); return false; });
       _wkState.set(c, p);
@@ -5298,7 +5537,10 @@ return out;
       // 'ui' is the log reader: it bypasses the TV toggle and slider, but the
       // master Sound switch still silences it.
       const ui = opt.channel === 'ui';
-      if (!_settings.enabled || (!ui && !_settings.tv)) return;
+      // People in the world have their own switch (`npcVoices`) and speak on the sfx bus,
+      // so a player can silence them and keep the TV, or the other way round.
+      const npc = opt.channel === 'npc';
+      if (!_settings.enabled || (npc ? _settings.npcVoices === false : (!ui && !_settings.tv))) return;
       const c = ensureContext(); if (!c) return;
       if (c.state === 'suspended') c.resume();
       const chName = ui ? 'ui' : opt.channel === 'scene' || opt.channel === 'npc' ? opt.channel : 'tv';
@@ -5323,11 +5565,21 @@ return out;
       // Per-voice effort at rest: `f1` opens the jaw, `bright` lifts the source tilt.
       D.f1 *= Math.max(0.9, Math.min(1.15, +V.f1 || 1));
       D.bright *= Math.max(0.8, Math.min(1.4, +V.bright || 1));
+      // `opt.delivery`: a bundle of numbers from client/shared/delivery.js (effort: a
+      // whisper to a yell), factors on D's keys and amounts added to oq and breath. No
+      // bundle, or Read Aloud, changes nothing. see docs/proposals/delivery.md
+      const DV = ui || !opt.delivery ? null : opt.delivery;
+      if (DV) {
+        for (const k in DV.mul || {}) if (typeof D[k] === 'number' && Number.isFinite(+DV.mul[k])) D[k] *= Math.max(0, +DV.mul[k]);
+        for (const k in DV.add || {}) if (typeof D[k] === 'number' && Number.isFinite(+DV.add[k])) D[k] += +DV.add[k];
+      }
+      const whisperAmt = DV ? Math.max(0, Math.min(1, +DV.whisper || 0)) : 0;
       // A voice's own pause length, apart from its speed: pauses are divided by `speed`
       // like every sound, but a fast talker doesn't pause less (tools/voice-fit fits this).
       if (V.pause) D.pause = (D.pause || 1) * Math.max(0.5, Math.min(4, +V.pause));
       if (V.durs) D.durs = V.durs;
-      if (V.final != null) D.final = Math.max(0, Math.min(2, +V.final));   // phrase-final lengthening, 1 is Klatt's   // per-phone lengths, for segmentDuration and estimateDuration alike
+      if (V.final != null) D.final = Math.max(0, Math.min(2, +V.final));
+      if (D.finalK !== 1) D.final = Math.max(0, Math.min(3, (D.final ?? 1) * D.finalK));   // phrase-final lengthening, 1 is Klatt's   // per-phone lengths, for segmentDuration and estimateDuration alike
       // Per line: a speaker's register drifts a little from line to line (±0.35
       // semitone), so consecutive lines don't sit on one pitch. Drawn from the text, so
       // a line always comes out the same (renders compare track for track). Not on
@@ -5343,7 +5595,7 @@ return out;
         // the run at the nucleus: harder when sold
         D.rush = (0.05 + 0.1 * D.e) * varyAmt * (0.6 + 0.8 * P.r());
       }
-      const F0 = V.f0 * D.pitch * lineReg * P.key, ringAmt = V.ring, fshift = V.fshift;
+      const F0 = V.f0 * D.pitch * lineReg * P.key, ringAmt = V.ring, fshift = V.fshift * (DV ? Math.max(0.9, Math.min(1.1, +DV.fshift || 1)) : 1);
       // ⚠ No character (drive, growl, buzz, rmod, crush) on the accessibility
       // channel: texture costs intelligibility. `natural` is allowed.
       const driveAmt = ui ? 0 : (V.drive || 0);
@@ -5379,7 +5631,7 @@ return out;
       const passK = Math.min(1, Math.max(0, phon.filter(isTerm).length - 1) / 3);
       const speed = V.speed * TUNING.rate * D.rate * (1 + PASSAGE.rate * passK);
       // 'ui' is a dry bus (see busFor).
-      const out = busFor(ui ? 'ui' : 'tv_voice');
+      const out = busFor(ui ? 'ui' : npc ? 'sfx' : 'tv_voice');
       // `S` builds the source side: real nodes, or recorders for the worklet.
       const wantWk = (opt.backend || 'worklet') === 'worklet';
       const wk = wantWk && _wkState.get(c) === true && typeof global.AudioWorkletNode === 'function';
@@ -5392,7 +5644,7 @@ return out;
       const tense = wk ? new RecParam(rd0) : null;
       const creakP = wk ? new RecParam(0) : null;
 
-      const master = c.createGain(); master.gain.value = 0.9 * (ui ? 1 : Math.max(0, Math.min(1, opt.gain ?? 1)));
+      const master = c.createGain(); master.gain.value = 0.9 * (ui ? 1 : Math.max(0, Math.min(1, opt.gain ?? 1))) * (DV ? Math.max(0.1, Math.min(2.5, +DV.gain || 1)) : 1);
       const ringGain = c.createGain(); ringGain.gain.value = 1 - ringAmt;
       const lfo = c.createOscillator(); lfo.frequency.value = 50;
       const lfoDepth = c.createGain(); lfoDepth.gain.value = ringAmt;
@@ -5626,8 +5878,13 @@ return out;
       // the lips already rounded, which pulls F2 and F3 down and darkens a sibilant.
       let curRound = false;
       const ROUND_F2 = 0.88, ROUND_F3 = 0.94, ROUND_NOISE = 0.85;
+      // The bank starts every formant at 500 Hz. The first target of a line snaps there:
+      // glided, a line that opens on a vowel sweeps F2 up from 500 through it, and the
+      // IH of "It's" came out as the AY of "eyet's".
+      let fFirst = true;
       const setF = (when, arr, wide, tc) => {
-        const k0 = tc || 0.022;
+        const snap = fFirst; fFirst = false;
+        const k0 = snap ? 0.001 : tc || 0.022;
         const r2 = curRound ? ROUND_F2 : 1, r3 = curRound ? ROUND_F3 : 1;
         // F4 follows F3 at half the distance, kept 500 Hz clear: up for /i/, down for /r/.
         const f3 = arr[2] * r3, f4 = Math.max(f3 + 500, 3600 + 0.5 * (f3 - 2500));
@@ -5645,6 +5902,7 @@ return out;
       // rest nearly silent (else it's a nasal). F2/F3 still travel to the locus.
       const murmur = (when, lf, keep = MURMUR_KEEP) => {
         const L = lf || [350, 1500, 2500];
+        if (fFirst) { fFirst = false; for (let k = 1; k < 3; k++) forms[k].frequency.setTargetAtTime(L[k] * fshift, when, 0.001); }
         forms[0].frequency.setTargetAtTime(220 * fshift, when, 0.008);
         forms[0].Q.setTargetAtTime(3, when, 0.008);
         forms[1].frequency.setTargetAtTime(L[1] * (curRound ? ROUND_F2 : 1) * fshift, when, 0.012);
@@ -5687,7 +5945,9 @@ return out;
         if (isTerm(code)) phrases.push([]);
       }
       if (!phrases[phrases.length-1].length) phrases.pop();
-      const phraseDur = phrases.map(ph => estimateDuration(ph, speed, undefined, D) || 1);
+      // A phrase's length for its declination stops where its voice does: with the pause that
+      // ends it counted in, the last vowel was pitched about 0.8 of the way down (2026-11-24).
+      const phraseDur = phrases.map(ph => estimateDuration(isTerm(ph.at(-1)) ? ph.slice(0, -1) : ph, speed, undefined, D) || 1);
       // read off the mark that ends each phrase
       const phraseDecl = phrases.map(ph => {
         const end = ph[ph.length-1];
@@ -5750,27 +6010,30 @@ return out;
       // weighted to the back. Voice quality relaxes with it: darker, breathier, softer.
       const relaxAt = frac => (wk || shoutLine) ? 0 : TUNING.relax * nat * Math.max(0, Math.min(1, frac - declOff)) ** 2;
       const pitchAt = (when, frac, stressed, f1, nextCode, nuc, dur) => {
-        const fall = 1 - (phraseDecl[phraseIx] ?? V.decl) * Math.max(0, frac - declOff);   // declination
+        const df = Math.max(0, frac - declOff), dk = TUNING.declFront * D.declFront, dstep = 1 - (1 - AC.down) * TUNING.downstep * D.downstep;
+        const fall = 1 - (phraseDecl[phraseIx] ?? V.decl) * (df + dk * (1 - (1 - Math.min(1, df)) ** 2 - df));   // declination
         let lift, fallTo = 0, scoop = false;
         if (stressed === 2) lift = 1 + lilt * 3.4 * TUNING.emphasis;
         else if (nuc === 'low') lift = 1 - lilt * AC.low;
         else if (nuc && !dur) lift = 1 + lilt;   // held or drawn: starts from a plain accent
-        else if (nuc) lift = 1 + lilt * AC.nuc * (downN ? AC.down : 1);
-        else if (afterNuc === 'fall') lift = 1 - lilt * (stressed ? AC.postStress : AC.postFall);
+        else if (nuc) lift = 1 + lilt * AC.nuc * (downN ? dstep : 1);
+        else if (afterNuc === 'fall') lift = 1 - lilt * (stressed ? AC.postStress : AC.postFall) * TUNING.nucFall * D.nucFall;
         else if (afterNuc === 'cont') lift = 1 - lilt * AC.half;
         else if (stressed && !afterNuc) {
           const k = accKind();
           if (k === 'flat') lift = 1 - lilt * 0.15;
           else {
             if (k === 'up') downN = 0;
-            lift = 1 + lilt * AC.pre * AC.down ** downN * (k === 'up' ? 1.2 : 1);
+            lift = 1 + lilt * AC.pre * dstep ** downN * (k === 'up' ? 1.2 : 1);
             downN++; scoop = k === 'scoop'; lastPeak = lift;
           }
         }
         // between two near accents the pitch bridges at the last peak's height, and sags
         // to the old drop only across a longer gap
         else lift = 1 + (lastPeak - 1) * 0.85 * (1 - curSag) - lilt * 0.45 * curSag;
-        if (nuc === 'fall') fallTo = 1 - lilt * AC.fall;
+        // the head before a phrase's first accent starts up, not in a trough (VCTK's readers open ~2 st over the line)
+        if (lift !== undefined && !downN && !afterNuc && !nuc && !stressed) lift += lilt * TUNING.preHead * D.preHead;
+        if (nuc === 'fall') fallTo = 1 - lilt * AC.fall * TUNING.nucFall * D.nucFall;
         else if (nuc === 'cont') fallTo = 1 - lilt * AC.half;
         if (nuc) afterNuc = nuc;
         const hold = mix(BOUNDARY[nextCode] || 1);
@@ -5784,13 +6047,13 @@ return out;
         // up and reach the peak a third of the way through. A fall starts high.
         // A scoop starts below the line and peaks past the vowel's middle.
         if (lift > 1 && dur && !fallTo && !V.steps) {
-          glot.frequency.setTargetAtTime(pq(f / (1 + (lift - 1) * (scoop ? 1.1 : 0.55) * nat)), when, 0.04);
-          glot.frequency.setTargetAtTime(f, when + dur * (scoop ? 0.55 : peakAt), 0.05);
+          glot.frequency.setTargetAtTime(pq(f / (1 + (lift - 1) * (scoop ? 1.1 : 0.55) * nat)), when, 0.04 * TUNING.glide * D.glide);
+          glot.frequency.setTargetAtTime(f, when + dur * (scoop ? 0.55 : peakAt), 0.05 * TUNING.glide * D.glide);
         } else if (onset !== 1 && dur && !V.steps) {
           glot.frequency.setTargetAtTime(pq(f * mix(onset)), when, 0.006);
           glot.frequency.setTargetAtTime(f, when + 0.015, 0.02);
-        } else glot.frequency.setTargetAtTime(f, when, V.steps ? 0.012 : 0.05);
-        if (fallTo && dur) glot.frequency.setTargetAtTime(pq(F0 * pk * fall * fallTo * hold * intrinsicF0(f1)), when + dur * 0.35, Math.max(0.03, dur * 0.3));
+        } else glot.frequency.setTargetAtTime(f, when, V.steps ? 0.012 : 0.05 * TUNING.glide * D.glide);
+        if (fallTo && dur) glot.frequency.setTargetAtTime(pq(F0 * pk * fall * fallTo * hold * intrinsicF0(f1)), when + dur * 0.35, Math.max(0.03, dur * 0.3) * TUNING.glide * D.glide);
         micro = 1;
         // Tilt tracks effort. On the worklet `tense` does it, so the tilt stays plain.
         const tf = wk ? TUNING.tiltPlain : stressed === 2 ? TUNING.tiltEmph : stressed ? TUNING.tiltStress : TUNING.tiltPlain;
@@ -5845,7 +6108,7 @@ return out;
       let wordScale = sylScale(sylFrom(phon, 0));
       const fins = rhymeBreaks(phon), sfins = stressBreaks(phon, fins), gaps = pauseShape(phon), quick = quickShape(phon), feet = footSizes(phon), clips = sonorantClips(phon), shape = phraseShape(phon);
       const tempo = tempoShape(phon, D.rush);
-      let curAside = false, inhales = 0;
+      let curAside = false, inhales = 0, lastBreath = t0;   // the line starts on a breath
       const rounds = roundAhead(phon), sags = sagShape(phon);
       let pendingStress = 0, pendingHeld = false, pendingLong = 0, prevNasal = false, prevP = null, prevCode = null;
       let pendingNuc = null, voicedEnd = null;
@@ -5853,7 +6116,12 @@ return out;
 
       // `opt.trace`: an array to receive each phoneme's start (s from line start).
       const trace = Array.isArray(opt.trace) ? opt.trace : null;
-      const plist = wk && V.pitchNet ? [] : null;   // the phones the pitch controller reads
+      // A voice can turn the formant controller off for itself (`formantNet: 0`): one whose
+      // vowels were measured from people already has what it corrects, and gets it twice.
+      const fnet = wk && TUNING.formantNet > 0 && V.formantNet !== 0 ? _formantNet : null;
+      const snet = wk && TUNING.sourceNet > 0 ? _sourceNet : null;
+      const cnet = wk && TUNING.consonantNet > 0 ? _consonantNet : null;
+      const plist = wk && (V.pitchNet || fnet || snet || cnet) ? [] : null;   // the phones the controllers read
       for (let i = 0; i < phon.length; i++) {
         const code = phon[i];
         if (code === '^') { pendingHeld = true; continue; }
@@ -5881,7 +6149,7 @@ return out;
         // This consonant's locus bent to its vowel (LOCUS_EQ): the one after it, else
         // the one before. The fixed locus for anything else.
         const lf = p.lf && locusEq(p.lf, nxt && nxt.t === 'V' ? nxt.f : prevP && prevP.t === 'V' ? prevP.f : null, TUNING.locusEq, V.locus);
-        const segCtx = { nxtCode, nxt, nxtStress: phon.slice(i + 1, nj).some(c => c === '*' || c === '!'), prevCode, stress: pendingStress, shout: shoutLine, wordScale, speed, held: pendingHeld, hold: holdK, pause: (D.pause || 1) * (1 + PASSAGE.rate * passK), durs: D.durs, final: D.final, long, longK: D.longK, nat, fin: fins[i], sfin: sfins[i], gap: gaps[i], quick: quick[i], foot: feet[i], sonClip: clips[i], pos: shape.pos[i], aside: shape.aside[i], tempo: tempo ? tempo[i] : 1 };
+        const segCtx = { nxtCode, nxt, nxtStress: phon.slice(i + 1, nj).some(c => c === '*' || c === '!'), prevCode, stress: pendingStress, shout: shoutLine, wordScale, speed, held: pendingHeld, hold: holdK, pause: (D.pause || 1) * (1 + PASSAGE.rate * passK), durs: D.durs, final: D.final, stressLen: D.stressLen, long, longK: D.longK, nat, fin: fins[i], sfin: sfins[i], gap: gaps[i], quick: quick[i], foot: feet[i], sonClip: clips[i], pos: shape.pos[i], aside: shape.aside[i], tempo: tempo ? tempo[i] : 1 };
         curAside = shape.aside[i];
         curRound = rounds[i] && p.t !== 'V';
         let dur = segmentDuration(p, code, segCtx);
@@ -5955,6 +6223,7 @@ return out;
           }
           let vg = p.t==='V' ? (stressed === 2 ? (shoutLine ? 1.4 : 1.25) : stressed ? 0.95 : 0.72) : rhotic ? 0.85 : code === 'L' ? 0.5 : 0.6;
           vg *= p.t === 'V' && stressed ? D.loud : 1 + (D.loud - 1) * 0.5;
+          vg *= 1 - whisperAmt;   // a whisper has no voicing; breath carries it (below)
           // Devoicing: an unstressed vowel between voiceless obstruents ("potato")
           // is mostly whispered; breath fills in.
           const voicelessBefore = prevP && (prevP.t==='F'||prevP.t==='S'||prevP.t==='H') && !prevP.vd;
@@ -5991,7 +6260,8 @@ return out;
           if (p.t === 'V' && !drawn) voiced.gain.setTargetAtTime(vg * (held ? 0.95 : 0.86), t + dur * (held ? 0.8 : 0.55), held ? 0.08 : 0.05);
           // Frication shut during a sonorant; breath runs through the tract instead.
           noiseG.gain.setTargetAtTime(0, t, 0.010);
-          aspG.gain.setTargetAtTime(devoiced ? ASP_H * 0.8 : p.laugh ? ASP_H * 0.6 : ((V.breath * TUNING.breath + D.breath) * (1 + 1.5 * rx) + 0.004 * rx) * BREATH_K * nat, t, 0.01);
+          const aspV = devoiced ? ASP_H * 0.8 : p.laugh ? ASP_H * 0.6 : ((V.breath * TUNING.breath + D.breath) * (1 + 1.5 * rx) + 0.004 * rx) * BREATH_K * nat;
+          aspG.gain.setTargetAtTime(aspV + (ASP_H * (p.t === 'V' ? 1 : 0.6) - aspV) * whisperAmt, t, 0.01);
           if (p.t === 'V') {
             const nuc = pendingNuc; pendingNuc = null;
             const frac = (t - phraseT0) / (phraseDur[phraseIx] || totalDur);
@@ -6144,14 +6414,17 @@ return out;
           noiseG.gain.setTargetAtTime(0, t, 0.02 * TUNING.finalTaper ** 2);
           aspG.gain.setTargetAtTime(0, t, 0.02 * TUNING.finalTaper ** 2);
           nzero.gain.setTargetAtTime(0, t, 0.02);
-          // A quiet breath in over the back of a long break, if six or more syllables follow.
-          // It sits inside the pause, so timing and the broadcast hold don't move.
-          if (TUNING.inhale > 0 && p.d >= 250 && dur > 0.15 && phon.slice(i + 1).filter(c => VOWELS.has(c)).length >= 6) {
+          // A quiet breath in over the back of a long break, if six or more syllables follow
+          // and BREATH_GAP has passed since the line began or the last breath: people breathe
+          // every few seconds, not at every full stop. It sits inside the pause, so timing and
+          // the broadcast hold don't move.
+          if (TUNING.inhale > 0 && p.d >= 250 && dur > 0.15 && t - lastBreath >= BREATH_GAP
+              && phon.slice(i + 1).filter(c => VOWELS.has(c)).length >= 6) {
             const at = t + dur * 0.4, len = Math.min(0.25, dur * 0.45);
             setF(at, [600, 1200, 2400], false, 0.01);
             aspG.gain.setTargetAtTime(ASP_BREATH_IN * 0.45 * TUNING.inhale * nat, at, 0.04);
             aspG.gain.setTargetAtTime(0, at + len, 0.03);
-            inhales++;
+            inhales++; lastBreath = at;
           }
           // where the voice last stopped for a written break: the end contour goes here
           if (voicedEnd === null) voicedEnd = t;
@@ -6208,7 +6481,10 @@ return out;
           rd: tense, creak: creakP, fb: bandG.gain, ff: flatG.gain,
         };
         WK_TRACK.forEach((key, col) => P[key].sample(t0, frames, WK.frame, tracks, col, NP));
-        if (plist && plist.length) applyPitchNet(V.pitchNet, plist, tracks, frames, WK.frame, NP);
+        if (plist && plist.length && V.pitchNet) applyPitchNet(V.pitchNet, plist, tracks, frames, WK.frame, NP);
+        if (plist && plist.length && fnet) applyFormantNet(fnet, plist, tracks, frames, WK.frame, NP);
+        if (plist && plist.length && snet) applySourceNet(snet, plist, tracks, frames, WK.frame, NP);
+        if (plist && plist.length && cnet) applyConsonantNet(cnet, plist, tracks, frames, WK.frame, NP);
         let node;
         try {
           node = new global.AudioWorkletNode(c, 'oracle-voice', { numberOfInputs: 0, numberOfOutputs: 1,
@@ -6232,7 +6508,7 @@ return out;
         node.port.postMessage({ type: 'line', names: WK_TRACK, frames, frame: WK.frame, t0, tracks, k: {
           // a voice can set its own tracheal coupling (`trach`, 0 off): on a low, lax
           // voice the parted pairs read as nasal (tools/voice-fit)
-          ...WK, trach: V.trach ?? WK.trach, f0: F0, fshift, oq: Math.max(0.4, Math.min(0.85, V.oq + D.oq * nat)), natural: nat, buzz: buzzAmt, rd0,
+          ...WK, trach: V.trach ?? WK.trach, hpcHz: V.hpcHz ?? WK.hpcHz, hpcDb: V.hpcDb ?? WK.hpcDb, f0: F0, fshift, oq: Math.max(0.4, Math.min(0.85, V.oq + D.oq * nat)), natural: nat, buzz: buzzAmt, rd0,
           growl: growlAmt, growlRatio: V.growlRatio ?? 0.5, growl2: growlAmt > 0 ? (V.growl2 || 0) : 0, growl2Ratio: V.growl2Ratio ?? 1.5,
           lpA: 1 - Math.exp(-2 * Math.PI * 9000 / c.sampleRate), flatHz: FRIC_FLAT_HZ, flatQ: FRIC_FLAT_Q,
         } }, [tracks.buffer]);
@@ -6246,6 +6522,9 @@ return out;
       const hold = Math.max(0, end - t0);
       const ducks = [];
       if (ui) ducks.push(readerDuck({ at: t0, hold }));
+      // Somebody in the room talking sits the TV under them, so a line is never lost under the set or level with it.
+      // Only lines in your room reach the npc channel (a yell or a voice through the wall never does: npc-bubbles.js).
+      if (npc) ducks.push(duck(['tv'], NPC_DUCK_DB, { at: t0, hold, attack: 0.08, release: 0.6 }));
       if (opt.duck) {
         const d = Array.isArray(opt.duck) || typeof opt.duck === 'string' ? { buses: opt.duck } : opt.duck;
         ducks.push(duck(d.buses || [], d.dB ?? -9, { at: t0, hold, attack: d.attack ?? 0.05, release: d.release ?? 0.4 }));
@@ -6279,8 +6558,13 @@ return out;
         return opt.marks ? ph : ph.filter(p => p !== '+');
       } finally { _lex = null; }
     };
-    return { speak, cancel, pitchCents, left, readerDuck, tuning: TUNING, phonemesFor, g2p, guessStress, phTable: () => PH, estimate: estimateDuration, voiceFor: voiceFromName, phones: () => Object.keys(PH),
-      wk: WK, loadWorklet: loadOracleWorklet, setWorkletUrl: (u) => { _wkUrl = u || ''; } };
+    return { speak, cancel, pitchCents, left, readerDuck, tuning: TUNING, phonemesFor, expandNumbers, g2p, guessStress, phTable: () => PH, estimate: estimateDuration, voiceFor: voiceFromName, phones: () => Object.keys(PH),
+      wk: WK, loadWorklet: loadOracleWorklet, setWorkletUrl: (u) => { _wkUrl = u || ''; },
+      setFormantNet: (d) => { _formantNet = d || null; }, setFormantUrl: (u) => { _fnUrl = u || ''; }, formantLogs,
+      setSourceNet: (d) => { _sourceNet = d || null; }, sourceLogs: (doc, codes, at, acc) => { const xs = headRun(doc, codes, at, acc);
+        const o = doc.tracks.map((_, k) => headOut(doc, xs, k).map(v => v * doc.lim[k])); return codes.map((_, i) => o.map(c => c[i])); },
+      setConsonantNet: (d) => { _consonantNet = d || null; }, consonantLogs: (doc, codes, at, acc) => { const xs = headRun(doc, codes, at, acc);
+        const o = doc.tracks.map((_, k) => headOut(doc, xs, k).map(v => v * doc.lim[k])); return codes.map((_, i) => o.map(c => c[i])); } };
   })();
 
   global.AudioEngine = {
@@ -6321,9 +6605,16 @@ return out;
     voiceWorkletTuning: Speech.wk,
     _setVoiceWorkletUrl: (url) => Speech.setWorkletUrl(url),
     _phonemesFor: (text, opt) => Speech.phonemesFor(text, opt),
+    _expandNumbers: (t) => Speech.expandNumbers(t),
     _g2p: (w) => Speech.g2p(w),
     _phTable: () => Speech.phTable(),
     _pitchCents: (doc, codes, at, acc) => Speech.pitchCents(doc, codes, at, acc),
+    _formantLogs: (doc, codes, at, acc) => Speech.formantLogs(doc, codes, at, acc),
+    _setFormantNet: (doc) => Speech.setFormantNet(doc),
+    _setSourceNet: (doc) => Speech.setSourceNet(doc),
+    _sourceLogs: (doc, codes, at, acc) => Speech.sourceLogs(doc, codes, at, acc),
+    _setConsonantNet: (doc) => Speech.setConsonantNet(doc),
+    _consonantLogs: (doc, codes, at, acc) => Speech.consonantLogs(doc, codes, at, acc),
     _guessStress: (ph, w) => Speech.guessStress(ph, w),
     // for the gate on voiceFromName's draw ORDER
     _voiceFor: (name, sex) => Speech.voiceFor(name, sex),

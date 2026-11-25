@@ -1,8 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "Hardpan, red and hard and split into polygons. A skin of grit slides over it whenever the wind picks up.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "Tussock grass and rushes, wet underfoot. Geese graze it and don't think much of you.",
   "exits": {
     "east": "zone_district_902_925",
     "north": "zone_district_901_924",
@@ -13,13 +13,13 @@
     "district": "wilds",
     "radiation": 30,
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "grass"
   },
   "grid_x": 901,
   "grid_y": 925,
   "grid_z": 0,
   "id": "zone_district_901_925",
   "map_id": "map_world",
-  "name": "Mesa Shelf",
+  "name": "The Wet Meadow",
   "parent_zone": null
 }

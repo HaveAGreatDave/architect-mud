@@ -1,9 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "bg_color": "#1b3040",
-  "color": "#5f93b8",
-  "description": "The Meltwater runs narrow here, two boat-lengths across at most, and it runs fast, grey with rock flour and cold enough to ache. Both banks come down steep and close. Whatever it took from upstream, it's still carrying.",
+  "ambient_theme": "forest",
+  "color": "#b5744a",
+  "description": "A backwater the river left behind, choked with reed and sedge. Frogs go quiet as you come through.",
   "exits": {
     "east": "zone_district_880_921",
     "north": "zone_district_879_920",
@@ -14,13 +13,13 @@
     "district": "wilds",
     "radiation": 32,
     "region_id": "region_coldwater",
-    "terrain": "water"
+    "terrain": "marsh"
   },
   "grid_x": 879,
   "grid_y": 921,
   "grid_z": 0,
   "id": "zone_district_879_921",
   "map_id": "map_world",
-  "name": "The Meltwater",
+  "name": "Meltwater Reeds",
   "parent_zone": null
 }

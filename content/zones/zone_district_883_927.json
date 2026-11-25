@@ -3,7 +3,7 @@
   "ambient_theme": "wasteland",
   "bg_color": "#1b3040",
   "color": "#5f93b8",
-  "description": "A channel cut deep into the hardpan, its surface pleated and turning over itself. It smells of wet stone and, under that, of something mineral and faintly medicinal. The far bank is near enough to shout across and much too far to jump.",
+  "description": "The Meltwater runs wide and brown here, deep enough in the middle for a boat if you keep off the bars. Drift sticks out of the banks at the height the spring flood left it.",
   "exits": {
     "east": "zone_district_884_927",
     "north": "zone_district_883_926",

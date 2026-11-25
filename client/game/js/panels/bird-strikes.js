@@ -16,7 +16,7 @@ let _splats = [];         // { sp, n }
 export const PUFF_S = 1.6;
 // Birds by the size of the mess they make, 0..1: a goose fills a good part of a windscreen, a starling
 // is a spot.
-export const BIRD_SPLAT = { goose: 1, vulture: 0.8, gull: 0.55, hawk: 0.55, peregrine: 0.5, pigeon: 0.4, songbird: 0.22 };
+export const BIRD_SPLAT = { goose: 1, vulture: 0.8, gull: 0.55, hawk: 0.55, peregrine: 0.5, pigeon: 0.4, songbird: 0.22, heron: 0.7, duck: 0.5 };
 
 /** From the server's `bird_strike` message: [{ ax, ay, sp, n, untilMs, pts }]. */
 export function noteBirdStrikes(list) {

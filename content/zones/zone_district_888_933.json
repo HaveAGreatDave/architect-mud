@@ -1,8 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
+  "ambient_theme": "forest",
   "color": "#b5744a",
-  "description": "Shelves of banded rock step down toward a dry wash. Grit blows along the bottom of it in low, fast streams.",
+  "description": "Cattails as thick as a wall, with narrow channels between them where the ducks go. The mud takes your boots and gives them back slowly.",
   "exits": {
     "east": "zone_district_889_933",
     "north": "zone_district_888_932",
@@ -13,13 +13,13 @@
     "district": "wilds",
     "radiation": 27,
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "marsh"
   },
   "grid_x": 888,
   "grid_y": 933,
   "grid_z": 0,
   "id": "zone_district_888_933",
   "map_id": "map_world",
-  "name": "Bloodrock Table",
+  "name": "The Reedbed",
   "parent_zone": null
 }

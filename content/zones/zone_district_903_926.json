@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "wasteland",
   "color": "#b5744a",
-  "description": "Hardpan, red and hard and split into polygons. A skin of grit slides over it whenever the wind picks up.",
+  "description": "Scrub and thorn where the river's damp gives out and the red rock takes over again.",
   "exits": {
     "east": "zone_district_904_926",
     "north": "zone_district_903_925",
@@ -13,13 +13,13 @@
     "district": "wilds",
     "radiation": 30,
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "scrub"
   },
   "grid_x": 903,
   "grid_y": 926,
   "grid_z": 0,
   "id": "zone_district_903_926",
   "map_id": "map_world",
-  "name": "Red Hardpan",
+  "name": "Meltwater Scrub",
   "parent_zone": null
 }

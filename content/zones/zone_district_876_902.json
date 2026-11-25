@@ -1,8 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "Drifted sand banks deep against every shelf and outcrop and is swept to bare grit between them. The glare comes off it hard enough to squint at.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "Rough grass on the riverbank, green against the red country behind it. The ground is soft and the river is loud.",
   "exits": {
     "east": "zone_district_877_902",
     "south": "zone_district_876_903",
@@ -12,13 +12,13 @@
     "district": "wilds",
     "radiation": 34,
     "region_id": "region_coldwater",
-    "terrain": "sand"
+    "terrain": "grass"
   },
   "grid_x": 876,
   "grid_y": 902,
   "grid_z": 0,
   "id": "zone_district_876_902",
   "map_id": "map_world",
-  "name": "Cinder Mesa",
+  "name": "Meltwater Bank",
   "parent_zone": null
 }

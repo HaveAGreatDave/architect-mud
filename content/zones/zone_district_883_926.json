@@ -1,9 +1,9 @@
 {
   "ambient_events": [],
   "ambient_theme": "wasteland",
-  "bg_color": "#1f3646",
-  "color": "#4f83a8",
-  "description": "Brackish water, shallow and warm. The bank is a mess of grit and old plastic, with reeds pushing through.",
+  "bg_color": "#1b3040",
+  "color": "#5f93b8",
+  "description": "The Meltwater runs wide and brown here, deep enough in the middle for a boat if you keep off the bars. Drift sticks out of the banks at the height the spring flood left it.",
   "exits": {
     "east": "zone_district_884_926",
     "north": "zone_district_883_925",
@@ -21,6 +21,6 @@
   "grid_z": 0,
   "id": "zone_district_883_926",
   "map_id": "map_world",
-  "name": "The Meltwater Mouth",
+  "name": "The Meltwater",
   "parent_zone": null
 }

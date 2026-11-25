@@ -11,7 +11,7 @@ import { createCaption } from './tv-stage.js';
 
 const LINGER_S = 1.4;   // the last line's picture holds this long after its words
 
-export function createTvDesk(parent, { phone = false, feed = null, inset = null, onFrame = null } = {}) {
+export function createTvDesk(parent, { phone = false, feed = null, roll = null, inset = null, onFrame = null } = {}) {
   let host = null, player = null, loading = null, closeTimer = 0, pack = null, caption = null;
 
   async function ensurePlayer() {
@@ -22,7 +22,7 @@ export function createTvDesk(parent, { phone = false, feed = null, inset = null,
       // the screen between the set's header and footer, over the sub-screen (#tv-gameday is 48)
       host.style.cssText = `position:absolute;inset:${inset || 'var(--tv-head-h,45px) 0 var(--tv-foot-h,72px) 0'};z-index:49;background:#000;overflow:hidden`;
       parent.appendChild(host);
-      player = createSequencePlayer(host, { mode: 'cued', phone, feed, photo: starPhoto, onFrame: onFrame && (() => onFrame(host)) });
+      player = createSequencePlayer(host, { mode: 'cued', phone, feed, photo: starPhoto, onRoll: roll, onFrame: onFrame && (() => onFrame(host)) });
       if (!player) { host.remove(); host = null; } else caption = createCaption(host);
       return player;
     }).catch((err) => { console.error('[tv] the desk failed to load:', err); loading = null; return null; });

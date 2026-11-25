@@ -60,9 +60,9 @@ export async function setup({ seed = 'Vox Rime' } = {}) {
   await A.loadVoiceWorklet();
 
   // `trace`: an array that receives each phone's start ({ p, at }, seconds into the render).
-  function render(text, voice, trace = null) {
+  function render(text, voice, trace = null, opts = null) {
     made.length = 0;
-    A.speak(text, { seed, backend: 'worklet', fresh: true, voice, ...(trace ? { trace } : {}) });
+    A.speak(text, { seed, backend: 'worklet', fresh: true, voice, ...(trace ? { trace } : {}), ...(opts || {}) });
     const wn = made.filter(m => m.name === 'oracle-voice').pop();
     const line = wn?.posted.find(m => m.type === 'line');
     if (!line) throw new Error('no line rendered: ' + text);

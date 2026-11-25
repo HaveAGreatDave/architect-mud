@@ -31,7 +31,7 @@ const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 // flight biome, which the client's map cells already carry and the server derives with
 // biomeOf, so both sides read the same number.
 export const GROUND_HEAT = {
-  water: 0, hotspring: 0.3, pier: 0.4, docks: 0.5,
+  water: 0, hotspring: 0.3, marsh: 0.25, pier: 0.4, docks: 0.5,
   forest: 0.35, park: 0.5, parkland: 0.55, deadwood: 0.6,
   uptown: 0.75, civic: 0.75, oldcoldwater: 0.8, scrub: 0.8, sinter: 0.8,
   citycore: 0.85, marquee: 0.85, ruins: 0.85, cliff: 0.9, alkali: 0.9, ash: 0.9, infra: 0.9, freight: 0.9, concrete: 0.9,

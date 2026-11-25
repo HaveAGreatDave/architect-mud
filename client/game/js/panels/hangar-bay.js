@@ -632,6 +632,7 @@ function paintTabHtml(c, cat, dirty, pt = 'schemes') {
       <div class="hb-ctls">
         ${swatchRow('Base', 'base')}${swatchRow('Trim', 'trim')}
         ${W.pattern === 'jazz' ? swatchRow('Accent', 'accent') + swatchRow('Ground', 'ground') : ''}
+        ${W.pattern !== 'jazz' && (W.finish === 'pearl' || W.finish === 'chameleon') ? swatchRow(W.finish === 'pearl' ? 'Pearl' : 'Shift to', 'accent') : ''}
         ${selectRow('Pattern', 'pattern', cat.patterns)}${selectRow('Finish', 'finish', cat.finishes)}
         ${selectRow('Nose art', 'decal', cat.decals || [])}
       </div>

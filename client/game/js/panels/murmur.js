@@ -347,8 +347,14 @@ export function flockFrame(c, cx, cy, cz, now, spread, opts = {}) {
   // course NOW and the body sits on its centre; from history alone it is 0 and the body trails by it.
   const lead = typeof opts.course === 'function' ? halfL / cs : 0;
   const cmd = new Float32Array(CMD_N * 3);
+  // ⚠ THE CENTRE IS ASKED FOR ONCE PER KNOT. Entry k is the velocity between the knots at lag k and k + 1,
+  // so asking velAt for each entry asked for every knot twice; with the caller's `course` (the shared model,
+  // a perch leg and the skyline under it) that was most of a murmuration's CPU on the Marrow route.
+  const knots = new Array(CMD_N + 1);
+  for (let j = 0; j <= CMD_N; j++) knots[j] = pos(now + (lead - j * CMD_DT) * 1000);
   for (let k = 0; k < CMD_N; k++) {
-    const v = velAt(now + (lead - k * CMD_DT) * 1000) || vNow, o = k * 3;
+    const a = knots[k], b = knots[k + 1], o = k * 3;
+    const v = a && b ? [(a[0] - b[0]) / CMD_DT, (a[1] - b[1]) / CMD_DT, (a[2] - b[2]) / CMD_DT] : vNow;
     cmd[o] = v[0]; cmd[o + 1] = v[1]; cmd[o + 2] = v[2];
   }
 

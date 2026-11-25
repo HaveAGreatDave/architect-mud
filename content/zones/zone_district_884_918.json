@@ -1,8 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
+  "ambient_theme": "forest",
   "color": "#b5744a",
-  "description": "The ground climbs and falls in broken shelves of ochre stone. Grit gathers in the dry channels between them.",
+  "description": "Reeds grow thick along the bank, taller than you, and the ground between them is more water than mud.",
   "exits": {
     "north": "zone_district_884_917",
     "south": "zone_district_884_919",
@@ -12,13 +12,13 @@
     "district": "wilds",
     "radiation": 29,
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "marsh"
   },
   "grid_x": 884,
   "grid_y": 918,
   "grid_z": 0,
   "id": "zone_district_884_918",
   "map_id": "map_world",
-  "name": "Cinder Mesa",
+  "name": "Meltwater Reeds",
   "parent_zone": null
 }

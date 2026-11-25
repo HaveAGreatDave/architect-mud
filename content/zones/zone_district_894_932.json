@@ -3,7 +3,7 @@
   "ambient_theme": "wasteland",
   "bg_color": "#1f3646",
   "color": "#4f83a8",
-  "description": "The water is wide and lazy here, dropping its load in grey bars.",
+  "description": "The pond is deeper than it looks. The shallows go gravel to silt and then the bottom just goes.",
   "exits": {
     "east": "zone_district_895_932",
     "north": "zone_district_894_931",
@@ -21,6 +21,6 @@
   "grid_z": 0,
   "id": "zone_district_894_932",
   "map_id": "map_world",
-  "name": "The Meltwater Mouth",
+  "name": "Meltwater Pond",
   "parent_zone": null
 }

@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "wasteland",
   "color": "#b5744a",
-  "description": "Level ground, packed and stained. Someone's prints cross it at an angle, and further off another set crosses those.",
+  "description": "Scrub and thorn where the river's damp gives out and the red rock takes over again.",
   "exits": {
     "east": "zone_district_889_941",
     "north": "zone_district_888_940",
@@ -13,13 +13,13 @@
     "district": "wilds",
     "radiation": 27,
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "scrub"
   },
   "grid_x": 888,
   "grid_y": 941,
   "grid_z": 0,
   "id": "zone_district_888_941",
   "map_id": "map_world",
-  "name": "Ferric Wash",
+  "name": "Meltwater Scrub",
   "parent_zone": null
 }

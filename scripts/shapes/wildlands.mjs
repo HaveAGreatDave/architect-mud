@@ -144,10 +144,11 @@ if (reliefOk) {
 const FLORA = F.flora;
 check('the flora is in the field', !!FLORA?.species);
 if (FLORA?.species) {
-  const { FLORA_FORMS, floraAt, floraLine, floraSpecies } = await import('../../client/shared/flora.js');
+  const { FLORA_FORMS, floraAt, floraLine, floraSpecies, floraPlaced, FLORA_PLACED_BIOMES, FLORA_PLACED_GROUNDS } = await import('../../client/shared/flora.js');
   const { FLORA_DRAWN_FORMS } = await import('../../client/game/js/panels/glass/flora-draw.js');
   const { RELIEF_BIOMES } = await import('../../client/shared/relief-rules.js');
-  const grounds = new Set([...RELIEF_BIOMES.filter(Boolean), 'plateau']);
+  // A placed tile's own habitat (a region's marsh) is ground too, though no relief reading names it.
+  const grounds = new Set([...RELIEF_BIOMES.filter(Boolean), 'plateau', ...FLORA_PLACED_GROUNDS]);
   for (const f of FLORA_FORMS) check(`growth form ${f} has a drawer`, FLORA_DRAWN_FORMS.includes(f));
   for (const k of Object.keys(FLORA.density)) check(`flora density ground ${k} is a habitat`, grounds.has(k));
   for (const [id, s] of Object.entries(FLORA.species)) {
@@ -165,6 +166,8 @@ if (FLORA?.species) {
       for (const q of p) { seen.add(q.id); if (Math.abs(q.ox) > 0.5 || Math.abs(q.oy) > 0.5) outside++; }
     }
   }
+  // …and on a region's placed ground, which is where a marsh plant lives.
+  for (const b of FLORA_PLACED_BIOMES) for (let y = 0; y < 40; y++) for (let x = 0; x < 40; x++) for (const q of floraPlaced(x, y, b)) seen.add(q.id);
   const unseen = floraSpecies().map((s) => s.id).filter((id) => !seen.has(id));
   check('every species grows somewhere', !unseen.length, unseen.join(', '));
   check('at most three plants a tile', !over, `${over} tiles`);

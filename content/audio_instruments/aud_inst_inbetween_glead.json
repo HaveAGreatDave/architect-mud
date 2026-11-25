@@ -1,0 +1,77 @@
+{
+  "category": "loops",
+  "config": {
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.004,
+          "d": 0.35,
+          "r": 0.25,
+          "s": 0.7
+        },
+        "drive": 0.55,
+        "driveType": "tube",
+        "filter": {
+          "freq": 2400,
+          "q": 1.6,
+          "type": "lowpass"
+        },
+        "gain": 0.012,
+        "mods": [
+          {
+            "fade": 0.35,
+            "id": "vb",
+            "rate": 5.3,
+            "to": [
+              {
+                "amount": 14,
+                "param": "pitch"
+              }
+            ],
+            "type": "lfo",
+            "wave": "sine"
+          }
+        ],
+        "waveform": "sawtooth"
+      },
+      {
+        "adsr": {
+          "a": 0.004,
+          "d": 0.35,
+          "r": 0.25,
+          "s": 0.65
+        },
+        "detune": 7,
+        "drive": 0.5,
+        "driveType": "tube",
+        "filter": {
+          "freq": 2100,
+          "q": 1.2,
+          "type": "lowpass"
+        },
+        "gain": 0.007,
+        "mods": [
+          {
+            "fade": 0.4,
+            "id": "vb",
+            "rate": 5,
+            "to": [
+              {
+                "amount": 12,
+                "param": "pitch"
+              }
+            ],
+            "type": "lfo",
+            "wave": "sine"
+          }
+        ],
+        "waveform": "sawtooth"
+      }
+    ]
+  },
+  "enabled": 1,
+  "id": "aud_inst_inbetween_glead",
+  "name": "Inbetween: Electric guitar",
+  "sample_id": null,
+  "waveform": "sawtooth"
+}

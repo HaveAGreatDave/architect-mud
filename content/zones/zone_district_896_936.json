@@ -3,7 +3,7 @@
   "ambient_theme": "wasteland",
   "bg_color": "#1f3646",
   "color": "#4f83a8",
-  "description": "The shallows run gravel to silt before the shelf drops. Old rooting marks show in the mud at the waterline.",
+  "description": "Open water in the middle of the pond, still and deep. Fish rise at dusk and leave rings that take a long time to settle.",
   "exits": {
     "east": "zone_district_897_936",
     "north": "zone_district_896_935",
@@ -21,6 +21,6 @@
   "grid_z": 0,
   "id": "zone_district_896_936",
   "map_id": "map_world",
-  "name": "The Meltwater Mouth",
+  "name": "Meltwater Pond",
   "parent_zone": null
 }

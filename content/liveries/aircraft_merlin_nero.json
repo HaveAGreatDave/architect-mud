@@ -3,7 +3,7 @@
   "default": false,
   "exterior": {
     "base": "#121214",
-    "finish": "gloss",
+    "finish": "flake",
     "pattern": "factory",
     "trim": "#a896ff",
     "variant": "nero"

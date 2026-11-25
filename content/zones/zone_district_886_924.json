@@ -1,9 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "bg_color": "#1f3646",
-  "color": "#4f83a8",
-  "description": "Brackish water, shallow and warm. The bank is a mess of grit and old plastic, with reeds pushing through.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "Rough grass on the riverbank, green against the red country behind it. The ground is soft and the river is loud.",
   "exits": {
     "east": "zone_district_887_924",
     "south": "zone_district_886_925",
@@ -13,13 +12,13 @@
     "district": "wilds",
     "radiation": 28,
     "region_id": "region_coldwater",
-    "terrain": "water"
+    "terrain": "grass"
   },
   "grid_x": 886,
   "grid_y": 924,
   "grid_z": 0,
   "id": "zone_district_886_924",
   "map_id": "map_world",
-  "name": "Coldwater Basin",
+  "name": "Meltwater Bank",
   "parent_zone": null
 }

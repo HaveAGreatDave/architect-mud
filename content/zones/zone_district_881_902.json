@@ -1,9 +1,9 @@
 {
   "ambient_events": [],
   "ambient_theme": "wasteland",
-  "bg_color": "#1f3646",
-  "color": "#4f83a8",
-  "description": "The water at the shore is shallow and the bottom is visible, gravel then silt. The mud at the edge has been dug over.",
+  "bg_color": "#1b3040",
+  "color": "#5f93b8",
+  "description": "The river bends here and the water on the outside of the bend runs dark and fast. Somebody has tied a rag to a root as a marker for the channel.",
   "exits": {
     "east": "zone_district_882_902",
     "south": "zone_district_881_903",
@@ -20,6 +20,6 @@
   "grid_z": 0,
   "id": "zone_district_881_902",
   "map_id": "map_world",
-  "name": "Coldwater Basin",
+  "name": "The Meltwater",
   "parent_zone": null
 }

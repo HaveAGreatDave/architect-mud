@@ -1,7 +1,9 @@
 {
   "ambient_events": [],
   "ambient_theme": "wasteland",
-  "description": "Level ground, packed and stained. Someone's prints cross it at an angle, and further off another set crosses those.",
+  "bg_color": "#1b3040",
+  "color": "#5f93b8",
+  "description": "The Meltwater runs wide and brown here, deep enough in the middle for a boat if you keep off the bars. Drift sticks out of the banks at the height the spring flood left it.",
   "exits": {
     "east": "zone_district_882_915",
     "north": "zone_district_881_914",
@@ -12,13 +14,13 @@
     "district": "wilds",
     "radiation": 31,
     "region_id": "region_coldwater",
-    "terrain": "cliff"
+    "terrain": "water"
   },
   "grid_x": 881,
   "grid_y": 915,
   "grid_z": 0,
   "id": "zone_district_881_915",
   "map_id": "map_world",
-  "name": "The Ironpan",
+  "name": "The Meltwater",
   "parent_zone": null
 }

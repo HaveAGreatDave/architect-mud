@@ -60,6 +60,7 @@ A sports show previews a real simulated game. The **data** menu picks the moment
 - **Slots can share a moment.** The first one whose conditions pass plays, so put special cases above the usual one with ▲ and ▼.
 - **A table** picks a list under *One row for each* and writes each row as `left: right`, with the row's own fields as tokens: `{player}: {period} {clock}`. The set's screen takes a list the same way.
 - **A profile** picks a person under *Who, from the data*, and takes everything else from them.
+- **A beat for each row**: `each` (a list) plays the beat once a row, at most `eachMax` (8), with the row's fields as tokens, and `roll` names a clip for the feed to run as it airs (`'{reel}'`). The Studio has no field for either yet, so they're edited in the file; it plays them.
 - **Counts in lines:** use the `...Said` facts, such as `{fightsSaid}`, which says "one fight" or "3 fights".
 - **`{live.watching}`**, `{live.weather}`, `{live.tempC}` and `{live.hour}` are what's true as a segment airs. They work in graphics. A game's lines are written before it airs.
 

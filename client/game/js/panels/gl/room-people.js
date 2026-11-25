@@ -22,6 +22,7 @@ import { multiply } from './core/mat4.js';
 import { FT_M } from '../../../../shared/world-scale.js';
 import { finishArms } from './figure-reach.js';
 import { expressionOf, easeExpression } from '../../../../shared/expressions.js';
+import { faceEffort } from '../../../../shared/delivery.js';
 import { feelBand, wearFor } from '../../../../shared/comfort.js';
 import { doorwaysOf, pieceBoxes, pieceHangs, HUNG_AT } from '../../../../shared/room-layout.js';
 
@@ -769,11 +770,11 @@ export function figurePeople(L, bodies, t = 0, { level: asked = 'hd', eye = null
     // (`seated` says so for a clip whose name doesn't: the stands' fans, gl/crowd-hd.js)
     const seated = lying || (body.seated ?? (plan ? plan.b : clip).startsWith('sit'));
     // the face: what they're saying, or what the clip does to it, and a blink every few seconds
-    const R0 = rand(body.id), M = o.key.sculpt ? body.mouth || null : null, cf = !o.key.sculpt ? null : plan ? actorClipFace(plan.b, plan.pb) : body.clip ? actorClipFace(clip, body.phase ?? t / dur) : null;
+    const R0 = rand(body.id), M = o.key.sculpt ? withEffort(body.mouth) : null, cf = !o.key.sculpt ? null : plan ? actorClipFace(plan.b, plan.pb) : body.clip ? actorClipFace(clip, body.phase ?? t / dur) : null;
     // the eyes settle on something for a couple of seconds, then flick to something else
     const look = Math.floor((t + R0(9) * 7) / (1.8 + 1.6 * R0(10))), gaze = body.gaze || [(R0(70 + (look % 24)) - 0.5) * 0.5, (R0(95 + (look % 24)) - 0.5) * 0.22];
     // their mood: how the brows, lids and mouth sit, and how often they blink (frightened, a lot; tired, hardly)
-    const X = o.key.sculpt ? faceLife(moodFace(body, t), body, t, R0) : null;
+    const X = o.key.sculpt ? effortFace(faceLife(moodFace(body, t), body, t, R0), body.mouth) : null;
     const every = (3.2 + 3.4 * R0(7)) / Math.max(0.3, X?.blink ?? 1), blinkAt = (t + R0(8) * 9) % every, blink = Math.max(blinkAt < 0.16 ? Math.sin((blinkAt / 0.16) * Math.PI) : 0, cf?.shut || 0, X ? Math.max(0, -X.lid) * 0.42 : 0);
     // `mix` is a host's own blend of two clips ({ a, pa, b, pb, k }), as the Zamboni's driver eases into a wave
     const mx = body.mix && body.sex === 'male' ? { ...body.mix, a: widen(body.mix.a), b: widen(body.mix.b) } : body.mix;
@@ -897,13 +898,17 @@ export function figurePeople(L, bodies, t = 0, { level: asked = 'hd', eye = null
     // pose (S0, before the head and chest turn to look at the camera) and by the body's travel through the room,
     // never by which way the body faces, so turning the camera (a mirror turns you with it) moves nothing.
     // The seat's the same off the pelvis, a little stiffer. What they wear holds both still (bounceHold).
-    const jiggle = o.key.sculpt && (o.key.bust ?? 0) > 0 ? bounceOf(body.id + '|c', at(S0[FIGURE_BONE.chest], BUST_AT), drop, O, AX, AY, AZ, t, JIGGLE, bustHold(o.key)) : null;
-    const seatJ = o.key.sculpt && (o.key.butt ?? 0) > 0 ? bounceOf(body.id + '|p', at(S0[FIGURE_BONE.pelvis], SEAT_AT), drop, O, AX, AY, AZ, t, SEAT_JIGGLE, seatHold(o.key)) : null;
+    // where the body stands in the layout's own frame (body.at), carried into the room with this frame's L.world:
+    // the room's placing moves as the viewer walks (it's kept about them), and only the body's own travel may move the flesh
+    const hu = body.at?.[0] ?? 0, hv = body.at?.[1] ?? 0;
+    const here = { u: hu, v: hv, h: (L.baseAt?.(hu, hv) || 0) + (body.lift || 0), world: (a, b, c) => L.world(a, b, c) };
+    const jiggle = o.key.sculpt && (o.key.bust ?? 0) > 0 ? bounceOf(body.id + '|c', at(S0[FIGURE_BONE.chest], BUST_AT), drop, O, AX, AY, AZ, t, JIGGLE, bustHold(o.key), here) : null;
+    const seatJ = o.key.sculpt && (o.key.butt ?? 0) > 0 ? bounceOf(body.id + '|p', at(S0[FIGURE_BONE.pelvis], SEAT_AT), drop, O, AX, AY, AZ, t, SEAT_JIGGLE, seatHold(o.key), here) : null;
     // the hair's swing: the same spring on the back of the crown, slow and loose, so a step or a turn of the head
     // throws long hair and it settles over a second (gl/figure-hd.js hairSway). Nothing for a crop.
-    const hairJ = o.key.sculpt && hairLoose(o.key.style, o.key.beard) > 0 ? bounceOf(body.id + '|h', at(S0[FIGURE_BONE.head], HAIR_AT), drop, O, AX, AY, AZ, t, HAIR_SWING, 0.35) : null;
+    const hairJ = o.key.sculpt && hairLoose(o.key.style, o.key.beard) > 0 ? bounceOf(body.id + '|h', at(S0[FIGURE_BONE.head], HAIR_AT), drop, O, AX, AY, AZ, t, HAIR_SWING, 0.35, here) : null;
     // (the tips' own spring, slower and looser: figure-hd.js hairSway)
-    const hairJ2 = hairJ ? bounceOf(body.id + '|h2', at(S0[FIGURE_BONE.head], HAIR_AT), drop, O, AX, AY, AZ, t, HAIR_TIPS, 0.35) : null;
+    const hairJ2 = hairJ ? bounceOf(body.id + '|h2', at(S0[FIGURE_BONE.head], HAIR_AT), drop, O, AX, AY, AZ, t, HAIR_TIPS, 0.35, here) : null;
     const nip = o.key.sculpt ? bustApex(o.key.bust ?? (softHead(o.key.head) ? 0.35 : 0), o.key.weight ?? null) : null;
     out.push({ key: o.key, rows, sway, jiggle, seatJ, hairJ, hairJ2, nip, flex: flexOf(SP), floor: O[1], print: o.print, badge: o.badge || 0, badgeClub: o.badgeClub, hatF: o.hatF, hatU: o.hatU, hands: arms.hands, hold: arms.hold, on: arms.on, plate: arms.plate ? toWorld(arms.plate.o) : null, knifeDown: arms.knifeDown, clip: playing, col: o.col, surf: o.surf, fab: o.fab, mut: o.mut || 0, mutCol: o.mutCol, tat: o.tat || 0, tatCol: o.tatCol, blink2: o.key.body?.head2 ? blinkOf(t + 1.7, R0) : 0, grit: o.grit || 0, face: o.face, lip: o.lip, lipstick: o.lipstick, iris: o.iris, faceV: o.faceV, age: o.age, smile: X ? Math.min(1, Math.max(o.smile, X.smile)) : o.smile, trim: o.trim, tie: o.tie,
       expr: X ? [X.browIn, X.browUp, X.lid, X.frown] : null, sneer: X?.sneer || 0, expr2: X ? [X.browL || 0, X.browR || 0, X.squint || 0, X.smirk || 0] : null, wink: X ? [X.winkL || 0, X.winkR || 0] : null, beardA: o.beardA, beardB: o.beardB,
@@ -951,6 +956,22 @@ function faceRigOf(X) {
     rigB: [clamp1(0.8 * sm + Math.max(sk, 0) - 0.8 * fr), clamp1(0.8 * sm + Math.max(-sk, 0) - 0.8 * fr), X.pout || 0, X.flare || 0],
     rigC: [X.jawSide || 0, X.jawOut || 0, X.sneer || 0, X.puff || 0],
   };
+}
+// How hard a line is said (client/shared/delivery.js faceEffort), while it's being said: the speech jaw
+// opens wider for a yell and hardly at all for a whisper, and the eyes, brows and nostrils go with it. Copies,
+// never the eased face itself.
+function withEffort(m) {
+  if (!m) return null;
+  if (!m.effort) return m;
+  const k = faceEffort(m.effort).jawK;
+  return { ...m, open: Math.min(1, (m.open || 0) * k) };
+}
+function effortFace(X, m) {
+  const ch = m?.effort ? faceEffort(m.effort).ch : null;
+  if (!X || !ch) return X;
+  const out = { ...X };
+  for (const k in ch) out[k] = k === 'blink' ? (X.blink ?? 1) * ch[k] : (X[k] || 0) + ch[k];
+  return out;
 }
 function moodFace(body, t) {
   let m = body.mood || null;
@@ -1016,21 +1037,22 @@ function seatHold(key) {
 // does nothing; the body's travel through the room (O) is carried in against it, so a start, a stop or a step up
 // sets it going. Underdamped, so a step sets it moving and it settles a beat later. `hold` is what the clothes let
 // through: a stiffer spring and less of its lag. Returns the lag in room metres.
-function bounceOf(key, q0, drop, O, AX, AY, AZ, t, K, hold = 1) {
+function bounceOf(key, q0, drop, O, AX, AY, AZ, t, K, hold = 1, here = null) {
   const q = [q0[0], q0[1] - drop, q0[2]];
   let js = bounces.get(key);
   // new, or back after a gap (out of view, or dropped to the lite figure and back): start at rest, not with a jolt
-  if (!js || t - js.t > 0.3 || t < js.t) js = { p: q.slice(), v: [0, 0, 0], t, O: O.slice(), w: [0, 0, 0] };
+  if (!js || t - js.t > 0.3 || t < js.t) js = { p: q.slice(), v: [0, 0, 0], t, O: O.slice(), w: [0, 0, 0], at: here ? [here.u, here.v, here.h] : null };
   // the body's speed through the room, in its own frame and eased (a walk's steps arrive unevenly): only a change in
   // it moves the flesh, which keeps going as it was while the body starts, stops or steps up, and walking steadily
   // on drags nothing behind
-  const d = [O[0] - js.O[0], O[1] - js.O[1], O[2] - js.O[2]], ft = t - js.t;
+  const prev = here && js.at ? here.world(js.at[0], js.at[1], js.at[2]) : js.O, now = here ? here.world(here.u, here.v, here.h) : O;
+  const d = [now[0] - prev[0], now[1] - prev[1], now[2] - prev[2]], ft = t - js.t;
   if (Math.hypot(d[0], d[1], d[2]) > 0.5) { js.p = q.slice(); js.v = [0, 0, 0]; js.w = [0, 0, 0]; }
   else if (ft > 1e-4) {
     const e = 1 - Math.exp(-ft * 12);
     for (const [i, A] of [[0, AX], [1, AY], [2, AZ]]) { const w = js.w[i] + ((d[0] * A[0] + d[1] * A[1] + d[2] * A[2]) / ft - js.w[i]) * e; js.v[i] -= w - js.w[i]; js.w[i] = w; }
   }
-  js.O = O.slice();
+  js.O = O.slice(); if (here) js.at = [here.u, here.v, here.h];
   const k = K.k * (1 + 0.6 * (1 - hold));
   let dt = Math.max(0, Math.min(0.05, t - js.t));
   while (dt > 0) { const h = Math.min(dt, 1 / 120); for (let i = 0; i < 3; i++) { js.v[i] += (k * (q[i] - js.p[i]) - K.c * js.v[i]) * h; js.p[i] += js.v[i] * h; } dt -= h; }

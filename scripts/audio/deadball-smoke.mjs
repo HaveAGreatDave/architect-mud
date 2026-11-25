@@ -322,7 +322,7 @@ check('mixer: dispose stops the scene\'s voices', full.R.said.some((s) => s.canc
   snd.dispose();
 }
 
-// Sound Detail: off keeps the calls; limited the events but no footsteps or park; full all of it
+// Sound Detail: off keeps the calls; limited (the default) plays everything for now
 {
   const sc = ({ W, at, snd }) => {
     W.place('ss', { id: 'Home:SS', role: 'fielder', at: [40, 0, 110], yaw: 180 });
@@ -335,7 +335,7 @@ check('mixer: dispose stops the scene\'s voices', full.R.said.some((s) => s.canc
   check('off: nothing played', off.R.played.length === 0, off.R.played.map((p) => p.id).join(','));
   check('off: the calls still said', off.R.said.some((s) => s.text === 'STRIKE!') && off.R.said.some((s) => s.text === 'HOME RUN!'));
   check('limited: the events', count(lim.log, 'glove') === 1 && count(lim.log, 'homer') === 1);
-  check('limited: no footsteps', count(lim.log, 'step') === 0);
+  check('limited: footsteps too (every sound is on the default tier for now)', count(lim.log, 'step') > 0);
 }
 
 {

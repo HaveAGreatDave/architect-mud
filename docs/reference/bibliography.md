@@ -198,9 +198,11 @@ All in [systems-library.md](../systems-library.md) unless noted.
 | Pierrehumbert 1981 | Pitch bridging between close accents (`sagShape`). |
 | Bachenko and Fitzpatrick 1990 | The break between a long subject and its verb (`AUX_BREAK`). |
 | Black, Lenzo and Pagel 1998 (Flite's letter-to-sound) | The decision trees for words the lexicon lacks ([build-lts.mjs](../../scripts/voice/build-lts.mjs)). Its CMUdict attribution stays in the header of [oracle-lts.js](../../client/shared/oracle-lts.js). |
+| Black and Lenzo, Flite (CMU, 2001) | The token rules ORACLE's text pass was checked against (`us_text.c`): money, decades, fractions, am/pm, phone numbers, ranges, units, regnal numerals (`flitePasses` in `audio-engine.js`). Rules only, no code or data taken. |
 | House, Williams, Hecker and Kryter 1965 | The Modified Rhyme Test's 50 six-word sets ([voicelab.js](../../client/devpanel/js/panels/voicelab.js)). |
 | The Harvard sentences | Intelligibility scoring with Whisper and a NeMo recogniser ([systems-procedural-audio.md](../systems-procedural-audio.md)). |
-| Mehta et al. 2024, Matcha-TTS; Lyth and King 2024, Parler-TTS; Li et al. 2023, StyleTTS 2 | Candidate teachers for the controller's training data ([oracle-teacher.md](../proposals/oracle-teacher.md)). |
+| Yamagishi, Veaux and MacDonald 2019, CSTR VCTK Corpus (CC BY 4.0) | 110 speakers' recordings to pre-train ORACLE's controller on ([oracle-teacher.md](../proposals/oracle-teacher.md)). |
+| Mehta et al. 2024, Matcha-TTS; Lyth and King 2024, Parler-TTS; Li et al. 2023, StyleTTS 2 | Candidate teachers for the game's register, a later step ([oracle-teacher.md](../proposals/oracle-teacher.md)). |
 | Ito and Johnson 2017, the LJ Speech Dataset; Zen et al. 2019, LibriTTS (and LibriTTS-R) | The data under the candidate teachers, checked for licence ([oracle-teacher.md](../proposals/oracle-teacher.md)). |
 | McAuliffe et al. 2017, Montreal Forced Aligner; Kim et al. 2018, CREPE | Phone boundaries and F0 from teacher audio ([oracle-teacher.md](../proposals/oracle-teacher.md)). |
 | Kominek and Black 2004, CMU ARCTIC | Phonetically balanced prompts for the teacher's text ([oracle-teacher.md](../proposals/oracle-teacher.md)). |

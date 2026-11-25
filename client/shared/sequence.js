@@ -184,21 +184,36 @@ export function pickLine(beat, data, seed = '') {
 // The people a sequence's roles name, with `speaker` set per beat. `cast` is role → { id, name, ... }.
 const speakerData = (data, cast, role) => ({ ...data, ...Object.fromEntries(Object.entries(cast || {}).map(([k, v]) => [k, v])), speaker: cast?.[role] || {} });
 
-// [{ i, beat, role, text, spoken, t0, dur, data }]: a beat with lines that can't be filled and no
-// hold of its own is left out, so a missing fact loses the beat and never airs a hole.
+// [{ i, bi, beat, role, text, spoken, t0, dur, data, roll }]: a beat with lines that can't be filled
+// and no hold of its own is left out, so a missing fact loses the beat and never airs a hole.
+//
+// A beat with `each` (a list in the data) plays once for each row, at most `eachMax` (8), with the
+// row's own fields as tokens over the data and the row as `{row.*}`: a recap reads every item of a
+// list without a beat per item. A repeat's `i` is "beat.row" ('3.1'), so each is cued on its own; `bi`
+// is always the beat's index. `roll` is a token line naming a clip for the feed to run as the beat
+// airs (`'{reel}'`); what a clip is belongs to whoever draws the feed (the player's `onRoll`).
 export function timeline(seq, data = {}, { cast = {}, seed = '' } = {}) {
   const out = [];
   let t = 0;
-  (seq?.beats || []).forEach((beat, i) => {
-    const role = beat.say?.role || '';
-    const d = speakerData(data, cast, role);
+  const one = (beat, bi, d, i, s) => {
     if (!passes(beat.if, d)) return;
-    const raw = beat.say?.lines?.length ? pickLine(beat, d, seed) : null;
+    const raw = beat.say?.lines?.length ? pickLine(beat, d, s) : null;
     if (beat.say?.lines?.length && !raw && !beat.hold) return;
     const text = raw ? fill(raw, d).trim() : '';
     const dur = text ? lineSeconds(text) + (beat.pad || 0) : Math.max(0.4, beat.hold || 3);
-    out.push({ i, beat, role, text, spoken: !!text, t0: t, dur, data: d });
+    const roll = beat.roll ? fill(beat.roll, d).trim() : '';
+    out.push({ i, bi, beat, role: beat.say?.role || '', text, spoken: !!text, t0: t, dur, data: d, ...(roll ? { roll } : {}) });
     t += dur;
+  };
+  (seq?.beats || []).forEach((beat, i) => {
+    const d = speakerData(data, cast, beat.say?.role || '');
+    if (!beat.each) return one(beat, i, d, i, seed);
+    const list = dig(data, beat.each);
+    if (!Array.isArray(list)) return;
+    list.slice(0, beat.eachMax || 8).forEach((row, n) => {
+      const r = row && typeof row === 'object' ? row : { value: row };
+      one(beat, i, { ...d, ...r, row: r, rowN: n + 1, rowCount: list.length, rowLast: n === Math.min(list.length, beat.eachMax || 8) - 1 }, `${i}.${n}`, `${seed}|${n}`);
+    });
   });
   return out;
 }
@@ -212,7 +227,7 @@ export function gfxAt(tl, t) {
     (it.beat.gfx || []).forEach((g, n) => {
       if (!passes(g.if, it.data)) return;
       const from = it.t0 + (g.at || 0), to = g.for ? from + g.for : it.t0 + it.dur;
-      if (t >= from && t < to) out.push({ key: `${it.beat.id}:${n}`, g, data: it.data, left: to - t });
+      if (t >= from && t < to) out.push({ key: `${it.beat.id}${typeof it.i === 'string' ? `#${it.i}` : ''}:${n}`, g, data: it.data, left: to - t });
     });
   }
   return out;

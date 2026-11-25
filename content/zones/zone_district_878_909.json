@@ -1,8 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "Rust-stained flats, beaten hard. A few scattered prints show something walked this way once, when the ground would still take them.",
+  "ambient_theme": "forest",
+  "color": "#8ba36a",
+  "description": "Rough grass on the riverbank, green against the red country behind it. The ground is soft and the river is loud.",
   "exits": {
     "east": "zone_district_879_909",
     "north": "zone_district_878_908",
@@ -13,13 +13,13 @@
     "district": "wilds",
     "radiation": 33,
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "grass"
   },
   "grid_x": 878,
   "grid_y": 909,
   "grid_z": 0,
   "id": "zone_district_878_909",
   "map_id": "map_world",
-  "name": "Rustwind Flat",
+  "name": "Meltwater Bank",
   "parent_zone": null
 }

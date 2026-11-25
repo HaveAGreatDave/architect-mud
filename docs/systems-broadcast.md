@@ -882,6 +882,26 @@ Curtain Call at 13:00 and the Coldwater Cup at 20:00. The next season starts at 
   slots stale is dropped. The betting heartbeat, venue lights and KSAB-TV's 18:00 relay row
   still follow the clock's slot, so an 18:00 game that runs past 21:00 is cut on KSAB-TV
   (not on KSAB5).
+- **The order of the day on KSAB5.** Both sports share the one hold, so the rule is the same for
+  each: a game is never cut, the next game waits for it and airs as soon as it ends if it's due
+  (late, from its title card), and everything after carries the lateness forward until the
+  09:00 or 21:00 buffer takes it back. Whatever the buffer has left after that goes to the desk
+  (below). Games are still paced to fill their slot (`SPORTS_GAME_FILL`); only the parked
+  final card at the end is given up. The pacing sets how the play reads and what the hold
+  measures, so it stays.
+- **The KSAB5 Sports Desk** (`_slateMagazineItem`, `assembleSportsMagazine`). When a slate row is
+  on and none of its games is (a game's content has run out, `_slateGameDone`, an empty slot, or
+  the rest of a buffer), KSAB5 shows a looping results show instead of the parked final or the
+  off-air card: each of today's finished games with its score bug and up to two big plays (the
+  booth cuts from `sports/facts.js`: hat tricks, grand slams, deaths, fights, late goals), the
+  top three of each table from the standings caches, and the next game. Nothing is simulated
+  that the slot didn't already play; it reads the same game every TV saw. Lines hold 20 s and the
+  loop is seeked off the wall clock, so every set and the ch 7 relay are on the same line. The
+  picker asks the slate first on every tick, so a game ending its hold or the next title card
+  takes the air back at once. A game counts as finished when its slot is before the clock's and
+  it isn't held, or it's held and its content has ended (`magazineFinished`). A featured script
+  (KSAB-TV's own row) still parks or rolls its recap reel; only the slate gives way. The desk is
+  voice-over over cards, not the 3-D desk set: that needs a desk sequence of its own.
 - `sports.game` fires once per game however many channels carry it, keyed by broadcast and
   slot. A park's lights follow the game being played there, not the channel.
 - **The grounds' picture** (phase 4a). The game is played whether or not it's filmed; what
@@ -1802,9 +1822,11 @@ A segment is performed: its lines go out only while everybody cast is standing i
 Each sport's two callers are on camera too, in their ground's press box: Chip Vega and Dusty Merriman in the Coliseum's (`set_hughson_booth`), Tug Brennan and Rennie Gault on the Gardens' gantry (`set_slush_booth`). Each set is a desk with two microphones in front of the glass, and the glass is a video wall showing the game's own picture (the sequences' `wall: 'feed'`). They're the same show entries as the desk's, with four more moments, and the narrators call them through the same `ctx.desk`:
 
 - **`booth_open`**: after the desk's open, which throws to them. Who they are, the records, a man to watch, the starter or the goalies.
-- **`booth_break`**: before the desk's break at the same moment, the stretch or each intermission. The score, the goals or homers so far, the fights, and over to the desk.
+- **`booth_break`**: before the desk's break at the same moment, the stretch or each intermission. In Cluster Puck it's the period in review, the whole of it on camera: the score, every goal of the period with its replay, the shots, the penalties, the fights, who got hurt with the hit that did it, and over to the desk. The rink is up in a picture in picture (`source: 'feed'`) all the way through, so the Zamboni is at work beside the callers, and a goal's or a hit's beat puts the replay in a box. When it airs, the narrator's plain read-back (`intermission.summary`, `.goal`, `.stats`, `.casualties` and the colour after them) is left out, since the segment said it; the pacer leaves its silence after the segment (`paceCalls`), so the recap goes on camera at the horn and the break stays `BREAK_MS`. Deadball's has the park in a picture in picture and no replays.
 - **`booth_cut`**: now and then, straight after a big play, in place of the booth's after-talk. `boothCuts` in [sports/facts.js](../plugins/broadcast/sports/facts.js) lists every moment in a game worth it (a hat trick, a man killed, a fight, a goal in the third that ties it or puts a side ahead; a grand slam, or a play from the 7th to the 9th that ties it or puts a side ahead), never the play that ends the game. `pickBoothCut` takes one at most, each kind on its sport's odds (`BOOTH_CUT_ODDS`), off a stream of its own (`0xb0c7`), so about one hockey game in four has a cut and one ballgame in seven. The cut's facts (`cutFacts`) are `cut` (the kind), `cutMan`, `cutLoser` (a fight), `cutTied` and `cutPlay`, and its sequence's beats are conditioned on `cut`.
-- **`booth_end`**: straight after the final call, before the desk's close: how it was decided. The end facts are `decider` (the goal or play that put the winner ahead for good, with `periodSaid` or `inning` and `play`), `endedIn` (`regulation`, `overtime` or `a shootout`; `nine` or `12 innings`), `soWinner` and `soScore`, `walkoff`, and `comebackFrom` and `comebackSaid` when the winner had been behind. In hockey it stands in for the colour man's last word (`colour.final`), which still airs if no segment does. A final has the champions' celebration instead, where the booth already says how they won it.
+- **`booth_end`**: straight after the final call, before the desk's close: how it was decided. The end facts are `decider` (the goal or play that put the winner ahead for good, with `periodSaid` or `inning` and `play`), `endedIn` (`regulation`, `overtime` or `a shootout`; `nine` or `12 innings`), `soWinner` and `soScore`, `walkoff`, and `comebackFrom` and `comebackSaid` when the winner had been behind. In hockey it stands in for the colour man's last word (`colour.final`), which still airs if no segment does. A final has the champions' celebration instead, where the booth already says how they won it. Cluster Puck's is the game in review: every goal of the night with its replay, the shots and the game's counts in a table, the three stars, then how it was decided and the sign-off.
+
+**The replays** come off the rink's reel (`keepReel`/`rollReel` in [rink/director.js](../client/game/js/panels/rink/director.js)): a clip of every goal, and of each hit that put a man down (the foul kept for the run-back, filed under his injury), kept for the night under the payload's period and clock, twenty at most. The facts give each goal and injury row the same key as `reel` (`'2nd|13:48'`), the beat rolls it (`roll: '{reel}'`), and the TV desk asks the rink to play it in the feed (tv.js `_handleDesk`). A viewer who tuned in after the goal has no clip of it, and the box shows the Zamboni instead.
 
 The callers aren't NPCs. The show casts them as tokens (`pbp: '{announcer}'`, `col: '{analyst}'`), named from the script's `@announcer` and `@analyst`, and the set's `looks` dresses them by name. The booth sets have no `zone`, so the real press boxes stay the rooms they are and the segment needs nobody standing anywhere. `deskNow` returns whether a segment aired. The Studio previews every moment from a simulated game (`momentFacts`, which adds a cut's facts at `booth_cut`), and the gate tries a cut at every moment a sample game offers one.
 
@@ -3071,10 +3093,13 @@ post-game tail first and then from the play, and 30% of a short slot is the most
 can take. The break before overtime stays as long as its words, so that one is sped up in the seats too. A viewer who joins a break is told how far in it is (`aired`) and finds the machine
 as far round as it would have got.
 
-The broadcast shows it as a time-lapse: the director sets `lapse` to at least three, so the machine is through
-its gate well before the `resume` cue (ten times over with no cue) and the shot holds on the clean sheet, a
-TIME-LAPSE bug sits in the top right while it's out, and the camera holds a locked-off shot
-of the whole sheet. Everything about the machine runs on its own clock, `dt × lapse`, and so
+It's the one machine. It doesn't come through the gate until Ken has walked to it, climbed on and driven
+it out of the bay (`CREW_OUT_S` in director.js, the sum of `CREW.walk`, `climb` and `drive` in
+`client/shared/stadium.js`, the same clock plugins/stands crew.js plays in the bay), so a viewer never sees
+it parked in the bay and out on the ice at once. The broadcast shows it at a driver's pace, as the
+seats do: no time-lapse. The director speeds it up only when what's left of the break can't hold the
+sheet (ten times over for a payload with no `resume` cue, which has no time to fit to), and a
+TIME-LAPSE bug shows only above three times over. The camera holds a locked-off shot of the whole sheet. Everything about the machine runs on its own clock, `dt × lapse`, and so
 does the water freezing behind it, which carries on at that rate after it's gone until the
 last strip has set. Whatever is left lying in its path (a stick, a glove, a limb) goes in
 under the front of it. Its conditioner paints a clean copy of the sheet back over the strip

@@ -1,9 +1,9 @@
 {
   "ambient_events": [],
   "ambient_theme": "wasteland",
-  "bg_color": "#1f3646",
-  "color": "#4f83a8",
-  "description": "Warm, murky shallows with an oily sheen. Reeds have taken hold, and the bank is slurry and plastic.",
+  "bg_color": "#1b3040",
+  "color": "#5f93b8",
+  "description": "A slow, deep reach of the Meltwater. The current pulls at anything that floats and the bottom is out of sight a few feet down.",
   "exits": {
     "east": "zone_district_881_902",
     "south": "zone_district_880_903",
@@ -20,6 +20,6 @@
   "grid_z": 0,
   "id": "zone_district_880_902",
   "map_id": "map_world",
-  "name": "Coldwater Basin",
+  "name": "The Meltwater",
   "parent_zone": null
 }

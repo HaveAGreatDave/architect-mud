@@ -233,7 +233,7 @@ export function roomOpenings(b, plan, zoneId, parked = null) {
     const dir = mine ? d.dir : (b.doors.find((x) => x.from === zoneId && x.to === other)?.dir ?? null);
     // the ground floor's way into the car is a plain door in the plan; its landing gets the bronze doors too
     const landing = !lift && !!plan.lifts?.[other] && d.kind === 'door';
-    out.push({ wall: side.wall, a: side.a, b: side.b, kind: d.kind === 'door' && !dir ? 'shut' : d.kind, dir, to: other, ...deep, ...(d.slide || landing ? { slide: true } : {}), ...(d.swing ? { swing: true } : {}), ...(d.hand ? { hand: true } : {}), ...(d.dark ? { dark: true } : {}), ...(d.glass ? { glass: d.glass } : {}), ...(landing ? { lift: true } : {}) });
+    out.push({ wall: side.wall, a: side.a, b: side.b, kind: d.kind === 'door' && !dir ? 'shut' : d.kind, dir, to: other, ...deep, ...(d.slide || landing ? { slide: true } : {}), ...(d.swing ? { swing: true } : {}), ...(d.hand ? { hand: true } : {}), ...(d.dark ? { dark: true } : {}), ...(d.glass ? { glass: d.glass } : {}), ...(d.door ? { door: d.door } : {}), ...(d.keypad ? { keypad: true } : {}), ...(landing ? { lift: true } : {}) });
   }
   return out;
 }
@@ -480,7 +480,7 @@ export function buildingLayout(b, { zones, specOf }) {
       opening(to, B, bSide, offAt(to, B.face, OPPOSITE[dir]), dw);
       sides[to] = { ...onWalls(B, [at[0] + nx * g, at[1], at[2] + nz * g], dw), ...(bDeep ? { deep: bDeep } : {}) };
     }
-    doors.push({ kind, from, dir, to, at, sides, ...(sd ? { slide: true } : {}), ...(sd?.swing ? { swing: true } : {}), ...(sd?.hand ? { hand: true } : {}), ...(sd?.dark ? { dark: true } : {}), ...(sd?.glass ? { glass: sd.glass } : {}), ...(sd && sd.kind !== 'sliding' && sd.kind !== 'swing' ? { door: sd.kind } : {}) });
+    doors.push({ kind, from, dir, to, at, sides, ...(sd ? { slide: true } : {}), ...(sd?.swing ? { swing: true } : {}), ...(sd?.hand ? { hand: true } : {}), ...(sd?.dark ? { dark: true } : {}), ...(sd?.glass ? { glass: sd.glass } : {}), ...(sd && sd.kind !== 'sliding' && sd.kind !== 'swing' ? { door: sd.kind } : {}), ...(sd?.keypad ? { keypad: true } : {}) });
   };
 
   const entry = b.entry, f0 = faceFor(entry, null);

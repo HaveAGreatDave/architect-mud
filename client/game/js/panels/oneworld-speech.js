@@ -45,6 +45,7 @@ export function createOneWorldSpeech({ get, project, eared }) {
     const p = personOf(s.inside, d.name);
     if (!p) return;
     if (!d.sex && p.sex) d.sex = p.sex;
+    if (!d.mood && p.mood?.m) d.mood = p.mood;
     if (d.place || !eared()) return;
     const at = headOf(s.inside, d.name);
     if (at) d.place = { position: at, ...VOICE_AT };

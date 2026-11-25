@@ -6,47 +6,47 @@
   --ss-shadow:0 1px 2px rgba(0,0,0,0.9), 0 0 14px rgba(0,0,0,0.75); animation:ssIn .25s ease-out; }
 @keyframes ssIn { from { opacity:0 } to { opacity:1 } }
 #spray-session .ss-stage { position:absolute; left:50%; bottom:max(16px, env(safe-area-inset-bottom)); z-index:1; transform:translateX(-50%);
-  width:min(600px, calc(100% - 32px)); display:flex; flex-direction:column; align-items:center; gap:6px; pointer-events:none;
+  width:min(820px, calc(100% - 32px)); display:flex; flex-direction:column; align-items:center; gap:9px; pointer-events:none;
   color:var(--ss-fg); text-shadow:var(--ss-shadow); }
 
 /* what it is and where, small */
-#spray-session .ss-head { display:flex; gap:10px; align-items:baseline; font-size:10px; letter-spacing:4px; color:var(--ss-dim); }
+#spray-session .ss-head { display:flex; gap:12px; align-items:baseline; font-size:14px; letter-spacing:5px; color:var(--ss-dim); }
 #spray-session .ss-head b { color:var(--ss-fg); font-weight:bold; }
 #spray-session .ss-where { letter-spacing:1px; }
 #spray-session .ss-where:empty { display:none; }
 
 /* the close-up: over ROOM only the ghost of the piece, floating; on the street its wall, fading out at the edges */
-#spray-session .ss-wall { display:block; max-width:100%; max-height:30vh; object-fit:contain;
+#spray-session .ss-wall { display:block; max-width:100%; max-height:40vh; object-fit:contain;
   -webkit-mask-image:radial-gradient(ellipse 72% 68% at 50% 50%, #000 58%, transparent 100%);
           mask-image:radial-gradient(ellipse 72% 68% at 50% 50%, #000 58%, transparent 100%); }
-#spray-session.live .ss-wall { max-height:12vh; -webkit-mask-image:none; mask-image:none; filter:drop-shadow(0 2px 6px rgba(0,0,0,0.7)); }
+#spray-session.live .ss-wall { max-height:18vh; -webkit-mask-image:none; mask-image:none; filter:drop-shadow(0 2px 6px rgba(0,0,0,0.7)); }
 #spray-session.finished .ss-wall { filter:drop-shadow(0 0 14px var(--ss-ink)); transition:filter .3s; }
 
 /* a dot of paint a section */
-#spray-session .ss-pips { display:flex; gap:7px; min-height:10px; }
-#spray-session .ss-pips i { width:9px; height:9px; border-radius:50%; background:rgba(255,255,255,0.16); box-shadow:0 0 0 1px rgba(0,0,0,0.5); transition:background .2s, transform .2s; }
+#spray-session .ss-pips { display:flex; gap:10px; min-height:14px; }
+#spray-session .ss-pips i { width:14px; height:14px; border-radius:50%; background:rgba(255,255,255,0.16); box-shadow:0 0 0 1px rgba(0,0,0,0.5); transition:background .2s, transform .2s; }
 #spray-session .ss-pips i.now { background:transparent; box-shadow:0 0 0 2px var(--ss-ink), 0 0 10px var(--ss-ink); animation:ssBeat .8s ease-in-out infinite alternate; }
 #spray-session .ss-pips i.on { background:var(--ss-ink); box-shadow:0 0 8px var(--ss-ink); }
 @keyframes ssBeat { from { transform:scale(0.85) } to { transform:scale(1.15) } }
 
 /* the shake: the can in a ring of five arcs, a chevron over and under it */
-#spray-session .ss-shake { display:none; position:relative; width:min(220px, 30vh); height:min(220px, 30vh); margin:22px 0; }
+#spray-session .ss-shake { display:none; position:relative; width:min(310px, 40vh); height:min(310px, 40vh); margin:28px 0; }
 #spray-session.shaking .ss-shake { display:block; }
 #spray-session .ss-ring, #spray-session .ss-shake .ss-can3d { position:absolute; inset:0; width:100%; height:100%; display:block; }
-#spray-session .ss-chev { position:absolute; left:50%; width:18px; height:18px; margin-left:-9px; box-sizing:border-box;
-  border:solid rgba(255,255,255,0.7); border-width:4px 4px 0 0; border-radius:2px; filter:drop-shadow(0 1px 2px #000); }
+#spray-session .ss-chev { position:absolute; left:50%; width:26px; height:26px; margin-left:-13px; box-sizing:border-box;
+  border:solid rgba(255,255,255,0.7); border-width:5px 5px 0 0; border-radius:2px; filter:drop-shadow(0 1px 2px #000); }
 #spray-session .ss-chev.up { top:-24px; transform:rotate(-45deg); animation:ssUpDn .9s ease-in-out infinite; }
 #spray-session .ss-chev.down { bottom:-24px; transform:rotate(135deg); animation:ssUpDn .9s ease-in-out infinite reverse; }
 #spray-session .ss-chev.hit { border-color:var(--ss-ink); filter:drop-shadow(0 0 8px var(--ss-ink)); }
 @keyframes ssUpDn { 0%,100% { translate:0 -4px } 50% { translate:0 4px } }
 
 /* the strokes, drawn as paint (spray-session.js drawGuide) */
-#spray-session .ss-guide { display:none; width:min(560px, 100%); height:128px; }
+#spray-session .ss-guide { display:none; width:min(800px, 100%); height:190px; }
 #spray-session.spraying .ss-guide { display:block; }
 #spray-session .ss-steps { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
 
 /* what the can says: a line, big enough to catch, gone again */
-#spray-session .ss-say { min-height:20px; font-size:15px; font-weight:bold; letter-spacing:1.5px; text-align:center;
+#spray-session .ss-say { min-height:28px; font-size:22px; font-weight:bold; letter-spacing:2px; text-align:center;
   opacity:0; transform:translateY(4px); transition:opacity .35s, transform .35s; }
 #spray-session .ss-say.in { opacity:1; transform:none; animation:ssPop .3s ease-out; }
 #spray-session .ss-say.bad { color:#ff5c77; }
@@ -54,9 +54,9 @@
 @keyframes ssPop { 0% { transform:scale(0.8) } 60% { transform:scale(1.08) } 100% { transform:none } }
 
 /* how to work it, as pictures: a finger dragging the way wanted, or the key */
-#spray-session .ss-hint { display:flex; align-items:center; gap:10px; margin-top:2px; font-size:10px; letter-spacing:1px; color:var(--ss-dim); }
-#spray-session .ss-drag { position:relative; width:30px; height:30px; border-radius:50%; box-shadow:0 0 0 1.5px rgba(255,255,255,0.4), 0 0 8px rgba(0,0,0,0.6); }
-#spray-session .ss-drag i { position:absolute; left:50%; top:50%; width:10px; height:10px; margin:-5px 0 0 -5px; border-radius:50%;
+#spray-session .ss-hint { display:flex; align-items:center; gap:14px; margin-top:4px; font-size:13px; letter-spacing:1px; color:var(--ss-dim); }
+#spray-session .ss-drag { position:relative; width:42px; height:42px; border-radius:50%; box-shadow:0 0 0 1.5px rgba(255,255,255,0.4), 0 0 8px rgba(0,0,0,0.6); }
+#spray-session .ss-drag i { position:absolute; left:50%; top:50%; width:14px; height:14px; margin:-7px 0 0 -7px; border-radius:50%;
   background:var(--ss-ink); box-shadow:0 0 8px var(--ss-ink); animation:ssDrag 1s ease-in-out infinite; }
 #spray-session.shaking .ss-drag i { animation:ssShakeDrag .5s ease-in-out infinite alternate; }
 #spray-session .ss-drag[data-spin="cw"] i { animation:ssOrbit 1s linear infinite; }
@@ -65,8 +65,8 @@
   25% { opacity:1 } 75% { opacity:1 } 100% { transform:translate(calc(var(--mx, 0) * 10px), calc(var(--my, 0) * 10px)); opacity:0 } }
 @keyframes ssShakeDrag { from { transform:translateY(-9px) } to { transform:translateY(9px) } }
 @keyframes ssOrbit { from { transform:rotate(0deg) translateY(-9px) } to { transform:rotate(360deg) translateY(-9px) } }
-#spray-session .ss-keys { display:grid; grid-template-columns:repeat(3, 24px); grid-template-rows:repeat(2, 24px); gap:3px; }
-#spray-session .ss-keys b { display:grid; place-items:center; border-radius:5px; font-size:11px; font-weight:bold; text-shadow:none;
+#spray-session .ss-keys { display:grid; grid-template-columns:repeat(3, 34px); grid-template-rows:repeat(2, 34px); gap:4px; }
+#spray-session .ss-keys b { display:grid; place-items:center; border-radius:6px; font-size:15px; font-weight:bold; text-shadow:none;
   color:rgba(255,255,255,0.75); background:rgba(10,12,10,0.55); border:1px solid rgba(255,255,255,0.28);
   box-shadow:inset 0 -2px 0 rgba(0,0,0,0.45), 0 2px 6px rgba(0,0,0,0.5); transition:background .12s, color .12s, box-shadow .12s; }
 #spray-session .ss-keys b[data-d="U"] { grid-area:1 / 2; }
@@ -93,8 +93,8 @@
 #spray-session.spinning .ss-spin { display:inline; }
 
 /* the lid, out of the way in the corner */
-#spray-session .ss-lid { position:fixed; right:16px; bottom:max(16px, env(safe-area-inset-bottom)); z-index:4; display:flex; align-items:center; gap:7px;
-  padding:4px 2px; font-family:inherit; font-size:11px; letter-spacing:1px; cursor:pointer; color:var(--ss-dim);
+#spray-session .ss-lid { position:fixed; right:16px; bottom:max(16px, env(safe-area-inset-bottom)); z-index:4; display:flex; align-items:center; gap:8px;
+  padding:4px 2px; font-family:inherit; font-size:14px; letter-spacing:1px; cursor:pointer; color:var(--ss-dim);
   background:none; border:0; text-shadow:var(--ss-shadow); }
 #spray-session .ss-lid b { padding:2px 6px; border-radius:4px; font-size:10px; color:rgba(255,255,255,0.8); text-shadow:none;
   background:rgba(10,12,10,0.55); border:1px solid rgba(255,255,255,0.28); box-shadow:inset 0 -2px 0 rgba(0,0,0,0.45); }
@@ -110,12 +110,12 @@
 #spray-session .ss-can::after { content:''; position:absolute; left:2px; top:-8px; width:7px; height:6px; border-radius:2px;
   background:var(--ss-ink); transform:rotate(-24deg); }
 /* ...then the can in your hand, its nozzle under the pointer (spray-session.js puts it there) */
-#spray-session .ss-can3d.cursor { position:fixed; left:0; top:0; z-index:3; width:92px; height:150px; margin:0; pointer-events:none; }
+#spray-session .ss-can3d.cursor { position:fixed; left:0; top:0; z-index:3; width:132px; height:216px; margin:0; pointer-events:none; }
 #spray-session.flatcan .ss-can3d { display:none; }
 
 @media (max-width: 600px) {
-  #spray-session .ss-guide { height:104px; }
-  #spray-session .ss-can3d.cursor { width:74px; height:120px; }
+  #spray-session .ss-guide { height:140px; }
+  #spray-session .ss-can3d.cursor { width:96px; height:156px; }
 }
 /* no keyboard on a phone: the finger is the hint */
 @media (pointer: coarse) {

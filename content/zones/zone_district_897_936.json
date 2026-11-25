@@ -1,8 +1,9 @@
 {
   "ambient_events": [],
   "ambient_theme": "wasteland",
-  "color": "#3f7fb0",
-  "description": "Long grey swells, slow and even. The water gives off a steady cold.",
+  "bg_color": "#1f3646",
+  "color": "#4f83a8",
+  "description": "Flat green water with a skin of pollen on it. Something big turns over below the surface and is gone.",
   "exits": {
     "east": "zone_district_898_936",
     "north": "zone_district_897_935",
@@ -20,6 +21,6 @@
   "grid_z": 0,
   "id": "zone_district_897_936",
   "map_id": "map_world",
-  "name": "The Meltwater Mouth",
+  "name": "Meltwater Pond",
   "parent_zone": null
 }

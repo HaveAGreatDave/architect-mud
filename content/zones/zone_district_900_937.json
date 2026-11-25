@@ -1,8 +1,9 @@
 {
   "ambient_events": [],
   "ambient_theme": "wasteland",
-  "color": "#3f7fb0",
-  "description": "Grey water to the edge of sight. No way to guess how deep it is.",
+  "bg_color": "#1f3646",
+  "color": "#4f83a8",
+  "description": "Open water in the middle of the pond, still and deep. Fish rise at dusk and leave rings that take a long time to settle.",
   "exits": {
     "east": "zone_district_901_937",
     "north": "zone_district_900_936",
@@ -20,6 +21,6 @@
   "grid_z": 0,
   "id": "zone_district_900_937",
   "map_id": "map_world",
-  "name": "The Meltwater Mouth",
+  "name": "Meltwater Pond",
   "parent_zone": null
 }

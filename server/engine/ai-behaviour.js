@@ -19,6 +19,7 @@ import { npcWashAtHome } from './hygiene.js';
 import { on, emit } from './events.js';
 import { npcFlatOf } from './apartments.js';
 import { setNpcMood } from './npc-mood.js';
+import { npcSay } from './npc-speech.js';
 
 // Flee is a check: skill (flags.flee_skill, else dodge, else 1) plus a 2d8-2d8 swing must clear this bar.
 // Weak enemies usually botch it and stay cornered.
@@ -543,16 +544,11 @@ on('npc.attacked', ({ npc }) => {
 });
 
 // A line that's one quoted span end to end is a say bubble; anything else (including
-// `mutters: "..."`) is an emote.
-export function formatChitchat(name, line) {
-  const t = line.trim();
-  const wrapped = t.length >= 2 && t.startsWith('"') && t.endsWith('"');
-  if (wrapped && !t.slice(1, -1).includes('"')) {
-    return { type: 'output', message: `<span class="speech-line">${name} says, ${t}</span>` };
-  }
-  // Emote: prepend the name VERBATIM. Never strip an outer quote pair: a mixed speech/action/speech
-  // line would lose its opening quote and invert the client's quote colouring.
-  return { type: 'zone_event', message: `${name} ${t}` };
+// `mutters: "..."`) is an emote. The funnel every NPC line goes through (npc-speech.js) does
+// the work: it reads the line's mood tag and says it in the NPC's mood. `opts.kind` says what
+// sort of line it is (chitchat unless told); `name` may be the NPC itself.
+export function formatChitchat(name, line, opts = {}) {
+  return npcSay(name, line, opts);
 }
 
 // Standing in their own home, and that home is a real dwelling: the same test as the passive home ticker.
@@ -658,6 +654,20 @@ function enemyMayEnter(to, entity) {
   if (to.flags?.no_spawn || to.flags?.enemy_barrier) return false;
   if (isSanctuary(to)) return false;
   return true;
+}
+
+// The world-map tile a zone stands on: itself on the open map, else its interior
+// map's parent tile, else the facade its exit names. Nested interiors are followed
+// a few levels up. Falls back to the zone itself.
+function worldAnchorOf(zone) {
+  let z = zone;
+  for (let i = 0; i < 4 && z && z.map_id !== 'map_world'; i++) {
+    const up = world.maps.get(z.map_id)?.parent_zone_id || z.flags?.world_exit_zone;
+    const next = up && world.zones.get(up);
+    if (!next || next === z) break;
+    z = next;
+  }
+  return z?.map_id === 'map_world' ? z : zone;
 }
 
 // NPCs path along roads; enemies take the direct BFS line. Shadows the raw findPath import below.
@@ -1762,7 +1772,10 @@ async function execAction(node, entity, ctx) {
             ai.patrolTarget = hauntZone;
           } else {
             // Draw destinations near where they stand: docs/ai-behaviour.md#a-wander-has-to-come-back
-            const anchor = getZone(zoneId) || getZone(entity.home_zone);
+            // Indoors, measure from the building's tile on the world map: an interior's
+            // grid_x/y are its own floor plan's, so "near" came up empty and the NPC drew
+            // from the whole world, usually a tile in another region it can't reach.
+            const anchor = worldAnchorOf(getZone(zoneId) || getZone(entity.home_zone));
             const ax = anchor?.grid_x, ay = anchor?.grid_y;
             // Mostly around the block; occasionally across town.
             const radius = Math.random() < WANDER_FAR_CHANCE ? WANDER_FAR_R : WANDER_NEAR_R;

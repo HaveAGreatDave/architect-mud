@@ -47,6 +47,7 @@
  * works bare-handed on floor filth, but paint on brick needs a real tool. You have
  * to own a mop to undo this, which is the teeth.
  */
+import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { getZone, zoneAtTile } from '../../server/engine/world.js';
 import { allExits, exitTargets } from '../../server/engine/exits.js';
 import { DIR_OFFSET, OPPOSITE } from '../../server/engine/directions.js';
@@ -54,7 +55,7 @@ import { gameDayIndex } from '../../server/engine/zone-filth.js';
 import { gameToday } from '../../server/engine/apartments.js';
 import { emit } from '../../server/engine/events.js';
 import { query } from '../../server/models/db.js';
-import { normalizeRuns, coalesceRuns, renderStyled, decodePayload, safeFace, safeSpot } from './paint.js';
+import { normalizeRuns, coalesceRuns, renderStyled, decodePayload, safeFace, safeFinish, safeSpot } from './paint.js';
 import { escapeHtml as esc } from '../../server/engine/html.js';
 import { resolve as siftResolve } from '../../server/engine/sift.js';
 
@@ -110,11 +111,11 @@ async function hydrate() {
     hydrated = (async () => {
       try {
         const { rows } = await query(
-          'SELECT zone_id, target_zone_id, target_name, author_id, author_handle, text, style, face, spot, day_index FROM zone_graffiti'
+          'SELECT zone_id, target_zone_id, target_name, author_id, author_handle, text, style, face, finish, spot, day_index FROM zone_graffiti'
         );
         for (const r of rows) {
           putTag(r.zone_id, {
-            text: r.text, style: Array.isArray(r.style) ? r.style : null, face: safeFace(r.face), spot: safeSpot(r.spot),
+            text: r.text, style: Array.isArray(r.style) ? r.style : null, face: safeFace(r.face), finish: safeFinish(r.finish), spot: safeSpot(r.spot),
             authorId: r.author_id, authorHandle: r.author_handle,
             targetZoneId: r.target_zone_id || r.zone_id, targetName: r.target_name, dayIndex: r.day_index,
           });
@@ -260,6 +261,7 @@ function wallTags(zone, gx, gy) {
       r: Array.isArray(t.style) && t.style.length ? t.style : undefined,
       // The letterform the player picked, if they picked one. Absent, the renderer rolls one.
       f: t.face || undefined,
+      x: t.finish || undefined,
       n: [dx / len, dy / len],
       // The variant only has to differ between two tags on one building, so that two walls of the
       // same word do not get the identical wobble. The street tile is already that.
@@ -427,16 +429,16 @@ async function persistTag(zoneId, entry) {
   entry.targetZoneId ||= zoneId;       // it's half the key, so it's never null in the table
   putTag(zoneId, entry);
   await query(
-    `INSERT INTO zone_graffiti (zone_id, target_zone_id, target_name, author_id, author_handle, text, style, face, spot, day_index)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+    `INSERT INTO zone_graffiti (zone_id, target_zone_id, target_name, author_id, author_handle, text, style, face, spot, day_index, finish)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
      ON CONFLICT (zone_id, target_zone_id) DO UPDATE SET
        target_name=EXCLUDED.target_name,
        author_id=EXCLUDED.author_id, author_handle=EXCLUDED.author_handle,
-       text=EXCLUDED.text, style=EXCLUDED.style, face=EXCLUDED.face, spot=EXCLUDED.spot, day_index=EXCLUDED.day_index,
+       text=EXCLUDED.text, style=EXCLUDED.style, face=EXCLUDED.face, spot=EXCLUDED.spot, day_index=EXCLUDED.day_index, finish=EXCLUDED.finish,
        created_at=EXTRACT(EPOCH FROM NOW())`,
     [zoneId, entry.targetZoneId, entry.targetName, entry.authorId, entry.authorHandle,
      entry.text, entry.style ? JSON.stringify(entry.style) : null, entry.face || null,
-     entry.spot ? JSON.stringify(entry.spot) : null, entry.dayIndex]
+     entry.spot ? JSON.stringify(entry.spot) : null, entry.dayIndex, entry.finish || null]
   ).catch(() => {});
 }
 
@@ -488,13 +490,14 @@ export async function tagFromWorld(zoneId, text, authorHandle = 'someone') {
  * wall ROOM aimed it (paint.js safeSpot), kept only for a room's own wall: where paint goes on a
  * street facade is GLASS's to solve.
  */
-async function applyTag(player, wall, text, runs, can, face = null, spot = null) {
+async function applyTag(player, wall, text, runs, can, face = null, spot = null, finish = null) {
   const over = tagOn(player.current_zone, wall.id);
   const style = coalesceRuns(normalizeRuns(runs, text.length));
   const entry = {
     text: esc(text),
     style: style.length ? style : null,
     face: safeFace(face),
+    finish: safeFinish(finish),
     spot: wall.id === player.current_zone ? safeSpot(spot) : null,
     authorId: player.id,
     authorHandle: player.handle,
@@ -505,6 +508,7 @@ async function applyTag(player, wall, text, runs, can, face = null, spot = null)
   await persistTag(player.current_zone, entry);
 
   const left = await spendCan(can, text.length);
+  const unlocked = await countTag(player);
 
   // The crime. Charged through the ordinary witness gate in surveillance, which
   // means a lens rolls for it and a cop on the corner is a different matter —
@@ -522,7 +526,41 @@ async function applyTag(player, wall, text, runs, can, face = null, spot = null)
     : (can.quantity > 1
         ? `\n<span class="text-dim">The can hisses empty on the last letter. You drop it and crack the next one: ${can.quantity - 1} left.</span>`
         : `\n<span class="text-dim">The can hisses empty on the last letter. That was the last of it.</span>`);
+  if (unlocked) msg += `\n<span class="msg-system">${esc(FINISH_EARNED_LINE[unlocked])}</span>`;
   return { type: 'output', message: msg, refresh: true };
+}
+
+// --- The special finishes ---------------------------------------------------
+//
+// A finish (TAG_FINISHES: chrome, gold, holo, glow, neon) is laid over a piece's colours by the
+// renderer. A player may spray one if they carry a can of it (an item tagged `paint_finish`, which
+// is also the can the paint comes out of) or have EARNED it by putting tags up: the count is
+// `graffiti_tags` in player_flags, one write per tag on the spray's own cold path, and crossing a
+// line in FINISH_EARNED sets `graffiti_finish_<x>`. Gold is earned only: no can of it exists.
+const FINISH_EARNED = [[25, 'holo'], [50, 'chrome'], [100, 'gold']];
+const FINISH_EARNED_LINE = {
+  holo: 'Twenty-five walls. You can mix holo now: the colours slide when somebody walks past.',
+  chrome: 'Fifty walls. You know how to lay chrome now, mirror-bright, from any can.',
+  gold: 'A hundred walls. Gold leaf from a spraycan. Nobody else round here can do that.',
+};
+async function countTag(player) {
+  const n = (Number(await getFlag('player', 'graffiti_tags', player)) || 0) + 1;
+  await setFlag('player', 'graffiti_tags', n, player);
+  const hit = FINISH_EARNED.find(([at]) => at === n);
+  if (!hit) return null;
+  await setFlag('player', `graffiti_finish_${hit[1]}`, 'true', player);
+  return hit[1];
+}
+async function earnedFinishes(player) {
+  const out = [];
+  for (const [, x] of FINISH_EARNED) if (await getFlag('player', `graffiti_finish_${x}`, player)) out.push(x);
+  return out;
+}
+// Every finish this player can use now: the ones they've earned and the cans they carry.
+async function finishesFor(player, cans) {
+  const set = new Set(await earnedFinishes(player));
+  for (const c of cans) if (c.finish) set.add(c.finish);
+  return [...set];
 }
 
 // --- Painting over a camera -------------------------------------------------
@@ -627,8 +665,10 @@ async function doSpray(args, raw, player) {
   const walls = wallsNear(zone);
   if (!walls.length) return { type: 'output', message: `Nothing round here but open ground. You need a wall.` };
 
-  const can = await carriedCan(player);
+  const cans = await carriedCans(player);
+  const can = plainCan(cans);
   if (!can) return { type: 'output', message: `You've got nothing to spray with. Hardware shops sell paint.` };
+  const finishes = await finishesFor(player, cans);
 
   const words = String(raw || '').trim().split(/\s+/).slice(1);
   const picked = pickWall(walls, words[0]);
@@ -650,6 +690,10 @@ async function doSpray(args, raw, player) {
     saveCap: SAVE_CAP,
     // `label` is the can item's `can_label` tag: what's printed on the 3-D can (spray-can-3d.js)
     can: { name: can.name, quantity: can.quantity ?? 1, paint: can.paint, label: can.label || null },
+    // The special finishes on offer (TAG_FINISHES), and the cans that carry them, so the dialog can
+    // show which can each comes out of. Checked again on sprayapply.
+    finishes,
+    finishCans: cans.filter((c) => c.finish).map((c) => ({ finish: c.finish, name: c.name, paint: c.paint, label: c.label || null })),
     message: `<span class="msg-system">You pop the lid. Caps rattle around inside it.</span>`,
   };
 }
@@ -675,11 +719,19 @@ async function doSprayApply(args, raw, player) {
     return { type: 'output', message: `That's a mural, not a tag. ${TAG_MAX_LEN} characters, tops.` };
   }
 
-  const can = await carriedCan(player);
-  if (!can) return { type: 'output', message: `You've got nothing to spray with. Hardware shops sell paint.` };
+  const cans = await carriedCans(player);
+  if (!cans.length) return { type: 'output', message: `You've got nothing to spray with. Hardware shops sell paint.` };
+  // A finish comes out of its own can unless the player has earned it, when any can will do.
+  let can = plainCan(cans);
+  if (payload.finish) {
+    const own = cans.find((c) => c.finish === payload.finish);
+    const earned = (await earnedFinishes(player)).includes(payload.finish);
+    if (!own && !earned) return { type: 'output', message: `You haven't got anything that sprays ${payload.finish}.` };
+    if (own && !earned) can = own;
+  }
   if (payload.text.length > can.paint) return { type: 'output', message: thinCan(can, payload.text.length) };
 
-  const out = await applyTag(player, wall, payload.text, payload.runs, can, payload.face, payload.spot);
+  const out = await applyTag(player, wall, payload.text, payload.runs, can, payload.face, payload.spot, payload.finish);
   return parts[3] === 'q' ? out : withSignature(out);
 }
 
@@ -687,14 +739,14 @@ async function doSprayApply(args, raw, player) {
 
 async function savedSprays(playerId) {
   const { rows } = await query(
-    'SELECT id, name, text, style, face FROM player_sprays WHERE player_id=$1 ORDER BY id',
+    'SELECT id, name, text, style, face, finish FROM player_sprays WHERE player_id=$1 ORDER BY id',
     [playerId]
   ).catch(() => ({ rows: [] }));
   // Sent back to the dialog, which is the thing that ESCAPES it for display. The
   // wall stores escaped text; the shelf stores what you typed, because it goes
   // back into a text field. Nothing here is ever inserted into a room description
   // without going through applyTag's esc first.
-  return rows.map(r => ({ id: r.id, name: r.name, text: r.text, style: Array.isArray(r.style) ? r.style : [], face: safeFace(r.face) }));
+  return rows.map(r => ({ id: r.id, name: r.name, text: r.text, style: Array.isArray(r.style) ? r.style : [], face: safeFace(r.face), finish: safeFinish(r.finish) }));
 }
 
 /** The dialog's SAVE. Client transport only. Answers with the whole fresh shelf. */
@@ -711,8 +763,8 @@ async function doSpraySave(args, raw, player) {
   const text = payload.text.slice(0, TAG_MAX_LEN);
   const style = coalesceRuns(normalizeRuns(payload.runs, text.length));
   await query(
-    'INSERT INTO player_sprays (player_id, name, text, style, face) VALUES ($1,$2,$3,$4,$5)',
-    [player.id, payload.name || text.slice(0, 24), text, style.length ? JSON.stringify(style) : null, payload.face]
+    'INSERT INTO player_sprays (player_id, name, text, style, face, finish) VALUES ($1,$2,$3,$4,$5,$6)',
+    [player.id, payload.name || text.slice(0, 24), text, style.length ? JSON.stringify(style) : null, payload.face, payload.finish]
   ).catch(() => {});
   return { type: 'spray_shelf', saved: await savedSprays(player.id), note: 'Saved.' };
 }
@@ -728,17 +780,23 @@ async function doSprayDelete(args, raw, player) {
 
 // --- Paint ------------------------------------------------------------------
 
-async function carriedCan(player) {
+// Every can on the player, one row each, with its special finish if it has one (`paint_finish`).
+async function carriedCans(player) {
   const { rows } = await query(
-    `SELECT pi.id, pi.quantity, pi.custom_data, i.name, i.tags->'can_label' AS label FROM player_inventory pi JOIN items i ON i.id=pi.item_id
-      WHERE pi.player_id=$1 AND pi.container_id IS NULL AND jsonb_exists(i.tags, $2) LIMIT 1`,
+    `SELECT pi.id, pi.quantity, pi.custom_data, i.name, i.tags->'can_label' AS label, i.tags->>'paint_finish' AS finish
+       FROM player_inventory pi JOIN items i ON i.id=pi.item_id
+      WHERE pi.player_id=$1 AND pi.container_id IS NULL AND jsonb_exists(i.tags, $2)`,
     [player.id, CAN_TAG]
   );
-  const row = rows[0];
-  if (!row) return null;
-  const paint = Number(row.custom_data?.paint);
-  return { ...row, paint: Number.isFinite(paint) ? Math.max(0, paint) : CAN_CAPACITY };
+  return rows.map((row) => {
+    const paint = Number(row.custom_data?.paint);
+    return { ...row, finish: safeFinish(row.finish), paint: Number.isFinite(paint) ? Math.max(0, paint) : CAN_CAPACITY };
+  });
 }
+// The can ordinary paint comes out of: a plain one if there is one, so a finish can isn't spent
+// on a tag that didn't ask for its finish.
+const plainCan = (cans) => cans.find((c) => !c.finish) || cans[0] || null;
+async function carriedCan(player) { return plainCan(await carriedCans(player)); }
 
 // Paint is spent by the LETTER, not by the tag — a can holds CAN_CAPACITY
 // characters and a three-word throw-up costs what it costs. The remainder lives
@@ -789,7 +847,9 @@ async function spendCan(can, cost) {
  * bold comes off (the paint decides the weight now) and the runs are rendered.
  */
 function paintedText(t) {
-  return t?.style?.length ? renderStyled(t.text, t.style) : `<b>${t.text}</b>`;
+  const inner = t?.style?.length ? renderStyled(t.text, t.style) : `<b>${t.text}</b>`;
+  // safeFinish has already kept this to a name off TAG_FINISHES, so it's safe as a class
+  return t?.finish ? `<span class="graffiti-finish graffiti-${t.finish}">${inner}</span>` : inner;
 }
 
 function describeTag(zone) {
@@ -827,6 +887,7 @@ function roomTags(zoneId) {
     t: unesc(t.text).slice(0, TAG_MAX_LEN),
     r: Array.isArray(t.style) && t.style.length ? t.style : undefined,
     f: t.face || undefined,
+    x: t.finish || undefined,
     spot: t.spot || undefined,
     v: (String(zoneId).split('').reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) | 0, 7) & 0xffff),
   }];

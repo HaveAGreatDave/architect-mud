@@ -3,6 +3,7 @@ import { existsSync } from "fs";
 import { readFile, stat } from "fs/promises";
 import { brotliCompress, gzip, constants } from "zlib";
 import { promisify } from "util";
+import { monitorEventLoopDelay } from "perf_hooks";
 import { join, extname, dirname, relative, isAbsolute } from "path";
 import { fileURLToPath } from "url";
 import { WebSocketServer } from "ws";
@@ -303,6 +304,9 @@ const MIME = {
 	".woff2": "font/woff2",
 	// GLASS Lite's baked city chunks (client/game/assets/lite/, scripts/lite/bake.mjs).
 	".bin": "application/octet-stream",
+	// Recorded music for a zone's flags.music (client/shared/qoa.js decodes it).
+	".qoa": "application/octet-stream",
+	".opus": "audio/ogg",
 };
 
 // ── Static asset cache + compression ──────────────────────────────────────────
@@ -2224,6 +2228,21 @@ function commandAllowed(session) {
 	return true;
 }
 
+const SLOW_CMD_MS = parseInt(process.env.SLOW_CMD_MS, 10) || 150;
+
+// Event-loop lag. Every command waits behind whatever the process is already
+// doing (ticks, broadcasts, GC), and the slow-command timer can't see that wait.
+// Once a minute, if the worst stall passed SLOW_CMD_MS, one line says how bad.
+const loopDelay = monitorEventLoopDelay({ resolution: 20 });
+loopDelay.enable();
+setInterval(() => {
+	const maxMs = loopDelay.max / 1e6;
+	if (maxMs > SLOW_CMD_MS) {
+		console.warn(`⏱ event loop lag: p50 ${Math.round(loopDelay.percentile(50) / 1e6)}ms, p99 ${Math.round(loopDelay.percentile(99) / 1e6)}ms, max ${Math.round(maxMs)}ms`);
+	}
+	loopDelay.reset();
+}, 60_000).unref();
+
 async function handleGameCommand(ws, session, msg) {
 	if (!session.playerId) {
 		ws.send(
@@ -2255,6 +2274,10 @@ async function handleGameCommand(ws, session, msg) {
 		return;
 	}
 	let result;
+	// Slow-command log: one line per command over SLOW_CMD_MS (default 150), with
+	// the verb only, never the arguments (they can be chat). Silent commands are
+	// vehicle syncs and the like, so they're left out.
+	const cmdStart = performance.now();
 	try {
 		result = await handleCommand(msg.command, player, broadcast, { silent: !!msg.silent });
 	} catch (err) {
@@ -2263,6 +2286,11 @@ async function handleGameCommand(ws, session, msg) {
 		console.error(`⚠ command failed for ${player.handle}: ${String(msg.command).slice(0, 80)}`, err);
 		if (!msg.silent) ws.send(JSON.stringify({ type: "error", message: "That didn't work. Something broke on our side, and it's been logged." }));
 		return;
+	}
+	const cmdMs = performance.now() - cmdStart;
+	if (!msg.silent && cmdMs > SLOW_CMD_MS) {
+		const verb = String(msg.command).trim().replace(/^[@/.]/, '').split(/\s+/)[0].toLowerCase().slice(0, 24);
+		console.warn(`⏱ slow command: ${verb} ${Math.round(cmdMs)}ms`);
 	}
 	// SIFT PICKER RIDES THE REPLY, for the same reason stampToLog does. Sixty-eight
 	// call sites open a disambiguation picker and all of them return plain text;

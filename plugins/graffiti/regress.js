@@ -17,8 +17,8 @@
 // renderer that indexed the escaped text would slice an entity in half and put a
 // live `<` back on the wall.
 import { _test, TAG_MAX_LEN, TAG_LIFE_DAYS, CAN_CAPACITY, LENS_PAINT, tagOn, tagsAt, removeTag, removeTagsAt, tagFromWorld } from './index.js';
-import { normalizeRuns, coalesceRuns, renderStyled, decodePayload, safeColor, safeFace, safeSpot, escapedChars } from './paint.js';
-import { TAG_FACES } from '../../client/shared/tag-strokes.js';
+import { normalizeRuns, coalesceRuns, renderStyled, decodePayload, safeColor, safeFace, safeFinish, safeSpot, escapedChars } from './paint.js';
+import { TAG_FACES, TAG_FINISHES } from '../../client/shared/tag-strokes.js';
 import { world, clearTileIndex } from '../../server/engine/world.js';
 import { gameDayIndex } from '../../server/engine/zone-filth.js';
 
@@ -180,6 +180,13 @@ export default async function regress({ run, check, getPlayer }) {
   check('safeFace ignores case and padding', safeFace(' SHARP ') === 'sharp');
   check('safeFace refuses a face that is not one', safeFace('comic sans') === null && safeFace('<b>') === null);
   check('safeFace treats nothing as no choice', safeFace(undefined) === null && safeFace('') === null);
+  // --- The special finish -----------------------------------------------------
+  // A name off the renderer's list or nothing: the room line puts it in a class name, so a
+  // finish that isn't one must never get that far.
+  check('safeFinish accepts every finish the renderer draws', TAG_FINISHES.length === 5 && TAG_FINISHES.every(x => safeFinish(x) === x), JSON.stringify(TAG_FINISHES));
+  check('safeFinish refuses anything else', safeFinish('rainbow') === null && safeFinish('neon" onclick=') === null && safeFinish(undefined) === null);
+  check('a payload carries its finish', decodePayload(Buffer.from(JSON.stringify({ t: 'KIX', x: 'Neon' })).toString('base64'))?.finish === 'neon');
+  check('a payload with a bad finish keeps the tag and drops the finish', (() => { const d = decodePayload(Buffer.from(JSON.stringify({ t: 'KIX', x: 'lava' })).toString('base64')); return d?.text === 'KIX' && d.finish === null; })());
   const faced = decodePayload(Buffer.from(JSON.stringify({ t: 'OSKA', f: 'block' })).toString('base64'));
   check('decodePayload carries the letterform', faced?.face === 'block', JSON.stringify(faced));
   const unfaced = decodePayload(Buffer.from(JSON.stringify({ t: 'OSKA', f: 'wingdings' })).toString('base64'));

@@ -1,8 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
+  "ambient_theme": "forest",
   "color": "#b5744a",
-  "description": "A broad plain hammered flat by weather. The rust color deepens in the low spots, and old tracks wander across it with no clear purpose.",
+  "description": "Cattails as thick as a wall, with narrow channels between them where the ducks go. The mud takes your boots and gives them back slowly.",
   "exits": {
     "east": "zone_district_909_938",
     "north": "zone_district_908_937",
@@ -13,13 +13,13 @@
     "district": "wilds",
     "radiation": 36,
     "region_id": "region_coldwater",
-    "terrain": "scrub"
+    "terrain": "marsh"
   },
   "grid_x": 908,
   "grid_y": 938,
   "grid_z": 0,
   "id": "zone_district_908_938",
   "map_id": "map_world",
-  "name": "Rustwind Flat",
+  "name": "The Reedbed",
   "parent_zone": null
 }

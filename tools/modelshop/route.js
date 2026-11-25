@@ -23,8 +23,10 @@
 import { paintWindshield, RENDER_TUNE, setWindshieldProfiler, perfSnapshot } from '/client/game/js/panels/windshield.js';
 import { glLastFrame } from '/client/game/js/panels/gl/install.js';
 import { glPassTimer, glPassTimes } from '/client/game/js/panels/gl/context.js';
+import { liteReady } from '/client/game/js/panels/gl/lite.js';
 import { world, SEATS, rig, gpuClock, pinned } from './districtcost.js';
-import { ROUTES, routeTiles, routeFrames } from './routes.js';
+import { ROUTES, routeTiles, routeFrames, routePeople } from './routes.js';
+import { FPS_EYE, FOOT_NEAR, FOOT_TUNE } from '/client/game/js/panels/foot-tune.js';
 
 const ID = '__where';   // districtcost.js's canvas: one WebGL2 context for the whole session
 
@@ -71,8 +73,23 @@ function viewsFor(name, w, opts) {
     }
     return windows.get(k);
   };
-  const frames = routeFrames(route, routeTiles(route, w.cells));
+  const path = routeTiles(route, w.cells);
+  const frames = routeFrames(route, path);
   const base = { ...S, phase: 'cruise', worldBlend: 1, hour: route.hour, weather: route.weather || 'clear', wxField: null, resFloor: 1 };
+  // On foot the view is the street view's (freelook-view.js paint): a free camera at standing height off the
+  // window's centre, FOOT_TUNE's rings, the near plane brought in, and the crowd.
+  if (route.seat === 'foot') {
+    const actors = routePeople(route, path, w.cells);
+    const foot = { ...base, external: true, hideOwnShip: true, deckOverhead: true, heading: 0, height: 0, speed: 0, airport: 'default', tune: FOOT_TUNE, nearMax: FOOT_NEAR, actors };
+    return {
+      route, tiles: windows,
+      views: frames.map((f) => {
+        const cx = Math.round(f.x), cy = Math.round(f.y);
+        return { ...foot, map: windowAt(cx, cy), mapCenter: { x: cx, y: cy }, mapOffset: { x: 0, y: 0 }, acX: cx, acY: cy,
+          freeCam: { x: f.x - cx, y: f.y - cy, z: FPS_EYE, yaw: f.heading, pitch: 0, roll: 0, fov: 1 } };
+      }),
+    };
+  }
   return {
     route, tiles: windows,
     views: frames.map((f) => {
@@ -87,13 +104,33 @@ export async function benchRoute(name, opts = {}) {
   const { W = 640, H = 360, quiet = false } = opts;
   const w = await world();
   const { route, views, tiles } = viewsFor(name, w, opts);
+  // GLASS Lite's chunks load by fetch, and the run below is one synchronous loop that no fetch can finish
+  // inside: without this a fresh page's Lite run drew every building from its arm.
+  const liteOk = await liteReady([...new Set(views.map((v) => v.mapCenter.x + ',' + v.mapCenter.y))].map((k) => k.split(',').map(Number)));
   const { uninstall } = rig(W, H);
-  const run = pinned(() => {
+  // `live: true` gives the browser a task between timed frames, so what the GPU answers late can arrive: the occlusion
+  // readback (gl/occ-readback.js, foot-occlusion.md) never does inside one task, since WebGL changes a fence's status
+  // only between tasks. The warm pass stays pinned; the timed one runs on the real clock, and takes no GPU timings.
+  if (opts.live) {
+    pinned(() => { setWindshieldProfiler(false); for (const v of views) paintWindshield(ID, v); });
+    const cpu = [];
+    setWindshieldProfiler(true, { arms: !!opts.arms });
+    for (const v of views) {
+      await new Promise((r) => setTimeout(r, 0));
+      const t0 = performance.now();
+      paintWindshield(ID, v);
+      cpu.push(performance.now() - t0);
+    }
+    const snap = perfSnapshot();
+    setWindshieldProfiler(false);
+    return finish({ clock: null, cpu, snap, passT: null });
+  }
+  return finish(pinned(() => {
     setWindshieldProfiler(false);
     for (const v of views) paintWindshield(ID, v);                       // warm
     const clock = opts.gpu === false ? null : gpuClock();
     const cpu = [];
-    setWindshieldProfiler(true, { arms: false });
+    setWindshieldProfiler(true, { arms: !!opts.arms });
     for (const v of views) {
       const t0 = performance.now();
       if (clock) clock.time(() => paintWindshield(ID, v)); else paintWindshield(ID, v);
@@ -107,13 +144,15 @@ export async function benchRoute(name, opts = {}) {
       try { for (const v of views) paintWindshield(ID, v); } finally { passT = glPassTimer(false); }
     }
     return { clock, cpu, snap, passT };
-  });
+  }));
+
+  async function finish(run) {
   const gpu = run.clock ? await run.clock.read() : null;
   const passMs = run.passT ? await glPassTimes(run.passT) : null;
   const n = views.length;
   const per = (k) => +((run.snap.t[k] || 0) / n).toFixed(3);
   const out = {
-    route: name, seat: route.seat, hour: route.hour, weather: route.weather || 'clear', frames: n, windows: tiles.size, W, H,
+    route: name, seat: route.seat, live: !!opts.live, people: route.people || 0, hour: route.hour, weather: route.weather || 'clear', frames: n, windows: tiles.size, W, H,
     // CPU ms for the whole paint, GL submission included; percentiles over the drive.
     cpu: spreadOf(run.cpu),
     // GPU ms for everything the paint issued on the world's context; null with no timer extension
@@ -123,6 +162,13 @@ export async function benchRoute(name, opts = {}) {
     passes: passMs ? Object.fromEntries(Object.entries(passMs).map(([k, v]) => [k, +(v / n).toFixed(3)]).sort((a, b) => b[1] - a[1])) : null,
     // The windshield's own phases, ms a frame. They nest: never sum them.
     phases: { build: per('world:build'), arms: per('world:arms'), sweep: per('world:sweep'), occlude: per('world:occlude'), gl: per('world:gl'), ground: per('ground') },
+    // Every phase the profiler saw, ms a frame, worst first; nested like the six above. Not in a baseline.
+    // With { arms: true }: ms a frame by item kind in the world loop (mark:x, model, tile:...) and by arm model key.
+    items: opts.arms ? Object.fromEntries(Object.entries(run.snap.arm).map(([k, a]) => [k, +((a.ms || 0) / n).toFixed(3)]).sort((x, y) => y[1] - x[1]).slice(0, 40)) : undefined,
+    // The profiler's counts a frame (faces, arms, culled by the occluder pass…). Not in a baseline.
+    counts: Object.fromEntries(Object.entries(run.snap.n || {}).map(([k, c]) => [k, +(c / n).toFixed(1)])),
+    allPhases: Object.fromEntries(Object.keys(run.snap.t).map((k) => [k, per(k)]).sort((a, b) => b[1] - a[1])),
+    lite: RENDER_TUNE.glassLite > 0 ? (liteOk ? 'ready' : 'timed out') : 'off',
     heapMB: performance.memory ? +(performance.memory.usedJSHeapSize / 1048576).toFixed(1) : null,
   };
   uninstall();
@@ -131,6 +177,7 @@ export async function benchRoute(name, opts = {}) {
     if (out.passes) console.table([out.passes]);
   }
   return out;
+  }
 }
 
 // Every route, `reps` times over the whole list, keeping each route's run with the lowest CPU median.

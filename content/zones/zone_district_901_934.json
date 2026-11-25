@@ -3,7 +3,7 @@
   "ambient_theme": "wasteland",
   "bg_color": "#1f3646",
   "color": "#4f83a8",
-  "description": "The shallows here are warm and far from clean. A film catches the light in colours. Reeds grow along the edge.",
+  "description": "Flat green water with a skin of pollen on it. Something big turns over below the surface and is gone.",
   "exits": {
     "east": "zone_district_902_934",
     "north": "zone_district_901_933",
@@ -21,6 +21,6 @@
   "grid_z": 0,
   "id": "zone_district_901_934",
   "map_id": "map_world",
-  "name": "The Meltwater Mouth",
+  "name": "Meltwater Pond",
   "parent_zone": null
 }

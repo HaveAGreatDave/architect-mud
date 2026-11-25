@@ -1,8 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "Level ground, packed and stained. Someone's prints cross it at an angle, and further off another set crosses those.",
+  "ambient_theme": "forest",
+  "color": "#3f5c3a",
+  "description": "Willows lean out over the water with their roots in the bank. The shade under them is cold and full of midges.",
   "exits": {
     "east": "zone_district_883_931",
     "north": "zone_district_882_930",
@@ -13,13 +13,13 @@
     "district": "wilds",
     "radiation": 30,
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "forest"
   },
   "grid_x": 882,
   "grid_y": 931,
   "grid_z": 0,
   "id": "zone_district_882_931",
   "map_id": "map_world",
-  "name": "Red Hardpan",
+  "name": "Willow Bank",
   "parent_zone": null
 }

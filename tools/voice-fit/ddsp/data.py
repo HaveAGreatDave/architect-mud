@@ -34,48 +34,56 @@ def load(export_dir, align_json, wav):
     for lid, L in idx['lines'].items():
         if lid not in A:
             continue
-        tr = np.fromfile(d / f'{lid}.f32', dtype=np.float32).reshape(L['frames'], -1)
-        trace, ph = L['trace'], A[lid]['phones']
-        if len(trace) == len(ph) + 1:      # the trace's last entry is the line's closing pause
-            trace = trace[:-1]
-        if len(trace) != len(ph):
-            continue
-        frame = L['frame']
-        rend_end = L['frames'] * frame
-        r = np.array([t['at'] for t in trace] + [rend_end])
-        base = ph[0]['start'] - r[0]
-        s = np.array([p['start'] for p in ph] + [ph[-1]['end'] + (rend_end - r[-2]) * 0.0 + 0.15]) - base
-        s = np.maximum.accumulate(s + np.arange(len(s)) * 1e-6)   # strictly rising
-        n = int(np.ceil(s[-1] / frame))
-        t = np.arange(n) * frame
-        rt = np.interp(t, s, r)                                    # render time of each speaker frame
-        fi = np.clip(rt / frame, 0, L['frames'] - 1)
-        i0 = np.floor(fi).astype(int); i1 = np.minimum(i0 + 1, L['frames'] - 1); u = (fi - i0)[:, None]
-        wt = tr[i0] * (1 - u) + tr[i1] * u
-        pi = np.clip(np.searchsorted(s, t, side='right') - 1, 0, len(ph) - 1)
-        span = np.maximum(s[pi + 1] - s[pi], 1e-3)
-        a0 = int(round(base * sr))
-        seg = x[max(0, a0):a0 + int(np.ceil(s[-1] * sr))]
-        if a0 < 0:
-            seg = np.concatenate([np.zeros(-a0), seg])
-        aud = resample_poly(seg, SR, sr) if sr != SR else seg
-        f0s = pitch(aud.astype(np.float64), SR, frame, n)
-        items.append({
-            'f0spk': f0s,
-            'id': lid, 'text': L['text'], 'tracks': wt.astype(np.float32), 'phone_code': [trace[i]['p'] for i in pi],
-            'acc': np.array([1.0 if trace[i].get('acc') else 0.0 for i in pi], dtype=np.float32),
-            'pos': np.stack([(t - s[pi]) / span, t / s[-1]], 1).astype(np.float32),
-            'audio': aud.astype(np.float32), 'k': L['k'], 'po': L.get('po', {}), 'names': L['names'], 'frame': frame,
-            'presence': idx['presenceDb'],
-            'durs': [(r[i + 1] - r[i], s[i + 1] - s[i], trace[i]['p'], 1 if trace[i].get('acc') else 0) for i in range(len(ph))],
-        })
+        it = item(d, idx, lid, L, A[lid]['phones'], x, sr)
+        if it:
+            items.append(it)
     return items
 
 
-def pitch(x, sr, frame, n):
-    """The speaker's F0 per frame, 0 where unvoiced: autocorrelation over 40 ms, 55-300 Hz,
+def item(d, idx, lid, L, ph, x, sr, f0_range=(55, 300)):
+    """One line: its rule tracks warped onto the speaker's phone timing ph (align.py's
+    shape, seconds into x). None if the trace and ph don't pair up."""
+    tr = np.fromfile(d / f'{lid}.f32', dtype=np.float32).reshape(L['frames'], -1)
+    trace = L['trace']
+    if len(trace) == len(ph) + 1:      # the trace's last entry is the line's closing pause
+        trace = trace[:-1]
+    if len(trace) != len(ph):
+        return None
+    frame = L['frame']
+    rend_end = L['frames'] * frame
+    r = np.array([t['at'] for t in trace] + [rend_end])
+    base = ph[0]['start'] - r[0]
+    s = np.array([p['start'] for p in ph] + [ph[-1]['end'] + (rend_end - r[-2]) * 0.0 + 0.15]) - base
+    s = np.maximum.accumulate(s + np.arange(len(s)) * 1e-6)   # strictly rising
+    n = int(np.ceil(s[-1] / frame))
+    t = np.arange(n) * frame
+    rt = np.interp(t, s, r)                                    # render time of each speaker frame
+    fi = np.clip(rt / frame, 0, L['frames'] - 1)
+    i0 = np.floor(fi).astype(int); i1 = np.minimum(i0 + 1, L['frames'] - 1); u = (fi - i0)[:, None]
+    wt = tr[i0] * (1 - u) + tr[i1] * u
+    pi = np.clip(np.searchsorted(s, t, side='right') - 1, 0, len(ph) - 1)
+    span = np.maximum(s[pi + 1] - s[pi], 1e-3)
+    a0 = int(round(base * sr))
+    seg = x[max(0, a0):a0 + int(np.ceil(s[-1] * sr))]
+    if a0 < 0:
+        seg = np.concatenate([np.zeros(-a0), seg])
+    aud = resample_poly(seg, SR, sr) if sr != SR else seg
+    f0s = pitch(aud.astype(np.float64), SR, frame, n, *f0_range)
+    return {
+        'f0spk': f0s,
+        'id': lid, 'text': L['text'], 'tracks': wt.astype(np.float32), 'phone_code': [trace[i]['p'] for i in pi],
+        'acc': np.array([1.0 if trace[i].get('acc') else 0.0 for i in pi], dtype=np.float32),
+        'pos': np.stack([(t - s[pi]) / span, t / s[-1]], 1).astype(np.float32),
+        'audio': aud.astype(np.float32), 'k': L['k'], 'po': L.get('po', {}), 'names': L['names'], 'frame': frame,
+        'presence': idx['presenceDb'],
+        'durs': [(r[i + 1] - r[i], s[i + 1] - s[i], trace[i]['p'], 1 if trace[i].get('acc') else 0) for i in range(len(ph))],
+    }
+
+
+def pitch(x, sr, frame, n, fmin=55, fmax=300):
+    """The speaker's F0 per frame, 0 where unvoiced: autocorrelation over 40 ms, fmin to fmax Hz,
     voiced where the peak is 0.5 of the energy and the frame is within 30 dB of the loudest."""
-    w = int(0.04 * sr); lo, hi = int(sr / 300), int(sr / 55)
+    w = int(0.04 * sr); lo, hi = int(sr / fmax), int(sr / fmin)
     x = np.convolve(x, np.ones(8) / 8, 'same')[::4]; sr4 = sr // 4; w4, lo4, hi4 = w // 4, lo // 4, hi // 4
     out = np.zeros(n, np.float32); e = np.zeros(n)
     for i in range(n):

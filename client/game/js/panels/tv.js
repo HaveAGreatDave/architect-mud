@@ -1326,7 +1326,8 @@ export function createTvView(root, opts = {}) {
   function _handleDesk(o) {
     const screen = el('gameday')?.parentElement, rung = state.player?.displayRung;
     if (!screen || (rung && rung !== 'visual')) return;
-    _desk ??= createTvDesk(screen, { feed: () => el('gameday')?.querySelector('canvas') || null, ...stageOpts });
+    // a segment's replays come off the game's own reel (rink/director.js `rollReel`), so they run in the feed
+    _desk ??= createTvDesk(screen, { feed: () => el('gameday')?.querySelector('canvas') || null, roll: (key) => _gamedayView?.director?.rollReel?.(key), ...stageOpts });
     _desk.overlay(o);
   }
 

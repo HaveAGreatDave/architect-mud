@@ -58,14 +58,14 @@ So the order is: measure on weak hardware, move the shared parts into one librar
 
 ## Phase 2: GLASS's CPU budget (started)
 
-Most of a frame is JavaScript building the world. In order:
+Most of a frame is JavaScript building the world. [sixty-fps.md](sixty-fps.md) is the plan for this phase aimed at one target, 60 fps in a cab on Marrow Street, with where the frame goes today. In order:
 
 1. Pool the top allocators (`emitWire`, `emitDecoFill`, `signalHead`) and lower `scripts/perf/alloc.json`. Started 2026-11-16: decal keys and the signal lens colours are made once, and a signal mast's steel is built once and kept on the GPU (`MAST_SETS`; `RENDER_TUNE.mastKeep 0` draws it live). It rides on a stroke's world width, `wr`, which `gl/strokes.js` sizes from the vertex's own depth; `scripts/perf/sizes.mjs` checks it. A signal head's housing is kept too (`HEAD_SETS`, `RENDER_TUNE.headKeep 0` for live): both lens faces, both flanks and both sets of visors, all writing depth, so the depth buffer hides the far ones instead of the camera choosing; one set per detail tier. Its lenses, strip, glow and keyline stay live. The cab went from 10.38 to 9.47 MB a frame; the cockpits draw their signals too far off to keep and read the same, within the 2% the runs vary by. The yacht's faces, in her own frame, are built once per light (`YACHT_FACES`) instead of twice a frame: the Halcyon cockpit went from 18.77 to 18.09 MB a frame. Indexed loops in place of `for…of` in `armRecord`, the occluder bounds and the two ships' face loops took it to 17.78. The rest of the iterator garbage is spread over dozens of sites at under 0.05 MB each. She can't go into the Lite bake, because she sails and rides the swell. Most of what's left in those three functions is the records themselves, which can't be pooled because arm recording keeps them; keeping them is the way down.
 2. Bake what still runs live into GLASS Lite: the static parts of the marks (the lock, AA, the lot, the statue, the camps, the yacht), the ballpark arm's still half, and the road, badlands and redrock tile loops. glass-headroom.md measures these at about 4 ms of a headless cockpit frame.
 3. Pack the mass vertex from 100 bytes to about 40 (oct normals, unorm8 colour, uint16 uv) and index the quads. That halves upload and memory.
 4. An instanced variant of the mass shader for the street kit's repeats (lamps, signal heads, trees, parked cars).
 5. A coarse LOD per Lite chunk for the cockpit, which draws about 210 buildings to a cab's 19.
-6. GPU occlusion from a depth pyramid, read back a frame or two late, which would also give Lite occlusion. Glows, landmarks and ground objects have to be on the depth buffer first.
+6. GPU occlusion from a depth pyramid, read back a frame or two late, which would also give Lite occlusion. Planned for the street on foot first in [foot-occlusion.md](foot-occlusion.md). Glows, landmarks and ground objects have to be on the depth buffer first.
 7. Backface culling for closed groups.
 
 Each lands with a route-bench number.

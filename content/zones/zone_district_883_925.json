@@ -1,8 +1,9 @@
 {
   "ambient_events": [],
   "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "Rust-red hardpan, dead level. The cracks run in long lines and short ones, and the wind whistles through the deeper ones.",
+  "bg_color": "#1b3040",
+  "color": "#5f93b8",
+  "description": "A slow, deep reach of the Meltwater. The current pulls at anything that floats and the bottom is out of sight a few feet down.",
   "exits": {
     "east": "zone_district_884_925",
     "north": "zone_district_883_924",
@@ -13,13 +14,13 @@
     "district": "wilds",
     "radiation": 30,
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "water"
   },
   "grid_x": 883,
   "grid_y": 925,
   "grid_z": 0,
   "id": "zone_district_883_925",
   "map_id": "map_world",
-  "name": "Slateback Rise",
+  "name": "The Meltwater",
   "parent_zone": null
 }

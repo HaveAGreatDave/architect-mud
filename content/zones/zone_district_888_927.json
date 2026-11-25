@@ -1,9 +1,9 @@
 {
   "ambient_events": [],
   "ambient_theme": "wasteland",
-  "bg_color": "#1f3646",
-  "color": "#4f83a8",
-  "description": "Slow, wide water depositing silt. Birds you can't name pick at the shallows and take off as you approach.",
+  "bg_color": "#1b3040",
+  "color": "#5f93b8",
+  "description": "The river bends here and the water on the outside of the bend runs dark and fast. Somebody has tied a rag to a root as a marker for the channel.",
   "exits": {
     "east": "zone_district_889_927",
     "north": "zone_district_888_926",
@@ -21,6 +21,6 @@
   "grid_z": 0,
   "id": "zone_district_888_927",
   "map_id": "map_world",
-  "name": "The Meltwater Mouth",
+  "name": "The Meltwater",
   "parent_zone": null
 }

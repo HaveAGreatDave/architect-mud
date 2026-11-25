@@ -147,6 +147,8 @@ export function interiorsFrame(picks, ox, oy, { inside = false, floorZ = null } 
     // walls are painted with seen through that door (lobby-still.js), once there is one
     return { key: room.key + (!lod && room.meshTag ? room.meshTag() : '') + (lod ? '#box' : '#mesh'), M, lod, lamp: room.lamp || null, dayK: room.dayK ?? 1, parts: () => room.parts(lod),
       tile: room.gx + ',' + room.gy, still: room.still ? room.still() : null,
+      // its bounds about the window's centre, so the layer can skip a room wholly out of view (gl/interiors.js boxOut)
+      box: room.box ? [room.box[0] - ox, room.box[1] - oy, room.box[2] - ox, room.box[3] - oy, room.box[4], room.box[5]] : null,
       // its ceiling in its own frame (metres, 5 cm over), where gl/interiors.js cuts its mesh off (uTop): a rink
       // room's arena seating is built past it and came up through the floor of the room above
       top: !lod && Number.isFinite(room.L?.h) ? (room.L.floor || 0) + room.L.h + (inside && Number.isFinite(floorZ) && room.box && room.box[5] <= floorZ + BELOW_FLOOR ? -0.1 : 0.05) : null,

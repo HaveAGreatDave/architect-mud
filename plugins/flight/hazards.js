@@ -83,7 +83,7 @@ const BIRDSTRIKE_KJ_PER_AIRFRAME = 40;
 export const MURMUR_OFF_TTL = 10000;
 const BIRD_NAMES = {
   goose: ['a goose', 'geese'], gull: ['a gull', 'gulls'], pigeon: ['a pigeon', 'pigeons'],
-  songbird: ['a starling', 'starlings'], hawk: ['a hawk', 'hawks'], peregrine: ['a peregrine', 'peregrines'], vulture: ['a vulture', 'vultures'],
+  songbird: ['a starling', 'starlings'], hawk: ['a hawk', 'hawks'], peregrine: ['a peregrine', 'peregrines'], vulture: ['a vulture', 'vultures'], heron: ['a heron', 'herons'], duck: ['a duck', 'ducks'],
 };
 function birdStrikeLine(struck, kJ) {
   const what = struck.hits.map((h) => {

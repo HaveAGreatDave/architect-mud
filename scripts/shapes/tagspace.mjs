@@ -19,6 +19,7 @@
 // extents of their outlines in 2px bands; re-deriving the answer the same way would agree with it
 // wherever it was wrong. This cuts each outline with exact scanlines, and takes the true distance
 // between the segments of letters that nearly meet.
+import { existsSync } from 'node:fs';
 import { loadWindshield } from './dom-stub.mjs';
 
 const ws = await loadWindshield();
@@ -87,6 +88,17 @@ const ALPHA = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 for (const face of faces) {
   const L = ws.tagLayoutOf(ALPHA.slice(0, 13) + ' ' + ALPHA.slice(13, 26) + ' ' + ALPHA.slice(26), face, 0);
   const got = new Set(L ? L.glyphs.filter((q) => q.glyph || q.sk).map((q) => q.ch) : []);
+  // A font letterform has no sheet or stroke glyph by design: its letters are its own self-hosted
+  // face, so it's held to that face being registered for loading and its file being on disk.
+  const ff = ws.tagFaceFontOf(face);
+  if (ff) {
+    check(!!ff.file && existsSync(new URL('../../client/shared/fonts/' + ff.file, import.meta.url)),
+      `${face}: its font "${ff.family}" is not in TAG_FACE_FILES or its file is missing; it would fall back to a system font`);
+    const laid = new Set(L ? L.glyphs.map((q) => q.ch) : []);
+    const lost = [...ALPHA].filter((ch) => !laid.has(ch));
+    check(!lost.length, `${face}: no letter laid out for ${lost.join('')}`);
+    continue;
+  }
   const missing = [...ALPHA].filter((ch) => !got.has(ch));
   check(!missing.length, `${face}: no drawn or stroked glyph for ${missing.join('')}; it would fall back to a system font`);
 }

@@ -1,0 +1,30 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_spray_glow",
+  "name": "Prismatik Nightglo Spraycan",
+  "tags": {
+    "can_label": {
+      "body": "#0e1a14",
+      "brand": "PRISMATIK",
+      "cap": "#c8ffd9",
+      "colours": [
+        "#c8ffd9",
+        "#7dffb0",
+        "#e8fff0"
+      ],
+      "fine": "Contents under pressure. Keep away from heat, sparks and open flame. Do not pierce or burn, even when empty. Use in a ventilated place. Shake for one minute before use. Charge in light. Prismatik Coatings.",
+      "net": "400 ML",
+      "product": "NIGHTGLO",
+      "strap": "SOAKS LIGHT. GIVES BACK.",
+      "wear": 0.25
+    },
+    "description": "Phosphor paint in a Prismatik can. Pale and chalky by day, it soaks up the light and gives it back after dark, so your tag is the brightest thing on the street at three in the morning.",
+    "misc": true,
+    "paint_finish": "glow",
+    "spray_paint": true
+  },
+  "type": "misc",
+  "value": 300,
+  "weight": 340
+}

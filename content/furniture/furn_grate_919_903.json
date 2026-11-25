@@ -1,0 +1,14 @@
+{
+  "description": "A heavy iron storm-drain grate, the bars worn smooth. It lifts on one side. A rusted ladder goes down into the dark.",
+  "flags": { "passage": "down", "passage_emote": "{who} lifts the drain grate and climbs down into the dark." },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_grate_919_903",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "storm drain grate",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_district_919_903"
+}

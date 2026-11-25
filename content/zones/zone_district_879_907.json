@@ -1,8 +1,9 @@
 {
   "ambient_events": [],
   "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "A dry red pan. Every surface is cracked, every crack is full of grit, and the wind keeps the grit moving.",
+  "bg_color": "#1b3040",
+  "color": "#5f93b8",
+  "description": "The Meltwater runs wide and brown here, deep enough in the middle for a boat if you keep off the bars. Drift sticks out of the banks at the height the spring flood left it.",
   "exits": {
     "east": "zone_district_880_907",
     "north": "zone_district_879_906",
@@ -13,13 +14,13 @@
     "district": "wilds",
     "radiation": 32,
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "water"
   },
   "grid_x": 879,
   "grid_y": 907,
   "grid_z": 0,
   "id": "zone_district_879_907",
   "map_id": "map_world",
-  "name": "The Scoured Plain",
+  "name": "The Meltwater",
   "parent_zone": null
 }

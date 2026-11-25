@@ -1,9 +1,8 @@
 {
   "ambient_events": [],
   "ambient_theme": "wasteland",
-  "bg_color": "#1f3646",
-  "color": "#4f83a8",
-  "description": "The water spreads wide and slows, setting down what it carried. Grey sandbars break the surface. Birds work the shallows and leave when you get close.",
+  "color": "#7d7a73",
+  "description": "Shingle on the inside of the bend, sorted by size, big stones at the top and grit at the water. Good for landing a boat.",
   "exits": {
     "east": "zone_district_883_904",
     "north": "zone_district_882_903",
@@ -14,13 +13,13 @@
     "district": "wilds",
     "radiation": 30,
     "region_id": "region_coldwater",
-    "terrain": "water"
+    "terrain": "gravel"
   },
   "grid_x": 882,
   "grid_y": 904,
   "grid_z": 0,
   "id": "zone_district_882_904",
   "map_id": "map_world",
-  "name": "Coldwater Basin",
+  "name": "Shingle Bar",
   "parent_zone": null
 }

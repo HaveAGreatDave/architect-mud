@@ -3,7 +3,7 @@
   "default": false,
   "exterior": {
     "base": "#ee7864",
-    "finish": "gloss",
+    "finish": "pearl",
     "pattern": "factory",
     "trim": "#f0ece0",
     "variant": "coral"

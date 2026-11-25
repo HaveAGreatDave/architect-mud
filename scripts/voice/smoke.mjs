@@ -41,6 +41,22 @@ function check(label, cond, detail) {
   fails++;
   console.error(`  ✗ ${label}${detail ? `\n      ${detail}` : ''}`);
 }
+// Text normalisation, Flite's token-rule checklist (us_text.c): the text that's said.
+for (const [text, want] of [
+  ['It cost $5.50.', 'five dollars fifty cents'], ['£20', 'twenty pounds'], ['$1.5M', 'one point five million dollars'],
+  ['the 1990s', 'nineteen nineties'], ["the '90s", 'nineties'], ['1000s', 'thousands'],
+  ['3/4', 'three quarters'], ['1/2 a pound', 'half a pound'], ['24/7', 'twenty four seven'],
+  ['10:30pm', 'ten thirty pee em'], ['9 a.m.', 'nine ay em'], ['555-1234', 'five five five , one two three four'],
+  ['10-15 people', 'ten to fifteen people'], ['won 3-2 tonight', 'three - two'], ['5-4-3 double play', 'five - four - three'],
+  ['-5 degrees', 'minus five'], ['60mph', 'sixty miles per hour'], ['1 km', 'one kilometre'],
+  ['Henry VIII', 'Henry the eighth'], ['World War II', 'World War two'], ['Plan X', 'Plan X'],
+  ['No. 9', 'number nine'], ['Jan. 5', 'January five'], ['3rd Ave.', 'third Avenue'],
+  ['2:00 left', 'two minutes left'], ['batting .305', 'three oh five'], ['₵1,200', 'one thousand two hundred credits'],
+]) {
+  const got = A._expandNumbers(text).replace(/\s+/g, ' ').trim();
+  check(`normalise "${text}"`, got.includes(want), `want "${want}", got "${got}"`);
+}
+
 // `want` is a substring of the run — asserting the whole run would make every case
 // brittle against unrelated tuning, and what each case is really about is one contrast.
 function has(label, text, want) {

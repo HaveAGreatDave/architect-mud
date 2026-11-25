@@ -1,0 +1,32 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_spray_holo",
+  "name": "Spectra Holo Spraycan",
+  "tags": {
+    "can_label": {
+      "body": "#1a1426",
+      "brand": "SPECTRA",
+      "cap": "#3bd8ff",
+      "colours": [
+        "#ff3b8d",
+        "#f7ff5c",
+        "#4dff9a",
+        "#3bd8ff",
+        "#7a5cff"
+      ],
+      "fine": "Contents under pressure. Keep away from heat, sparks and open flame. Do not pierce or burn, even when empty. Use in a ventilated place. Shake for one minute before use. Spectra FX. Not for food contact.",
+      "net": "300 ML",
+      "product": "HOLO FX",
+      "strap": "EVERY COLOUR. ONCE.",
+      "wear": 0.6
+    },
+    "description": "A Spectra party can, holographic glitter in a clear base. The colours slide through the rainbow as you walk past and the glitter catches every light. Sprays holo. Nobody sells them any more.",
+    "misc": true,
+    "paint_finish": "holo",
+    "spray_paint": true
+  },
+  "type": "misc",
+  "value": 280,
+  "weight": 340
+}

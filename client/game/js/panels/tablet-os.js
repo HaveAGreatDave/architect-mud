@@ -2392,6 +2392,7 @@ const TOS_AUDIO_TOGGLES = [
   { key: 'music', label: 'Music', on: '🎵', off: '🔇' },
   { key: 'sfx', label: 'SFX', on: '💥', off: '🔕' },
   { key: 'tv', label: 'TV Audio', on: '📺', off: '📵' },
+  { key: 'npcVoices', label: 'NPC Voices', on: '🗣️', off: '🤐' },
   { key: 'welcome', label: 'Welcome Voice', on: '👋', off: '🔕' },
   { key: 'muteWhenHidden', label: 'Mute When Hidden', on: '🙈', off: '▶️' },
 ];
@@ -2535,7 +2536,7 @@ function renderTabletSettings(d) {
       <div class="tos-opt${!on ? ' selected' : ''}" data-set-audio="${esc(a.key)}" data-set-audio-val="false" title="${esc(a.label)} Off">${esc(a.off)}</div>
     </div>`;
   };
-  const audioToggleRows = [[0, 1], [2, 3], [4]]
+  const audioToggleRows = [[0, 1], [2, 3], [4, 5]]
     .map(pair => `<div class="tos-set-row tos-iconrow">${pair.map(i => audioToggleCell(TOS_AUDIO_TOGGLES[i])).join('')}</div>`)
     .join('');
   const volRows = TOS_VOL_SLIDERS.map(v =>
@@ -2605,6 +2606,7 @@ function renderTabletSettings(d) {
       `<div class="tos-set-row"><span class="tos-set-label">Sound Settings<span class="tos-set-val">Toggles &amp; volumes</span></span>
         <span class="tos-btn-sub" data-reset-sound="1" style="margin:0">Reset to Default</span></div>`,
     Discord: renderDiscordPage(),
+    Bibliography: renderBibliographyPage(),
     About: renderAboutPage(),
   };
   const pageNames = Object.keys(pages);
@@ -2641,6 +2643,33 @@ function renderDiscordPage() {
 
 // About. Game, then people, then platform: the THOMAS credit sits last. The mark is
 // the dev panel boot logo, stroked in currentColor.
+// Settings → Bibliography: docs/reference/bibliography.md, reshaped into
+// /shared/bibliography.json by scripts/docs/bibliography-client.mjs. Loaded the first
+// time the page opens, then kept.
+let _tosBiblio = null;        // the parsed JSON once loaded; 'loading' | 'error' before that
+function renderBibliographyPage() {
+  if (_tosBiblio === null) {
+    _tosBiblio = 'loading';
+    fetch('/shared/bibliography.json')
+      .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(j => { _tosBiblio = j; if (_tosSetPage === 'Bibliography') render(); })
+      .catch(() => { _tosBiblio = 'error'; if (_tosSetPage === 'Bibliography') render(); });
+  }
+  if (_tosBiblio === 'loading') return '<div class="tos-bib-note">Loading…</div>';
+  if (_tosBiblio === 'error') return '<div class="tos-bib-note">The bibliography failed to load.</div>';
+  const runs = (rs) => rs.map(r => r.href
+    ? `<a href="${esc(r.href)}" target="_blank" rel="noopener noreferrer">${esc(r.t)}</a>`
+    : esc(r.t)).join('');
+  const out = _tosBiblio.blocks.map(b => {
+    if (b.h) return `<div class="tos-bib-h${b.h}">${esc(b.text)}</div>`;
+    if (b.p) return `<p class="tos-bib-p">${runs(b.p)}</p>`;
+    return `<div class="tos-bib-list">${b.rows.map(r =>
+      `<div class="tos-bib-row"><div class="tos-bib-work">${runs(r[0])}</div>${r.slice(1).map(c =>
+        `<div class="tos-bib-what">${runs(c)}</div>`).join('')}</div>`).join('')}</div>`;
+  }).join('');
+  return `<div class="tos-bib">${out}</div>`;
+}
+
 function renderAboutPage() {
   return `<div class="tos-about">
     <div class="tos-about-mark">Architect</div>

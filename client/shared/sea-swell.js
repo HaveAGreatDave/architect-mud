@@ -251,6 +251,14 @@ export function setSeaHeading(rad) {
   ROT_ON = ROT_D !== 0 || SEA_K !== 1;
   ROT_C = SEA_K * Math.cos(ROT_D); ROT_S = SEA_K * Math.sin(ROT_D);
 }
+// (u, v) into the sea's frame, where the trains' wavenumbers apply, and back. For sea-breakers.js,
+// which has to find the same crests the trains draw. Identity when ROT_ON is off.
+export function seaToFrame(u, v) { return ROT_ON ? frameUV(u, v) : [u, v]; }
+export function seaFromFrame(p, q) {
+  if (!ROT_ON) return [p, q];
+  const k2 = ROT_C * ROT_C + ROT_S * ROT_S;
+  return [(ROT_C * p - ROT_S * q) / k2, (ROT_S * p + ROT_C * q) / k2];
+}
 // Where (u, v) is on the long swell, in radians: 0 at the crest, negative on its front face, in
 // -pi..pi. The JS twin of seaSurfPhase in gl/sea-glsl.js, so the surf's sound breaks when the
 // picture's wave does. (u, v) in the map window's frame, as seaRoll takes them.
@@ -859,6 +867,34 @@ export function seaFoamFine(u, v, t) {
        + 0.22 * Math.sin(u * -13.1 + v * 31.8 - t * 2.31);
 }
 
+// ── AND WHITECAPS COME IN GROUPS, NOT IN ROWS ────────────────────────────────────────────────────
+//
+// The foam test is a threshold on the chop, and the chop is three crossing sine trains: its peaks
+// repeat on a lattice about a tile across. Thresholded, that lattice was the whole look of a sea
+// seen from above: a regular grid of foam dots, and with the mesh off the flat floor showed nothing
+// else (2026-11-24, the "checkerboard"). The tear roughens each dot's edge and can't move a dot.
+//
+// Real whitecaps break where wave groups pile up, which is patchy and never in rows. So the tested
+// field also carries this: a slow field a few chop wavelengths across, domain-warped so it repeats
+// on no scale you'd see. Added to the chop, it lifts some lattice peaks over the threshold and holds
+// others under, and the foam falls in groups.
+//
+// It goes into the QUANTILE SAMPLES as well as the shaders, as the tear does, so the sea still foams
+// over exactly Monahan's fraction of itself. Its time terms are on the 0.01 rad/s grid (seaClock's
+// wrap). 0 is the lattice as it shipped. The GLSL twin in gl/sea-glsl.js is written from
+// SEA_FOAM_GROUP_K, so the two can't disagree.
+export const SEA_FOAM_GROUP = 0.45;
+export const SEA_FOAM_GROUP_K = { fx: 1.37, fy: 0.41, gx: -0.52, gy: 1.21, w1: 0.05, w2: 0.07,
+  a1: 1.7, b1: 0.83, a2: 1.3, b2: 1.29, c2: 0.71, c3: 0.61, d3: 1.1, wa: 0.45, wb: 0.35, wc: 0.2 };
+export function seaFoamGroup(u, v, t) {
+  const K = SEA_FOAM_GROUP_K;
+  const x = u * K.fx + v * K.fy, y = u * K.gx + v * K.gy + t * K.w1;
+  const a = Math.sin(x + K.a1 * Math.sin(y * K.b1));
+  const b = Math.sin(y * K.b2 + K.a2 * Math.sin(x * K.c2 + t * K.w2));
+  const c = Math.sin((x + y) * K.c3 - K.d3 * a);
+  return a * K.wa + b * K.wb + c * K.wc;
+}
+
 // ⚠ THE QUANTILE IS PER TEAR GAIN, because the threshold is the quantile of the field the shader
 // tests and the tear is part of that field. With the flag at 0 the shader tests the smooth chop and
 // must get the smooth chop's quantile, or switching the tear off would quietly change how much of
@@ -883,11 +919,14 @@ function quantiles(tear0) {
   // the domain rather than filling it, so the two coordinates are correlated and whole regions of
   // the surface are never sampled at all. This is the R2 low-discrepancy sequence, whose two
   // multipliers come from the plastic constant and are chosen precisely so the pair equidistributes.
+  // ⚠ AND OVER 400 UNITS, NOT 80. The chop repeats about every unit, so 80 was plenty for it; the
+  // groups (seaFoamGroup) are several units across, and an 80-unit square holds too few of them to
+  // place the tail: at 13 kt, where 0.25% of the sea breaks, coverage came out 1.3-1.5x Monahan.
   const N = 65536, s = new Float64Array(N);
   for (let i = 0; i < N; i++) {
-    const u = (((i + 1) * 0.7548776662) % 1) * 80 - 40;
-    const v = (((i + 1) * 0.5698402910) % 1) * 80 - 40;
-    s[i] = chopRaw(u, v, 3.0)
+    const u = (((i + 1) * 0.7548776662) % 1) * 400 - 200;
+    const v = (((i + 1) * 0.5698402910) % 1) * 400 - 200;
+    s[i] = chopRaw(u, v, 3.0) + SEA_FOAM_GROUP * seaFoamGroup(u, v, 3.0)
          + (tear ? seaFoamFine(u, v, 3.0) + tear * seaFoamTear(u, v, 3.0) : 0);
   }
   s.sort();

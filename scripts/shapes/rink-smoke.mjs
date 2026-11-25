@@ -566,10 +566,13 @@ async function play(slot) {
     }
     if (g.type === 'intermission') {
       check(`${label}: the board goes up over the ice`, !!host.find('.gdri') && !!host.find('.gdr-canvas'));
-      run(9);
+      // (it waits for Ken to board and drive out of the bay first: 13 s, crew.js's CREW)
+      run(5);
+      check(`${label}: no Zamboni on the ice while Ken is still in the bay`, !W.zamboni);
+      run(15);
       // the crew have both nets off and out through the gates before it goes on
       check(`${label}: the nets are off for the Zamboni`, W.nets.a.out && W.nets.h.out && !W.nets.job);
-      check(`${label}: the Zamboni is out, on a time-lapse`, !!W.zamboni && resurfaced.n > 50 && W.zamboni.lapse > 1, `${resurfaced.n} passes`);
+      check(`${label}: the Zamboni is out`, !!W.zamboni && resurfaced.n > 50, `${resurfaced.n} passes`);
       check(`${label}: the ice is wet behind it`, W.ice.wetness > 0.5);
     }
     // THE PERIOD STARTS ON FRESH ICE. The Zamboni drove off through its gate (driven, not

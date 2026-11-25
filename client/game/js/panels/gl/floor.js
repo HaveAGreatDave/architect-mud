@@ -663,6 +663,19 @@ void main() {
   float grassW = m00.r * w00 + m10.r * w10 + m01.r * w01 + m11.r * w11;
   float shadeW = (m00.g * w00 + m10.g * w10 + m01.g * w01 + m11.g * w11) * 2.0;
   float pavedW = m00.b * w00 + m10.b * w10 + m01.b * w01 + m11.b * w11;
+  // ⚠ A SLAB HAS A HARD EDGE. A building's yard and the alley beside it are poured concrete, so where
+  // any of the four taps is paved the colour, grass and paving switch at the tile seam over a few
+  // percent of a tile instead of feathering across it; turf next to turf still blends. Past the
+  // window edge the far fade below puts the smooth weights back.
+  float slabK = step(0.5, max(max(m00.b, m10.b), max(m01.b, m11.b))) * (1.0 - step(0.5, max(max(s00.a, s10.a), max(s01.a, s11.a))));
+  if (slabK > 0.0) {
+    float hx = smoothstep(0.47, 0.53, fxr), hy = smoothstep(0.47, 0.53, fyr);
+    float h00 = (1.0 - hx) * (1.0 - hy), h10 = hx * (1.0 - hy), h01 = (1.0 - hx) * hy, h11 = hx * hy;
+    base = s00.rgb * h00 + s10.rgb * h10 + s01.rgb * h01 + s11.rgb * h11;
+    grassW = m00.r * h00 + m10.r * h10 + m01.r * h01 + m11.r * h11;
+    pavedW = m00.b * h00 + m10.b * h10 + m01.b * h01 + m11.b * h11;
+    shadeW = (m00.g * h00 + m10.g * h10 + m01.g * h01 + m11.g * h11) * 2.0;
+  }
   // Footfall takes the smooth blend, like the materials: wear, litter and the green vote.
   float wearW = 0.0, litW = 0.0, greenW = 0.5;
   if (uWear > 0.001) {
@@ -1107,7 +1120,9 @@ void main() {
     // over the fraction of itself its wind says. The noise mask is not applied to it: the mask
     // erodes coverage, and the inversion has already decided how much there is. Negative is the
     // fixed threshold as it shipped.
-    if (uFoamFar >= 0.0) { if (wv > uFoamFar) cap = min(1.0, (wv - uFoamFar) * 9.0) * waterW; }
+    // The groups go into the tested field here too (seaFoamGroup): the quantile was taken with them.
+    float wvG = wv + seaFoamGroup(vec2(swx, swy), uT);
+    if (uFoamFar >= 0.0) { if (wvG > uFoamFar) cap = min(1.0, (wvG - uFoamFar) * 9.0) * waterW; }
     else if (wv > 0.90) cap = (wv - 0.90) * 9.0 * waterW * foamMask;
     // Sun glitter: a broken specular path toward the real bearing of the sun, chopped by the swell
     // into a trail of gold flecks. Anchored on the sun, never on the drift.

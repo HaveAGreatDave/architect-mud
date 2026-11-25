@@ -49,8 +49,8 @@ export const WATERFRONT_ARMS = {
     // colonnade zig-zags down the pier. The deck's WIDTH is a property of the deck and stays in
     // `fh`; anything whose neighbour has to line up with it is in tiles, the same argument the rail
     // wire makes by running to ±0.5.
-    const SOFFIT = h * 0.42, DECK = h * 0.60;             // the underside of the slab, and its top
-    const UPSTAND = h * 0.74, RAIL = h * 1.04;
+    const SOFFIT = h * 0.14, DECK = h * 0.22;             // the underside of the slab, and its top
+    const UPSTAND = h * 0.32, RAIL = h * 0.62;
     const COLX = 0.74, COLY = 0.30;
     // 1) THE COLUMNS. Four square piers to a section, standing out of the water with a capping
     //    beam across them — square because this is poured concrete rather than driven timber, and
@@ -59,7 +59,14 @@ export const WATERFRONT_ARMS = {
       for (const lx of [-1, 1]) {
         const [px, py] = F(lx * fh * COLX, ly);
         draw3DBoxAt(ctx, cam, px, py, fh * 0.10, 0, SOFFIT, 'ty_pier_pile', seed + 3 + lx + ly * 7, night, alpha, false);
-        drawRing(ctx, cam, px, py, h * 0.10, fh * 0.115, 4, 'rgba(26,38,34,0.55)', 1.8, alpha);   // the tide line, which is the only thing on a column that says which way the sea goes
+        // The tide line, which is the only thing on a column that says which way the sea goes. Drawn
+        // here rather than with drawRing, whose DECO_PULL walks the far arc out through a column it
+        // clears by 0.015 fh; it hugs the face, so FACE_EPS is the tie-breaker it needs.
+        { const TRAD = fh * 0.115, TZ = h * 0.10;
+          for (let i = 0; i < 4; i++) {
+            const a0 = i / 4 * 6.2832, a1 = (i + 1) / 4 * 6.2832;
+            emitWire(ctx, cam, [px + Math.cos(a0) * TRAD, py + Math.sin(a0) * TRAD, TZ], [px + Math.cos(a1) * TRAD, py + Math.sin(a1) * TRAD, TZ], 1.8, 'rgba(26,38,34,0.55)', alpha, { pull: FACE_EPS });
+          } }
       }
       // The capping beam the slab bears on. A slab with nothing between it and the columns reads
       // as a table top resting on four sticks.
@@ -71,7 +78,7 @@ export const WATERFRONT_ARMS = {
     //     ⚠ `pull: 0`. These hang in the open air UNDER the slab with nothing to clear, so the
     //     only thing a pull could do is walk them out from under the deck they belong beneath —
     //     the same argument `latticeBoom` and the crane's knee braces make.
-    { const BR = 'rgba(64,70,72,0.9)', zl = h * 0.06, zh = SOFFIT - h * 0.10;
+    { const BR = 'rgba(64,70,72,0.9)', zl = h * 0.01, zh = Math.max(h * 0.03, SOFFIT - h * 0.10);
       for (const ly of [-COLY, COLY]) {
         emitWire(ctx, cam, W3(-fh * COLX, ly, zl), W3(fh * COLX, ly, zh), 1.5, BR, alpha, { pull: 0 });
         emitWire(ctx, cam, W3(fh * COLX, ly, zl), W3(-fh * COLX, ly, zh), 1.5, BR, alpha, { pull: 0 });
@@ -685,7 +692,7 @@ export const WATERFRONT_ARMS = {
     //   pose the capture caught and GLASS 2 would draw a pontoon frozen mid-wave. Anything that
     //   moves has to leave the mass pass for the stroke/decal/sprite layers, which is a different
     //   and much larger change. A fixed freeboard that clears the working sea is the honest one.
-    const FLOAT = h * 0.50, DECK = h * 0.72;   // the top of the buoyancy box, and the walking surface
+    const FLOAT = h * 0.06, DECK = h * 0.14;   // the top of the buoyancy box, and the walking surface
     // 1) THE FLOATS AND THE DECK. Both run to ±0.5 IN TILE UNITS along the run, never in `fh`:
     //    `fh` is seeded per tile and varies 0.38..0.44, so a run authored in it steps in and out
     //    at every joint. Across the run is a property of the pontoon and stays in `fh`. Same
@@ -762,7 +769,7 @@ export const WATERFRONT_ARMS = {
     // ⚠ NOTHING ON IT MOVES. Same rule as the pontoon: mass is captured once at a frozen clock.
     const CH = 'ty_asc_chrome', DK = 'ty_asc_chrome_dk', BLUE = 'ty_asc_pod', GOLD = 'ty_fw_gold';
     const metal = hfChrome([96, 112, 130], [232, 242, 250], 1.9);
-    const FLOAT = h * 0.50, DECK = h * 0.72;
+    const FLOAT = h * 0.06, DECK = h * 0.14;
     const HX = fh * 0.86, HY = fh * 0.80;
     const LF = (u, w) => F(u, w);
     const LW = (u, w, z) => W3(u, w, z);
@@ -1517,7 +1524,7 @@ export const WATERFRONT_ARMS = {
     // ⚠ THE RUN IS IN TILE UNITS (±0.5), ACROSS IT IS IN fh — the pontoon arm's split, so two
     // sections meet exactly whatever fh each one rolled.
     const YAW = faceYaw(E), NEAR = nearOrMesh(), dn = night ? clamp(night, 0, 1) : 0, dusk = 1 - 0.55 * dn;
-    const FLOAT = h * 0.50, DECK = h * 0.72, DW = fh * 0.66;
+    const FLOAT = h * 0.06, DECK = h * 0.14, DW = fh * 0.66;
     // 1) THE FLOATS: oil drums stood in two rows down each edge, every one a different hand-me-down
     //    colour, and a timber bearer along each row that the deck sits on.
     const DRUMS = [[150, 62, 44], [52, 84, 128], [168, 132, 52], [92, 96, 92], [130, 70, 52]];

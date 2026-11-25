@@ -23,6 +23,7 @@ import { seaSlopeVariance, SEA_FOAM_LEAD, SEA_FOAM_RAMP, SEA_FOAM_A, SURF_DEPTH_
 import { declareProgram, layerProgram } from './programs.js';
 import { createSeaFoam } from './sea-foam.js';
 import { createSeaLip } from './sea-lip.js';
+import { BREAK_GLSL } from '../../../../shared/sea-breakers.js';
 import { linearOut, applyLinOut } from './colour.js';
 
 // ⚠ THE SAME SIX AS THE SHADER'S OWN 'NEON_MAX', AND THEY HAVE TO AGREE — the GLSL one is inside a
@@ -194,6 +195,7 @@ out float vJ;            // the breaker fold's Jacobian: 1 unfolded, near 0 at a
 
 ${SEA_GLSL}
 ${WASH_GLSL}
+${BREAK_GLSL}
 
 // ⚠ THE SAME CLAMPED texelFetch THE FLOOR USES. A different sampling rule here is a mesh whose
 // edge disagrees with the coast the floor is painting, which is a seam along every shoreline.
@@ -342,6 +344,14 @@ void main() {
   vWake = wk;
   h += wk * uWakeAmp;
 
+  // ── AND THE OPEN SEA'S BREAKERS (client/shared/sea-breakers.js) ──────────────────────────────
+  // The crest stands up and runs ahead of itself for the few seconds a breaker lasts. The lift is
+  // taken everywhere the mesh reaches; the forward slide only in the fine zone, since the rim's
+  // vertices are as far apart as the bump is wide and sliding them would only tear the mesh.
+  vec2 bkSlide = vec2(0.0), bkG = vec2(0.0), bkD = vec2(1.0, 0.0); float bkJ = 1.0;
+  if (uNBrk > 0) seaBreakers(w, smoothstep(0.0, 0.5, deep) * vRim, h, bkSlide, bkG, bkJ, bkD);
+  bkSlide *= 1.0 - smoothstep(${(PATCH_FINE_R * 0.8).toFixed(4)}, ${(PATCH_FINE_R * 1.05).toFixed(4)}, r);
+
   // ── AND NOT OVER HER DECK ───────────────────────────────────────────────────────────────────
   // A powerboat's chase hull (not the Keel, drawn at true size: TRUE_SIZE_CLS in windshield.js) is
   // a fifth of her true length with about a third of her true freeboard, so her
@@ -365,7 +375,7 @@ void main() {
   float zoneV = seaSurfZone(hM, H0) * smoothstep(0.0, 0.5, deep) * uSurf * vRim;
   vec2 fold = seaBreakFold(swR, uT, zoneV);
   vJ = fold.y;
-  gl_Position = uViewProj * vec4(w + normalize(kdir) * fold.x, h, 1.0);
+  gl_Position = uViewProj * vec4(w + normalize(kdir) * fold.x + bkSlide, h, 1.0);
 }`;
 
 const FRAG = linearOut(`#version 300 es
@@ -460,6 +470,7 @@ uniform vec4  uHullS;
 ${SEA_GLSL}
 ${SEA_DETAIL_GLSL}
 ${WASH_GLSL}
+${BREAK_GLSL}
 
 // ── CAT'S PAWS: GUSTS RUNNING OVER THE WATER ─────────────────────────────────────────────────────
 // A gust roughens the water under it within a second, so on a breezy day the sea carries darker,
@@ -520,6 +531,15 @@ void main() {
   dd += seaDetail(spR, uT, uAmp) * smoothstep(0.0, 0.5, deep) * (1.0 - 0.45 * pawK + 1.6 * paw);   // gl/sea-detail.js: the fine surface
   dd = seaUnframe(dd, uSeaRot);   // the slope back out into world axes, where N is built
   dd += rwSlope;                  // already in world axes: the wash is centred on the craft, not the sea
+  // The open sea's breakers: the lift's slope, and the face their fold squeezed, steepened by 1/J
+  // along the way each is travelling. Worked out per pixel, so a breaker on the coarse rim is lit
+  // sharp even where the mesh can only carry its height.
+  if (uNBrk > 0) {
+    float bH = 0.0, bJ = 1.0; vec2 bS = vec2(0.0), bG = vec2(0.0), bD = vec2(1.0, 0.0);
+    seaBreakers(vWorld, smoothstep(0.0, 0.5, deep) * vRim, bH, bS, bG, bJ, bD);
+    dd += bG;
+    if (bJ < 0.999) dd += bD * dot(dd, bD) * (1.0 / max(bJ, 0.12) - 1.0);
+  }
   // The breaker fold squeezed this stretch of surface by vJ along the swell, so its slope that way
   // is steeper by 1/vJ. One Jacobian for the mesh and the light, or the face is lit as a gentle one.
   if (vJ < 0.999) {
@@ -730,7 +750,8 @@ void main() {
   // ⚠ AND IT RIDES THE SAME SWITCH rather than taking a uniform of its own: 'step' off uTear, so the
   // flag's 0 is still the sea exactly as it shipped and there is no second thing to remember to
   // wire — the off switch that does not fully switch off cost a round trip here already.
-  float wvT = wvF + seaFoamFine(spF, uT) * step(0.0001, uTear)
+  // seaFoamGroup: whitecaps in groups rather than on the chop's lattice (sea-swell.js).
+  float wvT = wvF + seaFoamGroup(seaFrame(spF, uSeaRot), uT) + seaFoamFine(spF, uT) * step(0.0001, uTear)
             + seaFoamTorn(spF, uT, uWindDir, tearFade);
 
   float cr = 0.0, cap = 0.0;
@@ -873,6 +894,14 @@ void main() {
       float net = smoothstep(0.35, 0.75, fs * 0.9 + (froth2 - 0.5) * (1.1 - fs));
       cap = max(cap, net * (0.55 + 0.4 * fs));
     }
+  }
+
+  // ── THE OPEN SEA'S BREAKERS, WHITE (client/shared/sea-breakers.js) ─────────────────────────────
+  // White water on the face as the lip lands, and the blanket it leaves behind the crest. The foam
+  // field above holds what's left once a breaker has moved on.
+  if (uNBrk > 0) {
+    float frothB = clamp(0.5 + 0.8 * wvF, 0.0, 1.0);
+    cap = max(cap, seaBreakerFoam(vWorld, frothB, smoothstep(0.0, 0.5, deep) * vRim));
   }
 
   // ── STAGE A AND STAGE B (Monahan & Lu 1990) ─────────────────────────────────────────────────
@@ -1029,7 +1058,7 @@ export function createWaterLayer(gl) {
     lut1: U('uLut1'), shelter: U('uShelter'), shoal: U('uShoal'), refract: U('uRefract'), seaRot: U('uSeaRot'), surf: U('uSurf'), depthT: U('uDepthT'), chopR: U('uChopR'),
     foamN: U('uFoamN'), foamP: U('uFoamP'), foamBox: U('uFoamBox'),
     foamBeam: U('uFoamBeam'), foamSpread: U('uFoamSpread'),
-    bore: U('uBore'), face: U('uFace'), foamMatte: U('uFoamMatte'), foamF: U('uFoamF'), foamFO: U('uFoamFO'), foamFS: U('uFoamFS'),
+    bore: U('uBore'), face: U('uFace'), nBrk: U('uNBrk'), brkP: U('uBrkP'), brkS: U('uBrkS'), foamMatte: U('uFoamMatte'), foamF: U('uFoamF'), foamFO: U('uFoamFO'), foamFS: U('uFoamFS'),
     sunDir3: U('uSunDir3'), moonDir3: U('uMoonDir3'), night: U('uNight'), nm: U('uNm'),
     hor: U('uHor'), body: U('uBody'), eye: U('uEye'),
     hz: U('uHz'), hazeMax: U('uHazeMax'), depth: U('uDepth'),
@@ -1170,6 +1199,11 @@ export function createWaterLayer(gl) {
     gl.uniform1f(loc.surf, s.seaSurf == null ? 0 : s.seaSurf);
     gl.uniform1f(loc.bore, s.seaBore || 0);
     gl.uniform1f(loc.face, s.seaFace || 0);
+    // Written every frame, like the wakes: a count left from the last frame leaves a breaker
+    // standing in the sea after it's gone.
+    const bk = s.breakers;
+    gl.uniform1i(loc.nBrk, bk ? bk.n : 0);
+    if (bk) { gl.uniform4fv(loc.brkP, bk.P); gl.uniform4fv(loc.brkS, bk.S); }
     gl.uniform1f(loc.foamMatte, (s.seaFoamSim || 0) > 0 ? 1 : 0);
     gl.uniform1f(loc.chopR, s.seaChopR == null ? 0 : s.seaChopR);
     // ⚠ A ZERO COUNT IS NOT ENOUGH ON ITS OWN — a uniform holds its last value, so a frame with

@@ -1,6 +1,12 @@
 """syllable.py: the prosody controller per phone, not per frame.
 
-  <venv python> tools/voice-fit/ddsp/syllable.py <run dir> [--demo <wav>]
+  <venv python> tools/voice-fit/ddsp/syllable.py <run dir> [--demo <wav>] [--init <pretrain.pt>]
+
+--init fine-tunes a pre-trained head (pretrain.py, on VCTK) on David instead of starting from
+zero: a tenth of the learning rate, only the output layer for the first FREEZE steps, and a
+pull towards the pre-trained head's own output (ANCHOR) in place of the pull towards zero, so
+ten minutes of David can't undo what 44 hours taught. The held-out lines are the same seven,
+so a run with --init and one without compare directly.
 
 prosody.py's frame head learned pitch frame by frame from noisy targets (the rules miss
 the speaker by a median 200 cents a frame, much of it tracker slips and 10 ms alignment),
@@ -27,7 +33,15 @@ sys.path.insert(0, str(HERE))
 import data, twin, train, prosody
 
 DEV = 'cuda' if torch.cuda.is_available() else 'cpu'
-VOW = {'IY', 'IH', 'EH', 'AE', 'AA', 'AO', 'UH', 'UW', 'ER', 'AH', 'AX', 'EY', 'AY', 'OW', 'OY', 'AW', 'IX', 'AXR'}
+from phones import VOW, PHONES   # the lists live in phones.py, which needs no PyTorch
+
+
+def phone_set(items):
+    """PHONES, after checking every code in items is in it (a new ORACLE phone must be added here)."""
+    new = set(train.phone_set(items)) - set(PHONES)
+    if new:
+        raise ValueError(f'phones missing from syllable.PHONES: {sorted(new)}')
+    return PHONES
 DLIM, CLIM, GLIM = math.log(1.3), 250.0, 6.0
 
 
@@ -83,21 +97,73 @@ def frame_curve(vals, codes, s, n, frame):
     return np.interp(np.arange(n) * frame, cs, vs)
 
 
+def controlled(net, PH, tr0, L, use_d=True, use_p=True):
+    """A line's rule tracks tr0 (export.mjs's index entry L) with the head's corrections:
+    its durations (use_d), its pitch and loudness joined between vowel centres (use_p)."""
+    trace = [t for t in L['trace'] if t['p'] != 'END']
+    r = np.array([t['at'] for t in trace] + [L['frames'] * L['frame']])
+    codes = [t['p'] for t in trace]
+    ph, ex = phone_inputs(codes, np.diff(r), [1.0 if t.get('acc') else 0.0 for t in trace], PH)
+    with torch.no_grad():
+        p = net(ph.to(DEV), ex.to(DEV))[0].cpu().numpy()
+    dur = np.diff(r) * (np.exp(p[:, 0] * DLIM) if use_d else 1)
+    s = np.concatenate([[r[0]], r[0] + np.cumsum(dur)])
+    wt, _, _ = prosody.warp(tr0, r, s, L['frame'])
+    if use_p:
+        n = len(wt)
+        cc = frame_curve(p[:, 1] * CLIM, codes, s, n, L['frame'])
+        gg = frame_curve(p[:, 2] * GLIM, codes, s, n, L['frame'])
+        wt = wt.copy(); wt[:, twin.IX['f0']] *= 2 ** (cc / 1200)
+        for k in ('av', 'ah', 'af'):
+            wt[:, twin.IX[k]] *= 10 ** (gg / 20)
+    return wt
+
+
+def _words(s):
+    return ''.join(ch.lower() if ch.isalnum() or ch in " '" else ' ' for ch in s).split()
+
+
+def wer(a, b):
+    """Word errors of transcript b against text a, and a's word count."""
+    a, b = _words(a), _words(b)
+    D = np.arange(len(b) + 1)
+    for i in range(1, len(a) + 1):
+        prev, D[0] = D.copy(), i
+        for j in range(1, len(b) + 1):
+            D[j] = min(prev[j] + 1, D[j - 1] + 1, prev[j - 1] + (a[i - 1] != b[j - 1]))
+    return D[len(b)], len(a)
+
+
 def main():
     run = Path(sys.argv[1]); run.mkdir(parents=True, exist_ok=True)
     vf = HERE.parent
     items = data.load(vf / 'out/nn/r3', vf / 'out/nn/align3.json', 'C:/Users/david/Desktop/part3.wav')
     test = items[::10]; trn = [it for i, it in enumerate(items) if i % 10]
     val = trn[::8]; trn = [it for i, it in enumerate(trn) if i % 8]
-    PH = train.phone_set(items)
+    PH = phone_set(items)
     torch.manual_seed(0); np.random.seed(0)
     for it in items:
         tgt, codes, d = phone_targets(it)
         ph, ex = phone_inputs(codes, d[:, 0], [a for (_, _, _, a) in it['durs']], PH)
         it['P'] = (ph.to(DEV), ex.to(DEV), torch.tensor(tgt).to(DEV))
     net = PhoneHead(len(PH)).to(DEV)
-    opt = torch.optim.Adam(net.parameters(), lr=2e-3, weight_decay=1e-4)
+    init = sys.argv[sys.argv.index('--init') + 1] if '--init' in sys.argv else None
+    anchor = None
+    if init:
+        ck = torch.load(init, map_location=DEV)
+        if ck['PH'] != PH:
+            raise ValueError('the pre-trained head numbers its phones differently (syllable.PHONES changed?)')
+        net.load_state_dict(ck['net'])
+        anchor = copy.deepcopy(net).eval()
+        for q in anchor.parameters():
+            q.requires_grad_(False)
+        for it in items:
+            with torch.no_grad():
+                it['A'] = anchor(it['P'][0], it['P'][1])[0]
+        print(f'fine-tuning {init}', flush=True)
+    opt = torch.optim.Adam(net.parameters(), lr=2e-4 if init else 2e-3, weight_decay=1e-4)
     W = torch.tensor([1.0, 1.0, 0.5], device=DEV)
+    FREEZE, ANCHOR = 500, 0.3
 
     def loss(its, train_=False):
         tot, n = 0, 0
@@ -105,6 +171,8 @@ def main():
             ph, ex, y = it['P']
             p = net(ph, ex)[0]; m = ~torch.isnan(y)
             e = torch.nn.functional.smooth_l1_loss((p * W)[m], (y * W)[m], beta=0.2)
+            if anchor is not None:
+                e = e + ANCHOR * torch.nn.functional.mse_loss(p * W, it['A'] * W)
             tot = tot + e; n += 1
         return tot / n
 
@@ -118,9 +186,15 @@ def main():
                 m = ~torch.isnan(y[:, j]); lst += ((p[m, j] - y[m, j]).abs() * lim).tolist()
         return np.sqrt(np.mean(np.square(de))), np.median(ce), np.mean(ge)
 
+    if init:
+        net.eval(); p0 = scores(test)
+        print(f'pre-trained, before fine-tuning: duration {p0[0]:.3f}, vowel pitch {p0[1]:.0f} cents, vowel level {p0[2]:.2f} dB', flush=True)
     best = (1e9, None, 0)
     for s in range(4000):
         net.train()
+        if init:
+            for name, q in net.named_parameters():
+                q.requires_grad_(s >= FREEZE or name.startswith('out.'))
         L = loss([trn[np.random.randint(len(trn))] for _ in range(4)])
         opt.zero_grad(); L.backward(); opt.step()
         if s % 100 == 99:
@@ -139,25 +213,9 @@ def main():
     for it in test:
         L = idx['lines'][it['id']]
         tr0 = np.fromfile(vf / f"out/nn/r3/{it['id']}.f32", dtype=np.float32).reshape(L['frames'], -1)
-        trace = [t for t in L['trace'] if t['p'] != 'END']
-        r = np.array([t['at'] for t in trace] + [L['frames'] * L['frame']])
-        codes = [t['p'] for t in trace]
-        ph, ex = phone_inputs(codes, np.diff(r), [1.0 if t.get('acc') else 0.0 for t in trace], PH)
-        with torch.no_grad():
-            p = net(ph.to(DEV), ex.to(DEV))[0].cpu().numpy()
         V = {'rules': tr0}
         for tag, use_d, use_p in (('dur', 1, 0), ('pitch', 0, 1), ('ctl', 1, 1)):
-            dur = np.diff(r) * (np.exp(p[:, 0] * DLIM) if use_d else 1)
-            s = np.concatenate([[r[0]], r[0] + np.cumsum(dur)])
-            wt, _, _ = prosody.warp(tr0, r, s, L['frame'])
-            if use_p:
-                n = len(wt)
-                cc = frame_curve(p[:, 1] * CLIM, codes, s, n, L['frame'])
-                gg = frame_curve(p[:, 2] * GLIM, codes, s, n, L['frame'])
-                wt = wt.copy(); wt[:, twin.IX['f0']] *= 2 ** (cc / 1200)
-                for k in ('av', 'ah', 'af'):
-                    wt[:, twin.IX[k]] *= 10 ** (gg / 20)
-            V[tag] = wt
+            V[tag] = controlled(net, PH, tr0, L, use_d, use_p)
         for tag, tr in V.items():
             f = run / f"{it['id']}-{tag}.f32"; tr.astype(np.float32).tofile(f)
             jobs.append({'f32': str(f), 'frames': len(tr), 'frame': L['frame'], 'k': L['k'], 'names': L['names'], 'po': L.get('po', {}), 'out': str(run / f"{it['id']}-{tag}.raw")})
@@ -167,16 +225,6 @@ def main():
     from transformers import pipeline
     from scipy.signal import resample_poly
     asr = pipeline('automatic-speech-recognition', model='openai/whisper-base.en', device=-1)
-    norm = lambda s: ''.join(ch.lower() if ch.isalnum() or ch in " '" else ' ' for ch in s).split()
-
-    def wer(a, b):
-        a, b = norm(a), norm(b)
-        D = np.arange(len(b) + 1)
-        for i in range(1, len(a) + 1):
-            prev, D[0] = D.copy(), i
-            for j in range(1, len(b) + 1):
-                D[j] = min(prev[j] + 1, D[j - 1] + 1, prev[j - 1] + (a[i - 1] != b[j - 1]))
-        return D[len(b)], len(a)
     tot = {k: [0, 0] for k in ('rules', 'dur', 'pitch', 'ctl')}
     demo, gap = [], np.zeros(int(0.5 * data.SR), np.float32)
     for it in test:

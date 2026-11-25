@@ -34,6 +34,8 @@ export const BIRD_FIELD = {
   songbird: ['sparrow', 'robin'],
   hawk: ['hawk'],
   vulture: ['vulture'],
+  heron: ['heron'],
+  duck: ['duck', 'duck_b'],
 };
 // LUFS a call is levelled to (momentary max), the same as the FM call it stands beside
 const CALL_LUFS = -16;
@@ -195,6 +197,70 @@ export function shoreAudioFrame(map, R, wcx, wcy, eyeX, eyeY, wind = 0, now = pe
 }
 
 export { stopShore as shoreAudioStop };
+
+// ── the marsh: frogs ─────────────────────────────────────────────────────
+// One voice, like the shore: the frog chorus on the nearest marsh tile within MARSH_R, loud at night,
+// thinner at dusk and dawn, a few voices by day. Over it, now and then, one frog close by. Marsh is
+// its own biome (plugins/flight/biomes.js), so this is wherever an author painted reed.
+const MARSH_R = 6;
+const MARSH_ID = 'field:marsh';
+const MS = { at: 0, last: 0, band: null, best: null, next: 0, dog: null };
+const isMarsh = (c) => !!c && c.biome === 'marsh' && !c.bt;
+// The chorus's level (LUFS) by the hour: [night, dusk/dawn, day].
+const frogBand = (h) => (h >= 21 || h < 4 ? 'night' : (h >= 18 || h < 7) ? 'dusk' : 'day');
+const FROG_LUFS = { night: -21, dusk: -25, day: -33 };
+export function nearestMarsh(cell, ex, ey, r = MARSH_R) {
+  ex = Math.round(ex); ey = Math.round(ey);
+  let best = null;
+  for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+    const d2 = dx * dx + dy * dy;
+    if (d2 > r * r || (best && d2 >= best.d2)) continue;
+    if (isMarsh(cell(ex + dx, ey + dy))) best = { x: ex + dx, y: ey + dy, d2 };
+  }
+  return best;
+}
+function stopMarsh() {
+  try { AE()?.stopLoop?.(MARSH_ID); } catch { /* no audio */ }
+  MS.band = null; MS.best = null;
+  if (MS.dog) { clearInterval(MS.dog); MS.dog = null; }
+}
+// Once a frame from the GLASS paint, beside shoreAudioFrame. `hour` is the view's hour of day.
+export function marshAudioFrame(map, R, wcx, wcy, eyeX, eyeY, hour = 12, now = performance.now()) {
+  const ae = AE();
+  if (!ae?.loopSound || !map || !seatLive()) return;
+  MS.last = now;
+  if (!MS.dog) MS.dog = setInterval(() => { if (performance.now() - MS.last > STALE_MS) stopMarsh(); }, 500);
+  if (now - MS.at < SHORE_MS) return;
+  MS.at = now;
+  const cell = (x, y) => map[y - wcy + R]?.[x - wcx + R] || null;
+  const best = nearestMarsh(cell, eyeX, eyeY);
+  MS.best = best;
+  if (!best) { if (MS.band) stopMarsh(); return; }
+  const pos = seatSpot(best.x, best.y, 0);
+  if (!pos) return;
+  const band = frogBand(hour);
+  const at = { position: pos, ref: 1.2, rolloff: 1.2, maxDistance: MARSH_R * 3 };
+  if (band !== MS.band || !ae.isLooping?.(MARSH_ID)) {
+    try { ae.stopLoop?.(MARSH_ID); } catch { /* no audio */ }
+    const bed = fieldBed('frogs', FROG_LUFS[band]);
+    if (!bed) return;
+    try { ae.preloadSamples?.(fieldIds(['frogs', 'frog'])); } catch { /* no audio */ }
+    try { ae.loopSound({ id: MARSH_ID, category: 'ambient', priority: 1, config: { gain: 1, layers: [bed] } }, at); } catch { return; }
+    MS.band = band;
+  } else {
+    try { ae.moveLoop?.(MARSH_ID, pos); } catch { /* no audio */ }
+  }
+  // One frog close by, every 6-20 s at night, rarely by day.
+  if (now >= MS.next) {
+    const h = (_seed = (_seed * 1103515245 + 12345) >>> 0);
+    MS.next = now + (band === 'day' ? 30000 : 6000) + (h % 14000);
+    if (band === 'day' && h % 3) return;
+    const call = fieldCall('frog', h >> 4, band === 'night' ? -18 : -22, { rate: 0.9 + (h % 20) / 100 });
+    if (!call) return;
+    try { ae.playSfx({ category: 'ambient', priority: 2, config: { duration: call.length / call.rate, layers: [call] } }, 1, at); } catch { /* no audio */ }
+  }
+}
+export { stopMarsh as marshAudioStop };
 
 // For a console check.
 if (typeof window !== 'undefined') window.__fieldAudio = { shore: () => ({ ...SH, dog: !!SH.dog }), BIRD_FIELD, SHORE_FIELD };

@@ -2,7 +2,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#1b2733",
   "color": "#e8ddc6",
-  "description": "The fortieth floor: a short hall in walnut and stone, one door in it. 40-A is <b>north</b>, and it is the whole floor. The elevator is <b>in</b> behind you.",
+  "description": "The thirty-seventh floor: a short hall in walnut and stone, one door in it. 37-A is <b>north</b>, and it is the whole floor. The elevator is <b>in</b> behind you.",
   "exits": {
     "in": "zone_solenne_elevator",
     "north": "zone_solenne_apt_r"
@@ -31,7 +31,7 @@
           ]
         ],
         "plaques": {
-          "zone_solenne_apt_r": "40-A"
+          "zone_solenne_apt_r": "37-A"
         },
         "rug": false,
         "sconces": {
@@ -77,6 +77,6 @@
   "grid_z": 16,
   "id": "zone_solenne_hall_40r",
   "map_id": "map_int_solenne",
-  "name": "The Fortieth Floor",
+  "name": "The Thirty-Seventh Floor",
   "parent_zone": "zone_district_914_908"
 }

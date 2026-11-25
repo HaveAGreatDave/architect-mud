@@ -1,4 +1,5 @@
 import { prefersReducedMotion } from '/shared/settings.js';
+import { createAccoladeFx } from './gl/accolade-fx.js';
 /**
  * Accolades — unlock banner.
  *
@@ -14,49 +15,40 @@ import { prefersReducedMotion } from '/shared/settings.js';
  *     one that fades reads as finished.
  *   • Click anywhere to dismiss.
  *   • Hovering PAUSES the life bar (and the timer) so a card you are actually
- *     reading never gets pulled mid-sentence; leaving gives you 2.2s more. That
- *     grace is tuned to reading speed, not to the hold, so it stays useful if the
- *     hold is retuned again.
+ *     reading never gets pulled mid-sentence; leaving gives you 2.2s more.
  *   • Max 3 stacked — a fourth unlock retires the oldest early.
  *
- * ── PERFORMANCE: why sparks are a pre-rendered sprite ────────────────────────
- * The first version drew each spark with `ctx.shadowBlur = 15` and two stroke()
- * calls under it, onto a canvas sized to the whole viewport at DPR 2. Canvas
- * shadowBlur allocates a temporary surface and runs a gaussian PER DRAW CALL, so
- * three simultaneous cards (34 sparks each = 102 live) meant ~204 blur passes per
- * frame over a ~15-megapixel surface. That locked the game up.
- *
- * Now: one glint is rendered ONCE into a small offscreen canvas and every spark is
- * a drawImage blit — no per-frame blur anywhere. The canvas is also sized to the
- * stack's own corner rather than the viewport, DPR is capped at 1.5 (these are
- * decorative glints; nobody can tell), and a global cap bounds the worst case no
- * matter how many cards fire. Keep all four of those if you touch this.
+ * The card is frosted glass in CSS (styles.css, "Accolades"). The sparkles are
+ * 3-D points drawn on the GPU by gl/accolade-fx.js: glints struck on the pane,
+ * embers thrown off the rim toward you, and comets running round the edge. The
+ * sim is here and tiny; the renderer is one additive draw call. Keep the canvas
+ * sized to the stack's corner, DPR capped at 1.5, the global particle cap, and
+ * the loop stopping when nothing is alive: the first 2-D version, with a
+ * shadowBlur per spark on a viewport-sized canvas, locked the game up.
  */
 
 const MAX_CARDS = 3;
 const HOLD_MS = 5000;
 const GRACE_MS = 2200;      // after the pointer leaves a card you paused
 const FADE_MS = 520;        // must match the .accolade-card.leaving animation
-const ACCOLADE_SFX_GAIN = 0.7;
+const ACCOLADE_SFX_GAIN = 0.33;  // puts the cue near the old bells' level
 
-const BURST = 18;           // sparks on card entry
+const BURST = 18;           // glints on card entry
+const EMBERS = 34;          // embers thrown off the rim on entry
+const COMETS = 2;           // sparks that run round the rim
 const TRICKLE_MS = 300;     // the cue's shimmer partials are timed to this — see sfx-catalog
-const MAX_SPARKS = 70;      // global ceiling; oldest dropped first
-const FX_W = 420, FX_H = 560;   // canvas box, anchored over the stack's corner
-const SPRITE_R = 16;        // half-size of the pre-rendered glint, in px
+const MAX_SPARKS = 220;     // global ceiling; oldest dropped first
+const FX_W = 460, FX_H = 600;   // canvas box, anchored over the stack's corner
 
 let stackEl = null;
 let canvas = null;
-let ctx2d = null;
-let sprite = null;
-let spriteKey = '';         // accent the sprite was baked with; rebuilt on theme change
+let fx = null;
 let raf = null;
 let sparks = [];
-let accent = [255, 46, 196];
+let palette = [[1, 0.18, 0.77]];
 const live = [];
-// A function, not a const: read at module load this only ever saw the state the
-// page happened to boot in, so toggling Motion did nothing until a refresh.
 const reduceMotion = () => prefersReducedMotion();
+const dprNow = () => Math.min(window.devicePixelRatio || 1, 1.5);
 
 function ensureDom() {
   if (stackEl) return;
@@ -66,135 +58,161 @@ function ensureDom() {
   canvas.id = 'accolade-fx';
   document.body.appendChild(canvas);
   document.body.appendChild(stackEl);
-  ctx2d = canvas.getContext('2d');
   sizeCanvas();
+  try { fx = createAccoladeFx(canvas, MAX_SPARKS); } catch { fx = null; }
   window.addEventListener('resize', sizeCanvas);
 }
 
 function sizeCanvas() {
   if (!canvas) return;
-  const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+  const dpr = dprNow();
   canvas.width = Math.round(FX_W * dpr);
   canvas.height = Math.round(FX_H * dpr);
   canvas.style.width = FX_W + 'px';
   canvas.style.height = FX_H + 'px';
 }
 
-/** Resolve the live --accent so sparks follow whatever theme is active. */
-function readAccent() {
-  const raw = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
-  if (!raw) return;
+function parseColour(raw) {
+  if (!raw) return null;
   const probe = document.createElement('canvas').getContext('2d');
+  probe.fillStyle = '#000';
   probe.fillStyle = raw;
   const hex = probe.fillStyle;
+  let c = null;
   if (hex.charAt(0) === '#') {
-    if (hex.length === 4) {
-      accent = [parseInt(hex[1] + hex[1], 16), parseInt(hex[2] + hex[2], 16), parseInt(hex[3] + hex[3], 16)];
-    } else {
-      accent = [parseInt(hex.substr(1, 2), 16), parseInt(hex.substr(3, 2), 16), parseInt(hex.substr(5, 2), 16)];
-    }
+    c = hex.length === 4
+      ? [parseInt(hex[1] + hex[1], 16), parseInt(hex[2] + hex[2], 16), parseInt(hex[3] + hex[3], 16)]
+      : [parseInt(hex.substr(1, 2), 16), parseInt(hex.substr(3, 2), 16), parseInt(hex.substr(5, 2), 16)];
   } else {
     const m = hex.match(/\d+/g);
-    if (m) accent = [+m[0], +m[1], +m[2]];
+    if (m) c = [+m[0], +m[1], +m[2]];
   }
+  return c && c.map(v => v / 255);
 }
 
-/**
- * Bake one glint: a soft accent halo, an accent cross, a brighter white cross and
- * a white core — everything the old per-spark draw did, done once. Rebuilt only
- * when the theme accent actually changes.
- */
-function ensureSprite() {
-  const rgb = accent.join(',');
-  if (sprite && spriteKey === rgb) return;
-  spriteKey = rgb;
-  const s = document.createElement('canvas');
-  s.width = s.height = SPRITE_R * 2;
-  const g = s.getContext('2d');
-  g.translate(SPRITE_R, SPRITE_R);
-
-  const halo = g.createRadialGradient(0, 0, 0, 0, 0, SPRITE_R);
-  halo.addColorStop(0, `rgba(${rgb},0.80)`);
-  halo.addColorStop(0.32, `rgba(${rgb},0.22)`);
-  halo.addColorStop(1, `rgba(${rgb},0)`);
-  g.fillStyle = halo;
-  g.beginPath(); g.arc(0, 0, SPRITE_R, 0, 6.2832); g.fill();
-
-  g.lineCap = 'round';
-  g.strokeStyle = `rgba(${rgb},0.95)`;
-  g.lineWidth = 2.2;
-  g.beginPath();
-  g.moveTo(-SPRITE_R * 0.82, 0); g.lineTo(SPRITE_R * 0.82, 0);
-  g.moveTo(0, -SPRITE_R * 0.82); g.lineTo(0, SPRITE_R * 0.82);
-  g.stroke();
-
-  g.strokeStyle = 'rgba(255,255,255,0.95)';
-  g.lineWidth = 1.2;
-  g.beginPath();
-  g.moveTo(-SPRITE_R * 0.5, 0); g.lineTo(SPRITE_R * 0.5, 0);
-  g.moveTo(0, -SPRITE_R * 0.5); g.lineTo(0, SPRITE_R * 0.5);
-  g.stroke();
-
-  g.fillStyle = '#fff';
-  g.beginPath(); g.arc(0, 0, 1.9, 0, 6.2832); g.fill();
-  sprite = s;
+/** The live theme colours, so the sparks follow whatever theme is active. */
+function readPalette() {
+  const cs = getComputedStyle(document.documentElement);
+  const out = [];
+  for (const v of ['--accent', '--accent2', '--cyan']) {
+    const c = parseColour(cs.getPropertyValue(v).trim());
+    if (c && !out.some(o => o.join() === c.join())) out.push(c);
+  }
+  if (out.length) palette = out;
 }
 
-/**
- * A spark is struck where it sits: it flares, barely drifts, and dies. Alpha
- * HOLDS near full before falling off a cliff (min(1, life*1.6)) rather than
- * decaying from frame one — a linear fade reads as dust, not as a glint.
- */
-function addSpark(x, y, big) {
+function addSpark(p) {
   if (sparks.length >= MAX_SPARKS) sparks.shift();
-  sparks.push({
-    x, y,
-    vx: (Math.random() - 0.5) * 0.3,
-    vy: (Math.random() - 0.5) * 0.3 - 0.06,
-    r: (big ? 3.6 : 2.4) + Math.random() * (big ? 2.0 : 1.4),
-    life: 1,
-    decay: 0.01 + Math.random() * 0.016,
-    rot: Math.random() * 1.57,
-  });
+  p.life = 1;
+  // The accent carries most of the sparks; the other theme colours accent them.
+  p.col = p.col ?? palette[Math.random() < 0.6 ? 0 : (Math.random() * palette.length) | 0];
+  p.rot = p.rot ?? Math.random() * 1.57;
+  p.spin = p.spin ?? (Math.random() - 0.5) * 0.04;
+  p.tw = Math.random() * 6.28;
+  p.z = p.z ?? 0; p.vz = p.vz ?? 0;
+  sparks.push(p);
 }
 
-/** Card rect → canvas-local coords (the canvas is its own fixed corner box). */
-function strikeAcross(el, n) {
-  if (reduceMotion() || !el || !canvas) return;
+function localRect(el) {
   const c = canvas.getBoundingClientRect();
   const r = el.getBoundingClientRect();
+  return { x: r.left - c.left, y: r.top - c.top, w: r.width, h: r.height };
+}
+
+/** Glints: struck on the pane, they flare, barely drift, and die. */
+function glintsAcross(el, n) {
+  if (!el || !canvas) return;
+  const r = localRect(el);
   for (let i = 0; i < n; i++) {
-    addSpark(
-      (r.left - c.left) + Math.random() * r.width,
-      (r.top - c.top) + Math.random() * r.height,
-      Math.random() < 0.28
-    );
+    const big = Math.random() < 0.25;
+    addSpark({
+      kind: 'glint',
+      x: r.x + Math.random() * r.w, y: r.y + Math.random() * r.h, z: -Math.random() * 40,
+      vx: (Math.random() - 0.5) * 0.3, vy: (Math.random() - 0.5) * 0.3 - 0.06,
+      size: big ? 34 + Math.random() * 16 : 16 + Math.random() * 10,
+      decay: 0.01 + Math.random() * 0.016,
+    });
   }
 }
 
-function tick() {
-  const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
-  ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx2d.clearRect(0, 0, FX_W, FX_H);
+/** Embers: thrown off the rim, outward and toward you, slowing and falling. */
+function burstFrom(el, n) {
+  if (!el || !canvas) return;
+  const r = localRect(el);
+  const cx = r.x + r.w * 0.5, cy = r.y + r.h * 0.5;
+  for (let i = 0; i < n; i++) {
+    const t = Math.random();
+    const side = (Math.random() * 4) | 0;
+    const x = side === 0 ? r.x + t * r.w : side === 1 ? r.x + r.w : side === 2 ? r.x + t * r.w : r.x;
+    const y = side === 0 ? r.y : side === 1 ? r.y + t * r.h : side === 2 ? r.y + r.h : r.y + t * r.h;
+    const dx = x - cx, dy = y - cy, d = Math.hypot(dx, dy) || 1;
+    const sp = 1.4 + Math.random() * 3.0;
+    addSpark({
+      kind: 'ember', x, y, z: 0,
+      vx: dx / d * sp + (Math.random() - 0.5), vy: dy / d * sp * 0.7 - 1.4 * Math.random(),
+      vz: -(2 + Math.random() * 7),
+      size: 10 + Math.random() * 14,
+      decay: 0.014 + Math.random() * 0.018,
+      spin: (Math.random() - 0.5) * 0.2,
+    });
+  }
+}
+
+/** Comets ride the card's edge, re-reading its rect so they follow it. */
+function launchComets(rec, n) {
+  for (let i = 0; i < n; i++) {
+    addSpark({ kind: 'comet', rec, u: i / n, du: 0.008 + i * 0.0016, x: 0, y: 0, vx: 0, vy: 0, z: -6,
+      size: 40, decay: 0.0072, col: palette[i % palette.length], spin: 0.09 });
+  }
+}
+function perimeterPoint(r, u) {
+  const P = 2 * (r.w + r.h);
+  let s = (((u % 1) + 1) % 1) * P;
+  if (s < r.w) return [r.x + s, r.y];
+  s -= r.w; if (s < r.h) return [r.x + r.w, r.y + s];
+  s -= r.h; if (s < r.w) return [r.x + r.w - s, r.y + r.h];
+  s -= r.w; return [r.x, r.y + r.h - s];
+}
+
+const drawList = [];
+function tick(now) {
+  const trail = [];
+  drawList.length = 0;
   for (let i = sparks.length - 1; i >= 0; i--) {
     const p = sparks[i];
-    p.x += p.vx; p.y += p.vy; p.life -= p.decay;
-    if (p.life <= 0) { sparks.splice(i, 1); continue; }
-    const a = Math.min(1, p.life * 1.6);
-    const size = p.r * (0.65 + 0.35 * p.life) * 2.4;
-    ctx2d.globalAlpha = a;
-    ctx2d.save();
-    ctx2d.translate(p.x, p.y);
-    ctx2d.rotate(p.rot);
-    ctx2d.drawImage(sprite, -size / 2, -size / 2, size, size);
-    ctx2d.restore();
+    p.life -= p.decay;
+    if (p.life <= 0 || (p.kind === 'comet' && p.rec.gone)) { sparks.splice(i, 1); continue; }
+    let a, size;
+    if (p.kind === 'comet') {
+      p.u += p.du;
+      [p.x, p.y] = perimeterPoint(localRect(p.rec.el), p.u);
+      if (Math.random() < 0.7) trail.push(p);
+      a = Math.min(1, p.life * 2.5);
+      size = p.size;
+    } else if (p.kind === 'ember') {
+      p.vx *= 0.95; p.vy = p.vy * 0.95 + 0.07; p.vz *= 0.96;
+      p.x += p.vx; p.y += p.vy; p.z += p.vz;
+      a = Math.min(1, p.life * 1.5);
+      size = p.size * (0.35 + 0.65 * p.life);
+    } else {
+      p.x += p.vx; p.y += p.vy;
+      a = Math.min(1, p.life * 1.6);
+      size = p.size * (0.65 + 0.35 * p.life);
+    }
+    p.rot += p.spin;
+    drawList.push({ x: p.x, y: p.y, z: p.z, size, r: p.col[0], g: p.col[1], b: p.col[2], a, rot: p.rot, tw: p.tw });
   }
-  ctx2d.globalAlpha = 1;
+  for (const c of trail) {
+    addSpark({ kind: 'ember', x: c.x, y: c.y, z: c.z, col: c.col,
+      vx: (Math.random() - 0.5) * 0.7, vy: (Math.random() - 0.5) * 0.7, vz: -Math.random() * 1.5,
+      size: 7 + Math.random() * 7, decay: 0.035 + Math.random() * 0.03 });
+  }
+  fx.draw(drawList, FX_W, FX_H, dprNow(), now / 1000);
   // Stop the loop dead when there is nothing left to draw AND no card is alive —
   // an idle rAF on every client for a once-in-a-while banner is not free.
   raf = (sparks.length || live.length) ? requestAnimationFrame(tick) : null;
 }
-function ensureLoop() { if (!raf) raf = requestAnimationFrame(tick); }
+function ensureLoop() { if (fx && !raf) raf = requestAnimationFrame(tick); }
 
 function dismiss(rec) {
   if (rec.gone) return;
@@ -212,18 +230,18 @@ function dismiss(rec) {
 export function showAccoladeUnlock(msg) {
   if (!msg?.title) return;
   ensureDom();
-  readAccent();
-  ensureSprite();
+  readPalette();
 
   while (live.length >= MAX_CARDS) dismiss(live[0]);
 
   const el = document.createElement('div');
   el.className = 'accolade-card';
-  // Single source of truth for the hold: the life bar's CSS animation reads this,
-  // so retuning HOLD_MS can never leave the bar emptying at a different rate.
+  // Single source of truth for the hold: the life bar's CSS animation reads this.
   el.style.setProperty('--accolade-hold', `${HOLD_MS}ms`);
   el.innerHTML =
     '<div class="accolade-scan"></div>' +
+    '<div class="accolade-sweep"></div>' +
+    '<div class="accolade-rim"></div>' +
     '<div class="accolade-body">' +
       '<div class="accolade-kicker"><i>&#9679;</i><span>Accolade logged</span></div>' +
       '<div class="accolade-title"></div>' +
@@ -234,8 +252,7 @@ export function showAccoladeUnlock(msg) {
       '</div>' +
     '</div>' +
     '<div class="accolade-life"></div>';
-  // textContent, not innerHTML — entry copy is authored, but it is still content
-  // flowing into markup and there is no reason for it to be able to carry any.
+  // textContent, not innerHTML: entry copy is content flowing into markup.
   el.querySelector('.accolade-title').textContent = msg.title;
   el.querySelector('.accolade-line').textContent = msg.line || '';
   el.querySelector('.accolade-xp').textContent = `+${msg.xp ?? 1} XP`;
@@ -249,10 +266,10 @@ export function showAccoladeUnlock(msg) {
   el.addEventListener('mouseleave', () => { rec.timer = setTimeout(() => dismiss(rec), GRACE_MS); });
   rec.timer = setTimeout(() => dismiss(rec), HOLD_MS);
 
-  if (!reduceMotion()) {
+  if (!reduceMotion() && fx) {
     // The cue's shimmer partials fire at 300/600/900ms to land with these.
-    rec.trickle = setInterval(() => { if (!rec.gone) { strikeAcross(el, 2); ensureLoop(); } }, TRICKLE_MS);
-    requestAnimationFrame(() => { strikeAcross(el, BURST); ensureLoop(); });
+    rec.trickle = setInterval(() => { if (!rec.gone) { glintsAcross(el, 2); ensureLoop(); } }, TRICKLE_MS);
+    requestAnimationFrame(() => { glintsAcross(el, BURST); burstFrom(el, EMBERS); launchComets(rec, COMETS); ensureLoop(); });
   }
 
   const def = window.SFXCatalog?.get('accolade-unlock');

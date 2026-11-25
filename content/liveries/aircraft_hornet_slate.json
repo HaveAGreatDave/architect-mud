@@ -3,7 +3,7 @@
   "default": false,
   "exterior": {
     "base": "#54606c",
-    "finish": "gloss",
+    "finish": "metallic",
     "pattern": "factory",
     "trim": "#1a1c20",
     "variant": "slate"

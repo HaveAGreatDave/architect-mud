@@ -3,7 +3,7 @@
   "ambient_theme": "wasteland",
   "bg_color": "#1f3646",
   "color": "#4f83a8",
-  "description": "Shallow water along the shore, the bottom shelving slowly into deeper dark. There are old marks of rooting in the mud.",
+  "description": "Flat green water with a skin of pollen on it. Something big turns over below the surface and is gone.",
   "exits": {
     "east": "zone_district_897_935",
     "north": "zone_district_896_934",
@@ -21,6 +21,6 @@
   "grid_z": 0,
   "id": "zone_district_896_935",
   "map_id": "map_world",
-  "name": "The Meltwater Mouth",
+  "name": "Meltwater Pond",
   "parent_zone": null
 }

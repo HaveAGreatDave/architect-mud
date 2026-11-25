@@ -1360,6 +1360,15 @@ pack where `houndsAt` says, lying at a stop, gone at night, painted on GLASS 1);
 current); `plugins/column/regress.js` (the pack is deterministic, on the lane, in front of the plough,
 lying at every stop, never in the cage, never a contact).
 
+## The pond: heron, ducks and frogs (as built, 2026-11-24)
+
+The Meltwater's pond and its backwaters are painted `marsh`, which is its own biome now (`plugins/flight/biomes.js`), not `badlands`.
+
+- **Heron** (`heron` in `SPECIES`, `content/fauna_models/bird_heron.json`): one bird, marsh only, standing most of its cycle (`uGround` 0.9), with a low slow lap when it flies. `territory: 5` keeps it to one per stretch of bank.
+- **Mallards** (`duck`): parties of 3 to 9, rafting on `water` and in `marsh`. Water is shared with the goose and the gull by the tile hash, so some bay tiles hold ducks too.
+- **Frogs** aren't drawn: at their size they'd be under a pixel from any seat. They're a voice: `marshAudioFrame` in `field-audio.js` plays the chorus on the nearest marsh tile within 6 tiles, loudest at night, with the odd single frog close by.
+- **Recordings**, all CC0 from Freesound and checked by `build-field-recordings.mjs --fetch`: `heron`, `duck`, `duck_b`, `frogs` (a bed) and `frog`.
+
 ## Not built
 
 Ground fauna other than the hounds. Nesting, feeding, or anything that remembers a player. Birds reacting to

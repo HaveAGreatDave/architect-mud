@@ -172,6 +172,12 @@ function renderVoiceLabPanel(data) {
       <div style="font-size:11px;color:var(--text-dim);margin-top:8px">Last read: <span id="vl-dur">—</span></div>
     `, `A voice is hashed from the NAME, and that is exactly how the game does it — tv.js takes the speaker out of <code>Name says, "line"</code> and seeds on it. So a character picked here speaks in the voice a player actually hears.`)}
 
+    ${sect('Said as', `<div id="vl-norm" style="font-family:var(--font);font-size:11px;color:var(--text-bright)">—</div>`,
+      'The line after number, money, time, unit and abbreviation expansion: the words the voice reads.')}
+
+    ${sect('Segments', `<div id="vl-seg" style="font-family:var(--font);max-height:260px;overflow:auto;color:var(--text)">Speak a line to see its schedule.</div>`,
+      'Every phone as speak() scheduled it on the last read: when it starts, how long it lasts, and the accent and nucleus on each vowel.')}
+
     ${sect('Phonemes', `<div id="vl-phon" style="font-family:var(--font);font-size:11px;color:var(--text-bright);background:var(--bg3);border:1px solid var(--border);border-radius:3px;padding:8px;line-height:1.7;word-break:break-word">—</div>
       <div style="font-size:10px;color:var(--text-dim);margin-top:6px">
         <b style="color:var(--yellow)">*</b> lexical stress &nbsp; <i style="color:var(--red)">!</i> emphasis &nbsp;
@@ -370,7 +376,9 @@ function vlSpeak() {
   if (!engine) return;
   vlUnmute(engine);
   const backend = _vlBackend();
-  const res = engine.speak(_vlEl('vl-text').value, vlSpeakOpts({ backend }));
+  const trace = [];
+  const res = engine.speak(_vlEl('vl-text').value, vlSpeakOpts({ backend, trace }));
+  vlRenderTrace(trace);
   if (res?.duration) vlMeasure(res.backend || 'graph', res.delay, res.duration);
   _vlEl('vl-dur').textContent = res?.duration
     ? res.duration.toFixed(2) + ' s on the ' + (res.backend || 'graph') + (res.backend && backend !== res.backend ? ' (the worklet is still loading)' : '')
@@ -401,10 +409,30 @@ function vlPreset(i) {
   vlSpeak();
 }
 
+// Each segment as it was scheduled, Flite-style: phone, start, length, and the vowel's
+// stress (1 lexical, 2 emphasis) and nucleus kind. From speak()'s `trace` option.
+function vlRenderTrace(trace) {
+  const host = _vlEl('vl-seg');
+  if (!host) return;
+  if (!trace.length) { host.textContent = '(nothing scheduled)'; return; }
+  const rows = trace.filter(t => t.p !== 'END').map((t, i, a) => {
+    const next = a[i + 1]?.at ?? trace[trace.length - 1].at;
+    const ms = Math.round((next - t.at) * 1000);
+    const gap = /^_/.test(t.p);
+    return `<tr style="${gap ? 'color:var(--text-dim)' : ''}"><td>${t.p}</td><td>${(t.at * 1000).toFixed(0)}</td>`
+      + `<td><span style="display:inline-block;height:6px;width:${Math.min(160, ms / 2)}px;background:${t.acc === 2 ? 'var(--red)' : t.acc ? 'var(--yellow)' : 'var(--accent)'};opacity:.7"></span> ${ms}</td>`
+      + `<td>${t.acc === 2 ? 'emphasis' : t.acc ? 'stress' : ''}</td><td>${t.nuc || ''}</td></tr>`;
+  });
+  host.innerHTML = `<table style="border-collapse:collapse;font-size:10px;width:100%"><tr style="color:var(--text-dim);text-align:left">`
+    + `<th>phone</th><th>start ms</th><th>length ms</th><th>accent</th><th>nucleus</th></tr>${rows.join('')}</table>`;
+}
+
 function vlRender() {
   const f = window.AudioEngine?._phonemesFor;
   const host = _vlEl('vl-phon');
   if (!host) return;
+  const norm = _vlEl('vl-norm'), x = window.AudioEngine?._expandNumbers;
+  if (norm && x) norm.textContent = x(_vlEl('vl-text').value).replace(/\s+/g, ' ').trim();
   if (!f) { host.textContent = '(phoneme view needs AudioEngine._phonemesFor)'; return; }
   host.innerHTML = f(_vlEl('vl-text').value).map(p =>
     p === '*' ? '<b style="color:var(--yellow)">*</b>' :

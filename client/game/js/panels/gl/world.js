@@ -349,6 +349,19 @@ function sceneGL(id, w, h, msaa = 1, transfer = false) {
 const TEX_WIN_SEP = '|';
 // Marks the bare bake of a facade palette (no window grid), on the palette part of the key.
 const TEX_BARE = '~';
+// A face list's distinct surface keys. Face lists are shared per model and never mutated (tileMesh,
+// the Lite bake), so this is worked out once per list. Asking face by face was ~56,000 Set adds on
+// every recentre on Marrow, 3-54 ms of the frame (scripts/perf/movecost.mjs).
+const TEX_KEYS = new WeakMap();
+function texKeysOf(faces) {
+  let ks = TEX_KEYS.get(faces);
+  if (!ks) {
+    const set = new Set();
+    for (const f of faces) if (f.texKey) set.add(f.texKey);
+    TEX_KEYS.set(faces, ks = [...set]);
+  }
+  return ks;
+}
 function texVariant(key, win) {
   return (win == null || key.charCodeAt(0) === 114 /* 'r' — a roof */) ? key : key + TEX_WIN_SEP + win;
 }
@@ -844,6 +857,11 @@ export function glInteriorPass(id, cam, opts = {}) {
   return n ? { faces: n, canvas: g.canvas, blit: blitOf(g) } : null;
 }
 
+// glWorldPass's surface-bake budget, ms a frame (0, the default, bakes every surface in the frame it's needed).
+// Set by a view that's built where nobody's looking yet (freelook-view.js, the street warmed behind a room).
+let BAKE_BUDGET_MS = 0;
+export function glBakeBudget(ms) { BAKE_BUDGET_MS = ms > 0 ? ms : 0; }
+
 export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   const W = host.width, H = host.height;
   // ⚠ The canvas is device pixels and the camera CSS pixels; the projection needs camera units
@@ -931,7 +949,8 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   LITE_R = liteF ? (opts.liteR || 0) : 0; LITE_C = LITE_R ? (opts.liteC || 0) : 0;
   // ⚠ THE RING'S CENTRE IS PART OF THE KEY: a tile crossing it changes source, and its group's key says so (tileKeyOf)
   const liteSig = LITE_R ? LITE_R + '@' + LITE_C : '';
-  if (key !== g.key || epoch !== g.epoch || matOn !== g.matOn || surfOn !== g.surfOn || liteF !== !!g.lite || liteSig !== (g.liteSig || '')) {
+  if (key !== g.key || epoch !== g.epoch || matOn !== g.matOn || surfOn !== g.surfOn || liteF !== !!g.lite || liteSig !== (g.liteSig || '')) build: {
+    const was = { liteSig: g.liteSig, matOn: g.matOn, surfOn: g.surfOn, lite: g.lite, anchor: g.anchor };
     g.liteSig = liteSig;
     g.matOn = matOn; g.surfOn = surfOn;
     const liteFlip = liteF !== !!g.lite;
@@ -949,7 +968,7 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
       // ⚠ The mesh is shared per model but power isn't, so the variant rides the group, never `texKey`.
       const pwr = deps.glPowerForCell ? deps.glPowerForCell(it.c) : null;
       const win = pwr ? pwr.win : null;
-      for (const f of faces) if (f.texKey) need.add(texVariant(f.texKey, win));
+      for (const tk of texKeysOf(faces)) need.add(texVariant(tk, win));
       groups.push({ ox: keepM ? it.wx - ax : it.gx, oy: keepM ? it.wy - ay : it.gy, key: keepM ? tileKeyOf(it, true) : undefined,
         jit: it.jit || 0, faces, win, nb: pwr ? pwr.nb : null });
       nFaces += faces.length;
@@ -958,9 +977,11 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     const akey = [...need].sort().join('|') + '@' + epoch + (matOn ? '#m' : '') + (surfOn ? '#s' : '');
     const { wallTexMixed, roofTex, wallMatMixed, wallSurf, roofSurf } = deps;
     // One surface key's bake: its colour tile, material and surface pages.
+    const memo = g.bakeMemo && g.bakeMemo.ekey === epoch + (matOn ? '#m' : '') + (surfOn ? '#s' : '') ? g.bakeMemo.m : null;
     const bakeTiles = (keys) => {
       const tiles = [];
       for (const tk of keys) {
+        if (memo && memo.has(tk)) { const t = memo.get(tk); if (t) tiles.push(t); continue; }
         const roof = tk[0] === 'r';
         const bar = tk.indexOf(TEX_WIN_SEP);
         const pk = bar === -1 ? tk.slice(2) : tk.slice(2, bar);
@@ -985,6 +1006,22 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     // don't move, so the kept mass needn't be packed again. A surface no longer needed stays on the
     // page until a full rebuild. Anything else is the full rebuild, which moves every rect.
     const ekey = epoch + (matOn ? '#m' : '') + (surfOn ? '#s' : '');
+    // ⚠ THE SURFACES BAKED A FEW MS A FRAME, WHEN THE CALLER ASKS (glBakeBudget). A cold city bakes a hundred-odd
+    // surfaces for its atlas, 1.4 s in one frame for the street pre-built behind a room (freelook-view.js warm).
+    // With a budget, each frame bakes what fits into the scene's memo and leaves the build for a later frame, the
+    // old buffer still drawn (nothing, the first time, which is what a hidden warm view wants). The build that
+    // follows takes the memo, so it bakes nothing. The memo is dropped once the atlas is built.
+    if (BAKE_BUDGET_MS > 0 && akey !== g.atlasKey) {
+      if (!g.bakeMemo || g.bakeMemo.ekey !== ekey) g.bakeMemo = { ekey, m: new Map() };
+      const m = g.bakeMemo.m, t0 = performance.now();
+      let left = false;
+      for (const tk of need) {
+        if (m.has(tk) || (g.atlas && g.atlasEKey === ekey && g.atlas.rect.has(tk))) continue;
+        if (performance.now() - t0 > BAKE_BUDGET_MS) { left = true; break; }
+        m.set(tk, bakeTiles([tk])[0] || null);
+      }
+      if (left) { Object.assign(g, was); break build; }
+    }
     let grown = false;
     if (akey !== g.atlasKey && opts.atlasGrow !== 0 && keepM && !full && g.atlas && g.atlasEKey === ekey) {
       const fresh = [];
@@ -1022,6 +1059,7 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     const nbPack = duskGPU ? null : (opts.nb || 0);
     if (keepM) g.view.uploadKept(groups, rectOf, nbPack, full);
     else g.view.uploadGroups(groups, rectOf, nbPack);
+    g.bakeMemo = null;
     builds++;
     g.key = key;
     g.epoch = epoch;
@@ -1113,6 +1151,9 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     bevel: opts.glBevel || 0, bevelTilt: BEVEL_TILT,
     // Screen-space occlusion, default off like the bevel.
     ssao: opts.glSsao || 0, ssaoRes: opts.glSsaoRes, ssaoRadius: SSAO_TUNE.radius, ssaoBias: SSAO_TUNE.bias,
+    // The occlusion readback (gl/occ-readback.js, foot-occlusion.md): off unless asked; its answers are in the frame
+    // of this window's centre, `occWc`, in absolute tiles, and kept per view (`occId`)
+    gpuOcc: opts.gpuOcc || 0, occWc: [wcx, wcy], occId: id,
     // The cel look (glToon, glInk), default off. Ink width is CSS px, scaled by dpr.
     toon: opts.glToon || 0, toonBands: opts.glToonBands,
     ink: opts.glInk || 0, inkStep: Math.max(1, Math.round((opts.glInkPx > 0 ? opts.glInkPx : 1) * dpr)), inkFar: opts.glInkFar,
@@ -1329,7 +1370,7 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // Snow on scatter takes `snowBB` (ground depth with the billboard flag folded in), not `glSnow`,
   // so `RENDER_TUNE.glSnowBB = 0` turns off only this layer.
   const scatter = g.view.drawBillboards(cam, opts.scatter, cssH, opts.fogBand,
-    { depth: opts.snowBB > 0 ? opts.snowBB : 0, col: opts.snowCol }, lightList);
+    { depth: opts.snowBB > 0 ? opts.snowBB : 0, col: opts.snowCol }, lightList, opts.windBB);
 
   // ⚠ The cabin is last of the depth-buffered passes: it clears depth (drawInterior), and anything
   // drawn before it would otherwise paint over it. No fog. Skipped here when the seat draws it later

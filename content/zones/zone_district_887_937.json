@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "wasteland",
   "color": "#b5744a",
-  "description": "A broad plain hammered flat by weather. The rust color deepens in the low spots, and old tracks wander across it with no clear purpose.",
+  "description": "Brush grows here on what the river reaches when it floods. Past it the ground is bare rock.",
   "exits": {
     "east": "zone_district_888_937",
     "north": "zone_district_887_936",
@@ -13,13 +13,13 @@
     "district": "wilds",
     "radiation": 27,
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "scrub"
   },
   "grid_x": 887,
   "grid_y": 937,
   "grid_z": 0,
   "id": "zone_district_887_937",
   "map_id": "map_world",
-  "name": "Cinder Mesa",
+  "name": "Meltwater Scrub",
   "parent_zone": null
 }

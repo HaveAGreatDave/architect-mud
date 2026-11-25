@@ -3,7 +3,7 @@
   "default": false,
   "exterior": {
     "base": "#701222",
-    "finish": "gloss",
+    "finish": "candy",
     "pattern": "factory",
     "trim": "#ece2cc",
     "variant": "claret"

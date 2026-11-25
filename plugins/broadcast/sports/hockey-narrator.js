@@ -723,8 +723,12 @@ export function narrate(ctx) {
     call('pbp.zamboni.on', t, null, sb, { opt: true });
     // (after the 3rd the game's over unless it's tied, and the desk has the close to do). The booth
     // has the period first, on camera, and sends it to the desk.
-    if (per.section !== '3rd' || b.awayScore === b.homeScore) { ctx.desk?.('booth_break', b, sb); ctx.desk?.('break', b, sb); }
-    if (per.goals.length) {
+    // The booth's segment is the whole recap on camera: the score, every goal with its replay, the
+    // shots, the penalties, the fights and who got hurt, over the rink in a box. When it airs, the
+    // read-back below would say it all twice, so only the lines a segment can't stand in for stay.
+    let onCam = false;
+    if (per.section !== '3rd' || b.awayScore === b.homeScore) { onCam = !!ctx.desk?.('booth_break', b, sb); ctx.desk?.('break', b, sb); }
+    if (onCam) { /* the segment read the period back */ } else if (per.goals.length) {
       say(pick('intermission.summary'), stat, sb); said++;
       // One line per goal, in the order they went in — the scoring summary is a list,
       // and a pool line pretending to be a list would get the order wrong.
@@ -736,8 +740,8 @@ export function narrate(ctx) {
     } else {
       say(pick('intermission.scoreless'), stat, sb); said++;
     }
-    say(pick('intermission.stats'), stat, sb); said++;
-    colour(per.goals.length ? 'colour.intermission' : ['colour.intermission.scoreless', 'colour.intermission'], stat, null, sb);
+    if (!onCam) say(pick('intermission.stats'), stat, sb), said++;
+    if (!onCam) colour(per.goals.length ? 'colour.intermission' : ['colour.intermission.scoreless', 'colour.intermission'], stat, null, sb);
     call('pbp.zamboni.lap', t, null, sb, { opt: true });
     // a club's story while the ice is cleaned: the away club's in the first break, the home's in the second
     if (per.section !== '3rd') {
@@ -751,7 +755,7 @@ export function narrate(ctx) {
       const l = pick(i < 2 ? clubKey(i ? home.name : away.name) : 'chatter', 'chatter');
       if (l && !/{(team|goalie|shooter)}/.test(l)) { say(l, tok(b), sb); said++; }
     }
-    if (per.casualties.length) {
+    if (per.casualties.length && !onCam) {
       say(pick('intermission.casualties'), { ...stat, player: per.casualties[0], casualties: per.casualties.join(', '), count: per.casualties.length }, sb); said++;
     }
     say(pick('intermission.outro', 'chatter'), stat, sb); said++;

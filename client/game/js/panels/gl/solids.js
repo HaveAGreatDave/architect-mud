@@ -379,6 +379,18 @@ vec2 texAmount(int kind) {
 // nothing for rubber (-0.08) and satin (-0.1), most of the way at gloss (-0.22) and candy (-0.26), all
 // of it from metallic (-0.3) on. It drives the coat's grazing sheen and its own sun highlight.
 float coatGloss(float mtl) { return smoothstep(0.12, 0.3, -mtl); }
+// Hue, saturation, value and back (Sam Hocevar's branchless form), for the chameleon's travel round the wheel.
+vec3 rgb2hsv(vec3 c) {
+  vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+  vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+  vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+  float d = q.x - min(q.w, q.y);
+  return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + 1e-10)), d / (q.x + 1e-10), q.x);
+}
+vec3 hsv2rgb(vec3 c) {
+  vec3 p = abs(fract(c.xxx + vec3(1.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0);
+  return c.z * mix(vec3(1.0), clamp(p - 1.0, 0.0, 1.0), c.y);
+}
 // Returns a multiplier and an additive lift. ⚠ THE LIFT IS WHY A DARK SURFACE SHOWS ANYTHING: a
 // multiplier on a near-black panel moves it by a level or two, so part of the relief is added
 // rather than scaled — a textured black plastic is visibly textured in a real cockpit.
@@ -719,7 +731,11 @@ void main() {
   }
   if (vAlpha <= 0.002) discard;
   vec3 c = vColor;
+  // A packed flip colour (writeQuad's rgb2): the base is what's left under it.
+  vec3 flipC = vec3(-1.0);
+  if (c.r >= 1.99) { vec3 k = floor(c * 0.5); flipC = (k - 1.0) / 255.0; c -= 2.0 * k; }
   float alpha = vAlpha;
+  vec3 lpW = fwidth(vLocal);   // up here, in uniform flow: a show coat's flake fades with it
   // Set by the copper branch only: the bump it puts on the reflected normal, and how much of the
   // metal survives the verdigris (patina is matte).
   bool cu = vTex == 12 || vTex == -7;
@@ -955,7 +971,12 @@ void main() {
       c *= mix(1.0, ramp, uToon);
     }
   }
-  if (dot(vN, vN) > 0.01 && vMetal <= 0.0 && !mk) {
+  // ── THE COAT'S OWN LOOK (FINISH_CODE in client/shared/vehicle-materials.js) ─────────────────
+  // writeQuad sends a show coat as its strength minus 8 per code, so the strength decodes as before.
+  float metIn = vMetal;
+  int fin = 0;
+  if (metIn < -6.0) { fin = int(floor((-metIn + 4.0) / 8.0)); metIn += 8.0 * float(fin); }
+  if (dot(vN, vN) > 0.01 && metIn <= 0.0 && !mk) {
     vec3 na = normalize(vN);
     // The lock's faces (-1, marksGPU) are sent facing out of the hall, not toward the eye.
     if (vTex == -1 && dot(na, uEye - vPos) < 0.0) na = -na;
@@ -964,8 +985,106 @@ void main() {
     vec3 tint = mix(vec3(1.0), a / al, 0.45);
     c *= tint * (0.82 + 0.26 * clamp(na.z * 0.5 + 0.5, 0.0, 1.0));
   }
-  bool flatPlate = abs(vMetal) >= 1.5;          // FLAT_TAG in smooth(): a flat plate or pane, no glint
-  float mtl = flatPlate ? vMetal - sign(vMetal) * 2.0 : vMetal;
+  bool flatPlate = abs(metIn) >= 1.5;          // FLAT_TAG in smooth(): a flat plate or pane, no glint
+  float mtl = flatPlate ? metIn - sign(metIn) * 2.0 : metIn;
+  // A show coat's flake is read off the face's own frame, so it rides with the car.
+  vec3 finGlint = vec3(0.0);
+  if (fin > 0 && abs(mtl) > 0.001) {
+    vec3 n = normalize(vN);
+    vec3 d = normalize(vPos - uEye);
+    if (dot(n, d) > 0.0) n = -n;
+    float ndv = clamp(-dot(d, n), 0.0, 1.0), edge = 1.0 - ndv;
+    vec3 R0 = d + 2.0 * ndv * n;
+    vec3 base = c;
+    float mx = max(max(base.r, base.g), base.b);
+    vec3 hue = base / max(mx, 0.02);
+    if (fin == 6) {
+      // ── GLASS ── a tinted pane is mostly a mirror at the edge and dark glass face on (Schlick,
+      // F0 4%), with the world in it as sharp as the curve allows. A faint smear breaks the
+      // reflection up the way a real screen's film of dust and wiper arcs does, and the sun is a
+      // small hard spot in it, as it is in a windscreen, even on a flat pane.
+      float sm = vnoise(vLocal.xy * 3.1 + vLocal.z * 1.7) * 0.6 + vnoise(vLocal.yz * 11.0) * 0.4;
+      float F = 0.04 + 0.96 * pow(edge, 5.0);
+      vec3 env = envRich(R0, max(0.01, fwidth(R0.z) * 1.5));
+      vec3 deep = base * (0.55 + 0.25 * ndv) + vec3(0.004, 0.010, 0.014);
+      c = mix(deep, env, clamp(F * (0.85 + 0.3 * sm) + 0.06, 0.0, 0.92));
+      float sd = max(0.0, dot(R0, uSun));
+      finGlint = vec3(1.0, 0.97, 0.9) * uSunK * (pow(sd, 900.0) * 3.0 + pow(sd, 60.0) * 0.35 + pow(sd, 12.0) * 0.08 * sm);
+      mtl = 0.0;   // the pane is done: no second coat over it
+    } else {
+      // Flake: a cell grid in metres; each cell is a flake with its own tilt and only some catch.
+      float cell = fin == 2 ? 70.0 : fin == 1 ? 220.0 : 380.0;
+      vec3 q = vLocal * cell, id = floor(q);
+      float h1 = fract(sin(dot(id, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
+      float h2 = fract(h1 * 97.31 + 0.17), h3 = fract(h1 * 41.13 + 0.61), h4 = fract(h1 * 13.7 + 0.37);
+      float px = max(max(lpW.x, lpW.y), lpW.z) * cell;
+      float vis = clamp(2.2 - px, 0.3, 1.0);
+      float tilt = fin == 2 ? 0.85 : fin == 1 ? 0.55 : 0.4;
+      vec3 fn = normalize(n + (vec3(h1, h2, h3) - 0.5) * tilt);
+      vec3 fr = d - 2.0 * dot(d, fn) * fn;
+      float fs = max(0.0, dot(fr, uSun));
+      float share = fin == 2 ? 0.7 : fin == 1 ? 0.5 : 0.25;
+      float on = step(1.0 - share, h4);
+      // The sun in a flake, and the bright part of the sky in some of the others, so it sparkles at night too.
+      float spark = (pow(fs, fin == 2 ? 40.0 : 70.0) * uSunK * 2.4 + smoothstep(0.55, 1.0, dot(envAt(fr.z), vec3(0.3333))) * 0.35) * on * vis;
+      vec3 flakeCol = vec3(1.0);
+      if (fin == 1 || fin == 2) {
+        // Metallic flop: lighter and brighter where the flake faces you, darker toward the edge.
+        c *= mix(0.42, 1.32, pow(ndv, 1.6));
+        flakeCol = mix(vec3(1.0), hue, fin == 2 ? 0.45 : 0.25);
+        finGlint = flakeCol * spark * (fin == 2 ? 1.4 : 0.8);
+        c *= 1.0 + (h1 - 0.5) * (fin == 2 ? 0.22 : 0.1) * vis;
+      } else if (fin == 3) {
+        // ── PEARL ── a solid base under a clear coat full of mica, each flake coated with a film a
+        // fraction of a wavelength thick. The film reflects one colour (the pearl, picked in the
+        // booth; white pearl if none) and lets its complement through to the base. So the pearl
+        // colour shows round the highlight, where light glances off the flakes toward you, and in the
+        // bright sky the coat mirrors; away from it you see the base. A dark base swallows what passes
+        // through, so the pearl reads strong; a light base shows it faintly, with a hint of the
+        // complement off the highlight.
+        vec3 pc = flipC.r >= 0.0 ? flipC : vec3(0.93, 0.95, 1.0);
+        float lum = dot(base, vec3(0.299, 0.587, 0.114));
+        float k = mix(1.15, 0.45, clamp(lum * 1.4, 0.0, 1.0));
+        vec3 lit = c / max(base, vec3(0.02));
+        float hl = clamp(dot(normalize(uSun - d), n), 0.0, 1.0);
+        // Mica scatters round the mirror direction rather than in it: a broad lobe and a tight one.
+        float spec = (pow(hl, 8.0) * 0.8 + pow(hl, 40.0) * 0.6) * uSunK;
+        float sky = dot(envAt(R0.z), vec3(0.3333)) * (0.35 + 0.65 * edge);
+        float on = clamp(spec + sky * 0.5, 0.0, 1.4);
+        vec3 comp = vec3(1.0) - pc / max(max(max(pc.r, pc.g), pc.b), 0.02);
+        comp = mix(vec3(1.0), 0.75 + 0.5 * comp, lum * 0.5);
+        c = c * mix(comp, vec3(1.0), clamp(on, 0.0, 1.0)) * (1.0 - 0.3 * clamp(on, 0.0, 1.0));
+        c += pc * on * k * 0.55 * mix(lit, vec3(1.0), 0.5);
+        finGlint = pc * spark * 0.4;
+      } else if (fin == 4) {
+        // Candy: coloured lacquer over a silver ground. The light goes further through the colour
+        // at the edge, so it deepens there, and the silver under it glows the colour where lit.
+        float path = 1.0 / max(ndv, 0.18);
+        vec3 tint = clamp(hue, 0.0, 1.0);
+        c = base * pow(tint, vec3((path - 1.0) * 0.9)) * mix(0.6, 1.1, ndv);
+        float sd = max(0.0, dot(R0, uSun));
+        finGlint = tint * tint * uSunK * (pow(sd, 6.0) * 0.55 + pow(sd, 30.0) * 0.6) + tint * spark * 0.5;
+      } else if (fin == 5) {
+        // ── CHAMELEON ── colour-shift pigment: flakes built of several films, over a black ground, so
+        // the colour is the pigment's and turns with the angle the light meets the flake. The booth's
+        // two colours are the ends of its travel: base face on, the shift colour at the edge, the
+        // hue going round the short way between them and a little past at the very edge. With no
+        // shift colour it travels a third of the wheel on its own. What you see is light off the
+        // flakes, so it's bright where they catch the sun or the sky and near black away from it.
+        vec3 hb = rgb2hsv(clamp(hue, 0.0, 1.0));
+        vec3 hf = flipC.r >= 0.0 ? rgb2hsv(clamp(flipC / max(max(max(flipC.r, flipC.g), flipC.b), 0.02), 0.0, 1.0)) : vec3(fract(hb.x + 0.33), hb.y, 1.0);
+        float dh = hf.x - hb.x; dh -= floor(dh + 0.5);
+        float t = smoothstep(0.08, 0.92, edge) * 1.15;
+        vec3 pig = hsv2rgb(vec3(fract(hb.x + dh * t), max(mix(hb.y, hf.y, min(t, 1.0)), 0.55), 1.0));
+        float hl = clamp(dot(normalize(uSun - d), n), 0.0, 1.0);
+        float catchL = (pow(hl, 6.0) * 0.9 + pow(hl, 30.0) * 0.5) * uSunK + dot(envAt(R0.z), vec3(0.3333)) * 0.55;
+        vec3 lit = c / max(base, vec3(0.02));
+        c = pig * (0.08 * lit + clamp(catchL, 0.0, 1.3) * 0.75) * mix(mx, 1.0, 0.5);
+        finGlint = pig * spark * 0.7;
+      }
+    }
+    if (uVComic > 0.5) finGlint *= 0.0;
+  }
   if (abs(mtl) > 0.001) {
     vec3 n = normalize(vN);
     vec3 d = normalize(vPos - uEye);
@@ -1033,6 +1152,7 @@ void main() {
     if (uVComic > 0.5) glint = smoothstep(0.16, 0.2, glint);
     c = mix(c, gc, clamp(glint, 0.0, 0.95));
   }
+  c += finGlint;
   // ── THE CITY'S LIGHTS ON A SOLID ───────────────────────────────────────────
   // A face with a normal is a surface; one without is a light line or a lamp and keeps its colour.
   // Dimmed first so the lamps stand out of a darker plate, then each light weighed as the mass weighs
@@ -1184,6 +1304,78 @@ const SHADOW_SIZE = 1024;
 let VESSEL_CUT = null;
 export function setVesselCut(c) { VESSEL_CUT = c || null; }
 let SMOOTH_SEQ = 0;   // see smooth(): the pass stamp every solids layer draws from
+
+// ── SMOOTHED NORMALS FOR THE METALS ──────────────────────────────────────────
+// A metal face carries its own flat normal (`n`). A corner shared with a neighbouring metal face
+// that meets it at under 60° takes the average of the two, so a round part reflects as one curve;
+// a sharper corner keeps its edge. Keyed on the vertex position, which the faces of one mesh share.
+// At module level so a caller can smooth a set once and keep it (smoothMetalSet, windshield.js's kept marks).
+const FLAT_METAL = 0.55;   // share of its reflection a flat plate keeps; it reflects a BLURRED world (envSoft), never the sharp one (see smooth)
+const FLAT_TAG = 2.0;      // decoded in the fragment shader: vMetal >= 1.5 is a flat plate of strength vMetal - 2
+// ⚠ THE SAME GROUPING AS A STRING KEY, WITHOUT BUILDING ONE PER VERTEX. Corners are shared when
+// their positions quantise to the same 1/4096-tile cell — that rule is unchanged. What changed is
+// the lookup: the three cell numbers hash to an integer bucket and each bucket is checked for an
+// EXACT triple match, so two corners that collide in the hash are still kept apart. The string
+// version allocated three concatenations per vertex, twice, every frame, for every solid.
+const cellHash = (x, y, z) => (Math.imul(x, 73856093) ^ Math.imul(y, 19349663) ^ Math.imul(z, 83492791)) | 0;
+function smoothCell(at, v, create) {
+  const x = (v[0] * 4096) | 0, y = (v[1] * 4096) | 0, z = (v[2] * 4096) | 0, h = cellHash(x, y, z);
+  let b = at.get(h);
+  if (b) for (let i = 0; i < b.length; i++) { const e = b[i]; if (e.x === x && e.y === y && e.z === z) return e.l; }
+  if (!create) return null;
+  const e = { x, y, z, l: [] };
+  if (!b) at.set(h, (b = []));
+  b.push(e);
+  return e.l;
+}
+// Each metal record's vertex normals (`vn`) and its metal code (`m`, from `m0`), from the set it's smoothed among.
+// Returns the last record's `env`, which the layer takes as the frame's sky.
+function smoothNormals(metals) {
+  let env = null;
+  const at = new Map();
+  for (const q of metals) for (const v of (q.mp || q.p)) smoothCell(at, v, true).push(q.n);
+  for (const q of metals) {
+    if (q.m0 === undefined) q.m0 = q.m;
+    q.m = q.m0;
+    if (q.env) env = q.env;
+    // A face that brings its own vertex normals (`bent`, one per point) keeps them, and is curved
+    // by definition: a flat wall bowed in its normals alone, as the South Lock's end walls are,
+    // reflects in bands the way the barrel roof over it does.
+    if (q.bent) { q.vn = q.bent; continue; }
+    let curved = false;
+    q.vn = (q.mp || q.p).map((v) => {
+      let x = 0, y = 0, z = 0;
+      for (const m of smoothCell(at, v, false) || []) {
+        const d = m[0] * q.n[0] + m[1] * q.n[1] + m[2] * q.n[2];
+        if (d > 0.5) { x += m[0]; y += m[1]; z += m[2]; }
+        // Curved = any neighbour turning away by less than a right angle: a five-sided gun barrel
+        // (72° between facets) is a tube, not five plates, so it keeps its chrome.
+        if (d > 0.05 && d < 0.999) curved = true;
+      }
+      const l = Math.hypot(x, y, z) || 1;
+      return [x / l, y / l, z / l];
+    });
+    // ⚠ A FLAT METAL PLATE IS NOT A MIRROR. With no curved neighbour every pixel of the face
+    // reflects along nearly the same ray, so the whole plate takes ONE colour off `envAt` — and
+    // that function has a hard horizon line in it, so the plate flips from ground-dark to
+    // sky-bright all at once as the view turns. On the Drake that was the minigun's yoke cheeks
+    // and clamp caps turning into a bright square over the gun. A curved part keeps its full
+    // reflection, because there the band walks across it; a plate keeps a sheen.
+    // ⚠ AND THE SUN GLINT IS WORSE: `pow(dot(R, uSun), 90)` on one constant ray lights the WHOLE
+    // plate or none of it, so at one exact angle the plate flashed white. A flat plate is sent as
+    // FLAT_TAG + strength and the shader gives it the reflection without the glint floor.
+    // A flat pane of CLEAR COAT (glass, negative) is the same story at grazing angles: Fresnel takes
+    // the whole pane to one pale sky colour at once, which is the square that sat beside the gun.
+    if (!curved && q.m > 0) q.m = FLAT_TAG + q.m * FLAT_METAL;
+    else if (!curved && q.m < 0) q.m = -FLAT_TAG + q.m * FLAT_METAL;
+  }
+  return env;
+}
+// A set of metal records smoothed among themselves, once, for a caller that then keeps it as a retained group: a
+// retained group is written with the `vn` and `m` its records carry, and is never smoothed on the stream.
+// ⚠ Smoothed apart from whatever streams beside it, so where a kept part meets a streamed one the corner isn't shared.
+export function smoothMetalSet(metals) { smoothNormals(metals); }
+
 export function createSolidsLayer(gl, opt = {}) {
   const cabin = !!opt.cabin;
   const VS = cabin ? VERT_C : VERT, FS = cabin ? FRAG_C : FRAG, ST = cabin ? STRIDE + CAB : STRIDE;
@@ -1271,29 +1463,8 @@ export function createSolidsLayer(gl, opt = {}) {
   // world. Written into depth like a solid it would punch its own shape out of the floor and the
   // ground, which are drawn after this layer. `filmAt` is where that range starts, in vertices.
   let filmAt = 0;
-  // ── SMOOTHED NORMALS FOR THE METALS ──────────────────────────────────────────
-  // A metal face carries its own flat normal (`n`). A corner shared with a neighbouring metal face
-  // that meets it at under 60° takes the average of the two, so a round part reflects as one curve;
-  // a sharper corner keeps its edge. Keyed on the vertex position, which the faces of one mesh share.
+  // The metals' smoothing is smoothNormals, at module level. `env` is the frame's sky, off a metal record.
   let env = null;
-  const FLAT_METAL = 0.55;   // share of its reflection a flat plate keeps; it reflects a BLURRED world (envSoft), never the sharp one (see smooth)
-  const FLAT_TAG = 2.0;      // decoded in the fragment shader: vMetal >= 1.5 is a flat plate of strength vMetal - 2
-  // ⚠ THE SAME GROUPING AS A STRING KEY, WITHOUT BUILDING ONE PER VERTEX. Corners are shared when
-  // their positions quantise to the same 1/4096-tile cell — that rule is unchanged. What changed is
-  // the lookup: the three cell numbers hash to an integer bucket and each bucket is checked for an
-  // EXACT triple match, so two corners that collide in the hash are still kept apart. The string
-  // version allocated three concatenations per vertex, twice, every frame, for every solid.
-  const cellHash = (x, y, z) => (Math.imul(x, 73856093) ^ Math.imul(y, 19349663) ^ Math.imul(z, 83492791)) | 0;
-  function smoothCell(at, v, create) {
-    const x = (v[0] * 4096) | 0, y = (v[1] * 4096) | 0, z = (v[2] * 4096) | 0, h = cellHash(x, y, z);
-    let b = at.get(h);
-    if (b) for (let i = 0; i < b.length; i++) { const e = b[i]; if (e.x === x && e.y === y && e.z === z) return e.l; }
-    if (!create) return null;
-    const e = { x, y, z, l: [] };
-    if (!b) at.set(h, (b = []));
-    b.push(e);
-    return e.l;
-  }
   // ⚠ A RECORD CAN COME BACK NEXT FRAME (the own ship's do, see drawAircraftModel), so this must be
   // idempotent: the flat-plate tag is applied to the record's ORIGINAL metal value (`m0`), never to
   // a value it already tagged. Points are grouped in the record's own frame (`mp`) where it has one,
@@ -1314,43 +1485,8 @@ export function createSolidsLayer(gl, opt = {}) {
     for (let i = 0; i < metals.length; i++) metals[i]._smoothed = smoothPass;
     smoothedN = metals.length;
     if (same) { for (const q of metals) if (q.env) env = q.env; return; }
-    const at = new Map();
-    for (const q of metals) for (const v of (q.mp || q.p)) smoothCell(at, v, true).push(q.n);
-    for (const q of metals) {
-      if (q.m0 === undefined) q.m0 = q.m;
-      q.m = q.m0;
-      if (q.env) env = q.env;
-      // A face that brings its own vertex normals (`bent`, one per point) keeps them, and is curved
-      // by definition: a flat wall bowed in its normals alone, as the South Lock's end walls are,
-      // reflects in bands the way the barrel roof over it does.
-      if (q.bent) { q.vn = q.bent; continue; }
-      let curved = false;
-      q.vn = (q.mp || q.p).map((v) => {
-        let x = 0, y = 0, z = 0;
-        for (const m of smoothCell(at, v, false) || []) {
-          const d = m[0] * q.n[0] + m[1] * q.n[1] + m[2] * q.n[2];
-          if (d > 0.5) { x += m[0]; y += m[1]; z += m[2]; }
-          // Curved = any neighbour turning away by less than a right angle: a five-sided gun barrel
-          // (72° between facets) is a tube, not five plates, so it keeps its chrome.
-          if (d > 0.05 && d < 0.999) curved = true;
-        }
-        const l = Math.hypot(x, y, z) || 1;
-        return [x / l, y / l, z / l];
-      });
-      // ⚠ A FLAT METAL PLATE IS NOT A MIRROR. With no curved neighbour every pixel of the face
-      // reflects along nearly the same ray, so the whole plate takes ONE colour off `envAt` — and
-      // that function has a hard horizon line in it, so the plate flips from ground-dark to
-      // sky-bright all at once as the view turns. On the Drake that was the minigun's yoke cheeks
-      // and clamp caps turning into a bright square over the gun. A curved part keeps its full
-      // reflection, because there the band walks across it; a plate keeps a sheen.
-      // ⚠ AND THE SUN GLINT IS WORSE: `pow(dot(R, uSun), 90)` on one constant ray lights the WHOLE
-      // plate or none of it, so at one exact angle the plate flashed white. A flat plate is sent as
-      // FLAT_TAG + strength and the shader gives it the reflection without the glint floor.
-      // A flat pane of CLEAR COAT (glass, negative) is the same story at grazing angles: Fresnel takes
-      // the whole pane to one pale sky colour at once, which is the square that sat beside the gun.
-      if (!curved && q.m > 0) q.m = FLAT_TAG + q.m * FLAT_METAL;
-      else if (!curved && q.m < 0) q.m = -FLAT_TAG + q.m * FLAT_METAL;
-    }
+    const e = smoothNormals(metals);
+    if (e) env = e;
   }
   // ── ⚠ INCREMENTAL MODE: ONLY WHAT CHANGED GOES TO THE GPU ──────────────────────────────────
   // `upload(quads, model)` with a model matrix takes each face's LOCAL points (`q.mp`) and draws them
@@ -1402,8 +1538,13 @@ export function createSolidsLayer(gl, opt = {}) {
   // fetched from arrays the quad read once.
   function writeQuad(d, w, q, P, len) {
     const c = q.rgb, qa = q.a == null ? 1 : q.a;
-    const r = c ? c[0] / 255 : 0, g = c ? c[1] / 255 : 0, b = c ? c[2] / 255 : 0;
-    const mk = q.m || 0, tx = q.tex || 0;
+    let r = c ? c[0] / 255 : 0, g = c ? c[1] / 255 : 0, b = c ? c[2] / 255 : 0;
+    // A two-colour coat (pearl, chameleon) packs its flip colour over the base: 2 × (1 + flip byte)
+    // added to each channel, which the shader peels off (see flipC).
+    const f2 = q.rgb2;
+    if (f2) { r += 2 * (1 + (f2[0] | 0)); g += 2 * (1 + (f2[1] | 0)); b += 2 * (1 + (f2[2] | 0)); }
+    // A show coat (FINISH_CODE) rides on the coat's strength, 8 per code down: see the shader's metIn.
+    const mk = (q.m || 0) < 0 && q.fin ? q.m - 8 * q.fin : (q.m || 0), tx = q.tex || 0;
     const VN = q.vn, N0 = VN ? null : (q.amb ? q.n : null), LP = q.lp, C = cabin ? (q.cab || CAB_NONE) : null;
     const v0 = P[0], n0 = VN ? VN[0] : N0, l0 = LP ? LP[0] : null;
     for (let i = 1; i + 1 < len; i++) {
@@ -1525,7 +1666,9 @@ export function createSolidsLayer(gl, opt = {}) {
     menv = (quads && quads.menv) || null;
     count = quads && quads.length ? tris(quads, metals) : 0;
     filmAt = count;
-    env = null;
+    // the frame's sky for the metals: a streamed metal brings its own (smooth, below); a frame whose metals are all in
+    // retained groups (windshield.js markMetalKeep) has it handed over on the list
+    env = (quads && quads.metalEnv) || null;
     const incr = !!mdl;
     model = mdl;
     if (!count) { prevCount = -1; return kept; }

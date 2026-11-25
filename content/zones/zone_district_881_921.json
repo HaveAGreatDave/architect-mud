@@ -1,8 +1,9 @@
 {
   "ambient_events": [],
   "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "Terraces of ochre rock step away into the distance. Where the washes cut through, the grit comes at you sideways.",
+  "bg_color": "#1b3040",
+  "color": "#5f93b8",
+  "description": "The Meltwater runs wide and brown here, deep enough in the middle for a boat if you keep off the bars. Drift sticks out of the banks at the height the spring flood left it.",
   "exits": {
     "east": "zone_district_882_921",
     "north": "zone_district_881_920",
@@ -13,13 +14,13 @@
     "district": "wilds",
     "radiation": 31,
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "water"
   },
   "grid_x": 881,
   "grid_y": 921,
   "grid_z": 0,
   "id": "zone_district_881_921",
   "map_id": "map_world",
-  "name": "Cinder Mesa",
+  "name": "The Meltwater",
   "parent_zone": null
 }

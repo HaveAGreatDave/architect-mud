@@ -220,7 +220,9 @@ const KNOWN = new Map([
   // its barrel, keg and tank hoops stopped taking drawRing's DECO_PULL (wider than the drums), and
   // new geometry took 22: named:rationnine 9 (new model), named:solenneresidences 2 → 8 (the 2x2
   // Solenne), and the airport's type:control_tower, type:arrivals and type:departures +11 between them.
-  ['stroke', { budget: 664, why:
+  // 664 → 662 on 2026-11-25: the pier's tide line stopped taking drawRing's DECO_PULL (FACE_EPS now,
+  // it hugs its column), and the lowered landing stage's deck seams took 2 at the new grazing angle.
+  ['stroke', { budget: 662, why:
    'masts, fire stairs, catwalk rails and guy wires are authored INSIDE the host they hang off — a '
    + 'mast at its tile centre is 0.44 tiles behind its own front wall — so `emitWire` still spends '
    + 'the full DECO_LIFT and they are pulled clear on purpose. The Dynamo lost its entire external '

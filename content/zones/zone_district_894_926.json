@@ -1,8 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "The hardpan here is split into thousands of red tiles. Nothing grows in the cracks, and the wind keeps them swept.",
+  "ambient_theme": "forest",
+  "color": "#3f5c3a",
+  "description": "Willows grow in a tangle on the north shore. Somebody built a lean-to here once and the trees have mostly taken it back.",
   "exits": {
     "east": "zone_district_895_926",
     "north": "zone_district_894_925",
@@ -13,13 +13,13 @@
     "district": "wilds",
     "radiation": 30,
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "forest"
   },
   "grid_x": 894,
   "grid_y": 926,
   "grid_z": 0,
   "id": "zone_district_894_926",
   "map_id": "map_world",
-  "name": "Mesa Shelf",
+  "name": "The Willow Carr",
   "parent_zone": null
 }

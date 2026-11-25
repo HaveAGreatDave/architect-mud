@@ -941,23 +941,9 @@ export const DOWNTOWN_ARMS = {
           .map(([u, z]) => { const [wx, wy] = F(lxD + u, yP + 0.002); return cam.proj(wx, wy, z); });
         if (q.every((p) => p.f > 0.12)) emitSurfaceText(ctx, cam, q, tex, false, alpha, DETAIL_LIFT * 2, false, DETAIL_LIFT * 2.5);
       }
-      // ⚠ The doors are decals because they move: mesh is captured once.
-      const open = gu < 0.30 || gu >= 0.40 ? 0 : 0.9 * (gu < 0.32 ? ease((gu - 0.30) / 0.02) : gu < 0.38 ? 1 : 1 - ease((gu - 0.38) / 0.02));
-      if (open > 0.15) {   // whoever just came out of a vat, in the doorway
-        const q = [[-dw * 0.42, dTop * 0.88], [dw * 0.42, dTop * 0.88], [dw * 0.42, dz0], [-dw * 0.42, dz0]]
-          .map(([u, z]) => { const [wx, wy] = F(lxD + u, yD + 0.003); return cam.proj(wx, wy, z); });
-        if (q.every((p) => p.f > 0.12)) emitSurfaceText(ctx, cam, q, cloneBodyTex(2, night), false, alpha * clamp((open - 0.15) / 0.5, 0, 1), DETAIL_LIFT * 2, false, DETAIL_LIFT * 2.2);
-      }
-      // light blue glass (the Vat Hall's own street door is the same, flags.room.street_door.glass)
-      const leaf = night ? ['rgb(200,234,248)', 'rgb(150,204,228)'] : ['rgb(184,222,238)', 'rgb(132,186,212)'];
-      const yL = yD + 0.006;
-      for (const s of [-1, 1]) {
-        const a = lxD + s * dw * open, b = lxD + s * dw, u0 = Math.min(a, b), u1 = Math.max(a, b);
-        if (u1 - u0 < 0.002) continue;
-        emitDecoFill(ctx, cam, [W3(u0, yL, dTop), W3(u1, yL, dTop), W3(u1, yL, dz0), W3(u0, yL, dz0)], leaf[1], alpha, 0.012, 'clonedoor', false, leaf);
-        emitWire(ctx, cam, W3(a, yL + 0.002, dz0), W3(a, yL + 0.002, dTop), 1.4, 'rgba(150,164,170,0.95)', alpha, { pull: 0.02 });   // the meeting stile
-        emitWire(ctx, cam, W3(u0 + (u1 - u0) * 0.15, yL + 0.003, (dz0 + dTop) * 0.45), W3(u1 - (u1 - u0) * 0.15, yL + 0.003, (dz0 + dTop) * 0.45), 1.2, 'rgba(196,208,212,0.95)', alpha, { pull: 0.02 });   // the push bar
-      }
+      // ⚠ NO DOOR OF ITS OWN IN THE DOORWAY. The street door (zone_start's flags.room.street_door, glass/street-doors.js)
+      // is the door here, from the street and from inside; the sliding leaves this arm used to draw stood in the same
+      // plane as ROOM's doorway and flickered against it.
     }
     // A clerestory over the door.
     { const c0 = h * 0.41, c1 = h * 0.53, x0 = -fh * 0.90, x1 = -fh * 0.40, y = WF + 0.002;
@@ -1033,7 +1019,7 @@ export const DOWNTOWN_ARMS = {
   // are exempt from "rooms fit the model"; see multi-tile-buildings.md).
   solenne(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // Solenne Residences: a warm champagne-glass spire, under Halcyon Towers and the Spire but over the rest of the skyline (flags.floors 17 on its tile; the rooms keep their 45 storeys).
     const gold = '255,206,120', warm = '255,232,190';
-    const baseZ = h * 0.30, topZ = h * 3.05, N = 24;         // many thin glass plates
+    const baseZ = h * 0.30, topZ = h * 2.15, N = 24;   // was 3.05: the shaft cut by a third (2026-11-24), it read too tall and thin         // many thin glass plates
     const twist = 0.52, fwBase = fh * 0.86;                  // ~30° gentle turn (elegant, not a helix)
     const segZ = (i) => baseZ + (topZ - baseZ) * (i / N);
     // Three setback tiers: the footprint steps in at ~1/3 and ~2/3 height, tapering within each tier.
@@ -1069,7 +1055,10 @@ export const DOWNTOWN_ARMS = {
     // The doors, flat and flush with the jambs. ⚠ Not a box: a box wears its palette's window skin.
     { const yDr = entY + entD + 0.002;
       const L = (x, z, back = 0) => { const [wx, wy] = F(x, yDr - back); return [wx, wy, z]; };
-      const Pq = (x0, x1, z0, z1, fill, back) => emitFlat(ctx, cam, [L(x0, z1, back), L(x1, z1, back), L(x1, z0, back), L(x0, z0, back)], fill, alpha, { lift: DETAIL_LIFT });
+      const Pq = (x0, x1, z0, z1, fill, back, lift = DETAIL_LIFT) => emitFlat(ctx, cam, [L(x0, z1, back), L(x1, z1, back), L(x1, z0, back), L(x0, z0, back)], fill, alpha, { lift });
+      // ⚠ The frames ride in front of the lobby's portal (gl/interiors.js PORTAL_PULL, 0.03), which replaces the glass
+      // with the room behind it in one-world; at DETAIL_LIFT the portal painted over them and the front read as a bare hole.
+      const FRAME_LIFT = 0.036;
       // The lobby's glass front as the room draws it (room-mesh.js drawPane, kind 'curtain'): clear glass in seven
       // bays between thin black mullions, a black head and sill, the doors in the middle bay.
       // The lobby's glass front as the room draws it: clear glass between gold frames (the trim of the street door
@@ -1081,9 +1070,13 @@ export const DOWNTOWN_ARMS = {
       const mw = podW * 0.008, front = -0.0015;
       for (let i = -side; i <= side + 1; i++) { const x = (2 * i - 1) * dh;
         if (i === 0 || i === 1) continue;                                                       // the door's jambs are the street door's own
-        Pq(x - mw, x + mw, 0, g1, gold, front); }
-      Pq(-gx, gx, g1 - doorZ * 0.02, g1, gold, front);                                          // the head
-      Pq(-gx, gx, 0, doorZ * 0.03, gold, front); }                                               // the sill
+        Pq(x - mw, x + mw, 0, g1, gold, front, FRAME_LIFT); }
+      // each side bay split into panels: an upright down its middle and a transom across it, all gold
+      for (let i = 1; i <= side; i++) for (const sg of [-1, 1]) { const x0 = sg * (2 * i - 1) * dh, x1 = sg * (2 * i + 1) * dh, xm = (x0 + x1) / 2;
+        Pq(xm - mw * 0.7, xm + mw * 0.7, 0, g1, gold, front, FRAME_LIFT);
+        Pq(Math.min(x0, x1), Math.max(x0, x1), doorZ * 0.72, doorZ * 0.72 + doorZ * 0.018, gold, front, FRAME_LIFT); }
+      Pq(-gx, gx, g1 - doorZ * 0.02, g1, gold, front, FRAME_LIFT);                                          // the head
+      Pq(-gx, gx, 0, doorZ * 0.03, gold, front, FRAME_LIFT); }                                               // the sill
     // The canopy on two columns. `awning` places by the front edge, so the tile fit trims its back.
     awning(ctx, cam, dx, dy, E, podW * 0.62, podW * 1.02, headZ, headZ + h * 0.022, bronze, seed + 34, night, alpha, podW * 0.30);
     for (const s of [-1, 1]) { const [cx2, cy2] = F(s * podW * 0.56, podW * 0.92);

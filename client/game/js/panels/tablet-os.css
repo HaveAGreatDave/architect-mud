@@ -3713,3 +3713,14 @@ html[data-density="compact"] #tablet-os-overlay .tos-mf:disabled { opacity:.35; 
   #tablet-os-overlay .tos-sp-row > .tos-sp-chip { display:none; }
   #tablet-os-overlay .tos-sp-row.top { box-shadow:inset 3px 0 0 var(--sp-gold); }
 }
+
+/* Settings → Bibliography */
+#tablet-os-overlay .tos-bib { padding:4px 2px 12px; line-height:1.45; }
+#tablet-os-overlay .tos-bib-note { padding:16px; color:var(--tos-fg-dim); }
+#tablet-os-overlay .tos-bib-h2 { margin:18px 0 6px; font-size:0.75rem; letter-spacing:2px; text-transform:uppercase; color:var(--mg-accent); }
+#tablet-os-overlay .tos-bib-h3 { margin:14px 0 4px; font-size:0.6875rem; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim); }
+#tablet-os-overlay .tos-bib-p { margin:4px 0 8px; font-size:0.75rem; color:var(--tos-fg-dim); }
+#tablet-os-overlay .tos-bib-row { padding:6px 0; border-bottom:1px solid rgba(127,127,127,.18); font-size:0.75rem; }
+#tablet-os-overlay .tos-bib-work { font-weight:bold; }
+#tablet-os-overlay .tos-bib-what { color:var(--tos-fg-dim); }
+#tablet-os-overlay .tos-bib a { color:var(--mg-accent); }

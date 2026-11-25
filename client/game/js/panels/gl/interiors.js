@@ -18,7 +18,7 @@
 // you stand in until the one-world walk replaces it.
 import { viewProjMatrix, mat4f, projectThrough } from './camera.js';
 import { makeVertexStream } from './stream.js';
-import { layerProgram } from './programs.js';
+import { layerProgram, declareProgram } from './programs.js';
 import { linearOut, applyLinOut, LIN, linRgb } from './colour.js';
 import { multiply, invert } from './core/mat4.js';
 import { texture2D } from './core/texture.js';
@@ -27,6 +27,20 @@ import { HALO_VS, HALO_FS } from './beast-light.js';   // the soft shells round 
 
 const ATTRS = [[0, 3, 0], [1, 3, 12], [2, 2, 24], [3, 3, 32], [4, 1, 44]];
 const KEEP_FRAMES = 240;
+// Skip a room wholly out of view (draw). `__interiorCull = false` in the console, or `on` off, draws them all to compare.
+export const INTERIOR_CULL = { on: true };
+// True when a box [x0, y0, x1, y1, z0, z1] (the frame's tiles about the window's centre) is wholly outside one of the
+// view's six clip planes, so nothing of it can be on screen. `vp` is column-major, as screenBox reads it.
+export function boxOut(vp, b) {
+  let l = 0, r = 0, d = 0, u = 0, n = 0, f = 0;
+  for (let i = 0; i < 8; i++) {
+    const x = i & 1 ? b[2] : b[0], y = i & 2 ? b[3] : b[1], z = i & 4 ? b[5] : b[4];
+    const cx = vp[0] * x + vp[4] * y + vp[8] * z + vp[12], cy = vp[1] * x + vp[5] * y + vp[9] * z + vp[13];
+    const cz = vp[2] * x + vp[6] * y + vp[10] * z + vp[14], cw = vp[3] * x + vp[7] * y + vp[11] * z + vp[15];
+    if (cx < -cw) l++; if (cx > cw) r++; if (cy < -cw) d++; if (cy > cw) u++; if (cz < -cw) n++; if (cz > cw) f++;
+  }
+  return l === 8 || r === 8 || d === 8 || u === 8 || n === 8 || f === 8;
+}
 // materials that light themselves (gl/room.js): a light's own face, a lamp on the dimmer, a fire
 const EMISSIVE = [40, 42, 43];
 
@@ -239,6 +253,9 @@ export function meanColour(canvas) {
   } catch { return [0.6, 0.6, 0.6]; }
 }
 
+// Declared for GLASS's prewarm (programs.js), so a street with rooms drawn in it doesn't compile this cold at its first draw.
+declareProgram(VS, FS);
+
 export function createInteriorLayer(gl) {
   const prog = layerProgram(gl, VS, FS, 'interiors');
   const loc = {};
@@ -441,7 +458,15 @@ export function createInteriorLayer(gl) {
       if (PV) voidLayer.field(PV.vp, PV.eye, PV.now, PV.o);
       begin(vp, light, LIN_ON);
       let tris = 0;
-      for (const e of ready) if (!through || !through.has(e.r.tile)) tris += drawRoom(e, ox, oy, null, V && V.e === e ? V.light : glowLight(e.r, ox, oy));
+      // a room whose box is wholly out of the view isn't drawn: inside a building every room of it is kept whole
+      // (interiors-near.js HOME_NEAR), and the ones behind you or on other floors out of sight cost the full mesh
+      const cull = INTERIOR_CULL.on && globalThis.__interiorCull !== false;
+      let culled = 0;
+      for (const e of ready) {
+        if (through && through.has(e.r.tile)) continue;
+        if (cull && e.r.box && e !== vr && e !== fr && boxOut(vp, e.r.box)) { culled++; continue; }
+        tris += drawRoom(e, ox, oy, null, V && V.e === e ? V.light : glowLight(e.r, ox, oy));
+      }
       if (FV) tris += liveDraw(FV, light);
       for (const e of ready) if (e.r.haloLive && e.r.haloLive.batch && e.r.haloLive.batch.n && open(e)) tris += haloDraw(e, vp, ox, oy);
       if (V && FV !== V) tris += liveDraw(V, light);
@@ -450,7 +475,7 @@ export function createInteriorLayer(gl) {
       if (PV) { voidLayer.floor(PV.vp, PV.eye, PV.now, PV.o); voidLayer.points(PV.vp, PV.eye, PV.now); gl.useProgram(prog); gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); }
       gl.bindVertexArray(null);
       // `globalThis.__interiorStats = {}` in the console fills it each frame: what was drawn and how
-      if (globalThis.__interiorStats) Object.assign(globalThis.__interiorStats, { rooms: ready.length, portals: portals ? portals.length : 0,
+      if (globalThis.__interiorStats) Object.assign(globalThis.__interiorStats, { rooms: ready.length, culled, portals: portals ? portals.length : 0,
         behind: through ? ready.filter((e) => through.has(e.r.tile)).map((e) => e.r.key + (e.r.still ? ' (still)' : '')) : [], tris });
       return tris;
     },

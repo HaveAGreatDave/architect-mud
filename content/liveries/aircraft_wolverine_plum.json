@@ -3,7 +3,7 @@
   "default": false,
   "exterior": {
     "base": "#481854",
-    "finish": "gloss",
+    "finish": "chameleon",
     "pattern": "factory",
     "trim": "#ece8e0",
     "variant": "plum"

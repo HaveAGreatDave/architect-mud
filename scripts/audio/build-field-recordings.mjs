@@ -83,6 +83,12 @@ export const SOURCES = [
   { key: 'robin',        user: 'Andrew.soundscape', id: 671058, title: 'robin song', kind: 'calls', n: 8, max: 3.2, gap: 0.3 },
   { key: 'hawk',         user: 'craigsmith', id: 479610, title: 'R30-34-Red Tailed Hawk.wav', kind: 'calls', n: 5, max: 2.6 },
   { key: 'vulture',      user: 'AntumDeluge', id: 188041, title: 'Vulture', kind: 'calls', n: 2, max: 1.2 },
+  // the Meltwater's pond (docs/systems-fauna.md): the heron, the mallards and the frogs
+  { key: 'heron',        user: 'Aenimamusica', id: 834209, title: 'Heron', kind: 'calls', n: 3, max: 1.6 },
+  { key: 'duck',         user: 'WavJunction.com', id: 456770, title: 'Mallard Duck Quack Flying Away.wav', kind: 'calls', n: 8, max: 1.4, gap: 0.12 },
+  { key: 'duck_b',       user: 'gibarroule', id: 365133, title: 'Duck Quack', kind: 'calls', n: 6, max: 1.4, gap: 0.12 },
+  { key: 'frogs',        user: 'Danjocross', id: 387868, title: 'Frogs Toads April 10 2017.wav', kind: 'bed', len: 22, rms: -25 },
+  { key: 'frog',         user: 'Sandermotions', id: 278868, title: 'Nature sounds frog 1.WAV', kind: 'calls', n: 5, max: 1.5 },
   // cats (docs/proposals/pets.md): what a pet cat says and does, played by client/game/js/panels/room-cat-sound.js
   // meows: hello, asking, hungry, cross, and the yowl
   // a clone hall's vats: bubbles rising through growth medium, and the tank's steady bubbling under them

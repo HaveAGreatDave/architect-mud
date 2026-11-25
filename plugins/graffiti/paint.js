@@ -22,7 +22,7 @@
  * the same trick the chat rainbow uses in client/game/js/markup.js.
  */
 
-import { TAG_FACES } from '../../client/shared/tag-strokes.js';
+import { TAG_FACES, TAG_FINISHES } from '../../client/shared/tag-strokes.js';
 
 export const F_BOLD = 1;
 export const F_ITALIC = 2;
@@ -47,6 +47,12 @@ export function safeColor(raw) {
  * It only ever selects from the renderer's own list, so the worst a payload can do is name a face
  * that isn't one, and that is simply no choice at all.
  */
+/** A special finish off the list, or null. Whether the player may USE it is index.js's to ask. */
+export function safeFinish(raw) {
+  const f = String(raw ?? '').trim().toLowerCase();
+  return TAG_FINISHES.includes(f) ? f : null;
+}
+
 export function safeFace(raw) {
   const f = String(raw ?? '').trim().toLowerCase();
   return TAG_FACES.includes(f) ? f : null;
@@ -148,7 +154,7 @@ export function decodePayload(b64) {
     const text = String(obj.t ?? '').replace(/[\x00-\x1f\x7f]/g, ' ').trim();
     if (!text) return null;
     const name = String(obj.n ?? '').replace(/[\x00-\x1f\x7f]/g, '').trim().slice(0, 24);
-    return { text, runs: Array.isArray(obj.r) ? obj.r : [], name, face: safeFace(obj.f), spot: safeSpot(obj.s) };
+    return { text, runs: Array.isArray(obj.r) ? obj.r : [], name, face: safeFace(obj.f), spot: safeSpot(obj.s), finish: safeFinish(obj.x) };
   } catch { return null; }
 }
 

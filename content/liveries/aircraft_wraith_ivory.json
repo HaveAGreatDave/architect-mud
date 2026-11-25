@@ -3,7 +3,7 @@
   "default": false,
   "exterior": {
     "base": "#e8e0cc",
-    "finish": "gloss",
+    "finish": "pearl",
     "pattern": "factory",
     "trim": "#163e2c",
     "variant": "ivory"

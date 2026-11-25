@@ -487,6 +487,15 @@ export function createSSAOLayer(gl, posLoc) {
     // `massDraw` is context.js's view cull (glMassCull); without it, the whole buffer.
     if (opts.massDraw) opts.massDraw(); else gl.drawArrays(gl.TRIANGLES, 0, count);
     gl.bindVertexArray(null);
+    // The mass's depth alone, for the occlusion readback (gl/occ-readback.js), before anything that moves goes in.
+    // It binds its own target, so this pass's is put back.
+    if (opts.onMassDepth) {
+      try { opts.onMassDepth(depthTex, DW, DH); } catch { /* no answer this frame is a full answer */ }
+      gl.bindFramebuffer(gl.FRAMEBUFFER, depthFbo);
+      gl.viewport(0, 0, DW, DH);
+      gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.depthMask(true);
+      gl.useProgram(depthProg);
+    }
     // Anything else that should take the lines (the Pitch's tents, gl/cloth.js) draws its depth here,
     // with this matrix, so it outlines against the city. It may change state; the blend goes back off.
     if (opts.extraDepth) { try { opts.extraDepth(viewProj); } catch { /* a layer that can't draw just takes no lines */ } gl.disable(gl.BLEND); }

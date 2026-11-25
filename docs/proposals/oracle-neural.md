@@ -1,6 +1,6 @@
 # ORACLE with a neural controller
 
-Status: phase 0 built (the differentiable twin and its parity check, in `tools/voice-fit/ddsp/`); phase 1 trained offline: the formant cut smeared words and is shelved, and the per-vowel pitch controller (`syllable.py`) is the one being judged by ear; not yet in the engine; phases 2 to 4 are design.
+Status: phase 0 built (the differentiable twin and its parity check, in `tools/voice-fit/ddsp/`); phase 1 trained offline: the formant cut smeared words and is shelved, the per-vowel pitch controller (`syllable.py`) is in the engine as `pitchNet`, and learned durations and loudness failed the cross-validated gate (`cv.py`); phases 2 to 4 are design.
 
 ORACLE stays the instrument. A small network learns to play it: it reads what the rules already produce for a line and corrects the tracks before they reach the worklet. It's trained by comparing ORACLE's own sound against the speaker's recording, through a differentiable copy of the worklet (the DDSP approach: Engel et al. 2020). Nothing neural runs per sample, the game downloads a few hundred KB of weights, and a voice with no weights speaks exactly as it does now.
 
@@ -51,6 +51,28 @@ Seven lines is too few to choose a checkpoint on and also report; Part 6 (phase 
 
 The gate needs more held-out words than seven lines give before it can tell 2 words from chance.
 
+**Cross-validated (2026-11-23, `cv.py`).** Every one of the 65 lines held out once (5 folds, 586 words), each candidate played through the worklet and transcribed by Whisper. Whisper base.en loops on a few synthetic lines, so each line's errors are capped at its word count. The rules score 60.8% over all 65, far worse than the 7-line 38.7%: the earlier test set was easy lines. Differences against the rules, with a 90% bootstrap interval over lines:
+
+| candidate | WER | errors vs rules |
+|---|---|---|
+| rules | 60.8% | |
+| comma pause cut to 90 ms | 59.7% | -6 (-14..+1) |
+| per-phone duration table | 64.8% | +24 (-9..+58) |
+| per-vowel pitch (`syllable.py`) | 57.2% | -21 (-50..+8) |
+| pitch and per-vowel loudness | 58.4% | -14 (-42..+14) |
+| comma and pitch | 57.5% | -19 (-49..+11) |
+| comma, table and pitch | 62.8% | +12 (-18..+42) |
+
+What it shows:
+
+- **The pitch controller holds up** on all 65 lines, the first test big enough to say it doesn't cost words; it probably helps a little.
+- **Durations hurt even when the noise is taken out.** The table is the median ratio per (phone, accented) pair over hundreds of tokens, shrunk and capped at 25%, so DTW boundary noise can't be the cause. It mostly shortens unstressed vowels and function words (David's `AX` is 34 ms to the rules' 44, `DH` 30 to 47), and at David's pace a formant voice loses words that a human voice keeps. A synthetic voice needs to speak slower than the person it copies, so durations stay with the rules.
+- **The commas were the clearest timing fault.** The fitted voice's `pause: 2.94` makes a comma about 300 ms; David's are 50 to 130 ms (median 80) and silent at only 4 of 11, where he lengthens the word before instead. Cutting them to 90 ms costs no words. It's a rule change (the `_C` pause, or `pause` in the voice), not a network.
+- **Loudness per syllable adds nothing** over pitch alone, so it stays out.
+- Pitch-accent timing inside the syllable wasn't tried: one pitch value per vowel is already at the resolution the targets support, and a peak's place inside a 60 ms vowel is below what the tracker and 10 ms alignment can measure on this data.
+
+David approved it by ear, so the fitted voice now carries `"_C": 0.3` in its `durs` (a comma comes out at about 86 ms) and the `fitted-smoke` snapshot was updated for the two comma lines. The A/B for listening is `oracle-prosody-ab.wav` on the Desktop: for each of 8 lines, David, then the rules, then comma and pitch.
+
 ## Phase 2: the engine
 
 - `speak()` gains a pass between building the tracks and posting them: if the voice carries `nn` (a weights file, `data/voice/<name>.nn.json`), the controller runs over the line in plain JavaScript, a few milliseconds a line, no library.
@@ -59,7 +81,7 @@ The gate needs more held-out words than seven lines give before it can tell 2 wo
 
 ## Phase 3: more recording
 
-A teacher TTS model could supply the hours of aligned speech the controller lacks; the plan, with each candidate's licence, is [oracle-teacher.md](oracle-teacher.md).
+The hours the controller lacks can come from other people first: pre-train on the VCTK corpus (110 speakers, CC BY 4.0), then fine-tune on David. The plan, with a TTS teacher as a later step for the game's register, is [oracle-teacher.md](oracle-teacher.md).
 
 There are about 10 minutes of David now. A Part 6 of 150 to 200 plain sentences (about 15 minutes, read as Part 3 was) would cover the phone pairs the script misses. Hold out a tenth of the lines to check against.
 

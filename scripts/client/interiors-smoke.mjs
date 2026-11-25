@@ -484,7 +484,8 @@ check('one world is off until it\'s turned on', /export const ONE_WORLD = \{ on:
   const fv = read('client/game/js/panels/freelook-view.js'), so = read('client/game/js/panels/gl/solids.js'), rs = read('plugins/roomstage/index.js');
   const has = (src, ...xs) => xs.every((x) => src.includes(x));
   check('the view puts them on her hull every frame before the walk reads them, and carries you with the floor',
-    has(fv, 'freeCam.step(dt);\n      owVesselTick(st, now);', 's.freeCam.carry(now2[0] - was[0], now2[1] - was[1])', 'seaRideAt(gx - s.gx + sub.x, gy - s.gy + sub.y, heading, now)'));
+    // footSteps measures your own walk across freeCam.step (fs1), so that read sits between the step and the tick
+    has(fv, 'freeCam.step(dt);\n      const fs1 = fs0 ? footAt(st) : null;\n      owVesselTick(st, now);','s.freeCam.carry(now2[0] - was[0], now2[1] - was[1])', 'seaRideAt(gx - s.gx + sub.x, gy - s.gy + sub.y, heading, now)'));
   check('her storey is cut out of her hull while you stand in it, and never left on after the view goes',
     has(so, 'uniform vec4 uVCutA;') && has(fv, 'setVesselCut(cut);', 'if (!st) return;\n  setVesselCut(null);', 'if (!r || r.vessel) return null;'));
   check('the server sends a vessel\'s rooms with her frame, from her tile as it is now',

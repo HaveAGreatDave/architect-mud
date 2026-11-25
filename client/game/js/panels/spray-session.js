@@ -24,11 +24,11 @@
 // 3-D one (spray-can-3d.js) with the item's own label on it; it sits in the ring while you shake it
 // and goes under the pointer after.
 //
-// SOUND all the way through, tuned to spray-done's G: a puff each quarter of a stroke (spray-trace,
-// brighter as it fills), a ping as it lands (spray-step, the next note of TUNE: the tune is
-// spelled out a stroke at a time, as Jet Set Radio does it), a chord root as a section goes on
-// (spray-section, I V vi IV), the whistle when it's shaken (spray-ready), and the tune played whole
-// with drums, bass and chords when it's done (spray-done, in G major). `cue` moves them; the catalog keeps them in G.
+// SOUND all the way through, tuned to spray-done's E: a puff each quarter of a stroke (spray-trace,
+// brighter as it fills), a stab as it lands (spray-step, a step further up the E major scale each
+// time, so the piece builds), a band hit as a section goes on (spray-section, on the note the climb
+// has got to), the whistle when it's shaken (spray-ready), and the release when it's done (spray-done, a hard funk riff on the E blues scale). `cue` moves them;
+// the catalog keeps them on E.
 //
 // The host is the 3-D view that's up (spray-aim.js): its `preview(canvas)` puts the paint on the
 // real wall as it goes (ROOM does; the street shows it here, in the close-up), and `label` names
@@ -58,19 +58,14 @@ const SHAKE_PX = 22;         // how far a drag goes before it's a stroke of the 
 const SHAKE_REST_MS = 700;   // stop for longer than this and the ring starts running down…
 const SHAKE_DECAY = 1.2;     // …at this many shakes a second
 
-// The tune, in semitones over the catalog's G4. Every stroke that lands plays the next note, so a
-// piece spells it out as it goes up, and spray-done plays it back with the band. G major: the call
-// (A), the answer up to F# and left hanging (B), the call again, then the turn home (D), which
-// spray-done finishes on the high G.
-const TUNE = [
-  7, 4, 7, 9, 7, 4, 2, 4,      // A  D B D E | D B A B
-  2, 4, 7, 4, 9, 7, 11, 7,     // B  A B D B | E D F# D
-  7, 4, 7, 9, 7, 4, 2, 4,      // A
-  0, 2, 4, 7, 9, 7, 4, 2,      // D  G A B D | E D B A
-];
-// A section lands on the next chord of I V vi IV (G D Em C): its root in semitones over the G.
-const CHORDS = [0, -5, -3, -7];
-// The shake climbs the G major arpeggio.
+// THE CLIMB, in semitones over the catalog's E (spray-step is a stab on E1 and E3). Every stroke that
+// lands plays the next step up the E major scale, E F# G# A B C# D# and on up the octaves, never
+// coming back down, and a little louder as the piece gets on: the whole session is a build. Each
+// section hits on the note the climb has got to. The finale (spray-done) is the release: a funky
+// riff on the E blues scale, the stabs' E with its flat notes bent in.
+const MAJOR = [0, 2, 4, 5, 7, 9, 11];
+const climb = (n) => 12 * Math.floor(n / 7) + MAJOR[n % 7];
+// The shake climbs the E major arpeggio.
 const ARP = [0, 4, 7, 12, 16];
 
 let live = null;
@@ -123,17 +118,18 @@ function rng(seed) {
  * (spray-aim.js); `can` is the dialog's (`can.label` dresses the 3-D can); `onDone` sends the tag,
  * `onCancel` is told when the lid goes back on.
  */
-export function runSpraySession({ text, runs = null, face = null, host = null, can = null, onDone, onCancel }) {
+export function runSpraySession({ text, runs = null, face = null, finish = null, host = null, can = null, onDone, onCancel }) {
   endSpraySession();
   ensureStyles();
   // as the host's wall will have it if it says (ROOM rolls the letterform off the room, as the server's variant
   // does); else as the can's preview has it
   let piece = null;
-  try { piece = host?.bake?.(text, runs, face) || null; } catch { piece = null; }
-  piece ||= bakeTagText(text, runs, '#b8f03a', 0, 0, 0, 'throw', face || 'bubble', false);
+  try { piece = host?.bake?.(text, runs, face, finish) || null; } catch { piece = null; }
+  piece ||= bakeTagText(text, runs, '#b8f03a', 0, 0, 0, 'throw', face || 'bubble', false, finish);
   if (!piece) { onDone?.(); return; }
   const N = sectionsFor(text);
   const patterns = Array.from({ length: N }, (_, i) => patternFor(i, N));
+  const strokes = patterns.reduce((a, p) => a + p.length, 0);
   const ink = inkOf(runs), glow = uiInk(ink);
 
   const root = document.createElement('div');
@@ -255,6 +251,7 @@ export function runSpraySession({ text, runs = null, face = null, host = null, c
   // ── the strokes ──
   function miss() {
     S.misses++; S.step = 0; S.spin = null; S.prog = 0; S.q = 0; S.missAt = performance.now();
+    flair('sputter');
     for (const c of S.cells) c.doneAt = 0;     // the paint drains back off the strokes
     sfx('spray-sputter');
     say(['It spits. Again.', 'Wrong way. From the top.', 'Drips. Go again.', 'The nozzle coughs.'][S.misses % 4], 'bad');
@@ -265,11 +262,13 @@ export function runSpraySession({ text, runs = null, face = null, host = null, c
     const at = S.step;
     const c = S.cells[at];
     if (c) { c.doneAt = performance.now(); c.pop = 1; }
+    const w = patterns[S.sec][at];
+    if (w === 'CW' || w === 'CCW') flair('spin', { by: w === 'CW' ? 1 : -1 }); else flair('flick', { v: VEC[w] });
     S.step++; S.spin = null; S.lastOk = performance.now(); S.prog = 0; S.q = 0;
     cellBurst(at, 16);
-    const semis = TUNE[S.note++ % TUNE.length];
-    if (S.step >= patterns[S.sec].length) { cue('spray-step', { semis, gain: 0.7 }); fillSection(); return; }
-    cue('spray-step', { semis });
+    const semis = climb(S.note++), build = 0.7 + 0.3 * Math.min(1, S.note / strokes);
+    if (S.step >= patterns[S.sec].length) { cue('spray-step', { semis, gain: 0.75 * build }); fillSection(); return; }
+    cue('spray-step', { semis, gain: build });
     steps();
   }
 
@@ -303,8 +302,9 @@ export function runSpraySession({ text, runs = null, face = null, host = null, c
   function fillSection() {
     const x0 = bounds[S.sec], x1 = bounds[S.sec + 1];
     S.filling = { x0, x1, t0: performance.now() };
+    flair('sweep');
     sfx('spray-fill');
-    cue('spray-section', { semis: CHORDS[S.sec % CHORDS.length] });
+    cue('spray-section', { semis: climb(Math.max(0, S.note - 1)), gain: 0.7 + 0.15 * Math.min(1, S.note / strokes) });
     steps();
     say('');
   }
@@ -334,6 +334,7 @@ export function runSpraySession({ text, runs = null, face = null, host = null, c
 
   function done() {
     S.done = true; S.doneAt = performance.now();
+    flair('flourish');
     compose(); pips(); steps();
     sfx('spray-done');
     say(S.misses === 0 ? 'Clean. Not a drip on it.' : S.misses <= 2 ? 'A bit of drip. It reads.' : "It'll do. Nobody's grading.", 'good');
@@ -395,6 +396,7 @@ export function runSpraySession({ text, runs = null, face = null, host = null, c
     root.classList.remove('shaking');
     root.classList.add('spraying');
     if (view.ok) { canC.classList.add('cursor'); root.appendChild(canC); }
+    flair('twirl');
     cue('spray-ready');
     burst(rr.left + rr.width / 2, rr.top + rr.height / 2, 40);
     say(N > 1 ? `That'll do. ${N} sections. Go.` : "That'll do. Go.", 'go');
@@ -510,7 +512,7 @@ export function runSpraySession({ text, runs = null, face = null, host = null, c
     gg.setTransform(dpr, 0, 0, dpr, 0, 0);
     gg.clearRect(0, 0, w, h);
     if (S.phase !== 'spray' || !S.cells.length) return;
-    const big = Math.min(h * 0.94, 124), small = big * 0.58, gap = small * 0.22;
+    const big = Math.min(h * 0.94, 180), small = big * 0.58, gap = small * 0.22;
     const ease = 1 - Math.exp(-dt * 16);
     const target = (i) => (S.filling || S.done ? small * 1.05 : i === S.step ? big : small);
     for (const [i, c] of S.cells.entries()) c.s = c.s ? c.s + (target(i) - c.s) * ease : target(i);
@@ -666,6 +668,52 @@ export function runSpraySession({ text, runs = null, face = null, host = null, c
   const sway = new SecondOrder(3, 0.5, 0, 0);
   const still = !!globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
   let nozzle = [0, 0];
+  // THE MOVES: the can in the hand plays each beat of the session the way a writer in Jet Set Radio
+  // does, with the arm. A move is a short shape over time added to how the can is held: it snaps the
+  // way a stroke went and twists back, twirls on a spin, sweeps back and forth while a section goes
+  // on, spins up when it's shaken enough, sputters on a miss, and on the finish is thrown up turning
+  // and caught. One move at a time; a new one takes over. Off under reduced motion.
+  let move = null;
+  function flair(kind, opts = {}) { if (!still) move = { kind, t0: performance.now(), ...opts }; }
+  const LEN = { flick: 300, spin: 460, sweep: FILL_MS, twirl: 620, sputter: 360, flourish: 1100 };
+  const backOut = (k) => 1 + 2.7 * (k - 1) ** 3 + 1.7 * (k - 1) ** 2;
+  function moveNow(now) {
+    const o = { dx: 0, dy: 0, yaw: 0, roll: 0, pitch: 0, scale: 1 };
+    if (!move) return o;
+    const k = (now - move.t0) / LEN[move.kind];
+    if (k >= 1) { move = null; return o; }
+    const bell = Math.sin(Math.PI * k), fade = 1 - k;
+    switch (move.kind) {
+      case 'flick': {          // out the way the stroke went, and back with a twist
+        const [vx, vy] = move.v || [0, 0];
+        o.dx = vx * 70 * bell * fade; o.dy = vy * 70 * bell * fade;
+        o.roll = (vx || 0.6) * 0.75 * Math.sin(Math.PI * 2 * k) * fade;
+        o.pitch = vy * 0.35 * bell; o.scale = 1 + 0.14 * bell;
+        break;
+      }
+      case 'spin':             // round once the way the spin went
+        o.yaw = (move.by || 1) * Math.PI * 2 * backOut(k); o.roll = 0.3 * bell; o.scale = 1 + 0.1 * bell;
+        break;
+      case 'sweep':            // the arm across the section and back, twice
+        o.dx = 150 * Math.sin(Math.PI * 2 * k) * (0.6 + 0.4 * fade); o.dy = -22 * bell;
+        o.roll = 0.7 * Math.cos(Math.PI * 2 * k); o.pitch = -0.2 * bell; o.scale = 1 + 0.12 * bell;
+        break;
+      case 'twirl':            // shaken enough: up, round twice, back into the hand
+        o.dy = -90 * bell; o.yaw = Math.PI * 4 * backOut(k); o.roll = 0.4 * Math.sin(Math.PI * 3 * k) * fade; o.scale = 1 + 0.2 * bell;
+        break;
+      case 'sputter':          // a cough down the arm
+        o.dx = 14 * Math.sin(now / 16) * fade; o.dy = 6 * Math.sin(now / 11) * fade; o.roll = 0.25 * Math.sin(now / 20) * fade; o.pitch = 0.3 * bell;
+        break;
+      case 'flourish': {       // thrown up turning, held at the top, caught
+        const up = k < 0.75 ? Math.sin((Math.PI / 2) * (k / 0.75)) : 1 - ((k - 0.75) / 0.25) ** 2;
+        o.dy = -200 * up; o.dx = 30 * bell;
+        o.yaw = Math.PI * 6 * backOut(Math.min(1, k * 1.15)); o.roll = 0.5 * Math.sin(Math.PI * 2 * k) * fade; o.pitch = -0.35 * up;
+        o.scale = 1 + 0.45 * up;
+        break;
+      }
+    }
+    return o;
+  }
   function drawCan(now, dt) {
     if (!view.ok) return;
     if (S.phase === 'shake') {
@@ -677,8 +725,10 @@ export function runSpraySession({ text, runs = null, face = null, host = null, c
     }
     S.kx *= 0.85; S.ky *= 0.85;
     const r = sway.update(dt, Math.max(-0.4, Math.min(0.4, S.kx / 90)));
-    nozzle = view.render({ yaw: 2.55, roll: 0.5 - r, pitch: -0.3 }) || nozzle;
-    canC.style.transform = `translate(${S.cx + S.kx - nozzle[0]}px, ${S.cy + S.ky - nozzle[1]}px)`;
+    const m = moveNow(now);
+    nozzle = view.render({ yaw: 2.55 + m.yaw, roll: 0.5 - r + m.roll, pitch: -0.3 + m.pitch }) || nozzle;
+    canC.style.transformOrigin = `${nozzle[0]}px ${nozzle[1]}px`;
+    canC.style.transform = `translate(${S.cx + S.kx + m.dx - nozzle[0]}px, ${S.cy + S.ky + m.dy - nozzle[1]}px) scale(${m.scale})`;
   }
 
   function burst(x, y, n) {

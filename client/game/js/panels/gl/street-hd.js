@@ -83,12 +83,19 @@ export function createStreetHD(gl) {
     streetHdStats.frames = frame;
     chosen = [];
     // phones too (at half resolution, createFigureLayer's `half`): nobody near you is the crowd's body
-    if (!STREET_HD.on) { held.clear(); streetHdStats.cand = 0; return 0; }
+    // YOU (r.self: the Pack and the view from behind, windshield.js drawSelfFigure) are ALWAYS the close-up figure,
+    // whatever your size, the far LOD or STREET_HD.on: the crowd's copy of you is hidden even while your figure builds.
+    if (!STREET_HD.on) {
+      held.clear(); streetHdStats.cand = 0;
+      for (const r of actorRecs) if (r.self && r.o && r.o.hd && r.o.hd.id) { r.close = 1; if (lookReady(r.o.hd)) { layer(); chosen.push(r); } }
+      return chosen.length;
+    }
     const cand = [];
     let top = 0;
     for (const r of actorRecs) {
       const id = r.o && r.o.hd && r.o.hd.id;
       if (r.px > top) top = r.px;
+      if (id && r.self) { r.close = 1; cand.push(r); continue; }
       if (!id || r.lod || !(r.px > 0)) continue;
       // somebody knocked flying: limb by limb here whatever their size (street-ragdoll.js), first in the queue;
       // with no bones to bring (the whole-body tumble), the crowd's body draws them
@@ -100,7 +107,7 @@ export function createStreetHD(gl) {
     streetHdStats.cand = cand.length;
     streetHdStats.people = actorRecs.length;
     streetHdStats.tallest = Math.round(top);
-    cand.sort((a, b) => (b.limb ? 1e9 : b.px) - (a.limb ? 1e9 : a.px));
+    cand.sort((a, b) => (b.self ? 2e9 : b.limb ? 1e9 : b.px) - (a.self ? 2e9 : a.limb ? 1e9 : a.px));
     held.clear();
     // only somebody whose figure is built: anybody else is asked for (figure-ahead.js) and stays in the crowd meanwhile
     if (cand.length) layer();
@@ -174,7 +181,7 @@ export function createStreetHD(gl) {
     });
     recs = figurePeople(FRAME, bodies, now / 1000, { level: 'hd', eye: env.eye });
     // you, under your own eyes, from the neck down (freelook-view.js fpSelf, figure-hd.js uNoHead)
-    for (let i = 0; i < recs.length; i++) { const nh = chosen[i].o.hd.noHead; if (nh && recs[i]) recs[i].noHead = nh; if (chosen[i].o.hd.outline && recs[i]) recs[i].outline = true; }
+    for (let i = 0; i < recs.length; i++) { const nh = chosen[i].o.hd.noHead; if (nh && recs[i]) recs[i].noHead = nh; if (chosen[i].o.hd.outline && recs[i]) { recs[i].outline = true; recs[i].outlineForm = chosen[i].o.hd.outlineForm ?? 1; } }
     streetHdStats.poseMs = performance.now() - t0;
     return recs;
   }

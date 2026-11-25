@@ -16,12 +16,15 @@ import { SEA_GLSL } from './sea-glsl.js';
 import { layerProgram } from './programs.js';
 import { linearOut, applyLinOut } from './colour.js';
 import { SURF_DEPTH_Q, SEA_K } from '../../../../shared/sea-swell.js';
+import { BREAK_GLSL, BREAK_LAMBDA_T, BREAK_SIGMA } from '../../../../shared/sea-breakers.js';
 
 const LIP_R = 18 / SEA_K;          // how far from the eye the lip is drawn, in tiles
 const STEP = 0.3 / SEA_K;          // grid spacing, in tiles
 const NV = 7;                      // rows round the curl
 const K_PH = 0.24557 * SEA_K;      // the long swell's phase change per world tile along its wavevector
-const LIP_PH = -0.2;               // where the lip sits on the swell, in seaSurfPhase's radians
+const LIP_PH = -0.2;
+const BREAK_FAR = 16;              // tiles; the breakers' upload radius, where their curl fades out               // where the lip sits on the swell, in seaSurfPhase's radians
+const FINE_R = 6 / SEA_K;          // water.js's PATCH_FINE_R: where the mesh stops sliding a breaker's crest forward
 
 const VERT = `#version 300 es
 precision highp float;
@@ -115,6 +118,78 @@ void main() {
   gl_Position = uViewProj * vec4(xy, z, 1.0);
 }`;
 
+// ── THE OPEN SEA'S BREAKERS (client/shared/sea-breakers.js) ─────────────────────────────────────
+//
+// Out at sea there's no swell phase to search for: the breakers arrive as a list, so each one is an
+// instance, a ribbon along its crest NA pieces long and NV rows round the curl. It roots on the crest
+// where water.js put it, lift and forward slide included (seaBreakers, the same function), and its
+// life is the breaker's: it rises as the face steepens, throws forward and over as the lip goes, then
+// falls into the white water it leaves. A plunger throws a full barrel; a spiller only tips forward.
+// The ends taper so a ribbon never ends in a cut.
+const NA = 16;
+const VERT_B = `#version 300 es
+precision highp float;
+layout(location = 0) in vec2 aSV;     // s along the crest (-0.5..0.5), v round the curl (0..1)
+uniform mat4  uViewProj;
+uniform float uT, uRoll, uWind, uSpread, uR, uFineR, uFar;
+uniform vec2  uSeaRot;
+uniform vec3  uEye;
+uniform sampler2D uLut0;
+uniform int   uMh;
+out float vV;
+out float vK;
+out vec2  vW;
+out vec3  vN;
+
+${SEA_GLSL}
+${BREAK_GLSL}
+
+float waterAt(vec2 p) {
+  vec2 f = vec2(uR) + p;
+  ivec2 i = ivec2(floor(f));
+  vec2 fr = f - floor(f);
+  ivec2 m = ivec2(uMh - 1);
+  float a = texelFetch(uLut0, clamp(i, ivec2(0), m), 0).a, b = texelFetch(uLut0, clamp(i + ivec2(1, 0), ivec2(0), m), 0).a;
+  float c = texelFetch(uLut0, clamp(i + ivec2(0, 1), ivec2(0), m), 0).a, d = texelFetch(uLut0, clamp(i + ivec2(1), ivec2(0), m), 0).a;
+  return mix(mix(a, b, fr.x), mix(c, d, fr.x), fr.y);
+}
+
+void main() {
+  vec4 P = uBrkP[gl_InstanceID], S = uBrkS[gl_InstanceID];
+  vec2 d = P.zw, al = vec2(-d.y, d.x);
+  float ph = S.z, pl = S.w;
+  float grow = smoothstep(0.22, 0.5, ph);
+  float fall = smoothstep(0.55, 0.85, ph);
+  float vis = grow * (1.0 - smoothstep(0.72, 0.92, ph));
+  float ends = 1.0 - smoothstep(0.55, 1.0, abs(aSV.x) * 2.0);
+  vec2 c = P.xy + al * (aSV.x * 2.0 * S.x * 0.9) + d * ${(0.25 * BREAK_SIGMA * BREAK_LAMBDA_T).toFixed(4)};
+  float deep = clamp((waterAt(c) - 0.5) * 2.0, 0.0, 1.0);
+  float dist = length(c - uEye.xy);
+  float k = vis * ends * smoothstep(0.5, 1.0, deep) * (1.0 - smoothstep(uFar * 0.7, uFar, dist));
+  if (k < 0.02) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); vV = 0.0; vK = 0.0; vW = c; vN = vec3(0.0, 0.0, 1.0); return; }
+  // The water under the crest, as water.js displaces it: roll, wind sea and the breakers themselves.
+  vec2 cr = seaFrame(c, uSeaRot);
+  float h = seaRoll(cr, uT, uRoll, uSpread) + seaWind(cr, uT, seaPh(cr, uT), uWind, uSpread);
+  vec2 sl = vec2(0.0), g = vec2(0.0), jd = d; float J = 1.0;
+  seaBreakers(c, 1.0, h, sl, g, J, jd);
+  sl *= 1.0 - smoothstep(uFineR * 0.8, uFineR * 1.05, dist);
+  vec2 root = c + sl;
+  // The curl's radius is the crest's own height, true size: at the surf lip's 2.4x it hung over the
+  // crest like a glass hood. A spiller only tips its top over.
+  float R = S.y * mix(0.5, 1.0, pl) * (0.45 + 0.55 * grow) * (0.4 + 0.6 * ends);
+  float ang = aSV.y * 3.14159265 * mix(0.45, 1.15, pl) * (0.35 + 0.65 * grow) + aSV.y * fall * 0.7;
+  vec2 xy = root + d * (R * sin(ang)) + al * (aSV.x * 0.02);
+  // Rooted on the crest the mesh drew (h has the breaker's own lift in it), not above it.
+  float z = h - S.y * 0.04 + 0.15 * R * sin(aSV.y * 3.14159265) - R * (1.0 - cos(ang));
+  z -= fall * R * 0.8 * aSV.y;
+  // vV past the root goes white sooner out here: open-sea lips are thin and torn from the start.
+  vV = min(1.0, aSV.y * 1.35 + 0.1);
+  vK = k;
+  vW = xy;
+  vN = normalize(vec3(d * sin(ang), cos(ang)));
+  gl_Position = uViewProj * vec4(xy, z, 1.0);
+}`;
+
 const FRAG = linearOut(`#version 300 es
 precision highp float;
 in float vV;
@@ -150,6 +225,59 @@ export function createSeaLip(gl) {
     'uR', 'uStep', 'uSeaRot', 'uLut0', 'uLut1', 'uDepthT', 'uMh', 'uBody', 'uHor', 'uSunDir3', 'uEye', 'uNm', 'uHz',
     'uHazeMax', 'uDepth'];
   const loc = Object.fromEntries(names.map((n) => [n, U(n)]));
+  const progB = layerProgram(gl, VERT_B, FRAG, 'sea-lip-breakers');
+  const locB = Object.fromEntries(['uViewProj', 'uT', 'uRoll', 'uWind', 'uSpread', 'uR', 'uFineR', 'uFar', 'uSeaRot', 'uEye', 'uLut0', 'uMh',
+    'uNBrk', 'uBrkP', 'uBrkS', 'uBody', 'uHor', 'uSunDir3', 'uNm', 'uHz', 'uHazeMax', 'uDepth'].map((n) => [n, gl.getUniformLocation(progB, n)]));
+  // The breaker ribbon: NA columns along the crest, NV rows round the curl.
+  const svB = [];
+  for (let a = 0; a < NA; a++) for (let j = 0; j < NV - 1; j++) {
+    const s0 = a / NA - 0.5, s1 = (a + 1) / NA - 0.5, v0 = j / (NV - 1), v1 = (j + 1) / (NV - 1);
+    svB.push(s0, v0, s1, v0, s1, v1, s0, v0, s1, v1, s0, v1);
+  }
+  const pieceB = svB.length / 2;
+  const vaoB = gl.createVertexArray();
+  gl.bindVertexArray(vaoB);
+  const bb = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, bb);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(svB), gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(0);
+  gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 8, 0);
+  gl.bindVertexArray(null);
+
+  // The open sea's breakers, in the blend and depth state draw() sets up.
+  function drawBreakers(vp, s, mh) {
+    const bk = s.breakers;
+    if (!bk || !bk.n) return 0;
+    gl.useProgram(progB); applyLinOut(gl, progB);
+    gl.uniformMatrix4fv(locB.uViewProj, false, vp);
+    gl.uniform1f(locB.uT, s.t || 0);
+    gl.uniform1f(locB.uRoll, s.seaRoll || 0);
+    gl.uniform1f(locB.uWind, s.seaWind || 0);
+    gl.uniform1f(locB.uSpread, s.seaSpread == null ? 0 : s.seaSpread);
+    gl.uniform1f(locB.uR, s.R || 0);
+    gl.uniform1f(locB.uFineR, FINE_R);
+    gl.uniform1f(locB.uFar, BREAK_FAR);
+    const rot = s.seaRot || [1, 0];
+    gl.uniform2f(locB.uSeaRot, rot[0], rot[1]);
+    gl.uniform3f(locB.uEye, s.ax || 0, s.ay || 0, s.EH == null ? 0.12 : s.EH);
+    gl.uniform1i(locB.uLut0, 2);
+    gl.uniform1i(locB.uMh, mh | 0);
+    gl.uniform1i(locB.uNBrk, bk.n);
+    gl.uniform4fv(locB.uBrkP, bk.P); gl.uniform4fv(locB.uBrkS, bk.S);
+    const body = s.seaBody || [0.133, 0.243, 0.345], hor = s.hor || [0.3, 0.4, 0.5];
+    gl.uniform3f(locB.uBody, body[0], body[1], body[2]);
+    gl.uniform3f(locB.uHor, hor[0], hor[1], hor[2]);
+    const sd = s.sunDir || [0, 0], se = Math.max(s.sunElev || 0, 0), sc = Math.sqrt(Math.max(0, 1 - se * se));
+    gl.uniform3f(locB.uSunDir3, sd[0] * sc, sd[1] * sc, se);
+    gl.uniform1f(locB.uNm, s.nm == null ? 1 : s.nm);
+    gl.uniform1f(locB.uHz, s.hz || 0);
+    gl.uniform1f(locB.uHazeMax, s.hazeMax == null ? 1 : s.hazeMax);
+    gl.uniform1f(locB.uDepth, s.depth || 200);
+    gl.bindVertexArray(vaoB);
+    gl.drawArraysInstanced(gl.TRIANGLES, 0, pieceB, bk.n);
+    gl.bindVertexArray(null);
+    return (pieceB / 3) * bk.n;
+  }
 
   // The piece: two columns across the crest, NV rows round the curl, as a triangle strip list.
   const sv = [];
@@ -183,7 +311,14 @@ export function createSeaLip(gl) {
   // Drawn straight after the sea, with the sea's textures still on units 2, 5 and 6, and its
   // matrices and colours from the same floor state.
   function draw(vp, s, mh) {
-    if (!((s.seaLip || 0) > 0) || !((s.seaSurf || 0) > 0)) return 0;
+    if (!((s.seaLip || 0) > 0)) return 0;
+    gl.enable(gl.DEPTH_TEST);
+    gl.depthMask(false);
+    gl.disable(gl.CULL_FACE);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    const tris = drawBreakers(vp, s, mh);
+    if (!((s.seaSurf || 0) > 0)) { gl.depthMask(true); return tris; }
     gl.useProgram(prog); applyLinOut(gl, prog);
     gl.uniformMatrix4fv(loc.uViewProj, false, vp);
     gl.uniform2f(loc.uSnap, Math.round((s.ax || 0) / STEP) * STEP, Math.round((s.ay || 0) / STEP) * STEP);
@@ -223,7 +358,7 @@ export function createSeaLip(gl) {
     gl.drawArraysInstanced(gl.TRIANGLES, 0, pieceN, cellN);
     gl.bindVertexArray(null);
     gl.depthMask(true);
-    return (pieceN / 3) * cellN;
+    return tris + (pieceN / 3) * cellN;
   }
   return { draw };
 }

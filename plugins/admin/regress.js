@@ -21,6 +21,11 @@ export default async function regress({ run, check, getPlayer }) {
     let r = await run('sysop weather');
     check('sysop refused for a player', /unknown command/i.test(r?.message || ''), r?.message);
     r = await run('sysop weather set storm');
+    r = await run('sysop rename joe to Bob Smith');
+    check('sysop rename refused for a player', /unknown command/i.test(r?.message || ''), r?.message);
+    const { namingIn } = await import('./rename.js');
+    check('naming: "Your name is now Bumblepants McGee"', namingIn('Your name is now Bumblepants McGee') === 'Bumblepants McGee', namingIn('Your name is now Bumblepants McGee'));
+    check('naming: "you\'re nice" is not a renaming', namingIn("you're nice") === null);
     r = await run('sysop roof open');
     check('sysop roof refused for a player', /unknown command/i.test(r?.message || ''), r?.message);
     r = await run('sysop time skip 4');

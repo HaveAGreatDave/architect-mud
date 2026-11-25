@@ -70,7 +70,7 @@ const PALE_STONE = '#fffaf0';
 // A hotel pair's fanlight (street_door kind 'swing'): FAN tall over a 10 cm lintel at the door's head. Its glass, from
 // the lintel's top to the fanlight's head, where the room is tall enough for it and the bar over it.
 const FAN = 0.55;
-const fanOf = (o, DH, H) => (o.kind === 'front' && o.swing && DH + FAN + 0.2 <= H ? { y0: DH + 0.1, y1: DH + 0.1 + FAN } : null);
+const fanOf = (o, DH, H) => (o.kind === 'front' && o.swing && o.door !== 'single' && DH + FAN + 0.2 <= H ? { y0: DH + 0.1, y1: DH + 0.1 + FAN } : null);
 
 export function rng(seed) {
   let a = seed >>> 0;
@@ -173,7 +173,7 @@ export function withShells(m, shells) {
 // opts.joined: the zones past this room's doorways that are drawn too, so a doorway into one is a
 // threshold rather than a dim passage.
 // opts.facade: a balcony room's building's own paint, { rgb, material } off GLASS (room-view.js facadePaint).
-export function buildRoom(L, { seed = 1, lampOn = true, doorShut = false, turning = null, swinging = null, busy = null, joined = new Set(), shell = false, frontOpen = false, drawn = false, facade = null } = {}) {
+export function buildRoom(L, { seed = 1, lampOn = true, doorShut = false, turning = null, swinging = null, busy = null, joined = new Set(), shell = false, frontOpen = false, drawn = false, facade = null, doorsIn = false } = {}) {
   const K = roomKit(L, bakeAO(L), { textures: ROOM_TEXTURES, cell: 0.4, glow: GLOW });
   const { solid, quad, box, lathe, ball, onU, onV, C, nrmOf, TB, E } = K;
   K.fine = L.spec.finish === 'fine'; K.L = L; K.screens = []; K.dials = []; K.vats = []; K.gantries = []; K.lampOn = lampOn; K.drawn = drawn;
@@ -366,7 +366,7 @@ export function buildRoom(L, { seed = 1, lampOn = true, doorShut = false, turnin
     // slide; the leaves themselves are drawn apart (slideLeaves) so they can open as you come up to them
     // hinged hotel doors (street_door kind 'swing'): a bronze threshold, fluted bronze jambs, a lintel and over it a
     // fanlight of glass in bronze glazing bars; the leaves are drawn apart (slideLeaves) and swing in as you come up
-    if (o.kind === 'front' && o.swing) {
+    if (o.kind === 'front' && o.swing && o.door !== 'single') {
       const BZ = '#8a6a44', w = o.b - o.a;
       box(...span(o.a - 0.04, o.b + 0.04, -0.02, T), -0.02, 0.012, '#5a4630', 1.05, null, METAL);
       for (const [a, b] of [[o.a - 0.14, o.a], [o.b, o.b + 0.14]]) {
@@ -381,7 +381,16 @@ export function buildRoom(L, { seed = 1, lampOn = true, doorShut = false, turnin
       box(...span(o.a, o.b, -0.03, 0), DH + FAN * 0.55, DH + FAN * 0.55 + 0.02, '#c9a24a', 1.1, null, METAL);
       continue;
     }
-    if (o.kind === 'front' && o.slide) {
+    // a keypad on the inside wall beside a street door's free edge (flags.room.street_door.keypad): a steel housing,
+    // a lit read-out and a dark key field. It's a panel and nothing more; the door has no lock
+    if (o.kind === 'front' && o.keypad) {
+      const k0 = o.b + 0.14, k1 = k0 + 0.13;
+      box(...span(k0, k1, -0.035, 0), 1.18, 1.42, '#2a2e32', 1.05, null, METAL);
+      box(...span(k0 + 0.02, k1 - 0.02, -0.04, -0.035), 1.34, 1.39, '#4dffb0', 1.4, null, EMISSIVE);
+      box(...span(k0 + 0.02, k1 - 0.02, -0.04, -0.035), 1.21, 1.31, '#121416', 1, null, SATIN);
+    }
+    // a single hinged leaf (street_door kind 'single') has no operator over it: just its frame, below
+    if (o.kind === 'front' && o.slide && o.door !== 'single') {
       const w = o.b - o.a, AL = '#9aa0a6';
       box(...span(o.a, o.b, 0, T), -0.02, 0.004, '#202224', 1, null, METAL);
       for (const [a, b] of [[o.a - 0.06, o.a], [o.b, o.b + 0.06]]) box(...span(a, b, -0.02, T), 0, DH + SLIDE_BOX, AL, 1.05, null, METAL);
@@ -594,9 +603,9 @@ export function buildRoom(L, { seed = 1, lampOn = true, doorShut = false, turnin
   // the hall.
   // Never the doorway it's seen through (`joined`): from inside the car that's the landing's own lift doors, and
   // drawn shut they stood behind the car's open ones, a second pair to walk through.
-  const shown = shell ? slides.filter((o) => !joined.has(o.to)) : slides;
-  const slideDoors = !isCar && shown.length ? slideLeaves(K, L, { DH, ways: shown, keep: shell }) : null;
-  return { ...K, view, lamps: [...rest, ...kept, ...spa], windows, spin, swing, liftDoors, slideDoors: shell ? null : slideDoors };
+  const shown = shell || doorsIn ? slides.filter((o) => !joined.has(o.to)) : slides;
+  const slideDoors = !isCar && shown.length ? slideLeaves(K, L, { DH, ways: shown, keep: shell || doorsIn }) : null;
+  return { ...K, view, lamps: [...rest, ...kept, ...spa], windows, spin, swing, liftDoors, slideDoors: shell || doorsIn ? null : slideDoors };
 }
 
 // THE CABINET ROUND A COLD ROOM: a back, two sides, a top and a floor, open at the front where the door hangs, so
@@ -3489,9 +3498,11 @@ function slideLeaves(K, L, { DH: DH0, ways, keep = false }) {
   for (const [way, o] of ways.entries()) {
     const DH = o.h || DH0;
     const m = (o.a + o.b) / 2, half = (o.b - o.a) / 2, mid = o.wall === 'front' ? L.world(m, 0, 0) : o.wall === 'back' ? L.world(m, L.d, 0) : L.world(o.wall === 'left' ? -L.w / 2 : L.w / 2, m, 0);
-    for (const side of o.balcony ? [-1] : [-1, 1]) {
+    // a single hinged leaf (street_door kind 'single') is one leaf the doorway's width, hung on its `a` edge
+    const one = o.door === 'single';
+    for (const side of o.balcony || one ? [-1] : [-1, 1]) {
       const batches = [K.solid, ...K.textured.values()], was = new Map(batches.map((x) => [x, x.n]));
-      if (o.swing) {
+      if (o.swing && !one) {
         // a hotel door: a bronze frame round a tall pane (left out, so the street shows through it), a middle rail,
         // a brass push plate at hand height and a kick plate, both on the side away from the hinge
         const a0 = side < 0 ? o.a : m + 0.004, a1 = side < 0 ? m - 0.004 : o.b, d0 = -0.1, d1 = -0.06, BZ = '#8a6a44';
@@ -3515,7 +3526,7 @@ function slideLeaves(K, L, { DH: DH0, ways, keep = false }) {
         const st = side < 0 ? a1 - 0.05 : a0 + 0.04;
         onWall(K, L, o.wall, st, st + 0.01, -0.0575, -0.0535, 0.3, DH - 0.06, '#d8b47c', 1.2, null, METAL);
       } else {
-      const a0 = side < 0 || o.balcony ? o.a : m + 0.004, a1 = o.balcony ? o.b : side < 0 ? m - 0.004 : o.b, d0 = -0.1, d1 = -0.06;
+      const a0 = side < 0 || o.balcony ? o.a : m + 0.004, a1 = o.balcony || one ? o.b : side < 0 ? m - 0.004 : o.b, d0 = -0.1, d1 = -0.06;
       // a balcony leaf is framed in black, to match its jambs and head; in a plain room, in the room's painted trim
       const bar = (u0, u1, y0, y1, hex = o.timber || (o.balcony ? '#16171a' : AL), k = o.timber ? 0.95 : 1.1) => onWall(K, L, o.wall, u0, u1, d0, d1, y0, y1, hex, k, null, o.balcony ? SATIN : METAL);
       // a balcony door's leaf is clear glass in a slim frame (the props layer is opaque, so the glass is left
@@ -3549,7 +3560,7 @@ function slideLeaves(K, L, { DH: DH0, ways, keep = false }) {
       const leaf = { rest, out: new Float32Array(rest.length), dir: [p1[0] - p0[0], p1[2] - p0[2]], slide: o.balcony ? 2 * half - 0.04 : o.lift ? half + 0.03 : half - 0.02, at: [mid[0], mid[2]], way, to: o.to };
       if (o.swing) {
         // hung on its outer edge, it swings into the room: the turn is whichever way carries its free edge inward
-        const hp = along(side < 0 ? o.a : o.b), fp = along(m), inn = o.wall === 'front' ? L.world(m, 1, 0) : o.wall === 'back' ? L.world(m, L.d - 1, 0) : L.world(o.wall === 'left' ? -L.w / 2 + 1 : L.w / 2 - 1, m, 0);
+        const hp = along(side < 0 ? o.a : o.b), fp = along(one ? o.b : m), inn = o.wall === 'front' ? L.world(m, 1, 0) : o.wall === 'back' ? L.world(m, L.d - 1, 0) : L.world(o.wall === 'left' ? -L.w / 2 + 1 : L.w / 2 - 1, m, 0);
         const nx = inn[0] - mid[0], nz = inn[2] - mid[2], g = 1.4, rz = (t) => (fp[0] - hp[0]) * Math.sin(t) + (fp[2] - hp[2]) * Math.cos(t), rx = (t) => (fp[0] - hp[0]) * Math.cos(t) - (fp[2] - hp[2]) * Math.sin(t);
         leaf.hinge = [hp[0], hp[2]];
         leaf.turn = rx(g) * nx + rz(g) * nz > rx(-g) * nx + rz(-g) * nz ? g : -g;

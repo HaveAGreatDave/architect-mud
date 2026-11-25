@@ -36,7 +36,7 @@ const wrapAngle = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 // `onFrame` is called straight after each frame is drawn, while its picture is still in the buffer: a
 // set in the Room Stage copies it from there (room-tv.js), since a WebGL picture is gone after the task.
 // `onAir` false draws a set as the room it is, never in black and white (the studio floor, room-studio.js).
-export function createSequencePlayer(host, { mode = 'clock', phone = false, feed = null, photo = null, speak = null, onBeat = null, onEnd = null, onFrame = null, onAir = true } = {}) {
+export function createSequencePlayer(host, { mode = 'clock', phone = false, feed = null, photo = null, speak = null, onBeat = null, onRoll = null, onEnd = null, onFrame = null, onAir = true } = {}) {
   const canvas = document.createElement('canvas');
   canvas.className = 'sq-canvas';
   canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block';
@@ -439,6 +439,8 @@ export function createSequencePlayer(host, { mode = 'clock', phone = false, feed
     beatNow = i;
     if (mode === 'clock' && playing) voiceLine(it);
     onBeat?.(it, i);
+    // a beat that rolls a clip (sequence.js `roll`): the feed runs it, and a box on `feed` shows it
+    if (it.roll) onRoll?.(it.roll, it);
   }
 
   function drawTransition(now) {

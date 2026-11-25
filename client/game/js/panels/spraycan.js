@@ -27,7 +27,7 @@ import { sendCmdSilent } from '../net.js';
 import { mountOverlay, sfx } from './minigame-common.js';
 import { openColorPicker, closeColorPicker } from './color-picker.js';
 import { tagPreview } from './tag-bake.js';   // a leaf: the preview without fetching GLASS
-import { TAG_FACES } from '../../../shared/tag-strokes.js';
+import { TAG_FACES, TAG_FINISHES } from '../../../shared/tag-strokes.js';
 import { sprayStage } from './spray-aim.js';
 import { runSpraySession } from './spray-session.js';
 import { escapeHtml as esc, loadCss } from '../../../shared/dom.js';
@@ -49,12 +49,29 @@ let S = null;   // { text, colors[], flags[], sel:{a,b}|null, face, walls, wall,
 // How each letterform is offered. `null` leaves it to the wall, which is what a tag
 // typed with `tag` gets: the hand (throw-up, handstyle or stencil) and the letters are
 // both rolled off the street it is on.
-const FACE_LABEL = { bubble: 'bubble', round: 'round', block: 'block', sharp: 'sharp' };
+const FACE_LABEL = { bubble: 'bubble', round: 'round', block: 'block', sharp: 'sharp', treat: 'treat', degrassi: 'degrassi', spray: 'overspray', drip: 'drip', brush: 'brush', lacquer: 'lacquer' };
 const FACE_TIP = {
   bubble: 'Fat hand-drawn bubble letters',
   round: 'Puffy and even, every corner rounded off',
   block: 'Square-cut and upright',
   sharp: 'Leaning, mitred to points, chisel-cut ends',
+  treat: 'Staggered and angular, letters jumping off the line',
+  degrassi: 'Chunky and upright, a hard-cut block',
+  spray: 'Heavy letters with overspray fuzzing every edge',
+  drip: 'Wet paint running off every letter',
+  brush: 'A fat slanted brush letter, done fast',
+  lacquer: 'Wobbly painted capitals with the odd run',
+};
+
+// The special finishes (TAG_FINISHES), and how to get one you haven't got. The server sends the
+// ones this player can use (`finishes` on spray_editor) and checks again on sprayapply.
+const FINISH_LABEL = { chrome: 'chrome', gold: 'gold', holo: 'holo', glow: 'glow', neon: 'neon' };
+const FINISH_HOW = {
+  neon: 'Prismatik Lumen cans, at Desmond Watts',
+  glow: 'Prismatik Nightglo cans, at Desmond Watts',
+  holo: 'An old Spectra Holo can, if you find one, or 25 tags',
+  chrome: 'A Mirrorcoat can, if you find one, or 50 tags',
+  gold: 'Put up 100 tags',
 };
 
 // ── The style model ──────────────────────────────────────────────────────────
@@ -162,7 +179,7 @@ function savedHtml() {
     S = swap;
     return `<div class="sp-saved">
       <button type="button" class="sp-load" data-load="${sv.id}" title="Load onto the can">${ink}</button>
-      <span class="sp-saved-name">${esc(sv.name)}${sv.face ? ` · ${esc(FACE_LABEL[sv.face] || '')}` : ''}</span>
+      <span class="sp-saved-name">${esc(sv.name)}${sv.face ? ` · ${esc(FACE_LABEL[sv.face] || '')}` : ''}${sv.finish ? ` · ${esc(FINISH_LABEL[sv.finish] || '')}` : ''}</span>
       <button type="button" class="sp-bin" data-del="${sv.id}" title="Bin it">✕</button>
     </div>`;
   }).join('');
@@ -177,19 +194,47 @@ function paintPiece() {
     S.pieceFrame = 0;
     const cv = S.$('sp-piece');
     const g = cv.getContext('2d');
-    const W = cv.clientWidth || 520, H = 118;
+    const W = cv.clientWidth || 520, H = cv.clientHeight || 170;
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     g.clearRect(0, 0, W, H);
     let tex = null;
-    try { tex = S.text.trim() ? tagPreview(S.text, runsFromChars(S.colors, S.flags, S.text.length), S.face) : null; } catch { tex = null; }
+    try { tex = S.text.trim() ? tagPreview(S.text, runsFromChars(S.colors, S.flags, S.text.length), S.face, '#b8f03a', S.finish || null) : null; } catch { tex = null; }
     S.$('sp-piece-note').textContent = !S.text.trim() ? ''
-      : S.face ? `${FACE_LABEL[S.face]} letters` : 'any style: the wall picks the letters and the hand';
+      : (S.face ? `${FACE_LABEL[S.face]} letters` : 'any style: the wall picks the letters and the hand') + (S.finish ? ` · ${FINISH_LABEL[S.finish]}` : '');
     if (!tex) return;
     const k = Math.min((W - 12) / tex.width, (H - 8) / tex.height);
     g.drawImage(tex, (W - tex.width * k) / 2, (H - tex.height * k) / 2, tex.width * k, tex.height * k);
   });
+}
+
+// The style tiles: the player's own words in every style, baked when the words or the paint have
+// settled for a moment rather than on every drag of the colour wheel (ten bakes a frame is a lot).
+function paintThumbs() {
+  if (!S) return;
+  const runs = runsFromChars(S.colors, S.flags, S.text.length);
+  const key = `${S.text}|${JSON.stringify(runs)}|${S.finish || ''}`;
+  if (key === S.thumbKey) return;
+  clearTimeout(S.thumbT);
+  S.thumbT = setTimeout(() => {
+    if (!S) return;
+    S.thumbKey = key;
+    // the words if they're short enough to read at tile size, in their own paint; else a stand-in
+    const word = S.text.trim() && S.text.length <= 12 ? S.text : 'TAG';
+    const r = word === S.text && runs.length ? runs : null;
+    for (const cv of S.overlay.querySelectorAll('canvas[data-thumb]')) {
+      const f = cv.getAttribute('data-thumb');
+      let tex = null;
+      try { tex = tagPreview(word, r, f, '#b8f03a', S.finish || null); } catch { tex = null; }
+      const W = cv.clientWidth || 92, H = cv.clientHeight || 40, dpr = Math.min(2, window.devicePixelRatio || 1);
+      cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+      const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
+      if (!tex) continue;
+      const k = Math.min(W / tex.width, H / tex.height);
+      g.drawImage(tex, (W - tex.width * k) / 2, (H - tex.height * k) / 2, tex.width * k, tex.height * k);
+    }
+  }, 160);
 }
 
 function paint() {
@@ -198,7 +243,18 @@ function paint() {
   for (const b of S.overlay.querySelectorAll('[data-face]')) {
     b.classList.toggle('sp-active', (b.getAttribute('data-face') || null) === (S.face || null));
   }
+  for (const b of S.overlay.querySelectorAll('[data-finish]')) {
+    const x = b.getAttribute('data-finish') || null;
+    b.classList.toggle('sp-active', x === (S.finish || null));
+    b.classList.toggle('sp-locked', !!x && !S.finishes.includes(x));
+    b.title = !x ? 'Ordinary paint' : S.finishes.includes(x) ? `Spray it in ${FINISH_LABEL[x]}` : `Locked: ${FINISH_HOW[x] || ''}`;
+  }
+  const fxn = S.$('sp-fxnote');
+  if (S.finish) fxn.textContent = `${FINISH_LABEL[S.finish]} over your colours${S.finish === 'glow' ? ', and it lights up after dark' : ''}.`;
+  else if (!S.finishes.length) fxn.textContent = 'Special finishes come in their own cans, or with enough walls behind you.';
+  else if (!/^Locked/.test(fxn.textContent)) fxn.textContent = '';
   paintPiece();
+  paintThumbs();
   S.$('sp-strip').innerHTML = stripHtml();
   S.$('sp-count').textContent = `${S.text.length}/${S.maxLen}`;
   S.$('sp-count').classList.toggle('sp-over', S.text.length > S.maxLen);
@@ -294,6 +350,7 @@ function strip() {
 function payload(name, spot = null) {
   const obj = { t: S.text, r: runsFromChars(S.colors, S.flags, S.text.length) };
   if (S.face) obj.f = S.face;
+  if (S.finish) obj.x = S.finish;
   if (name) obj.n = name;
   if (spot) obj.s = spot;
   return btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
@@ -313,7 +370,7 @@ function sprayIt() {
   try { spot = host.aim?.() || null; } catch { spot = null; }
   // `q`: the session plays the tag signature itself, so the reply mustn't play it again
   const line = `sprayapply ${S.wall} ${payload(null, spot)} q`;
-  const piece = { text: S.text, runs: runsFromChars(S.colors, S.flags, S.text.length), face: S.face };
+  const piece = { text: S.text, runs: runsFromChars(S.colors, S.flags, S.text.length), face: S.face, finish: S.finish || null };
   const can = S.can;          // (closing the dialog lets go of S)
   S.close();
   runSpraySession({ ...piece, host, can, onDone: () => sendCmdSilent(line) });
@@ -350,51 +407,70 @@ export function openSprayCan(msg) {
 
   const { overlay, close } = mountOverlay({
     id: 'spray-overlay',
-    html: `<div id="sp-root">
-      <div class="sp-row">
-        <div>
+    html: `<div id="sp-root" class="${sprayStage() ? 'sp-3d' : ''}">
+      <div class="sp-head">
+        <div class="sp-head-l">
           <div class="sp-brand">◗ RATTLE-CAN</div>
           <div class="sp-sub">${esc(msg.can?.name || 'spray paint')}: ${Number(msg.can?.quantity || 1)} in the bag</div>
         </div>
-        <div style="margin-left:auto"><select class="sp-btn" id="sp-wall">${walls.map(w => WALL_OPT(w, wall)).join('')}</select></div>
+        <label class="sp-wallpick"><span>wall</span><select class="sp-btn" id="sp-wall">${walls.map(w => WALL_OPT(w, wall)).join('')}</select></label>
       </div>
-      <div class="sp-wall" id="sp-preview"></div>
-      <input class="sp-input" id="sp-text" maxlength="${Number(msg.maxLen) || 48}" placeholder="what are you writing?" autocomplete="off" spellcheck="false">
-      <div class="sp-lab">Style</div>
-      <div class="sp-row">
-        <button type="button" class="sp-btn" data-face="" title="Leave it to the wall">any</button>
-        ${TAG_FACES.map(f => `<button type="button" class="sp-btn" data-face="${f}" title="${esc(FACE_TIP[f] || '')}">${esc(FACE_LABEL[f] || f)}</button>`).join('')}
+      <div class="sp-stage">
+        <canvas class="sp-piece" id="sp-piece"></canvas>
+        <div class="sp-piece-note" id="sp-piece-note"></div>
       </div>
-      <canvas class="sp-piece" id="sp-piece"></canvas>
-      <div class="sp-piece-note" id="sp-piece-note"></div>
-      <div class="sp-lab">Letters <span class="sp-count" id="sp-count"></span></div>
-      <div class="sp-strip" id="sp-strip"></div>
-      <div class="sp-row" style="margin-top:6px">
-        <button type="button" class="sp-btn" id="sp-all">whole tag</button>
-        <span class="sp-scope">painting <span id="sp-scope"></span></span>
+      <div class="sp-write">
+        <input class="sp-input" id="sp-text" maxlength="${Number(msg.maxLen) || 48}" placeholder="what are you writing?" autocomplete="off" spellcheck="false">
+        <span class="sp-count" id="sp-count"></span>
       </div>
-      <div class="sp-lab">Paint</div>
-      <div class="sp-row">
-        <button type="button" class="sp-swatch" id="sp-swatch"><i></i><em></em></button>
-        <button type="button" class="sp-btn" data-flag="${F_BOLD}" title="Bold"><b>B</b></button>
-        <button type="button" class="sp-btn" data-flag="${F_ITALIC}" title="Italic"><i>I</i></button>
-        <button type="button" class="sp-btn" data-flag="${F_UNDER}" title="Underline"><u>U</u></button>
-        <button type="button" class="sp-btn" data-flag="${F_STRIKE}" title="Strike"><s>S</s></button>
-        <button type="button" class="sp-btn" id="sp-rainbow" title="Fade across the selection">rainbow</button>
-        <button type="button" class="sp-btn" id="sp-strip-btn" title="Back to plain">strip</button>
-      </div>
-      <div class="sp-rack" id="sp-rack">${RACK.map(c => `<button type="button" class="sp-cap" data-cap="${c}" style="background:${c}" title="${c}"></button>`).join('')}</div>
-      <div class="sp-lab">Fade: four cans, mixed between</div>
-      <div class="sp-row">
-        <div class="sp-stops" id="sp-stops"></div>
-        <div class="sp-ramp" id="sp-ramp"></div>
-        <button type="button" class="sp-btn" id="sp-fade" title="Blend the four across the selection">fade</button>
-      </div>
-      <div class="sp-lab">Shelf</div>
-      <div class="sp-shelf" id="sp-shelf"></div>
-      <div class="sp-row" style="margin-top:7px">
-        <input class="sp-name" id="sp-savename" maxlength="24" placeholder="name it" autocomplete="off">
-        <button type="button" class="sp-btn" id="sp-save">save this one</button>
+      <div class="sp-wall" id="sp-preview" title="How the room line reads it"></div>
+      <div class="sp-cols">
+        <div class="sp-col">
+          <div class="sp-lab">Style</div>
+          <div class="sp-faces">
+            <button type="button" class="sp-face" data-face="" title="Leave it to the wall"><span class="sp-face-any">?</span><em>any</em></button>
+            ${TAG_FACES.map(f => `<button type="button" class="sp-face" data-face="${f}" title="${esc(FACE_TIP[f] || '')}"><canvas data-thumb="${f}"></canvas><em>${esc(FACE_LABEL[f] || f)}</em></button>`).join('')}
+          </div>
+          <div class="sp-lab">Finish</div>
+          <div class="sp-finishes" id="sp-finishes">
+            <button type="button" class="sp-chip" data-finish="" title="Ordinary paint"><i class="sp-fx sp-fx-none"></i>paint</button>
+            ${TAG_FINISHES.map(x => `<button type="button" class="sp-chip" data-finish="${x}"><i class="sp-fx sp-fx-${x}"></i>${esc(FINISH_LABEL[x])}</button>`).join('')}
+          </div>
+          <div class="sp-fxnote" id="sp-fxnote"></div>
+          <div class="sp-lab">Letters</div>
+          <div class="sp-strip" id="sp-strip"></div>
+          <div class="sp-row" style="margin-top:6px">
+            <button type="button" class="sp-btn" id="sp-all">whole tag</button>
+            <span class="sp-scope">painting <span id="sp-scope"></span></span>
+          </div>
+        </div>
+        <div class="sp-col">
+          <div class="sp-lab">Paint</div>
+          <div class="sp-row">
+            <button type="button" class="sp-swatch" id="sp-swatch"><i></i><em></em></button>
+            <button type="button" class="sp-btn sp-sq" data-flag="${F_BOLD}" title="Bold"><b>B</b></button>
+            <button type="button" class="sp-btn sp-sq" data-flag="${F_ITALIC}" title="Italic"><i>I</i></button>
+            <button type="button" class="sp-btn sp-sq" data-flag="${F_UNDER}" title="Underline"><u>U</u></button>
+            <button type="button" class="sp-btn sp-sq" data-flag="${F_STRIKE}" title="Strike"><s>S</s></button>
+          </div>
+          <div class="sp-rack" id="sp-rack">${RACK.map(c => `<button type="button" class="sp-cap" data-cap="${c}" style="background:${c}" title="${c}"></button>`).join('')}</div>
+          <div class="sp-row" style="margin-top:7px">
+            <button type="button" class="sp-btn" id="sp-rainbow" title="Fade across the selection">rainbow</button>
+            <button type="button" class="sp-btn" id="sp-strip-btn" title="Back to plain">strip</button>
+          </div>
+          <div class="sp-lab">Fade: four cans, mixed between</div>
+          <div class="sp-row">
+            <div class="sp-stops" id="sp-stops"></div>
+            <div class="sp-ramp" id="sp-ramp"></div>
+            <button type="button" class="sp-btn" id="sp-fade" title="Blend the four across the selection">fade</button>
+          </div>
+          <div class="sp-lab">Shelf</div>
+          <div class="sp-shelf" id="sp-shelf"></div>
+          <div class="sp-row" style="margin-top:7px">
+            <input class="sp-name" id="sp-savename" maxlength="24" placeholder="name it" autocomplete="off">
+            <button type="button" class="sp-btn" id="sp-save">save this one</button>
+          </div>
+        </div>
       </div>
       <div class="sp-note" id="sp-note"></div>
       <div class="sp-foot">
@@ -405,12 +481,13 @@ export function openSprayCan(msg) {
     // Esc closes the can. When the colour wheel is up it owns Esc first — it listens
     // in the CAPTURE phase and stops propagation there, so this handler never sees
     // the press and one Esc puts away one thing.
-    onClose: () => { closeColorPicker({ silent: true }); if (S?.pieceFrame) cancelAnimationFrame(S.pieceFrame); S = null; },
+    onClose: () => { closeColorPicker({ silent: true }); if (S?.pieceFrame) cancelAnimationFrame(S.pieceFrame); clearTimeout(S?.thumbT); S = null; },
   });
 
   const $ = (id) => overlay.querySelector('#' + id);
   S = {
-    text: '', colors: [], flags: [], sel: null, ink: '#ff2d55', face: null, pieceFrame: 0,
+    text: '', colors: [], flags: [], sel: null, ink: '#ff2d55', face: null, finish: null, pieceFrame: 0, thumbT: 0, thumbKey: '',
+    finishes: Array.isArray(msg.finishes) ? msg.finishes.filter((x) => TAG_FINISHES.includes(x)) : [],
     fade: ['#ff2d55', '#ffb300', '#00e676', '#2196ff'],
     walls, wall, saved: Array.isArray(msg.saved) ? msg.saved : [],
     maxLen: Number(msg.maxLen) || 48, saveCap: Number(msg.saveCap) || 12,
@@ -457,6 +534,13 @@ export function openSprayCan(msg) {
   for (const b of overlay.querySelectorAll('[data-face]')) {
     b.addEventListener('click', () => { S.face = TAG_FACES.includes(b.getAttribute('data-face')) ? b.getAttribute('data-face') : null; paint(); });
   }
+  for (const b of overlay.querySelectorAll('[data-finish]')) {
+    b.addEventListener('click', () => {
+      const x = b.getAttribute('data-finish') || null;
+      if (x && !S.finishes.includes(x)) { S.$('sp-fxnote').textContent = `Locked. ${FINISH_HOW[x] || ''}`; return; }
+      S.finish = x; paint();
+    });
+  }
   $('sp-wall').addEventListener('change', (e) => { S.wall = e.target.value; overNote(); });
   $('sp-rainbow').addEventListener('click', rainbow);
   $('sp-strip-btn').addEventListener('click', strip);
@@ -499,6 +583,7 @@ export function openSprayCan(msg) {
         const cf = charsFromRuns(sv.style, sv.text.length);
         S.colors = cf.colors; S.flags = cf.flags; S.sel = null;
         S.face = TAG_FACES.includes(sv.face) ? sv.face : null;
+        S.finish = sv.finish && S.finishes.includes(sv.finish) ? sv.finish : null;
         input.value = sv.text;
         $('sp-savename').value = sv.name;
         note(`Loaded "${sv.name}".`);

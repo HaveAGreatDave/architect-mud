@@ -1,0 +1,26 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Lift panel</title>
+<!-- The ROOM lift panel (client/game/js/panels/room-lift.js) on its own, with the Solenne's stops: serve the repo
+     root (npx serve .) and open /tools/sandbox/lift-panel.html. #up or #down plays a ride. -->
+<link rel="stylesheet" href="../../client/game/js/panels/room-lock.css">
+<style>html, body { margin: 0; background: #1c1a17; height: 100%; } #room-stage { position: relative; width: 100vw; height: 100vh; overflow: hidden; }</style>
+<div id="room-stage"></div>
+<script type="module">
+import { createRoomLift } from '../../client/game/js/panels/room-lift.js';
+const floors = [[1, 'Grand Lobby'], [8, 'The Residences'], [10, 'The Residences'], [12, 'Fitness Club'], [18, "Bishop's Blend"], [19, 'The Aerie: members'], [24, 'The Residences'], [26, 'The Residences'], [28, 'The Residences'], [34, 'Residence 34-A'], [36, 'Residence 36-A'], [37, 'Residence 37-A'], [38, 'Residence 38-B'], [39, 'The Penthouse'], [40, 'Sky Deck & Pad']].map(([n, label]) => ({ n, label }));
+const S = { w: 2.2, d: 2.2, lift: { at: 18, brand: 'Solenne Residences', floors } };
+// the wall is the page: v across, y up, a metre 600 px
+const L = { world: (u, v, y) => ({ v, y }) };
+const host = document.getElementById('room-stage');
+const lift = createRoomLift({ host, project: (p, w, h) => ({ x: w / 2 + (p.v - 0.8) * 600, y: h * 0.5 - (p.y - 1.38) * 600 }), press: (n) => console.log('press', n) });
+lift.load(L, S);
+const ride = () => location.hash.slice(1);   // #up or #down plays a ride (a hash, as `serve` drops a query on its clean-URL redirect)
+let floor = 18;
+const tick = () => {
+  const r = ride() === 'up' ? { from: 18, to: 39 } : ride() === 'down' ? { from: 18, to: 1 } : null;
+  if (r) floor = Math.max(1, Math.min(40, floor + Math.sign(r.to - r.from) * 0.05));
+  lift.draw(innerWidth, innerHeight, Math.round(floor), r);
+};
+setInterval(tick, 16);   // not rAF: a hidden pane never runs it
+</script>

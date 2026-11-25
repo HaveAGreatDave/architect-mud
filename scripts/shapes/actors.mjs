@@ -301,7 +301,7 @@ ws.RENDER_TUNE.actorFarPx = farWas;
 // are a street dealer's clip and its phase for the close-up level, and `rg` how they take this viewer ('stare' or
 // 'nod', plugins/streetcred): a clip name and the viewer's own standing, nothing that names who they are. `nl` is
 // the night's light alone (lum without a parasol's shade), which gl/street-hd.js reads its night from: a number.
-const ALLOWED = new Set(['actor', 'lod', 'hl', 'px', 's0', 'close', 'x', 'y', 'z', 's', 'hd', 'o', 'clip', 'ph', 'clip2', 'ph2', 'mix', 'lum', 'nl', 'a', 'lx', 'ly', 'tumble', 'rag', 'limb', 'limbZ', 'hdClip', 'hdPh', 'rg']);
+const ALLOWED = new Set(['actor', 'lod', 'hl', 'px', 's0', 'close', 'x', 'y', 'z', 's', 'hd', 'o', 'clip', 'ph', 'clip2', 'ph2', 'mix', 'lum', 'nl', 'a', 'lx', 'ly', 'tumble', 'rag', 'limb', 'limbZ', 'hdClip', 'hdPh', 'rg', 'self']);
 for (const r of recs) {
   // The close-up body's head: a level, and a face off the outfit.
   if (!r.lod && !(Number.isInteger(r.hl) && r.hl >= 0 && r.hl <= 2)) problems.push(`a close-up record's head level is ${r.hl}`);

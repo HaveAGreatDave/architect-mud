@@ -71,6 +71,49 @@ export function prewarmDone(gl) {
   return true;
 }
 
+// THE SCENES' PROGRAMS COMPILED BEFORE A VIEW IS BUILT, in a throwaway context, so the view's own context finds
+// them in the browser's shader cache (as the ballpark's warmBallpark and the arena's warmArena do). For a view
+// built where nobody's looking yet: the street pre-built behind a Room Stage (freelook-view.js) froze the page
+// 9 s in its first hidden paint in Golden Goose Gardens, most of it GLASS's and the rooms' programs compiling
+// through Direct3D one LINK_STATUS at a time. `ready()` is true once every program the scenes declare, bar the
+// `late` ones (huge, and already polled, never waited on: layerProgramAsync), has compiled; at once without
+// the extension or a document, where there's nothing to poll. Once per set of scenes per page.
+const WARMING = new Map();
+const WARM_GIVE_UP_MS = 5 * 60 * 1000;
+export function warmScenes(scenes, doc = globalThis.document) {
+  const k = scenes.join('+');
+  let w = WARMING.get(k);
+  if (w) return w;
+  let done = false;
+  w = { ready: () => done };
+  WARMING.set(k, w);
+  const canvas = doc?.createElement?.('canvas');
+  let gl = null;
+  if (canvas) { canvas.width = canvas.height = 1; try { gl = canvas.getContext('webgl2', { antialias: false, alpha: false, depth: true }); } catch { gl = null; } }
+  const ext = gl && gl.getExtension('KHR_parallel_shader_compile');
+  if (!ext) { done = true; w.none = true; return w; }
+  const progs = [];
+  for (const [, d] of DECLARED) {
+    if (d.late || !scenes.some((s) => d.scenes.has(s))) continue;
+    const prog = gl.createProgram();
+    for (const [type, src] of [[gl.VERTEX_SHADER, d.vs], [gl.FRAGMENT_SHADER, d.fs]]) {
+      const sh = gl.createShader(type); gl.shaderSource(sh, src); gl.compileShader(sh); gl.attachShader(prog, sh); gl.deleteShader(sh);
+    }
+    if (d.bind) for (const [i, name] of d.bind) gl.bindAttribLocation(prog, i, name);
+    gl.linkProgram(prog);
+    progs.push(prog);
+  }
+  const t0 = performance.now();
+  const finish = () => { done = true; try { gl.getExtension('WEBGL_lose_context')?.loseContext(); } catch { /* gone */ } };
+  const poll = () => {
+    if (gl.isContextLost() || performance.now() - t0 > WARM_GIVE_UP_MS) { finish(); return; }
+    for (const p of progs) if (!gl.getProgramParameter(p, ext.COMPLETION_STATUS_KHR)) { setTimeout(poll, 250); return; }
+    finish();
+  };
+  poll();
+  return w;
+}
+
 // The prewarmed program for these sources, once. Null when there isn't one.
 export function takeWarm(gl, vs, fs, bind = null) {
   const warm = WARM.get(gl);

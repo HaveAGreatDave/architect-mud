@@ -1,9 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "bg_color": "#1f3646",
-  "color": "#4f83a8",
-  "description": "The shallows run gravel to silt before the shelf drops. Old rooting marks show in the mud at the waterline.",
+  "ambient_theme": "forest",
+  "color": "#3f5c3a",
+  "description": "A stand of alder and willow holds the bank together. Old flood rubbish hangs in the branches above your head.",
   "exits": {
     "east": "zone_district_888_926",
     "north": "zone_district_887_925",
@@ -14,13 +13,13 @@
     "district": "wilds",
     "radiation": 27,
     "region_id": "region_coldwater",
-    "terrain": "water"
+    "terrain": "forest"
   },
   "grid_x": 887,
   "grid_y": 926,
   "grid_z": 0,
   "id": "zone_district_887_926",
   "map_id": "map_world",
-  "name": "The Meltwater Mouth",
+  "name": "Willow Bank",
   "parent_zone": null
 }

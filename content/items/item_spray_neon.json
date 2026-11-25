@@ -1,0 +1,31 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_spray_neon",
+  "name": "Prismatik Lumen Spraycan",
+  "tags": {
+    "can_label": {
+      "body": "#120a1a",
+      "brand": "PRISMATIK",
+      "cap": "#ff4fd8",
+      "colours": [
+        "#ff4fd8",
+        "#39ff88",
+        "#2de2ff",
+        "#fff36b"
+      ],
+      "fine": "Contents under pressure. Keep away from heat, sparks and open flame. Do not pierce or burn, even when empty. Use in a ventilated place. Shake for one minute before use. Prismatik Coatings.",
+      "net": "400 ML",
+      "product": "LUMEN",
+      "strap": "FLUORESCENT. LOUDER.",
+      "wear": 0.2
+    },
+    "description": "A Prismatik can with a hot pink cap. Fluorescent pigment: whatever colour you pick comes out electric and bleeds light round the edges. Sprays neon. Shop clerks hate it on sight.",
+    "misc": true,
+    "paint_finish": "neon",
+    "spray_paint": true
+  },
+  "type": "misc",
+  "value": 340,
+  "weight": 340
+}

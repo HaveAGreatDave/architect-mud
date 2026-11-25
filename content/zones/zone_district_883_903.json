@@ -1,9 +1,8 @@
 {
   "ambient_events": [],
   "ambient_theme": "wasteland",
-  "bg_color": "#1f3646",
-  "color": "#4f83a8",
-  "description": "Warm, murky shallows with an oily sheen. Reeds have taken hold, and the bank is slurry and plastic.",
+  "color": "#b5744a",
+  "description": "Scrub and thorn where the river's damp gives out and the red rock takes over again.",
   "exits": {
     "east": "zone_district_884_903",
     "north": "zone_district_883_902",
@@ -14,13 +13,13 @@
     "district": "wilds",
     "radiation": 30,
     "region_id": "region_coldwater",
-    "terrain": "water"
+    "terrain": "scrub"
   },
   "grid_x": 883,
   "grid_y": 903,
   "grid_z": 0,
   "id": "zone_district_883_903",
   "map_id": "map_world",
-  "name": "Coldwater Basin",
+  "name": "Meltwater Scrub",
   "parent_zone": null
 }

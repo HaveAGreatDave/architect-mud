@@ -202,7 +202,10 @@ function peaks(out, t, f0) {
     const pk = peaks(r.out, t, f0);
     for (const k of ks) {
       const target = col(r.line, 'f' + (k + 1), mid);
-      const hit = pk.some(([f]) => Math.abs(f - target) / target < 0.12);
+      // A low F1 is read off the harmonic nearest it: since bwF narrowed F1 (0.75, fitted to
+      // VCTK) the peak sits on a harmonic rather than between two, so allow half a harmonic
+      // spacing as well as 12% (UW F1 at 283 Hz read 246, the 2nd harmonic).
+      const hit = pk.some(([f]) => Math.abs(f - target) / target < 0.12 || Math.abs(f - target) <= f0 / 2);
       check(`${ph} F${k + 1} comes out near its track (${Math.round(target)} Hz)`, hit,
         `peaks ${pk.map(([f, a]) => Math.round(f) + ':' + Math.round(a)).join(' ')}`);
     }

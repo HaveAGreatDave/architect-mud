@@ -11,7 +11,7 @@ let _pending = null;
 // after `loadWindshield()` has resolved sees the real value, because an import binds rather
 // than copies. Read one before that and it is undefined, which is why the loader is awaited
 // at the door rather than at the first use.
-export let ADORN_CHEAP, ADORN_NEAR, ADORN_RICH, AUTHORED_ADORN_KINDS, AUTHORED_DETAIL_KINDS, BERTH_LIFTS, BERTH_SETDOWN, BERTH_SLOTS, BUILDING_FOOT, CAB_TRIM, CONTACT_NEAR_F, CURTAIN_H, CURTAIN_HALF_W, DETAIL_PX, DRUM_MAT_FAMILIES, FAUNA_INK_GAIN, FAUNA_INK_R, FLASH_AREA, FLASH_BANK, FLASH_FLOOR, FLAT_ONLY_KINDS, FT_PER_FLOOR, GL_TIER, HUNT_BAND, HUNT_MIN_LEDGE, HUNT_REACH, INTERIOR_PANES, LEGACY_MODELS, MAT_ORDER, MODEL_MAX_EXTENT, NEON_ART, NO_TILE_FIT, PARK_CLIP, PARK_FIG_STRIDE, PHONE_TIER, RENDER_TUNE, RIDE_ROLL_W, RIDE_ROLL_ZETA, RIDE_W, ROAD_RIG_MUL, ROOF_CATCH_CEIL_Z, ROOF_CATCH_R, SHELTER_MARCH, SHIP_PLAN, SIGN_FONT, SIGN_PICTO, SIGN_TRACK, SKY_DECK_Z, STREET_RAG, TILE_REACH, TRUCK_STEP_Z, TRUCK_VARIANTS, VEHICLE_CLASSES, VEHICLE_PARAM_TABLE, VISIBLE_FAR_F, VISIBLE_NEAR_F, WIRE_RING_S, _bayCutaway, _lifeGeo, armKeepStats, armKeepWhy, parkFigStats;
+export let ADORN_CHEAP, ADORN_NEAR, ADORN_RICH, AUTHORED_ADORN_KINDS, AUTHORED_DETAIL_KINDS, BERTH_LIFTS, BERTH_SETDOWN, BERTH_SLOTS, BUILDING_FOOT, CAB_TRIM, CONTACT_NEAR_F, CURTAIN_H, CURTAIN_HALF_W, DETAIL_PX, DRUM_MAT_FAMILIES, FAUNA_INK_GAIN, FAUNA_INK_R, FLASH_AREA, FLASH_BANK, FLASH_FLOOR, FLAT_ONLY_KINDS, FT_PER_FLOOR, GL_TIER, HUNT_BAND, HUNT_MIN_LEDGE, HUNT_REACH, INTERIOR_PANES, LEGACY_MODELS, MAT_ORDER, MODEL_MAX_EXTENT, NEON_ART, NO_TILE_FIT, OCC_K, PARK_CLIP, PARK_FIG_STRIDE, PHONE_TIER, RENDER_TUNE, RIDE_ROLL_W, RIDE_ROLL_ZETA, RIDE_W, ROAD_RIG_MUL, ROOF_CATCH_CEIL_Z, ROOF_CATCH_R, SHELTER_MARCH, SHIP_PLAN, SIGN_FONT, SIGN_PICTO, SIGN_TRACK, SKY_DECK_Z, STREET_RAG, TILE_REACH, TRUCK_STEP_Z, TRUCK_VARIANTS, VEHICLE_CLASSES, VEHICLE_PARAM_TABLE, VISIBLE_FAR_F, VISIBLE_NEAR_F, WIRE_RING_S, _bayCutaway, _lifeGeo, armKeepStats, armKeepWhy, parkFigStats;
 
 export function isLoaded() { return !!_m; }
 
@@ -52,6 +52,7 @@ export function loadWindshield() {
     MODEL_MAX_EXTENT = m.MODEL_MAX_EXTENT;
     NEON_ART = m.NEON_ART;
     NO_TILE_FIT = m.NO_TILE_FIT;
+    OCC_K = m.OCC_K;
     PARK_CLIP = m.PARK_CLIP;
     PARK_FIG_STRIDE = m.PARK_FIG_STRIDE;
     PHONE_TIER = m.PHONE_TIER;
@@ -285,6 +286,7 @@ export function setBayVehicles(...a) { return (_m || _cold('setBayVehicles')).se
 export function setBirdSeason(...a) { return (_m || _cold('setBirdSeason')).setBirdSeason(...a); }
 export function setBirdWeather(...a) { return (_m || _cold('setBirdWeather')).setBirdWeather(...a); }
 export function setGlassMode(...a) { return (_m || _cold('setGlassMode')).setGlassMode(...a); }
+export function setGroundTally(...a) { return (_m || _cold('setGroundTally')).setGroundTally(...a); }
 export function setLockBoardFeed(...a) { return (_m || _cold('setLockBoardFeed')).setLockBoardFeed(...a); }
 export function setObjectTexture(...a) { return (_m || _cold('setObjectTexture')).setObjectTexture(...a); }
 export function setTilePlace(...a) { return (_m || _cold('setTilePlace')).setTilePlace(...a); }
@@ -327,6 +329,7 @@ export function streetRagDebug(...a) { return (_m || _cold('streetRagDebug')).st
 export function subCrossing(...a) { return (_m || _cold('subCrossing')).subCrossing(...a); }
 export function surfaceBreakup(...a) { return (_m || _cold('surfaceBreakup')).surfaceBreakup(...a); }
 export function tagArtwork(...a) { return (_m || _cold('tagArtwork')).tagArtwork(...a); }
+export function tagFaceFontOf(...a) { return (_m || _cold('tagFaceFontOf')).tagFaceFontOf(...a); }
 export function tagFaceList(...a) { return (_m || _cold('tagFaceList')).tagFaceList(...a); }
 export function tagHandList(...a) { return (_m || _cold('tagHandList')).tagHandList(...a); }
 export function tagLayoutOf(...a) { return (_m || _cold('tagLayoutOf')).tagLayoutOf(...a); }

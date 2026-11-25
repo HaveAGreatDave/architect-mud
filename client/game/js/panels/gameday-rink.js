@@ -126,7 +126,7 @@ export function createRinkView(host, opts = {}) {
   function loadMods() {
     if (!modsP) loadSoundset();
     return (modsP ??= Promise.all([import('./rink/textures.js'), import('./rink/sim.js'), import('./rink/render.js'), import('./gl/arena.js')])
-      .then(([t, s, r, a]) => (mods = { createIce: t.createIce, createWorld: s.createWorld, createRenderer: r.createRenderer, createArenaRenderer: a.createArenaRenderer })));
+      .then(([t, s, r, a]) => (mods = { createIce: t.createIce, createWorld: s.createWorld, createRenderer: r.createRenderer, createArenaRenderer: a.createArenaRenderer, warmArena: a.warmArena, arenaWarm: a.arenaWarm })));
   }
 
   // A SEAT IN THE STANDS (stands.js) hears the ice, not the broadcast: what happens on it is as
@@ -545,9 +545,34 @@ export function createRinkView(host, opts = {}) {
     if (quick > 8 && rung > 0) { rung--; quick = 0; Object.assign(R.quality, RUNGS[rung]); }
   }
   // GLASS 2 first; the 2-D renderer when there's no WebGL2 or the caller asks for it.
+  // ⚠ THE ARENA IS BUILT ONLY ONCE ITS PROGRAMS HAVE COMPILED (gl/arena.js warmArena): on a cold
+  // Direct3D shader cache that's tens of seconds, and building straight away froze the page for all of
+  // it. Until then the 2-D rink draws, on a canvas of its own: a canvas that has given a 2-D context
+  // can't give a WebGL2 one, so the swap is a fresh canvas, as fallback() does the other way.
   function makeRenderer() {
     const hud = host.querySelector('.gdr-hud');
-    const gl = opts.renderer !== '2d' && mods.createArenaRenderer ? mods.createArenaRenderer(canvas, hud, W, ice) : null;
+    const wantGL = opts.renderer !== '2d' && !!mods.createArenaRenderer;
+    if (wantGL && mods.warmArena && !mods.arenaWarm()) {
+      R = mods.createRenderer(canvas, W, ice);
+      rung = 0; slow = quick = 0;
+      if (camView) R.view = camView;
+      R.glow = glow; R.ink = ink; R.xrayGore = gore; R.seat = opts.seat || null; R.cut = cut;
+      const mine = W;
+      mods.warmArena(doc).then(() => {
+        if (!mounted || W !== mine || !canvas) return;
+        // (the gates' DOM stub has no replaceWith, and no WebGL to want a fresh canvas for)
+        if (typeof canvas.replaceWith === 'function') {
+          const fresh = doc.createElement('canvas');
+          fresh.className = canvas.className;
+          fresh.setAttribute('aria-label', canvas.getAttribute('aria-label') || '');
+          canvas.replaceWith(fresh); canvas = fresh;
+        }
+        makeRenderer();
+        ice.dirtyAll = true;
+      });
+      return;
+    }
+    const gl = wantGL ? mods.createArenaRenderer(canvas, hud, W, ice) : null;
     R = gl || mods.createRenderer(canvas, W, ice);
     rung = 0; slow = quick = 0;
     if (camView) R.view = camView;

@@ -20,6 +20,8 @@ export const VEHICLE_MATS = {
   steel: 0.4,        // dull hardware, fan blades, a grille
   exhaust: 0.3,      // heat-dulled pipe
   metallic: -0.3,    // the coats a livery can choose, at the values the booth's finishes give
+  flake: -0.32,      // ⚠ every coat is a distinct number: the own ship's GPU record is cached on it
+  chameleon: -0.28,
   candy: -0.26,
   gloss: -0.22,
   pearl: -0.2,
@@ -29,7 +31,26 @@ export const VEHICLE_MATS = {
   glass: -0.55,
 };
 // A livery's finish → its clear coat. Satin, matte, weathered and primer have none.
-export const CLEARCOAT = { gloss: 0.22, metallic: 0.3, candy: 0.26, pearl: 0.2 };
+export const CLEARCOAT = { gloss: 0.22, metallic: 0.3, flake: 0.32, chameleon: 0.28, candy: 0.26, pearl: 0.24 };
+// What sits under a coat, for the GPU (gl/solids.js, `paintFinish`). 0 is plain lacquer. It rides on
+// a solid record as `fin`, beside the coat's strength, and the shader decodes it from the metal value.
+//   1 metallic   fine aluminium flake: a fine sparkle, and a lighter face where it looks at you
+//   2 flake      big glitter flake, each one its own little mirror: a bass boat in the sun
+//   3 pearl      mica: a soft second colour toward the edge, a milky glow face on
+//   4 candy      tinted lacquer over silver: deep at the edge, glowing where the light hits it
+//   5 chameleon  colour-shift: the hue turns with the angle you see it from
+export const FINISH_CODE = { metallic: 1, flake: 2, pearl: 3, candy: 4, chameleon: 5 };
+// One face's finish code: only a lacquered face (metalKOf < 0) that the owner's paint covers. A fixed
+// slot (the carbon, a tyre) keeps plain lacquer whatever the booth chose. Factory paint wears the
+// livery's finish too, so a set can name its finish and get it.
+export function finishCodeOf(face, pal, mk) {
+  if (!(mk < 0) || !pal) return 0;
+  const code = FINISH_CODE[pal.finish] || 0;
+  if (!code || face.role === 'glass' || face.role === 'window') return 0;
+  const slot = face.paint && typeof face.paint === 'object' ? face.paint : null;
+  if (slot) return slot.livery === 'fixed' && !(pal.parts && pal.parts[slot.name]) ? 0 : code;
+  return PAINT_ROLE.has(face.role) ? code : 0;
+}
 // What a face with no slot is made of, by what it does.
 export const METAL_ROLE = { gear: 0.45, strut: 0.4, gun: 0.6, ramp: 0.28, glass: -0.55, window: -0.55 };
 // The roles a livery paints, so the roles a mesh's `finish` covers.

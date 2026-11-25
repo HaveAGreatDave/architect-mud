@@ -770,12 +770,12 @@
       },
       "street_door": {
         "glass": "#b8deee",
-        "kind": "sliding",
+        "kind": "single",
         "dark": true,
         "hand": true,
-        "own": true,
+        "keypad": true,
         "trim": "#3a4a4e",
-        "w": 2.4
+        "w": 1.4
       },
       "studio": false,
       "tone": {

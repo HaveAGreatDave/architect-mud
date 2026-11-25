@@ -71,6 +71,26 @@ class AntiReson {
   }
 }
 
+// A shelving biquad (RBJ cookbook, slope 1): `high` lifts above f, else below it.
+class Shelf {
+  constructor() { this.b0 = 1; this.b1 = 0; this.b2 = 0; this.a1 = 0; this.a2 = 0; this.x1 = 0; this.x2 = 0; this.y1 = 0; this.y2 = 0; }
+  set(f, db, high, sr) {
+    const A = Math.pow(10, db / 40), w = TAU * f / sr, cw = Math.cos(w), al = Math.sin(w) / Math.SQRT2, sa = 2 * Math.sqrt(A) * al;
+    const s = high ? 1 : -1;
+    const a0 = (A + 1) - s * (A - 1) * cw + sa;
+    this.b0 = A * ((A + 1) + s * (A - 1) * cw + sa) / a0;
+    this.b1 = -2 * s * A * ((A - 1) + s * (A + 1) * cw) / a0;
+    this.b2 = A * ((A + 1) + s * (A - 1) * cw - sa) / a0;
+    this.a1 = 2 * s * ((A - 1) - s * (A + 1) * cw) / a0;
+    this.a2 = ((A + 1) - s * (A - 1) * cw - sa) / a0;
+  }
+  run(x) {
+    const y = this.b0 * x + this.b1 * this.x1 + this.b2 * this.x2 - this.a1 * this.y1 - this.a2 * this.y2;
+    this.x2 = this.x1; this.x1 = x; this.y2 = this.y1; this.y1 = y;
+    return y;
+  }
+}
+
 // ── The LF pulse ─────────────────────────────────────────────────────────────
 // Flow DERIVATIVE over one period, normalised to T0 = 1:
 //   open    0..te   E0 * e^(alpha t) * sin(pi t / tp)
@@ -201,6 +221,12 @@ class OracleVoice extends AudioWorkletProcessor {
     this.lpf = 0; this.done = false; this.stopped = false; this.tilt = 0;
     this.emph = 0; this.emphNorm = 1; this.px = 0;
     this.rms = 0; this.n = 0; this.rd = 1;
+    // The higher-pole correction: the cascade stops at F5, a throat has more above it, so
+    // the voiced path gets a shelf up from `hpcHz` (and a little chest under `lowHz`).
+    this.hpc = new Shelf(); this.low = new Shelf(); this.hpcOn = false;
+    // The breath on the voice: above ~5 kHz a person's vowel is mostly air, pulsed with the
+    // folds. The cascade has nothing there, so noise over `hbHz` rides on voicing at `hbK`.
+    this.hb1 = new HighPass(); this.hb2 = new HighPass();
     this.port.onmessage = (e) => {
       const d = e.data || {};
       if (d.type === 'line') {
@@ -218,6 +244,10 @@ class OracleVoice extends AudioWorkletProcessor {
         const w = TAU * 500 / sampleRate;
         this.emphNorm = 1 / Math.hypot(1 - this.emph * Math.cos(w), this.emph * Math.sin(w));
         this.fhp.set(+this.k.flatHz || 2500, +this.k.flatQ || 0.7, this.T);
+        this.hpcOn = (+this.k.hpcDb || 0) !== 0 || (+this.k.lowDb || 0) !== 0;
+        this.hpc.set(+this.k.hpcHz || 3200, +this.k.hpcDb || 0, true, sampleRate);
+        this.low.set(+this.k.lowHz || 200, +this.k.lowDb || 0, false, sampleRate);
+        this.hb1.set(+this.k.hbHz || 4500, 0.7, this.T); this.hb2.set(+this.k.hbHz || 4500, 0.7, this.T);
       } else if (d.type === 'stop') this.stopped = true;
     };
   }
@@ -333,7 +363,7 @@ class OracleVoice extends AudioWorkletProcessor {
         for (let n = 0; n < 4; n++) {
           const f = Math.max(60, Math.min(sampleRate * 0.45, this.at(IX.f1 + n, lt)));
           const q = Math.max(0.5, this.at(IX.q1 + n, lt));
-          R[n].set(n === 0 ? f * (1 + k.f1Rise * gl) : f, Math.max(30, f / q) * k.bwK * (n === 0 ? 1 + k.f1Open * gl : 1), T);
+          R[n].set(n === 0 ? f * (1 + k.f1Rise * gl) : f, Math.max(30, f / q) * k.bwK * (k.bwF ? k.bwF[n] ?? 1 : 1) * (n === 0 ? 1 + k.f1Open * gl : 1), T);
         }
         R[4].set(4800 * fs, 400, T);
         const nzf = Math.max(200, this.at(IX.nzf, lt));
@@ -390,6 +420,7 @@ class OracleVoice extends AudioWorkletProcessor {
       // the murmur under /v z/. F1's output alone, crossfaded by the closure track.
       const cl = this.at(IX.closure, lt);
       y = y * (1 - cl) + r1 * cl * k.closureK;
+      if (this.hpcOn) y = this.low.run(this.hpc.run(y));
       // The parallel branch: frication and bursts, through a doubled band beside a flat
       // path (the engine's `fb`/`ff` mix, levelled there), then a top cut. Under voicing
       // (/z v ʒ ð/) the noise is pulsed at F0 as aspiration is: the airflow through the
@@ -399,7 +430,10 @@ class OracleVoice extends AudioWorkletProcessor {
       const fn = nse * af * fo;
       const fz = (this.fb2.run(this.fb1.run(fn)) * this.at(IX.fb, lt) + this.fhp.run(fn) * this.at(IX.ff, lt)) * k.fricK;
       this.lpf += (fz - this.lpf) * k.lpA;
-      const s = y * k.cascK + this.lpf;
+      let s = y * k.cascK + this.lpf;
+      // ... and on the breath of /h/ and aspiration (`hbH` per unit of `ah`), which the
+      // cascade can't carry above 5 kHz either.
+      if (k.hbK > 0 || k.hbH > 0) s += this.hb2.run(this.hb1.run(nse)) * (av * (k.hbK || 0) * open + ah * (k.hbH || 0));
       out[i] = s;
       this.rms += s * s; this.n++;
     }

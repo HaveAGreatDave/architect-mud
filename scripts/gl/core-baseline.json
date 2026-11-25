@@ -81,7 +81,7 @@
     "minFilter": 2
   },
   "client/game/js/panels/gl/programs.js": {
-    "createShader": 3
+    "createShader": 4
   },
   "client/game/js/panels/gl/propshadow.js": {
     "minFilter": 1

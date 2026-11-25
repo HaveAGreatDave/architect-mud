@@ -202,3 +202,26 @@ keeps an old name.
 - Should a maker's dealership stock differ by district, or does Marrow Street sell all four?
 - The underglow and the setup menu are the Merlin's. Do the other three get them, or is that
   Corvane's extra?
+
+## Paint finishes and glass (as built, 2026-11-24)
+
+The booth offers five show coats beside gloss, satin, matte and weathered, for every aircraft and not
+only the hover cars: metallic, metal flake, pearlescent, candy and chameleon. Each one is shaded on the
+GPU by `gl/solids.js`. `finishCodeOf` in `client/shared/vehicle-materials.js` gives a face its code,
+and `writeQuad` packs the code into the coat's strength (8 down per code). Flake is a cell grid in the
+car's own metres, so it rides with the body.
+
+- **Pearl** works like real tri-coat pearl. A base colour sits under mica whose film reflects one
+  colour, the **Pearl** swatch (white pearl if none is picked). That colour shows round the highlight
+  and wherever the coat mirrors bright sky; away from it you see the base. A dark base shows the pearl
+  strongly; a light base shows it faintly, with a hint of its complement.
+- **Chameleon** is colour-shift pigment over a black ground. The base is the face-on colour and
+  **Shift to** is the edge colour. The hue travels the short way round the wheel between them, and the
+  coat is bright only where its flakes catch light.
+- Both carry the second colour packed into the vertex colour (`rgb2`, peeled off as `flipC`). It's
+  stored in the livery's `accent`.
+- A hover car's panes get glass code 6: Schlick Fresnel, the world reflected sharp, a faint smear and
+  a hard sun spot.
+
+Most of the showroom sets now name a show coat (Rosso is candy, Bianco is pearl, Nero is flake, Plum is
+chameleon, and so on).

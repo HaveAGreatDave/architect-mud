@@ -244,6 +244,26 @@ const VIEW = {
   },
 };
 
+// For a bench, which paints a whole route in one synchronous loop that no fetch can finish inside:
+// asks for every chunk round each centre, and resolves once none of them is still loading.
+export async function liteReady(centres, timeoutMs = 20000) {
+  const t0 = performance.now();
+  for (;;) {
+    let busy = indexState !== 'ready';
+    for (const [x, y] of centres) {
+      if (liteView(x, y) === null && indexState === 'ready') busy = true;
+      const [a0, b0] = chunkOf(x - REACH, y - REACH), [a1, b1] = chunkOf(x + REACH, y + REACH);
+      for (let cy = b0; cy <= b1 && !busy; cy++) for (let cx = a0; cx <= a1; cx++) {
+        const ch = chunks.get(cx + ',' + cy);
+        if (ch && ch.state === 'loading') { busy = true; break; }
+      }
+    }
+    if (!busy) return true;
+    if (performance.now() - t0 > timeoutMs) return false;
+    await new Promise((r) => setTimeout(r, 50));
+  }
+}
+
 // windshield.js asks this each Lite frame (installGLLite). Fetches what the window needs and answers
 // null until the chunk under its centre has loaded.
 export function liteView(wcx, wcy) {

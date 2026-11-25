@@ -94,35 +94,8 @@
     ];
   }
 
-  // ── The tag signature's two instruments (spray-done) ────────────────────────
+  // An exponential one-shot envelope, for the spray cues.
   const xp = (a, d, r = d * 0.5) => ({ a, d, s: 0, r, curve: 'exp' });
-  // The stab, struck twice at two pitches. An FM body falling a sixth onto its note (ratio 2 gives
-  // a square wave's odd harmonics), a square a fifth over it falling to the octave, a sub, and a
-  // click and a noise snap on the front. `acc` is the accent: the second hit is the louder.
-  function tagHit(f, at, seed, acc = 1) {
-    return [
-      { waveform: 'sine', freq: +(f * 1.6).toFixed(2), delay: at, pitchBend: { to: f, time: 0.025 },
-        fm: { ratio: 2, index: 3.4 * acc, indexEnd: 0.5, time: 0.16 }, drive: 0.35, adsr: xp(0.001, 0.144 * acc), gain: +(0.05 * acc).toFixed(3) },
-      { waveform: 'square', freq: +(f * 3).toFixed(2), delay: at, pitchBend: { to: f * 2, time: 0.03 },
-        filter: { type: 'lowpass', freq: 3400, q: 0.9 }, adsr: xp(0.003, 0.06 * acc), gain: +(0.012 * acc).toFixed(4) },
-      { waveform: 'sine', freq: f, delay: at, pitchBend: { to: +(f / 2).toFixed(2), time: 0.02 }, adsr: xp(0.001, 0.12 * acc), gain: +(0.038 * acc).toFixed(4) },
-      { waveform: 'noise', noiseMix: 1, noiseSeed: seed, delay: at, filter: { type: 'bandpass', freq: 3200, q: 1.2 }, adsr: xp(0.0003, 0.008), gain: 0.038 },
-      { waveform: 'noise', noiseMix: 1, noiseSeed: seed + 1, delay: at, filter: { type: 'bandpass', freq: 5200, q: 0.8 }, adsr: xp(0.001, 0.06 * acc), gain: +(0.017 * acc).toFixed(4) },
-    ];
-  }
-  // A note of the run: a DX-style lead (two FM operators in series) with a pulse an octave up.
-  // `from` bends the note up onto its pitch; `vib` is the last note's wobble.
-  function tagNote(f, at, len = 0.05, lvl = 1, from = 0, vib = null) {
-    const pitch = (k) => (from ? { freq: +(from * k).toFixed(2), pitchBend: { to: +(f * k).toFixed(2), time: 0.03 } } : { freq: +(f * k).toFixed(2) });
-    const wobble = vib ? { vibrato: vib } : {};
-    return [
-      { waveform: 'sine', ...pitch(1), delay: at, ...wobble,
-        fm: { ratio: 2, index: 2.6, indexEnd: 0.7, time: Math.max(0.06, len), op2: { ratio: 3, index: 1.1, indexEnd: 0.2, time: len } },
-        adsr: xp(0.002, len * 1.4, Math.max(0.03, len * 0.6)), gain: +(0.234 * lvl).toFixed(4) },
-      { waveform: 'square', ...pitch(2), delay: at, ...wobble,
-        filter: { type: 'lowpass', freq: 6000, q: 0.7 }, adsr: xp(0.003, len, Math.max(0.025, len * 0.5)), gain: +(0.045 * lvl).toFixed(4) },
-    ];
-  }
 
   // ── Built-in cues ───────────────────────────────────────────────────────────
   // group is a display bucket ('poker' | 'hack' | 'hololock' | 'vault'); category
@@ -325,63 +298,148 @@
       config: { duration: 0.32, vary: { pitch: 40 }, layers: [
         ...[[0, 0.3], [0.07, 0.22], [0.15, 0.14]].map(([d, g]) => ({ waveform: 'noise', noiseMix: 1, delay: d, filter: { type: 'bandpass', freq: 2100, q: 1.6 }, adsr: { a: 0.002, d: 0.04, s: 0, r: 0.02 }, gain: g })),
         { waveform: 'sawtooth', freq: 92, pitchBend: { to: 58, time: 0.2 }, filter: { type: 'lowpass', freq: 600, q: 1 }, adsr: { a: 0.004, d: 0.18, s: 0, r: 0.06 }, gain: 0.1 } ] } },
-    // The rest of the session's cues are tuned to G and moved by the session itself (spray-session.js
-    // `cue`): each stroke that lands plays the next note of its G major TUNE, each section the next
-    // chord root of I V vi IV, and the hiss brightens as a stroke fills; spray-done plays the tune back.
+    // The rest of the session's cues are tuned to E and moved by the session itself (spray-session.js
+    // `cue`): each stroke that lands plays a stab a step further up the E major scale, each section
+    // hits on the note the climb has reached, and the hiss brightens as a stroke fills; spray-done is
+    // the release.
     //
     // A stroke filling, a quarter at a time: a short puff off the nozzle.
     { id: 'spray-trace', name: 'Spray: a stroke filling', group: 'spray', category: 'sfx', priority: 3,
       config: { duration: 0.1, vary: { filter: 250, gain: 1 }, layers: hiss(5171, { len: 0.06, lvl: 0.5, flutter: 0.1 }) } },
-    // A stroke landed: a glassy ping over a puff.
+    // A stroke landed: a stab on the finale's band (spray-done), on E. The session moves it a step
+    // up the E major scale every stroke (spray-session.js climb), so a piece builds as it goes up: a
+    // slap of the synth bass on E1, the fuzz guitar two octaves over it, a closed hat and one
+    // sparkle, over the puff off the nozzle. Low on purpose: a long piece climbs two and a half octaves.
     { id: 'spray-step', name: 'Spray: a stroke lands', group: 'spray', category: 'sfx', priority: 5,
-      config: { duration: 0.3, layers: [
-        { waveform: 'triangle', freq: 392, adsr: xp(0.002, 0.16, 0.12), gain: 0.16 },
-        { waveform: 'sine', freq: 784, adsr: xp(0.001, 0.09, 0.08), gain: 0.07 },
-        { waveform: 'sine', freq: 1176, adsr: xp(0.001, 0.05), gain: 0.035 },
+      config: { duration: 0.05, layers: [
+        { waveform: 'sawtooth', freq: 41.2, filter: { type: 'lowpass', freq: 420, q: 5 }, drive: 0.5, driveType: 'tube',
+          eq: { mid: 7, midFreq: 800, high: -3 }, adsr: { a: 0.002, d: 0.1, s: 0, r: 0.03 }, gain: 0.011,
+          mods: [{ id: 'f', type: 'env', a: 0.001, d: 0.08, s: 0, r: 0.05, to: [{ param: 'filter.cutoff', amount: 3000 }] }] },
+        { waveform: 'square', freq: 41.2, detune: 10, filter: { type: 'lowpass', freq: 380, q: 3 },
+          adsr: { a: 0.002, d: 0.1, s: 0, r: 0.03 }, gain: 0.015,
+          mods: [{ id: 'f', type: 'env', a: 0.001, d: 0.08, s: 0, r: 0.05, to: [{ param: 'filter.cutoff', amount: 3000 }] }] },
+        { waveform: 'sine', freq: 41.2, adsr: { a: 0.002, d: 0.1, s: 0, r: 0.03 }, gain: 0.028 },
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 3200, q: 1.2 }, adsr: { a: 0.001, d: 0.03, s: 0, r: 0.01 }, gain: 0.05 },
+        ...[-6, 6].map((dt) => ({
+          waveform: 'sawtooth', freq: 164.81, delay: 0.006, detune: dt, pan: dt < 0 ? -0.35 : 0.35,
+          drive: 0.8, driveType: 'fuzz', filter: { type: 'lowpass', freq: 3200, q: 1.4 }, eq: { mid: 5, midFreq: 1400, low: -6 },
+          adsr: { a: 0.003, d: 0.12, s: 0, r: 0.05 }, gain: 0.0024,
+          chorus: { delay: 0.012, depth: 0.3, rate: 1.2, mix: 0.3 } })),
+        { waveform: 'noise', noiseMix: 1, delay: 0.004, filter: { type: 'highpass', freq: 8000, q: 1.2 }, adsr: { a: 0.001, d: 0.03, s: 0, r: 0.02 }, gain: 0.14 },
+        { waveform: 'sine', freq: 1318.51, delay: 0.02, pan: 0.4, fm: { ratio: 4, index: 1, indexEnd: 0, time: 0.05 },
+          adsr: { a: 0.001, d: 0.1, s: 0, r: 0.06 }, gain: 0.009, echo: { delay: 0.12, feedback: 0.2, mix: 0.25 } },
         ...hiss(5181, { len: 0.05, lvl: 0.35 }) ] } },
-    // A section on the wall: a fifth struck under the fill's hiss.
+    // A section on the wall: the band hits it. Kick and snare together, a power chord on the fuzz
+    // guitar (E3 B3 E4) and the bass popping on E1, a splash and a short sparkle run. The session
+    // moves it to the note the stroke stabs have climbed to (spray-session.js climb), so the hits
+    // climb with them.
     { id: 'spray-section', name: 'Spray: a section lands', group: 'spray', category: 'sfx', priority: 6,
-      config: { duration: 0.6, send: 0.25, layers: [
-        { waveform: 'triangle', freq: 196, adsr: xp(0.003, 0.4, 0.2), gain: 0.15 },
-        { waveform: 'triangle', freq: 293.66, delay: 0.05, adsr: xp(0.003, 0.36, 0.2), gain: 0.12 },
-        { waveform: 'sine', freq: 587.33, delay: 0.05, adsr: xp(0.002, 0.2, 0.15), gain: 0.06 } ] } },
+      config: { duration: 0.05, layers: [
+        { waveform: 'sine', freq: 170, pitchBend: { to: 48, time: 0.07 }, adsr: { a: 0.001, d: 0.18, s: 0, r: 0.05 }, gain: 0.26 },
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass', freq: 3000, q: 0.7 }, adsr: { a: 0.001, d: 0.012, s: 0, r: 0.008 }, gain: 0.13 },
+        { waveform: 'noise', noiseMix: 1, noiseSeed: 4201, filter: { type: 'bandpass', freq: 2600, q: 0.7 }, adsr: { a: 0.001, d: 0.12, s: 0, r: 0.06 }, gain: 0.17 },
+        { waveform: 'noise', noiseMix: 1, noiseSeed: 4231, filter: { type: 'highpass', freq: 5000, q: 0.5 }, adsr: { a: 0.001, d: 0.35, s: 0, r: 0.12 }, gain: 0.045 },
+        { waveform: 'sawtooth', freq: 41.2, filter: { type: 'lowpass', freq: 420, q: 5 }, drive: 0.5, driveType: 'tube',
+          eq: { mid: 7, midFreq: 800, high: -3 }, adsr: { a: 0.002, d: 0.3, s: 0, r: 0.08 }, gain: 0.011,
+          mods: [{ id: 'f', type: 'env', a: 0.001, d: 0.2, s: 0, r: 0.05, to: [{ param: 'filter.cutoff', amount: 3600 }] }] },
+        { waveform: 'sine', freq: 41.2, adsr: { a: 0.002, d: 0.3, s: 0, r: 0.08 }, gain: 0.028 },
+        ...[164.81, 246.94, 329.63].flatMap((f, i) => [-6, 6].map((dt) => ({
+          waveform: 'sawtooth', freq: f, delay: 0.006 + i * 0.008, detune: dt, pan: dt < 0 ? -0.4 : 0.4,
+          drive: 0.8, driveType: 'fuzz', filter: { type: 'lowpass', freq: 3000, q: 1.2 }, eq: { mid: 5, midFreq: 1400, low: -6 },
+          adsr: { a: 0.003, d: 0.38, s: 0, r: 0.12 }, gain: 0.0016,
+          chorus: { delay: 0.012, depth: 0.3, rate: 1.2, mix: 0.3 } }))),
+        ...[1318.51, 1661.22, 1975.53, 2637.02, 3322.44].map((f, i) => ({
+          waveform: 'sine', freq: f, delay: 0.02 + i * 0.018, pan: -0.6 + i * 0.3,
+          fm: { ratio: 3.01, index: 1.4, indexEnd: 0, time: 0.06 },
+          adsr: { a: 0.001, d: 0.1, s: 0, r: 0.06 }, gain: 0.012, echo: { delay: 0.1, feedback: 0.2, mix: 0.25 } })) ] } },
     // Shaken enough: the pressure coming up as a rising whistle, and a psst to clear the nozzle.
     { id: 'spray-ready', name: 'Spray: shaken enough', group: 'spray', category: 'sfx', priority: 6,
       config: { duration: 0.42, layers: [
         { waveform: 'sine', freq: 520, pitchBend: { to: 1560, time: 0.22 }, adsr: { a: 0.01, d: 0.24, s: 0, r: 0.1 }, gain: 0.08 },
         ...hiss(5191, { len: 0.2, lvl: 0.8 }).map((l) => ({ ...l, delay: (l.delay || 0) + 0.16 })) ] } },
     // The tag signature: the sound of a tag going up, whichever way it went up (the session, the
-    // dialog or a typed `tag`). Two stabs a fourth apart (D3, G3) count it in, then one bar at
-    // 150 bpm in G major: the session's tune (its A phrase, D B D E D-B A B) on the lead, a
-    // bass walking G C D, offbeat chord skanks, kick, snare on 2 and 4 and eighth hats, landing on
-    // the high G, bent up from F#, over a G major chord and a crash. No `vary`: it's a signature.
+    // dialog or a typed `tag`). The release after the session's climbing stabs: one bar of hard
+    // funk at 115 bpm on the E blues scale (E G A Bb B D), clipped and mean, on the accolade cue's
+    // band: a slap synth bass down in the first octave with ghost notes, octave pops and a slide
+    // into the flat third; a hot fuzz guitar doubling it two octaves up; kicks, a hard snare and
+    // sixteenth hats with an open one into the landing. It lands on E: a held E1 under the
+    // guitar's E4 with vibrato, a crash, and sparkles that have run quietly under the whole bar
+    // swelling into an upward run and trailing off. No `vary`: it's a signature.
     { id: 'spray-done', name: 'Spray — piece finished', group: 'spray', category: 'sfx', priority: 8,
-      config: { duration: 2.7, send: 0.3, retro: { rate: 20000, bits: 9 }, layers: (() => {
-        const E = 0.2, T0 = 0.4, at = (n) => +(T0 + n * E).toFixed(3);
-        const hz = (s) => +(392 * 2 ** (s / 12)).toFixed(2);       // semitones over G4
-        const kick = (t) => ({ waveform: 'sine', freq: 150, delay: t, pitchBend: { to: 48, time: 0.07 }, drive: 0.3, adsr: xp(0.001, 0.16), gain: 0.2 });
-        const snare = (t, s) => [
-          { waveform: 'noise', noiseMix: 1, noiseSeed: s, delay: t, filter: { type: 'bandpass', freq: 2600, q: 0.7 }, adsr: xp(0.001, 0.12), gain: 0.11 },
-          { waveform: 'triangle', freq: 210, delay: t, pitchBend: { to: 170, time: 0.04 }, adsr: xp(0.001, 0.07), gain: 0.07 } ];
-        const hat = (t, s, g = 0.03) => ({ waveform: 'noise', noiseMix: 1, noiseSeed: s, delay: t, filter: { type: 'highpass', freq: 8000, q: 0.7 }, adsr: xp(0.0005, 0.03), gain: g });
-        const bass = (f, t, len) => ({ waveform: 'triangle', freq: f, delay: t, filter: { type: 'lowpass', freq: 900, q: 1 }, adsr: { a: 0.004, d: len, s: 0.4, r: 0.05 }, gain: 0.16 });
-        const skank = (fs, t, len = 0.08) => fs.map((f) => ({ waveform: 'square', freq: f, delay: t, filter: { type: 'lowpass', freq: 2400, q: 0.8 }, adsr: xp(0.002, len), gain: 0.018 }));
-        const G = [196, 246.94, 293.66], C = [196, 261.63, 329.63], D = [220, 293.66, 369.99];
-        const out = [...tagHit(146.83, 0, 4101), ...tagHit(196, 0.17, 4103, 1.12)];
-        // the band: kick on 1, the and of 2, 3 and the landing; snare on 2 and 4; hats on every eighth
-        for (const n of [0, 3, 4, 8]) out.push(kick(at(n)));
-        for (const [n, s] of [[2, 4201], [6, 4203]]) out.push(...snare(at(n), s));
-        for (let n = 0; n < 8; n++) out.push(hat(at(n), 4211 + n, n % 2 ? 0.022 : 0.032));
-        out.push(bass(98, at(0), 0.3), bass(98, at(1.5), 0.15), bass(130.81, at(2), 0.3), bass(130.81, at(3.5), 0.15),
-          bass(146.83, at(4), 0.3), bass(146.83, at(5.5), 0.1), bass(185, at(6), 0.15), bass(146.83, at(7), 0.15), bass(98, at(8), 0.6));
-        for (const [n, ch] of [[1, G], [3, C], [5, D], [7, D]]) out.push(...skank(ch, at(n)));
-        // the lead: the tune's call, then home
-        for (const [n, s, len] of [[0, 7, 0.1], [1, 4, 0.1], [2, 7, 0.1], [3, 9, 0.14], [4, 7, 0.06], [4.5, 4, 0.06], [5, 2, 0.1], [6, 4, 0.1], [7, 7, 0.08]])
-          out.push(...tagNote(hz(s), at(n), len));
-        out.push(...tagNote(783.99, at(8), 0.5, 1.15, 739.99, { rate: 6.5, depth: 14 }));
-        out.push(...skank([196, 246.94, 293.66, 392], at(8), 0.6));
-        out.push({ waveform: 'noise', noiseMix: 1, noiseSeed: 4231, delay: at(8), filter: { type: 'highpass', freq: 5000, q: 0.5 }, adsr: xp(0.001, 0.7), gain: 0.05 });
-        return out.map((l) => ({ ...l, gain: +(l.gain * 0.5).toFixed(4) }));   // the band together peaks where the stabs alone did
+      config: { duration: 0.05, send: 0.2, layers: (() => {
+        const S = 0.13, at = (n) => +(n * S).toFixed(3);       // a sixteenth at 115 bpm
+        const E1 = 41.2, hz = (s) => +(E1 * 2 ** (s / 12)).toFixed(2);   // semitones over E1
+        const out = [];
+        // The riff: [sixteenth, semitones over E1, decay s, velocity, pop, slide-from semitones]
+        const RIFF = [
+          [0, 0, 0.07, 1, 0], [1, 0, 0.025, 0.4, 0], [2, 12, 0.06, 1, 1], [3, 10, 0.05, 0.85, 0],
+          [4, 7, 0.06, 0.95, 0], [6, 6, 0.05, 0.8, 0], [7, 5, 0.06, 0.9, 0], [8, 3, 0.08, 1, 0, 2],
+          [9, 0, 0.025, 0.4, 0], [10, 0, 0.06, 0.95, 0], [11, 12, 0.05, 1, 1], [12, 10, 0.06, 0.9, 0],
+          [13, 7, 0.05, 0.85, 0], [14, 12, 0.08, 1, 1], [15, 15, 0.06, 1, 1],
+          [16, 0, 0.9, 1, 0],
+        ];
+        RIFF.forEach(([n, s, len, vel, pop, from], i) => {
+          const d = at(n), f = hz(s), last = i === RIFF.length - 1;
+          const env = { a: 0.002, d: len, s: 0, r: last ? 0.25 : 0.03 };
+          const fenv = [{ id: 'f', type: 'env', a: 0.001, d: last ? 0.4 : Math.max(0.04, len), s: 0, r: 0.05,
+            to: [{ param: 'filter.cutoff', amount: (pop ? 3600 : 2600) * vel * vel }] }];
+          const pitch = from != null ? { freq: hz(from), pitchBend: { to: f, time: 0.06 } } : { freq: f };
+          // the bass
+          out.push(
+            { waveform: 'sawtooth', ...pitch, delay: d, filter: { type: 'lowpass', freq: 420, q: 5 },
+              drive: 0.5, driveType: 'tube', eq: { mid: 7, midFreq: 800, high: -3 }, adsr: env, gain: 0.011 * vel, mods: fenv },
+            { waveform: 'square', ...pitch, delay: d, detune: 10, filter: { type: 'lowpass', freq: 380, q: 3 },
+              adsr: env, gain: 0.015 * vel, mods: fenv },
+            { waveform: 'sine', ...pitch, delay: d, adsr: env, gain: 0.028 * vel },
+            { waveform: 'noise', noiseMix: 1, delay: d, filter: { type: 'bandpass', freq: pop ? 3200 : 1800, q: 1.2 },
+              adsr: { a: 0.001, d: pop ? 0.03 : 0.02, s: 0, r: 0.01 }, gain: (pop ? 0.06 : 0.035) * vel });
+          // the guitar, two octaves up, skipping the ghosts
+          if (vel < 0.5) return;
+          const g = 24;
+          const gp = from != null ? { freq: hz(from + g), pitchBend: { to: hz(s + g), time: 0.06 } } : { freq: hz(s + g) };
+          for (const dt of [-6, 6]) out.push({
+            waveform: 'sawtooth', ...gp, delay: d + 0.006, detune: dt, pan: dt < 0 ? -0.35 : 0.35,
+            drive: 0.95, driveType: 'fuzz', filter: { type: 'lowpass', freq: 4600, q: 2 }, eq: { mid: 5, midFreq: 1400, low: -6 },
+            adsr: { a: 0.003, d: last ? 0.6 : len + 0.02, s: 0, r: last ? 0.25 : 0.04 }, gain: 0.0024 * Math.min(1, vel + 0.1),
+            chorus: { delay: 0.012, depth: 0.3, rate: 1.2, mix: 0.3 },
+            ...(last ? { vibrato: { rate: 5.5, depth: 18 } } : {}) });
+        });
+        // Drums: kicks on 1, the "a" of 1, the "&" of 2, 3, the "a" of 3, the "&" of 4 and the landing; snare on 2 and 4;
+        // sixteenth hats, the offbeats softer, an open one on the "&" of 4 into the landing.
+        for (const n of [0, 3, 6, 8, 11, 14, 16]) out.push(
+          { waveform: 'sine', freq: 170, delay: at(n), pitchBend: { to: 48, time: 0.07 }, adsr: { a: 0.001, d: 0.18, s: 0, r: 0.05 }, gain: 0.3 * (n === 16 ? 1 : 0.85) },
+          { waveform: 'noise', noiseMix: 1, delay: at(n), filter: { type: 'lowpass', freq: 3000, q: 0.7 }, adsr: { a: 0.001, d: 0.012, s: 0, r: 0.008 }, gain: 0.15 });
+        for (const [n, seed] of [[4, 4201], [12, 4203]]) out.push(
+          { waveform: 'noise', noiseMix: 1, noiseSeed: seed, delay: at(n), filter: { type: 'bandpass', freq: 2600, q: 0.7 }, adsr: { a: 0.001, d: 0.1, s: 0, r: 0.05 }, gain: 0.3 },
+          { waveform: 'triangle', freq: 210, delay: at(n), pitchBend: { to: 170, time: 0.04 }, adsr: { a: 0.001, d: 0.07, s: 0, r: 0.04 }, gain: 0.2 });
+        for (let n = 0; n < 16; n++) out.push({
+          waveform: 'noise', noiseMix: 1, noiseSeed: 4211 + n, delay: at(n) + 0.004, pan: n % 2 ? 0.25 : -0.15,
+          filter: { type: 'highpass', freq: 8000, q: 1.2 },
+          adsr: { a: 0.001, d: n === 14 ? 0.18 : 0.03, s: 0, r: 0.02 }, gain: 0.25 * (n === 14 ? 0.9 : n % 4 === 0 ? 0.7 : n % 2 ? 0.35 : 0.55) });
+        // the crash on the landing
+        out.push({ waveform: 'noise', noiseMix: 1, noiseSeed: 4231, delay: at(16), filter: { type: 'highpass', freq: 5000, q: 0.5 }, adsr: { a: 0.001, d: 0.7, s: 0, r: 0.2 }, gain: 0.07 });
+        // Sparkles: quiet pings under the bar on E major pentatonic, growing toward the landing…
+        const SPK = [3951.07, 2637.02, 4434.92, 3322.44, 2959.96, 2217.46, 3951.07, 4434.92, 2637.02, 2959.96, 3322.44, 4434.92];
+        SPK.forEach((f, i) => out.push({
+          waveform: 'sine', freq: f, delay: at(i * 1.3 + 0.3), pan: i % 2 ? 0.55 : -0.55,
+          fm: { ratio: 4, index: 1, indexEnd: 0, time: 0.05 },
+          adsr: { a: 0.001, d: 0.08, s: 0, r: 0.05 }, gain: 0.004 + i * 0.0006,
+          echo: { delay: 0.12, feedback: 0.2, mix: 0.25 } }));
+        // …a run up the scale on the landing…
+        [1318.51, 1479.98, 1661.22, 1975.53, 2217.46, 2637.02, 2959.96, 3322.44, 3951.07, 5274.04].forEach((f, i) => out.push({
+          waveform: 'sine', freq: f, delay: at(16) + i * 0.016, pan: -0.7 + i * 0.155,
+          fm: { ratio: 3.01, index: 1.4, indexEnd: 0, time: 0.06 },
+          adsr: { a: 0.001, d: 0.12, s: 0, r: 0.06 }, gain: 0.016, echo: { delay: 0.09, feedback: 0.2, mix: 0.25 } }));
+        // …and pings trailing off after it, sparser and quieter.
+        [3951.07, 5274.04, 3322.44, 6644.88, 3951.07, 4434.92, 2959.96, 6644.88].forEach((f, i) => out.push({
+          waveform: 'sine', freq: f, delay: at(16) + 0.12 + i * 0.06 + i * i * 0.006, pan: [0.6, -0.6, 0.3, -0.4, 0.2, -0.7, 0.5, -0.2][i],
+          fm: { ratio: 4, index: 1.1, indexEnd: 0, time: 0.05 },
+          adsr: { a: 0.001, d: 0.08, s: 0, r: 0.05 }, gain: 0.013 * (1 - i / 9), echo: { delay: 0.12, feedback: 0.2, mix: 0.25 } }));
+        // A hiss of shimmer swelling into the landing and dying after it.
+        out.push({ waveform: 'noise', noiseMix: 1, delay: 0, filter: { type: 'highpass', freq: 7000, q: 0.7 },
+          adsr: { a: at(16), d: 0.6, s: 0, r: 0.15 }, gain: 0.012,
+          mods: [{ id: 'shim', type: 'rand', rate: 30, seed: 7, density: 0.4, to: [{ param: 'amp', amount: 0.8 }] }] });
+        return out;
       })() } },
 
     // ── Vault Crack ──────────────────────────────────────────────────────────
@@ -814,61 +872,105 @@
         { waveform: 'sine', freq: 4698, delay: 0.16, adsr: { a: 0.001, d: 0.16, s: 0, r: 0.1 }, gain: 0.03 } ] } },
 
     // ── Accolades ────────────────────────────────────────────────────────────
-    // "Reach & relax": three glass bells, C5 → G5 → F5.
-    //
-    // The "glass" set is partials at x1, 2.00, 3.01 and 4.97 — pushed back toward
-    // whole numbers, so it is sweeter and more consonant than a tubular bell
-    // (whose x1.41/2.76 ratios clang). Nearer a glockenspiel. Higher partials get
-    // proportionally shorter decays, which is what makes a struck thing sound
-    // struck rather than merely played.
-    //
-    // The SHAPE is the joke: it overshoots up to the fifth and then settles back
-    // onto the fourth. Effort, then a shrug — it never fully resolves, because the
-    // entry copy underneath is never congratulating you. The first two notes are
-    // short and quiet; the third lands 235ms in and rings for a second.
-    //
-    // CHORUS is on the third note only. Beating needs time to develop, and the
-    // first two notes are ~0.34s — too short to hear it. Detuned twins at ±9 cents
-    // on the two loudest partials give the ringing note a slow shimmer for two
-    // extra oscillators instead of doubling the whole cue.
-    //
-    // SHIMMER is timed to the visual sparks (accolades-banner.js): a bright cluster
-    // in the first 60ms under the spark burst, then single high twinkles at 300 /
-    // 600 / 900ms matching the trickle interval, so each one lands with a fresh
-    // glint on screen. All drawn from the F chord so they stay musical, and quiet
-    // enough (0.010–0.016) to read as sparkle rather than melody.
-    //
-    // `duration` is the SUSTAIN HOLD, not the total: these partials have s:0 and
-    // decay on their own, so the hold is near-zero deliberately and the voice frees
-    // early while the tail rings out. Total audible length is ~1.3s.
+    // A quick E arpeggio on bass with sparkles on top (accolades-banner.js).
+    //   0-390 ms   E1 G#1 B1 and an octave pop on E2 on bass, with an electric
+    //              guitar doubling it two octaves up, 130 ms apart, short so it
+    //              never gets tiring. One bass voice: a saw
+    //              and a detuned square through a resonant lowpass whose
+    //              envelope snaps open on each note, tube drive for grit, a
+    //              boost round 800 Hz so it speaks in the high mids, a sine sub
+    //              an octave down and a pick click on each attack.
+    //   kicks      on the first note and on the pop; a hi-hat on every note
+    //   sparkles   in E major the whole way: quiet pings and a hiss growing from
+    //              the start, a fast upward run on the pop, then pings trailing
+    //              off. ~1.3 s in all
+    // `duration` is the SUSTAIN HOLD; every layer decays on its own.
     { id: 'accolade-unlock', name: 'Accolades — entry logged', group: 'accolades', category: 'sfx', priority: 9,
       config: { duration: 0.05, layers: [
-        // Note 1 — C5. The reach begins. Carries the sub.
-        { waveform: 'sine',     freq: 523,  adsr: { a: 0.003, d: 0.34,  s: 0,    r: 0.102 }, gain: 0.075 },
-        { waveform: 'sine',     freq: 1047, adsr: { a: 0.005, d: 0.238, s: 0,    r: 0.071 }, gain: 0.041 },
-        { waveform: 'triangle', freq: 1575, adsr: { a: 0.007, d: 0.177, s: 0,    r: 0.053 }, gain: 0.026 },
-        { waveform: 'sine',     freq: 2601, adsr: { a: 0.009, d: 0.116, s: 0,    r: 0.035 }, gain: 0.011 },
-        { waveform: 'sine',     freq: 262,  adsr: { a: 0.012, d: 0.204, s: 0.14, r: 0.153 }, gain: 0.032 },
-        // Note 2 — G5 at 110ms. The overshoot.
-        { waveform: 'sine',     freq: 784,  delay: 0.11, adsr: { a: 0.003, d: 0.36,  s: 0, r: 0.108 }, gain: 0.085 },
-        { waveform: 'sine',     freq: 1568, delay: 0.11, adsr: { a: 0.005, d: 0.252, s: 0, r: 0.076 }, gain: 0.047 },
-        { waveform: 'triangle', freq: 2360, delay: 0.11, adsr: { a: 0.007, d: 0.187, s: 0, r: 0.056 }, gain: 0.029 },
-        { waveform: 'sine',     freq: 3896, delay: 0.11, adsr: { a: 0.009, d: 0.122, s: 0, r: 0.037 }, gain: 0.013 },
-        // Note 3 — F5 at 235ms. Settles, and rings. Chorused twins on the two
-        // loudest partials (±9 cents) so the long tail shimmers instead of sitting still.
-        { waveform: 'sine',     freq: 698,  delay: 0.235, adsr: { a: 0.003, d: 1.05,  s: 0, r: 0.315 }, gain: 0.100 },
-        { waveform: 'sine',     freq: 698,  delay: 0.235, detune: 9,  adsr: { a: 0.004, d: 1.05,  s: 0, r: 0.315 }, gain: 0.052 },
-        { waveform: 'sine',     freq: 1397, delay: 0.235, adsr: { a: 0.005, d: 0.735, s: 0, r: 0.221 }, gain: 0.055 },
-        { waveform: 'sine',     freq: 1397, delay: 0.235, detune: -9, adsr: { a: 0.006, d: 0.735, s: 0, r: 0.221 }, gain: 0.028 },
-        { waveform: 'triangle', freq: 2102, delay: 0.235, adsr: { a: 0.007, d: 0.546, s: 0, r: 0.164 }, gain: 0.034 },
-        { waveform: 'sine',     freq: 3471, delay: 0.235, adsr: { a: 0.009, d: 0.357, s: 0, r: 0.107 }, gain: 0.015 },
-        // Shimmer — synced to the spark burst (0ms) and the trickle (300/600/900ms).
-        { waveform: 'sine', freq: 2794, delay: 0.010, adsr: { a: 0.004, d: 0.20, s: 0, r: 0.09 }, gain: 0.016 },
-        { waveform: 'sine', freq: 3520, delay: 0.032, adsr: { a: 0.004, d: 0.17, s: 0, r: 0.08 }, gain: 0.013 },
-        { waveform: 'sine', freq: 4186, delay: 0.056, adsr: { a: 0.004, d: 0.14, s: 0, r: 0.07 }, gain: 0.010 },
-        { waveform: 'sine', freq: 2794, delay: 0.300, adsr: { a: 0.004, d: 0.16, s: 0, r: 0.08 }, gain: 0.013 },
-        { waveform: 'sine', freq: 3520, delay: 0.600, adsr: { a: 0.004, d: 0.15, s: 0, r: 0.07 }, gain: 0.011 },
-        { waveform: 'sine', freq: 4186, delay: 0.900, adsr: { a: 0.004, d: 0.13, s: 0, r: 0.06 }, gain: 0.009 } ] } },
+        // A slap-bass pickup, 130 ms a note, down in the first octave:
+        // [note Hz, start s, decay s, slide-from Hz or 0, velocity, pop]
+        // E1, G#1, B1 and the octave pop on E2, which rings a little. The pop is
+        // brighter with a harder click; the sparkles take over from it.
+        ...[
+          [41.2,   0,    0.1,  0, 0.9,  0],
+          [51.91,  0.13, 0.09, 0, 0.8,  0],
+          [61.74,  0.26, 0.09, 0, 0.85, 0],
+          [82.41,  0.39, 0.3,  0, 1,    1],
+        ].flatMap(([f, d, len, from, vel, pop], i, all) => {
+          const last = i === all.length - 1;
+          const env = { a: 0.002, d: len, s: 0, r: last ? 0.12 : 0.03 };
+          const fenv = [{ id: 'f', type: 'env', a: 0.001, d: last ? 0.2 : Math.max(0.04, len), s: 0, r: 0.05,
+            to: [{ param: 'filter.cutoff', amount: (pop ? 3600 : 2600) * vel * vel }] }];
+          const pitch = from ? { freq: from, pitchBend: { to: f, time: 0.07 } } : { freq: f };
+          const sub = pitch;
+          return [
+            { waveform: 'sawtooth', ...pitch, delay: d,
+              filter: { type: 'lowpass', freq: 420, q: 5 }, drive: 0.5, driveType: 'tube',
+              eq: { mid: 7, midFreq: 800, high: -3 },
+              adsr: env, gain: 0.011 * vel, mods: fenv },
+            { waveform: 'square', ...pitch, delay: d, detune: 10,
+              filter: { type: 'lowpass', freq: 380, q: 3 },
+              adsr: env, gain: 0.015 * vel, mods: fenv },
+            { waveform: 'sine', ...sub, delay: d, adsr: env, gain: 0.028 * vel },
+            { waveform: 'noise', noiseMix: 1, delay: d, filter: { type: 'bandpass', freq: pop ? 3200 : 1800, q: 1.2 },
+              adsr: { a: 0.001, d: pop ? 0.03 : 0.02, s: 0, r: 0.01 }, gain: (pop ? 0.06 : last ? 0.05 : 0.035) * vel },
+          ];
+        }),
+        // Electric guitar: the arpeggio where the bass used to be, E3 G#3 B3
+        // and a held E4 with vibrato. Two detuned saws, fuzz, a cabinet-ish
+        // lowpass and a mid bump, chorused a little.
+        ...[[164.81, 0, 0.11], [207.65, 0.13, 0.11], [246.94, 0.26, 0.11], [329.63, 0.39, 0.55]].flatMap(([f, d, len], i) => [-6, 6].map(dt => ({
+          waveform: 'sawtooth', freq: f, delay: d + 0.006, detune: dt, pan: dt < 0 ? -0.35 : 0.35,
+          drive: 0.8, driveType: 'fuzz',
+          filter: { type: 'lowpass', freq: 3200, q: 1.4 },
+          eq: { mid: 5, midFreq: 1400, low: -6 },
+          adsr: { a: 0.003, d: len, s: 0, r: i === 3 ? 0.2 : 0.04 }, gain: 0.0024,
+          chorus: { delay: 0.012, depth: 0.3, rate: 1.2, mix: 0.3 },
+          ...(i === 3 ? { vibrato: { rate: 5.5, depth: 18 } } : {}),
+        }))),
+        // Kicks: on the first note and on the pop. A sine falling fast with a
+        // short click on top, so it thumps on a laptop as well as a sub.
+        ...[[0, 0.85], [0.39, 1]].flatMap(([d, v]) => [
+          { waveform: 'sine', freq: 170, delay: d, pitchBend: { to: 48, time: 0.07 },
+            adsr: { a: 0.001, d: 0.18, s: 0, r: 0.05 }, gain: 0.3 * v },
+          { waveform: 'noise', noiseMix: 1, delay: d, filter: { type: 'lowpass', freq: 3000, q: 0.7 },
+            adsr: { a: 0.001, d: 0.012, s: 0, r: 0.008 }, gain: 0.15 * v },
+        ]),
+        // Hi-hats: a closed tick on each bass note, the pop's a little open.
+        ...[[0, 0.7, 0.03], [0.13, 0.5, 0.03], [0.26, 0.6, 0.03], [0.39, 0.9, 0.12]].map(([d, v, len], i) => ({
+          waveform: 'noise', noiseMix: 1, delay: d + 0.004, pan: i % 2 ? 0.25 : -0.15,
+          filter: { type: 'highpass', freq: 8000, q: 1.2 },
+          adsr: { a: 0.001, d: len, s: 0, r: 0.02 }, gain: 0.25 * v,
+        })),
+        // Sparkles, part 0: quiet pings in the background from the start,
+        // growing toward the pop.
+        ...[3951, 2637, 5274, 3322.4, 4434.9, 2960, 3951].map((f, i) => ({
+          waveform: 'sine', freq: f, delay: 0.02 + i * 0.055 + (i % 2) * 0.012,
+          pan: [-0.6, 0.5, -0.3, 0.7, -0.5, 0.3, -0.1][i],
+          fm: { ratio: 4, index: 1, indexEnd: 0, time: 0.05 },
+          adsr: { a: 0.001, d: 0.08, s: 0, r: 0.05 }, gain: 0.004 + i * 0.0012,
+          echo: { delay: 0.12, feedback: 0.2, mix: 0.25 },
+        })),
+        // Sparkles, part 1: a fast run up E major on the pop, 16 ms a step.
+        ...[1975.5, 2637, 3322.4, 3951, 4434.9, 5274].map((f, i) => ({
+          waveform: 'sine', freq: f, delay: 0.39 + i * 0.016, pan: -0.7 + i * 0.28,
+          fm: { ratio: 3.01, index: 1.4, indexEnd: 0, time: 0.06 },
+          adsr: { a: 0.001, d: 0.12, s: 0, r: 0.06 }, gain: 0.016,
+          echo: { delay: 0.09, feedback: 0.2, mix: 0.25 },
+        })),
+        // Sparkles, part 2: high pings trailing off after the pop, sparser and quieter.
+        ...[3951, 5274, 3322.4, 6644.9, 3951, 5274, 4434.9, 6644.9].map((f, i) => ({
+          waveform: 'sine', freq: f, delay: 0.5 + i * 0.06 + i * i * 0.006,
+          pan: [0.6, -0.6, 0.3, -0.4, 0.2, -0.7, 0.5, -0.2][i],
+          fm: { ratio: 4, index: 1.1, indexEnd: 0, time: 0.05 },
+          adsr: { a: 0.001, d: 0.08, s: 0, r: 0.05 }, gain: 0.013 * (1 - i / 9),
+          echo: { delay: 0.12, feedback: 0.2, mix: 0.25 },
+        })),
+        // A hiss of shimmer under the sparkles.
+        { waveform: 'noise', noiseMix: 1, delay: 0, filter: { type: 'highpass', freq: 7000, q: 0.7 },
+          adsr: { a: 0.39, d: 0.55, s: 0, r: 0.15 }, gain: 0.016,
+          mods: [{ id: 'shim', type: 'rand', rate: 30, seed: 7, density: 0.4, to: [{ param: 'amp', amount: 0.8 }] }] },
+      ] } },
 
     // ── Trading cards (machine + pack opening) ───────────────────────────────
     // The whole point of this set is ESCALATION: a common flips with a dry paper

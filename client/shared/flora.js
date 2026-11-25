@@ -24,7 +24,7 @@ const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 // The growth forms the renderer can draw. A species names one; the gate fails a species whose form
 // isn't here, and the renderer fails loudly on a form it has no drawer for.
 export const FLORA_FORMS = ['shrub', 'columnar', 'paddle', 'cholla', 'barrel', 'rosette', 'yucca', 'joshua',
-  'ocotillo', 'juniper', 'broadtree', 'feathery', 'grass', 'flowers', 'snag', 'thorn'];
+  'ocotillo', 'juniper', 'broadtree', 'feathery', 'grass', 'flowers', 'snag', 'thorn', 'weeping'];
 
 // Ground a PLACED tile's biome stands for. A placed tile has no relief reading (the relief holds 0
 // under a region), so it gets the habitat its biome implies and a typical moisture for it.
@@ -32,8 +32,12 @@ const PLACED = {
   scrub: ['scrub', 0.35], badlands: ['badlands', 0.25], redrock: ['redrock', 0.15], scarlet: ['redrock', 0.15],
   hardpan: ['hardpan', 0.2], alkali: ['alkali', 0.08], sinter: ['alkali', 0.12], ash: ['ash', 0.15],
   deadwood: ['ash', 0.2], basalt: ['basalt', 0.12], prairie: ['prairie', 0.6],
+  // Appended, so no other placed biome's cache key moves. Reed and black water, as wet as ground gets.
+  marsh: ['marsh', 0.95],
 };
 export const FLORA_PLACED_BIOMES = Object.keys(PLACED);
+// The habitats only a placed tile has (marsh): no relief reading ever answers them.
+export const FLORA_PLACED_GROUNDS = [...new Set(Object.values(PLACED).map((p) => p[0]))];
 
 // How a species likes a value in its range: nothing outside it, best in the middle, still a fair
 // showing at the edges, so a range edge thins a species out rather than drawing a line on the map.

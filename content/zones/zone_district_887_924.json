@@ -1,9 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "bg_color": "#1f3646",
-  "color": "#4f83a8",
-  "description": "The water at the shore is shallow and the bottom is visible, gravel then silt. The mud at the edge has been dug over.",
+  "ambient_theme": "forest",
+  "color": "#b5744a",
+  "description": "A backwater the river left behind, choked with reed and sedge. Frogs go quiet as you come through.",
   "exits": {
     "east": "zone_district_888_924",
     "south": "zone_district_887_925",
@@ -13,13 +12,13 @@
     "district": "wilds",
     "radiation": 27,
     "region_id": "region_coldwater",
-    "terrain": "water"
+    "terrain": "marsh"
   },
   "grid_x": 887,
   "grid_y": 924,
   "grid_z": 0,
   "id": "zone_district_887_924",
   "map_id": "map_world",
-  "name": "Coldwater Basin",
+  "name": "Meltwater Reeds",
   "parent_zone": null
 }

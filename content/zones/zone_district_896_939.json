@@ -3,7 +3,7 @@
   "ambient_theme": "wasteland",
   "bg_color": "#1f3646",
   "color": "#4f83a8",
-  "description": "Clear shallows where you can watch gravel turn to silt underfoot before the bottom drops away.",
+  "description": "The pond is deeper than it looks. The shallows go gravel to silt and then the bottom just goes.",
   "exits": {
     "east": "zone_district_897_939",
     "north": "zone_district_896_938",
@@ -21,6 +21,6 @@
   "grid_z": 0,
   "id": "zone_district_896_939",
   "map_id": "map_world",
-  "name": "The Meltwater Mouth",
+  "name": "Meltwater Pond",
   "parent_zone": null
 }

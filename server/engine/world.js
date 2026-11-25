@@ -1596,8 +1596,40 @@ export function applyMinimapVisibility(zones, viewer = null) {
   return vis;
 }
 
+// ── Minimap caches ───────────────────────────────────────────────────────────
+// Every look and move built the minimap from scratch: an 8-hop search, a sweep of
+// every zone in the world for the 9×9 window, and ~30 derived fields per tile.
+// The layout and most fields only change when content does, so both are cached
+// for MINIMAP_TTL_MS; a content edit shows up within that. Anything that depends
+// on the viewer or on live state (shut, locks, danger, radiation, player_count,
+// the visibility filter) is still worked out on every call. Transient zones
+// (void crossings) are never cached: they're created and destroyed on the fly.
+const MINIMAP_TTL_MS = 30_000;
+const minimapLayoutCache = new Map();   // `${center}|${depth}` → { visited, ids, until }
+const minimapTileCache = new Map();     // zoneId → { fields, until }
+export function clearMinimapCache() { minimapLayoutCache.clear(); minimapTileCache.clear(); }
+
 export function getMinimapData(centerZoneId, depth = 8, viewer = null) {
   const centerZone = world.zones.get(centerZoneId);
+  const layoutKey = `${centerZoneId}|${depth}`;
+  const cachedLayout = minimapLayoutCache.get(layoutKey);
+  let visited, ids;
+  if (cachedLayout && Date.now() < cachedLayout.until) {
+    ({ visited, ids } = cachedLayout);
+  } else {
+    ({ visited, ids } = minimapLayout(centerZoneId, centerZone, depth));
+    // A layout that touches a transient zone can change any moment; don't keep it.
+    let transient = false;
+    for (const id of ids) if (world.transientZones.has(id)) { transient = true; break; }
+    if (!transient) {
+      if (minimapLayoutCache.size > 20_000) minimapLayoutCache.clear();
+      minimapLayoutCache.set(layoutKey, { visited, ids, until: Date.now() + MINIMAP_TTL_MS });
+    }
+  }
+  return minimapNodes(centerZoneId, visited, ids, viewer);
+}
+
+function minimapLayout(centerZoneId, centerZone, depth) {
   const centerMapId = centerZone?.map_id || null;
 
   const visited = new Map(); // zoneId -> distance
@@ -1652,7 +1684,59 @@ export function getMinimapData(centerZoneId, depth = 8, viewer = null) {
       if (Math.abs(zone.grid_x - cx) <= WIN && Math.abs(zone.grid_y - cy) <= WIN) ids.add(id);
     }
   }
+  return { visited, ids };
+}
 
+// The fields of a minimap tile that don't depend on the viewer or on live state.
+function minimapTileFields(zone) {
+  const transient = world.transientZones.has(zone.id);
+  const hit = !transient && minimapTileCache.get(zone.id);
+  if (hit && Date.now() < hit.until) return hit.fields;
+  // Building name(s) reachable from this tile — for the hover tooltip (same rule
+  // as the full map's buildingsAt: an exit into an is_building zone).
+  const buildings = [];
+  for (const { target } of allExits(zone)) {
+    const t = world.zones.get(target);
+    if (t?.flags?.is_building) buildings.push(t.flags.building_name || t.name);
+  }
+  const fields = {
+    name: roomDisplayName(zone),
+    buildings,
+    sanctuary: isSanctuary(zone),
+    // Pass-through building tile: rendered as an enterable marker, not a room.
+    enterable: isEnterableFacade(zone),
+    building_name: zone.flags?.building_name || null,
+    exits: primaryExits(zone),
+    map_id: zone.map_id || null,
+    grid_x: zone.grid_x, grid_y: zone.grid_y, grid_z: zone.grid_z,
+    // spec is the GENERATED presentation (zone_derived.spec) and the only thing a
+    // renderer should colour a tile from. marker/color/bg_color stay in the
+    // payload for the tooltip and for a transient zone, which has no derived row.
+    spec: specOf(zone.id),
+    marker: zone.marker || null, color: zone.color || null, bg_color: zone.bg_color || null,
+    poi: poiOf(zone), // landmark category — the map tints a building footprint by it
+    building_type: buildingTypeOf(zone), // facade tile's type — drives the sidebar/full-map labels/icons overlay
+    entrance: buildingEntranceDir(zone), // which edge the door faces — drives the map entrance arrow
+    exit_dirs: interiorExitDirs(zone), // interior room's ways out — drives the interior map's exit arrows
+    open_dirs: interiorOpenDirs(zone), // every cardinal side that's open — drives the "edge lines" door style
+    terrain: zoneTerrain(zone), // 'road' | 'water' | 'grass' | null — tileable terrain styling
+    district: (() => { const d = districtFor(zone); return { key: d.key, name: d.name, color: d.color }; })(),
+    artery: Array.isArray(zone.flags?.artery) ? zone.flags.artery : (zone.flags?.artery ? [zone.flags.artery] : null),
+    void_crossing: zone.flags?.void_crossing ? true : null, // a transient waste-crossing room → client renders the "crossing" trail view
+    void_detour: zone.flags?.void_detour ? true : null,     // a risk-for-loot dead-end gamble off the trail
+    void_hard: zone.flags?.void_hard ? true : null,         // a seeded hard node — rougher ambush lives here
+    curtain: zone.flags?.curtain ? true : null, // the Architect's perimeter wall edge
+    perimeter_gate: zone.flags?.perimeter_gate ? true : null, // the one break in the Curtain
+    glacis: zone.flags?.glacis ? true : null, // turret killing-ground outside the gate
+  };
+  if (!transient) {
+    if (minimapTileCache.size > 50_000) minimapTileCache.clear();
+    minimapTileCache.set(zone.id, { fields, until: Date.now() + MINIMAP_TTL_MS });
+  }
+  return fields;
+}
+
+function minimapNodes(centerZoneId, visited, ids, viewer) {
   // Resolve per-viewer visibility (hides the yacht from non-invitees) before building
   // node payloads.
   const zoneObjs = applyMinimapVisibility([...ids].map((id) => world.zones.get(id)).filter(Boolean), viewer);
@@ -1662,22 +1746,12 @@ export function getMinimapData(centerZoneId, depth = 8, viewer = null) {
   // build has already resolved into spec.feature.)
   const nodes = [];
   for (const zone of zoneObjs) {
-    // Building name(s) reachable from this tile — for the hover tooltip (same rule
-    // as the full map's buildingsAt: an exit into an is_building zone).
-    const buildings = [];
-    for (const { target } of allExits(zone)) {
-      const t = world.zones.get(target);
-      if (t?.flags?.is_building) buildings.push(t.flags.building_name || t.name);
-    }
     const node = {
       id: zone.id,
-      name: roomDisplayName(zone),
-      buildings,
+      ...minimapTileFields(zone),
+      // Live: worked out on every call.
       danger: zoneDanger(zone),
-      sanctuary: isSanctuary(zone),
       radiation: getZoneRadiation(zone),
-      // Pass-through building tile: rendered as an enterable marker, not a room.
-      enterable: isEnterableFacade(zone),
       // A way in that a law is currently holding shut (shop hours, so far), asked
       // through the shut seam about the FINAL destination — a facade forwards into
       // its interior, which is the room whose hours are kept. Per viewer, because
@@ -1685,35 +1759,8 @@ export function getMinimapData(centerZoneId, depth = 8, viewer = null) {
       // The tile draws it red rather than accent, so a closed shop stops looking
       // like a door you can walk through until you have walked into it.
       shut: shutStatus(viewer, world.zones.get(resolveLanding(zone.id)))?.shut || null,
-      building_name: zone.flags?.building_name || null,
-      exits: primaryExits(zone),
-      map_id: zone.map_id || null,
-      grid_x: zone.grid_x, grid_y: zone.grid_y, grid_z: zone.grid_z,
-      // spec is the GENERATED presentation (zone_derived.spec) and the only thing a
-      // renderer should colour a tile from. marker/color/bg_color stay in the
-      // payload for the tooltip and for a transient zone, which has no derived row.
-      // The tile's footprint SVG and its map code are spec.feature / spec.label now.
-      // `icon_svg` was a second name for the same value, computed a second way; a
-      // renderer reading two channels is how the client and the tablet came to
-      // disagree about which tiles wear a label.
-      spec: specOf(zone.id),
-      marker: zone.marker || null, color: zone.color || null, bg_color: zone.bg_color || null,
-      poi: poiOf(zone), // landmark category — the map tints a building footprint by it
-      building_type: buildingTypeOf(zone), // facade tile's type — drives the sidebar/full-map labels/icons overlay
-      entrance: buildingEntranceDir(zone), // which edge the door faces — drives the map entrance arrow
-      exit_dirs: interiorExitDirs(zone), // interior room's ways out — drives the interior map's exit arrows
-      open_dirs: interiorOpenDirs(zone), // every cardinal side that's open — drives the "edge lines" door style
       ...(() => { const l = interiorLockDirs(zone, viewer); // ...which of those a lock holds shut (drawn red),
         return { locked_dirs: l.locked, unlockable_dirs: l.unlockable }; })(),   // ...and which of THOSE are yours to open (orange)
-      terrain: zoneTerrain(zone), // 'road' | 'water' | 'grass' | null — tileable terrain styling
-      district: (() => { const d = districtFor(zone); return { key: d.key, name: d.name, color: d.color }; })(),
-      artery: Array.isArray(zone.flags?.artery) ? zone.flags.artery : (zone.flags?.artery ? [zone.flags.artery] : null),
-      void_crossing: zone.flags?.void_crossing ? true : null, // a transient waste-crossing room → client renders the "crossing" trail view
-      void_detour: zone.flags?.void_detour ? true : null,     // a risk-for-loot dead-end gamble off the trail
-      void_hard: zone.flags?.void_hard ? true : null,         // a seeded hard node — rougher ambush lives here
-      curtain: zone.flags?.curtain ? true : null, // the Architect's perimeter wall edge
-      perimeter_gate: zone.flags?.perimeter_gate ? true : null, // the one break in the Curtain
-      glacis: zone.flags?.glacis ? true : null, // turret killing-ground outside the gate
       is_current: zone.id === centerZoneId,
       reachable: visited.has(zone.id),
       player_count: zone.players.size,
@@ -2188,6 +2235,7 @@ export async function reloadZone(zoneId) {
   // query-lint-ok: this IS the re-loader for world.zones — the read that keeps
   // the Map honest after a dev-panel write. It cannot read the Map.
   const { rows } = await query('SELECT * FROM zones WHERE id = $1', [zoneId]);
+  clearMinimapCache();   // a builder's edit shows on the next look, not 30 s later
   if (!rows.length) return;
   const zone = rows[0];
   const existing = world.zones.get(zoneId) || { players: new Set(), enemies: new Set(), npcs: new Set(), corpses: new Set() };

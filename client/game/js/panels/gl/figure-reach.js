@@ -14,7 +14,7 @@
 //
 // Every point here is in bind space (figure.js: metres, Y up, facing +Z, the left hand on +X, the arms hanging).
 
-import { FIGURE_BONE as BN, handScaleOf, fingerTipsOf } from '../figure.js';
+import { FIGURE_BONE as BN, handScaleOf, fingerTipsOf, bustApex, bustOf } from '../figure.js';
 import { mixShape, shapeOfGrip, handsUniforms, pinchOf, HAND_SHAPES, handPose, bendPoint, POSE_THUMB } from './figure-hands.js';
 import { gripOf, GRIPS, fromLocal, thumbOnto, thumbPad, PHONE_SIZE } from './figure-grips.js';
 import { dishOf } from '../../../../shared/home-meals.js';
@@ -274,6 +274,56 @@ function reachTo(M, s, L, pt, goal, elbow = null) {
     turnBones(M, [ifa, ih], turnOnto(unit(sub(W1, E2)), unit(sub(W2, E2))), E2);
   }
 }
+// The arms kept out of the bust. Each breast is a half-ellipsoid on the front of the chest, in the chest bone's bind
+// space: centred under its apex (figure.js bustApex), as wide as a breast that size and standing off the chest by the
+// relief (bustOf). Points down the upper arm and the forearm are tested against both, the half-axes grown by the
+// arm's own thickness, and where one is inside, that segment is turned about its joint (shoulder, then elbow) just
+// far enough to bring it out. The back half doesn't count: an arm hanging at the side is beside the ribs, not in them.
+// A few passes, since clearing the upper arm moves the forearm; each turn is capped so a bad pose can't fling an arm.
+const ARM_R = { u: 0.045, f: 0.038 }, CHEST_Z = 0.1, CLEAR_MAX = 0.35;
+function bustShape(key) {
+  const d = bustOf(key.bust), [ax, ay] = bustApex(key.bust, key.weight ?? null), w = 0.052 + 0.24 * d;
+  return { ax, ay, w, h: w * 1.05, d };
+}
+// a body-space point into the chest's bind space (the bone's matrix is rigid)
+const toLocal = (m, P) => { const v = [P[0] - m[12], P[1] - m[13], P[2] - m[14]]; return [m[0] * v[0] + m[1] * v[1] + m[2] * v[2], m[4] * v[0] + m[5] * v[1] + m[6] * v[2], m[8] * v[0] + m[9] * v[1] + m[10] * v[2]]; };
+// `keep` says which hands are at something (a mouth, a phone, a plate, the other hand): those stay put, and the elbow
+// goes out instead.
+function clearBust(M, key, keep = {}) {
+  const B = bustShape(key);
+  for (const [L, s] of [['L', 1], ['R', -1]]) {
+    const iu = BN['uarm' + L], ifa = BN['farm' + L], ih = BN['hand' + L], W0 = keep[L] ? at(M[ih], jointOf(s, 'W')) : null;
+    for (let it = 0; it < 3; it++) {
+      let moved = false;
+      for (const [seg, bones, a0, a1] of [['u', [iu, ifa, ih], 'S', 'E'], ['f', [ifa, ih], 'E', 'W']]) {
+        const C = M[BN.chest], r = ARM_R[seg], P0 = at(M[bones[0]], jointOf(s, a0)), P1 = at(M[seg === 'u' ? ifa : ih], jointOf(s, a1));
+        let worst = null;
+        for (let k = 0; k <= 6; k++) {
+          const P = lerp3(P0, P1, 0.35 + 0.65 * (k / 6)), q = toLocal(C, P);
+          if (q[2] < CHEST_Z - 0.02) continue;
+          for (const x of [1, -1]) {
+            const ex = B.w + r, ey = B.h + r, ez = B.d + r, u = (q[0] - x * B.ax) / ex, v = (q[1] - B.ay) / ey, z = (q[2] - CHEST_Z) / ez, n = Math.hypot(u, v, z);
+            if (n >= 1) continue;
+            // how far in, and the way out (the ellipsoid's normal there), back in body space
+            const g = n > 1e-4 ? [u / ex, v / ey, z / ez] : [0, 0, 1], gl = Math.hypot(...g), pen = (1 - n) * Math.min(ex, ey, ez);
+            if (pen > 0.002 && (!worst || pen > worst.pen)) worst = { P, pen, out: unit(dirOf(C, g.map((c) => c / gl))) };
+          }
+        }
+        if (!worst) continue;
+        const to = add(worst.P, mul(worst.out, worst.pen + 0.003)), a = unit(sub(worst.P, P0)), b = unit(sub(to, P0));
+        const ang = Math.acos(Math.max(-1, Math.min(1, dot(a, b)))), ax = cross(a, b), al = len(ax);
+        if (al < 1e-7) continue;
+        turnBones(M, bones, axisTurn(mul(ax, 1 / al), Math.min(ang, CLEAR_MAX)), P0);
+        moved = true;
+      }
+      if (!moved) break;
+      // a hand that was at something goes back to it, the arm bent round with its elbow on the side it's been pushed to
+      if (W0) { const R0 = Float32Array.from(M[ih]); reachTo(M, s, L, jointOf(s, 'W'), W0); M[ih] = keepTurn(R0, at(M[ih], jointOf(s, 'W')), jointOf(s, 'W')); }
+    }
+  }
+}
+// the hand's bone given back the turn it had (reachTo carries it round with the forearm), its wrist at W
+const keepTurn = (r, W, w) => { const o = Float32Array.from(r), p = at(r, w); for (let i = 0; i < 3; i++) o[12 + i] += W[i] - p[i]; return o; };
 // The hand put where `D` says (a 4×4, its bind space into the body's), `w` of the way from where the clip has it:
 // the arm reaches for the wrist and the hand is turned to D at it. Gives how much more the hand's turned about the
 // forearm than before, for the shader's forearm.
@@ -623,5 +673,7 @@ export function finishArms(S, { clip, key = {}, grip = null, props = {}, holds =
   }
   // a grip worked out afresh this frame (a meal's tools, the phone) carries its own contact cylinder
   for (const [L, s] of [['L', 1], ['R', -1]]) if (hold[L] && GRIPS[hold[L]] && !gripHold[L]) gripHold[L] = gripOf(hold[L], s, keyOf(s)).hold;
+  // last, the arms kept off the bust: a clip measured on a flat chest folds an arm through it
+  if (key.sculpt && key.bust > 0.05) { if (M === S) M = Array.from(S); const both = len(sub(at(M[BN.handL], jointOf(1, 'W')), at(M[BN.handR], jointOf(-1, 'W')))) < 0.2; clearBust(M, key, { L: on.L > 0 || both, R: on.R > 0 || both || !!out.plate }); }
   return { S: M, hands: handsUniforms(shapes.L, shapes.R, tw.L, tw.R, gripHold.L, gripHold.R), hold, on, plate: out.plate, knifeDown: out.knifeDown };
 }

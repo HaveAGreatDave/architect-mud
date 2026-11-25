@@ -1861,6 +1861,16 @@ function pointPose(p) {
   setR(P, 'chest', 0, -6 * DEG * k, 0); setR(P, 'head', 0, -8 * DEG * k, 0);
   return P;
 }
+// Both hands brought up in front of you, palms up, and held there to be looked at: the In Between's first look at
+// your own hands as you're printed (cine-cam.js ARRIVAL_SHOTS). Played once; it rises in the first second, then
+// holds, breathing.
+function handsOutPose(p) {
+  const P = stance(p), k = held(p, 0.05, 0.98), br = 1.2 * Math.sin(TAU * 2 * p) * k;
+  arm(P, 'R', -2 - 52 * k + br, -4 * k, -0.07 - 0.1 * k, -12 - 38 * k, -8 - 14 * k, -78 * k);
+  arm(P, 'L', -2 - 52 * k + br, 4 * k, 0.07 + 0.1 * k, -12 - 38 * k, -8 - 14 * k, 78 * k);
+  setR(P, 'chest', 4 * DEG * k, 0, 0); setR(P, 'head', 18 * DEG * k, 0, 0);
+  return P;
+}
 // The arms flung wide, a showman's welcome.
 function spreadPose(p) {
   const P = stance(p), k = held(p, 0.12, 0.72);
@@ -2995,6 +3005,7 @@ const ROOM_CLIPS = [
   { name: 'guardScan', dur: 14, fn: guardScanPose }, { name: 'guardEar', dur: 8, fn: guardEarPose }, { name: 'tidy', dur: 9, fn: tidyPose },
   // a show's stage directions, on their feet and in a chair
   { name: 'point', dur: 3, fn: pointPose }, { name: 'sitPoint', dur: 3, fn: sitOf(pointPose) },
+  { name: 'handsOut', dur: 6, fn: handsOutPose, once: true },
   { name: 'spread', dur: 3.5, fn: spreadPose, face: (p) => ({ open: 0.25 * held(p, 0.12, 0.72) }) }, { name: 'sitSpread', dur: 3.5, fn: sitOf(spreadPose) },
   { name: 'slam', dur: 2.6, fn: slamPose, once: true }, { name: 'sitSlam', dur: 2.6, fn: sitOf(slamPose, 14), once: true },
   { name: 'holdup', dur: 4, fn: holdupPose }, { name: 'sitHoldup', dur: 4, fn: sitOf(holdupPose) },

@@ -73,7 +73,7 @@ Its SPRAY IT then doesn't send at once. It starts the **spray session** (`client
 
 **The can is 3-D** (`client/game/js/panels/spray-can-3d.js`): a small WebGL view of its own, an aerosol turned on a lathe with a few dents in it, the colour collar and the actuator with its nozzle. It sits big in the panel while you shake it, springing with the hand (`SecondOrder`), and then follows the pointer with its nozzle on the spot you're spraying. In the comic look it takes the house ink and two bands. **Its label is the item's**: the `can_label` tag on the can (see [items.md](../../docs/items.md)), sent with the can on `spray_editor`, so the Chromaflux 167 reads PRISMATIK with its prism and its hazard diamond, and another brand is a content file. A can with no label gets a plain grey one, and with no WebGL the session keeps the old flat CSS can.
 
-**The finish is the tag signature** (`spray-done`), and it plays whenever a tag goes up, not only at the end of a session: two FM stabs of one instrument a fourth apart (D3, then G3, louder), then a run of DX-style FM lead over a square pulse that answers them, G4 Bb4 D5 F5 in 32nds, a rest, D5, and G5 bent up from F#5 and held over a G4, through a light retro stage. It has no `vary`, so it's the same every time. A typed `tag` and the dialog with no 3-D view get it on the server's reply (`cue: 'spray-done'` on the success output, played by dispatch.js's `output` handler), so it sounds only when the tag landed. The session plays it the moment the piece is finished and sends `sprayapply … q`, so the reply doesn't play it twice.
+**The finish is the tag signature** (`spray-done`), and it plays whenever a tag goes up, not only at the end of a session. The session builds into it: every stroke that lands is a stab on the band (a slap synth bass with a fuzz guitar two octaves over it, `spray-step`) a step further up the E major scale, each section is a band hit on the note the climb has reached (`spray-section`), and the signature is the release, one bar of hard funk at 115 bpm on the E blues scale on the same band, with kicks, a snare and sparkles. It has no `vary`, so it's the same every time. A typed `tag` and the dialog with no 3-D view get it on the server's reply (`cue: 'spray-done'` on the success output, played by dispatch.js's `output` handler), so it sounds only when the tag landed. The session plays it the moment the piece is finished and sends `sprayapply … q`, so the reply doesn't play it twice.
 
 **The session decides nothing.** A miss costs time, not paint, and how you did is only the line at the end. The server checks the wall, the can and the paint on `sprayapply` exactly as before, so a client that skipped the session would only skip the picture.
 
@@ -85,14 +85,26 @@ Which view is up is `client/game/js/panels/spray-aim.js`: the Room Stage and the
 
 ## Letterforms
 
-A throw-up comes in four letterforms, listed as `TAG_FACES` in `client/shared/tag-strokes.js`:
+A throw-up comes in ten letterforms, listed as `TAG_FACES` in `client/shared/tag-strokes.js`:
 
 - `bubble`: the hand-drawn sheet traced into `client/shared/tag-glyphs.js`.
 - `round`: thick strokes with every corner smoothed off and round ends.
 - `block`: square ends and cut corners, upright.
 - `sharp`: thinner, leaning forward, mitred to points, with chisel-cut ends.
+- `treat` (Graffiti Treat Front), `degrassi` (Degrassi Front), `spray` (Rubik Spray Paint, offered as "overspray"), `drip` (Rubik Wet Paint), `brush` (Knewave) and `lacquer` (Lacquer): a face's own letters, set at the spec's `size` and `fat`, spaced and centred on their measured ink, and inflated only by the spec's `puff` (default 0.2 of a bubble letter's), or the faces' own counters close.
 
-The last three are one skeleton alphabet (`tag-strokes.js`) stroked three ways, and it also covers the digits and the punctuation a tag uses, so no letter falls back to a system font.
+The `round`, `block` and `sharp` faces are one skeleton alphabet (`tag-strokes.js`) stroked three ways, and it also covers the digits and the punctuation a tag uses, so no letter falls back to a system font. The font letterforms are `TAG_FACE_SPEC` entries with a `font` in `tag-bake.js`. The can window shows every style as a tile of the player's own words.
+
+## Special finishes
+
+A piece can be sprayed in a finish laid over its colours: `chrome`, `gold`, `holo`, `glow` or `neon` (`TAG_FINISHES` in `client/shared/tag-strokes.js`). The bake (`tagFinish` in `tag-bake.js`) paints it into a mask of the letters, so the keyline, the block and the cloud stay the piece's: banded metal for chrome and gold, a diagonal rainbow with glitter for holo, saturated paint with a bloom and a hot core for neon, and a pale phosphor for glow that lights up with its halo in the night bake. The room line wraps the paint in `graffiti-finish graffiti-<x>` (styles.css), and the finish rides to the walls as `x` beside `f`.
+
+A player may use a finish if they carry a can of it or have earned it:
+
+- **Cans** are items tagged `paint_finish` as well as `spray_paint`, and a tag in that finish spends that can's paint. Prismatik Lumen (neon) and Prismatik Nightglo (glow) are in Desmond Watts's stock beside the Chromaflux; Mirrorcoat (chrome) turns up in industrial salvage and Spectra Holo (holo) in consumer trash, rare and hard.
+- **Earned** finishes come with walls: `graffiti_tags` in `player_flags` counts every tag a player puts up, and 25, 50 and 100 set `graffiti_finish_holo`, `_chrome` and `_gold`. An earned finish comes out of any can. Gold is earned only: no can of it exists.
+
+`spray_editor` sends the finishes this player can use (`finishes`) and the cans that carry them; `sprayapply` checks again and refuses a finish the player hasn't got. `zone_graffiti.finish` and `player_sprays.finish` store it.
 
 The other hands set their letters in self-hosted faces from `client/shared/fonts/` ([docs/reference/fonts.md](../../docs/reference/fonts.md)), fetched by `loadTagFaces` in `tag-bake.js` on the first bake:
 

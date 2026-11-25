@@ -22,7 +22,7 @@ const NAMES = {
   badlands: 'Dirt margin', redrock: 'Rust-red mesa', scarlet: 'Scarlet badlands', ash: 'Ash flats',
   scrub: 'Scrubland', hardpan: 'Hardpan', basalt: 'Basalt field', lava: 'Lava', plateau: 'Plateau', cliff: 'Cliff',
   water: 'Water', citycore: 'City', parkland: 'Parkland', park: 'Park', forest: 'Forest', airport: 'Airfield',
-  alkali: 'Salt pan', sinter: 'Sinter', hotspring: 'Hot spring', deadwood: 'Deadwood', asphalt: 'Tarmac', concrete: 'Concrete',
+  alkali: 'Salt pan', sinter: 'Sinter', hotspring: 'Hot spring', deadwood: 'Deadwood', asphalt: 'Tarmac', concrete: 'Concrete', marsh: 'Marsh',
 };
 export const biomeName = (b) => NAMES[b] || b;
 

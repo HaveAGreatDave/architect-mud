@@ -1,0 +1,8 @@
+{
+  "difficulty": 12,
+  "id": "scav_spray_chrome_scav_industrial_salvage",
+  "item_id": "item_spray_chrome",
+  "max_qty": 1,
+  "table_id": "scav_industrial_salvage",
+  "weight": 1
+}

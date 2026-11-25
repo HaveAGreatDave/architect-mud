@@ -233,10 +233,13 @@ export function buildingRoomsNear(gx, gy, r) {
       for (const id of Object.keys(f.plan.rooms)) {
         const car = f.plan.lifts?.[id];
         if (car) {
-          for (const stop of car.stops || []) {
+          // the ground floor's copy first (parked null, open onto the lobby): without it the lobby's lift doors had
+          // nothing behind them in GLASS, and stepping in took the lowest upper floor's copy instead
+          const ground = car.ground ? [{ zone: car.ground, ground: true }] : [];
+          for (const stop of [...ground, ...(car.stops || [])]) {
             // a stand-in rider with the car parked at this stop, as the ride ahead's (elevator.boarded) is
-            const there = { _elevatorAt: { car: id, zone: stop.zone } };
-            const spec = specOf(id) ? buildingView(f, id, specOf(id), { specOf, parked: stop.zone }).spec : null, frame = spec && tile ? frameOf(id, tile, there) : null;
+            const there = stop.ground ? null : { _elevatorAt: { car: id, zone: stop.zone } };
+            const spec = specOf(id) ? buildingView(f, id, specOf(id), { specOf, parked: stop.ground ? null : stop.zone }).spec : null, frame = spec && tile ? frameOf(id, tile, there) : null;
             if (!frame) continue;
             const pieces = layRows(getZoneFurniture(id), spec, { finish: spec.finish, itemOf: (x) => (x.flags?.item_id ? getItem(x.flags.item_id) : null) }).pieces;
             rooms.push({ zone: id, key: id + '@' + stop.zone, stop: stop.zone, spec, pieces, frame });
@@ -617,8 +620,11 @@ function peopleIn(zoneId, pieces) {
       const on = n.onFurniture || n.sittingOn;
       // a dancer on shift takes the next free pole, and with none left works the floor
       const dancer = !inside && !on && dancing(n, id), post = dancer ? posts.shift() : null;
-      const desk = !inside && !on && !post ? deskPostOf(n, id, pieces) : null;
-      const st = knockPost(n.id, id, pieces) || (post ? { at: post.at, face: post.face, lift: post.lift } : desk || life.stageOf(n, zoneId));
+      // (a plugin that seats them on a piece, or walks them a route, places them itself: a spot behind their post as
+      // well stood the ice crew up inside the stool they were sat on)
+      const placed = !!(staged?.on || staged?.at);
+      const desk = !inside && !on && !post && !placed ? deskPostOf(n, id, pieces) : null;
+      const st = placed ? null : knockPost(n.id, id, pieces) || (post ? { at: post.at, face: post.face, lift: post.lift } : desk || life.stageOf(n, zoneId));
       // an NPC's order, when it has one, so the client can dress them as it dresses (gl/room-people.js);
       // the room already shows who they are by name, so this tells a viewer nothing the tag doesn't
       const order = typeof n.faction === 'string' && n.faction.startsWith('ideology_') ? n.faction : undefined;
@@ -1531,7 +1537,10 @@ on('vehicle.calledUp', ({ player, zoneId }) => {
 // A body reprinted in a room with release vats (the Vat Hall; the engine's `vat.emerging`): one of them, in turn, is
 // the one it comes down to. They're stood just out of its front, where they'll be when the picture hands them back,
 // and everybody with the room open is told which vat and when, so the Stage plays it (panels/room-vatcycle.js). RAM only.
-const bayTurn = new Map();
+// A vat is taken from its cue's t0 until its glass has shut again (VAT_CYCLE.close's end in panels/room-vatcycle.js).
+// A body goes to the first vat that's free, in the room's order; with all of them taken it waits for the first to free.
+const VAT_BUSY_MS = 19600;
+const bayFree = new Map();   // main zone -> Map(piece id -> when it's free, ms)
 on('vat.emerging', async ({ actor, zone, t0, npc = false }) => {
   try {
     const main = zone && mainOf(zone), spec = main && stageSpec(main);
@@ -1539,16 +1548,24 @@ on('vat.emerging', async ({ actor, zone, t0, npc = false }) => {
     const L = roomLayout(spec, await roomPieces(main, spec));
     const bays = L.placed.filter((p) => p.form === 'vat' && p.state === 'release');
     if (!bays.length) return;
-    const n = bayTurn.get(main) || 0;
-    bayTurn.set(main, n + 1);
-    const p = bays[n % bays.length], [fu, fv] = facing(p.turn), o = L.world(p.u, p.v, 0), f = L.world(p.u + fu, p.v + fv, 0);
+    const now = t0 || Date.now(), free = bayFree.get(main) || new Map();
+    bayFree.set(main, free);
+    const p = bays.find((b) => (free.get(b.id) || 0) <= now) || bays.reduce((a, b) => ((free.get(b.id) || 0) < (free.get(a.id) || 0) ? b : a));
+    const start = Math.max(now, free.get(p.id) || 0);
+    free.set(p.id, start + VAT_BUSY_MS);
+    const [fu, fv] = facing(p.turn), o = L.world(p.u, p.v, 0), f = L.world(p.u + fu, p.v + fv, 0);
     where.set(actor.id, { zone: main, at: [+(p.u + fu).toFixed(2), +(p.v + fv).toFixed(2)], yaw: +Math.atan2(f[0] - o[0], f[2] - o[2]).toFixed(3), seat: null });
-    const cue = { type: 'room_vat', zone: main, who: actor.id, piece: p.id, t0: t0 || Date.now() };
+    const cue = { type: 'room_vat', zone: main, who: actor.id, piece: p.id, t0: start };
     // the room opens round somebody who plays with the panels, so they wake in the vat; the log and text rungs keep
     // the words alone
     if (!npc && !viewersOf(main).has(actor.id) && !loggedPanelsSync(actor)) await cmdRoom([], 'room', actor).catch(() => {});
-    for (const id of new Set([...watchersOf(main), ...(npc ? [] : [actor.id])])) sendToPlayer(id, cue);
-    sendPeople(main).catch(() => {});
+    const send = () => {
+      for (const id of new Set([...watchersOf(main), ...(npc ? [] : [actor.id])])) sendToPlayer(id, cue);
+      sendPeople(main).catch(() => {});
+    };
+    // every vat taken: this body waits its turn for the first one to free
+    const wait = start - Date.now();
+    if (wait > 50) setTimeout(send, wait).unref?.(); else send();
   } catch (e) { console.warn('[roomstage] vat.emerging:', e?.message); }
 });
 

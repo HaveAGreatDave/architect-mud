@@ -144,10 +144,10 @@ export function createParkSound({ win = globalThis, state = () => ({}), detail =
   function hype(kind, ms = 0, t = world ? world.t : 0) {
     later(ms, () => {
       const now = win?.performance?.now?.() ?? Date.now();
-      if (now < chantUntil || !tierAllows(tier, 'bed')) return;
+      if (now < chantUntil || !tierAllows(tier, 'hype')) return;
       chantUntil = now + (CHANT_S[kind] || 4) * 1000;
-      if (kind === 'noise') { play('stomp', {}, 'bed', t); later(1800, () => play('cheer', {}, 'bed', t + 1.8)); }
-      else play(kind, {}, 'bed', t + ms / 1000);
+      if (kind === 'noise') { play('stomp', {}, 'hype', t); later(1800, () => play('cheer', {}, 'hype', t + 1.8)); }
+      else play(kind, {}, 'hype', t + ms / 1000);
       onHype?.(kind);
     });
   }
@@ -323,7 +323,7 @@ export function createParkSound({ win = globalThis, state = () => ({}), detail =
     if (seen.roarH < 0.4 && h >= 0.4) play('cheer', {}, 'event', t);
     if (seen.roarH < 0.8 && h >= 0.8) play('roar', {}, 'event', t);
     if (seen.roarA < 0.4 && a >= 0.4 && h < 0.25) play('groan', {}, 'event', t);
-    if (s.S?.gold && seen.roarH < 0.8 && h >= 0.8) play('towels', {}, 'bed', t);
+    if (s.S?.gold && seen.roarH < 0.8 && h >= 0.8) play('towels', {}, 'hype', t);
     seen.roarA = a; seen.roarH = h;
     if (crowd) {
       // the floor is how much the next pitch matters: a tie in the ninth with men on hums
@@ -343,10 +343,10 @@ export function createParkSound({ win = globalThis, state = () => ({}), detail =
       if (!seat) play('click', {}, 'event', t);
       if (S.pitch.velo && !seat) later(180, () => play('beep', {}, 'event', t + 0.18));
       const x = tension(p, S), twoOut = (p.outs | 0) - (p.out ? 1 : 0) >= 2;
-      if ((S.pitch.strikes | 0) >= 2 && p.half === 'top' && tierAllows(tier, 'bed')) {
+      if ((S.pitch.strikes | 0) >= 2 && p.half === 'top' && tierAllows(tier, 'hype')) {
         // two strikes and two out on a visitor: the stands stamp him down; otherwise they clap
-        if (twoOut && x >= 0.45) later(250, () => play('stomp', {}, 'bed', t + 0.25));
-        else for (let k = 0; k < 3; k++) later(300 + 450 * k, () => play('clap', {}, 'bed', t + k));
+        if (twoOut && x >= 0.45) later(250, () => play('stomp', {}, 'hype', t + 0.25));
+        else for (let k = 0; k < 3; k++) later(300 + 450 * k, () => play('clap', {}, 'hype', t + k));
       }
       // the organist between pitches, while the booth's quiet: up the keys on a full count, down
       // them now and then after a foul
@@ -444,7 +444,7 @@ export function createParkSound({ win = globalThis, state = () => ({}), detail =
         const bags = Array.isArray(p.basesBefore) ? p.basesBefore : [];
         const x = tension(p, state()?.S);
         if (p.half === 'bottom' && bags.some(Boolean) && x >= 0.45) {
-          if (h % 2) hype('charge', 2400); else later(2400, () => { if (booth() < 0.5) play('drum', {}, 'bed', t + 2.4); });
+          if (h % 2) hype('charge', 2400); else later(2400, () => { if (booth() < 0.5) play('drum', {}, 'hype', t + 2.4); });
         } else if (p.half === 'bottom' && x >= 0.25 && h % 3 === 0) hype('letsgo', 2600);
         else if (p.half === 'top' && x >= 0.35 && h % 3 === 1) hype('defense', 2600);
         else if (x >= 0.55 && h % 4 === 2) hype('noise', 2000);
@@ -452,7 +452,7 @@ export function createParkSound({ win = globalThis, state = () => ({}), detail =
         else if (p.half === 'bottom' && h % 4 === 1 && tierAllows(tier, 'music')) later(1800, () => {
           if (booth() >= 0.4) return;
           play('riff', {}, 'music', t + 1.8);
-          for (const k of [2.5, 2.68, 2.86, 3.04]) later(k * 1000, () => play('clap', {}, 'bed', t + 1.8 + k));
+          for (const k of [2.5, 2.68, 2.86, 3.04]) later(k * 1000, () => play('clap', {}, 'hype', t + 1.8 + k));
         });
         later(700, () => {
           if (booth() > 0.1 || scene() > 0.1) return;
@@ -489,7 +489,7 @@ export function createParkSound({ win = globalThis, state = () => ({}), detail =
       if (!homeFielding && (p.kind === 'homerun' || p.walkoff)) {
         play('boom', {}, 'event', t);
         later(250, () => play('airhorn', {}, 'event', t + 0.25));
-        later(2600, () => play('drum', {}, 'bed', t + 2.6));
+        later(2600, () => play('drum', {}, 'hype', t + 2.6));
         onHype?.(p.walkoff ? 'walkoff' : 'homerun');
         if (!p.end) hype('letsgo', 4400);
       } else if (!homeFielding && (p.runs > 0 || p.rbi > 0)) later(500, () => play('whistle', {}, 'event', t + 0.5));

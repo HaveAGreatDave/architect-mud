@@ -3,8 +3,9 @@
 // smoothly out of it, still turning, under a roof terrace with the helipad on it. The `solenne` arm (downtown.js) draws it.
 //
 // ⚠ THE ROOMS DON'T FIT THIS ANY MORE, ON PURPOSE. The tower went back to one tile on 2026-11-16 and the rooms
-// stayed where scripts/content/solenne-rooms.mjs and solenne-upper.mjs put them on the 2 by 2 tower (the lift still
-// stops at 45; the penthouse is on 44). David exempted the Solenne from "rooms fit the model". Don't re-run those
+// stayed where scripts/content/solenne-rooms.mjs and solenne-upper.mjs put them on the 2 by 2 tower (the lift tops
+// out at 40 and the penthouse is on 39 since 2026-11-24, when the arm's shaft came down a third to about 41 storeys).
+// ⚠ This profile is no longer what the arm draws; the arm's own `topZ` is. David exempted the Solenne from "rooms fit the model". Don't re-run those
 // scripts against this file: they would squeeze every flat into the slim stem.
 //
 // Sizes are tiles (TILE_M metres): a part is [z0, z1, S, th], a square of half `S` turned by `th` radians on the

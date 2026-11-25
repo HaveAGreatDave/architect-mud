@@ -36,7 +36,7 @@ export const FAUNA_IDS = {
   // Anything about a SPECIES — is its silhouette distinct from the others, does its largest flock
   // fit the budget — runs over SPECIES instead, because a model in no habitat has no flock and
   // cannot be confused with anything in the field.
-  bird: ['goose', 'gull', 'pigeon', 'songbird', 'hawk', 'peregrine', 'vulture', 'robin'],
+  bird: ['goose', 'gull', 'pigeon', 'songbird', 'hawk', 'peregrine', 'vulture', 'robin', 'heron', 'duck'],
   // Four legs. Where a hound is comes from the Wildblood column's clock (houndsAt in
   // client/shared/column-route.js), not from a habitat table: Bracken's pack runs in front of the
   // Howl and nowhere else. A later dog or rat is another id here, built by the same builder.

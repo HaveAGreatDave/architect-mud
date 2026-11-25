@@ -22,6 +22,7 @@ export const BIOMES = [
   'hardpan', 'alkali', 'cliff', 'plateau',   // badlands accents: cracked lakebed, salt crust, canyon rim, caprock top
   'basalt', 'deadwood', 'sinter', 'hotspring',   // the volcanic set: lava rock, dead stands, vent crust, geothermal water
   'asphalt', 'concrete', 'pier',   // painted paved surfaces — read as tarmac/slab/planking, NOT grass
+  'marsh',   // reed and black water: the Meltwater's pond and banks. Last, so no index moves
 ];
 
 // An authored terrain type (flags.terrain, painted in the dev panel) maps to a
@@ -34,7 +35,7 @@ const TERRAIN_BIOME = {
   asphalt: 'asphalt', concrete: 'concrete',
   dirt: 'badlands', sand: 'badlands', gravel: 'badlands',
   // The wildlands read arid & desolate — dry scrub flats and rust mesa, never water.
-  scrub: 'scrub', redrock: 'redrock', ash: 'ash', marsh: 'badlands',
+  scrub: 'scrub', redrock: 'redrock', ash: 'ash', marsh: 'marsh',
   // Badlands accents. They get their OWN biomes rather than borrowing 'badlands', because
   // the whole point of painting them is that they read as different ground from the air:
   // pale cracked lakebed, near-white salt crust, and the dark rim of a canyon.

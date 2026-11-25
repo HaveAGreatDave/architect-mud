@@ -133,8 +133,12 @@ export function paceCalls(lines, fullMs, tickMs, { minScale = 1, maxScale = 1.5,
   const holds = new Map(live.map((n) => [n, q(nat.get(n) * scale)]));
   const gaps = new Map();
   for (const run of breaksIn(live)) {
-    // a desk segment (sequences.js) plays straight through, and the silence is left to the booth's lines
-    const talk = run.reduce((a, n) => a + holds.get(n), 0), between = run.slice(0, -1).filter((n) => n.graphic?.overlayType !== 'desk');
+    // a desk segment (sequences.js) plays straight through, and the silence is left to the booth's
+    // lines after it: the recap goes on camera at the horn, and the quiet is the Zamboni after it
+    const talk = run.reduce((a, n) => a + holds.get(n), 0);
+    const lastDesk = run.reduce((k, n, j) => (n.graphic?.overlayType === 'desk' ? j : k), -1);
+    const after = run.slice(lastDesk + 1, -1).filter((n) => n.graphic?.overlayType !== 'desk');
+    const between = after.length ? after : run.slice(0, -1).filter((n) => n.graphic?.overlayType !== 'desk');
     const each = q(Math.max(0, breakMs - talk) / Math.max(1, between.length));
     if (breakMs > talk) for (const n of between.length ? between : run) gaps.set(n, each);
   }

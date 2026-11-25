@@ -1,8 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "The clay here dried a long time ago and cracked as it went. The plates curl slightly at the edges and crumble when stepped on.",
+  "ambient_theme": "forest",
+  "color": "#3f5c3a",
+  "description": "A stand of alder and willow holds the bank together. Old flood rubbish hangs in the branches above your head.",
   "exits": {
     "east": "zone_district_880_925",
     "north": "zone_district_879_924",
@@ -13,13 +13,13 @@
     "district": "wilds",
     "radiation": 32,
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "forest"
   },
   "grid_x": 879,
   "grid_y": 925,
   "grid_z": 0,
   "id": "zone_district_879_925",
   "map_id": "map_world",
-  "name": "Ochre Draw",
+  "name": "Willow Bank",
   "parent_zone": null
 }

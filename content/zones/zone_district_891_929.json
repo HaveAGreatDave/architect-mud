@@ -1,8 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
+  "ambient_theme": "forest",
   "color": "#b5744a",
-  "description": "Brackish channels wander through beds of iron-stained reed, going nowhere in particular. The ground between them gives underfoot and smells of rot and old metal.",
+  "description": "Cattails as thick as a wall, with narrow channels between them where the ducks go. The mud takes your boots and gives them back slowly.",
   "exits": {
     "east": "zone_district_892_929",
     "north": "zone_district_891_928",
@@ -20,6 +20,6 @@
   "grid_z": 0,
   "id": "zone_district_891_929",
   "map_id": "map_world",
-  "name": "Rustwind Flat",
+  "name": "The Reedbed",
   "parent_zone": null
 }

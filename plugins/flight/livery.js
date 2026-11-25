@@ -158,6 +158,12 @@ export const PATTERNS = [
 // Finish coat — the other signature lever. Matte/weathered kill glare; gloss flares.
 export const FINISHES = [
   { id: 'gloss',     label: 'Gloss',     sig: 1.10 },
+  // The show coats. Each one is its own look on the GPU (FINISH_CODE in client/shared/vehicle-materials.js).
+  { id: 'metallic',  label: 'Metallic',   sig: 1.12 },
+  { id: 'flake',     label: 'Metal Flake', sig: 1.18 },
+  { id: 'pearl',     label: 'Pearlescent', sig: 1.10 },
+  { id: 'candy',     label: 'Candy',      sig: 1.15 },
+  { id: 'chameleon', label: 'Chameleon',  sig: 1.20 },
   { id: 'satin',     label: 'Satin',     sig: 1.00 },
   { id: 'matte',     label: 'Matte',     sig: 0.88 },
   { id: 'weathered', label: 'Weathered', sig: 0.90 },
