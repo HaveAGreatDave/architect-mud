@@ -272,8 +272,9 @@ export function figureWorn(items, { sex = 'male', skin = null } = {}) {
       // an item that names its own cut and cloth (tags.wear_look.cut, .fabric: the vat suits' seasons) is drawn as it says
       if (typeof o.it.look?.cut === 'string' && /^[a-z_]+$/.test(o.it.look.cut)) out.cut = o.it.look.cut;
       if (typeof o.it.look?.fabric === 'string' && /^[a-z]+$/.test(o.it.look.fabric)) out.fabric_top = o.it.look.fabric;
-      // the batch tape on a vat suit is white (the shirt's slot, which shows nowhere else on a closed top)
-      if (out.cut.startsWith('vatsuit')) out.shirt = [232, 228, 216];
+      // the batch tape and the patches on a vat suit are a greyer scrap-white than the suit (the shirt's slot, which
+      // shows nowhere else on a closed top): the same scraps the dressing gantry carries (room-vatcycle.js CLOTH)
+      if (out.cut.startsWith('vatsuit')) out.shirt = [206, 204, 194];
       // a printed top: gl/figure-hd.js uPrint's names (the reaper goes on a plain tee's back)
       if (typeof o.it.look?.print === 'string') out.print = o.it.look.print;
       // what's under an open front shows at the collar

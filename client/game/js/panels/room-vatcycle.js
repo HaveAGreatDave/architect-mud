@@ -69,8 +69,9 @@ const lerp = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a
 const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const UP = [0, 1, 0];
-// the vat clothing's colours, linear
-const CLOTH = [[0.58, 0.61, 0.64], [0.33, 0.39, 0.44], [0.69, 0.64, 0.55], [0.19, 0.25, 0.31], [0.46, 0.51, 0.55]];
+// the vat clothing's colours, linear: the white scraps the vat suits are pieced from (figure.js FIGURE_CUTS vatsuit_*,
+// figure-hd.js vatPatchwork), each a slightly different white, so a sheet in a grip is the suit before it's sewn
+const CLOTH = [[0.8, 0.77, 0.68], [0.62, 0.61, 0.57], [0.85, 0.81, 0.7], [0.7, 0.68, 0.62], [0.76, 0.75, 0.72]];
 
 // two bones from the shoulder to a target, bent toward `pole`; past its reach the forearm telescopes out
 const L1 = 0.9, L2 = 0.81;

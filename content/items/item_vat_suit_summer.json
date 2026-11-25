@@ -12,13 +12,13 @@
     "covers": [
       "legs"
     ],
-    "description": "A short-sleeved one-piece in pale vat orange, thin enough to see daylight through at the seams. The left knee has a patch stitched on and the right is waiting its turn. A batch tape across the right breast, a snap pocket on the left, and a zip that sticks at the collar.",
+    "description": "A short-sleeved one-piece run up out of white scraps, thin enough to see daylight through at the seams. No two panels are quite the same white. A patch on the left knee, a batch tape on the right breast, a snap pocket on the left, and a zip that sticks at the collar.",
     "gets_wet": true,
     "insulation": 2.5,
     "layer": "outerwear",
     "slot": "torso",
     "wear_look": {
-      "col": "#f39a42",
+      "col": "#ece8dc",
       "cut": "vatsuit_summer",
       "fabric": "plain"
     }

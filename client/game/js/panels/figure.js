@@ -454,7 +454,8 @@ export const FIGURE_CUTS = {
     collar: { y0: 1.444, y1: 1.49, ease: 0.008, flare: 0.024, open: 0.02 },
     shoulder: 0.014, front: 'zip',
   },
-  // THE VAT SUIT: the one-piece the dressing gantry puts on every reprinted body, a boiler suit in vat orange, zipped
+  // THE VAT SUIT: the one-piece the dressing gantry puts on every reprinted body, a boiler suit run up out of the white
+  // scraps the gantry carries (front 'patch', figure-hd.js vatPatchwork: panels of three whites, every seam stitched), zipped
   // from the collar, elastic at the waist and the cuffs (`rib`). Its repairs are stitched on as patches standing off the
   // cloth (`vat`, vatSuitDetail): which knees, elbows and shoulders, a second patch over the first on a hard-worn knee,
   // and on every one a chest pocket with its flap and snap and a batch tape. One cut a season; the item names it
@@ -463,25 +464,25 @@ export const FIGURE_CUTS = {
     top: { hem: 0.86, neck: 1.448, ease: 0.012, hug: 0.08, drape: 0.38, flare: 0 },
     sleeve: { cuff: 1.2, ease: 0.014, drape: 0.18, open: 0.006 },
     collar: { y0: 1.442, y1: 1.478, ease: 0.008, flare: 0.016, open: 0.04 },
-    shoulder: 0.012, front: 'zip', rib: 0.03, vat: { knees: 1, elbows: false, shoulders: false },
+    shoulder: 0.012, front: 'patch', rib: 0.03, vat: { knees: 1, elbows: false, shoulders: false },
   },
   vatsuit_spring: {
     top: { hem: 0.86, neck: 1.452, ease: 0.014, hug: 0.08, drape: 0.38, flare: 0 },
     sleeve: { cuff: 0.88, ease: 0.012, drape: 0.18, open: 0.003 },
     collar: { y0: 1.444, y1: 1.49, ease: 0.008, flare: 0.02, open: 0.02 },
-    shoulder: 0.014, front: 'zip', rib: 0.03, vat: { knees: 2, elbows: false, shoulders: true },
+    shoulder: 0.014, front: 'patch', rib: 0.03, vat: { knees: 2, elbows: false, shoulders: true },
   },
   vatsuit_autumn: {
     top: { hem: 0.86, neck: 1.452, ease: 0.017, hug: 0.06, drape: 0.38, flare: 0 },
     sleeve: { cuff: 0.88, ease: 0.014, drape: 0.18, open: 0.003 },
     collar: { y0: 1.444, y1: 1.5, ease: 0.01, flare: 0.022, open: 0.016 },
-    shoulder: 0.016, front: 'zip', rib: 0.03, vat: { knees: 2, elbows: true, shoulders: true },
+    shoulder: 0.016, front: 'patch', rib: 0.03, vat: { knees: 2, elbows: true, shoulders: true },
   },
   vatsuit_winter: {
     top: { hem: 0.86, neck: 1.455, ease: 0.022, hug: 0.04, drape: 0.4, flare: 0 },
     sleeve: { cuff: 0.878, ease: 0.016, drape: 0.2, open: 0.003 },
     collar: { y0: 1.444, y1: 1.53, ease: 0.014, flare: 0.012, open: 0.008 },
-    shoulder: 0.016, front: 'zip', rib: 0.035, quilt: true, vat: { knees: 2, elbows: true, shoulders: true, double: true },
+    shoulder: 0.016, front: 'patch', rib: 0.035, quilt: true, vat: { knees: 2, elbows: true, shoulders: true, double: true },
   },
   // a uniform tunic: fitted, buttoned, a stand collar, to the top of the thigh
   uniform: {
@@ -3174,8 +3175,9 @@ function vestPockets(ringAt, Lv) {
 // catches the light and the ink. A chest pocket on the wearer's left with a flap and a snap, a batch tape across the
 // right breast (the shirt's slot, white, which nothing else on a closed suit shows), and the repairs `V` asks for:
 // a panel over the front of each shoulder, a patch on the back of each elbow, one on each knee (or only the left),
-// and on a hard-worn suit a smaller patch stitched over the knee's. Patches take the top's own
-// slot, so they read as the same cloth sewn on twice; the stitching round each is the pocket's paint.
+// and on a hard-worn suit a smaller patch stitched over the knee's, and on every suit a scrap over the belly. Patches
+// take the tape's slot (a greyer white, paper-doll.js), so they read as other scraps off the gantry sewn on; the
+// stitching round each is the pocket's paint.
 function vatSuitDetail(V, ringAt, layers, PT, Lv, legs) {
   const out = [], H = Math.PI / 2, hd = Lv.name === 'hd', nu = hd ? 14 : 8, nv = hd ? 8 : 5;
   // the chest pocket, its flap and its snap
@@ -3195,12 +3197,14 @@ function vatSuitDetail(V, ringAt, layers, PT, Lv, legs) {
   const at = H + 0.6;
   out.push(torsoBox('tape', FIG_SLOT.shirt, ringAt, at - 0.2, at + 0.2, 1.282, 1.316, 0.0005, 0.003, 0.0008, FIG_PIECE.pocket));
   // the shoulders' panels, over the front of each, from the collarbone toward the arm
-  if (V.shoulders) for (const sd of [1, -1]) { const c = H - sd * 1.02; out.push(torsoBox('yoke', FIG_SLOT.top, ringAt, c - 0.3, c + 0.3, 1.335, 1.415, 0.0005, 0.0045, 0.0015, FIG_PIECE.pocket)); }
+  if (V.shoulders) for (const sd of [1, -1]) { const c = H - sd * 1.02; out.push(torsoBox('yoke', FIG_SLOT.shirt, ringAt, c - 0.3, c + 0.3, 1.335, 1.415, 0.0005, 0.0045, 0.0015, FIG_PIECE.pocket)); }
+  // a scrap sewn over the belly on the wearer's right
+  out.push(torsoBox('scrap', FIG_SLOT.shirt, ringAt, H + 0.25, H + 0.62, 1.02, 1.11, 0.0005, 0.004, 0.0012, FIG_PIECE.pocket));
   // a patch on a limb: on its cloth's outermost layer at `y`, facing `dir` round it (z forward), skinned to two bones
   const limbPatch = (name, layer, P, y, dir, radii, wt, lift = 0.002, ax = [1, 0, 0]) => {
     const S = P.at(y), R = hull2(ringOf(layers, layer, y) || []);
     const r = (R.length ? rayOut(R, [S.cx, S.cz], dir) : 0.05) + lift, c = [S.cx + dir[0] * r, y, S.cz + dir[1] * r];
-    const M = newPart(name, FIG_SLOT.top);
+    const M = newPart(name, FIG_SLOT.shirt);
     blobInto(M, c, ax, [0, 1, 0], [dir[0], 0, dir[1]], radii, nu, nv, 5, wt, FIG_PIECE.pocket);
     return M;
   };
