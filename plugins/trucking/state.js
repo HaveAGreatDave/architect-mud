@@ -38,6 +38,7 @@ import { applyDamage, wearSplit, damageOf, PARTS, partBand } from './damage.js';
 import { accrueGrime, grimeBand } from './filth.js';
 import { fitSuffix } from './fittings.js';
 import { editionOf, editionSuffix } from './editions.js';
+import { bodyOf, bodySuffix } from './trailer-bodies.js';
 import { installedTrinkets } from '../../client/shared/cab-trinkets.js';
 import { hornOf } from '../../client/shared/truck-horns.js';
 import { routeOptions } from './routes.js';
@@ -1842,7 +1843,7 @@ export function truckContactsNear(x, y, range = 26) {
       // …AND WHAT IS BOLTED TO IT. The fitting suffix rides the SAME string (see fittings.js rule
       // 2), so a stranger's ram plate and roof cage reach your windscreen with no new field on the
       // contact and no second lookup — which is the entire wire cost of the feature.
-      variant: `${rig.typeId || 'hauler'}${rig.trailer ? '+t' : ''}${editionSuffix(rig.cd, rig.typeId)}${fitSuffix(rig.cd)}`,
+      variant: `${rig.typeId || 'hauler'}${rig.trailer ? '+t' + bodySuffix(rig.trailer) : ''}${editionSuffix(rig.cd, rig.typeId)}${fitSuffix(rig.cd)}`,
       x: rig.x, y: rig.y, hdg: rig.heading, ias: +((rig.speed || 0) * MPH_MS).toFixed(1),   // mph on the dial -> m/s on the wire
       // WHAT THIS TRUCK'S LAMPS ARE DOING, so the rig behind sees the brake lights come on and the
       // rig ahead is a pair of headlights rather than a dark shape. Straight off the telemetry
@@ -2053,7 +2054,7 @@ export function cabContext(rig, extra = {}) {
     // trailer and what it weighs, because that is a fact about the world and not about this frame.
     // …and what colour it is, because the cab draws your own rig in the chase view and a box that
     // was one colour in the yard and another on the pin is not one box.
-    trailer: rig.trailer ? { name: rig.trailer.name, kg: rig.trailer.kg, loadKg: rig.cargo?.kg || 0, colour: boxColour(rig.trailer) } : null,
+    trailer: rig.trailer ? { name: rig.trailer.name, kg: rig.trailer.kg, loadKg: rig.cargo?.kg || 0, colour: boxColour(rig.trailer), body: bodyOf(rig.trailer) || '' } : null,
     // The corridor half is only meaningful on that leg; in the city the cab shows the destination
     // rather than a distance-to-go, because there is no single road to be a distance along.
     s: city ? 0 : Math.round(rig.s), t: city ? 0 : +rig.t.toFixed(2),

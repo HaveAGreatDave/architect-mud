@@ -3156,6 +3156,10 @@ export const SCHEMA_SQL = `
   -- (yard paint), and null on every row written before this — which renders as plain unbranded
   -- haulage grey rather than as a hole, so nothing already standing in a yard is stranded.
   ALTER TABLE trailers ADD COLUMN IF NOT EXISTS paint JSONB;
+  -- WHAT BODY IT WEARS: a trailer body id (plugins/trucking/trailer-bodies.js), fitted at the yard
+  -- (yard body). On the box for the same reason the paint is: a box looks the same whoever pulls it.
+  -- Null is the stock box.
+  ALTER TABLE trailers ADD COLUMN IF NOT EXISTS body TEXT;
   CREATE INDEX IF NOT EXISTS idx_trailers_owner ON trailers(owner_id);
   CREATE INDEX IF NOT EXISTS idx_trailers_parked ON trailers(parked_zone);
   CREATE UNIQUE INDEX IF NOT EXISTS idx_trailers_towed ON trailers(towed_by) WHERE towed_by IS NOT NULL;

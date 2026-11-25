@@ -1,0 +1,4304 @@
+{
+  "id": "trailer_container",
+  "kind": "mesh",
+  "params": {
+    "name": "Container flatbed",
+    "note": "A trailer body after the Bulwark HX (docs/proposals/hover-rigs.md phase 6). Written by scripts/shapes/concepts/container-flatbed.mjs; edit that, not this. Laid out from the kingpin at f 0, aft negative; aircraft3d.js hangs it on any tractor's pin for ~tcontainer.",
+    "paints": {
+      "chrome": { "rgb": [214, 220, 228], "livery": "fixed", "mat": "bare", "tex": "brushed", "note": "pad rings and handles" },
+      "frame": { "rgb": [40, 43, 49], "livery": "fixed", "mat": "steel", "tex": "cast", "note": "the chassis, legs and arms: black steel whoever tows it" },
+      "gunmetal": { "rgb": [58, 62, 70], "livery": "fixed", "mat": "steel", "tex": "cast", "note": "the lift pads" },
+      "hazard": {
+        "rgb": [232, 115, 28],
+        "livery": "fixed",
+        "mat": "satin",
+        "tex": "paint",
+        "note": "the middle container, the headboard band and the bumper stripes"
+      },
+      "rubber": { "rgb": [28, 29, 31], "livery": "fixed", "mat": "satin", "tex": "rubber", "note": "mud flaps and seals" },
+      "steel": { "rgb": [104, 110, 120], "livery": "fixed", "mat": "steel", "tex": "cast", "note": "bumper, brackets, fittings" }
+    },
+    "partIds": true,
+    "trailer": {
+      "len": 0.6,
+      "w": 0.172,
+      "hi": 0.356,
+      "boxHalf": 0.096,
+      "tail": [-0.594, 0.138, 0.092],
+      "pods": [
+        [-0.4, -0.118, 0.046, true, 0.024],
+        [-0.4, 0.118, 0.046, true, 0.024],
+        [-0.52, -0.118, 0.046, true, 0.024],
+        [-0.52, 0.118, 0.046, true, 0.024]
+      ]
+    },
+    "parts": [
+      {
+        "kind": "poly",
+        "name": "deck",
+        "faces": [
+          {
+            "role": "body",
+            "sh": 1,
+            "p": [
+              [0, -0.096, 0.106],
+              [0, 0.096, 0.106],
+              [-0.044, 0.172, 0.106],
+              [-0.59, 0.172, 0.106],
+              [-0.59, -0.172, 0.106],
+              [-0.044, -0.172, 0.106]
+            ],
+            "cen": [-0.211333, 0, 0.092],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "body",
+            "sh": 0.42,
+            "p": [
+              [-0.044, -0.172, 0.078],
+              [-0.59, -0.172, 0.078],
+              [-0.59, 0.172, 0.078],
+              [-0.044, 0.172, 0.078],
+              [0, 0.096, 0.078],
+              [0, -0.096, 0.078]
+            ],
+            "cen": [-0.211333, 0, 0.092],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "body",
+            "sh": 0.8,
+            "p": [[0, -0.096, 0.078], [0, 0.096, 0.078], [0, 0.096, 0.106], [0, -0.096, 0.106]],
+            "cen": [-0.211333, 0, 0.092],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "body",
+            "sh": 0.754813,
+            "p": [[0, 0.096, 0.078], [-0.044, 0.172, 0.078], [-0.044, 0.172, 0.106], [0, 0.096, 0.106]],
+            "cen": [-0.211333, 0, 0.092],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "body",
+            "sh": 0.62,
+            "p": [[-0.044, 0.172, 0.078], [-0.59, 0.172, 0.078], [-0.59, 0.172, 0.106], [-0.044, 0.172, 0.106]],
+            "cen": [-0.211333, 0, 0.092],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "body",
+            "sh": 0.55,
+            "p": [[-0.59, 0.172, 0.078], [-0.59, -0.172, 0.078], [-0.59, -0.172, 0.106], [-0.59, 0.172, 0.106]],
+            "cen": [-0.211333, 0, 0.092],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "body",
+            "sh": 0.72,
+            "p": [[-0.59, -0.172, 0.078], [-0.044, -0.172, 0.078], [-0.044, -0.172, 0.106], [-0.59, -0.172, 0.106]],
+            "cen": [-0.211333, 0, 0.092],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "body",
+            "sh": 0.779917,
+            "p": [[-0.044, -0.172, 0.078], [0, -0.096, 0.078], [0, -0.096, 0.106], [-0.044, -0.172, 0.106]],
+            "cen": [-0.211333, 0, 0.092],
+            "paint": "gunmetal"
+          }
+        ]
+      },
+      {
+        "kind": "box",
+        "name": "deck light",
+        "f": [-0.584, -0.05],
+        "w": 0.0012,
+        "z": [0.088, 0.093],
+        "g": -0.1726,
+        "role": "window",
+        "tint": [255, 154, 46],
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "deck light",
+        "f": [-0.584, -0.05],
+        "w": 0.0012,
+        "z": [0.088, 0.093],
+        "g": 0.1726,
+        "role": "window",
+        "tint": [255, 154, 46],
+        "minDetail": 1
+      },
+      { "kind": "box", "name": "deck rail", "f": [-0.588, -0.046], "w": 0.003, "z": [0.102, 0.108], "g": -0.17, "role": "strut", "paint": "steel" },
+      { "kind": "box", "name": "deck rail", "f": [-0.588, -0.046], "w": 0.003, "z": [0.102, 0.108], "g": 0.17, "role": "strut", "paint": "steel" },
+      { "kind": "box", "name": "frame rail", "f": [-0.58, -0.02], "w": 0.01, "z": [0.05, 0.078], "g": -0.09, "role": "strut", "paint": "frame" },
+      { "kind": "box", "name": "frame rail", "f": [-0.58, -0.02], "w": 0.01, "z": [0.05, 0.078], "g": 0.09, "role": "strut", "paint": "frame" },
+      {
+        "kind": "box",
+        "name": "stake pocket",
+        "f": [-0.07, -0.064],
+        "w": 0.003,
+        "z": [0.082, 0.1],
+        "g": -0.174,
+        "role": "strut",
+        "paint": "frame",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "stake pocket",
+        "f": [-0.13, -0.124],
+        "w": 0.003,
+        "z": [0.082, 0.1],
+        "g": -0.174,
+        "role": "strut",
+        "paint": "frame",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "stake pocket",
+        "f": [-0.19, -0.184],
+        "w": 0.003,
+        "z": [0.082, 0.1],
+        "g": -0.174,
+        "role": "strut",
+        "paint": "frame",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "stake pocket",
+        "f": [-0.25, -0.244],
+        "w": 0.003,
+        "z": [0.082, 0.1],
+        "g": -0.174,
+        "role": "strut",
+        "paint": "frame",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "stake pocket",
+        "f": [-0.31, -0.304],
+        "w": 0.003,
+        "z": [0.082, 0.1],
+        "g": -0.174,
+        "role": "strut",
+        "paint": "frame",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "stake pocket",
+        "f": [-0.37, -0.364],
+        "w": 0.003,
+        "z": [0.082, 0.1],
+        "g": -0.174,
+        "role": "strut",
+        "paint": "frame",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "stake pocket",
+        "f": [-0.43, -0.424],
+        "w": 0.003,
+        "z": [0.082, 0.1],
+        "g": -0.174,
+        "role": "strut",
+        "paint": "frame",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "stake pocket",
+        "f": [-0.49, -0.484],
+        "w": 0.003,
+        "z": [0.082, 0.1],
+        "g": -0.174,
+        "role": "strut",
+        "paint": "frame",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "stake pocket",
+        "f": [-0.55, -0.544],
+        "w": 0.003,
+        "z": [0.082, 0.1],
+        "g": -0.174,
+        "role": "strut",
+        "paint": "frame",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "stake pocket",
+        "f": [-0.07, -0.064],
+        "w": 0.003,
+        "z": [0.082, 0.1],
+        "g": 0.174,
+        "role": "strut",
+        "paint": "frame",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "stake pocket",
+        "f": [-0.13, -0.124],
+        "w": 0.003,
+        "z": [0.082, 0.1],
+        "g": 0.174,
+        "role": "strut",
+        "paint": "frame",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "stake pocket",
+        "f": [-0.19, -0.184],
+        "w": 0.003,
+        "z": [0.082, 0.1],
+        "g": 0.174,
+        "role": "strut",
+        "paint": "frame",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "stake pocket",
+        "f": [-0.25, -0.244],
+        "w": 0.003,
+        "z": [0.082, 0.1],
+        "g": 0.174,
+        "role": "strut",
+        "paint": "frame",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "stake pocket",
+        "f": [-0.31, -0.304],
+        "w": 0.003,
+        "z": [0.082, 0.1],
+        "g": 0.174,
+        "role": "strut",
+        "paint": "frame",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "stake pocket",
+        "f": [-0.37, -0.364],
+        "w": 0.003,
+        "z": [0.082, 0.1],
+        "g": 0.174,
+        "role": "strut",
+        "paint": "frame",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "stake pocket",
+        "f": [-0.43, -0.424],
+        "w": 0.003,
+        "z": [0.082, 0.1],
+        "g": 0.174,
+        "role": "strut",
+        "paint": "frame",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "stake pocket",
+        "f": [-0.49, -0.484],
+        "w": 0.003,
+        "z": [0.082, 0.1],
+        "g": 0.174,
+        "role": "strut",
+        "paint": "frame",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "stake pocket",
+        "f": [-0.55, -0.544],
+        "w": 0.003,
+        "z": [0.082, 0.1],
+        "g": 0.174,
+        "role": "strut",
+        "paint": "frame",
+        "minDetail": 1
+      },
+      { "kind": "box", "name": "headboard post", "f": [-0.056, -0.048], "w": 0.008, "z": [0.106, 0.3], "g": -0.162, "role": "strut", "paint": "steel" },
+      { "kind": "box", "name": "headboard post", "f": [-0.056, -0.048], "w": 0.008, "z": [0.106, 0.3], "g": 0.162, "role": "strut", "paint": "steel" },
+      { "kind": "box", "name": "headboard rail", "f": [-0.056, -0.048], "w": 0.168, "z": [0.288, 0.3], "role": "strut", "paint": "steel" },
+      { "kind": "box", "name": "headboard", "f": [-0.054, -0.05], "w": 0.156, "z": [0.106, 0.288], "role": "strut", "paint": "frame" },
+      { "kind": "box", "name": "headboard bar", "f": [-0.0485, -0.0465], "w": 0.154, "z": [0.15, 0.156], "role": "strut", "paint": "steel", "minDetail": 1 },
+      { "kind": "box", "name": "headboard bar", "f": [-0.0485, -0.0465], "w": 0.154, "z": [0.2, 0.206], "role": "strut", "paint": "steel", "minDetail": 1 },
+      { "kind": "box", "name": "headboard bar", "f": [-0.0485, -0.0465], "w": 0.154, "z": [0.25, 0.256], "role": "strut", "paint": "steel", "minDetail": 1 },
+      { "kind": "box", "name": "headboard band", "f": [-0.0485, -0.047], "w": 0.154, "z": [0.11, 0.126], "paint": "hazard" },
+      { "kind": "box", "name": "container", "f": [-0.224, -0.06], "w": 0.162, "z": [0.108, 0.356] },
+      { "kind": "box", "name": "container rib", "f": [-0.213, -0.203], "w": 0.0016, "z": [0.12, 0.344], "g": -0.163, "minDetail": 1 },
+      { "kind": "box", "name": "container rib", "f": [-0.213, -0.203], "w": 0.0016, "z": [0.12, 0.344], "g": 0.163, "minDetail": 1 },
+      { "kind": "box", "name": "container rib", "f": [-0.191, -0.181], "w": 0.0016, "z": [0.12, 0.344], "g": -0.163, "minDetail": 1 },
+      { "kind": "box", "name": "container rib", "f": [-0.191, -0.181], "w": 0.0016, "z": [0.12, 0.344], "g": 0.163, "minDetail": 1 },
+      { "kind": "box", "name": "container rib", "f": [-0.169, -0.159], "w": 0.0016, "z": [0.12, 0.344], "g": -0.163, "minDetail": 1 },
+      { "kind": "box", "name": "container rib", "f": [-0.169, -0.159], "w": 0.0016, "z": [0.12, 0.344], "g": 0.163, "minDetail": 1 },
+      { "kind": "box", "name": "container rib", "f": [-0.147, -0.137], "w": 0.0016, "z": [0.12, 0.344], "g": -0.163, "minDetail": 1 },
+      { "kind": "box", "name": "container rib", "f": [-0.147, -0.137], "w": 0.0016, "z": [0.12, 0.344], "g": 0.163, "minDetail": 1 },
+      { "kind": "box", "name": "container rib", "f": [-0.125, -0.115], "w": 0.0016, "z": [0.12, 0.344], "g": -0.163, "minDetail": 1 },
+      { "kind": "box", "name": "container rib", "f": [-0.125, -0.115], "w": 0.0016, "z": [0.12, 0.344], "g": 0.163, "minDetail": 1 },
+      { "kind": "box", "name": "container rib", "f": [-0.103, -0.093], "w": 0.0016, "z": [0.12, 0.344], "g": -0.163, "minDetail": 1 },
+      { "kind": "box", "name": "container rib", "f": [-0.103, -0.093], "w": 0.0016, "z": [0.12, 0.344], "g": 0.163, "minDetail": 1 },
+      { "kind": "box", "name": "container rib", "f": [-0.081, -0.071], "w": 0.0016, "z": [0.12, 0.344], "g": -0.163, "minDetail": 1 },
+      { "kind": "box", "name": "container rib", "f": [-0.081, -0.071], "w": 0.0016, "z": [0.12, 0.344], "g": 0.163, "minDetail": 1 },
+      { "kind": "box", "name": "container rail", "f": [-0.224, -0.06], "w": 0.0025, "z": [0.108, 0.118], "g": -0.163, "role": "strut", "paint": "frame" },
+      { "kind": "box", "name": "container rail", "f": [-0.224, -0.06], "w": 0.0025, "z": [0.346, 0.356], "g": -0.163, "role": "strut", "paint": "frame" },
+      { "kind": "box", "name": "corner post", "f": [-0.224, -0.214], "w": 0.006, "z": [0.108, 0.356], "g": -0.158, "role": "strut", "paint": "frame" },
+      { "kind": "box", "name": "corner post", "f": [-0.07, -0.06], "w": 0.006, "z": [0.108, 0.356], "g": -0.158, "role": "strut", "paint": "frame" },
+      {
+        "kind": "box",
+        "name": "corner casting",
+        "f": [-0.224, -0.212],
+        "w": 0.007,
+        "z": [0.108, 0.12],
+        "g": -0.159,
+        "role": "strut",
+        "paint": "steel",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "corner casting",
+        "f": [-0.224, -0.212],
+        "w": 0.007,
+        "z": [0.344, 0.356],
+        "g": -0.159,
+        "role": "strut",
+        "paint": "steel",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "corner casting",
+        "f": [-0.072, -0.06],
+        "w": 0.007,
+        "z": [0.108, 0.12],
+        "g": -0.159,
+        "role": "strut",
+        "paint": "steel",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "corner casting",
+        "f": [-0.072, -0.06],
+        "w": 0.007,
+        "z": [0.344, 0.356],
+        "g": -0.159,
+        "role": "strut",
+        "paint": "steel",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "lashing chain",
+        "f": [-0.196, -0.192],
+        "w": 0.0012,
+        "z": [0.106, 0.168],
+        "g": -0.165,
+        "role": "strut",
+        "paint": "chrome",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "lashing chain",
+        "f": [-0.092, -0.088],
+        "w": 0.0012,
+        "z": [0.106, 0.168],
+        "g": -0.165,
+        "role": "strut",
+        "paint": "chrome",
+        "minDetail": 1
+      },
+      { "kind": "box", "name": "container rail", "f": [-0.224, -0.06], "w": 0.0025, "z": [0.108, 0.118], "g": 0.163, "role": "strut", "paint": "frame" },
+      { "kind": "box", "name": "container rail", "f": [-0.224, -0.06], "w": 0.0025, "z": [0.346, 0.356], "g": 0.163, "role": "strut", "paint": "frame" },
+      { "kind": "box", "name": "corner post", "f": [-0.224, -0.214], "w": 0.006, "z": [0.108, 0.356], "g": 0.158, "role": "strut", "paint": "frame" },
+      { "kind": "box", "name": "corner post", "f": [-0.07, -0.06], "w": 0.006, "z": [0.108, 0.356], "g": 0.158, "role": "strut", "paint": "frame" },
+      {
+        "kind": "box",
+        "name": "corner casting",
+        "f": [-0.224, -0.212],
+        "w": 0.007,
+        "z": [0.108, 0.12],
+        "g": 0.159,
+        "role": "strut",
+        "paint": "steel",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "corner casting",
+        "f": [-0.224, -0.212],
+        "w": 0.007,
+        "z": [0.344, 0.356],
+        "g": 0.159,
+        "role": "strut",
+        "paint": "steel",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "corner casting",
+        "f": [-0.072, -0.06],
+        "w": 0.007,
+        "z": [0.108, 0.12],
+        "g": 0.159,
+        "role": "strut",
+        "paint": "steel",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "corner casting",
+        "f": [-0.072, -0.06],
+        "w": 0.007,
+        "z": [0.344, 0.356],
+        "g": 0.159,
+        "role": "strut",
+        "paint": "steel",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "lashing chain",
+        "f": [-0.196, -0.192],
+        "w": 0.0012,
+        "z": [0.106, 0.168],
+        "g": 0.165,
+        "role": "strut",
+        "paint": "chrome",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "lashing chain",
+        "f": [-0.092, -0.088],
+        "w": 0.0012,
+        "z": [0.106, 0.168],
+        "g": 0.165,
+        "role": "strut",
+        "paint": "chrome",
+        "minDetail": 1
+      },
+      { "kind": "box", "name": "container", "f": [-0.4, -0.236], "w": 0.162, "z": [0.108, 0.356], "paint": "hazard" },
+      { "kind": "box", "name": "container rib", "f": [-0.389, -0.379], "w": 0.0016, "z": [0.12, 0.344], "g": -0.163, "paint": "hazard", "minDetail": 1 },
+      { "kind": "box", "name": "container rib", "f": [-0.389, -0.379], "w": 0.0016, "z": [0.12, 0.344], "g": 0.163, "paint": "hazard", "minDetail": 1 },
+      { "kind": "box", "name": "container rib", "f": [-0.367, -0.357], "w": 0.0016, "z": [0.12, 0.344], "g": -0.163, "paint": "hazard", "minDetail": 1 },
+      { "kind": "box", "name": "container rib", "f": [-0.367, -0.357], "w": 0.0016, "z": [0.12, 0.344], "g": 0.163, "paint": "hazard", "minDetail": 1 },
+      { "kind": "box", "name": "container rib", "f": [-0.345, -0.335], "w": 0.0016, "z": [0.12, 0.344], "g": -0.163, "paint": "hazard", "minDetail": 1 },
+      { "kind": "box", "name": "container rib", "f": [-0.345, -0.335], "w": 0.0016, "z": [0.12, 0.344], "g": 0.163, "paint": "hazard", "minDetail": 1 },
+      { "kind": "box", "name": "container rib", "f": [-0.323, -0.313], "w": 0.0016, "z": [0.12, 0.344], "g": -0.163, "paint": "hazard", "minDetail": 1 },
+      { "kind": "box", "name": "container rib", "f": [-0.323, -0.313], "w": 0.0016, "z": [0.12, 0.344], "g": 0.163, "paint": "hazard", "minDetail": 1 },
+      { "kind": "box", "name": "container rib", "f": [-0.301, -0.291], "w": 0.0016, "z": [0.12, 0.344], "g": -0.163, "paint": "hazard", "minDetail": 1 },
+      { "kind": "box", "name": "container rib", "f": [-0.301, -0.291], "w": 0.0016, "z": [0.12, 0.344], "g": 0.163, "paint": "hazard", "minDetail": 1 },
+      { "kind": "box", "name": "container rib", "f": [-0.279, -0.269], "w": 0.0016, "z": [0.12, 0.344], "g": -0.163, "paint": "hazard", "minDetail": 1 },
+      { "kind": "box", "name": "container rib", "f": [-0.279, -0.269], "w": 0.0016, "z": [0.12, 0.344], "g": 0.163, "paint": "hazard", "minDetail": 1 },
+      { "kind": "box", "name": "container rib", "f": [-0.257, -0.247], "w": 0.0016, "z": [0.12, 0.344], "g": -0.163, "paint": "hazard", "minDetail": 1 },
+      { "kind": "box", "name": "container rib", "f": [-0.257, -0.247], "w": 0.0016, "z": [0.12, 0.344], "g": 0.163, "paint": "hazard", "minDetail": 1 },
+      { "kind": "box", "name": "container rail", "f": [-0.4, -0.236], "w": 0.0025, "z": [0.108, 0.118], "g": -0.163, "role": "strut", "paint": "frame" },
+      { "kind": "box", "name": "container rail", "f": [-0.4, -0.236], "w": 0.0025, "z": [0.346, 0.356], "g": -0.163, "role": "strut", "paint": "frame" },
+      { "kind": "box", "name": "corner post", "f": [-0.4, -0.39], "w": 0.006, "z": [0.108, 0.356], "g": -0.158, "role": "strut", "paint": "frame" },
+      { "kind": "box", "name": "corner post", "f": [-0.246, -0.236], "w": 0.006, "z": [0.108, 0.356], "g": -0.158, "role": "strut", "paint": "frame" },
+      {
+        "kind": "box",
+        "name": "corner casting",
+        "f": [-0.4, -0.388],
+        "w": 0.007,
+        "z": [0.108, 0.12],
+        "g": -0.159,
+        "role": "strut",
+        "paint": "steel",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "corner casting",
+        "f": [-0.4, -0.388],
+        "w": 0.007,
+        "z": [0.344, 0.356],
+        "g": -0.159,
+        "role": "strut",
+        "paint": "steel",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "corner casting",
+        "f": [-0.248, -0.236],
+        "w": 0.007,
+        "z": [0.108, 0.12],
+        "g": -0.159,
+        "role": "strut",
+        "paint": "steel",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "corner casting",
+        "f": [-0.248, -0.236],
+        "w": 0.007,
+        "z": [0.344, 0.356],
+        "g": -0.159,
+        "role": "strut",
+        "paint": "steel",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "lashing chain",
+        "f": [-0.372, -0.368],
+        "w": 0.0012,
+        "z": [0.106, 0.168],
+        "g": -0.165,
+        "role": "strut",
+        "paint": "chrome",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "lashing chain",
+        "f": [-0.268, -0.264],
+        "w": 0.0012,
+        "z": [0.106, 0.168],
+        "g": -0.165,
+        "role": "strut",
+        "paint": "chrome",
+        "minDetail": 1
+      },
+      { "kind": "box", "name": "container rail", "f": [-0.4, -0.236], "w": 0.0025, "z": [0.108, 0.118], "g": 0.163, "role": "strut", "paint": "frame" },
+      { "kind": "box", "name": "container rail", "f": [-0.4, -0.236], "w": 0.0025, "z": [0.346, 0.356], "g": 0.163, "role": "strut", "paint": "frame" },
+      { "kind": "box", "name": "corner post", "f": [-0.4, -0.39], "w": 0.006, "z": [0.108, 0.356], "g": 0.158, "role": "strut", "paint": "frame" },
+      { "kind": "box", "name": "corner post", "f": [-0.246, -0.236], "w": 0.006, "z": [0.108, 0.356], "g": 0.158, "role": "strut", "paint": "frame" },
+      {
+        "kind": "box",
+        "name": "corner casting",
+        "f": [-0.4, -0.388],
+        "w": 0.007,
+        "z": [0.108, 0.12],
+        "g": 0.159,
+        "role": "strut",
+        "paint": "steel",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "corner casting",
+        "f": [-0.4, -0.388],
+        "w": 0.007,
+        "z": [0.344, 0.356],
+        "g": 0.159,
+        "role": "strut",
+        "paint": "steel",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "corner casting",
+        "f": [-0.248, -0.236],
+        "w": 0.007,
+        "z": [0.108, 0.12],
+        "g": 0.159,
+        "role": "strut",
+        "paint": "steel",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "corner casting",
+        "f": [-0.248, -0.236],
+        "w": 0.007,
+        "z": [0.344, 0.356],
+        "g": 0.159,
+        "role": "strut",
+        "paint": "steel",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "lashing chain",
+        "f": [-0.372, -0.368],
+        "w": 0.0012,
+        "z": [0.106, 0.168],
+        "g": 0.165,
+        "role": "strut",
+        "paint": "chrome",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "lashing chain",
+        "f": [-0.268, -0.264],
+        "w": 0.0012,
+        "z": [0.106, 0.168],
+        "g": 0.165,
+        "role": "strut",
+        "paint": "chrome",
+        "minDetail": 1
+      },
+      {
+        "kind": "poly",
+        "name": "placard",
+        "faces": [
+          {
+            "role": "window",
+            "sh": 0.9,
+            "p": [[-0.288, -0.164, 0.25], [-0.318, -0.164, 0.28], [-0.348, -0.164, 0.25], [-0.318, -0.164, 0.22]],
+            "tint": [242, 242, 236]
+          }
+        ],
+        "minDetail": 1
+      },
+      {
+        "kind": "poly",
+        "name": "placard",
+        "faces": [
+          {
+            "role": "window",
+            "sh": 0.9,
+            "p": [[-0.294, -0.164082, 0.25], [-0.318, -0.164082, 0.274], [-0.342, -0.164082, 0.25], [-0.318, -0.164082, 0.226]],
+            "tint": [228, 72, 77]
+          }
+        ],
+        "minDetail": 1
+      },
+      {
+        "kind": "poly",
+        "name": "placard",
+        "faces": [
+          {
+            "role": "window",
+            "sh": 0.9,
+            "p": [[-0.288, 0.164, 0.25], [-0.318, 0.164, 0.28], [-0.348, 0.164, 0.25], [-0.318, 0.164, 0.22]],
+            "tint": [242, 242, 236]
+          }
+        ],
+        "minDetail": 1
+      },
+      {
+        "kind": "poly",
+        "name": "placard",
+        "faces": [
+          {
+            "role": "window",
+            "sh": 0.9,
+            "p": [[-0.294, 0.164082, 0.25], [-0.318, 0.164082, 0.274], [-0.342, 0.164082, 0.25], [-0.318, 0.164082, 0.226]],
+            "tint": [228, 72, 77]
+          }
+        ],
+        "minDetail": 1
+      },
+      { "kind": "box", "name": "container", "f": [-0.576, -0.412], "w": 0.162, "z": [0.108, 0.356] },
+      { "kind": "box", "name": "container rib", "f": [-0.565, -0.555], "w": 0.0016, "z": [0.12, 0.344], "g": -0.163, "minDetail": 1 },
+      { "kind": "box", "name": "container rib", "f": [-0.565, -0.555], "w": 0.0016, "z": [0.12, 0.344], "g": 0.163, "minDetail": 1 },
+      { "kind": "box", "name": "container rib", "f": [-0.543, -0.533], "w": 0.0016, "z": [0.12, 0.344], "g": -0.163, "minDetail": 1 },
+      { "kind": "box", "name": "container rib", "f": [-0.543, -0.533], "w": 0.0016, "z": [0.12, 0.344], "g": 0.163, "minDetail": 1 },
+      { "kind": "box", "name": "container rib", "f": [-0.521, -0.511], "w": 0.0016, "z": [0.12, 0.344], "g": -0.163, "minDetail": 1 },
+      { "kind": "box", "name": "container rib", "f": [-0.521, -0.511], "w": 0.0016, "z": [0.12, 0.344], "g": 0.163, "minDetail": 1 },
+      { "kind": "box", "name": "container rib", "f": [-0.499, -0.489], "w": 0.0016, "z": [0.12, 0.344], "g": -0.163, "minDetail": 1 },
+      { "kind": "box", "name": "container rib", "f": [-0.499, -0.489], "w": 0.0016, "z": [0.12, 0.344], "g": 0.163, "minDetail": 1 },
+      { "kind": "box", "name": "container rib", "f": [-0.477, -0.467], "w": 0.0016, "z": [0.12, 0.344], "g": -0.163, "minDetail": 1 },
+      { "kind": "box", "name": "container rib", "f": [-0.477, -0.467], "w": 0.0016, "z": [0.12, 0.344], "g": 0.163, "minDetail": 1 },
+      { "kind": "box", "name": "container rib", "f": [-0.455, -0.445], "w": 0.0016, "z": [0.12, 0.344], "g": -0.163, "minDetail": 1 },
+      { "kind": "box", "name": "container rib", "f": [-0.455, -0.445], "w": 0.0016, "z": [0.12, 0.344], "g": 0.163, "minDetail": 1 },
+      { "kind": "box", "name": "container rib", "f": [-0.433, -0.423], "w": 0.0016, "z": [0.12, 0.344], "g": -0.163, "minDetail": 1 },
+      { "kind": "box", "name": "container rib", "f": [-0.433, -0.423], "w": 0.0016, "z": [0.12, 0.344], "g": 0.163, "minDetail": 1 },
+      { "kind": "box", "name": "container rail", "f": [-0.576, -0.412], "w": 0.0025, "z": [0.108, 0.118], "g": -0.163, "role": "strut", "paint": "frame" },
+      { "kind": "box", "name": "container rail", "f": [-0.576, -0.412], "w": 0.0025, "z": [0.346, 0.356], "g": -0.163, "role": "strut", "paint": "frame" },
+      { "kind": "box", "name": "corner post", "f": [-0.576, -0.566], "w": 0.006, "z": [0.108, 0.356], "g": -0.158, "role": "strut", "paint": "frame" },
+      { "kind": "box", "name": "corner post", "f": [-0.422, -0.412], "w": 0.006, "z": [0.108, 0.356], "g": -0.158, "role": "strut", "paint": "frame" },
+      {
+        "kind": "box",
+        "name": "corner casting",
+        "f": [-0.576, -0.564],
+        "w": 0.007,
+        "z": [0.108, 0.12],
+        "g": -0.159,
+        "role": "strut",
+        "paint": "steel",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "corner casting",
+        "f": [-0.576, -0.564],
+        "w": 0.007,
+        "z": [0.344, 0.356],
+        "g": -0.159,
+        "role": "strut",
+        "paint": "steel",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "corner casting",
+        "f": [-0.424, -0.412],
+        "w": 0.007,
+        "z": [0.108, 0.12],
+        "g": -0.159,
+        "role": "strut",
+        "paint": "steel",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "corner casting",
+        "f": [-0.424, -0.412],
+        "w": 0.007,
+        "z": [0.344, 0.356],
+        "g": -0.159,
+        "role": "strut",
+        "paint": "steel",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "lashing chain",
+        "f": [-0.548, -0.544],
+        "w": 0.0012,
+        "z": [0.106, 0.168],
+        "g": -0.165,
+        "role": "strut",
+        "paint": "chrome",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "lashing chain",
+        "f": [-0.444, -0.44],
+        "w": 0.0012,
+        "z": [0.106, 0.168],
+        "g": -0.165,
+        "role": "strut",
+        "paint": "chrome",
+        "minDetail": 1
+      },
+      { "kind": "box", "name": "container rail", "f": [-0.576, -0.412], "w": 0.0025, "z": [0.108, 0.118], "g": 0.163, "role": "strut", "paint": "frame" },
+      { "kind": "box", "name": "container rail", "f": [-0.576, -0.412], "w": 0.0025, "z": [0.346, 0.356], "g": 0.163, "role": "strut", "paint": "frame" },
+      { "kind": "box", "name": "corner post", "f": [-0.576, -0.566], "w": 0.006, "z": [0.108, 0.356], "g": 0.158, "role": "strut", "paint": "frame" },
+      { "kind": "box", "name": "corner post", "f": [-0.422, -0.412], "w": 0.006, "z": [0.108, 0.356], "g": 0.158, "role": "strut", "paint": "frame" },
+      {
+        "kind": "box",
+        "name": "corner casting",
+        "f": [-0.576, -0.564],
+        "w": 0.007,
+        "z": [0.108, 0.12],
+        "g": 0.159,
+        "role": "strut",
+        "paint": "steel",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "corner casting",
+        "f": [-0.576, -0.564],
+        "w": 0.007,
+        "z": [0.344, 0.356],
+        "g": 0.159,
+        "role": "strut",
+        "paint": "steel",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "corner casting",
+        "f": [-0.424, -0.412],
+        "w": 0.007,
+        "z": [0.108, 0.12],
+        "g": 0.159,
+        "role": "strut",
+        "paint": "steel",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "corner casting",
+        "f": [-0.424, -0.412],
+        "w": 0.007,
+        "z": [0.344, 0.356],
+        "g": 0.159,
+        "role": "strut",
+        "paint": "steel",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "lashing chain",
+        "f": [-0.548, -0.544],
+        "w": 0.0012,
+        "z": [0.106, 0.168],
+        "g": 0.165,
+        "role": "strut",
+        "paint": "chrome",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "lashing chain",
+        "f": [-0.444, -0.44],
+        "w": 0.0012,
+        "z": [0.106, 0.168],
+        "g": 0.165,
+        "role": "strut",
+        "paint": "chrome",
+        "minDetail": 1
+      },
+      { "kind": "box", "name": "door seam", "f": [-0.5775, -0.5755], "w": 0.0012, "z": [0.118, 0.346], "role": "strut", "paint": "frame" },
+      { "kind": "box", "name": "locking bar", "f": [-0.58, -0.576], "w": 0.0025, "z": [0.12, 0.344], "g": -0.11, "role": "strut", "paint": "chrome" },
+      {
+        "kind": "box",
+        "name": "bar handle",
+        "f": [-0.584, -0.578],
+        "w": 0.008,
+        "z": [0.2, 0.206],
+        "g": -0.1,
+        "role": "strut",
+        "paint": "steel",
+        "minDetail": 1
+      },
+      { "kind": "box", "name": "locking bar", "f": [-0.58, -0.576], "w": 0.0025, "z": [0.12, 0.344], "g": -0.04, "role": "strut", "paint": "chrome" },
+      {
+        "kind": "box",
+        "name": "bar handle",
+        "f": [-0.584, -0.578],
+        "w": 0.008,
+        "z": [0.2, 0.206],
+        "g": -0.03,
+        "role": "strut",
+        "paint": "steel",
+        "minDetail": 1
+      },
+      { "kind": "box", "name": "locking bar", "f": [-0.58, -0.576], "w": 0.0025, "z": [0.12, 0.344], "g": 0.04, "role": "strut", "paint": "chrome" },
+      {
+        "kind": "box",
+        "name": "bar handle",
+        "f": [-0.584, -0.578],
+        "w": 0.008,
+        "z": [0.2, 0.206],
+        "g": 0.05,
+        "role": "strut",
+        "paint": "steel",
+        "minDetail": 1
+      },
+      { "kind": "box", "name": "locking bar", "f": [-0.58, -0.576], "w": 0.0025, "z": [0.12, 0.344], "g": 0.11, "role": "strut", "paint": "chrome" },
+      {
+        "kind": "box",
+        "name": "bar handle",
+        "f": [-0.584, -0.578],
+        "w": 0.008,
+        "z": [0.2, 0.206],
+        "g": 0.12,
+        "role": "strut",
+        "paint": "steel",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "door hinge",
+        "f": [-0.58, -0.576],
+        "w": 0.004,
+        "z": [0.15, 0.164],
+        "g": -0.152,
+        "role": "strut",
+        "paint": "steel",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "door hinge",
+        "f": [-0.58, -0.576],
+        "w": 0.004,
+        "z": [0.23, 0.244],
+        "g": -0.152,
+        "role": "strut",
+        "paint": "steel",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "door hinge",
+        "f": [-0.58, -0.576],
+        "w": 0.004,
+        "z": [0.31, 0.324],
+        "g": -0.152,
+        "role": "strut",
+        "paint": "steel",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "door hinge",
+        "f": [-0.58, -0.576],
+        "w": 0.004,
+        "z": [0.15, 0.164],
+        "g": 0.152,
+        "role": "strut",
+        "paint": "steel",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "door hinge",
+        "f": [-0.58, -0.576],
+        "w": 0.004,
+        "z": [0.23, 0.244],
+        "g": 0.152,
+        "role": "strut",
+        "paint": "steel",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "door hinge",
+        "f": [-0.58, -0.576],
+        "w": 0.004,
+        "z": [0.31, 0.324],
+        "g": 0.152,
+        "role": "strut",
+        "paint": "steel",
+        "minDetail": 1
+      },
+      { "kind": "box", "name": "landing leg", "f": [-0.097, -0.083], "w": 0.007, "z": [0.012, 0.078], "g": -0.118, "role": "strut", "paint": "frame" },
+      { "kind": "box", "name": "leg foot", "f": [-0.104, -0.076], "w": 0.013, "z": [0.004, 0.012], "g": -0.118, "role": "strut", "paint": "frame" },
+      {
+        "kind": "box",
+        "name": "leg crank",
+        "f": [-0.093, -0.087],
+        "w": 0.01,
+        "z": [0.048, 0.054],
+        "g": -0.13,
+        "role": "strut",
+        "paint": "steel",
+        "minDetail": 1
+      },
+      { "kind": "box", "name": "landing leg", "f": [-0.097, -0.083], "w": 0.007, "z": [0.012, 0.078], "g": 0.118, "role": "strut", "paint": "frame" },
+      { "kind": "box", "name": "leg foot", "f": [-0.104, -0.076], "w": 0.013, "z": [0.004, 0.012], "g": 0.118, "role": "strut", "paint": "frame" },
+      {
+        "kind": "box",
+        "name": "leg crank",
+        "f": [-0.093, -0.087],
+        "w": 0.01,
+        "z": [0.048, 0.054],
+        "g": 0.13,
+        "role": "strut",
+        "paint": "steel",
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "glad hand",
+        "f": [-0.05, -0.044],
+        "w": 0.006,
+        "z": [0.118, 0.128],
+        "g": -0.046,
+        "role": "window",
+        "tint": [52, 92, 196],
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "glad hand",
+        "f": [-0.05, -0.044],
+        "w": 0.006,
+        "z": [0.118, 0.128],
+        "g": 0.046,
+        "role": "window",
+        "tint": [196, 52, 44],
+        "minDetail": 1
+      },
+      {
+        "kind": "poly",
+        "name": "lift pad",
+        "faces": [
+          {
+            "role": "gear",
+            "sh": 0.754996,
+            "p": [
+              [-0.358233, -0.106809, 0.02],
+              [-0.369425, -0.087425, 0.02],
+              [-0.369425, -0.087425, 0.04],
+              [-0.358233, -0.106809, 0.04]
+            ],
+            "cen": [-0.4, -0.118, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "gear",
+            "sh": 0.665004,
+            "p": [
+              [-0.369425, -0.087425, 0.02],
+              [-0.388809, -0.076233, 0.02],
+              [-0.388809, -0.076233, 0.04],
+              [-0.369425, -0.087425, 0.04]
+            ],
+            "cen": [-0.4, -0.118, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "gear",
+            "sh": 0.62,
+            "p": [
+              [-0.388809, -0.076233, 0.02],
+              [-0.411191, -0.076233, 0.02],
+              [-0.411191, -0.076233, 0.04],
+              [-0.388809, -0.076233, 0.04]
+            ],
+            "cen": [-0.4, -0.118, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "gear",
+            "sh": 0.602498,
+            "p": [
+              [-0.411191, -0.076233, 0.02],
+              [-0.430575, -0.087425, 0.02],
+              [-0.430575, -0.087425, 0.04],
+              [-0.411191, -0.076233, 0.04]
+            ],
+            "cen": [-0.4, -0.118, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "gear",
+            "sh": 0.567502,
+            "p": [
+              [-0.430575, -0.087425, 0.02],
+              [-0.441767, -0.106809, 0.02],
+              [-0.441767, -0.106809, 0.04],
+              [-0.430575, -0.087425, 0.04]
+            ],
+            "cen": [-0.4, -0.118, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "gear",
+            "sh": 0.55,
+            "p": [
+              [-0.441767, -0.106809, 0.02],
+              [-0.441767, -0.129191, 0.02],
+              [-0.441767, -0.129191, 0.04],
+              [-0.441767, -0.106809, 0.04]
+            ],
+            "cen": [-0.4, -0.118, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "gear",
+            "sh": 0.592504,
+            "p": [
+              [-0.441767, -0.129191, 0.02],
+              [-0.430575, -0.148575, 0.02],
+              [-0.430575, -0.148575, 0.04],
+              [-0.441767, -0.129191, 0.04]
+            ],
+            "cen": [-0.4, -0.118, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "gear",
+            "sh": 0.677496,
+            "p": [
+              [-0.430575, -0.148575, 0.02],
+              [-0.411191, -0.159767, 0.02],
+              [-0.411191, -0.159767, 0.04],
+              [-0.430575, -0.148575, 0.04]
+            ],
+            "cen": [-0.4, -0.118, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "gear",
+            "sh": 0.72,
+            "p": [
+              [-0.411191, -0.159767, 0.02],
+              [-0.388809, -0.159767, 0.02],
+              [-0.388809, -0.159767, 0.04],
+              [-0.411191, -0.159767, 0.04]
+            ],
+            "cen": [-0.4, -0.118, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "gear",
+            "sh": 0.740002,
+            "p": [
+              [-0.388809, -0.159767, 0.02],
+              [-0.369425, -0.148575, 0.02],
+              [-0.369425, -0.148575, 0.04],
+              [-0.388809, -0.159767, 0.04]
+            ],
+            "cen": [-0.4, -0.118, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "gear",
+            "sh": 0.779998,
+            "p": [
+              [-0.369425, -0.148575, 0.02],
+              [-0.358233, -0.129191, 0.02],
+              [-0.358233, -0.129191, 0.04],
+              [-0.369425, -0.148575, 0.04]
+            ],
+            "cen": [-0.4, -0.118, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "gear",
+            "sh": 0.8,
+            "p": [
+              [-0.358233, -0.129191, 0.02],
+              [-0.358233, -0.106809, 0.02],
+              [-0.358233, -0.106809, 0.04],
+              [-0.358233, -0.129191, 0.04]
+            ],
+            "cen": [-0.4, -0.118, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "gear",
+            "sh": 0.42,
+            "p": [
+              [-0.358233, -0.129191, 0.02],
+              [-0.369425, -0.148575, 0.02],
+              [-0.388809, -0.159767, 0.02],
+              [-0.411191, -0.159767, 0.02],
+              [-0.430575, -0.148575, 0.02],
+              [-0.441767, -0.129191, 0.02],
+              [-0.441767, -0.106809, 0.02],
+              [-0.430575, -0.087425, 0.02],
+              [-0.411191, -0.076233, 0.02],
+              [-0.388809, -0.076233, 0.02],
+              [-0.369425, -0.087425, 0.02],
+              [-0.358233, -0.106809, 0.02]
+            ],
+            "cen": [-0.4, -0.118, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "gear",
+            "sh": 1,
+            "p": [
+              [-0.358233, -0.106809, 0.04],
+              [-0.369425, -0.087425, 0.04],
+              [-0.388809, -0.076233, 0.04],
+              [-0.411191, -0.076233, 0.04],
+              [-0.430575, -0.087425, 0.04],
+              [-0.441767, -0.106809, 0.04],
+              [-0.441767, -0.129191, 0.04],
+              [-0.430575, -0.148575, 0.04],
+              [-0.411191, -0.159767, 0.04],
+              [-0.388809, -0.159767, 0.04],
+              [-0.369425, -0.148575, 0.04],
+              [-0.358233, -0.129191, 0.04]
+            ],
+            "cen": [-0.4, -0.118, 0.03],
+            "paint": "gunmetal"
+          }
+        ]
+      },
+      {
+        "kind": "poly",
+        "name": "emitter ring",
+        "faces": [
+          {
+            "role": "window",
+            "sh": 0.766112,
+            "p": [
+              [-0.355153, -0.107764, 0.014],
+              [-0.364036, -0.089319, 0.014],
+              [-0.364036, -0.089319, 0.02],
+              [-0.355153, -0.107764, 0.02]
+            ],
+            "cen": [-0.4, -0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.689976,
+            "p": [
+              [-0.364036, -0.089319, 0.014],
+              [-0.380041, -0.076555, 0.014],
+              [-0.380041, -0.076555, 0.02],
+              [-0.364036, -0.089319, 0.02]
+            ],
+            "cen": [-0.4, -0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.628911,
+            "p": [[-0.380041, -0.076555, 0.014], [-0.4, -0.072, 0.014], [-0.4, -0.072, 0.02], [-0.380041, -0.076555, 0.02]],
+            "cen": [-0.4, -0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.616535,
+            "p": [[-0.4, -0.072, 0.014], [-0.419959, -0.076555, 0.014], [-0.419959, -0.076555, 0.02], [-0.4, -0.072, 0.02]],
+            "cen": [-0.4, -0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.592787,
+            "p": [
+              [-0.419959, -0.076555, 0.014],
+              [-0.435964, -0.089319, 0.014],
+              [-0.435964, -0.089319, 0.02],
+              [-0.419959, -0.076555, 0.02]
+            ],
+            "cen": [-0.4, -0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.563179,
+            "p": [
+              [-0.435964, -0.089319, 0.014],
+              [-0.444847, -0.107764, 0.014],
+              [-0.444847, -0.107764, 0.02],
+              [-0.435964, -0.089319, 0.02]
+            ],
+            "cen": [-0.4, -0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.55,
+            "p": [
+              [-0.444847, -0.107764, 0.014],
+              [-0.444847, -0.128236, 0.014],
+              [-0.444847, -0.128236, 0.02],
+              [-0.444847, -0.107764, 0.02]
+            ],
+            "cen": [-0.4, -0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.582005,
+            "p": [
+              [-0.444847, -0.128236, 0.014],
+              [-0.435964, -0.146681, 0.014],
+              [-0.435964, -0.146681, 0.02],
+              [-0.444847, -0.128236, 0.02]
+            ],
+            "cen": [-0.4, -0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.653912,
+            "p": [
+              [-0.435964, -0.146681, 0.014],
+              [-0.419959, -0.159445, 0.014],
+              [-0.419959, -0.159445, 0.02],
+              [-0.435964, -0.146681, 0.02]
+            ],
+            "cen": [-0.4, -0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.711584,
+            "p": [[-0.419959, -0.159445, 0.014], [-0.4, -0.164, 0.014], [-0.4, -0.164, 0.02], [-0.419959, -0.159445, 0.02]],
+            "cen": [-0.4, -0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.72396,
+            "p": [[-0.4, -0.164, 0.014], [-0.380041, -0.159445, 0.014], [-0.380041, -0.159445, 0.02], [-0.4, -0.164, 0.02]],
+            "cen": [-0.4, -0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.7511,
+            "p": [
+              [-0.380041, -0.159445, 0.014],
+              [-0.364036, -0.146681, 0.014],
+              [-0.364036, -0.146681, 0.02],
+              [-0.380041, -0.159445, 0.02]
+            ],
+            "cen": [-0.4, -0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.784939,
+            "p": [
+              [-0.364036, -0.146681, 0.014],
+              [-0.355153, -0.128236, 0.014],
+              [-0.355153, -0.128236, 0.02],
+              [-0.364036, -0.146681, 0.02]
+            ],
+            "cen": [-0.4, -0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.8,
+            "p": [
+              [-0.355153, -0.128236, 0.014],
+              [-0.355153, -0.107764, 0.014],
+              [-0.355153, -0.107764, 0.02],
+              [-0.355153, -0.128236, 0.02]
+            ],
+            "cen": [-0.4, -0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.42,
+            "p": [
+              [-0.355153, -0.128236, 0.014],
+              [-0.364036, -0.146681, 0.014],
+              [-0.380041, -0.159445, 0.014],
+              [-0.4, -0.164, 0.014],
+              [-0.419959, -0.159445, 0.014],
+              [-0.435964, -0.146681, 0.014],
+              [-0.444847, -0.128236, 0.014],
+              [-0.444847, -0.107764, 0.014],
+              [-0.435964, -0.089319, 0.014],
+              [-0.419959, -0.076555, 0.014],
+              [-0.4, -0.072, 0.014],
+              [-0.380041, -0.076555, 0.014],
+              [-0.364036, -0.089319, 0.014],
+              [-0.355153, -0.107764, 0.014]
+            ],
+            "cen": [-0.4, -0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 1,
+            "p": [
+              [-0.355153, -0.107764, 0.02],
+              [-0.364036, -0.089319, 0.02],
+              [-0.380041, -0.076555, 0.02],
+              [-0.4, -0.072, 0.02],
+              [-0.419959, -0.076555, 0.02],
+              [-0.435964, -0.089319, 0.02],
+              [-0.444847, -0.107764, 0.02],
+              [-0.444847, -0.128236, 0.02],
+              [-0.435964, -0.146681, 0.02],
+              [-0.419959, -0.159445, 0.02],
+              [-0.4, -0.164, 0.02],
+              [-0.380041, -0.159445, 0.02],
+              [-0.364036, -0.146681, 0.02],
+              [-0.355153, -0.128236, 0.02]
+            ],
+            "cen": [-0.4, -0.118, 0.017],
+            "tint": [128, 226, 255]
+          }
+        ],
+        "minDetail": 1,
+        "whenNot": "parked"
+      },
+      {
+        "kind": "poly",
+        "name": "pad ring",
+        "faces": [
+          {
+            "role": "strut",
+            "sh": 0.766113,
+            "p": [
+              [-0.356499, -0.108071, 0.034],
+              [-0.365115, -0.09018, 0.034],
+              [-0.365115, -0.09018, 0.038],
+              [-0.356499, -0.108071, 0.038]
+            ],
+            "cen": [-0.4, -0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.689975,
+            "p": [
+              [-0.365115, -0.09018, 0.034],
+              [-0.38064, -0.077799, 0.034],
+              [-0.38064, -0.077799, 0.038],
+              [-0.365115, -0.09018, 0.038]
+            ],
+            "cen": [-0.4, -0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.628914,
+            "p": [[-0.38064, -0.077799, 0.034], [-0.4, -0.07338, 0.034], [-0.4, -0.07338, 0.038], [-0.38064, -0.077799, 0.038]],
+            "cen": [-0.4, -0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.616534,
+            "p": [[-0.4, -0.07338, 0.034], [-0.41936, -0.077799, 0.034], [-0.41936, -0.077799, 0.038], [-0.4, -0.07338, 0.038]],
+            "cen": [-0.4, -0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.592788,
+            "p": [
+              [-0.41936, -0.077799, 0.034],
+              [-0.434885, -0.09018, 0.034],
+              [-0.434885, -0.09018, 0.038],
+              [-0.41936, -0.077799, 0.038]
+            ],
+            "cen": [-0.4, -0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.563178,
+            "p": [
+              [-0.434885, -0.09018, 0.034],
+              [-0.443501, -0.108071, 0.034],
+              [-0.443501, -0.108071, 0.038],
+              [-0.434885, -0.09018, 0.038]
+            ],
+            "cen": [-0.4, -0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.55,
+            "p": [
+              [-0.443501, -0.108071, 0.034],
+              [-0.443501, -0.127929, 0.034],
+              [-0.443501, -0.127929, 0.038],
+              [-0.443501, -0.108071, 0.038]
+            ],
+            "cen": [-0.4, -0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.582004,
+            "p": [
+              [-0.443501, -0.127929, 0.034],
+              [-0.434885, -0.14582, 0.034],
+              [-0.434885, -0.14582, 0.038],
+              [-0.443501, -0.127929, 0.038]
+            ],
+            "cen": [-0.4, -0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.653913,
+            "p": [
+              [-0.434885, -0.14582, 0.034],
+              [-0.41936, -0.158201, 0.034],
+              [-0.41936, -0.158201, 0.038],
+              [-0.434885, -0.14582, 0.038]
+            ],
+            "cen": [-0.4, -0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.711582,
+            "p": [[-0.41936, -0.158201, 0.034], [-0.4, -0.16262, 0.034], [-0.4, -0.16262, 0.038], [-0.41936, -0.158201, 0.038]],
+            "cen": [-0.4, -0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.723962,
+            "p": [[-0.4, -0.16262, 0.034], [-0.38064, -0.158201, 0.034], [-0.38064, -0.158201, 0.038], [-0.4, -0.16262, 0.038]],
+            "cen": [-0.4, -0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.7511,
+            "p": [
+              [-0.38064, -0.158201, 0.034],
+              [-0.365115, -0.14582, 0.034],
+              [-0.365115, -0.14582, 0.038],
+              [-0.38064, -0.158201, 0.038]
+            ],
+            "cen": [-0.4, -0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.784939,
+            "p": [
+              [-0.365115, -0.14582, 0.034],
+              [-0.356499, -0.127929, 0.034],
+              [-0.356499, -0.127929, 0.038],
+              [-0.365115, -0.14582, 0.038]
+            ],
+            "cen": [-0.4, -0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.8,
+            "p": [
+              [-0.356499, -0.127929, 0.034],
+              [-0.356499, -0.108071, 0.034],
+              [-0.356499, -0.108071, 0.038],
+              [-0.356499, -0.127929, 0.038]
+            ],
+            "cen": [-0.4, -0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.42,
+            "p": [
+              [-0.356499, -0.127929, 0.034],
+              [-0.365115, -0.14582, 0.034],
+              [-0.38064, -0.158201, 0.034],
+              [-0.4, -0.16262, 0.034],
+              [-0.41936, -0.158201, 0.034],
+              [-0.434885, -0.14582, 0.034],
+              [-0.443501, -0.127929, 0.034],
+              [-0.443501, -0.108071, 0.034],
+              [-0.434885, -0.09018, 0.034],
+              [-0.41936, -0.077799, 0.034],
+              [-0.4, -0.07338, 0.034],
+              [-0.38064, -0.077799, 0.034],
+              [-0.365115, -0.09018, 0.034],
+              [-0.356499, -0.108071, 0.034]
+            ],
+            "cen": [-0.4, -0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 1,
+            "p": [
+              [-0.356499, -0.108071, 0.038],
+              [-0.365115, -0.09018, 0.038],
+              [-0.38064, -0.077799, 0.038],
+              [-0.4, -0.07338, 0.038],
+              [-0.41936, -0.077799, 0.038],
+              [-0.434885, -0.09018, 0.038],
+              [-0.443501, -0.108071, 0.038],
+              [-0.443501, -0.127929, 0.038],
+              [-0.434885, -0.14582, 0.038],
+              [-0.41936, -0.158201, 0.038],
+              [-0.4, -0.16262, 0.038],
+              [-0.38064, -0.158201, 0.038],
+              [-0.365115, -0.14582, 0.038],
+              [-0.356499, -0.127929, 0.038]
+            ],
+            "cen": [-0.4, -0.118, 0.036],
+            "paint": "chrome"
+          }
+        ],
+        "minDetail": 1
+      },
+      { "kind": "box", "name": "pad arm", "f": [-0.412, -0.388], "w": 0.009, "z": [0.04, 0.078], "g": -0.10856, "role": "strut", "paint": "frame" },
+      {
+        "kind": "poly",
+        "name": "lift pad",
+        "faces": [
+          {
+            "role": "gear",
+            "sh": 0.754996,
+            "p": [
+              [-0.358233, 0.129191, 0.02],
+              [-0.369425, 0.148575, 0.02],
+              [-0.369425, 0.148575, 0.04],
+              [-0.358233, 0.129191, 0.04]
+            ],
+            "cen": [-0.4, 0.118, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "gear",
+            "sh": 0.665004,
+            "p": [
+              [-0.369425, 0.148575, 0.02],
+              [-0.388809, 0.159767, 0.02],
+              [-0.388809, 0.159767, 0.04],
+              [-0.369425, 0.148575, 0.04]
+            ],
+            "cen": [-0.4, 0.118, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "gear",
+            "sh": 0.62,
+            "p": [
+              [-0.388809, 0.159767, 0.02],
+              [-0.411191, 0.159767, 0.02],
+              [-0.411191, 0.159767, 0.04],
+              [-0.388809, 0.159767, 0.04]
+            ],
+            "cen": [-0.4, 0.118, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "gear",
+            "sh": 0.602498,
+            "p": [
+              [-0.411191, 0.159767, 0.02],
+              [-0.430575, 0.148575, 0.02],
+              [-0.430575, 0.148575, 0.04],
+              [-0.411191, 0.159767, 0.04]
+            ],
+            "cen": [-0.4, 0.118, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "gear",
+            "sh": 0.567502,
+            "p": [
+              [-0.430575, 0.148575, 0.02],
+              [-0.441767, 0.129191, 0.02],
+              [-0.441767, 0.129191, 0.04],
+              [-0.430575, 0.148575, 0.04]
+            ],
+            "cen": [-0.4, 0.118, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "gear",
+            "sh": 0.55,
+            "p": [
+              [-0.441767, 0.129191, 0.02],
+              [-0.441767, 0.106809, 0.02],
+              [-0.441767, 0.106809, 0.04],
+              [-0.441767, 0.129191, 0.04]
+            ],
+            "cen": [-0.4, 0.118, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "gear",
+            "sh": 0.592504,
+            "p": [
+              [-0.441767, 0.106809, 0.02],
+              [-0.430575, 0.087425, 0.02],
+              [-0.430575, 0.087425, 0.04],
+              [-0.441767, 0.106809, 0.04]
+            ],
+            "cen": [-0.4, 0.118, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "gear",
+            "sh": 0.677496,
+            "p": [
+              [-0.430575, 0.087425, 0.02],
+              [-0.411191, 0.076233, 0.02],
+              [-0.411191, 0.076233, 0.04],
+              [-0.430575, 0.087425, 0.04]
+            ],
+            "cen": [-0.4, 0.118, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "gear",
+            "sh": 0.72,
+            "p": [
+              [-0.411191, 0.076233, 0.02],
+              [-0.388809, 0.076233, 0.02],
+              [-0.388809, 0.076233, 0.04],
+              [-0.411191, 0.076233, 0.04]
+            ],
+            "cen": [-0.4, 0.118, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "gear",
+            "sh": 0.740002,
+            "p": [
+              [-0.388809, 0.076233, 0.02],
+              [-0.369425, 0.087425, 0.02],
+              [-0.369425, 0.087425, 0.04],
+              [-0.388809, 0.076233, 0.04]
+            ],
+            "cen": [-0.4, 0.118, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "gear",
+            "sh": 0.779998,
+            "p": [
+              [-0.369425, 0.087425, 0.02],
+              [-0.358233, 0.106809, 0.02],
+              [-0.358233, 0.106809, 0.04],
+              [-0.369425, 0.087425, 0.04]
+            ],
+            "cen": [-0.4, 0.118, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "gear",
+            "sh": 0.8,
+            "p": [
+              [-0.358233, 0.106809, 0.02],
+              [-0.358233, 0.129191, 0.02],
+              [-0.358233, 0.129191, 0.04],
+              [-0.358233, 0.106809, 0.04]
+            ],
+            "cen": [-0.4, 0.118, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "gear",
+            "sh": 0.42,
+            "p": [
+              [-0.358233, 0.106809, 0.02],
+              [-0.369425, 0.087425, 0.02],
+              [-0.388809, 0.076233, 0.02],
+              [-0.411191, 0.076233, 0.02],
+              [-0.430575, 0.087425, 0.02],
+              [-0.441767, 0.106809, 0.02],
+              [-0.441767, 0.129191, 0.02],
+              [-0.430575, 0.148575, 0.02],
+              [-0.411191, 0.159767, 0.02],
+              [-0.388809, 0.159767, 0.02],
+              [-0.369425, 0.148575, 0.02],
+              [-0.358233, 0.129191, 0.02]
+            ],
+            "cen": [-0.4, 0.118, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "gear",
+            "sh": 1,
+            "p": [
+              [-0.358233, 0.129191, 0.04],
+              [-0.369425, 0.148575, 0.04],
+              [-0.388809, 0.159767, 0.04],
+              [-0.411191, 0.159767, 0.04],
+              [-0.430575, 0.148575, 0.04],
+              [-0.441767, 0.129191, 0.04],
+              [-0.441767, 0.106809, 0.04],
+              [-0.430575, 0.087425, 0.04],
+              [-0.411191, 0.076233, 0.04],
+              [-0.388809, 0.076233, 0.04],
+              [-0.369425, 0.087425, 0.04],
+              [-0.358233, 0.106809, 0.04]
+            ],
+            "cen": [-0.4, 0.118, 0.03],
+            "paint": "gunmetal"
+          }
+        ]
+      },
+      {
+        "kind": "poly",
+        "name": "emitter ring",
+        "faces": [
+          {
+            "role": "window",
+            "sh": 0.766112,
+            "p": [
+              [-0.355153, 0.128236, 0.014],
+              [-0.364036, 0.146681, 0.014],
+              [-0.364036, 0.146681, 0.02],
+              [-0.355153, 0.128236, 0.02]
+            ],
+            "cen": [-0.4, 0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.689976,
+            "p": [
+              [-0.364036, 0.146681, 0.014],
+              [-0.380041, 0.159445, 0.014],
+              [-0.380041, 0.159445, 0.02],
+              [-0.364036, 0.146681, 0.02]
+            ],
+            "cen": [-0.4, 0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.628911,
+            "p": [[-0.380041, 0.159445, 0.014], [-0.4, 0.164, 0.014], [-0.4, 0.164, 0.02], [-0.380041, 0.159445, 0.02]],
+            "cen": [-0.4, 0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.616535,
+            "p": [[-0.4, 0.164, 0.014], [-0.419959, 0.159445, 0.014], [-0.419959, 0.159445, 0.02], [-0.4, 0.164, 0.02]],
+            "cen": [-0.4, 0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.592787,
+            "p": [
+              [-0.419959, 0.159445, 0.014],
+              [-0.435964, 0.146681, 0.014],
+              [-0.435964, 0.146681, 0.02],
+              [-0.419959, 0.159445, 0.02]
+            ],
+            "cen": [-0.4, 0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.563179,
+            "p": [
+              [-0.435964, 0.146681, 0.014],
+              [-0.444847, 0.128236, 0.014],
+              [-0.444847, 0.128236, 0.02],
+              [-0.435964, 0.146681, 0.02]
+            ],
+            "cen": [-0.4, 0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.55,
+            "p": [
+              [-0.444847, 0.128236, 0.014],
+              [-0.444847, 0.107764, 0.014],
+              [-0.444847, 0.107764, 0.02],
+              [-0.444847, 0.128236, 0.02]
+            ],
+            "cen": [-0.4, 0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.582005,
+            "p": [
+              [-0.444847, 0.107764, 0.014],
+              [-0.435964, 0.089319, 0.014],
+              [-0.435964, 0.089319, 0.02],
+              [-0.444847, 0.107764, 0.02]
+            ],
+            "cen": [-0.4, 0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.653912,
+            "p": [
+              [-0.435964, 0.089319, 0.014],
+              [-0.419959, 0.076555, 0.014],
+              [-0.419959, 0.076555, 0.02],
+              [-0.435964, 0.089319, 0.02]
+            ],
+            "cen": [-0.4, 0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.711584,
+            "p": [[-0.419959, 0.076555, 0.014], [-0.4, 0.072, 0.014], [-0.4, 0.072, 0.02], [-0.419959, 0.076555, 0.02]],
+            "cen": [-0.4, 0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.72396,
+            "p": [[-0.4, 0.072, 0.014], [-0.380041, 0.076555, 0.014], [-0.380041, 0.076555, 0.02], [-0.4, 0.072, 0.02]],
+            "cen": [-0.4, 0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.7511,
+            "p": [
+              [-0.380041, 0.076555, 0.014],
+              [-0.364036, 0.089319, 0.014],
+              [-0.364036, 0.089319, 0.02],
+              [-0.380041, 0.076555, 0.02]
+            ],
+            "cen": [-0.4, 0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.784939,
+            "p": [
+              [-0.364036, 0.089319, 0.014],
+              [-0.355153, 0.107764, 0.014],
+              [-0.355153, 0.107764, 0.02],
+              [-0.364036, 0.089319, 0.02]
+            ],
+            "cen": [-0.4, 0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.8,
+            "p": [
+              [-0.355153, 0.107764, 0.014],
+              [-0.355153, 0.128236, 0.014],
+              [-0.355153, 0.128236, 0.02],
+              [-0.355153, 0.107764, 0.02]
+            ],
+            "cen": [-0.4, 0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.42,
+            "p": [
+              [-0.355153, 0.107764, 0.014],
+              [-0.364036, 0.089319, 0.014],
+              [-0.380041, 0.076555, 0.014],
+              [-0.4, 0.072, 0.014],
+              [-0.419959, 0.076555, 0.014],
+              [-0.435964, 0.089319, 0.014],
+              [-0.444847, 0.107764, 0.014],
+              [-0.444847, 0.128236, 0.014],
+              [-0.435964, 0.146681, 0.014],
+              [-0.419959, 0.159445, 0.014],
+              [-0.4, 0.164, 0.014],
+              [-0.380041, 0.159445, 0.014],
+              [-0.364036, 0.146681, 0.014],
+              [-0.355153, 0.128236, 0.014]
+            ],
+            "cen": [-0.4, 0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 1,
+            "p": [
+              [-0.355153, 0.128236, 0.02],
+              [-0.364036, 0.146681, 0.02],
+              [-0.380041, 0.159445, 0.02],
+              [-0.4, 0.164, 0.02],
+              [-0.419959, 0.159445, 0.02],
+              [-0.435964, 0.146681, 0.02],
+              [-0.444847, 0.128236, 0.02],
+              [-0.444847, 0.107764, 0.02],
+              [-0.435964, 0.089319, 0.02],
+              [-0.419959, 0.076555, 0.02],
+              [-0.4, 0.072, 0.02],
+              [-0.380041, 0.076555, 0.02],
+              [-0.364036, 0.089319, 0.02],
+              [-0.355153, 0.107764, 0.02]
+            ],
+            "cen": [-0.4, 0.118, 0.017],
+            "tint": [128, 226, 255]
+          }
+        ],
+        "minDetail": 1,
+        "whenNot": "parked"
+      },
+      {
+        "kind": "poly",
+        "name": "pad ring",
+        "faces": [
+          {
+            "role": "strut",
+            "sh": 0.766113,
+            "p": [
+              [-0.356499, 0.127929, 0.034],
+              [-0.365115, 0.14582, 0.034],
+              [-0.365115, 0.14582, 0.038],
+              [-0.356499, 0.127929, 0.038]
+            ],
+            "cen": [-0.4, 0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.689975,
+            "p": [
+              [-0.365115, 0.14582, 0.034],
+              [-0.38064, 0.158201, 0.034],
+              [-0.38064, 0.158201, 0.038],
+              [-0.365115, 0.14582, 0.038]
+            ],
+            "cen": [-0.4, 0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.628914,
+            "p": [[-0.38064, 0.158201, 0.034], [-0.4, 0.16262, 0.034], [-0.4, 0.16262, 0.038], [-0.38064, 0.158201, 0.038]],
+            "cen": [-0.4, 0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.616534,
+            "p": [[-0.4, 0.16262, 0.034], [-0.41936, 0.158201, 0.034], [-0.41936, 0.158201, 0.038], [-0.4, 0.16262, 0.038]],
+            "cen": [-0.4, 0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.592788,
+            "p": [
+              [-0.41936, 0.158201, 0.034],
+              [-0.434885, 0.14582, 0.034],
+              [-0.434885, 0.14582, 0.038],
+              [-0.41936, 0.158201, 0.038]
+            ],
+            "cen": [-0.4, 0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.563178,
+            "p": [
+              [-0.434885, 0.14582, 0.034],
+              [-0.443501, 0.127929, 0.034],
+              [-0.443501, 0.127929, 0.038],
+              [-0.434885, 0.14582, 0.038]
+            ],
+            "cen": [-0.4, 0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.55,
+            "p": [
+              [-0.443501, 0.127929, 0.034],
+              [-0.443501, 0.108071, 0.034],
+              [-0.443501, 0.108071, 0.038],
+              [-0.443501, 0.127929, 0.038]
+            ],
+            "cen": [-0.4, 0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.582004,
+            "p": [
+              [-0.443501, 0.108071, 0.034],
+              [-0.434885, 0.09018, 0.034],
+              [-0.434885, 0.09018, 0.038],
+              [-0.443501, 0.108071, 0.038]
+            ],
+            "cen": [-0.4, 0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.653913,
+            "p": [
+              [-0.434885, 0.09018, 0.034],
+              [-0.41936, 0.077799, 0.034],
+              [-0.41936, 0.077799, 0.038],
+              [-0.434885, 0.09018, 0.038]
+            ],
+            "cen": [-0.4, 0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.711582,
+            "p": [[-0.41936, 0.077799, 0.034], [-0.4, 0.07338, 0.034], [-0.4, 0.07338, 0.038], [-0.41936, 0.077799, 0.038]],
+            "cen": [-0.4, 0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.723962,
+            "p": [[-0.4, 0.07338, 0.034], [-0.38064, 0.077799, 0.034], [-0.38064, 0.077799, 0.038], [-0.4, 0.07338, 0.038]],
+            "cen": [-0.4, 0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.7511,
+            "p": [
+              [-0.38064, 0.077799, 0.034],
+              [-0.365115, 0.09018, 0.034],
+              [-0.365115, 0.09018, 0.038],
+              [-0.38064, 0.077799, 0.038]
+            ],
+            "cen": [-0.4, 0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.784939,
+            "p": [
+              [-0.365115, 0.09018, 0.034],
+              [-0.356499, 0.108071, 0.034],
+              [-0.356499, 0.108071, 0.038],
+              [-0.365115, 0.09018, 0.038]
+            ],
+            "cen": [-0.4, 0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.8,
+            "p": [
+              [-0.356499, 0.108071, 0.034],
+              [-0.356499, 0.127929, 0.034],
+              [-0.356499, 0.127929, 0.038],
+              [-0.356499, 0.108071, 0.038]
+            ],
+            "cen": [-0.4, 0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.42,
+            "p": [
+              [-0.356499, 0.108071, 0.034],
+              [-0.365115, 0.09018, 0.034],
+              [-0.38064, 0.077799, 0.034],
+              [-0.4, 0.07338, 0.034],
+              [-0.41936, 0.077799, 0.034],
+              [-0.434885, 0.09018, 0.034],
+              [-0.443501, 0.108071, 0.034],
+              [-0.443501, 0.127929, 0.034],
+              [-0.434885, 0.14582, 0.034],
+              [-0.41936, 0.158201, 0.034],
+              [-0.4, 0.16262, 0.034],
+              [-0.38064, 0.158201, 0.034],
+              [-0.365115, 0.14582, 0.034],
+              [-0.356499, 0.127929, 0.034]
+            ],
+            "cen": [-0.4, 0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 1,
+            "p": [
+              [-0.356499, 0.127929, 0.038],
+              [-0.365115, 0.14582, 0.038],
+              [-0.38064, 0.158201, 0.038],
+              [-0.4, 0.16262, 0.038],
+              [-0.41936, 0.158201, 0.038],
+              [-0.434885, 0.14582, 0.038],
+              [-0.443501, 0.127929, 0.038],
+              [-0.443501, 0.108071, 0.038],
+              [-0.434885, 0.09018, 0.038],
+              [-0.41936, 0.077799, 0.038],
+              [-0.4, 0.07338, 0.038],
+              [-0.38064, 0.077799, 0.038],
+              [-0.365115, 0.09018, 0.038],
+              [-0.356499, 0.108071, 0.038]
+            ],
+            "cen": [-0.4, 0.118, 0.036],
+            "paint": "chrome"
+          }
+        ],
+        "minDetail": 1
+      },
+      { "kind": "box", "name": "pad arm", "f": [-0.412, -0.388], "w": 0.009, "z": [0.04, 0.078], "g": 0.10856, "role": "strut", "paint": "frame" },
+      {
+        "kind": "poly",
+        "name": "lift pad",
+        "faces": [
+          {
+            "role": "gear",
+            "sh": 0.754996,
+            "p": [
+              [-0.478233, -0.106809, 0.02],
+              [-0.489425, -0.087425, 0.02],
+              [-0.489425, -0.087425, 0.04],
+              [-0.478233, -0.106809, 0.04]
+            ],
+            "cen": [-0.52, -0.118, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "gear",
+            "sh": 0.665004,
+            "p": [
+              [-0.489425, -0.087425, 0.02],
+              [-0.508809, -0.076233, 0.02],
+              [-0.508809, -0.076233, 0.04],
+              [-0.489425, -0.087425, 0.04]
+            ],
+            "cen": [-0.52, -0.118, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "gear",
+            "sh": 0.62,
+            "p": [
+              [-0.508809, -0.076233, 0.02],
+              [-0.531191, -0.076233, 0.02],
+              [-0.531191, -0.076233, 0.04],
+              [-0.508809, -0.076233, 0.04]
+            ],
+            "cen": [-0.52, -0.118, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "gear",
+            "sh": 0.602498,
+            "p": [
+              [-0.531191, -0.076233, 0.02],
+              [-0.550575, -0.087425, 0.02],
+              [-0.550575, -0.087425, 0.04],
+              [-0.531191, -0.076233, 0.04]
+            ],
+            "cen": [-0.52, -0.118, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "gear",
+            "sh": 0.567502,
+            "p": [
+              [-0.550575, -0.087425, 0.02],
+              [-0.561767, -0.106809, 0.02],
+              [-0.561767, -0.106809, 0.04],
+              [-0.550575, -0.087425, 0.04]
+            ],
+            "cen": [-0.52, -0.118, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "gear",
+            "sh": 0.55,
+            "p": [
+              [-0.561767, -0.106809, 0.02],
+              [-0.561767, -0.129191, 0.02],
+              [-0.561767, -0.129191, 0.04],
+              [-0.561767, -0.106809, 0.04]
+            ],
+            "cen": [-0.52, -0.118, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "gear",
+            "sh": 0.592504,
+            "p": [
+              [-0.561767, -0.129191, 0.02],
+              [-0.550575, -0.148575, 0.02],
+              [-0.550575, -0.148575, 0.04],
+              [-0.561767, -0.129191, 0.04]
+            ],
+            "cen": [-0.52, -0.118, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "gear",
+            "sh": 0.677496,
+            "p": [
+              [-0.550575, -0.148575, 0.02],
+              [-0.531191, -0.159767, 0.02],
+              [-0.531191, -0.159767, 0.04],
+              [-0.550575, -0.148575, 0.04]
+            ],
+            "cen": [-0.52, -0.118, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "gear",
+            "sh": 0.72,
+            "p": [
+              [-0.531191, -0.159767, 0.02],
+              [-0.508809, -0.159767, 0.02],
+              [-0.508809, -0.159767, 0.04],
+              [-0.531191, -0.159767, 0.04]
+            ],
+            "cen": [-0.52, -0.118, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "gear",
+            "sh": 0.740002,
+            "p": [
+              [-0.508809, -0.159767, 0.02],
+              [-0.489425, -0.148575, 0.02],
+              [-0.489425, -0.148575, 0.04],
+              [-0.508809, -0.159767, 0.04]
+            ],
+            "cen": [-0.52, -0.118, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "gear",
+            "sh": 0.779998,
+            "p": [
+              [-0.489425, -0.148575, 0.02],
+              [-0.478233, -0.129191, 0.02],
+              [-0.478233, -0.129191, 0.04],
+              [-0.489425, -0.148575, 0.04]
+            ],
+            "cen": [-0.52, -0.118, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "gear",
+            "sh": 0.8,
+            "p": [
+              [-0.478233, -0.129191, 0.02],
+              [-0.478233, -0.106809, 0.02],
+              [-0.478233, -0.106809, 0.04],
+              [-0.478233, -0.129191, 0.04]
+            ],
+            "cen": [-0.52, -0.118, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "gear",
+            "sh": 0.42,
+            "p": [
+              [-0.478233, -0.129191, 0.02],
+              [-0.489425, -0.148575, 0.02],
+              [-0.508809, -0.159767, 0.02],
+              [-0.531191, -0.159767, 0.02],
+              [-0.550575, -0.148575, 0.02],
+              [-0.561767, -0.129191, 0.02],
+              [-0.561767, -0.106809, 0.02],
+              [-0.550575, -0.087425, 0.02],
+              [-0.531191, -0.076233, 0.02],
+              [-0.508809, -0.076233, 0.02],
+              [-0.489425, -0.087425, 0.02],
+              [-0.478233, -0.106809, 0.02]
+            ],
+            "cen": [-0.52, -0.118, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "gear",
+            "sh": 1,
+            "p": [
+              [-0.478233, -0.106809, 0.04],
+              [-0.489425, -0.087425, 0.04],
+              [-0.508809, -0.076233, 0.04],
+              [-0.531191, -0.076233, 0.04],
+              [-0.550575, -0.087425, 0.04],
+              [-0.561767, -0.106809, 0.04],
+              [-0.561767, -0.129191, 0.04],
+              [-0.550575, -0.148575, 0.04],
+              [-0.531191, -0.159767, 0.04],
+              [-0.508809, -0.159767, 0.04],
+              [-0.489425, -0.148575, 0.04],
+              [-0.478233, -0.129191, 0.04]
+            ],
+            "cen": [-0.52, -0.118, 0.03],
+            "paint": "gunmetal"
+          }
+        ]
+      },
+      {
+        "kind": "poly",
+        "name": "emitter ring",
+        "faces": [
+          {
+            "role": "window",
+            "sh": 0.766112,
+            "p": [
+              [-0.475153, -0.107764, 0.014],
+              [-0.484036, -0.089319, 0.014],
+              [-0.484036, -0.089319, 0.02],
+              [-0.475153, -0.107764, 0.02]
+            ],
+            "cen": [-0.52, -0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.689976,
+            "p": [
+              [-0.484036, -0.089319, 0.014],
+              [-0.500041, -0.076555, 0.014],
+              [-0.500041, -0.076555, 0.02],
+              [-0.484036, -0.089319, 0.02]
+            ],
+            "cen": [-0.52, -0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.628911,
+            "p": [[-0.500041, -0.076555, 0.014], [-0.52, -0.072, 0.014], [-0.52, -0.072, 0.02], [-0.500041, -0.076555, 0.02]],
+            "cen": [-0.52, -0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.616535,
+            "p": [[-0.52, -0.072, 0.014], [-0.539959, -0.076555, 0.014], [-0.539959, -0.076555, 0.02], [-0.52, -0.072, 0.02]],
+            "cen": [-0.52, -0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.592787,
+            "p": [
+              [-0.539959, -0.076555, 0.014],
+              [-0.555964, -0.089319, 0.014],
+              [-0.555964, -0.089319, 0.02],
+              [-0.539959, -0.076555, 0.02]
+            ],
+            "cen": [-0.52, -0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.563179,
+            "p": [
+              [-0.555964, -0.089319, 0.014],
+              [-0.564847, -0.107764, 0.014],
+              [-0.564847, -0.107764, 0.02],
+              [-0.555964, -0.089319, 0.02]
+            ],
+            "cen": [-0.52, -0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.55,
+            "p": [
+              [-0.564847, -0.107764, 0.014],
+              [-0.564847, -0.128236, 0.014],
+              [-0.564847, -0.128236, 0.02],
+              [-0.564847, -0.107764, 0.02]
+            ],
+            "cen": [-0.52, -0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.582005,
+            "p": [
+              [-0.564847, -0.128236, 0.014],
+              [-0.555964, -0.146681, 0.014],
+              [-0.555964, -0.146681, 0.02],
+              [-0.564847, -0.128236, 0.02]
+            ],
+            "cen": [-0.52, -0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.653912,
+            "p": [
+              [-0.555964, -0.146681, 0.014],
+              [-0.539959, -0.159445, 0.014],
+              [-0.539959, -0.159445, 0.02],
+              [-0.555964, -0.146681, 0.02]
+            ],
+            "cen": [-0.52, -0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.711584,
+            "p": [[-0.539959, -0.159445, 0.014], [-0.52, -0.164, 0.014], [-0.52, -0.164, 0.02], [-0.539959, -0.159445, 0.02]],
+            "cen": [-0.52, -0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.72396,
+            "p": [[-0.52, -0.164, 0.014], [-0.500041, -0.159445, 0.014], [-0.500041, -0.159445, 0.02], [-0.52, -0.164, 0.02]],
+            "cen": [-0.52, -0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.7511,
+            "p": [
+              [-0.500041, -0.159445, 0.014],
+              [-0.484036, -0.146681, 0.014],
+              [-0.484036, -0.146681, 0.02],
+              [-0.500041, -0.159445, 0.02]
+            ],
+            "cen": [-0.52, -0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.784939,
+            "p": [
+              [-0.484036, -0.146681, 0.014],
+              [-0.475153, -0.128236, 0.014],
+              [-0.475153, -0.128236, 0.02],
+              [-0.484036, -0.146681, 0.02]
+            ],
+            "cen": [-0.52, -0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.8,
+            "p": [
+              [-0.475153, -0.128236, 0.014],
+              [-0.475153, -0.107764, 0.014],
+              [-0.475153, -0.107764, 0.02],
+              [-0.475153, -0.128236, 0.02]
+            ],
+            "cen": [-0.52, -0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.42,
+            "p": [
+              [-0.475153, -0.128236, 0.014],
+              [-0.484036, -0.146681, 0.014],
+              [-0.500041, -0.159445, 0.014],
+              [-0.52, -0.164, 0.014],
+              [-0.539959, -0.159445, 0.014],
+              [-0.555964, -0.146681, 0.014],
+              [-0.564847, -0.128236, 0.014],
+              [-0.564847, -0.107764, 0.014],
+              [-0.555964, -0.089319, 0.014],
+              [-0.539959, -0.076555, 0.014],
+              [-0.52, -0.072, 0.014],
+              [-0.500041, -0.076555, 0.014],
+              [-0.484036, -0.089319, 0.014],
+              [-0.475153, -0.107764, 0.014]
+            ],
+            "cen": [-0.52, -0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 1,
+            "p": [
+              [-0.475153, -0.107764, 0.02],
+              [-0.484036, -0.089319, 0.02],
+              [-0.500041, -0.076555, 0.02],
+              [-0.52, -0.072, 0.02],
+              [-0.539959, -0.076555, 0.02],
+              [-0.555964, -0.089319, 0.02],
+              [-0.564847, -0.107764, 0.02],
+              [-0.564847, -0.128236, 0.02],
+              [-0.555964, -0.146681, 0.02],
+              [-0.539959, -0.159445, 0.02],
+              [-0.52, -0.164, 0.02],
+              [-0.500041, -0.159445, 0.02],
+              [-0.484036, -0.146681, 0.02],
+              [-0.475153, -0.128236, 0.02]
+            ],
+            "cen": [-0.52, -0.118, 0.017],
+            "tint": [128, 226, 255]
+          }
+        ],
+        "minDetail": 1,
+        "whenNot": "parked"
+      },
+      {
+        "kind": "poly",
+        "name": "pad ring",
+        "faces": [
+          {
+            "role": "strut",
+            "sh": 0.766113,
+            "p": [
+              [-0.476499, -0.108071, 0.034],
+              [-0.485115, -0.09018, 0.034],
+              [-0.485115, -0.09018, 0.038],
+              [-0.476499, -0.108071, 0.038]
+            ],
+            "cen": [-0.52, -0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.689975,
+            "p": [
+              [-0.485115, -0.09018, 0.034],
+              [-0.50064, -0.077799, 0.034],
+              [-0.50064, -0.077799, 0.038],
+              [-0.485115, -0.09018, 0.038]
+            ],
+            "cen": [-0.52, -0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.628914,
+            "p": [
+              [-0.50064, -0.077799, 0.034],
+              [-0.52, -0.07338, 0.034],
+              [-0.52, -0.07338, 0.038],
+              [-0.50064, -0.077799, 0.038]
+            ],
+            "cen": [-0.52, -0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.616534,
+            "p": [
+              [-0.52, -0.07338, 0.034],
+              [-0.53936, -0.077799, 0.034],
+              [-0.53936, -0.077799, 0.038],
+              [-0.52, -0.07338, 0.038]
+            ],
+            "cen": [-0.52, -0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.592788,
+            "p": [
+              [-0.53936, -0.077799, 0.034],
+              [-0.554885, -0.09018, 0.034],
+              [-0.554885, -0.09018, 0.038],
+              [-0.53936, -0.077799, 0.038]
+            ],
+            "cen": [-0.52, -0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.563178,
+            "p": [
+              [-0.554885, -0.09018, 0.034],
+              [-0.563501, -0.108071, 0.034],
+              [-0.563501, -0.108071, 0.038],
+              [-0.554885, -0.09018, 0.038]
+            ],
+            "cen": [-0.52, -0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.55,
+            "p": [
+              [-0.563501, -0.108071, 0.034],
+              [-0.563501, -0.127929, 0.034],
+              [-0.563501, -0.127929, 0.038],
+              [-0.563501, -0.108071, 0.038]
+            ],
+            "cen": [-0.52, -0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.582004,
+            "p": [
+              [-0.563501, -0.127929, 0.034],
+              [-0.554885, -0.14582, 0.034],
+              [-0.554885, -0.14582, 0.038],
+              [-0.563501, -0.127929, 0.038]
+            ],
+            "cen": [-0.52, -0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.653913,
+            "p": [
+              [-0.554885, -0.14582, 0.034],
+              [-0.53936, -0.158201, 0.034],
+              [-0.53936, -0.158201, 0.038],
+              [-0.554885, -0.14582, 0.038]
+            ],
+            "cen": [-0.52, -0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.711582,
+            "p": [
+              [-0.53936, -0.158201, 0.034],
+              [-0.52, -0.16262, 0.034],
+              [-0.52, -0.16262, 0.038],
+              [-0.53936, -0.158201, 0.038]
+            ],
+            "cen": [-0.52, -0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.723962,
+            "p": [
+              [-0.52, -0.16262, 0.034],
+              [-0.50064, -0.158201, 0.034],
+              [-0.50064, -0.158201, 0.038],
+              [-0.52, -0.16262, 0.038]
+            ],
+            "cen": [-0.52, -0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.7511,
+            "p": [
+              [-0.50064, -0.158201, 0.034],
+              [-0.485115, -0.14582, 0.034],
+              [-0.485115, -0.14582, 0.038],
+              [-0.50064, -0.158201, 0.038]
+            ],
+            "cen": [-0.52, -0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.784939,
+            "p": [
+              [-0.485115, -0.14582, 0.034],
+              [-0.476499, -0.127929, 0.034],
+              [-0.476499, -0.127929, 0.038],
+              [-0.485115, -0.14582, 0.038]
+            ],
+            "cen": [-0.52, -0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.8,
+            "p": [
+              [-0.476499, -0.127929, 0.034],
+              [-0.476499, -0.108071, 0.034],
+              [-0.476499, -0.108071, 0.038],
+              [-0.476499, -0.127929, 0.038]
+            ],
+            "cen": [-0.52, -0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.42,
+            "p": [
+              [-0.476499, -0.127929, 0.034],
+              [-0.485115, -0.14582, 0.034],
+              [-0.50064, -0.158201, 0.034],
+              [-0.52, -0.16262, 0.034],
+              [-0.53936, -0.158201, 0.034],
+              [-0.554885, -0.14582, 0.034],
+              [-0.563501, -0.127929, 0.034],
+              [-0.563501, -0.108071, 0.034],
+              [-0.554885, -0.09018, 0.034],
+              [-0.53936, -0.077799, 0.034],
+              [-0.52, -0.07338, 0.034],
+              [-0.50064, -0.077799, 0.034],
+              [-0.485115, -0.09018, 0.034],
+              [-0.476499, -0.108071, 0.034]
+            ],
+            "cen": [-0.52, -0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 1,
+            "p": [
+              [-0.476499, -0.108071, 0.038],
+              [-0.485115, -0.09018, 0.038],
+              [-0.50064, -0.077799, 0.038],
+              [-0.52, -0.07338, 0.038],
+              [-0.53936, -0.077799, 0.038],
+              [-0.554885, -0.09018, 0.038],
+              [-0.563501, -0.108071, 0.038],
+              [-0.563501, -0.127929, 0.038],
+              [-0.554885, -0.14582, 0.038],
+              [-0.53936, -0.158201, 0.038],
+              [-0.52, -0.16262, 0.038],
+              [-0.50064, -0.158201, 0.038],
+              [-0.485115, -0.14582, 0.038],
+              [-0.476499, -0.127929, 0.038]
+            ],
+            "cen": [-0.52, -0.118, 0.036],
+            "paint": "chrome"
+          }
+        ],
+        "minDetail": 1
+      },
+      { "kind": "box", "name": "pad arm", "f": [-0.532, -0.508], "w": 0.009, "z": [0.04, 0.078], "g": -0.10856, "role": "strut", "paint": "frame" },
+      {
+        "kind": "poly",
+        "name": "lift pad",
+        "faces": [
+          {
+            "role": "gear",
+            "sh": 0.754996,
+            "p": [
+              [-0.478233, 0.129191, 0.02],
+              [-0.489425, 0.148575, 0.02],
+              [-0.489425, 0.148575, 0.04],
+              [-0.478233, 0.129191, 0.04]
+            ],
+            "cen": [-0.52, 0.118, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "gear",
+            "sh": 0.665004,
+            "p": [
+              [-0.489425, 0.148575, 0.02],
+              [-0.508809, 0.159767, 0.02],
+              [-0.508809, 0.159767, 0.04],
+              [-0.489425, 0.148575, 0.04]
+            ],
+            "cen": [-0.52, 0.118, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "gear",
+            "sh": 0.62,
+            "p": [
+              [-0.508809, 0.159767, 0.02],
+              [-0.531191, 0.159767, 0.02],
+              [-0.531191, 0.159767, 0.04],
+              [-0.508809, 0.159767, 0.04]
+            ],
+            "cen": [-0.52, 0.118, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "gear",
+            "sh": 0.602498,
+            "p": [
+              [-0.531191, 0.159767, 0.02],
+              [-0.550575, 0.148575, 0.02],
+              [-0.550575, 0.148575, 0.04],
+              [-0.531191, 0.159767, 0.04]
+            ],
+            "cen": [-0.52, 0.118, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "gear",
+            "sh": 0.567502,
+            "p": [
+              [-0.550575, 0.148575, 0.02],
+              [-0.561767, 0.129191, 0.02],
+              [-0.561767, 0.129191, 0.04],
+              [-0.550575, 0.148575, 0.04]
+            ],
+            "cen": [-0.52, 0.118, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "gear",
+            "sh": 0.55,
+            "p": [
+              [-0.561767, 0.129191, 0.02],
+              [-0.561767, 0.106809, 0.02],
+              [-0.561767, 0.106809, 0.04],
+              [-0.561767, 0.129191, 0.04]
+            ],
+            "cen": [-0.52, 0.118, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "gear",
+            "sh": 0.592504,
+            "p": [
+              [-0.561767, 0.106809, 0.02],
+              [-0.550575, 0.087425, 0.02],
+              [-0.550575, 0.087425, 0.04],
+              [-0.561767, 0.106809, 0.04]
+            ],
+            "cen": [-0.52, 0.118, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "gear",
+            "sh": 0.677496,
+            "p": [
+              [-0.550575, 0.087425, 0.02],
+              [-0.531191, 0.076233, 0.02],
+              [-0.531191, 0.076233, 0.04],
+              [-0.550575, 0.087425, 0.04]
+            ],
+            "cen": [-0.52, 0.118, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "gear",
+            "sh": 0.72,
+            "p": [
+              [-0.531191, 0.076233, 0.02],
+              [-0.508809, 0.076233, 0.02],
+              [-0.508809, 0.076233, 0.04],
+              [-0.531191, 0.076233, 0.04]
+            ],
+            "cen": [-0.52, 0.118, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "gear",
+            "sh": 0.740002,
+            "p": [
+              [-0.508809, 0.076233, 0.02],
+              [-0.489425, 0.087425, 0.02],
+              [-0.489425, 0.087425, 0.04],
+              [-0.508809, 0.076233, 0.04]
+            ],
+            "cen": [-0.52, 0.118, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "gear",
+            "sh": 0.779998,
+            "p": [
+              [-0.489425, 0.087425, 0.02],
+              [-0.478233, 0.106809, 0.02],
+              [-0.478233, 0.106809, 0.04],
+              [-0.489425, 0.087425, 0.04]
+            ],
+            "cen": [-0.52, 0.118, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "gear",
+            "sh": 0.8,
+            "p": [
+              [-0.478233, 0.106809, 0.02],
+              [-0.478233, 0.129191, 0.02],
+              [-0.478233, 0.129191, 0.04],
+              [-0.478233, 0.106809, 0.04]
+            ],
+            "cen": [-0.52, 0.118, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "gear",
+            "sh": 0.42,
+            "p": [
+              [-0.478233, 0.106809, 0.02],
+              [-0.489425, 0.087425, 0.02],
+              [-0.508809, 0.076233, 0.02],
+              [-0.531191, 0.076233, 0.02],
+              [-0.550575, 0.087425, 0.02],
+              [-0.561767, 0.106809, 0.02],
+              [-0.561767, 0.129191, 0.02],
+              [-0.550575, 0.148575, 0.02],
+              [-0.531191, 0.159767, 0.02],
+              [-0.508809, 0.159767, 0.02],
+              [-0.489425, 0.148575, 0.02],
+              [-0.478233, 0.129191, 0.02]
+            ],
+            "cen": [-0.52, 0.118, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "gear",
+            "sh": 1,
+            "p": [
+              [-0.478233, 0.129191, 0.04],
+              [-0.489425, 0.148575, 0.04],
+              [-0.508809, 0.159767, 0.04],
+              [-0.531191, 0.159767, 0.04],
+              [-0.550575, 0.148575, 0.04],
+              [-0.561767, 0.129191, 0.04],
+              [-0.561767, 0.106809, 0.04],
+              [-0.550575, 0.087425, 0.04],
+              [-0.531191, 0.076233, 0.04],
+              [-0.508809, 0.076233, 0.04],
+              [-0.489425, 0.087425, 0.04],
+              [-0.478233, 0.106809, 0.04]
+            ],
+            "cen": [-0.52, 0.118, 0.03],
+            "paint": "gunmetal"
+          }
+        ]
+      },
+      {
+        "kind": "poly",
+        "name": "emitter ring",
+        "faces": [
+          {
+            "role": "window",
+            "sh": 0.766112,
+            "p": [
+              [-0.475153, 0.128236, 0.014],
+              [-0.484036, 0.146681, 0.014],
+              [-0.484036, 0.146681, 0.02],
+              [-0.475153, 0.128236, 0.02]
+            ],
+            "cen": [-0.52, 0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.689976,
+            "p": [
+              [-0.484036, 0.146681, 0.014],
+              [-0.500041, 0.159445, 0.014],
+              [-0.500041, 0.159445, 0.02],
+              [-0.484036, 0.146681, 0.02]
+            ],
+            "cen": [-0.52, 0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.628911,
+            "p": [[-0.500041, 0.159445, 0.014], [-0.52, 0.164, 0.014], [-0.52, 0.164, 0.02], [-0.500041, 0.159445, 0.02]],
+            "cen": [-0.52, 0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.616535,
+            "p": [[-0.52, 0.164, 0.014], [-0.539959, 0.159445, 0.014], [-0.539959, 0.159445, 0.02], [-0.52, 0.164, 0.02]],
+            "cen": [-0.52, 0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.592787,
+            "p": [
+              [-0.539959, 0.159445, 0.014],
+              [-0.555964, 0.146681, 0.014],
+              [-0.555964, 0.146681, 0.02],
+              [-0.539959, 0.159445, 0.02]
+            ],
+            "cen": [-0.52, 0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.563179,
+            "p": [
+              [-0.555964, 0.146681, 0.014],
+              [-0.564847, 0.128236, 0.014],
+              [-0.564847, 0.128236, 0.02],
+              [-0.555964, 0.146681, 0.02]
+            ],
+            "cen": [-0.52, 0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.55,
+            "p": [
+              [-0.564847, 0.128236, 0.014],
+              [-0.564847, 0.107764, 0.014],
+              [-0.564847, 0.107764, 0.02],
+              [-0.564847, 0.128236, 0.02]
+            ],
+            "cen": [-0.52, 0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.582005,
+            "p": [
+              [-0.564847, 0.107764, 0.014],
+              [-0.555964, 0.089319, 0.014],
+              [-0.555964, 0.089319, 0.02],
+              [-0.564847, 0.107764, 0.02]
+            ],
+            "cen": [-0.52, 0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.653912,
+            "p": [
+              [-0.555964, 0.089319, 0.014],
+              [-0.539959, 0.076555, 0.014],
+              [-0.539959, 0.076555, 0.02],
+              [-0.555964, 0.089319, 0.02]
+            ],
+            "cen": [-0.52, 0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.711584,
+            "p": [[-0.539959, 0.076555, 0.014], [-0.52, 0.072, 0.014], [-0.52, 0.072, 0.02], [-0.539959, 0.076555, 0.02]],
+            "cen": [-0.52, 0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.72396,
+            "p": [[-0.52, 0.072, 0.014], [-0.500041, 0.076555, 0.014], [-0.500041, 0.076555, 0.02], [-0.52, 0.072, 0.02]],
+            "cen": [-0.52, 0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.7511,
+            "p": [
+              [-0.500041, 0.076555, 0.014],
+              [-0.484036, 0.089319, 0.014],
+              [-0.484036, 0.089319, 0.02],
+              [-0.500041, 0.076555, 0.02]
+            ],
+            "cen": [-0.52, 0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.784939,
+            "p": [
+              [-0.484036, 0.089319, 0.014],
+              [-0.475153, 0.107764, 0.014],
+              [-0.475153, 0.107764, 0.02],
+              [-0.484036, 0.089319, 0.02]
+            ],
+            "cen": [-0.52, 0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.8,
+            "p": [
+              [-0.475153, 0.107764, 0.014],
+              [-0.475153, 0.128236, 0.014],
+              [-0.475153, 0.128236, 0.02],
+              [-0.475153, 0.107764, 0.02]
+            ],
+            "cen": [-0.52, 0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.42,
+            "p": [
+              [-0.475153, 0.107764, 0.014],
+              [-0.484036, 0.089319, 0.014],
+              [-0.500041, 0.076555, 0.014],
+              [-0.52, 0.072, 0.014],
+              [-0.539959, 0.076555, 0.014],
+              [-0.555964, 0.089319, 0.014],
+              [-0.564847, 0.107764, 0.014],
+              [-0.564847, 0.128236, 0.014],
+              [-0.555964, 0.146681, 0.014],
+              [-0.539959, 0.159445, 0.014],
+              [-0.52, 0.164, 0.014],
+              [-0.500041, 0.159445, 0.014],
+              [-0.484036, 0.146681, 0.014],
+              [-0.475153, 0.128236, 0.014]
+            ],
+            "cen": [-0.52, 0.118, 0.017],
+            "tint": [128, 226, 255]
+          },
+          {
+            "role": "window",
+            "sh": 1,
+            "p": [
+              [-0.475153, 0.128236, 0.02],
+              [-0.484036, 0.146681, 0.02],
+              [-0.500041, 0.159445, 0.02],
+              [-0.52, 0.164, 0.02],
+              [-0.539959, 0.159445, 0.02],
+              [-0.555964, 0.146681, 0.02],
+              [-0.564847, 0.128236, 0.02],
+              [-0.564847, 0.107764, 0.02],
+              [-0.555964, 0.089319, 0.02],
+              [-0.539959, 0.076555, 0.02],
+              [-0.52, 0.072, 0.02],
+              [-0.500041, 0.076555, 0.02],
+              [-0.484036, 0.089319, 0.02],
+              [-0.475153, 0.107764, 0.02]
+            ],
+            "cen": [-0.52, 0.118, 0.017],
+            "tint": [128, 226, 255]
+          }
+        ],
+        "minDetail": 1,
+        "whenNot": "parked"
+      },
+      {
+        "kind": "poly",
+        "name": "pad ring",
+        "faces": [
+          {
+            "role": "strut",
+            "sh": 0.766113,
+            "p": [
+              [-0.476499, 0.127929, 0.034],
+              [-0.485115, 0.14582, 0.034],
+              [-0.485115, 0.14582, 0.038],
+              [-0.476499, 0.127929, 0.038]
+            ],
+            "cen": [-0.52, 0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.689975,
+            "p": [
+              [-0.485115, 0.14582, 0.034],
+              [-0.50064, 0.158201, 0.034],
+              [-0.50064, 0.158201, 0.038],
+              [-0.485115, 0.14582, 0.038]
+            ],
+            "cen": [-0.52, 0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.628914,
+            "p": [[-0.50064, 0.158201, 0.034], [-0.52, 0.16262, 0.034], [-0.52, 0.16262, 0.038], [-0.50064, 0.158201, 0.038]],
+            "cen": [-0.52, 0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.616534,
+            "p": [[-0.52, 0.16262, 0.034], [-0.53936, 0.158201, 0.034], [-0.53936, 0.158201, 0.038], [-0.52, 0.16262, 0.038]],
+            "cen": [-0.52, 0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.592788,
+            "p": [
+              [-0.53936, 0.158201, 0.034],
+              [-0.554885, 0.14582, 0.034],
+              [-0.554885, 0.14582, 0.038],
+              [-0.53936, 0.158201, 0.038]
+            ],
+            "cen": [-0.52, 0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.563178,
+            "p": [
+              [-0.554885, 0.14582, 0.034],
+              [-0.563501, 0.127929, 0.034],
+              [-0.563501, 0.127929, 0.038],
+              [-0.554885, 0.14582, 0.038]
+            ],
+            "cen": [-0.52, 0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.55,
+            "p": [
+              [-0.563501, 0.127929, 0.034],
+              [-0.563501, 0.108071, 0.034],
+              [-0.563501, 0.108071, 0.038],
+              [-0.563501, 0.127929, 0.038]
+            ],
+            "cen": [-0.52, 0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.582004,
+            "p": [
+              [-0.563501, 0.108071, 0.034],
+              [-0.554885, 0.09018, 0.034],
+              [-0.554885, 0.09018, 0.038],
+              [-0.563501, 0.108071, 0.038]
+            ],
+            "cen": [-0.52, 0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.653913,
+            "p": [
+              [-0.554885, 0.09018, 0.034],
+              [-0.53936, 0.077799, 0.034],
+              [-0.53936, 0.077799, 0.038],
+              [-0.554885, 0.09018, 0.038]
+            ],
+            "cen": [-0.52, 0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.711582,
+            "p": [[-0.53936, 0.077799, 0.034], [-0.52, 0.07338, 0.034], [-0.52, 0.07338, 0.038], [-0.53936, 0.077799, 0.038]],
+            "cen": [-0.52, 0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.723962,
+            "p": [[-0.52, 0.07338, 0.034], [-0.50064, 0.077799, 0.034], [-0.50064, 0.077799, 0.038], [-0.52, 0.07338, 0.038]],
+            "cen": [-0.52, 0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.7511,
+            "p": [
+              [-0.50064, 0.077799, 0.034],
+              [-0.485115, 0.09018, 0.034],
+              [-0.485115, 0.09018, 0.038],
+              [-0.50064, 0.077799, 0.038]
+            ],
+            "cen": [-0.52, 0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.784939,
+            "p": [
+              [-0.485115, 0.09018, 0.034],
+              [-0.476499, 0.108071, 0.034],
+              [-0.476499, 0.108071, 0.038],
+              [-0.485115, 0.09018, 0.038]
+            ],
+            "cen": [-0.52, 0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.8,
+            "p": [
+              [-0.476499, 0.108071, 0.034],
+              [-0.476499, 0.127929, 0.034],
+              [-0.476499, 0.127929, 0.038],
+              [-0.476499, 0.108071, 0.038]
+            ],
+            "cen": [-0.52, 0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 0.42,
+            "p": [
+              [-0.476499, 0.108071, 0.034],
+              [-0.485115, 0.09018, 0.034],
+              [-0.50064, 0.077799, 0.034],
+              [-0.52, 0.07338, 0.034],
+              [-0.53936, 0.077799, 0.034],
+              [-0.554885, 0.09018, 0.034],
+              [-0.563501, 0.108071, 0.034],
+              [-0.563501, 0.127929, 0.034],
+              [-0.554885, 0.14582, 0.034],
+              [-0.53936, 0.158201, 0.034],
+              [-0.52, 0.16262, 0.034],
+              [-0.50064, 0.158201, 0.034],
+              [-0.485115, 0.14582, 0.034],
+              [-0.476499, 0.127929, 0.034]
+            ],
+            "cen": [-0.52, 0.118, 0.036],
+            "paint": "chrome"
+          },
+          {
+            "role": "strut",
+            "sh": 1,
+            "p": [
+              [-0.476499, 0.127929, 0.038],
+              [-0.485115, 0.14582, 0.038],
+              [-0.50064, 0.158201, 0.038],
+              [-0.52, 0.16262, 0.038],
+              [-0.53936, 0.158201, 0.038],
+              [-0.554885, 0.14582, 0.038],
+              [-0.563501, 0.127929, 0.038],
+              [-0.563501, 0.108071, 0.038],
+              [-0.554885, 0.09018, 0.038],
+              [-0.53936, 0.077799, 0.038],
+              [-0.52, 0.07338, 0.038],
+              [-0.50064, 0.077799, 0.038],
+              [-0.485115, 0.09018, 0.038],
+              [-0.476499, 0.108071, 0.038]
+            ],
+            "cen": [-0.52, 0.118, 0.036],
+            "paint": "chrome"
+          }
+        ],
+        "minDetail": 1
+      },
+      { "kind": "box", "name": "pad arm", "f": [-0.532, -0.508], "w": 0.009, "z": [0.04, 0.078], "g": 0.10856, "role": "strut", "paint": "frame" },
+      { "kind": "box", "name": "bumper", "f": [-0.6, -0.59], "w": 0.142, "z": [0.04, 0.066], "role": "strut", "paint": "steel" },
+      { "kind": "box", "name": "bumper post", "f": [-0.588, -0.576], "w": 0.006, "z": [0.066, 0.078], "g": -0.09, "role": "strut", "paint": "frame" },
+      { "kind": "box", "name": "bumper post", "f": [-0.588, -0.576], "w": 0.006, "z": [0.066, 0.078], "g": 0.09, "role": "strut", "paint": "frame" },
+      { "kind": "box", "name": "bumper stripe", "f": [-0.6005, -0.5995], "w": 0.012, "z": [0.044, 0.062], "g": -0.1, "paint": "hazard", "minDetail": 1 },
+      { "kind": "box", "name": "bumper stripe", "f": [-0.6005, -0.5995], "w": 0.012, "z": [0.044, 0.062], "g": -0.05, "paint": "hazard", "minDetail": 1 },
+      { "kind": "box", "name": "bumper stripe", "f": [-0.6005, -0.5995], "w": 0.012, "z": [0.044, 0.062], "paint": "hazard", "minDetail": 1 },
+      { "kind": "box", "name": "bumper stripe", "f": [-0.6005, -0.5995], "w": 0.012, "z": [0.044, 0.062], "g": 0.05, "paint": "hazard", "minDetail": 1 },
+      { "kind": "box", "name": "bumper stripe", "f": [-0.6005, -0.5995], "w": 0.012, "z": [0.044, 0.062], "g": 0.1, "paint": "hazard", "minDetail": 1 },
+      { "kind": "box", "name": "tail lamp", "f": [-0.596, -0.589], "w": 0.014, "z": [0.083, 0.101], "g": -0.138, "role": "window", "tint": [214, 60, 48] },
+      {
+        "kind": "box",
+        "name": "indicator",
+        "f": [-0.595, -0.589],
+        "w": 0.006,
+        "z": [0.086, 0.098],
+        "g": -0.162,
+        "role": "window",
+        "tint": [236, 176, 96],
+        "minDetail": 1
+      },
+      { "kind": "box", "name": "tail lamp", "f": [-0.596, -0.589], "w": 0.014, "z": [0.083, 0.101], "g": 0.138, "role": "window", "tint": [214, 60, 48] },
+      {
+        "kind": "box",
+        "name": "indicator",
+        "f": [-0.595, -0.589],
+        "w": 0.006,
+        "z": [0.086, 0.098],
+        "g": 0.162,
+        "role": "window",
+        "tint": [236, 176, 96],
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "plate",
+        "f": [-0.6005, -0.5995],
+        "w": 0.022,
+        "z": [0.044, 0.062],
+        "role": "window",
+        "tint": [214, 210, 196],
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "side marker",
+        "f": [-0.3, -0.29],
+        "w": 0.0014,
+        "z": [0.082, 0.088],
+        "g": -0.1732,
+        "role": "window",
+        "tint": [236, 176, 96],
+        "minDetail": 1
+      },
+      {
+        "kind": "box",
+        "name": "side marker",
+        "f": [-0.3, -0.29],
+        "w": 0.0014,
+        "z": [0.082, 0.088],
+        "g": 0.1732,
+        "role": "window",
+        "tint": [236, 176, 96],
+        "minDetail": 1
+      },
+      { "kind": "box", "name": "mud flap", "f": [-0.47, -0.467], "w": 0.03, "z": [0.012, 0.078], "g": -0.118, "role": "strut", "paint": "rubber" },
+      { "kind": "box", "name": "mud flap", "f": [-0.59, -0.587], "w": 0.03, "z": [0.012, 0.078], "g": -0.118, "role": "strut", "paint": "rubber" },
+      { "kind": "box", "name": "mud flap", "f": [-0.47, -0.467], "w": 0.03, "z": [0.012, 0.078], "g": 0.118, "role": "strut", "paint": "rubber" },
+      { "kind": "box", "name": "mud flap", "f": [-0.59, -0.587], "w": 0.03, "z": [0.012, 0.078], "g": 0.118, "role": "strut", "paint": "rubber" },
+      {
+        "kind": "poly",
+        "name": "thruster",
+        "faces": [
+          {
+            "role": "strut",
+            "sh": 0.75139,
+            "p": [
+              [-0.586, -0.044783, 0.034944],
+              [-0.586, -0.050595, 0.042944],
+              [-0.554, -0.051536, 0.04165],
+              [-0.554, -0.046305, 0.03445]
+            ],
+            "cen": [-0.578, -0.06, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "strut",
+            "sh": 0.963344,
+            "p": [[-0.586, -0.050595, 0.042944], [-0.586, -0.06, 0.046], [-0.554, -0.06, 0.0444], [-0.554, -0.051536, 0.04165]],
+            "cen": [-0.578, -0.06, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "strut",
+            "sh": 0.972871,
+            "p": [[-0.586, -0.06, 0.046], [-0.586, -0.069405, 0.042944], [-0.554, -0.068464, 0.04165], [-0.554, -0.06, 0.0444]],
+            "cen": [-0.578, -0.06, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "strut",
+            "sh": 0.816695,
+            "p": [
+              [-0.586, -0.069405, 0.042944],
+              [-0.586, -0.075217, 0.034944],
+              [-0.554, -0.073695, 0.03445],
+              [-0.554, -0.068464, 0.04165]
+            ],
+            "cen": [-0.578, -0.06, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "strut",
+            "sh": 0.720181,
+            "p": [
+              [-0.586, -0.075217, 0.034944],
+              [-0.586, -0.075217, 0.025056],
+              [-0.554, -0.073695, 0.02555],
+              [-0.554, -0.073695, 0.03445]
+            ],
+            "cen": [-0.578, -0.06, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "strut",
+            "sh": 0.616772,
+            "p": [
+              [-0.586, -0.075217, 0.025056],
+              [-0.586, -0.069405, 0.017056],
+              [-0.554, -0.068464, 0.01835],
+              [-0.554, -0.073695, 0.02555]
+            ],
+            "cen": [-0.578, -0.06, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "strut",
+            "sh": 0.44944,
+            "p": [[-0.586, -0.069405, 0.017056], [-0.586, -0.06, 0.014], [-0.554, -0.06, 0.0156], [-0.554, -0.068464, 0.01835]],
+            "cen": [-0.578, -0.06, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "strut",
+            "sh": 0.439912,
+            "p": [[-0.586, -0.06, 0.014], [-0.586, -0.050595, 0.017056], [-0.554, -0.051536, 0.01835], [-0.554, -0.06, 0.0156]],
+            "cen": [-0.578, -0.06, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "strut",
+            "sh": 0.551467,
+            "p": [
+              [-0.586, -0.050595, 0.017056],
+              [-0.586, -0.044783, 0.025056],
+              [-0.554, -0.046305, 0.02555],
+              [-0.554, -0.051536, 0.01835]
+            ],
+            "cen": [-0.578, -0.06, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "strut",
+            "sh": 0.620406,
+            "p": [
+              [-0.586, -0.044783, 0.025056],
+              [-0.586, -0.044783, 0.034944],
+              [-0.554, -0.046305, 0.03445],
+              [-0.554, -0.046305, 0.02555]
+            ],
+            "cen": [-0.578, -0.06, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "strut",
+            "sh": 0.753697,
+            "p": [
+              [-0.594, -0.042957, 0.035538],
+              [-0.594, -0.049467, 0.044498],
+              [-0.586, -0.050595, 0.042944],
+              [-0.586, -0.044783, 0.034944]
+            ],
+            "cen": [-0.578, -0.06, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "strut",
+            "sh": 0.955607,
+            "p": [
+              [-0.594, -0.049467, 0.044498],
+              [-0.594, -0.06, 0.04792],
+              [-0.586, -0.06, 0.046],
+              [-0.586, -0.050595, 0.042944]
+            ],
+            "cen": [-0.578, -0.06, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "strut",
+            "sh": 0.964682,
+            "p": [
+              [-0.594, -0.06, 0.04792],
+              [-0.594, -0.070533, 0.044498],
+              [-0.586, -0.069405, 0.042944],
+              [-0.586, -0.06, 0.046]
+            ],
+            "cen": [-0.578, -0.06, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "strut",
+            "sh": 0.815907,
+            "p": [
+              [-0.594, -0.070533, 0.044498],
+              [-0.594, -0.077043, 0.035538],
+              [-0.586, -0.075217, 0.034944],
+              [-0.586, -0.069405, 0.042944]
+            ],
+            "cen": [-0.578, -0.06, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "strut",
+            "sh": 0.723961,
+            "p": [
+              [-0.594, -0.077043, 0.035538],
+              [-0.594, -0.077043, 0.024462],
+              [-0.586, -0.075217, 0.025056],
+              [-0.586, -0.075217, 0.034944]
+            ],
+            "cen": [-0.578, -0.06, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "strut",
+            "sh": 0.62545,
+            "p": [
+              [-0.594, -0.077043, 0.024462],
+              [-0.594, -0.070533, 0.015502],
+              [-0.586, -0.069405, 0.017056],
+              [-0.586, -0.075217, 0.025056]
+            ],
+            "cen": [-0.578, -0.06, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "strut",
+            "sh": 0.466049,
+            "p": [
+              [-0.594, -0.070533, 0.015502],
+              [-0.594, -0.06, 0.01208],
+              [-0.586, -0.06, 0.014],
+              [-0.586, -0.069405, 0.017056]
+            ],
+            "cen": [-0.578, -0.06, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "strut",
+            "sh": 0.456973,
+            "p": [
+              [-0.594, -0.06, 0.01208],
+              [-0.594, -0.049467, 0.015502],
+              [-0.586, -0.050595, 0.017056],
+              [-0.586, -0.06, 0.014]
+            ],
+            "cen": [-0.578, -0.06, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "strut",
+            "sh": 0.56324,
+            "p": [
+              [-0.594, -0.049467, 0.015502],
+              [-0.594, -0.042957, 0.024462],
+              [-0.586, -0.044783, 0.025056],
+              [-0.586, -0.050595, 0.017056]
+            ],
+            "cen": [-0.578, -0.06, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "strut",
+            "sh": 0.628913,
+            "p": [
+              [-0.594, -0.042957, 0.024462],
+              [-0.594, -0.042957, 0.035538],
+              [-0.586, -0.044783, 0.034944],
+              [-0.586, -0.044783, 0.025056]
+            ],
+            "cen": [-0.578, -0.06, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "strut",
+            "sh": 0.8,
+            "p": [
+              [-0.554, -0.046305, 0.03445],
+              [-0.554, -0.051536, 0.04165],
+              [-0.554, -0.06, 0.0444],
+              [-0.554, -0.068464, 0.04165],
+              [-0.554, -0.073695, 0.03445],
+              [-0.554, -0.073695, 0.02555],
+              [-0.554, -0.068464, 0.01835],
+              [-0.554, -0.06, 0.0156],
+              [-0.554, -0.051536, 0.01835],
+              [-0.554, -0.046305, 0.02555]
+            ],
+            "cen": [-0.578, -0.06, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "strut",
+            "sh": 0.55,
+            "p": [
+              [-0.594, -0.042957, 0.024462],
+              [-0.594, -0.049467, 0.015502],
+              [-0.594, -0.06, 0.01208],
+              [-0.594, -0.070533, 0.015502],
+              [-0.594, -0.077043, 0.024462],
+              [-0.594, -0.077043, 0.035538],
+              [-0.594, -0.070533, 0.044498],
+              [-0.594, -0.06, 0.04792],
+              [-0.594, -0.049467, 0.044498],
+              [-0.594, -0.042957, 0.035538]
+            ],
+            "cen": [-0.578, -0.06, 0.03],
+            "paint": "gunmetal"
+          }
+        ]
+      },
+      {
+        "kind": "poly",
+        "name": "thruster glow",
+        "faces": [
+          {
+            "role": "window",
+            "sh": 0.7513,
+            "p": [
+              [-0.5945, -0.046913, 0.034252],
+              [-0.5945, -0.051912, 0.041132],
+              [-0.5925, -0.051912, 0.041132],
+              [-0.5925, -0.046913, 0.034252]
+            ],
+            "cen": [-0.5935, -0.06, 0.03],
+            "tint": [150, 168, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.963712,
+            "p": [
+              [-0.5945, -0.051912, 0.041132],
+              [-0.5945, -0.06, 0.04376],
+              [-0.5925, -0.06, 0.04376],
+              [-0.5925, -0.051912, 0.041132]
+            ],
+            "cen": [-0.5935, -0.06, 0.03],
+            "tint": [150, 168, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.973261,
+            "p": [
+              [-0.5945, -0.06, 0.04376],
+              [-0.5945, -0.068088, 0.041132],
+              [-0.5925, -0.068088, 0.041132],
+              [-0.5925, -0.06, 0.04376]
+            ],
+            "cen": [-0.5935, -0.06, 0.03],
+            "tint": [150, 168, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.816747,
+            "p": [
+              [-0.5945, -0.068088, 0.041132],
+              [-0.5945, -0.073087, 0.034252],
+              [-0.5925, -0.073087, 0.034252],
+              [-0.5925, -0.068088, 0.041132]
+            ],
+            "cen": [-0.5935, -0.06, 0.03],
+            "tint": [150, 168, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.72,
+            "p": [
+              [-0.5945, -0.073087, 0.034252],
+              [-0.5945, -0.073087, 0.025748],
+              [-0.5925, -0.073087, 0.025748],
+              [-0.5925, -0.073087, 0.034252]
+            ],
+            "cen": [-0.5935, -0.06, 0.03],
+            "tint": [150, 168, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.616342,
+            "p": [
+              [-0.5945, -0.073087, 0.025748],
+              [-0.5945, -0.068088, 0.018868],
+              [-0.5925, -0.068088, 0.018868],
+              [-0.5925, -0.073087, 0.025748]
+            ],
+            "cen": [-0.5935, -0.06, 0.03],
+            "tint": [150, 168, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.448648,
+            "p": [
+              [-0.5945, -0.068088, 0.018868],
+              [-0.5945, -0.06, 0.01624],
+              [-0.5925, -0.06, 0.01624],
+              [-0.5925, -0.068088, 0.018868]
+            ],
+            "cen": [-0.5935, -0.06, 0.03],
+            "tint": [150, 168, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.439099,
+            "p": [
+              [-0.5945, -0.06, 0.01624],
+              [-0.5945, -0.051912, 0.018868],
+              [-0.5925, -0.051912, 0.018868],
+              [-0.5925, -0.06, 0.01624]
+            ],
+            "cen": [-0.5935, -0.06, 0.03],
+            "tint": [150, 168, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.550895,
+            "p": [
+              [-0.5945, -0.051912, 0.018868],
+              [-0.5945, -0.046913, 0.025748],
+              [-0.5925, -0.046913, 0.025748],
+              [-0.5925, -0.051912, 0.018868]
+            ],
+            "cen": [-0.5935, -0.06, 0.03],
+            "tint": [150, 168, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.62,
+            "p": [
+              [-0.5945, -0.046913, 0.025748],
+              [-0.5945, -0.046913, 0.034252],
+              [-0.5925, -0.046913, 0.034252],
+              [-0.5925, -0.046913, 0.025748]
+            ],
+            "cen": [-0.5935, -0.06, 0.03],
+            "tint": [150, 168, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.8,
+            "p": [
+              [-0.5925, -0.046913, 0.034252],
+              [-0.5925, -0.051912, 0.041132],
+              [-0.5925, -0.06, 0.04376],
+              [-0.5925, -0.068088, 0.041132],
+              [-0.5925, -0.073087, 0.034252],
+              [-0.5925, -0.073087, 0.025748],
+              [-0.5925, -0.068088, 0.018868],
+              [-0.5925, -0.06, 0.01624],
+              [-0.5925, -0.051912, 0.018868],
+              [-0.5925, -0.046913, 0.025748]
+            ],
+            "cen": [-0.5935, -0.06, 0.03],
+            "tint": [150, 168, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.55,
+            "p": [
+              [-0.5945, -0.046913, 0.025748],
+              [-0.5945, -0.051912, 0.018868],
+              [-0.5945, -0.06, 0.01624],
+              [-0.5945, -0.068088, 0.018868],
+              [-0.5945, -0.073087, 0.025748],
+              [-0.5945, -0.073087, 0.034252],
+              [-0.5945, -0.068088, 0.041132],
+              [-0.5945, -0.06, 0.04376],
+              [-0.5945, -0.051912, 0.041132],
+              [-0.5945, -0.046913, 0.034252]
+            ],
+            "cen": [-0.5935, -0.06, 0.03],
+            "tint": [150, 168, 255]
+          }
+        ],
+        "whenNot": "parked"
+      },
+      {
+        "kind": "poly",
+        "name": "thruster",
+        "faces": [
+          {
+            "role": "strut",
+            "sh": 0.75139,
+            "p": [
+              [-0.586, 0.075217, 0.034944],
+              [-0.586, 0.069405, 0.042944],
+              [-0.554, 0.068464, 0.04165],
+              [-0.554, 0.073695, 0.03445]
+            ],
+            "cen": [-0.578, 0.06, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "strut",
+            "sh": 0.963344,
+            "p": [[-0.586, 0.069405, 0.042944], [-0.586, 0.06, 0.046], [-0.554, 0.06, 0.0444], [-0.554, 0.068464, 0.04165]],
+            "cen": [-0.578, 0.06, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "strut",
+            "sh": 0.972871,
+            "p": [[-0.586, 0.06, 0.046], [-0.586, 0.050595, 0.042944], [-0.554, 0.051536, 0.04165], [-0.554, 0.06, 0.0444]],
+            "cen": [-0.578, 0.06, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "strut",
+            "sh": 0.816695,
+            "p": [
+              [-0.586, 0.050595, 0.042944],
+              [-0.586, 0.044783, 0.034944],
+              [-0.554, 0.046305, 0.03445],
+              [-0.554, 0.051536, 0.04165]
+            ],
+            "cen": [-0.578, 0.06, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "strut",
+            "sh": 0.720181,
+            "p": [
+              [-0.586, 0.044783, 0.034944],
+              [-0.586, 0.044783, 0.025056],
+              [-0.554, 0.046305, 0.02555],
+              [-0.554, 0.046305, 0.03445]
+            ],
+            "cen": [-0.578, 0.06, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "strut",
+            "sh": 0.616772,
+            "p": [
+              [-0.586, 0.044783, 0.025056],
+              [-0.586, 0.050595, 0.017056],
+              [-0.554, 0.051536, 0.01835],
+              [-0.554, 0.046305, 0.02555]
+            ],
+            "cen": [-0.578, 0.06, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "strut",
+            "sh": 0.44944,
+            "p": [[-0.586, 0.050595, 0.017056], [-0.586, 0.06, 0.014], [-0.554, 0.06, 0.0156], [-0.554, 0.051536, 0.01835]],
+            "cen": [-0.578, 0.06, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "strut",
+            "sh": 0.439912,
+            "p": [[-0.586, 0.06, 0.014], [-0.586, 0.069405, 0.017056], [-0.554, 0.068464, 0.01835], [-0.554, 0.06, 0.0156]],
+            "cen": [-0.578, 0.06, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "strut",
+            "sh": 0.551467,
+            "p": [
+              [-0.586, 0.069405, 0.017056],
+              [-0.586, 0.075217, 0.025056],
+              [-0.554, 0.073695, 0.02555],
+              [-0.554, 0.068464, 0.01835]
+            ],
+            "cen": [-0.578, 0.06, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "strut",
+            "sh": 0.620406,
+            "p": [
+              [-0.586, 0.075217, 0.025056],
+              [-0.586, 0.075217, 0.034944],
+              [-0.554, 0.073695, 0.03445],
+              [-0.554, 0.073695, 0.02555]
+            ],
+            "cen": [-0.578, 0.06, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "strut",
+            "sh": 0.753697,
+            "p": [
+              [-0.594, 0.077043, 0.035538],
+              [-0.594, 0.070533, 0.044498],
+              [-0.586, 0.069405, 0.042944],
+              [-0.586, 0.075217, 0.034944]
+            ],
+            "cen": [-0.578, 0.06, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "strut",
+            "sh": 0.955607,
+            "p": [[-0.594, 0.070533, 0.044498], [-0.594, 0.06, 0.04792], [-0.586, 0.06, 0.046], [-0.586, 0.069405, 0.042944]],
+            "cen": [-0.578, 0.06, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "strut",
+            "sh": 0.964682,
+            "p": [[-0.594, 0.06, 0.04792], [-0.594, 0.049467, 0.044498], [-0.586, 0.050595, 0.042944], [-0.586, 0.06, 0.046]],
+            "cen": [-0.578, 0.06, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "strut",
+            "sh": 0.815907,
+            "p": [
+              [-0.594, 0.049467, 0.044498],
+              [-0.594, 0.042957, 0.035538],
+              [-0.586, 0.044783, 0.034944],
+              [-0.586, 0.050595, 0.042944]
+            ],
+            "cen": [-0.578, 0.06, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "strut",
+            "sh": 0.723961,
+            "p": [
+              [-0.594, 0.042957, 0.035538],
+              [-0.594, 0.042957, 0.024462],
+              [-0.586, 0.044783, 0.025056],
+              [-0.586, 0.044783, 0.034944]
+            ],
+            "cen": [-0.578, 0.06, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "strut",
+            "sh": 0.62545,
+            "p": [
+              [-0.594, 0.042957, 0.024462],
+              [-0.594, 0.049467, 0.015502],
+              [-0.586, 0.050595, 0.017056],
+              [-0.586, 0.044783, 0.025056]
+            ],
+            "cen": [-0.578, 0.06, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "strut",
+            "sh": 0.466049,
+            "p": [[-0.594, 0.049467, 0.015502], [-0.594, 0.06, 0.01208], [-0.586, 0.06, 0.014], [-0.586, 0.050595, 0.017056]],
+            "cen": [-0.578, 0.06, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "strut",
+            "sh": 0.456973,
+            "p": [[-0.594, 0.06, 0.01208], [-0.594, 0.070533, 0.015502], [-0.586, 0.069405, 0.017056], [-0.586, 0.06, 0.014]],
+            "cen": [-0.578, 0.06, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "strut",
+            "sh": 0.56324,
+            "p": [
+              [-0.594, 0.070533, 0.015502],
+              [-0.594, 0.077043, 0.024462],
+              [-0.586, 0.075217, 0.025056],
+              [-0.586, 0.069405, 0.017056]
+            ],
+            "cen": [-0.578, 0.06, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "strut",
+            "sh": 0.628913,
+            "p": [
+              [-0.594, 0.077043, 0.024462],
+              [-0.594, 0.077043, 0.035538],
+              [-0.586, 0.075217, 0.034944],
+              [-0.586, 0.075217, 0.025056]
+            ],
+            "cen": [-0.578, 0.06, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "strut",
+            "sh": 0.8,
+            "p": [
+              [-0.554, 0.073695, 0.03445],
+              [-0.554, 0.068464, 0.04165],
+              [-0.554, 0.06, 0.0444],
+              [-0.554, 0.051536, 0.04165],
+              [-0.554, 0.046305, 0.03445],
+              [-0.554, 0.046305, 0.02555],
+              [-0.554, 0.051536, 0.01835],
+              [-0.554, 0.06, 0.0156],
+              [-0.554, 0.068464, 0.01835],
+              [-0.554, 0.073695, 0.02555]
+            ],
+            "cen": [-0.578, 0.06, 0.03],
+            "paint": "gunmetal"
+          },
+          {
+            "role": "strut",
+            "sh": 0.55,
+            "p": [
+              [-0.594, 0.077043, 0.024462],
+              [-0.594, 0.070533, 0.015502],
+              [-0.594, 0.06, 0.01208],
+              [-0.594, 0.049467, 0.015502],
+              [-0.594, 0.042957, 0.024462],
+              [-0.594, 0.042957, 0.035538],
+              [-0.594, 0.049467, 0.044498],
+              [-0.594, 0.06, 0.04792],
+              [-0.594, 0.070533, 0.044498],
+              [-0.594, 0.077043, 0.035538]
+            ],
+            "cen": [-0.578, 0.06, 0.03],
+            "paint": "gunmetal"
+          }
+        ]
+      },
+      {
+        "kind": "poly",
+        "name": "thruster glow",
+        "faces": [
+          {
+            "role": "window",
+            "sh": 0.7513,
+            "p": [
+              [-0.5945, 0.073087, 0.034252],
+              [-0.5945, 0.068088, 0.041132],
+              [-0.5925, 0.068088, 0.041132],
+              [-0.5925, 0.073087, 0.034252]
+            ],
+            "cen": [-0.5935, 0.06, 0.03],
+            "tint": [150, 168, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.963712,
+            "p": [
+              [-0.5945, 0.068088, 0.041132],
+              [-0.5945, 0.06, 0.04376],
+              [-0.5925, 0.06, 0.04376],
+              [-0.5925, 0.068088, 0.041132]
+            ],
+            "cen": [-0.5935, 0.06, 0.03],
+            "tint": [150, 168, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.973261,
+            "p": [
+              [-0.5945, 0.06, 0.04376],
+              [-0.5945, 0.051912, 0.041132],
+              [-0.5925, 0.051912, 0.041132],
+              [-0.5925, 0.06, 0.04376]
+            ],
+            "cen": [-0.5935, 0.06, 0.03],
+            "tint": [150, 168, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.816747,
+            "p": [
+              [-0.5945, 0.051912, 0.041132],
+              [-0.5945, 0.046913, 0.034252],
+              [-0.5925, 0.046913, 0.034252],
+              [-0.5925, 0.051912, 0.041132]
+            ],
+            "cen": [-0.5935, 0.06, 0.03],
+            "tint": [150, 168, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.72,
+            "p": [
+              [-0.5945, 0.046913, 0.034252],
+              [-0.5945, 0.046913, 0.025748],
+              [-0.5925, 0.046913, 0.025748],
+              [-0.5925, 0.046913, 0.034252]
+            ],
+            "cen": [-0.5935, 0.06, 0.03],
+            "tint": [150, 168, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.616342,
+            "p": [
+              [-0.5945, 0.046913, 0.025748],
+              [-0.5945, 0.051912, 0.018868],
+              [-0.5925, 0.051912, 0.018868],
+              [-0.5925, 0.046913, 0.025748]
+            ],
+            "cen": [-0.5935, 0.06, 0.03],
+            "tint": [150, 168, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.448648,
+            "p": [
+              [-0.5945, 0.051912, 0.018868],
+              [-0.5945, 0.06, 0.01624],
+              [-0.5925, 0.06, 0.01624],
+              [-0.5925, 0.051912, 0.018868]
+            ],
+            "cen": [-0.5935, 0.06, 0.03],
+            "tint": [150, 168, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.439099,
+            "p": [
+              [-0.5945, 0.06, 0.01624],
+              [-0.5945, 0.068088, 0.018868],
+              [-0.5925, 0.068088, 0.018868],
+              [-0.5925, 0.06, 0.01624]
+            ],
+            "cen": [-0.5935, 0.06, 0.03],
+            "tint": [150, 168, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.550895,
+            "p": [
+              [-0.5945, 0.068088, 0.018868],
+              [-0.5945, 0.073087, 0.025748],
+              [-0.5925, 0.073087, 0.025748],
+              [-0.5925, 0.068088, 0.018868]
+            ],
+            "cen": [-0.5935, 0.06, 0.03],
+            "tint": [150, 168, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.62,
+            "p": [
+              [-0.5945, 0.073087, 0.025748],
+              [-0.5945, 0.073087, 0.034252],
+              [-0.5925, 0.073087, 0.034252],
+              [-0.5925, 0.073087, 0.025748]
+            ],
+            "cen": [-0.5935, 0.06, 0.03],
+            "tint": [150, 168, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.8,
+            "p": [
+              [-0.5925, 0.073087, 0.034252],
+              [-0.5925, 0.068088, 0.041132],
+              [-0.5925, 0.06, 0.04376],
+              [-0.5925, 0.051912, 0.041132],
+              [-0.5925, 0.046913, 0.034252],
+              [-0.5925, 0.046913, 0.025748],
+              [-0.5925, 0.051912, 0.018868],
+              [-0.5925, 0.06, 0.01624],
+              [-0.5925, 0.068088, 0.018868],
+              [-0.5925, 0.073087, 0.025748]
+            ],
+            "cen": [-0.5935, 0.06, 0.03],
+            "tint": [150, 168, 255]
+          },
+          {
+            "role": "window",
+            "sh": 0.55,
+            "p": [
+              [-0.5945, 0.073087, 0.025748],
+              [-0.5945, 0.068088, 0.018868],
+              [-0.5945, 0.06, 0.01624],
+              [-0.5945, 0.051912, 0.018868],
+              [-0.5945, 0.046913, 0.025748],
+              [-0.5945, 0.046913, 0.034252],
+              [-0.5945, 0.051912, 0.041132],
+              [-0.5945, 0.06, 0.04376],
+              [-0.5945, 0.068088, 0.041132],
+              [-0.5945, 0.073087, 0.034252]
+            ],
+            "cen": [-0.5935, 0.06, 0.03],
+            "tint": [150, 168, 255]
+          }
+        ],
+        "whenNot": "parked"
+      }
+    ]
+  }
+}

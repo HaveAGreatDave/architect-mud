@@ -44,7 +44,7 @@ import { getBroadcast, setBroadcast } from '../../server/engine/messaging.js';
 import { _test as truckTest, repush } from './index.js';
 import { TRAILER_TYPES, trailersAt, trailersOf, getTrailer, buyTrailer, hitchTrailer, dropTrailer, saveLoad, canDrop,
   posed, stockPose, stockSlots, findStockPose, STOCK_GAP, standStock, boxColour, boxLivery, paintTrailer, BOX_GREY,
-  sellTrailer, trailerResale } from './trailers.js';
+  sellTrailer, trailerResale, setTrailerBody, trailersNear, refreshStanding } from './trailers.js';
 import { runScale, scaleAt, clearCustoms, afterDrive } from './scale.js';
 import { lockTick, lockVerdict, lockSelects, _forceLockDraw, doorDown, _test as lockTest } from './lock.js';
 import { emit } from '../../server/engine/events.js';
@@ -4955,6 +4955,34 @@ async function regressBody({ run, check, getPlayer }) {
       check("…and not a box that isn't yours", !(await paintTrailer(painted.id, 'someone_else', '#000000')));
       check("…and the repaint is what's read back", boxColour(await getTrailer(painted.id)) === '#123f6b');
       await query('DELETE FROM trailers WHERE id = ANY($1)', [[painted.id, bare.id]]).catch(() => {});
+    }
+  }
+
+  // ── A BOX'S BODY IS THE BOX'S (hover-rigs.md phase 6) ──────────────────────
+  // A trailer body rides the variant as ~t<id>, read off the ROW, so a box looks the same whoever pulls
+  // it. One body per kind; anything else on the row draws the stock box.
+  {
+    const { TRAILER_BODIES, trailerKindOf, bodyOf, bodySuffix, bodyPrice } = await import('./trailer-bodies.js');
+    const tank = { kg: 2600, ratedKg: 6000 }, flat = { kg: 900, ratedKg: 2200 };
+    check('trailer body: a row is matched to its kind', trailerKindOf(tank) === 'tank' && trailerKindOf(flat) === 'flat');
+    check('trailer body: a tanker in the cryo body says ~tcryo', bodySuffix({ ...tank, body: 'cryo' }) === '~tcryo');
+    check('trailer body: a body for another kind, or a retired id, is the stock box',
+      bodyOf({ ...flat, body: 'cryo' }) === null && bodyOf({ ...tank, body: 'gone' }) === null && bodySuffix(tank) === '');
+    check('trailer body: every body has a mesh the renderer reads',
+      Object.keys(TRAILER_BODIES).every((id) => aircraftFaces('truck', 1, false, 'hauler+t~t' + id).length !== aircraftFaces('truck', 1, false, 'hauler+t').length));
+    check('trailer body: priced off its box', bodyPrice({ ...tank }, 'cryo') === Math.round(8800 * 0.6), bodyPrice(tank, 'cryo'));
+    const me = getPlayer();
+    const depotZone = truckTest.allDepots().find(d => truckTest.depotFrom(d.id)?.yard?.grid_x != null);
+    const ctx = depotZone ? truckTest.depotFrom(depotZone.id) : null;
+    if (ctx?.yard) {
+      const t = await buyTrailer(me.id, 'tank', ctx.yard.id, { x: ctx.yard.grid_x, y: ctx.yard.grid_y, heading: 0 }, null);
+      check('trailer body: fitted on the row by its owner only',
+        await setTrailerBody(t.id, me.id, 'cryo') && !(await setTrailerBody(t.id, 'someone_else', null)) && (await getTrailer(t.id)).body === 'cryo');
+      await refreshStanding(ctx.yard.id);
+      const drawn = trailersNear([ctx.yard.id], ctx.yard.grid_x, ctx.yard.grid_y).find((c) => c.trailerId === t.id);
+      check('trailer body: a dropped one is drawn in its body', /~s~tcryo$/.test(drawn?.variant || ''), drawn?.variant);
+      await query('DELETE FROM trailers WHERE id = $1', [t.id]).catch(() => {});
+      await refreshStanding(ctx.yard.id);
     }
   }
 

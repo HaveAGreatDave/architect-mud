@@ -33,7 +33,8 @@ const MIN_SLOTS = 4;
 for (const [id, params] of Object.entries(MESH_ROWS)) {
   const model = id in MESH_MODEL ? MESH_MODEL[id] : id;
   // A truck is painted by the booth through its roles and `pk` (client/shared/truck-livery.js), not slots.
-  if (!model || params.truck) continue;
+  // A trailer body takes the box's own colour (`deck`) and fixed slots, never a livery of its own.
+  if (!model || params.truck || params.trailer) continue;
   const slots = Object.keys(params.paints || {}).length;
   if (slots < MIN_SLOTS) problems.push('mesh_' + id + ' has ' + slots + ' paint slot(s); every aircraft gets at least ' + MIN_SLOTS + ' so its factory scheme lands on chosen parts');
   const d = defaultLivery('aircraft', model);

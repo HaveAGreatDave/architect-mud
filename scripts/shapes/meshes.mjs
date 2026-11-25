@@ -67,7 +67,7 @@ for (const [id, [cls, v]] of variantOf) {
   if (meshDiff(m.aircraftFaces(cls, 1, false, v), compileMesh(doc.params, { detail: 1 }).faces)) problems.push('mesh_' + id + '.json: aircraftFaces(' + cls + ', ' + v + ') returns something other than the file');
 }
 for (const { doc } of docs) {
-  if (variantOf.has(doc.id) || doc.params.truck) continue;
+  if (variantOf.has(doc.id) || doc.params.truck || doc.params.trailer) continue;
   const cls = armedOf.get(doc.id) || doc.id, armed = armedOf.has(doc.id);
   if (m.meshIdFor(cls, armed) !== doc.id) { problems.push('mesh_' + doc.id + '.json: aircraftFaces(' + cls + (armed ? ', armed' : '') + ') does not draw it'); continue; }
   const live = m.aircraftFaces(cls, 1, armed, '');
@@ -78,7 +78,7 @@ const ws = readFileSync(new URL('../../client/game/js/panels/windshield.js', imp
 const vc = ws.match(/export const VEHICLE_CLASSES = \[([^\]]*)\]/);
 const classes = vc ? [...vc[1].matchAll(/'([^']+)'/g)].map((x) => x[1]) : [];
 for (const { doc } of docs) {
-  if (armedOf.has(doc.id) || variantOf.has(doc.id) || doc.params.truck) continue;
+  if (armedOf.has(doc.id) || variantOf.has(doc.id) || doc.params.truck || doc.params.trailer) continue;
   if (!classes.includes(doc.id)) problems.push('mesh_' + doc.id + '.json: class ' + doc.id + ' is not in VEHICLE_CLASSES (windshield.js), so no smoke and no Modelshop subject reaches it');
 }
 
@@ -225,6 +225,57 @@ for (const { file, doc } of docs) {
     if (meshDiff(live, want)) problems.push(ef.file + ': aircraftFaces(truck, ' + type + '+t~e' + ed + ') does not draw it');
   }
 }
+
+// 8 — a trailer body (mesh_trailer_<id>.json, written by a concepts/ generator) is keyed on the trailer:
+// behind every tractor and edition, hitched, parked and dropped, it's the same box. Nothing of it is
+// forward of the pin, its nose is no wider than the Barrow's box nose, so it clears every cab back at
+// 90 degrees; a dropped one stands on the ground anchored on its pin; the tail lamps sit on its own back;
+// and the file is what `~t<id>` draws.
+const TRACTORS = ['scrapper', 'hauler', 'drayman', 'continental'].flatMap((t) => [t, t + '~e2076']);
+const hitch = (t, s) => t.replace(/^[a-z]+/, (type) => type + '+t' + s);
+let bodies = 0;
+for (const { file, doc } of docs) {
+  const B = doc.params.trailer;
+  if (!B) continue;
+  const id = doc.id.replace(/^trailer_/, '');
+  if (doc.id !== 'trailer_' + id) { problems.push(file + ': a trailer body\'s id is trailer_<name>'); continue; }
+  let ok = true, len = null;
+  for (const t of TRACTORS) for (const s of ['~t' + id, '~t' + id + '~p', '~t' + id + EVERY]) for (const detail of [1, 0]) {
+    const v = hitch(t, s);
+    const faces = m.aircraftFaces('truck', detail, false, v), meta = m.truckMeta(v + ':' + detail);
+    const st = meshStats(faces);
+    if (!faces.length || st.nonFinite || !meta) { problems.push(file + ' ' + v + ': does not build'); ok = false; break; }
+    let lo = Infinity, hi = -Infinity;
+    for (const f of faces) if (f.deck) for (const p of f.p) { lo = Math.min(lo, p[0]); hi = Math.max(hi, p[0]); }
+    if (hi > meta.pin + 1e-9) { problems.push(file + ' ' + v + ': the body stands forward of the pin'); ok = false; break; }
+    if (detail === 1 && !s.includes('~p')) {
+      const L = meta.pin - lo;
+      if (len == null) len = L;
+      else if (Math.abs(L - len) > 1e-9) { problems.push(file + ' ' + v + ': ' + L.toFixed(4) + ' long behind this tractor and ' + len.toFixed(4) + ' behind another'); ok = false; break; }
+      if (meta.boxHalf !== B.boxHalf || meta.pin + meta.boxHalf > meta.cabBack) { problems.push(file + ' ' + v + ': its nose reaches the cab back before 90 degrees'); ok = false; break; }
+      const tail = m.vehicleLamps('truck', v).tail[1];
+      if (Math.abs(tail[0] - (meta.pin + B.tail[0])) > 1e-9) { problems.push(file + ' ' + v + ': the tail lamps are not on the body'); ok = false; break; }
+    }
+    if (!ok) break;
+  }
+  if (!ok) continue;
+  if (B.boxHalf > 0.0999 + 1e-9) problems.push(file + ': its nose (' + B.boxHalf + ') is wider than the Barrow\'s box nose');
+  const solo = m.aircraftFaces('truck', 1, false, 'hauler+t~s~t' + id), sm = m.truckMeta('hauler+t~s~t' + id + ':1');
+  let fmax = -Infinity, zmin = Infinity;
+  for (const f of solo) for (const p of f.p) { fmax = Math.max(fmax, p[0]); zmin = Math.min(zmin, p[2]); }
+  if (Math.abs(fmax) > 1e-9 || Math.abs(zmin) > 1e-9 || sm.pin != null) problems.push(file + ': a dropped one is not anchored on its pin and stood on the ground');
+  // The renderer reads the file: nudge it and the rig must move.
+  const bent = JSON.parse(JSON.stringify(doc.params));
+  const pod = bent.parts.find((p) => p.kind === 'box');
+  pod.z[1] += 0.01;
+  const before = m.aircraftFaces('truck', 1, false, 'drayman+t~t' + id);
+  m.setMeshOverride(doc.id, bent);
+  const after = m.aircraftFaces('truck', 1, false, 'drayman+t~t' + id);
+  m.setMeshOverride(doc.id, null);
+  if (!meshDiff(before, after)) problems.push(file + ': a nudged copy draws the same rig, so ~t' + id + ' is not reading the file');
+  bodies++;
+}
+if (!bodies) problems.push('no trailer bodies found (mesh_trailer_*.json)');
 
 for (const n of notes) console.log('  note: ' + n);
 if (problems.length) {

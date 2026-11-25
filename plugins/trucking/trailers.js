@@ -29,6 +29,7 @@
 import { query } from '../../server/models/db.js';
 import { randomUUID } from 'crypto';
 import { truckLivery } from '../../client/shared/truck-livery.js';   // stored paint → renderer livery, the one conversion
+import { bodySuffix } from './trailer-bodies.js';
 
 // The dealer's line of boxes. Deliberately short: a trailer is not a second fleet ladder to climb,
 // it is the thing that makes the truck you already bought useful. Rated capacity is what the weigh
@@ -45,7 +46,7 @@ export const TRAILER_TYPES = [
 ];
 export const trailerType = (id) => TRAILER_TYPES.find(t => t.id === id) || null;
 
-const SELECT = 'id, name, owner_id, kg, rated_kg, parked_zone, towed_by, cargo, stash, condition, park_x, park_y, park_heading, paint';
+const SELECT = 'id, name, owner_id, kg, rated_kg, parked_zone, towed_by, cargo, stash, condition, park_x, park_y, park_heading, paint, body';
 
 const shape = (r) => r && ({
   id: r.id, name: r.name, ownerId: r.owner_id,
@@ -63,6 +64,8 @@ const shape = (r) => r && ({
   y: r.park_y == null ? null : Number(r.park_y),
   heading: r.park_heading == null ? null : Number(r.park_heading),
   paint: r.paint || null,
+  // The 2076 body it wears, or null for the stock box (trailer-bodies.js).
+  body: r.body || null,
 });
 // Has this box got a real place in the world, or is it just somewhere in the room? One predicate,
 // because "is it drawable" and "can I back under it" are the same question and must never drift.
@@ -214,7 +217,7 @@ export function trailersNear(zoneIds, x, y, range = 26) {
       if (!posed(t)) continue;                     // no pose, nothing to draw — the yard lists it instead
       if (Math.max(Math.abs(x - t.x), Math.abs(y - t.y)) > range) continue;
       out.push({
-        id: `trailer_${t.id}`, cls: 'truck', variant: `${meshShapeFor(t)}+t~s`,
+        id: `trailer_${t.id}`, cls: 'truck', variant: `${meshShapeFor(t)}+t~s${bodySuffix(t)}`,
         x: t.x, y: t.y, hdg: t.heading ?? 0,
         ias: 0, alt: 0, band: 'ground', onGround: true, groundZ: 0, altDiff: 0,
         bank: 0, pitch: 0, vs: 0, hullPct: Math.round((t.condition ?? 1) * 100),
@@ -492,6 +495,13 @@ export async function sellTrailer(trailerId, ownerId) {
 export async function paintTrailer(trailerId, ownerId, colour) {
   const { rowCount } = await query('UPDATE trailers SET paint = $1 WHERE id = $2 AND owner_id = $3',
     [JSON.stringify({ base: String(colour).toLowerCase() }), trailerId, ownerId]).catch(() => ({ rowCount: 0 }));
+  return rowCount > 0;
+}
+
+// Fitting a body (null for the stock box). Guarded on the owner, as paint is.
+export async function setTrailerBody(trailerId, ownerId, body) {
+  const { rowCount } = await query('UPDATE trailers SET body = $1 WHERE id = $2 AND owner_id = $3',
+    [body || null, trailerId, ownerId]).catch(() => ({ rowCount: 0 }));
   return rowCount > 0;
 }
 

@@ -10,6 +10,7 @@ import { applyDamage, impactSplit, grindSplit, IMPACT_AREAS, damageOf, overall, 
 import { grimeOf, grimeBand, washCost } from './filth.js';
 import { FITTINGS, FIT_IDS, SLOTS, installedFits, fitInSlot, fitSuffix, priceFor } from './fittings.js';
 import { editionOf, editionSuffix, editionCatalogue, lotEdition } from './editions.js';
+import { TRAILER_BODIES, bodiesFor, bodyOf, bodySuffix, bodyPrice } from './trailer-bodies.js';
 import { TRINKETS, TRINKET_IDS, CAB_SLOTS, installedTrinkets, trinketPrice } from '../../client/shared/cab-trinkets.js';
 import { sendToPlayer, sendToZone, teachVerb } from '../../server/engine/messaging.js';
 import { on } from '../../server/engine/events.js';
@@ -145,7 +146,7 @@ import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { TRAILER_TYPES, trailerType, trailersAt, trailersOf, getTrailer, trailerOnTruck,
   buyTrailer, hitchTrailer, dropTrailer, saveLoad, canDrop, declaredKg, actualKg, stashKg, setTrailerCondition,
   hitchReach, posed, refreshStanding, stockPose, findStockPose, standStock, paintTrailer, boxColour,
-  sellTrailer, trailerResale } from './trailers.js';
+  sellTrailer, trailerResale, setTrailerBody } from './trailers.js';
 
 export const say = (msg) => ({ type: 'emote', message: msg });
 
@@ -669,6 +670,8 @@ async function cmdYard(args, raw, player) {
   if (sub === 'recall' || sub === 'fetch' || sub === 'tow') return await yardRecall(player, bay, args[1]);
   // Painting a box lives on `yard`, not `rig`: `rig` takes a truck, and a trailer is one colour.
   if (sub === 'paint') return await yardPaintTrailer(player, bay, depot, args[1], args[2]);
+  // A box's 2076 body (trailer-bodies.js) is fitted here for the same reason: it's the box's.
+  if (sub === 'body') return await yardBodyTrailer(player, bay, depot, args[1], args[2]);
   // The hire desk (rental.js): the second way to have a truck, beside buying one.
   if (sub === 'rent' || sub === 'hire') return await yardRent(player, bay, depot, args[1]);
   if (sub === 'return' || sub === 'handback') return await yardReturn(player, bay, depot, args[1]);
@@ -917,11 +920,12 @@ async function depotPanel(player, hereIn, depotIn, tab = 'fleet', forceText = fa
       const kits = installedKits(cd);
       const band = bandOf(t.condition ?? 1);
       const towed = towedIds.has(t.id);
+      const box = towed ? myTrailers.find((b) => b.towedBy === t.id) : null;
       return {
         id: t.id, name: t.name || t.type.name, type: t.type.name, typeId: t.type_id,
         // The mesh key (+t for a trailer, plus the fittings suffix). A fact about the truck, never
         // decided by the panel.
-        variant: `${t.type_id}${towed ? '+t' : ''}${editionSuffix(cd, t.type_id)}${fitSuffix(cd)}`,
+        variant: `${t.type_id}${towed ? '+t' + bodySuffix(box) : ''}${editionSuffix(cd, t.type_id)}${fitSuffix(cd)}`,
         // The body on it, and the bench's list ('stock' first; empty for a truck with only the one).
         edition: editionOf(cd, t.type_id) || 'stock', editionCat: editionCatalogue(cd, t.type_id, t.type),
         kg: t.type.kg, tank: t.type.tank, tankL: t.type.tankL, top: t.type.topSpeed, price: t.type.price,
@@ -1280,6 +1284,51 @@ async function yardPaintTrailer(player, bay, depot, want, colour) {
   await Promise.all(zones.map(z => refreshStanding(z)));
   await repush(player, 'fleet');
   return say(`<span class="item-grant">Painted: ${BOX_PAINT_FEE}₵.</span> <span class="text-dim">${box.name}, and the overspray is on the concrete for a week.</span>`);
+}
+
+// ── yard body ──
+// A 2076 body on a box standing here, or the stock box back. One body per kind of box; going back to
+// stock is free and the yard keeps nothing (trailer-bodies.js). The box has to be here, as for paint.
+async function yardBodyTrailer(player, bay, depot, want, bodyArg) {
+  const here = getZone(yardIdOf(bay, depot)) || bay;
+  const zones = hitchZones(bay?.id || here.id);
+  const mine = [];
+  for (const z of zones) for (const t of await trailersAt(z)) if (t.ownerId === player.id) mine.push(t);
+  if (!mine.length) return say('You have no box standing in this yard.');
+  const w = String(want || '').toLowerCase();
+  let box = w ? (mine.find(t => t.id.toLowerCase() === w) || mine.find(t => (t.name || '').toLowerCase().includes(w))) : null;
+  // `yard body cryo` with one box: the word was the body, not the box.
+  if (!box && mine.length === 1 && (!w || TRAILER_BODIES[w] || w === 'stock')) { box = mine[0]; if (w) bodyArg = w; }
+  if (!box) return say('Which box? ' + mine.map(t => `<span class="action-link" data-action="cmd" data-cmd="yard body ${t.id}">${t.name}</span>`).join(', '));
+  const fits = bodiesFor(box), cur = bodyOf(box);
+  if (!fits.length) return say(`There's no 2076 body for ${box.name} yet.`);
+  const b = String(bodyArg || '').toLowerCase();
+  if (!b) {
+    const rows = [['stock', { name: 'Stock box', desc: 'The box it left the yard as.' }], ...fits].map(([id, x]) =>
+      `  <span class="action-link" data-action="cmd" data-cmd="yard body ${box.id} ${id}">${x.name}</span>${(cur || 'stock') === id ? ' <span class="text-dim">(on it)</span>' : ''}${id === 'stock' ? '' : ` <span class="text-dim">${bodyPrice(box, id)}₵</span>`}\n  <span class="text-dim">${x.desc}</span>`);
+    return say(`<span class="text-cyan">BODIES: ${box.name}</span>\n${rows.join('\n')}`);
+  }
+  if (b === 'stock') {
+    if (!cur) return say(`${cap(box.name)} is already the stock box.`);
+    if (!await setTrailerBody(box.id, player.id, null)) return say("That box isn't yours.");
+  } else {
+    const body = TRAILER_BODIES[b];
+    if (!body || !fits.some(([id]) => id === b)) return say(`That doesn't fit ${box.name}. <span class="text-dim">${fits.map(([id]) => id).join(', ')} or stock</span>`);
+    if (cur === b) return say(`${cap(box.name)} already wears the ${body.name}.`);
+    const price = bodyPrice(box, b);
+    if ((player.credits || 0) < price) return say(`The ${body.name} is ${price}₵ and you have ${player.credits || 0}₵.`);
+    if (!await setTrailerBody(box.id, player.id, b)) return say("That box isn't yours.");
+    if (!(await adjustCredits(player, -price, undefined, 'trucking:box-body'))) {
+      await setTrailerBody(box.id, player.id, cur);
+      return say(`That's ${price}₵ and you have ${player.credits || 0}₵.`);
+    }
+    sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
+  }
+  await Promise.all(zones.map(z => refreshStanding(z)));
+  await repush(player, 'fleet');
+  return say(b === 'stock'
+    ? `<span class="item-grant">${cap(box.name)} is the stock box again.</span> <span class="text-dim">The yard scraps the old panels.</span>`
+    : `<span class="item-grant">Fitted: the ${TRAILER_BODIES[b].name}, ${bodyPrice(box, b)}₵.</span> <span class="text-dim">Same box underneath, same weight on the scale.</span>`);
 }
 
 // ── Recovery: getting a truck home you didn't drive home ──

@@ -1993,11 +1993,15 @@ export function vehicleLamps(cls, variant = '') {
   aircraftFaces('truck', 1, false, variant || 'hauler');
   const meta = TRUCK_META.get(String(variant || 'hauler') + ':1') || { shift: 0, drop: 0, pods: [] };
   const at = (f, g, h) => [f - meta.shift, g, h - meta.drop];
+  // A trailer body carries its own tail pair, on its own rear face (only when the file draws the truck).
+  const body = /\+t/.test(String(variant)) ? trailerBodyRow(variant) : null;
+  const pin = (S.pin[0] + S.pin[1]) / 2, bt = body?.trailer.tail;
   return {
     head: [at(L.lampF + 0.004, -L.lampG, L.lampMidZ), at(L.lampF + 0.004, L.lampG, L.lampMidZ)],
     // Tail lamps move to the box's rear face when a trailer is on (`+t`), or a loaded rig shows none.
     // `tailDeck` tells the renderer to swing them about the kingpin with the trailer.
-    tail: /\+t/.test(String(variant))
+    tail: bt ? [at(pin + bt[0], -bt[1], bt[2]), at(pin + bt[0], bt[1], bt[2])]
+      : /\+t/.test(String(variant))
       ? [at(L.frame0 + 0.06 - S.deck - 0.004, -S.w * 0.86, 0.105),
          at(L.frame0 + 0.06 - S.deck - 0.004, S.w * 0.86, 0.105)]
       : [at(L.frame0 + 0.004, -S.w * 0.66, 0.085), at(L.frame0 + 0.004, S.w * 0.66, 0.085)],
@@ -3535,11 +3539,15 @@ function truckMeshFaces(row, variant, detail) {
   const FITS = new Set(str.match(/\^([a-z.]+)/)?.[1].split('.') || []);
   const on = (ch) => ch === 'trailer' ? hitched : ch === 'parked' ? parked : ch.startsWith('fit_') ? FITS.has(ch.slice(4)) : false;
   const all = compileMesh(row, { detail, finish: false }).faces;
+  // A trailer body (`~t<id>`) takes the place of the file's own box: keyed on the trailer, so a box
+  // looks the same whoever pulls it. It's hung on this tractor's pin; nothing of the tractor moves.
+  const body = hitched ? trailerBodyRow(str) : null;
   const faces = [], ids = new Map();
   let tractorFaces = -1;
   for (const f of all) {
     if (f.when && !on(f.when)) continue;
     if (f.whenNot && on(f.whenNot)) continue;
+    if (body && f.when === 'trailer') continue;
     // A fitting's faces are skipped by the centring, so a bolt-on never moves the lamps, door or pin.
     if (f.when && f.when.startsWith('fit_')) f.fit = 1;
     // The trailer is last in the file, so its first face is where the tractor ends.
@@ -3552,10 +3560,35 @@ function truckMeshFaces(row, variant, detail) {
   }
   if (tractorFaces < 0) tractorFaces = faces.length;
   const T = row.truck;
+  if (body) {
+    const B = body.trailer, PIN = (T.pin[0] + T.pin[1]) / 2;
+    const seen = new Set();
+    for (const f of compileMesh(body, { detail, finish: false }).faces) {
+      if (f.when && !on(f.when)) continue;
+      if (f.whenNot && on(f.whenNot)) continue;
+      delete f.when; delete f.whenNot;
+      // Moved onto the pin through a Set: a box part shares its corners and centre between faces.
+      for (const p of [f.cen, ...f.p]) if (p && !seen.has(p)) { seen.add(p); p[0] += PIN; }
+      const k = 'body:' + f.part;
+      if (!ids.has(k)) ids.set(k, ids.size + 1);
+      f.part = ids.get(k);
+      faces.push(f);
+    }
+    const pods = [...T.pods.filter((q) => !q[3]), ...B.pods.map((q) => [q[0] + PIN, q[1], q[2], true, q[4]])];
+    return finishTruck(faces, { str, detail, solo, parked, tractorFaces, pods, D: { ...T, boxHalf: B.boxHalf } });
+  }
   const pods = T.pods.filter((q) => hitched || !q[3]).map((q) => q.slice());
   finishTruck(faces, { str, detail, solo, parked, tractorFaces, pods, D: T });
   carryMeshSource(all, faces);   // the Modelshop's picking: after the solo splice, so indices line up
   return faces;
+}
+// `~t<id>` → mesh_trailer_<id>.json, a trailer body. Null for an id with no file (the stock box draws),
+// and under the legacy A/B.
+export const trailerBodyOf = (variant) => String(variant).match(/~t([a-z0-9]+)/)?.[1] || null;
+function trailerBodyRow(variant) {
+  const id = trailerBodyOf(variant);
+  const r = id && !_legacyMeshes ? meshRow('trailer_' + id) : null;
+  return r?.trailer ? r : null;
 }
 // Which file a truck variant draws from: its type's mesh file, or the edition that file names in
 // `variants`. An unknown type draws as the Courier, as it always did, and an edition the file doesn't
