@@ -16,7 +16,7 @@ let fails = 0;
 const check = (name, ok, detail = '') => { if (!ok) { fails++; console.error(`  ✗ ${name}${detail ? ' — ' + detail : ''}`); } };
 
 const { render, A } = await setup();
-const voice = JSON.parse(readFileSync(join(ROOT, 'tools/voice-fit/out/voice.json'), 'utf8')).voice;
+const voice = JSON.parse(readFileSync(join(ROOT, 'data/voice/fitted-voice.json'), 'utf8')).voice;
 const line = 'She kept the spare keys in a tin by the stove, just in case.';
 A.voiceTuning.formantNet = 0;
 

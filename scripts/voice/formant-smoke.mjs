@@ -29,7 +29,7 @@ const missing = A._phones().filter(p => !known.has(doc.alias[p] || p));
 check('every engine phone is in the controller\'s list', !missing.length, missing.join(' '));
 
 // 3. On a real line: only F1 to F3 move, within the cap, and something does move.
-const voice = JSON.parse(readFileSync(join(ROOT, 'tools/voice-fit/out/voice.json'), 'utf8')).voice;
+const voice = JSON.parse(readFileSync(join(ROOT, 'data/voice/fitted-voice.json'), 'utf8')).voice;
 const line = 'We waited by the harbour wall for hours, and nobody came.';
 A.voiceTuning.formantNet = 0; A._setFormantNet(null);
 render(line, voice); const off = render.last;
