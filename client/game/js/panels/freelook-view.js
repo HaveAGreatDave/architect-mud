@@ -684,6 +684,7 @@ export function openFreelook(ctx = {}) {
       streetTagsTick(st);   // outside on foot, a name over everybody nearby (street-tags.js)
       owSpeechTick(st, now);   // inside, what people say over their heads, and their voices from where they stand (oneworld-speech.js)
       if (st.foot) owCardTick(st, now);   // inside a building in GLASS, the card for the piece you face (oneworld-card.js)
+      if (st.foot) owPromptTick(st);   // brackets round what F works on, and the key the first few times (oneworld-prompt.js)
       // A camera put on its feet with FPS has no mount, but on the Echelon the floor is her deck,
       // not the sea — at the default eye it stood inside her hull and the deck vanished. Asked every
       // frame, because she rides the swell and you walk between her decks.
@@ -1198,8 +1199,8 @@ function footKey(s, e, k, down) {
   if (s.inside && k === 'l' && !e.ctrlKey && !e.metaKey && !e.altKey) { if (down && !e.repeat) { const z = s.inside.zone, sw = switchOf(z); saveSwitch(z, !sw.on, sw.level); owRelight(s); } return true; }
   // inside a building in GLASS, F and 2 to 9 are the card's lines while it's up (oneworld-card.js); on the street, the
   // card of somebody you've walked up to (streetCardTick)
-  if (s.owCard?.up() && (k === 'f' || /^[2-9]$/.test(k)) && !e.ctrlKey && !e.metaKey && !e.altKey) { if (down && !e.repeat) s.owCard.key(k); return true; }
-  if (k === 'f' && !e.ctrlKey && !e.metaKey) { if (down && !e.repeat && !footCallLift(s)) footDoor(s); return true; }
+  if (s.owCard?.up() && (k === 'f' || /^[2-9]$/.test(k)) && !e.ctrlKey && !e.metaKey && !e.altKey) { if (down && !e.repeat) { if (k === 'f') s.owPrompt?.used(s.owCard.target()?.act); s.owCard.key(k); } return true; }
+  if (k === 'f' && !e.ctrlKey && !e.metaKey) { if (down && !e.repeat && !footCallLift(s)) { if (footDoorNear(s)) s.owPrompt?.used(DOOR_ACT); footDoor(s); } return true; }
   // G opens the can on the building you're facing (plugins/graffiti `spraycan <dir>`; the server says what's there and
   // whether you've a can), and the dialog's SPRAY IT then runs the spray session over the street (spray-aim.js)
   if (k === 'g' && !e.ctrlKey && !e.metaKey && !e.altKey) { if (down && !e.repeat) footCan(s); return true; }
@@ -1743,6 +1744,43 @@ function streetCardTick(s, now) {
   if (!who) { s.owCard?.show(null); return; }
   if (!s.owCard) s.owCard = createOneWorldCard(s.root, (a, piece) => owAct(s, a, piece));
   s.owCard.show({ id: 'street:' + who.t, name: who.n, street: who }, [], { acts: streetActs(who) });
+}
+// THE PROMPT (oneworld-prompt.js): light brackets round what F works on, the card's piece or person or the street door
+// footDoor would take, with the key named the first few times. Where it is comes from the same places the card's
+// choice does; it chooses nothing.
+const DOOR_ACT = { verb: 'door', label: 'Go in' };
+const PROMPT_H_M = { piece: 0.75, person: 1.3, door: 1.1 }, PROMPT_W_M = { piece: 0.8, person: 0.6, door: 1.0 };
+let promptMod = null;
+function roomToTile(r, u, v) {
+  const w = r.L.world?.(u, v, 0), M = r.M;
+  return w && M ? [M[0] * w[0] + M[8] * w[2] + M[12] + r.gx, M[1] * w[0] + M[9] * w[2] + M[13] + r.gy] : null;
+}
+function promptTarget(s) {
+  const c = s.owCard?.target?.(), I = s.inside, r = I?.room;
+  if (c?.act) {
+    const p = c.piece;
+    if (p.street) return { id: p.id, act: c.act, x: p.street.x, y: p.street.y, kind: 'person' };
+    if (!r?.L || I?.sat) return null;
+    let uv = null, kind = 'piece';
+    if (p.person) { uv = placePeople(r.L, I.people, I.you).find((q) => q.p.id === p.person.id)?.at; kind = 'person'; }
+    else if (p.lock) { const o = (r.L.spec?.openings || []).find((q) => q.to === p.lock.to && q.dir); uv = o && openingInside(r.L, o)?.at; kind = 'door'; }
+    else { const q = (r.L.placed || []).find((z) => String(z.id) === String(p.id)); uv = q && [q.u, q.v]; }
+    const at = uv && roomToTile(r, uv[0], uv[1]);
+    return at ? { id: String(p.id), act: c.act, x: at[0], y: at[1], kind } : null;
+  }
+  const hit = !I && footDoorNear(s);
+  return hit ? { id: 'door:' + hit.d.gx + ',' + hit.d.gy + ',' + hit.d.edge, act: DOOR_ACT, x: hit.px, y: hit.py, kind: 'door' } : null;
+}
+function owPromptTick(s) {
+  if (!s.owPrompt) {
+    if (!promptMod) promptMod = import('./oneworld-prompt.js').then((m) => { promptMod = m; }).catch(() => { promptMod = null; });
+    if (promptMod instanceof Promise) return;
+    s.owPrompt = promptMod.createOneWorldPrompt(s.root);
+  }
+  const v = s.freeCam.view(), W = s.root.clientWidth, t = v && !s.packCam ? promptTarget(s) : null;
+  if (t) { t.dz = m2tf(PROMPT_H_M[t.kind]) - FPS_EYE; t.w = m2tf(PROMPT_W_M[t.kind]); }
+  const eye = v ? { x: s.gx + v.x, y: s.gy + v.y, yaw: v.yaw || 0, pitch: v.pitch || 0 } : null;
+  s.owPrompt.tick(t, eye, W ? viewLatFocal(W, { fovMul: v?.fov || 1 }) : 0, state.player?.name || null);
 }
 // NAMETAGS (street-tags.js): on foot and outside, a name over everybody nearby the server has named for you. A click on
 // one holds the card on them, as a click on the figure does. Loaded the first time you're on foot outside.
@@ -3131,9 +3169,10 @@ function bayWalk(s, now, dt) {
 // F AT A DOOR: open it and go in. Stood on a building's doorstep within reach of its doorway, the door is held
 // open and the step through it is the ordinary 'move <dir>' (watchFoot's), so the Room Stage takes the pane as it
 // does for somebody who walks in.
-function footDoor(s) {
+// The street door F would take you in by from where you stand, or null: footDoor's own test, which the prompt reads too.
+function footDoorNear(s) {
   const f = s.foot, fv = s.freeCam.view();
-  if (!f || !fv || !s.map || f.pending) return;
+  if (!f || !fv || !s.map || f.pending || s.inside) return null;
   const ax = s.gx + fv.x, ay = s.gy + fv.y, T = f.tile;
   for (const d of f.doors) {
     const E = EDGE_VEC[d.edge];
@@ -3142,6 +3181,15 @@ function footDoor(s) {
     if (!g) continue;
     const [px, py] = g.at(0, g.wall);
     if (Math.hypot(px - ax, py - ay) > DOOR_NEAR + (0.5 - g.wall)) continue;
+    return { d, g, px, py, ax, ay };
+  }
+  return null;
+}
+function footDoor(s) {
+  const f = s.foot, hit = footDoorNear(s);
+  if (!hit) return;
+  const { d, g, ax, ay } = hit;
+  {
     const now = performance.now();
     // a plain door (the Cherry Pit's bars) swings open first, and only then does the street go dark; an automatic
     // glass pair is already apart by the time you're close enough to press F
@@ -3160,7 +3208,6 @@ function footDoor(s) {
       f.onMove(`footstep ${d.gx} ${d.gy}`);
     };
     if (wait) setTimeout(go, wait); else go();
-    return;
   }
 }
 

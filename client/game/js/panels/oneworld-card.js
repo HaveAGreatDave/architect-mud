@@ -109,6 +109,8 @@ export function createOneWorldCard(root, onAct) {
       return false;
     },
     up: () => !!key,
+    // what's on the card and what F does to it (oneworld-prompt.js marks it)
+    target: () => (key && shown ? { piece: shown, act: acts[0] || null } : null),
     remove() { el.remove(); },
   };
 }

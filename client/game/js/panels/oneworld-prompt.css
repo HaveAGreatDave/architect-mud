@@ -1,0 +1,27 @@
+/* ONE WORLD · THE PROMPT (oneworld-prompt.js): light ( ) brackets round what F works on, and the key while it's new. */
+.ow-prompt {
+	position: absolute; left: 0; top: 0; z-index: 4; pointer-events: none;
+	width: 0; height: 0; --ow-size: 48px;
+}
+.ow-prompt[hidden] { display: none; }
+.ow-br {
+	position: absolute; top: calc(var(--ow-size) / -2); width: calc(var(--ow-size) / 4); height: var(--ow-size);
+	border: 2px solid color-mix(in srgb, var(--accent) 80%, white); opacity: 0.7;
+	filter: drop-shadow(0 0 3px color-mix(in srgb, var(--accent) 60%, transparent));
+	animation: ow-br-breathe 1.8s ease-in-out infinite;
+}
+.ow-br-l { right: calc(var(--ow-size) / 2.6); border-right: none; border-radius: 100% 0 0 100% / 50% 0 0 50%; }
+.ow-br-r { left: calc(var(--ow-size) / 2.6); border-left: none; border-radius: 0 100% 100% 0 / 0 50% 50% 0; }
+@keyframes ow-br-breathe { 50% { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) { .ow-br { animation: none; } }
+.ow-prompt-say {
+	position: absolute; left: 0; top: calc(var(--ow-size) / 2 + 8px); transform: translateX(-50%);
+	white-space: nowrap; padding: 3px 8px; border-radius: 4px;
+	background: color-mix(in srgb, var(--bg) 80%, transparent); color: var(--text);
+	font: 600 0.8125rem var(--font-mono); letter-spacing: 0.02em;
+}
+.ow-prompt-say:empty { display: none; }
+.ow-prompt.teach .ow-br { opacity: 0.95; }
+/* a touch screen has no F: the brackets stay, the key line doesn't */
+@media (pointer: coarse) { .ow-prompt-say { display: none; } }
+body:has(#dialogue-panel.active) .ow-prompt { display: none; }
