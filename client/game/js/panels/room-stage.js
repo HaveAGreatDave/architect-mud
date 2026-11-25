@@ -49,6 +49,7 @@ import { takeDoor, keepStill, stillFor, takeCarry } from './lobby-still.js';
 import { createWallTv, paintBoot, BOOT_S, quadUV } from './room-tv.js';
 import { createRoomLocks } from './room-lock.js';
 import { createRoomEnvctl } from './room-envctl.js';
+import { feedRequest } from './room-feed.js';
 import { createPack } from './room-pack.js';
 import { createCloseup } from './room-closeup.js';
 import { createTalkShot } from './room-talk.js';
@@ -3575,6 +3576,8 @@ function openStage(msg) {
     const join = ax ? null : joinFrame(now);
     // the Pack open: the camera round you (packCamNow)
     const packed = !join && !ax && !cook && S.packCam ? packCamNow(now) : null;
+    // a flat's door panel showing its camera: the landing drawn again from the camera's eye (room-feed.js)
+    const feed = feedRequest(now, msg.zone, nextDoor, S.feedAt || (S.feedAt = { at: 0 }));
     // a Cup close up: the camera round it (room-closeup.js)
     const close = !join && !ax && !cook && !packed && S.closeup?.on ? S.closeup.frame(now) : null;
     // a conversation: the camera on who you're talking to (room-talk.js)
@@ -3598,7 +3601,7 @@ function openStage(msg) {
     // where the picture is taken from, for who is drawn close up (posePeople)
     S.viewEye = (join?.cam || ax?.cam || cook?.cam || packed || vatcam || close || talk || null)?.eye || null;
     const topCam = !join && !ax && !cook && !packed && !close && !talk ? pokerTopCam() : null;
-    R.render(join?.cam || ax?.cam || cook?.cam || packed || vatcam || close || talk || topCam || seat, { lamps: S.mesh.lamps, next: nextLit(Lr, seat.eye), lampOn, lampLevel: (power === 'low' ? lampLevel * EMERGENCY_K : lampLevel) * (S.spec.dim ?? 1), vatGain: S.spec.dim ? 1 + 1.6 * (1 - S.spec.dim) : 1, fire, flame,day: Math.min(1, (dayOf(h) * outside.dimOf() + out.flash * 0.5) * (S.spec.daylight ?? 1)), sky: S.drapes ? sky.map((v) => v * 0.3) : sky, wins: S.mesh.windows, annex, outZ: S.spec.balcony ? 0.145 : undefined, outRing: S.spec.balcony?.wrap ? [-S.spec.w / 2 - 0.145, S.spec.w / 2 + 0.145, S.spec.balcony.sides ? -1e6 : -S.spec.balcony.wrap - 0.005] : undefined, front: Lr.f, right: Lr.r, bearing: S.bearing, outside: out, lens: ax ? undefined : S.seeLens, tvOn: tvNow(now), shut, focusSharp: streetSharp(), panoGround: panoGround(), ...pokerFocus(), ...(close || talk ? { dof: false } : {}) });
+    R.render(join?.cam || ax?.cam || cook?.cam || packed || vatcam || close || talk || topCam || seat, { lamps: S.mesh.lamps, next: nextLit(Lr, seat.eye), lampOn, lampLevel: (power === 'low' ? lampLevel * EMERGENCY_K : lampLevel) * (S.spec.dim ?? 1), vatGain: S.spec.dim ? 1 + 1.6 * (1 - S.spec.dim) : 1, fire, flame,day: Math.min(1, (dayOf(h) * outside.dimOf() + out.flash * 0.5) * (S.spec.daylight ?? 1)), sky: S.drapes ? sky.map((v) => v * 0.3) : sky, wins: S.mesh.windows, annex, outZ: S.spec.balcony ? 0.145 : undefined, outRing: S.spec.balcony?.wrap ? [-S.spec.w / 2 - 0.145, S.spec.w / 2 + 0.145, S.spec.balcony.sides ? -1e6 : -S.spec.balcony.wrap - 0.005] : undefined, front: Lr.f, right: Lr.r, bearing: S.bearing, outside: out, lens: ax ? undefined : S.seeLens, tvOn: tvNow(now), shut, focusSharp: streetSharp(), panoGround: panoGround(), ...(feed ? { feed } : {}), ...pokerFocus(), ...(close || talk ? { dof: false } : {}) });
     if (bob) seat.eye[1] -= bob;
     if (ax) { ax.after(); if (lockUi.count) lockUi.hide(); hearing.tick(outside.hear, placeOfEar(h, now), outdoors); placeVoices(); return; }
     // shutters or blinds shut over the glass: a keypad or panel past a pane is hidden behind them

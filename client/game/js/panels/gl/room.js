@@ -856,6 +856,25 @@ export function createRoomRenderer(canvas, { phone = false, see = false } = {}) 
       return mirror;
     }
     const dropMirror = () => { if (mirror) { gl.deleteTexture(mirror.t); gl.deleteFramebuffer(mirror.fb); gl.deleteRenderbuffer(mirror.rb); } mirror = null; };
+    // A CAMERA'S FEED (`light.feed`): the scene again from a security camera's eye, into a small target of its own,
+    // read back to the caller as pixels. A flat's door panel shows the landing this way (room-feed.js). The caller
+    // asks a few times a second, never every frame: the read back waits on the GPU.
+    let feedT = null;
+    function feedTarget(w, h) {
+      if (!feedT) feedT = { fb: gl.createFramebuffer(), rb: gl.createRenderbuffer(), db: gl.createRenderbuffer(), w: 0, h: 0, px: null };
+      if (feedT.w !== w || feedT.h !== h) {
+        gl.bindRenderbuffer(gl.RENDERBUFFER, feedT.rb);
+        gl.renderbufferStorage(gl.RENDERBUFFER, gl.RGBA8, w, h);
+        gl.bindRenderbuffer(gl.RENDERBUFFER, feedT.db);
+        gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT24, w, h);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, feedT.fb);
+        gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.RENDERBUFFER, feedT.rb);
+        gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, feedT.db);
+        feedT.w = w; feedT.h = h; feedT.px = new Uint8Array(w * h * 4);
+      }
+      return feedT;
+    }
+    const dropFeed = () => { if (feedT) { gl.deleteFramebuffer(feedT.fb); gl.deleteRenderbuffer(feedT.rb); gl.deleteRenderbuffer(feedT.db); } feedT = null; };
     // the mirror most in view this frame, with its camera, or null: in front of you, near enough, and on the screen
     function mirrorInView(cam, vp, aspect, lens) {
       let best = null, most = 0.002;
@@ -1532,6 +1551,22 @@ export function createRoomRenderer(canvas, { phone = false, see = false } = {}) 
           scene(mir.vp, mir.eye, mw, mh, mirrorFigs.length ? [...figures, ...mirrorFigs] : figures, null);
           gl.bindFramebuffer(gl.FRAMEBUFFER, prev);
         }
+        // a camera's feed (feedTarget): its own eye, nobody's mirror, and with `empty` (a spoofed camera) nobody in it
+        const F = light.feed;
+        if (F?.out && F.cam?.eye && F.w > 0 && F.h > 0) {
+          const prev = gl.getParameter(gl.FRAMEBUFFER_BINDING), T = feedTarget(F.w, F.h);
+          gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, null); gl.activeTexture(gl.TEXTURE0);
+          gl.bindFramebuffer(gl.FRAMEBUFFER, T.fb);
+          gl.viewport(0, 0, F.w, F.h);
+          gl.clearColor(0.02, 0.02, 0.025, 1);
+          gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+          gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.depthFunc(gl.LESS);
+          gl.disable(gl.CULL_FACE); gl.disable(gl.BLEND);
+          scene(roomMatrices(F.cam, F.w / F.h), F.cam.eye, F.w, F.h, F.empty ? [] : figures, null);
+          gl.readPixels(0, 0, F.w, F.h, gl.RGBA, gl.UNSIGNED_BYTE, T.px);
+          gl.bindFramebuffer(gl.FRAMEBUFFER, prev);
+          try { F.out(T.px, F.w, F.h); } catch (err) { console.warn('[room] a camera feed:', err?.message); }
+        }
         // GLASS's bloom and the ballpark's occlusion (gl/room-post.js), off the room's colour and depth. Under the
         // lens they work on the lens's own target before it blurs; without it the room is drawn into the post
         // pass's target and put on the canvas from there. Not on a phone.
@@ -1561,6 +1596,7 @@ export function createRoomRenderer(canvas, { phone = false, see = false } = {}) 
         try { dropMirror(); } catch { /* the context may be gone already */ }
         try { vatLayer?.dispose(); } catch { /* the context may be gone already */ }
         try { voidLayer?.dispose(); } catch { /* the context may be gone already */ }
+        try { dropFeed(); } catch { /* the context may be gone already */ }
         try { gl.getExtension('WEBGL_lose_context')?.loseContext(); } catch { /* already gone */ }
       },
     }, [['render', 'room']]);

@@ -97,8 +97,18 @@ Anywhere else the verb says there's nothing to cover and the screen has no Shutt
   So the body-temperature drift, frostbite and the HUD thermometer all read it. Where the ramp has
   got to is RAM only; after a restart the room is at its setting. With no power it does nothing.
 - **The door camera** is a SPECTER device (`security_devices`, wired, no owner), read through
-  surveillance's `camPatchFrame`, so a jammer, a spoofer, a smashed lens or a dark grid shows on the
-  panel exactly as it would on a spy-deck. It also counts as a witness in the hall, as any camera does.
+  surveillance's `camPatchFrame`, so a jammer, a spoofer, a smashed lens, paint on the lens or a dark
+  grid shows on the panel exactly as it would on a spy-deck. It also counts as a witness in the hall, as
+  any camera does.
+- **The camera's picture.** The panel's state carries the camera's room (`cam.zone`). With the Room
+  Stage up and that room drawn through the flat's door (it's a room next door), the Security page shows
+  the landing as the camera sees it: `client/game/js/panels/room-feed.js` puts the camera over the
+  flat's door on the landing side, tipped down with a wide lens, and asks the renderer for the scene from
+  there five times a second (`light.feed` in `gl/room.js`, a 320 by 200 target read back to the page).
+  `envctl.js` grades it like a cheap camera (grey-green, grain, scanlines, the time burnt in) and the
+  line of text goes under it as a caption. A spoofed camera shows the landing with nobody on it. A
+  painted one shows paint, a jammed or dark one says so, and where the landing isn't drawn (the panel
+  popped out in another room) the page keeps its line of text.
 
 ## Gotchas
 - `shutters` is also storefront's verb, for a shop's roller shutter, and the loader keeps one handler per verb.

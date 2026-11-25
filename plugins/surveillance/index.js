@@ -35,6 +35,8 @@ import { registerAction, dispatchAction } from '../../server/engine/actions.js';
 import { cameraTargets, nullSuppressed, carriedJamAt, veilFactor } from './nulltarget.js';
 import { getCrimeStars, getCrimeWitness, getCrimeLabel, isCrimeEnabled } from '../../server/engine/crimes.js';
 import { gameMsToReal, realMsToGame } from '../../server/engine/gametime.js';
+// A camera somebody has sprayed over (graffiti's `tag camera`). See lens.js.
+import { isLensPainted, lensDueForCrew, paintOf, PAINTED_FRAME } from './lens.js';
 
 const COMPASS = new Set(['north', 'south', 'east', 'west', 'up', 'down', 'n', 's', 'e', 'w', 'u', 'd']);
 
@@ -350,7 +352,7 @@ function invalidateDeviceCache() { _devGen++; _devCache = { ts: 0, rows: _devCac
 export async function watchedZones() {
   const out = new Set();
   for (const d of await allDevices()) {
-    if (CAM_KINDS.has(d.device_kind) && !d.is_damaged && d.zone_id) out.add(d.zone_id);
+    if (CAM_KINDS.has(d.device_kind) && !d.is_damaged && d.zone_id && !isLensPainted(d)) out.add(d.zone_id);
   }
   return out;
 }
@@ -431,6 +433,9 @@ function deviceStatus(d, fx) {
   if (d.is_damaged) return 'damaged';
   if (!devicePowered(d)) return 'offline';
   if (CAM_KINDS.has(d.device_kind)) {
+    // Paint beats jam and spoof: whatever the signal carries, the lens sees paint.
+    // Every reader downstream (hub, TV patch, door panel, recording) takes it from here.
+    if (isLensPainted(d)) return 'painted';
     if (fx.jammed.has(d.zone_id)) return 'jammed';   // jam beats spoof
     if (fx.spoofed.has(d.zone_id)) return 'spoofed';
   }
@@ -458,6 +463,7 @@ function spoofFrame(zoneId) {
 
 function deviceFrame(d, status) {
   if (status === 'spoofed') return spoofFrame(d.zone_id);
+  if (status === 'painted') return PAINTED_FRAME;
   if (status !== 'ok') return null;
   if (CAM_KINDS.has(d.device_kind)) return feedSnapshot(d.zone_id);
   switch (d.device_kind) {
@@ -494,7 +500,7 @@ async function buildTiles(ownerId) {
       kind: d.device_kind,
       tier: d.tier || 1,
       zone: d.zone_name || d.zone_id,
-      status,                                  // ok | offline | damaged | jammed | spoofed
+      status,                                  // ok | offline | damaged | painted | jammed | spoofed
       battery: batteryPct(d),
       recording: !!d.is_recording,
       full: !!buf?.full,                       // buffer hit its cap → stopped until clip/clear
@@ -1889,7 +1895,7 @@ async function cameraLiveInZone(zoneId) {
   if (!zoneId) return false;
   // Was one SELECT per occupied zone per tick; now a filter over the snapshot.
   const rows = (await allDevices()).filter(d =>
-    d.zone_id === zoneId && CAM_KINDS.has(d.device_kind) && d.is_damaged === 0);
+    d.zone_id === zoneId && CAM_KINDS.has(d.device_kind) && d.is_damaged === 0 && !isLensPainted(d));
   if (!rows.length) return false;
   const fx = await getInterferenceZones();
   if (fx.jammed.has(zoneId)) return false;
@@ -3272,6 +3278,104 @@ export async function camPatchFrame(deviceId, ownerId) {
     frame: deviceFrame(dev, status),
   };
 }
+
+// ── Painted lenses ───────────────────────────────────────────────────────────
+// The graffiti plugin's `tag camera` paints one; the cleaning plugin's `clean`
+// takes it off. Both come through here because this file is the only writer of
+// security_devices. The paint is `status_flags.painted` on the row (lens.js), so
+// the device snapshot carries it to every reader and nothing hot gains a query.
+// deviceStatus turns it into 'painted', which the hub, the TV patch, the flat's
+// door panel and the recorder all already read; cameraLiveInZone drops a painted
+// lens, so the witness gate does too.
+
+// The camera you're painting is pointed at you while you raise the can. This is
+// its catch chance for that moment, before weather and a Null veil, on top of the
+// ordinary vandalism roll every other lens and cop in the room gets.
+const LENS_CATCH = 0.5;
+
+const furnFlags = (f) => {
+  if (!f?.flags) return {};
+  if (typeof f.flags === 'string') { try { return JSON.parse(f.flags); } catch { return {}; } }
+  return f.flags;
+};
+
+// The cameras in a room, for the verbs to pick from. Off the snapshot and the
+// furniture cache, so it costs no round trip once the snapshot is warm.
+export async function camerasHere(zoneId) {
+  const out = [];
+  if (!zoneId) return out;
+  for (const d of await allDevices()) {
+    if (d.zone_id !== zoneId || !CAM_KINDS.has(d.device_kind)) continue;
+    const f = getFurnitureById(d.id);
+    if (!f) continue;
+    out.push({
+      id: d.id, name: f.name, ownerId: d.owner_id,
+      concealed: !!furnFlags(f).concealed, damaged: !!d.is_damaged,
+      painted: isLensPainted(d), paintedBy: paintOf(d)?.handle || null,
+    });
+  }
+  return out;
+}
+
+/**
+ * Paint over a camera's lens. The caller (graffiti) has already checked the can
+ * and spends the paint; this charges the crime and blinds the lens.
+ *
+ * The crime is charged BEFORE the paint goes on, so the lens being painted is
+ * still live for the roll: it gets its own LENS_CATCH at you, and every other
+ * camera and cop in the room gets the ordinary vandalism roll. Painting your own
+ * camera is no crime.
+ */
+export async function paintLens(player, deviceId) {
+  const d = (await allDevices(true)).find(x => x.id === deviceId);
+  if (!d || d.zone_id !== player.current_zone || !CAM_KINDS.has(d.device_kind)) return { error: 'gone' };
+  if (isLensPainted(d)) return { already: true, by: paintOf(d)?.handle || null };
+  const zoneId = d.zone_id;
+  const name = getFurnitureById(d.id)?.name || 'the camera';
+
+  let caught = false;
+  if (d.owner_id !== player.id) {
+    const looking = deviceStatus(d, await getInterferenceZones()) === 'ok' && !getZone(zoneId)?.flags?.unsurveilled;
+    caught = looking && Math.random() < LENS_CATCH * cameraVisibilityFactor(zoneId) * (1 - veilFactor(player.id));
+    await raiseCrime(player, 'vandalism', zoneId, player.handle, caught);
+  }
+
+  const netId = await policeNetworkId();
+  const paint = { by: player.id, handle: player.handle, at: Date.now(), maint: !!netId && d.network_id === netId };
+  await query(
+    `UPDATE security_devices SET status_flags = COALESCE(status_flags, '{}'::jsonb) || jsonb_build_object('painted', $2::jsonb) WHERE id=$1`,
+    [d.id, JSON.stringify(paint)]);
+  invalidateDeviceCache();
+  await refreshRecordingCams(true);   // it stops recording now, not on the next tick
+  tamperPing(d.owner_id, player.id, name, getZone(zoneId)?.name || zoneId, 'went dark. There is paint on the lens.');
+  emit('camera.painted', { player, zoneId, deviceId: d.id });
+  return { ok: true, name, caught, police: paint.maint };
+}
+
+/** Take the paint off a lens. Returns false when there was none to take. */
+export async function cleanLens(deviceId) {
+  const d = (await allDevices(true)).find(x => x.id === deviceId);
+  if (!d || !paintOf(d)) return false;
+  await query(`UPDATE security_devices SET status_flags = COALESCE(status_flags, '{}'::jsonb) - 'painted' WHERE id=$1`, [deviceId]);
+  invalidateDeviceCache();
+  await refreshRecordingCams(true);
+  emit('camera.cleaned', { zoneId: d.zone_id, deviceId });
+  return true;
+}
+
+// The city's crew. A police lens counts as clean once LENS_MAINT_GAME_MS has gone
+// by (lens.js, read lazily), so this only tidies the row and tells the room. Off
+// the snapshot: no query unless there's a lens to wipe.
+async function crewWipesLenses() {
+  for (const d of (await allDevices()).filter(x => lensDueForCrew(x))) {
+    await cleanLens(d.id);
+    const name = getFurnitureById(d.id)?.name || 'camera';
+    sendToZone(d.zone_id, { type: 'ambient', message:
+      `A city van pulls up. Somebody in a hi-vis vest goes up a ladder, wipes the paint off the ${name} with a rag and drives off.` });
+  }
+}
+schedule('10m', () => crewWipesLenses().catch(e => console.error('[surveillance] lens crew error:', e.message)));
+export async function __crewWipesLenses() { return crewWipesLenses(); }   // regress only
 
 export const commands = {
   plant: cmdPlant,

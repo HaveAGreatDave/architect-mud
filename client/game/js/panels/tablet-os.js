@@ -4427,11 +4427,13 @@ function renderCorpFound(d) {
 
 // SPECTER hub: tiles carry live 'frame' text (refreshed by the poll); a focused tile
 // gets a bigger feed and record/clip controls.
-const SURV_STATUS = { offline: 'NO SIGNAL', damaged: 'DAMAGED', jammed: 'JAMMED', spoofed: 'SIGNAL FAULT' };
+const SURV_STATUS = { offline: 'NO SIGNAL', damaged: 'DAMAGED', painted: 'PAINTED OVER', jammed: 'JAMMED', spoofed: 'SIGNAL FAULT' };
 
 function renderCamFeed(t) {
   if (t.status === 'ok' && t.frame) return `<div class="tos-cam-feed">${esc(t.frame)}</div>`;
   if (t.status === 'ok') return `<div class="tos-cam-feed">· · ·</div>`;
+  // Paint on the lens: the frame is the server's line, over a smear of the paint itself.
+  if (t.status === 'painted') return `<div class="tos-cam-feed dead painted" title="${esc(t.frame || '')}">${esc(SURV_STATUS.painted)}</div>`;
   return `<div class="tos-cam-feed dead">${esc(SURV_STATUS[t.status] || 'NO FEED')}</div>`;
 }
 

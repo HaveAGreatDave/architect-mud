@@ -94,7 +94,8 @@ async function doorFrame(panel) {
   if (!id) return { status: 'none', label: null, frame: null };
   const f = await camPatchFrame(id, null).catch(() => null);
   if (!f) return { status: 'gone', label: null, frame: null };
-  return { status: f.status, label: f.label, frame: f.frame };
+  // `zone` is the camera's room: the Room Stage draws it from the camera's eye when it's drawn next door (room-feed.js)
+  return { status: f.status, label: f.label, frame: f.frame, zone: f.zoneId };
 }
 
 // ── the shutters ────────────────────────────────────────────────────────────────────────────────

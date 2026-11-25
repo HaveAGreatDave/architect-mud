@@ -571,6 +571,16 @@ became self-contained, and "clipping" was re-pointed at reels rather than physic
   `hub`/standalone `#shub-panel`) still works but is superseded by the tablet app; retiring it is a
   vendor-side follow-up.
 
+## Painted lenses (2026-11-15)
+
+Graffiti's `tag camera` paints over a camera's lens, and cleaning's `clean camera` takes it off; the verbs are theirs and the writes are this plugin's (`paintLens`, `cleanLens`, `camerasHere` in [index.js](../plugins/surveillance/index.js)), since it's the only writer of `security_devices`.
+
+- **State** is `status_flags.painted` = `{ by, handle, at, maint }` on the device's row, so it's in the device snapshot and survives a restart. Reading it is [lens.js](../plugins/surveillance/lens.js)'s `isLensPainted`, sync and query-free. A write invalidates the snapshot and re-indexes the recorders.
+- **Blind.** `deviceStatus` returns `painted` (ahead of jammed and spoofed), so the hub tile, the TV patch and the envcontrol door panel show paint (`PAINTED_FRAME`, and `PAINTED OVER` on the tile), and `refreshRecordingCams` drops the lens from recording. `cameraLiveInZone` and `watchedZones` skip a painted lens, so the witness gate does too. Nothing else in the gate changed.
+- **Caught raising the can.** `paintLens` charges `vandalism` before the paint goes on. The camera being painted rolls `LENS_CATCH` (0.5, times the weather factor and the Null veil); a hit is a forced charge with the lens's own red flare. Every other camera and cop in the room gets the ordinary roll. Painting your own camera is no crime. The owner gets a `⚠ TAMPER` ping.
+- **The way back.** `clean camera` with a tool, by anybody. A lens painted while it was on the police network sets `maint`: four game hours later (`LENS_MAINT_GAME_MS`) `isLensPainted` says it's clean, and the 10-minute `crewWipesLenses` sweep clears the row and tells the room a city crew wiped it. A private lens has no crew.
+- **Content.** `status_flags` is exported for the police cameras, so a deploy puts a painted PD lens back to clean, and a painted lens on a dev DB will show in a `content:export`. Clean it first.
+
 ## Runtime cost — how the ticks read the device table (2026-07-27)
 
 Surveillance was, by measurement, **45% of all database traffic on an idle server** (97 of 215

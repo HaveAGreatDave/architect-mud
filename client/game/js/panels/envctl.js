@@ -139,10 +139,13 @@ function apps(s) {
 // was lost. So a page is built whole only when it changes, and after that only what differs is touched.
 function paint(v, html) {
   const key = `${v.page}|${v.full ? 1 : 0}`;
-  if (v.painted !== key || !v.el.firstChild) { v.el.innerHTML = html; v.painted = key; return; }
-  const t = document.createElement('template');
-  t.innerHTML = html;
-  morph(v.el, t.content);
+  if (v.painted !== key || !v.el.firstChild) { v.el.innerHTML = html; v.painted = key; } else {
+    const t = document.createElement('template');
+    t.innerHTML = html;
+    morph(v.el, t.content);
+  }
+  // a camera's canvas drawn new is blank until the next picture: the last one goes on it now
+  if (v.page === 'security' && feedLive()) putFeed(v.el);
 }
 function morph(a, b) {
   const an = [...a.childNodes], bn = [...b.childNodes];
@@ -226,11 +229,16 @@ function appPage(id, s, v) {
       </div>`;
   }
   if (id === 'security') {
-    const cam = s.cam || {};
-    const body = cam.frame
-      ? `<div class="envctl-frame">${esc(cam.frame)}</div>`
-      : `<div class="envctl-frame envctl-nosig">${cam.status === 'none' ? 'NO CAMERA FITTED' : `NO SIGNAL · ${esc(String(cam.status || '').toUpperCase())}`}</div>`;
-    return `<div class="envctl-camhead"><span>${esc(cam.label || 'Front door')}</span><span class="envctl-live">${cam.frame ? '● LIVE' : ''}</span></div>
+    const cam = s.cam || {}, painted = cam.status === 'painted';
+    // the picture, where the Room Stage can draw the landing (room-feed.js); the line under it says who's there.
+    // Painted over, the screen is the paint and the line says so.
+    const pic = !!cam.zone && (cam.status === 'ok' || cam.status === 'spoofed');
+    const body = painted
+      ? `<div class="envctl-cam envctl-painted"><div class="envctl-frame">${esc(cam.frame || 'PAINTED OVER')}</div></div>`
+      : cam.frame
+        ? `<div class="envctl-cam${pic && feedLive() ? ' has-pic' : ''}">${pic ? `<canvas class="envctl-feed" width="${FEED_PX[0]}" height="${FEED_PX[1]}" aria-hidden="true"></canvas>` : ''}<div class="envctl-frame">${esc(cam.frame)}</div></div>`
+        : `<div class="envctl-frame envctl-nosig">${cam.status === 'none' ? 'NO CAMERA FITTED' : `NO SIGNAL · ${esc(String(cam.status || '').toUpperCase())}`}</div>`;
+    return `<div class="envctl-camhead"><span>${esc(cam.label || 'Front door')}</span><span class="envctl-live">${cam.frame && !painted ? '● LIVE' : ''}</span></div>
       ${body}
       <div class="envctl-row"><button type="button" data-cmd="doorcam">Snapshot to log</button></div>`;
   }
@@ -363,6 +371,54 @@ function shutterPage(sh, v) {
       const [a, b, c] = (x.swatch || []).map(colour);
       return `<button type="button" class="envctl-scene${sh.down && x.id === sh.scene ? ' sel' : ''}" data-cmd="shutters ${esc(x.id)}" style="--a:${a};--b:${b};--c:${c}" title="${esc(x.name)}"><i aria-hidden="true"></i><span>${esc(x.name)}</span></button>`;
     }).join('')}</div>${pg.bar}`;
+}
+
+// ── the door camera's picture (room-feed.js) ────────────────────────────────
+// The Room Stage draws the landing from the camera's eye a few times a second and hands the pixels here; they
+// go onto every Security page that's up, graded like a cheap camera: grey-green, grainy, the timestamp burnt in.
+// The last one is kept, so a page drawn again between pictures shows it at once.
+const FEED_PX = [320, 200];
+let feedPic = null, feedAt = 0;
+const feedLive = () => performance.now() - feedAt < 1500;
+const showing = (v) => !!v && v.page === 'security' && v.el.isConnected && !v.el.hidden && v.el.style.display !== 'none';
+
+/** What the Stage should draw for the Security page, or null: the camera's room, and whether it's spoofed (nobody in it). */
+export function feedWanted() {
+  const cam = last?.cam;
+  if (!cam?.zone || (cam.status !== 'ok' && cam.status !== 'spoofed')) return null;
+  return showing(win) || showing(wall) ? { zone: cam.zone, empty: cam.status === 'spoofed' } : null;
+}
+
+/** One picture from the renderer: `px` is RGBA, bottom row first, `w` by `h`. */
+export function feedPixels(px, w, h) {
+  if (!feedPic || feedPic.width !== w || feedPic.height !== h) { feedPic = document.createElement('canvas'); feedPic.width = w; feedPic.height = h; }
+  const g = feedPic.getContext('2d'), img = g.createImageData(w, h), d = img.data;
+  for (let y = 0; y < h; y++) {
+    const src = (h - 1 - y) * w * 4, dst = y * w * 4, scan = y % 2 ? 0.86 : 1;
+    for (let x = 0; x < w; x++) {
+      const i = src + x * 4, o = dst + x * 4;
+      // the picture's light, pushed a little harder, with the grain on it
+      let l = (px[i] * 0.3 + px[i + 1] * 0.59 + px[i + 2] * 0.11) / 255;
+      l = Math.min(1, Math.max(0, (l - 0.04) * 1.25 + (Math.random() - 0.5) * 0.06)) * scan;
+      d[o] = l * 196; d[o + 1] = l * 236; d[o + 2] = l * 206; d[o + 3] = 255;
+    }
+  }
+  g.putImageData(img, 0, 0);
+  // the lens's dark corners, and the time burnt into the top
+  const vg = g.createRadialGradient(w / 2, h / 2, h * 0.35, w / 2, h / 2, w * 0.62);
+  vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.6)');
+  g.fillStyle = vg; g.fillRect(0, 0, w, h);
+  g.font = '11px ui-monospace, Consolas, monospace'; g.fillStyle = 'rgba(220,255,230,0.85)';
+  g.fillText(`CAM 1  ${new Date().toLocaleTimeString([], { hour12: false })}`, 8, 15);
+  feedAt = performance.now();
+  for (const v of [win, wall]) if (showing(v)) putFeed(v.el);
+}
+function putFeed(root) {
+  if (!feedPic) return;
+  for (const c of root.querySelectorAll('canvas.envctl-feed')) {
+    c.getContext('2d').drawImage(feedPic, 0, 0, c.width, c.height);
+    c.parentElement?.classList.add('has-pic');
+  }
 }
 
 // ── the window ──────────────────────────────────────────────────────────────

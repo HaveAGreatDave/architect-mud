@@ -16,13 +16,13 @@
 // indices have to survive escaping — `esc` changes the LENGTH of the string, and a
 // renderer that indexed the escaped text would slice an entity in half and put a
 // live `<` back on the wall.
-import { _test, TAG_MAX_LEN, TAG_LIFE_DAYS, CAN_CAPACITY, tagOn, tagsAt, removeTag, removeTagsAt, tagFromWorld } from './index.js';
+import { _test, TAG_MAX_LEN, TAG_LIFE_DAYS, CAN_CAPACITY, LENS_PAINT, tagOn, tagsAt, removeTag, removeTagsAt, tagFromWorld } from './index.js';
 import { normalizeRuns, coalesceRuns, renderStyled, decodePayload, safeColor, safeFace, safeSpot, escapedChars } from './paint.js';
 import { TAG_FACES } from '../../client/shared/tag-strokes.js';
 import { world, clearTileIndex } from '../../server/engine/world.js';
 import { gameDayIndex } from '../../server/engine/zone-filth.js';
 
-export default async function regress({ run, check }) {
+export default async function regress({ run, check, getPlayer }) {
   const { wallsNear, pickWall, expired, esc, tags, putTag, wallTags, roomTags, unesc, wallLabel } = _test;
 
   let r = await run('tag');
@@ -343,6 +343,110 @@ export default async function regress({ run, check }) {
       clearTileIndex();
     }
   }
+
+  // --- Painting over a camera ------------------------------------------------
+  // paint → blind → no witness, no feed, no tape → bare hands can't clean it → a mop
+  // can → it sees again; then the city crew's lazy expiry on a police lens.
+  //
+  // ⚠ THE ROOM IS LAWLESS ON PURPOSE. The camera belongs to somebody else, so painting
+  // it is vandalism, and raiseCrime stops at a lawless zone before any star, hunter
+  // or prior lands on the fake player that every later suite shares. The witness
+  // gate itself still runs there: lawless means seen and not charged.
+  await (async () => {
+    const p = getPlayer();
+    const surv = await import('../surveillance/index.js');
+    const { PAINTED_FRAME, LENS_MAINT_GAME_MS } = await import('../surveillance/lens.js');
+    const { gameMsToReal } = await import('../../server/engine/gametime.js');
+    const { query } = await import('../../server/models/db.js');
+    const { insertFurniture, deleteFurniture, getZoneNpcs } = await import('../../server/engine/world.js');
+    const { cameraAsked, pickCamera } = _test;
+
+    check('"tag camera" asks for a camera', cameraAsked('tag camera') === 'camera');
+    check('"tag pd street cam" asks for a camera by name', cameraAsked('tag pd street cam') === 'pd street cam');
+    check('"tag north hello" is a wall, not a camera', cameraAsked('tag north hello') === null);
+    const cams = [
+      { id: 'a', name: 'PD street camera', concealed: false, painted: false },
+      { id: 'b', name: 'Sticky Cam', concealed: true, painted: false },
+    ];
+    check('a bare "camera" only ever picks one in plain sight', pickCamera('camera', cams).cam?.id === 'a');
+    check('a hidden camera is reached only by its name', pickCamera('sticky cam', cams).cam?.id === 'b');
+    check('with nothing in sight, a bare "camera" finds nothing', !pickCamera('camera', [cams[1]]).cam);
+
+    const camZones = new Set((await query('SELECT zone_id FROM security_devices WHERE zone_id IS NOT NULL')).rows.map(r => r.zone_id));
+    const Z = [...world.zones.values()].find(z => z.flags?.lawless && !z.flags?.unsurveilled && !z.flags?.is_building
+      && !camZones.has(z.id) && !(getZoneNpcs(z.id) || []).some(n => n.flags?.police));
+    check('a lawless room with no camera of its own exists for the lens test', !!Z);
+    if (!Z) return;
+
+    const CAM = 'secdev_rg_lens', CAN_INV = `rginv_can_${p.id}`, MOP_INV = `rginv_mop_${p.id}`;
+    const tidy = async () => {
+      await query('DELETE FROM security_devices WHERE id=$1', [CAM]);
+      await deleteFurniture(CAM);
+      await query('DELETE FROM player_inventory WHERE id = ANY($1::text[])', [[CAN_INV, MOP_INV]]);
+    };
+    const saved = p.current_zone;
+    try {
+      await tidy();
+      p.current_zone = Z.id;
+      await query(
+        `INSERT INTO security_devices (id, owner_id, device_kind, zone_id, direction, tier,
+           concealment, battery, battery_max, wired, is_damaged, is_recording, hack_difficulty, placed_at)
+         VALUES ($1,'rg_lens_owner','sticky_cam',$2,'north',1,5,100,864,0,0,1,5,$3)`,
+        [CAM, Z.id, Math.floor(Date.now() / 1000)]);
+      await insertFurniture({
+        id: CAM, zone_id: Z.id, name: 'Regress Lens Cam', description: '', object_type: 'security_device',
+        flags: JSON.stringify({ security_device: true, device_id: CAM, concealed: false }),
+      });
+      await surv.__refreshRecordingCams();   // the rows went in by SQL; make the snapshot read them
+      check('before the paint, the camera witnesses the room', (await surv.isWitnessed(Z.id)) === true);
+
+      let r = await run('tag camera');
+      check('no can, no paint', /nothing to spray with/i.test(r?.message || ''), r?.message);
+
+      await query(`INSERT INTO player_inventory (id, player_id, item_id, quantity) VALUES ($1,$2,'item_spray_paint',1)`, [CAN_INV, p.id]);
+      r = await run('tag camera');
+      check('tag camera paints the lens', /over the lens/i.test(r?.message || '') && r?.refresh === true, r?.message);
+      check('the painted camera no longer witnesses anything', (await surv.isWitnessed(Z.id)) === false);
+      const frame = await surv.camPatchFrame(CAM, null);
+      check("its feed is paint, not the room", frame?.status === 'painted' && frame?.frame === PAINTED_FRAME, JSON.stringify(frame));
+      check('it drops out of the zones being watched', !(await surv.watchedZones()).has(Z.id));
+      surv.__captureZoneLine(Z.id, { type: 'say', message: 'Nobody can see us now' });
+      check('and it records nothing', surv.__cameraFrames(CAM).length === 0, JSON.stringify(surv.__cameraFrames(CAM)));
+      const { rows: canRow } = await query('SELECT custom_data FROM player_inventory WHERE id=$1', [CAN_INV]);
+      check('the lens costs paint off the can', Number(canRow[0]?.custom_data?.paint) === CAN_CAPACITY - LENS_PAINT, JSON.stringify(canRow[0]));
+      r = await run('tag camera');
+      check('a painted lens is not painted twice', /already has paint/i.test(r?.message || ''), r?.message);
+
+      r = await run('clean camera');
+      check('bare hands do not take paint off a lens', /solvent/i.test(r?.message || ''), r?.message);
+      check('…so it is still blind', (await surv.camPatchFrame(CAM, null))?.status === 'painted');
+
+      await query(`INSERT INTO player_inventory (id, player_id, item_id, quantity) VALUES ($1,$2,'item_mop',1)`, [MOP_INV, p.id]);
+      r = await run('clean camera');
+      check('a mop takes the paint off', /glass again/i.test(r?.message || ''), r?.message);
+      check('the cleaned camera sees again', (await surv.isWitnessed(Z.id)) === true);
+      check('its feed is the room again', (await surv.camPatchFrame(CAM, null))?.status === 'ok');
+      surv.__captureZoneLine(Z.id, { type: 'say', message: 'Back on tape' });
+      check('and it records again', surv.__cameraFrames(CAM).length === 1, JSON.stringify(surv.__cameraFrames(CAM)));
+
+      // The city crew: a police lens painted longer ago than the crew takes counts as clean
+      // straight away (lazy), and the sweep clears the row.
+      const old = Date.now() - gameMsToReal(LENS_MAINT_GAME_MS) - 1000;
+      await query(`UPDATE security_devices SET status_flags = jsonb_build_object('painted', jsonb_build_object('by','x','handle','x','at',$2::bigint,'maint',true)) WHERE id=$1`, [CAM, old]);
+      await surv.__refreshRecordingCams();
+      check('a police lens past the crew window is clean before anybody wipes it', (await surv.isWitnessed(Z.id)) === true);
+      await surv.__crewWipesLenses();
+      const { rows: flagRow } = await query('SELECT status_flags FROM security_devices WHERE id=$1', [CAM]);
+      check('the crew sweep takes the paint off the row', flagRow[0] && !flagRow[0].status_flags?.painted, JSON.stringify(flagRow[0]));
+      await query(`UPDATE security_devices SET status_flags = jsonb_build_object('painted', jsonb_build_object('by','x','handle','x','at',$2::bigint,'maint',false)) WHERE id=$1`, [CAM, old]);
+      await surv.__refreshRecordingCams();
+      check('a private lens has no crew: it stays painted', (await surv.isWitnessed(Z.id)) === false);
+    } finally {
+      p.current_zone = saved;
+      await tidy();
+      await surv.__refreshRecordingCams();
+    }
+  })();
 
   world.zones.delete(street.id);
   world.zones.delete(shop.id);

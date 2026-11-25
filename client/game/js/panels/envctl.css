@@ -135,6 +135,15 @@
 }
 .envctl-full .envctl-frame { flex: 1; }
 .envctl-nosig { color: #ff8a6a; display: flex; align-items: center; justify-content: center; text-align: center; }
+/* the camera's picture (room-feed.js): hidden until one has come, then the line of text goes under it as a caption */
+.envctl-cam { display: flex; flex-direction: column; gap: 6px; }
+.envctl-full .envctl-cam { flex: 1; }
+.envctl-feed { display: none; width: 100%; aspect-ratio: 16 / 10; border-radius: 10px; border: 1px solid rgba(143, 230, 224, 0.2); background: #0b1013; image-rendering: auto; }
+.envctl-cam.has-pic .envctl-feed { display: block; }
+.envctl-cam.has-pic .envctl-frame { min-height: 0; padding: 6px 10px; font-size: 0.8em; }
+/* paint on the lens: a black blot over the frame, the runs under it, and the server's line on top */
+.envctl-painted .envctl-frame { display: flex; align-items: center; justify-content: center; text-align: center; color: #e8e8e8; text-shadow: 0 1px 2px #000;
+	background: radial-gradient(ellipse 60% 65% at 50% 42%, #262626 0 55%, transparent 74%), radial-gradient(circle at 32% 84%, #202020 0 6%, transparent 7%), radial-gradient(circle at 64% 90%, #202020 0 5%, transparent 6%), #151515; }
 
 /* the shutters: scenes as swatches, and the blinds' five light steps */
 .envctl-scenes { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }

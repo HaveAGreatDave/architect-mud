@@ -11071,7 +11071,7 @@ async function _camPatchMessage(deck, dflags, nowMs) {
     return { text: `[CAM · ${src.label || 'FEED'}] ◌ NO SIGNAL: the camera is gone.`, style: 'raw', key: `campatch:${slot}` };
   }
   if (snap.status !== 'ok' && snap.status !== 'spoofed') {
-    const label = snap.status === 'jammed' ? 'JAMMED' : snap.status === 'damaged' ? 'DAMAGED' : 'NO SIGNAL';
+    const label = snap.status === 'jammed' ? 'JAMMED' : snap.status === 'damaged' ? 'DAMAGED' : snap.status === 'painted' ? 'PAINTED OVER' : 'NO SIGNAL';
     return { text: `[CAM · ${snap.label}] ▓ ${label}`, style: 'raw', key: `campatch:${slot}` };
   }
   if (!snap.frame) return null;
