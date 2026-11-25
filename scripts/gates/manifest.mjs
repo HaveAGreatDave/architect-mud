@@ -401,7 +401,7 @@ export const GROUPS = [
       'scripts/audio/boat-smoke.mjs',
       'scripts/audio/murmur-smoke.mjs',
       'scripts/audio/hockey-smoke.mjs',
-      'scripts/audio/deadball-smoke.mjs',
+      { run: 'scripts/audio/deadball-smoke.mjs', budget: 90, why: '61 to 68 s of CPU alone (2026-11-25), 878 checks green: the limited Sound Detail tier, the default, now plays every sound including footsteps and the park, so each tier scene renders the full mix. Make it cheaper by sharing the scene renders between the tier checks' },
       'scripts/audio/footstep-smoke.mjs',  // your own steps on the street on foot, by surface and gait
       'scripts/audio/limiter-smoke.mjs',   // 1: the master limiter, and nothing around it
       'scripts/audio/duck-smoke.mjs',      // 2: duck gains per bus, and duck()'s schedule
