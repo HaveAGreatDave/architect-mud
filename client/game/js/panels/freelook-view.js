@@ -681,6 +681,7 @@ export function openFreelook(ctx = {}) {
       if (st.owStudio && st.owStudio.zone !== st.inside?.zone) owStudioStop(st);   // out of the studio's room   // inside, the arrange mode's camera over the room (room-arrange.js)   // inside, a MORPHEX pod's sequence (room-morphex.js)
       if (st.foot) owCookTick(st);   // inside, cooking at the room's hob: walk off and the kitchen shuts   // inside, a pet cat, his day, his voice (gl/room-beasts.js, gl/cat-layer.js)
       if (st.foot) owDecals(st);   // inside, the posters and the tags on the walls (room-sheets.js, room-tags.js)
+      streetTagsTick(st);   // outside on foot, a name over everybody nearby (street-tags.js)
       owSpeechTick(st, now);   // inside, what people say over their heads, and their voices from where they stand (oneworld-speech.js)
       if (st.foot) owCardTick(st, now);   // inside a building in GLASS, the card for the piece you face (oneworld-card.js)
       // A camera put on its feet with FPS has no mount, but on the Echelon the floor is her deck,
@@ -1706,9 +1707,9 @@ const OW_BUMP_MS = 2500;
 const STREET_REACH_M = 3.5, STREET_FACING = 0.8;
 const streetActs = (who) => (who.npc ? personActs({ name: who.n }) : [{ verb: 'look', label: 'Look', cmd: `look ${String(who.n).toLowerCase()}` }]);
 // who's at a drawn spot, within reach of the eye, or null
-function streetWho(s, v, q) {
+function streetWho(s, v, q, reachM = STREET_REACH_M) {
   const who = q && s.here?.get(q.t);
-  if (!who || Math.hypot(q.x - (s.gx + v.x), q.y - (s.gy + v.y)) > m2tf(STREET_REACH_M)) return null;
+  if (!who || Math.hypot(q.x - (s.gx + v.x), q.y - (s.gy + v.y)) > m2tf(reachM)) return null;
   return { ...who, x: q.x, y: q.y };
 }
 // the named person you'd face looking along `bearing` (degrees, the camera's sense)
@@ -1735,14 +1736,32 @@ function streetCardTick(s, now) {
   if (s.streetHeld && (!v || Math.hypot(s.gx + v.x - s.streetHeld.at[0], s.gy + v.y - s.streetHeld.at[1]) > m2tf(OW_HOLD_M))) s.streetHeld = null;
   let who = null;
   if (v && !s.packCam) {
-    if (s.streetHeld) who = streetWho(s, v, streetActorSpots().find((q) => q.t === s.streetHeld.t)) || (s.streetHeld = null);
+    if (s.streetHeld) who = streetWho(s, v, streetActorSpots().find((q) => q.t === s.streetHeld.t), s.streetHeld.reachM) || (s.streetHeld = null);
     if (!who) who = streetFaced(s, v, v.yaw || 0);
   }
+  s.streetOn = who ? who.t : null;
   if (!who) { s.owCard?.show(null); return; }
   if (!s.owCard) s.owCard = createOneWorldCard(s.root, (a, piece) => owAct(s, a, piece));
-  // a studio set may claim this room (room-studio.js): ask, as the Stage asks, and freelookSet draws it
-  if (from?.zone !== msg.zone) { owStudioStop(s); owRaw({ type: 'room_set', zone: msg.zone }); }
   s.owCard.show({ id: 'street:' + who.t, name: who.n, street: who }, [], { acts: streetActs(who) });
+}
+// NAMETAGS (street-tags.js): on foot and outside, a name over everybody nearby the server has named for you. A click on
+// one holds the card on them, as a click on the figure does. Loaded the first time you're on foot outside.
+let streetTagsMod = null;
+function streetTagsTick(s) {
+  const out = s.foot && !s.inside && !s.packCam;
+  if (!out) { s.streetTags?.clear(); return; }
+  if (!s.here?.size && !s.streetTags) return;
+  if (!s.streetTags) {
+    if (!streetTagsMod) streetTagsMod = import('./street-tags.js').then((m) => { streetTagsMod = m; }).catch(() => { streetTagsMod = null; });
+    if (streetTagsMod instanceof Promise) return;
+    s.streetTags = streetTagsMod.createStreetTags(s.root, (t) => {
+      const v = s.freeCam.view();
+      if (v) { s.streetHeld = { t, at: [s.gx + v.x, s.gy + v.y], reachM: 15 }; s.owCardAt = 0; }
+    });
+  }
+  const v = s.freeCam.view(), W = s.root.clientWidth;
+  const eye = v ? { x: s.gx + v.x, y: s.gy + v.y, z: v.z, yaw: v.yaw || 0, pitch: v.pitch || 0 } : null;
+  s.streetTags.tick(s.here, v ? streetActorSpots() : [], eye, W ? viewLatFocal(W, { fovMul: v?.fov || 1 }) : 0, s.streetOn || null);
 }
 // A click on the street: the named person nearest the bearing under the pointer holds the card; a click on nothing lets
 // it go.
@@ -2984,6 +3003,8 @@ export function freelookTakeRoom(msg, prev = undefined) {
   owWorld();
   s.inside = { zone: msg.zone, room, gx: room.gx, gy: room.gy, lift: msg.lift || null, pieces: msg.pieces || [], locks: msg.locks || [], via: msg.via || null, people: msg.people || [], beasts: msg.beasts || [], you: msg.you ?? null, npcTv: !!msg.tv, vehicles: msg.vehicles?.machine ? null : msg.vehicles || null, machineVeh: msg.vehicles?.machine ? msg.vehicles : null, tags: msg.tags || [], sheets: msg.sheets || [], neighbours: msg.building?.neighbours || null, rinkCh: msg.rink || null, mine: !!msg.mine, admin: !!msg.admin, keypad: !!msg.keypad, routes: routesOf(msg.people || [], performance.now()) };
   if (!s.owCard) s.owCard = createOneWorldCard(s.root, (a, piece) => owAct(s, a, piece));
+  // a studio set may claim this room (room-studio.js): ask, as the Stage asks, and freelookSet draws it
+  if (from?.zone !== msg.zone) { owStudioStop(s); owRaw({ type: 'room_set', zone: msg.zone }); }
   s.foot.pending = null;
   // in from the street: stood just inside its door, as the Stage stands you (openingInside), since the doorway itself
   // is no room's floor

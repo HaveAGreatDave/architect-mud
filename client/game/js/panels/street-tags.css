@@ -1,0 +1,10 @@
+/* Nametags over people on the street, on foot (street-tags.js). */
+.st-tags { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 4; }
+.st-tag {
+  position: absolute; left: 0; top: 0; pointer-events: auto; cursor: pointer; white-space: nowrap;
+  padding: 1px 6px; border-radius: 3px; font: 600 11px/1.4 system-ui, sans-serif; letter-spacing: 0.02em;
+  color: #e8e4d8; background: rgba(12, 14, 18, 0.62); border: 1px solid rgba(232, 228, 216, 0.18);
+  text-shadow: 0 1px 1px #000; will-change: transform;
+}
+.st-tag.npc { color: #f2d98a; }
+.st-tag:hover, .st-tag.on { background: rgba(30, 34, 42, 0.88); border-color: rgba(242, 217, 138, 0.7); }
