@@ -71,6 +71,16 @@ const SKIN_VS_GLSL = `
 layout(location = 3) in vec4 aBones;
 layout(location = 4) in vec4 aWeights;
 uniform vec4 uBone[${NB}];
+// YOUR OWN BODY IN FIRST PERSON (freelook-view.js fpSelf): above this rest height, in metres, nothing is drawn, nor
+// the head's own pieces whatever their height (loose hair, a hat, glasses), so the eye inside the head sees the body
+// from the neck down. 0 draws the whole figure.
+uniform float uNoHead;
+bool headCut(vec3 rest, float slot) {
+  if (uNoHead <= 0.0) return false;
+  if (rest.y > uNoHead) return true;
+  int s = int(slot + 0.5);
+  return s == ${FIG_SLOT.hair} || s == ${FIG_SLOT.hat} || s == ${FIG_SLOT.specs} || s == ${FIG_SLOT.face} || s == ${FIG_SLOT.ear} || s == ${FIG_SLOT.horn} || s == ${FIG_SLOT.eye} || s == ${FIG_SLOT.lid} || (s == ${FIG_SLOT.card} && rest.y > 1.25);
+}
 uniform vec3 uMouthA;        // the mouth's shape (client/shared/lip-sync.js): open, wide, round
 // The jaw drops and the lips spread or purse in bind space, before the skin, in the body and its ink alike.
 uniform float uBlink;        // the eyes: 0 open, 1 shut
@@ -386,11 +396,14 @@ ${SKIN_VS_GLSL}
 uniform mat4 uVP;
 out vec3 vPos; out vec3 vNor; out vec3 vNorF; out vec3 vRest; out vec3 vMouthP; out vec2 vUv; out float vAux; out float vAo; flat out float vSlot;
 void main() {
+  // a cut vertex is gathered to the middle of the neck, so a triangle across the cut closes the neck over (a
+  // vertex thrown off screen stretched those triangles across the frame)
+  vec3 aPosC = headCut(aPos, aSlot) ? vec3(0.0, uNoHead, 0.0) : aPos;
   mat3 hR; vec3 hO;
-  handXf(aPos, aAux, hR, hO);
-  vMouthP = mouthMorph(flexPush(holdPush(hR * aPos + hO, aPos, aAux), aPos, aNor), aSlot, aUv);
-  vec3 p = hairSway(drape(skinAll(vec4(faceLift(vMouthP, aSlot), 1.0)), aPos, aSlot, aAux), aPos, aSlot, aAux, aUv);
-  vPos = p; vNor = skinAll(vec4(hR * aNor, 0.0)); vNorF = skinAll(vec4(hR * aNorF, 0.0)); vRest = aPos; vUv = aUv; vAux = aAux; vAo = aAo; vSlot = aSlot;
+  handXf(aPosC, aAux, hR, hO);
+  vMouthP = mouthMorph(flexPush(holdPush(hR * aPosC + hO, aPosC, aAux), aPosC, aNor), aSlot, aUv);
+  vec3 p = hairSway(drape(skinAll(vec4(faceLift(vMouthP, aSlot), 1.0)), aPosC, aSlot, aAux), aPosC, aSlot, aAux, aUv);
+  vPos = p; vNor = skinAll(vec4(hR * aNor, 0.0)); vNorF = skinAll(vec4(hR * aNorF, 0.0)); vRest = aPosC; vUv = aUv; vAux = aAux; vAo = aAo; vSlot = aSlot;
   gl_Position = uVP * vec4(p, 1.0);
 }`;
 
@@ -2623,13 +2636,16 @@ float trunkWidth(float slot, float aux, vec3 r, vec3 nr) {
   return 1.0 - smoothstep(1.27, 1.33, r.y) * max(smoothstep(0.11, 0.14, abs(r.x)) * max(side, notTop), smoothstep(0.15, 0.17, abs(r.x)));
 }
 void main() {
+  // a cut vertex is gathered to the middle of the neck, so a triangle across the cut closes the neck over (a
+  // vertex thrown off screen stretched those triangles across the frame)
+  vec3 aPosC = headCut(aPos, aSlot) ? vec3(0.0, uNoHead, 0.0) : aPos;
   mat3 hR; vec3 hO;
-  handXf(aPos, aAux, hR, hO);
-  vec3 p = hairSway(drape(skinAll(vec4(faceLift(mouthMorph(flexPush(holdPush(hR * aPos + hO, aPos, aAux), aPos, aNor), aSlot, aUv), aSlot), 1.0)), aPos, aSlot, aAux), aPos, aSlot, aAux, aUv), sn = skinAll(vec4(hR * aNor, 0.0));
-  float grow = growInk(aSlot, aAux) * trunkWidth(aSlot, aAux, aPos, aNor);
+  handXf(aPosC, aAux, hR, hO);
+  vec3 p = hairSway(drape(skinAll(vec4(faceLift(mouthMorph(flexPush(holdPush(hR * aPosC + hO, aPosC, aAux), aPosC, aNor), aSlot, aUv), aSlot), 1.0)), aPosC, aSlot, aAux), aPosC, aSlot, aAux, aUv), sn = skinAll(vec4(hR * aNor, 0.0));
+  float grow = growInk(aSlot, aAux) * trunkWidth(aSlot, aAux, aPosC, aNor);
   // an eye and its lids take no outline: the lids' dark undersides are its line
   if (aSlot > ${FIG_SLOT.eye}.0 - 0.5) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
-  float join = joinInk(aSlot, aAux, aPos);
+  float join = joinInk(aSlot, aAux, aPosC);
   p += normalize(p - uEyeI) * uBack * (1.0 + 5.0 * join);
   float nl = dot(sn, sn);
   vec4 c = uVP * vec4(p, 1.0);
@@ -2643,7 +2659,7 @@ void main() {
   float L = length(d);
   vec2 dir = L > 1e-4 ? d / L : vec2(0.0);
   float wk = mix(max(uWeigh, 1.0), 1.0, smoothstep(-0.5, 0.7, dot(n, uKey)));
-  c.xy += dir * clamp(L, uInk.y, uInk.z) * wk * uInkK * grow * joinWidth(join, aPos, aNor) / (uRes * 0.5) * c.w;
+  c.xy += dir * clamp(L, uInk.y, uInk.z) * wk * uInkK * grow * joinWidth(join, aPosC, aNor) / (uRes * 0.5) * c.w;
   c.z += uInk.w * c.w;
   gl_Position = c;
 }`;
@@ -2819,6 +2835,7 @@ export function createFigureLayer(gl, { half = false, panels = false } = {}) {
   function pose(P, r) {
     const D = FIGURE_CUTS[r.key.cut] || FIGURE_CUTS.coat, sw = r.sway || [0, 0, 0], jg = r.jiggle || [0, 0, 0], sj = r.seatJ || [0, 0, 0], H = r.hands || handsOfGrip(r.grip);
     gl.uniform4fv(P.u('uBone'), r.rows);
+    gl.uniform1f(P.u('uNoHead'), r.noHead || 0);
     gl.uniform4f(P.u('uDrape'), D.top.hem < 0.81 ? 1 : 0, D.front === 'open' ? 1 : 0, D.top.hem, r.floor ?? -10);
     gl.uniform3f(P.u('uSway'), sw[0], sw[1], sw[2]);
     gl.uniform4f(P.u('uBust'), jg[0], jg[1], jg[2], r.jiggle ? r.key.bust || 0 : 0);
