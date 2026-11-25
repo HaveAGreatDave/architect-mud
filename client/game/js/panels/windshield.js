@@ -17,6 +17,7 @@
 import { isWeatherFxEnabled } from './weather-fx.js';
 import { layTrailPoint, uploadTrail } from '../../../shared/trail-store.js';
 import { parkTiles } from '../../../shared/coliseum-plan.js';
+import { selfSkin } from '../../../shared/self-look.js';   // a zone's own look for your body (drawSelfFigure)
 import { HOVER_CARS, isHoverCar } from '../../../shared/hover-cars.js';
 import { YACHT_SCALE, YACHT_H, YACHT_SB, YACHT_DECKZ, YACHT_TIERS, YACHT_SUNZ, YACHT_ST, YACHT_BOW, YACHT_LEN, YACHT_RAKE, yachtHullAt, M_Z, YACHT_PAD_OY, YACHT_PAD_R, YACHT_PAD_RX } from '../../../shared/yacht-hull.js';
 import { MPH_KMH, STOREY_M, TILE_M, FT_M, tripM, fmtDistance, heightToZ } from '../../../shared/world-scale.js';
@@ -25982,6 +25983,7 @@ function drawRoadside(ctx, cam, v, wcx, wcy, night, now, FAR) {
 
 // A street figure's half-width in tiles, about 0.3 m: a mesh whose centre is this far behind the eye can't reach the frame.
 const ACTOR_BODY_R = 0.017;
+const FP_PROJ = { f: 0.02 };   // drawSelfFigure's stand-in projection for your own body in first person
 
 // ── YOU, ON THE STREET ───────────────────────────────────────────────────────────
 // `v.self` is the viewer's own body, set by the street on foot while its Pack is open (freelook-view.js), so the
@@ -25992,12 +25994,19 @@ const ACTOR_BODY_R = 0.017;
 // of you to fall back to, and a moment of the crowd's body while your figure builds is the same as anybody's.
 function drawSelfFigure(ctx, cam, v, wcx, wcy, night, now, FAR) {
   const me = v.self;
-  if (!me || !me.o || !actorMeshOn() || !(actorBakeReady() || actorBakeStep(2))) return;
+  if (!me || !me.o) return;
+  // a zone's own look for you (client/shared/self-look.js: the In Between's outline), drawn by whoever registered it
+  if (me.skin) { const S = selfSkin(me.skin); if (S?.draw && S.draw({ ctx, cam, self: me, now, firstPerson: !!me.fp })) return; }
+  if (!actorMeshOn() || !(actorBakeReady() || actorBakeStep(2))) return;
   const dx = (me.x - wcx) - cam.ox, dy = (me.y - wcy) - cam.oy;
   const f = dx * cam.sinh - dy * cam.cosh;
   if (f + (cam.fwdOff || 0) <= -ACTOR_BODY_R || f > FAR) return;
   // `clip` and `gd` from the view from behind you (freelook-view.js extSelf): walking, the gait runs on distance walked
   const pose = { o: me.o, k: me.k || 1, hd: me.hd || 0, clip: me.clip || 'idle', gd: me.gd || 0, ph: (now / 4000) % 1, from: null, mix: 0 };
+  // In first person your feet are just behind the eye, where cam.proj has no answer: you're as close as anybody gets,
+  // so the close-up figure always takes you (gl/street-hd.js), and its own depth test does the rest
+  // (never thinned by the governor, as a far crowd is: it's you)
+  if (me.fp) { pushActorMesh(cam, dx, dy, me.z || 0, 1, night, pose, FP_PROJ); return; }
   emitScatterFace(f + (cam.fwdOff || 0), () => drawActorFigure(ctx, cam, dx, dy, 1, 'self', 0, false, night, { pose, z: me.z || 0 }));
 }
 // THE PEOPLE OF A ROOM WALKED IN GLASS (one-world, docs/proposals/one-world-interiors.md phase C): `v.roomPeople`, each

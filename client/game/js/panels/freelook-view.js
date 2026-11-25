@@ -124,6 +124,7 @@ function doorShift(s, tile) {
   const along = g.cx || 0, deep = (g.back ?? g.wall) - PLAN_EDGE;
   return [along * E[1] + deep * E[0], -along * E[0] + deep * E[1]];
 }
+import { selfLookFor } from '../../../shared/self-look.js';   // a zone's own look for your body (the In Between's outline)
 import { suppressWeatherFx } from './weather-fx.js';   // the 2-D overlay would paint its rain and rainbow over the 3-D scene   // the ground or seabed under the camera (plugins/submersible)
 
 // Live world clock/weather through the shared env system — loaded OPTIONALLY, exactly as helm-view
@@ -717,7 +718,7 @@ export function openFreelook(ctx = {}) {
         tune: st.foot ? FOOT_TUNE : (st.stand || freeCam.standing) ? STAND_TUNE : undefined,   // see STAND_TUNE — a seat that cannot move can afford to draw more
         // the Pack open: the camera stands back round you, and you're drawn (packViewNow, packSelf)
         freeCam: (st.packCam && packViewNow(st, now)) || (st.extView && extViewNow(st, now)) || freeCam.view(),
-        self: st.packCam ? packSelf(st) : st.extView ? extSelf(st, now) : null,
+        self: st.packCam ? packSelf(st) : st.extView ? extSelf(st, now) : fpSelf(st, now),
         actors: st.actors,   // pavement people; meshes up close (gl/actors.js)
         // ⚠ THE OWN SHIP IS THE WINDOW CENTRE, hidden, so a contact's offset is from there; the camera
         // flying away from it is the renderer's business (freeCam), exactly as for the helm.
@@ -742,7 +743,8 @@ export function openFreelook(ctx = {}) {
         // and its people, stood where the Stage would stand them (oneworld-people.js, phase C)
         roomPeople: st.inside ? owPeople(st) : null,
         // on foot the near plane comes in to a third of a metre, so people stay whole as you walk up to them
-        nearMax: st.foot ? FOOT_NEAR : 0,
+        // (and with your own body drawn under you, closer still, or your chest and hands are cut away: fpSelf)
+        nearMax: st.foot ? (st.fp?.drawn ? FP_NEAR_M * METRE : FOOT_NEAR) : 0,
       });
 
       // ⚠ WHERE THE CAMERA IS, NOT WHERE THE WINDOW IS CENTRED. This read `st.gx,st.gy`, which is
@@ -1317,7 +1319,11 @@ function footExtView(s) {
   if (s.extView) { s.extView = null; return; }
   if (s.inside) return;
   s.extView = { gd: 0, lx: null, ly: null, mv: 0, t: 0 };
-  if (!s.packMsg) s.foot.onMove('roompack');
+  needPackLook(s);
+}
+// what dressing you needs: the Pack's answer (asked for once) and the three modules that turn it into a figure
+function needPackLook(s) {
+  if (!s.packMsg && !s.packAsked) { s.packAsked = true; s.foot.onMove('roompack'); }
   if (!packMods) Promise.all([import('./gl/room-people.js'), import('../../../shared/player-figure.js'), import('../../../shared/paper-doll.js')]).then(([people, pf, pd]) => {
     packMods = packMods || { streetLook: people.streetLook, playerFigure: pf.playerFigure, figureWorn: pd.figureWorn };
   }).catch(() => {});
@@ -1344,9 +1350,10 @@ function extViewNow(s, now) {
   const r = E.d;
   return { ...v, x: v.x + ux * r, y: v.y + uy * r, z: Math.max(ground + m2tf(0.3), cz + uz * r), pitch, roll: 0 };
 }
-function extSelf(s, now) {
-  const E = s.extView, M = packMods;
-  if (!E || E.ground == null || !M) return null;
+// you as the Pack dresses you, kept per outfit (s.packLook)
+function selfLookNow(s) {
+  const M = packMods;
+  if (!M) return null;
   const m = s.packMsg || {}, items = m.items || [], sex = m.sex === 'female' ? 'female' : 'male';
   const sig = items.filter((x) => x.worn && x.slot).map((x) => x.id).join(',') + '|' + JSON.stringify(m.look || null) + '|' + sex;
   if (s.packLook?.sig !== sig) {
@@ -1355,9 +1362,53 @@ function extSelf(s, now) {
     const o = M.streetLook(String(m.you || 'you'), sex === 'female', fig);
     s.packLook = { sig, o: { ...o, hd: { ...o.hd, id: m.you || o.hd.id } }, k: fig.height > 1 ? fig.height / 1.776 : 1 };
   }
+  return s.packLook;
+}
+function extSelf(s, now) {
+  const E = s.extView;
+  if (!E || E.ground == null || !selfLookNow(s)) return null;
   const F = E.yaw * Math.PI / 180, walking = E.mv > 0.05;
   return { x: s.gx + E.lx, y: s.gy + E.ly, z: E.ground, hd: Math.atan2(-Math.cos(F), Math.sin(F)), o: s.packLook.o, k: s.packLook.k,
     clip: walking ? 'walk' : 'idle', gd: E.gd };
+}
+// YOUR OWN BODY IN FIRST PERSON. On foot, with neither the Pack nor the view from behind you up, GLASS draws you under
+// your own eyes from the neck down (figure-hd.js uNoHead), so looking down shows your legs and feet and your hands
+// swing into view as you walk. Your feet stand FP_BODY.back behind your eyes, as a head sits forward of the spine, so
+// the eye isn't inside your chest; the near plane comes in to FP_NEAR_M while it's drawn. The street's close-up figure
+// draws it (gl/street-hd.js), in a room as on the pavement. A zone may ask for another look (client/shared/
+// self-look.js: the In Between's outline of light), carried on the record as `skin` for drawSelfFigure.
+// FP_BODY.on is the setting: off on a phone, and `localStorage.fpBody = '0'` turns it off anywhere.
+// ⚠ ARMS: the walk and idle clips hang them at your sides, so you see your hands looking down, not held up in front.
+// back: metres your feet stand behind your eyes. At 0.1 the eye was over the collar and looked down into it; at 0.25
+// it's in front of the chest, so looking down shows chest, belly, hands and boots. cut: the rest height (metres) the
+// figure is cut at, low enough to take the collar of a jumpsuit with the neck.
+export const FP_BODY = { on: fpBodyDefault(), back: 0.25, cut: 1.40 };
+const FP_NEAR_M = 0.05;   // metres (METRE is declared further down, so it's applied where it's read)
+function fpBodyDefault() {
+  try { if (localStorage.getItem('fpBody') === '0') return false; } catch { /* on */ }
+  try { if (document.documentElement.dataset.density === 'compact') return false; } catch { /* on */ }
+  return true;
+}
+export function setFirstPersonBody(on) { FP_BODY.on = !!on; try { localStorage.setItem('fpBody', on ? '1' : '0'); } catch { /* this session only */ } }
+function fpSelf(s, now) {
+  const P = s.fp || (s.fp = { gd: 0, lx: null, ly: null, mv: 0, t: 0, drawn: false });
+  P.drawn = false;
+  if (!FP_BODY.on || !s.foot || !s.freeCam.standing) return null;
+  const v = s.freeCam.view();
+  if (!v) return null;
+  needPackLook(s);
+  const look = selfLookNow(s);
+  if (!look) return null;
+  const dt = P.t ? Math.min(0.1, (now - P.t) / 1000) : 0;
+  P.t = now;
+  if (P.lx != null) { const d = Math.hypot(v.x - P.lx, v.y - P.ly); if (d < 0.5) { P.gd += d; P.mv = dt > 0 ? P.mv + ((d / dt) - P.mv) * Math.min(1, dt * 10) : P.mv; } }
+  P.lx = v.x; P.ly = v.y;
+  const Y = v.yaw * Math.PI / 180, b = m2tf(FP_BODY.back), ground = Math.max(0, v.z - FPS_EYE * (s.foot.eyeK ?? 1));
+  P.drawn = true;
+  look.fpO ??= { ...look.o, hd: { ...look.o.hd, noHead: FP_BODY.cut } };   // one object per outfit: street-hd keys its builds on it
+  return { x: s.gx + v.x - Math.sin(Y) * b, y: s.gy + v.y + Math.cos(Y) * b, z: ground,
+    hd: Math.atan2(-Math.cos(Y), Math.sin(Y)), o: look.fpO, k: look.k,
+    clip: P.mv > 0.02 ? 'walk' : 'idle', gd: P.gd, fp: true, skin: selfLookFor(s.inside?.zone) };   // 0.02 tiles a second is about 0.35 m/s
 }
 // What the spray session needs of the street: a name for the wall, and brick for its close-up. Where on the facade the
 // paint goes is GLASS's to solve (windshield.js drawWallTags), so there's no aim and no live paint: the window is sent

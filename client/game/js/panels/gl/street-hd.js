@@ -173,6 +173,8 @@ export function createStreetHD(gl) {
         height: L.figure && L.figure.height ? undefined : FIGURE_CROWN * ((r.s / s) || 1) };
     });
     recs = figurePeople(FRAME, bodies, now / 1000, { level: 'hd', eye: env.eye });
+    // you, under your own eyes, from the neck down (freelook-view.js fpSelf, figure-hd.js uNoHead)
+    for (let i = 0; i < recs.length; i++) { const nh = chosen[i].o.hd.noHead; if (nh && recs[i]) recs[i].noHead = nh; }
     streetHdStats.poseMs = performance.now() - t0;
     return recs;
   }
