@@ -12,13 +12,13 @@
     "covers": [
       "legs"
     ],
-    "description": "A one-piece in vat orange, zipped from crotch to collar, elastic at the waist and cuffs. Somebody sewed patches over both knees and the shoulders before you ever wore it. A white tape over the right breast carries a batch number, and the left pocket snaps shut on nothing.",
+    "description": "A one-piece stitched together from white scraps off the dressing gantry, zipped from crotch to collar, elastic at the waist and cuffs. Greyer scraps are sewn over both knees and the shoulders. A batch tape on the right breast, and a left pocket that snaps shut on nothing.",
     "gets_wet": true,
     "insulation": 4,
     "layer": "outerwear",
     "slot": "torso",
     "wear_look": {
-      "col": "#ea7a22",
+      "col": "#e8e4d6",
       "cut": "vatsuit_spring",
       "fabric": "canvas"
     }

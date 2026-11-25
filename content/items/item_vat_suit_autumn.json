@@ -12,13 +12,13 @@
     "covers": [
       "legs"
     ],
-    "description": "A lined one-piece in rust orange, heavier canvas than the spring issue. Patches on both knees, both elbows and over the shoulders, all in the same orange, so they nearly pass for a design. A batch tape on the right breast, a snap pocket on the left.",
+    "description": "A lined one-piece in white patchwork, heavier scraps than the spring issue, every seam showing its stitches. Patches on both knees, both elbows and over the shoulders, in whatever white was left on the gantry. A batch tape on the right breast, a snap pocket on the left.",
     "gets_wet": true,
     "insulation": 5,
     "layer": "outerwear",
     "slot": "torso",
     "wear_look": {
-      "col": "#cf5f1e",
+      "col": "#e2ddcd",
       "cut": "vatsuit_autumn",
       "fabric": "canvas"
     }

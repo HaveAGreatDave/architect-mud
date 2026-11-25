@@ -315,7 +315,7 @@ void main() {
       + n0 * (sin(u * 17.0 + uRib * 4.3 + v * 6.0) * 0.045 * (0.3 + v) + sin(u * 7.0 - uRib * 2.7 + v * 3.0) * 0.04 * v
               + sin(u * 31.0 + uRib * 11.0 - v * 9.0) * 0.012 * v * v + sin(u * 6.0 + 1.3) * 0.025)
       + eD * (0.05 * v * v * sin(uRib * 6.1 + v * 4.0 + u * 2.0));
-    n = n0; vRim = v;
+    n = n0; vRim = v; vArc = u;
   } else {
     // a glass arc: thirty-two across, one tall, from the base (uMP) up uRadii.y
     int i = q + ca;
@@ -344,7 +344,23 @@ void main() {
     vec3 fn = normalize(cross(dFdx(vW), dFdy(vW))); if (dot(fn, v) < 0.0) fn = -fn;
     float wrap = dot(fn, L0) * 0.5 + 0.5, sheen = pow(1.0 - abs(dot(fn, v)), 3.0);
     float weave = 0.93 + 0.07 * sin(vW.x * 520.0 + vW.y * 37.0) * sin(vW.z * 520.0 - vW.y * 41.0);
-    o = vec4(uBase * weave * (lc0 * (0.35 + 1.4 * wrap) + 0.08) + lc0 * sheen * 0.35, 1.0);
+    // the scraps it's pieced from (the vat suits' patchwork, figure-hd.js vatPatchwork): staggered panels of three whites,
+    // each a flat tone, a dark seam between them with a running stitch beside it, and a patch sewn on near the hem
+    float row = floor(vRim * 2.0), cu = vArc * 2.2 + fract(sin(row * 91.7) * 437.5) * 0.8, cl = floor(cu);
+    float id = fract(sin(row * 12.9 + cl * 78.2) * 43758.5);
+    vec3 tone = id < 0.34 ? vec3(1.0) : id < 0.67 ? vec3(0.88, 0.87, 0.83) : vec3(0.95, 0.93, 0.87);
+    float ey = abs(fract(vRim * 2.0) - 0.5), ex = abs(fract(cu) - 0.5), sw = fwidth(vRim * 2.0) * 0.9 + 0.005;
+    float seam = max(step(0.5 - sw, ey), step(0.5 - sw, ex));
+    float stitch = (step(0.445, ey) * step(ey, 0.455) * step(0.5, fract(vArc * 60.0)) + step(0.445, ex) * step(ex, 0.455) * step(0.5, fract(vRim * 40.0)));
+    vec2 pq = vec2(vArc - 0.62, vRim - 0.72);
+    float onPatch = step(max(abs(pq.x) / 0.1, abs(pq.y) / 0.09), 1.0);
+    tone = mix(tone, vec3(0.8, 0.79, 0.76), onPatch);
+    float pe = abs(max(abs(pq.x) / 0.1, abs(pq.y) / 0.09) - 1.0);
+    float line = max(seam, max(0.6 * min(stitch, 1.0), step(pe, 0.035)));
+    // two flat tones of light (the house's comic bands), not a gradient
+    float band = wrap > 0.45 ? 1.0 : 0.62;
+    vec3 c = uBase * tone * weave * (lc0 * (0.35 + 1.4 * band * 0.8) + 0.08) + lc0 * sheen * 0.2;
+    o = vec4(mix(c, c * 0.42, line), 1.0);
     return;
   }
   if (uMode == 2) {
@@ -1054,6 +1070,8 @@ export function createVatLayer(gl, { phone = false } = {}) {
       }
       for (const A of scene.arms?.[g.id] || []) {
         drawArm(A);
+        // a rag of the suits' white patchwork slung over the upper arm, its spare cloth, hanging short and swinging with it
+        if (A.s && A.e) sheet(lerp3(A.s, A.e, 0.28), lerp3(A.s, A.e, 0.62), [0, 0.04, 0], [0.03 * Math.sin(t * 1.3), 0, 0.03 * Math.cos(t * 1.1)], 0.22, [0.72, 0.7, 0.64], t * 0.25);
         const c = A.cloth;
         if (c) sheet(c.a, c.b, c.bulge || [0, 0, 0], c.sway || [0, 0, 0], c.len, c.col, t);
       }

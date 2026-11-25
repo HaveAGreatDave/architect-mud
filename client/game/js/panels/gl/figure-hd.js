@@ -31,7 +31,7 @@ import { handsOfGrip, FINGER_GLSL } from './figure-hands.js';
 
 export const FIG_BONE_ROWS = FIGURE_BONE_COUNT * 12;
 // how a cut's front is painted (FIGURE_CUTS front), as uCutF.x
-const FRONT_KIND = { buttons: 1, zip: 2, pocket: 3, vest: 4, tunic: 5, suit: 6, open: 7, sportcoat: 16, cassock: 8, shirt: 9, seam: 10, straps: 11, holo: 12, hex: 13, lace: 14, cutout: 15 };
+const FRONT_KIND = { buttons: 1, zip: 2, pocket: 3, vest: 4, tunic: 5, suit: 6, open: 7, sportcoat: 16, cassock: 8, shirt: 9, seam: 10, straps: 11, holo: 12, hex: 13, lace: 14, cutout: 15, patch: 17 };
 const NB = FIGURE_BONE_COUNT * 3;
 const TAT_C = new Float32Array([0.004, 0.004, 0.006]);
 const NO_FAB = new Float32Array(20), MUT_C = new Float32Array([0.05, 0.3, 0.32]), NO_HAT = new Float32Array([-1, -1, -1]);
@@ -646,12 +646,29 @@ void reaperPrint(vec3 r, inout vec3 base, inout float ink, float W) {
   ink = max(ink, max(inkL(body, W * 0.8), inkL(scythe, W * 0.7)));
   ink = max(ink, inkL(skull, W * 0.6));
 }
+// THE VAT SUIT'S PATCHWORK (front 'patch'): the suit is run up out of the same white scraps the dressing gantry carries
+// (room-vatcycle.js CLOTH), so it's panels of three whites in staggered rows, each a flat tone of its own, every seam
+// inked with a running stitch beside it. Flat tones and a line, never a gradient: the comic manner (gl/house-style.js).
+void vatPatchwork(vec3 r, inout vec3 base, inout float ink, float W) {
+  // rows of uneven height whose seams wander a little, each cut into panels of its own width, staggered
+  float around = atan(r.x, r.z) * 0.062 + r.x * 0.3;
+  float yw = r.y + 0.018 * sin(around * 47.0) + 0.01 * sin(around * 113.0 + 1.7);
+  float row = floor(yw / 0.16), fy = fract(yw / 0.16);
+  float wid = 0.07 + 0.06 * hh(row * 3.7), sh = hh(row) * 0.9;
+  float col = floor(around / wid + sh), id = hh(row * 7.13 + col * 1.91);
+  base *= id < 0.3 ? vec3(1.0) : id < 0.55 ? vec3(0.88, 0.87, 0.83) : id < 0.8 ? vec3(0.96, 0.93, 0.85) : vec3(0.92, 0.93, 0.92);
+  float dy = (fy - 0.5) * 0.16, dx = (fract(around / wid + sh) - 0.5) * wid;
+  float seam = max(inkL(abs(dy) - 0.08, W * 0.75), inkL(abs(dx) - wid * 0.5, W * 0.75));
+  float stitch = step(0.5, fract((r.x + r.z) * 150.0)) * inkL(abs(dy) - 0.074, W * 0.4) + step(0.5, fract(r.y * 150.0)) * inkL(abs(dx) - (wid * 0.5 - 0.006), W * 0.4);
+  ink = max(ink, max(seam, 0.5 * stitch));
+}
 float paintCloth(int s, int piece, vec3 r, inout vec3 base, inout float mat) {
   // the line's half-width: heavy enough to hold as a figure gets smaller, as a comic's inking does
   float ink = 0.0, W = 0.0019, hem = uCutY.x, cuff = uCutY.y;
   float front = step(0.0, r.z);
   int fk = int(uCutF.x + 0.5);
   float ang = atan(r.x, r.z);
+  if (fk == 17 && (s == ${FIG_SLOT.top} || s == ${FIG_SLOT.legs}) && piece != ${FIG_PIECE.pocket}) vatPatchwork(r, base, ink, W);
   if ((s == ${FIG_SLOT.top} || s == ${FIG_SLOT.cloak}) && piece == ${FIG_PIECE.torso}) {
     if (fk == 1) {
       ink = max(ink, inkL(r.y - mix(1.36, 1.335, front), W) * (1.0 - smoothstep(0.12, 0.15, abs(r.x))));
@@ -662,8 +679,8 @@ float paintCloth(int s, int piece, vec3 r, inout vec3 base, inout float mat) {
       }
       ink = max(ink, inkL(r.y - (hem + 0.035), W));
       if (uCut == 0 || uCut == 5) ink = max(ink, front * inkL(r.y - 0.905, W) * within(abs(r.x), 0.06, 0.14));
-    } else if (fk == 2) {
-      // a bomber's zip down the front, and its quilting in diamonds
+    } else if (fk == 2 || fk == 17) {
+      // a bomber's zip (and the vat suit's, down its patchwork) down the front, and its quilting in diamonds
       ink = max(ink, front * max(inkL(r.x, W * 1.2), 0.5 * inkL(r.x, 0.003) * step(0.5, fract(r.y * 220.0))));
       if (uCutF.z > 0.5 && uSculpt < 0.5 && r.y > hem + uCutF.y) {
         float qa = (fract((r.y + r.x * 0.9) / 0.055) - 0.5) * 0.055, qb = (fract((r.y - r.x * 0.9) / 0.055) - 0.5) * 0.055;
