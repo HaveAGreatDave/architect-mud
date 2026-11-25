@@ -2945,6 +2945,8 @@ export function createFigureLayer(gl, { half = false, panels = false } = {}) {
     const D = FIGURE_CUTS[r.key.cut] || FIGURE_CUTS.coat, sw = r.sway || [0, 0, 0], jg = r.jiggle || [0, 0, 0], sj = r.seatJ || [0, 0, 0], H = r.hands || handsOfGrip(r.grip);
     gl.uniform4fv(P.u('uBone'), r.rows);
     gl.uniform1f(P.u('uNoHead'), r.noHead || 0);
+    // a chrome figure's head is the faceless egg in every program that shares this vertex shader (stand-in, depth/shadow, lit, ink), so its shadow and depth match
+    gl.uniform1f(P.u('uChrome'), r.chrome ? 1 : 0);
     gl.uniform4f(P.u('uDrape'), D.top.hem < 0.81 ? 1 : 0, D.front === 'open' ? 1 : 0, D.top.hem, r.floor ?? -10);
     gl.uniform3f(P.u('uSway'), sw[0], sw[1], sw[2]);
     gl.uniform4f(P.u('uBust'), jg[0], jg[1], jg[2], r.jiggle ? r.key.bust || 0 : 0);

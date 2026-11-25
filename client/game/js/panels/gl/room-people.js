@@ -1077,14 +1077,18 @@ function lookAround(S, body, kind, O, AX, AY, AZ, eye, gaze, t, att = null) {
   // the mood's own carriage of the head, on top of wherever it's looking (half of it while it's looking at somebody)
   let tr = 0;
   if (att && awake) { const k = on ? 0.5 : 1; tp -= att[0] * k; ty += att[1] * k; tr = att[2] * k; }
+  // `tilt` is a roll of the head a line asked for (a close-up figure's cue, freelook-view.js owFigCues), held on top
+  if (body.tilt) tr += body.tilt;
   let h = heads.get(body.id);
   const dt = h ? t - h.t : 0;
   if (!h || dt < 0 || dt > 1) h = { y: ty, p: tp, r: tr };
   else { const k = 1 - Math.exp(-dt * NOTICE.rate); h = { y: h.y + (ty - h.y) * k, p: h.p + (tp - h.p) * k, r: (h.r || 0) + (tr - (h.r || 0)) * k }; }
   h.t = t; h.on = on;
   heads.set(body.id, h);
-  if (Math.abs(h.y) < 1e-3 && Math.abs(h.p) < 1e-3 && Math.abs(h.r) < 1e-3 && !body.flick) return { S, eyes: gaze };
+  if (Math.abs(h.y) < 1e-3 && Math.abs(h.p) < 1e-3 && Math.abs(h.r) < 1e-3 && !body.flick && !body.shift) return { S, eyes: gaze };
   const M = Array.from(S);
+  // `shift` is a small settle of the chest and shoulders a line asked for (a cue): a lean to one side and a lift
+  if (body.shift) { const cp = at(M[BN.chest], JOINT.chest); turn(M, UPPER, 0, 1, body.shift * 0.06, cp); turn(M, UPPER, 1, 2, -body.shift * 0.04, cp); }
   // a fifth of the turn from the chest, the rest from the top of the neck
   turn(M, UPPER, 2, 0, h.y * 0.2, at(M[BN.chest], JOINT.chest));
   const pv = at(M[BN.head], JOINT.head);

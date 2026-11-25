@@ -134,6 +134,11 @@
     "figure": {
       "closeup": true,
       "chrome": true,
+      "cues": [
+        { "hear": "attendant tilts its head", "act": "tilt", "after": 0.5, "hold": 4 },
+        { "hear": "tilts its head, as if hearing", "act": "tilt", "after": 0.5, "hold": 4 },
+        { "hear": "adjusts something inside itself", "act": "shift", "after": 0.5, "hold": 1.4 }
+      ],
       "height": 2.3,
       "limb": 1.08,
       "build": "average",

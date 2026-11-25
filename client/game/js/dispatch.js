@@ -1,4 +1,5 @@
 import { state } from './state.js';
+import { noteLine } from './heard-lines.js';   // lines a view may act out (a close-up figure's flags.figure.cues)
 import { selfLookMessage } from '../../shared/self-look.js';   // a room's look for you that a message ends (MORPHEX's)
 import { saveRememberToken, forgetRememberToken } from './remember.js';
 import { sessionGet, sessionSet, sessionRemove } from './session-store.js';
@@ -2523,6 +2524,8 @@ function flashFirework(rgb, intensity) {
 
 export function handleServerMsg(msg) {
   const handler = handlers[msg.type];
+  // the text of every line, remembered a moment so a view can act out one it knows (heard-lines.js)
+  if (typeof msg.message === 'string') noteLine(msg.message); else if (typeof msg.text === 'string') noteLine(msg.text);
   // A message with no handler is DROPPED SILENTLY, and that silence is why
   // `force_look` went six call sites and an entire project history without
   // anyone noticing it did nothing. Still a drop — an unknown type must never
