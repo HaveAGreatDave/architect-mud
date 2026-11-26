@@ -5951,7 +5951,7 @@ export default async function regress({ check, run, getPlayer }) {
         // every line that's left airs unchanged and in order, and no more are gone than segments aired.
         let wi = 0;
         const inOrder = kept.every((s) => { while (wi < was.length && was[wi] !== s) wi++; return wi++ < was.length; });
-        check(`desk: ${showId} moved none of the booth's lines`, inOrder && was.length - kept.length <= packs.length, `${kept.length} vs ${was.length}, ${packs.length} segments`);
+        check(`desk: ${showId} moved none of the booth's lines`, inOrder && was.length - kept.length <= packs.length, `${kept.length} vs ${was.length}, ${packs.length} segments; gone: ${JSON.stringify((() => { const k = [...kept]; return was.filter((w) => { const i = k.indexOf(w); if (i < 0) return true; k.splice(i, 1); return false; }).slice(0, 12); })())}`);
       }
     } finally {
       cache.clear(); for (const [k, v] of saved) cache.set(k, v);

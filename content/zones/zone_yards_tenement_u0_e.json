@@ -95,6 +95,12 @@
       "studio": false,
       "w": 13.7
     },
+    "window": {
+      "description": "A narrow window gone yellow at the edges, the frame swollen and the sill crowded with grit.",
+      "light": 0.6,
+      "name": "the narrow window",
+      "visibility": 0.6
+    },
     "world_exit_zone": "zone_district_921_902"
   },
   "grid_x": 2,

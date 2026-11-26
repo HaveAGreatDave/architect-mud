@@ -2362,7 +2362,7 @@ check('look returns a result', r && r.type !== 'error', JSON.stringify(r)?.slice
   // absorbed into the set entirely — it isn't in the pane at all, because the
   // television's own display carries its transport (plugins/broadcast `tv_deck`).
   // The television, of course, stays.
-  getPlayer().current_zone = 'zone_solenne_apt_b';
+  getPlayer().current_zone = 'zone_solenne_apt_b_up';
   const deckRows = (html) => [...html.matchAll(/<span class="action-link[^"]*"[^>]*data-ftype="media_deck"[^>]*>/g)].map(([m]) => m);
   const body = (await run('look'))?.message || '';
   check('a consumer deck under a set is absorbed out of the room pane', deckRows(body).length === 0, body.slice(0, 900));
@@ -2399,7 +2399,8 @@ check('look returns a result', r && r.type !== 'error', JSON.stringify(r)?.slice
   check('a busy room sections its furniture by type', /class="room-furn-secs"/.test(body), body.slice(0, 900));
   check('…and the sections replace the single Furniture: label',
     !/>Furniture:</.test(body), body.slice(0, 900));
-  for (const label of ['Appliances:', 'Storage:', 'Media:']) {
+  // the set went upstairs to apt_p_up in the plates refit, so 8-P has no Media: now
+  for (const label of ['Appliances:', 'Storage:']) {
     check(`…${label} is one of them`, body.includes(`>${label}<`), body.slice(0, 1200));
   }
   {
@@ -2413,7 +2414,7 @@ check('look returns a result', r && r.type !== 'error', JSON.stringify(r)?.slice
     check('no piece is printed in two sections',
       links.length >= 8 && new Set(links).size === links.length, `${links.length} links: ${links.join(' | ')}`);
     check('…and the pieces themselves are still there',
-      links.some((t) => /Chromavision/.test(t)) && links.some((t) => /Ember 300/.test(t)), links.join(' | '));
+      links.some((t) => /Refrigeration Unit/.test(t)) && links.some((t) => /Ember 300/.test(t)), links.join(' | '));
   }
   }
   // …and a room with a handful of things stays flat, which is the common answer.
@@ -2421,7 +2422,7 @@ check('look returns a result', r && r.type !== 'error', JSON.stringify(r)?.slice
   const smallBody = (await run('look'))?.message || '';
   check('a small room keeps the flat Furniture: line',
     !/room-furn-secs/.test(smallBody) && /Furniture:/.test(smallBody), smallBody.slice(0, 600));
-  getPlayer().current_zone = 'zone_solenne_apt_b';
+  getPlayer().current_zone = 'zone_solenne_apt_b_up';
 
   // A switchable light clicks to its own switch rather than to examine, and the
   // tooltip says which way it will go — the pane already prints the state, so the

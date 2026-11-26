@@ -183,6 +183,12 @@
       },
       "w": 16.5
     },
+    "window": {
+      "description": "A sash window with a cracked cord, so it stays where you leave it. The glass has a film on it that no cloth gets off.",
+      "light": 0.5,
+      "name": "the sash window",
+      "visibility": 0.5
+    },
     "world_exit_zone": "zone_district_900_905"
   },
   "grid_x": 0,

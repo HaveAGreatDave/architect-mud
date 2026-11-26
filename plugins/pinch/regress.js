@@ -3,6 +3,7 @@
 // and a disconnected "away" spot) are injected into the live world so the
 // bind-vs-walk decision can be driven deterministically, then removed in finally.
 import { world, setApartmentCache } from '../../server/engine/world.js';
+import { clearRouteCache } from '../../server/engine/pathfinding.js';
 
 export default async function regress({ run, check, getPlayer }) {
   const p = getPlayer();
@@ -42,6 +43,7 @@ export default async function regress({ run, check, getPlayer }) {
     // immediately so no timer survives into later suites.
     world.zones.get(awayId).exits = { north: aptId };
     world.zones.get(aptId).exits = { south: awayId };
+    clearRouteCache();   // the failed search above is cached, and a rewired exit doesn't expire it
     p.goingHome = false; p.current_zone = awayId;
     r = await run('home');
     const armed = !!p._homeWalkTimer;

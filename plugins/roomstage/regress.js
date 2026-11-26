@@ -436,10 +436,14 @@ export default async function regress({ run, check, getPlayer }) {
     const noStage = [...world.zones.values()].filter((z) => z.flags?.is_apartment && !_test.specOf(z.id)).map((z) => z.id);
     check('every flat in the world has a Stage', !noStage.length, noStage.slice(0, 5).join(' '));
     const crown = _test.specOf('zone_solenne_penthouse');
-    check('the Solenne Penthouse has a Stage, with its spa behind it', crown?.w === 27.4 &&   // the forty-fourth floor in the bowl, 27.4 by 10.3
+    // since the plates refit (solenne-plates.md) the penthouse is four floors: the bar on the first, the lounge pit
+    // and the fire on the second
+    check('the Solenne Penthouse has a Stage, with its spa behind it', crown?.w > 0 &&
        crown?.annex?.zone === 'zone_solenne_penthouse_bath', JSON.stringify(crown)?.slice(0, 200));
-    const lounge = await _test.roomPieces('zone_solenne_penthouse', crown), down = roomLayout(crown, lounge);
-    check('its lounge is down in the pit and its bar and fire are on the floor', down.placed.find((x) => x.id === 'furn_penthouse_lounge')?.y0 === -crown.pit?.depth && !down.placed.find((x) => x.id === 'furn_penthouse_bar')?.y0 && down.placed.find((x) => x.id === 'furn_penthouse_fireplace')?.form === 'hearth', JSON.stringify(down.placed.map((x) => [x.id, x.y0])).slice(0, 300));
+    const first = await _test.roomPieces('zone_solenne_penthouse', crown), floor1 = roomLayout(crown, first);
+    const den = _test.specOf('zone_solenne_penthouse_2');
+    const lounge = await _test.roomPieces('zone_solenne_penthouse_2', den), down = roomLayout(den, lounge);
+    check('its lounge is down in the pit and its bar and fire are on the floor', down.placed.find((x) => x.id === 'furn_penthouse_lounge')?.y0 === -den.pit?.depth && floor1.placed.some((x) => x.id === 'furn_penthouse_bar') && !floor1.placed.find((x) => x.id === 'furn_penthouse_bar')?.y0 && down.placed.find((x) => x.id === 'furn_penthouse_fireplace')?.form === 'hearth', JSON.stringify(down.placed.map((x) => [x.id, x.y0])).slice(0, 300));
 
     p.current_zone = APT;
     world.zones.get(APT).players.add(p.id);
@@ -762,7 +766,7 @@ export default async function regress({ run, check, getPlayer }) {
         const bld = _test.buildingOfRoom(LOBBY);
         check('Solenne is one walk, lobby to sky pad, with no problems', bld && !bld.plan.problems.length && [CAR, F8, A8, 'zone_solenne_penthouse', 'zone_solenne_helipad'].every((z) => bld.b.walk.includes(z)), JSON.stringify(bld?.plan.problems));
         const stops = bld?.plan.lifts?.[CAR]?.stops || [];
-        check('the lift stops are stacked bottom to top, each above the last', stops.length === 14 &&   // the upper residences (solenne-upper.mjs) added 24 to 40
+        check('the lift stops are stacked bottom to top, each above the last', stops.length === (world.zones.get(CAR).flags.elevator_floors || []).length &&   // every floor the car lists above the lobby
            stops.every((s, i) => !i || s.y > stops[i - 1].y), JSON.stringify(stops.map((s) => [s.n, s.y])));
         world.zones.get(p.current_zone)?.players.delete(p.id);
         p.current_zone = LOBBY; world.zones.get(LOBBY).players.add(p.id); p._elevatorAt = null;
@@ -771,18 +775,18 @@ export default async function regress({ run, check, getPlayer }) {
         await run('in');
         await wait(() => sent.some((m) => m.type === 'room_view' && m.zone === CAR));
         const car = sent.find((m) => m.type === 'room_view' && m.zone === CAR);
-        check('walking into the car keeps the Stage open, with its panel of real floors', car?.via === LOBBY && car.lift?.floors.map((f) => f.n).join() === '1,8,10,12,18,19,24,26,28,34,36,38,40,44,45' && car.lift.at === 1, JSON.stringify(car?.lift));
+        check('walking into the car keeps the Stage open, with its panel of real floors', car?.via === LOBBY && car.lift?.floors.map((f) => f.n).join() === [1, ...world.zones.get(CAR).flags.elevator_floors.map((f) => f.n)].join() && car.lift.at === 1, JSON.stringify(car?.lift));
         check('parked at the lobby, the car is open on the lobby', car?.spec.openings?.some((o) => o.kind === 'door' && o.to === LOBBY && o.dir === 'out') && car.building?.neighbours?.map((n) => n.zone).join() === LOBBY, JSON.stringify(car?.spec.openings));
         sent.length = 0;
-        await run('floor 8');
+        await run('floor 4');   // the residences, floor 8 before the plates refit
         await wait(() => sent.some((m) => m.type === 'room_view' && m.ride));
         const up = sent.find((m) => m.type === 'room_view' && m.ride);
-        check('a ride opens the car\'s doors on that floor, the landing drawn level with it', up?.zone === CAR && up.lift?.at === 8 && up.spec.openings.some((o) => o.kind === 'door' && o.to === F8 && o.dir === 'out') && up.building?.neighbours?.[0]?.zone === F8 && up.building.neighbours[0].spec.floor === 0, JSON.stringify(up?.spec?.openings));
+        check('a ride opens the car\'s doors on that floor, the landing drawn level with it', up?.zone === CAR && up.lift?.at === 4 && up.spec.openings.some((o) => o.kind === 'door' && o.to === F8 && o.dir === 'out') && up.building?.neighbours?.[0]?.zone === F8 && up.building.neighbours[0].spec.floor === 0, JSON.stringify(up?.spec?.openings));
         sent.length = 0;
         await run('out');
         await wait(() => p.current_zone === F8 && sent.some((m) => m.type === 'room_view'));
         const hall = sent.find((m) => m.type === 'room_view' && m.zone === F8);
-        check('stepping out walks onto the eighth floor, still in the Stage', p.current_zone === F8 && hall?.via === CAR && hall.building?.neighbours?.some((n) => n.zone === A8) && hall.building.neighbours.some((n) => n.zone === CAR && n.spec.floor === 0), JSON.stringify(hall?.building?.neighbours?.map((n) => [n.zone, n.spec.floor])));
+        check('stepping out walks onto the residences floor, still in the Stage', p.current_zone === F8 && hall?.via === CAR && hall.building?.neighbours?.some((n) => n.zone === A8) && hall.building.neighbours.some((n) => n.zone === CAR && n.spec.floor === 0), JSON.stringify(hall?.building?.neighbours?.map((n) => [n.zone, n.spec.floor])));
 
         // the street door (building-stage.md step 5): out onto the pavement in GLASS on foot, and back in
         const FACADE = 'zone_district_914_908', STREET = 'zone_district_914_909';
