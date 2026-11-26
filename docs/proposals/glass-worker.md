@@ -1,10 +1,12 @@
 # GLASS on its own thread: the street on foot painted in a worker
 
-**Status: phase 0 measured: on hold. Phases 1 to 4 are design.**
+**Status: phase 0 measured on Ironside and Marrow: on hold. Phases 1 to 4 are design.**
 
 ## Phase 0, measured 2026-11-24: the page's other work is under 1%
 
 In the game (a guest on `test.localhost:3000`, the Browser pane at 669×742, Lite, with this day's occlusion and kept-metal changes in), walking Ironside Street outside the clone facility for 30 s with W held and five turns: 1,788 frames, 59.6 fps; `paintWindshield` 10.1 ms a frame (`__footPerf`), 18.0 s of the 30. The long-animation-frame API saw 2 long frames in all, 0.13 s, both in the street view's own callback; nothing else on the page (the socket, the log, the HUD) made one. So the page's other work is far under the 10% bar, and a worker would buy this street next to no frame rate: it already holds 60. ⚠ That's Ironside, not Marrow, where the first in-game measurement (before the day's changes) read 10 to 16 fps. Measure Marrow the same way before deciding phase 1 on frame rate; the case left for a worker is a page that never freezes behind a slow paint, which matters only where the paint is slow.
+
+**Marrow, measured 2026-11-25: the same answer.** A guest on Marrow Street at 916,909 (Marrow House to the north), the pane shown at 488×748, Lite, walking east along the street and back for 30 s with W held and four turns: 552 frames, 18.1 fps, frame gaps p50 49.8 ms, p95 100, p99 167, one 2.5 s hitch. `paintWindshield` read 32 to 59 ms a frame in 5 s windows, and the one-world ticks round it 0.1 to 0.2. The long-animation-frame API saw 189 long frames, 13.7 s, and every one was the street view's own frame callback: no long frame came from the socket, the log, the HUD or anything else. So on the slow street too, the page's other work is nothing, and a worker would buy no frame rate; Marrow is slow because its paint is slow, and the lever is the paint ([sixty-fps.md](sixty-fps.md)). ⚠ The machine was about 56% busy with other sessions' servers while this ran, so the paint times are high against the 19 to 26 ms read the same day on a quieter machine; the split between the view and the rest of the page doesn't depend on that. ⚠ A hidden pane throttles the view to one frame a second; drive it with a timer shim and the per-paint times still come out, but no rate or refresh count does. Phase 1 stays on hold: its only case now is a page that stays responsive while a slow paint runs.
 
 This is [sixty-fps.md](sixty-fps.md) step 7, "move the build to a worker". It's the last and largest of that plan's steps, and this is how to do it.
 

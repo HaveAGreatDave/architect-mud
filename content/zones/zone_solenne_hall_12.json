@@ -16,7 +16,7 @@
     "is_interior": true,
     "room": {
       "balcony": false,
-      "d": 3,
+      "d": 2,
       "decor": {
         "ceiling": {
           "band": 0.4,
@@ -70,6 +70,10 @@
           "y1": 2.5
         }
       },
+      "doors": {
+        "in": 0,
+        "north": 0
+      },
       "face": 0,
       "finish": "fine",
       "ground": "stone",
@@ -93,10 +97,11 @@
     "sanctuary": true
   },
   "grid_x": 0,
-  "grid_y": 0,
-  "grid_z": 1,
+  "grid_y": -1,
+  "grid_z": 2,
   "id": "zone_solenne_hall_12",
   "map_id": "map_int_solenne",
+  "marker": "2",
   "name": "The Twelfth Floor",
   "parent_zone": "zone_district_914_908"
 }

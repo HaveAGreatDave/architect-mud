@@ -12,8 +12,8 @@
     "seat_idx": 3,
     "spot": {
       "at": [
-        -1.5,
-        4.45
+        3.6,
+        5.65
       ],
       "turn": 0
     }
@@ -27,5 +27,5 @@
   "object_type": "furniture",
   "power_draw_kw": null,
   "price": 700,
-  "zone_id": "zone_solenne_apt_b"
+  "zone_id": "zone_solenne_apt_b_up"
 }

@@ -3,34 +3,38 @@
   "ambient_theme": "indoors",
   "bg_color": "#2b3a34",
   "color": "#e8ddc7",
-  "description": "A one-bedroom on the north corner, glass on two sides and the bay in both of them. Engineered oak underfoot, a low platform bed in cloud-grey linen, and a kitchen that is one seam of stone with no handles anywhere. Everything is quiet and exactly where it should be. The door locks with a whisper. Leave <b>south</b> to the landing.",
+  "description": "A long flat down the west side of the fourth floor, glass along the length of it and the mountains at the far end. Oak, pale plaster, a platform bed, a galley kitchen in grey stone, heating underfoot. Leave <b>east</b> to the landing.",
   "exits": {
-    "in": "zone_solenne_apt_a_bath",
-    "south": "zone_solenne_residences"
+    "east": "zone_solenne_residences",
+    "in": "zone_solenne_apt_a_bath"
   },
   "flags": {
     "building_name": "Solenne Residences",
     "floor": "boards",
     "is_apartment": true,
     "is_interior": true,
-    "rent_cost": 400,
+    "rent_cost": 380,
     "rest_multiplier": 1.5,
     "room": {
       "balcony": false,
-      "d": 7,
+      "d": 11.26,
+      "doors": {
+        "east": 1.67
+      },
       "ensuite": {
         "d": 2.6,
         "dress": "spa",
         "w": 3.2
       },
+      "face": 180,
       "finish": "fine",
       "glass": [
         "front",
-        "left"
+        "right"
       ],
       "h": 3,
-      "storeys": 40,
-      "w": 11.4
+      "storeys": 32,
+      "w": 3.82
     },
     "window": {
       "description": "A tall pane runs floor to ceiling down one wall, black-framed, holding the city out there like something in a case.",
@@ -39,12 +43,12 @@
       "visibility": 0.9
     }
   },
-  "grid_x": 0,
-  "grid_y": -2,
-  "grid_z": 3,
+  "grid_x": -1,
+  "grid_y": -1,
+  "grid_z": 4,
   "id": "zone_solenne_apt_a",
   "map_id": "map_int_solenne",
-  "marker": "8",
-  "name": "Solenne Residence 8-A",
+  "marker": "4",
+  "name": "Solenne Residence 4-A",
   "parent_zone": "zone_district_914_908"
 }

@@ -1,0 +1,114 @@
+{
+  "note": "Written by hand from scripts/content/yards-fit.mjs: the shaft 14.3 m square to 27.6 m, the top 11.8 m square, storeys of 3.6 m, the lift housing and the street-kit shopfront. Phase 2 will record this from the arm.",
+  "slug": "yards_tenement",
+  "facade": "zone_district_921_902",
+  "tile": [
+    922,
+    902
+  ],
+  "building_type": "apartment",
+  "layout": "tenement",
+  "storey_h": 3.6,
+  "masses": [
+    {
+      "rect": [
+        -7.15,
+        7.15,
+        -7.15,
+        7.15
+      ],
+      "storeys": [
+        0,
+        8
+      ]
+    },
+    {
+      "rect": [
+        -5.9,
+        5.9,
+        -5.9,
+        5.9
+      ],
+      "storeys": [
+        8,
+        10
+      ]
+    }
+  ],
+  "door": {
+    "side": "south",
+    "at": 0.6
+  },
+  "bays": [
+    {
+      "side": "south",
+      "storeys": [
+        0,
+        1
+      ],
+      "kind": "retail",
+      "at": [
+        -6.4,
+        -1.6
+      ],
+      "y0": 0.3,
+      "y1": 2.8
+    },
+    {
+      "side": "south",
+      "storeys": [
+        1,
+        10
+      ],
+      "kind": "sash",
+      "pitch": 1.8,
+      "w": 1,
+      "y0": 0.9,
+      "y1": 2.4
+    },
+    {
+      "side": "north",
+      "storeys": [
+        0,
+        10
+      ],
+      "kind": "sash",
+      "pitch": 1.8,
+      "w": 1,
+      "y0": 0.9,
+      "y1": 2.4
+    },
+    {
+      "side": "east",
+      "storeys": [
+        0,
+        10
+      ],
+      "kind": "sash",
+      "pitch": 1.8,
+      "w": 1,
+      "y0": 0.9,
+      "y1": 2.4
+    },
+    {
+      "side": "west",
+      "storeys": [
+        0,
+        10
+      ],
+      "kind": "sash",
+      "pitch": 1.8,
+      "w": 1,
+      "y0": 0.9,
+      "y1": 2.4
+    }
+  ],
+  "shared": [],
+  "roof": {
+    "lift": true
+  },
+  "floors": "all",
+  "ids": {
+    "util": "util"
+  }
+}

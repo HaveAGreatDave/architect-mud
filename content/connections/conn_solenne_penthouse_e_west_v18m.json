@@ -1,0 +1,9 @@
+{
+  "a": "zone_solenne_penthouse_e",
+  "b": "zone_solenne_ph_landing",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_solenne_penthouse_e_west_v18m",
+  "lockable": false,
+  "one_way": false
+}

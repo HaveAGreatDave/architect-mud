@@ -1,0 +1,100 @@
+{
+  "note": "Measured from the apartment arm GLASS draws it with (building_type residential, four storeys) at 917,904, through building-shapes.js and skyline-scale.js, at 17.9 m a tile unit (the Yards fit calibrates it): a 17.1 m ground storey, 14.9 m square above it to 14 m, and a 9.7 m roof block that is no storey. Phase 2 will record this from the arm.",
+  "slug": "restassured",
+  "facade": "zone_district_900_905",
+  "tile": [
+    917,
+    904
+  ],
+  "building_type": "residential",
+  "layout": "rooming",
+  "storey_h": 3.44,
+  "masses": [
+    {
+      "rect": [
+        -8.55,
+        8.55,
+        -8.55,
+        8.55
+      ],
+      "storeys": [
+        0,
+        1
+      ]
+    },
+    {
+      "rect": [
+        -7.46,
+        7.46,
+        -7.46,
+        7.46
+      ],
+      "storeys": [
+        1,
+        4
+      ]
+    }
+  ],
+  "door": {
+    "side": "east",
+    "at": 0
+  },
+  "bays": [
+    {
+      "side": "east",
+      "storeys": [
+        0,
+        4
+      ],
+      "kind": "sash",
+      "pitch": 1.7,
+      "w": 0.9,
+      "y0": 0.9,
+      "y1": 2.3
+    },
+    {
+      "side": "west",
+      "storeys": [
+        0,
+        4
+      ],
+      "kind": "sash",
+      "pitch": 1.7,
+      "w": 0.9,
+      "y0": 0.9,
+      "y1": 2.3
+    },
+    {
+      "side": "north",
+      "storeys": [
+        0,
+        4
+      ],
+      "kind": "sash",
+      "pitch": 1.7,
+      "w": 0.9,
+      "y0": 0.9,
+      "y1": 2.3
+    },
+    {
+      "side": "south",
+      "storeys": [
+        0,
+        4
+      ],
+      "kind": "sash",
+      "pitch": 1.7,
+      "w": 0.9,
+      "y0": 0.9,
+      "y1": 2.3
+    }
+  ],
+  "shared": [],
+  "roof": {},
+  "ids": {
+    "lobby": "hall",
+    "u1_3": "room_a",
+    "u1_4": "room_b"
+  },
+  "finish": "worn"
+}

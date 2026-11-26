@@ -15,10 +15,6 @@
       ],
       "form": "flat"
     },
-    "spot": {
-      "along": 7.9,
-      "wall": "right"
-    },
     "tv": true,
     "tv_dial_freq": 7,
     "tv_skin": "flatscreen"
@@ -32,5 +28,5 @@
   "object_type": "furniture",
   "power_draw_kw": 5,
   "price": 45000,
-  "zone_id": "zone_solenne_penthouse"
+  "zone_id": "zone_solenne_penthouse_2"
 }

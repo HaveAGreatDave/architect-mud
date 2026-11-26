@@ -692,7 +692,7 @@ function runwayFieldMap() {
   for (const [key, cell] of _coordIndex) {
     const [x, y] = key.split(',').map(Number);
     if (cell.flags.runway) runways.set(key, { id: cell.id, x, y, piece: -1 });
-    if (cell.flags.airfield_id) fields.push({ id: cell.id, x, y });
+    if (cell.flags.airfield_id) fields.push({ id: cell.id, x, y, onRunway: !!cell.flags.runway });
   }
   // Number the pieces of paving: a flood fill over orthogonal neighbours.
   let pieces = 0;
@@ -721,10 +721,16 @@ function runwayFieldMap() {
   }
   const out = new Map();
   for (const t of runways.values()) {
-    let best = null, nd = Infinity;
+    // Nearest field tile wins. Ties are common (a field has several tiles, and a neighbour's
+    // field can sit as close), and the coord index is in DB row order, which differs between
+    // databases, so break them in a fixed order: the nearer by steps, then the field tile on the
+    // runway itself, then the id.
+    let best = null, key = null;
     for (const f of claims.get(t.piece) || []) {
-      const d = Math.max(Math.abs(f.x - t.x), Math.abs(f.y - t.y));
-      if (d < nd) { nd = d; best = f; }
+      const dx = Math.abs(f.x - t.x), dy = Math.abs(f.y - t.y);
+      const k = [Math.max(dx, dy), dx + dy, f.onRunway ? 0 : 1, f.id];
+      const c = !key ? -1 : (k[0] - key[0]) || (k[1] - key[1]) || (k[2] - key[2]) || (k[3] < key[3] ? -1 : 1);
+      if (c < 0) { key = k; best = f; }
     }
     if (best) out.set(t.id, best.id);
   }

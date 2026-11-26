@@ -1,0 +1,116 @@
+{
+  "note": "Written by hand. Its sizes are ESTIMATES, not read from the arm: a 14 m plinth block stepped back twice, storeys of 3.5 m over a 4.2 m stone ground floor, the shop on the south half of the Lever Lane front. Shared walls north (Ring Fenced) and south (Watts The Damage) are assumed from the neighbours being buildings. Phase 2 will record the real numbers.",
+  "slug": "corbett",
+  "facade": "zone_district_916_906",
+  "tile": [
+    917,
+    906
+  ],
+  "building_type": "apartment",
+  "layout": "mansion",
+  "storey_h": 3.5,
+  "ground_h": 4.2,
+  "masses": [
+    {
+      "rect": [
+        -7,
+        7,
+        -7,
+        7
+      ],
+      "storeys": [
+        0,
+        8
+      ]
+    },
+    {
+      "rect": [
+        -6,
+        6,
+        -7,
+        7
+      ],
+      "storeys": [
+        8,
+        10
+      ]
+    },
+    {
+      "rect": [
+        -5,
+        5,
+        -7,
+        7
+      ],
+      "storeys": [
+        10,
+        12
+      ]
+    }
+  ],
+  "door": {
+    "side": "east",
+    "at": 1.5
+  },
+  "bays": [
+    {
+      "side": "east",
+      "storeys": [
+        0,
+        1
+      ],
+      "kind": "retail",
+      "at": [
+        -6.2,
+        -1.5
+      ],
+      "y0": 0.3,
+      "y1": 3.2
+    },
+    {
+      "side": "east",
+      "storeys": [
+        0,
+        1
+      ],
+      "kind": "sash",
+      "at": [
+        3,
+        5.6
+      ],
+      "y0": 0.9,
+      "y1": 3.2
+    },
+    {
+      "side": "east",
+      "storeys": [
+        1,
+        12
+      ],
+      "kind": "sash",
+      "pitch": 1.8,
+      "w": 1,
+      "y0": 0.9,
+      "y1": 2.4
+    },
+    {
+      "side": "west",
+      "storeys": [
+        0,
+        12
+      ],
+      "kind": "sash",
+      "pitch": 1.8,
+      "w": 1,
+      "y0": 0.9,
+      "y1": 2.4
+    }
+  ],
+  "shared": [
+    "north",
+    "south"
+  ],
+  "roof": {
+    "tank": true
+  }
+}

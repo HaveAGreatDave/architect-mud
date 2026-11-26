@@ -9,7 +9,7 @@
     "item_id": "item_furn_fridge_coldbox",
     "preserves": "refrigerated",
     "spot": {
-      "along": 8.14,
+      "along": 5.05,
       "wall": "right"
     }
   },

@@ -5,7 +5,8 @@
       "lean"
     ],
     "power_draw_kw": 0.4,
-    "stove_tier": "mid"
+    "stove_tier": "mid",
+    "wealth": "middle"
   },
   "id": "item_furn_stove_ember300",
   "name": "Ember 300 Range",

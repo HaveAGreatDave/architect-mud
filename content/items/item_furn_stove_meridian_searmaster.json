@@ -5,7 +5,8 @@
       "lean"
     ],
     "power_draw_kw": 0.5,
-    "stove_tier": "high"
+    "stove_tier": "high",
+    "wealth": "rich"
   },
   "id": "item_furn_stove_meridian_searmaster",
   "name": "Zenith Searmaster",

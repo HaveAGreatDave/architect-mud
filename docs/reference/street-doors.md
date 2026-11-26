@@ -100,13 +100,43 @@ the model's doorway. Then run `node scripts/shapes/street-doors.mjs`.
 | `swing` | a glass pair in metal frames, hinged at the jambs, turning in | as you come up (`hand`: F from inside) | the Embassy, the Meridian, Screw It |
 | `single` | one glass leaf across the opening | as you come up | |
 | `revolving` | four glass wings on a post in a drum of curved glass under a round canopy, turning while you're at it | always passable while near | |
-| `plain` | one painted leaf with a light in it | F | Voltage, the Shed |
-| `grille` | a steel cage that is the door | F | the Cherry Pit |
+| `plain` | one painted leaf with a light in it | as you come up | Voltage, the Shed |
+| `grille` | a steel cage that is the door | as you come up | the Cherry Pit |
 
 **A new kind** is a row in `DOOR_KINDS` (`leaves`, `glass`, `auto`, `move`) and, if its `move` is new, a function in
 `street-doors.js` beside `slidingPair`, `hingedGlass`, `paintedLeaf` and `revolving`. Draw every quad through `Q`,
 which projects it onto the leaves' plane, with a `layer` for what stands in front of what. The gate draws every kind
 shut, half and fully open, day and night, with and without the room behind it.
+
+## Locked doors
+
+Every street door opens as you come up to it unless the building's front door is locked. `plugins/freelook`
+`doorsWithLocks` marks each door it sends `locked` when `frontDoorOf(facade).lock_state` is `locked`, and `mine` when
+the lock is on a home the player controls (`playerControlsDoor`). A locked door stays shut and holds you. F at it
+sends `unlock <dir> door` when it's yours, after which it opens as you come up; anybody else's F sends the step in
+and the move gate refuses it. The move gate is still what decides who gets through, for players and NPCs alike
+(`ai-behaviour.js`: an NPC passes the front door of the building it lives or works in).
+
+## People on the street
+
+Somebody going into or coming out of a building on the street feed uses the same door. `glass/npc-doors.js`:
+
+- **The front, and only the front.** The server only forwards a mover into a facade from the tile its
+  `flags.entrance` faces, so `windshield.js doorwayDir` takes only a neighbour whose `ent` faces the tile they left.
+  No front facing them, and they fade where they stood. Nobody walks into a flank or a back wall.
+- **The model's doorway.** The door is `doorBayAt`'s, the one the street door on foot is fitted to, and they walk
+  to its middle. A model that records no doorway is measured off its mass at the front's middle and drawn with a
+  frame of its own (`fit: 'room'`).
+- **A door for the building's type.** `client/shared/street-door.js doorForType` picks the kind and look by trade: a
+  tower's lobby revolves, a clinic or a terminal has an automatic pair, a shop one glazed door, a hotel or a bank a
+  brass pair with a fanlight, a flat or a bar a painted leaf (a flat's colour by its tile), a works a grille. It's
+  drawn by `drawStreetDoors`, so it's the same quality of door as a Stage one.
+- **One door.** Where somebody on foot already has the building's Stage door, the person going through opens that
+  door (`npcDoorsOnto`) and nothing is drawn twice.
+
+Gate: `scripts/shapes/npc-doors.mjs` (`--list` counts the doors by kind and fit). About half the fronts in the
+snapshot are fitted to a recorded doorway; the rest are measured, and recording their doorways is the way to
+improve them.
 
 ## Not built
 

@@ -1,0 +1,31 @@
+{
+  "description": "An old glass case with a brass lock, the glass clean, the wood round it worn dark at the corners. Hand lamps and a pocket compass on green baize.",
+  "flags": {
+    "aliases": "case,glass case,cabinet,lamps",
+    "look": {
+      "arche": "cabinet",
+      "form": "vitrine",
+      "dims": [
+        1.1,
+        0.42,
+        1.6
+      ],
+      "stock": "surplus",
+      "wear": 0.5
+    },
+    "spot": {
+      "wall": "left",
+      "along": 9.4
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_otoole_vitrine",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the glass case",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_otoole_interior"
+}

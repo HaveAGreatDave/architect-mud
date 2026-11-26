@@ -13,12 +13,13 @@
         0.82
       ],
       "dress": "apples",
-      "form": "console"
+      "form": "console",
+      "wood": "#111214"
     },
     "spot": {
       "at": [
         3.9,
-        5.8
+        5.7
       ],
       "turn": 90
     }

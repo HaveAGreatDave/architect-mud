@@ -24,7 +24,7 @@ import { adjustCredits } from './economy.js';
 import { randomUUID } from 'crypto';
 import { isStackable } from './tags.js';
 import { MERGEABLE_SQL } from './inventory.js';
-import { isConsumerFurniture } from './furniture-shop.js';
+import { isConsumerFurniture, vendorSellsClass, vendorWealth } from './furniture-shop.js';
 import { getFlag, setFlag } from './flags.js';
 import { emit } from './events.js';
 import { weaponSkillRequirement } from './combat.js';
@@ -214,6 +214,7 @@ export async function getVendorStock(npc, playerId, shelfKey = null) {
     for (const r of rows) counts.set(`${r.container_id}::${r.item_id}`, r.n);
   }
 
+  const wealth = vendorWealth(npc);
   const stock = [];
   for (const entry of shelf) {
     const item = itemsById.get(entry.item_id);
@@ -221,6 +222,8 @@ export async function getVendorStock(npc, playerId, shelfKey = null) {
     // Vendors only sell furniture you can actually use (sit/lean/lie/watch);
     // non-consumer furniture (infrastructure) is ignored on the shelf.
     if (item.type === 'furniture' && !isConsumerFurniture(item)) continue;
+    // A shop sells furniture of its own neighbourhood's class (furniture-shop.js).
+    if (!vendorSellsClass(npc, item, wealth)) continue;
     const basePrice = priceMap[entry.item_id] ?? item.value;
     const finalPrice = Math.max(1, Math.round(basePrice * (1 - discount)));
     const containerId = sourceMap.get(entry.item_id);
@@ -692,9 +695,11 @@ export async function restockVendor(npc) {
   const catalogueIds = new Set(catalogue.map(e => e.item_id));
   const cleanedStock = activeStock.filter(e => catalogueIds.has(e.item_id));
 
-  // Items in catalogue not on shelf
+  // Items in catalogue not on shelf. Furniture of another class never takes a
+  // slot, or the shelf would fill with pieces getVendorStock then hides.
   const stockIds = new Set(cleanedStock.map(e => e.item_id));
-  const unstocked = catalogue.filter(e => !stockIds.has(e.item_id));
+  const wealth = vendorWealth(npc);
+  const unstocked = catalogue.filter(e => !stockIds.has(e.item_id) && vendorSellsClass(npc, getItem(e.item_id), wealth));
 
   const slots = stockSize - cleanedStock.length;
   let newStock = cleanedStock;

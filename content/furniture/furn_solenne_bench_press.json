@@ -11,7 +11,7 @@
     },
     "spot": {
       "along": 2.8,
-      "wall": "left"
+      "wall": "back"
     }
   },
   "hp": null,

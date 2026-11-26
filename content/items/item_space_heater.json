@@ -6,7 +6,8 @@
     "interactions": [
       "lift"
     ],
-    "power_draw_kw": 0.8
+    "power_draw_kw": 0.8,
+    "wealth": "middle"
   },
   "id": "item_space_heater",
   "name": "battery-backed space heater",

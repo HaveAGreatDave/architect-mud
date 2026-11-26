@@ -1,0 +1,66 @@
+{
+  "ambient_theme": "indoors",
+  "description": "",
+  "exits": {
+    "east": "zone_restassured_u2_4",
+    "north": "zone_restassured_f2",
+    "south": "zone_restassured_f2_h2",
+    "west": "zone_restassured_u2_1"
+  },
+  "flags": {
+    "building_name": "Rest Assured",
+    "building_type": "residential",
+    "is_building": true,
+    "is_interior": true,
+    "room": {
+      "d": 3.58,
+      "decor": {
+        "damp": [
+          {
+            "at": [
+              -0.42,
+              2.79
+            ],
+            "r": 0.42
+          }
+        ],
+        "runner": {
+          "hex": "#3a2a24"
+        },
+        "walls": {
+          "hex": "#4a3a2a",
+          "kind": "walnut",
+          "rail": 0.95,
+          "trim": "#2a2018",
+          "y1": 1
+        }
+      },
+      "doors": {
+        "east": 0,
+        "north": 0,
+        "south": 0.1,
+        "west": -0.29
+      },
+      "face": 180,
+      "floor_m": 6.88,
+      "h": 3.44,
+      "studio": false,
+      "tone": {
+        "accent": "#5a4a3a",
+        "ceiling": "#9a907e",
+        "trim": "#3a2e24",
+        "wall": "#8a7c66"
+      },
+      "w": 2.12,
+      "windowless": true
+    },
+    "world_exit_zone": "zone_district_900_905"
+  },
+  "grid_x": 0,
+  "grid_y": 2,
+  "grid_z": 2,
+  "id": "zone_restassured_f2_h1",
+  "map_id": "map_int_restassured",
+  "name": "Rest Assured, Second Floor Hall",
+  "parent_zone": "zone_district_900_905"
+}

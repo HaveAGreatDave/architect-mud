@@ -565,11 +565,40 @@ export function warmRoomCanvas(opts) {
   if (!gl || !prewarmPrograms(gl, 'room')) { try { gl?.getExtension('WEBGL_lose_context')?.loseContext(); } catch { /* gone */ } return null; }
   return c;
 }
+// why the last createRoomRenderer returned null, as a few short lines for the Stage to show and copy
+let roomFailure = null;
+export const roomFailureLog = () => roomFailure;
+function failureLog(gl, kind, detail, err) {
+  const lines = [`room renderer: ${kind}`];
+  if (detail) lines.push(detail);
+  if (err?.stack) lines.push(...String(err.stack).split('\n').slice(0, 4).map((s) => s.trim()));
+  try {
+    if (gl) {
+      const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+      lines.push(`gpu: ${dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)}`);
+      lines.push(`context lost: ${gl.isContextLost()}`);
+    }
+  } catch { /* the context is gone */ }
+  lines.push(`ua: ${navigator.userAgent}`, `at: ${new Date().toISOString()}`);
+  return lines.join('\n');
+}
 export function createRoomRenderer(canvas, { phone = false, see = false } = {}) {
-  let gl = null;
-  try { gl = canvas.getContext('webgl2', roomContextAttrs({ phone, see })); } catch { gl = null; }
-  if (!gl) return null;
-  try { return build(); } catch (err) { console.warn('[room] the 3-D room is unavailable:', err && err.message); return null; }
+  roomFailure = null;
+  let gl = null, why = '';
+  const onFail = (e) => { why = e.statusMessage || why; };
+  canvas.addEventListener('webglcontextcreationerror', onFail, { once: true });
+  try { gl = canvas.getContext('webgl2', roomContextAttrs({ phone, see })); } catch (err) { why = why || err?.message || String(err); }
+  canvas.removeEventListener('webglcontextcreationerror', onFail);
+  if (!gl) {
+    const had1 = (() => { try { return !!document.createElement('canvas').getContext('webgl'); } catch { return false; } })();
+    roomFailure = failureLog(null, 'no WebGL2 context', `${why || 'the browser gave no reason'}; WebGL1 ${had1 ? 'available' : 'unavailable too'}`);
+    return null;
+  }
+  try { return build(); } catch (err) {
+    console.warn('[room] the 3-D room is unavailable:', err && err.message);
+    roomFailure = failureLog(gl, 'build failed', err?.message || String(err), err);
+    return null;
+  }
 
   function build() {
     prewarmPrograms(gl, 'room');

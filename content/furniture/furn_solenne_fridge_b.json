@@ -12,8 +12,8 @@
     "paired_container": "furn_solenne_freezer_b",
     "preserves": "refrigerated",
     "spot": {
-      "along": 7.41,
-      "wall": "right"
+      "along": 6.2,
+      "wall": "left"
     }
   },
   "hp": null,

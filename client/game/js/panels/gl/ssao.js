@@ -490,6 +490,14 @@ export function createSSAOLayer(gl, posLoc) {
     // The mass's depth alone, for the occlusion readback (gl/occ-readback.js), before anything that moves goes in.
     // It binds its own target, so this pass's is put back.
     if (opts.onMassDepth) {
+      // the rooms you're inside, into the same depth before it's read (context.js occRooms); their own program, so ours
+      // goes back after. They take the lines and the occlusion too, as the room's walls should.
+      if (opts.occRooms) {
+        try { opts.occRooms(); } catch { /* without them the readback just sees further */ }
+        gl.bindFramebuffer(gl.FRAMEBUFFER, depthFbo); gl.viewport(0, 0, DW, DH);
+        gl.disable(gl.BLEND); gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.depthMask(true); gl.disable(gl.CULL_FACE);
+        gl.useProgram(depthProg);
+      }
       try { opts.onMassDepth(depthTex, DW, DH); } catch { /* no answer this frame is a full answer */ }
       gl.bindFramebuffer(gl.FRAMEBUFFER, depthFbo);
       gl.viewport(0, 0, DW, DH);

@@ -1,0 +1,66 @@
+{
+  "ambient_theme": "indoors",
+  "bg_color": "#2f3a47",
+  "color": "#efe4cd",
+  "description": "The penthouse's twenty-ninth floor, glass on three sides, the city level with you. The stair goes <b>up</b> and <b>down</b>.",
+  "exits": {
+    "down": "zone_solenne_penthouse",
+    "up": "zone_solenne_penthouse_3"
+  },
+  "flags": {
+    "building_name": "Solenne Residences",
+    "floor": "stone",
+    "is_dwelling": true,
+    "is_interior": true,
+    "private_to": "zone_solenne_penthouse",
+    "room": {
+      "balcony": false,
+      "d": 7.7,
+      "doors": {
+        "down": [
+          -5.85,
+          3.41
+        ]
+      },
+      "face": 0,
+      "finish": "fine",
+      "glass": [
+        "front",
+        "right",
+        "left"
+      ],
+      "ground": "stone",
+      "h": 3.6,
+      "pit": {
+        "at": [
+          -3,
+          3,
+          3.2,
+          8.4
+        ],
+        "depth": 0.42,
+        "step": 0.42
+      },
+      "stair": {
+        "at": [
+          -5.5,
+          6.97
+        ],
+        "climb": "right",
+        "w": 1.1
+      },
+      "storey": 39,
+      "storeys": 32,
+      "studio": false,
+      "w": 13
+    }
+  },
+  "grid_x": -1,
+  "grid_y": -1,
+  "grid_z": 29,
+  "id": "zone_solenne_penthouse_2",
+  "map_id": "map_int_solenne",
+  "marker": "29",
+  "name": "The Penthouse, the twenty-ninth floor",
+  "parent_zone": "zone_district_914_908"
+}

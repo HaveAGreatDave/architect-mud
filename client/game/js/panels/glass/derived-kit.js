@@ -60,6 +60,49 @@ function faceClaim(d, V) {
   return { x: d.face === 'x', cy, x0: cx - half - fr, x1: cx + half + fr, z0: Math.min(z0, z1) - fr, z1: Math.max(z0, z1) + fr };
 }
 
+// ── IS THIS PART INSIDE THE BUILDING'S OWN MASS? ───────────────────────────────────────────────
+// A wall part's face, probed across its width (three points) just off the wall and at its reach
+// (two): buried when at least half the probes are inside one of the building's boxes, fitted as
+// every reader fits them (`segFit`). Half, so a corner clipping a pier isn't enough. A flank part
+// (`face: 'x'`) is in the turned frame, where local (lx, ly) is model (ly, -lx). Doors are never
+// buried here: the street door reads its bay (markDoorway). docs/proposals/model-plan.md phase 1.
+const BURY_REACH = {
+  windowBay: (d, V) => (d.depth ? V(d.depth) : Math.min(V(d.half), V(d.hh)) * 0.35),
+  balcony: (d, V) => V(d.out),
+  fireEscape: (d, V) => V(d.out),
+  acUnit: (d, V) => (d.d ? V(d.d) : V(d.w) * 0.7) * 2,
+  vent: () => 0.004,
+  shutter: () => 0.004,
+  louvreBank: () => 0.004,
+};
+const BURY_TOL = 0.004;
+export function buryBoxes(segs, V) {
+  const boxes = [];
+  for (const sg of segs || []) {
+    if (sg.kind !== 'box' || (sg.yaw || 0)) continue;
+    const f = segFit(sg, V);
+    boxes.push({ x0: f.cx - f.hw, x1: f.cx + f.hw, y0: f.cy - f.fd, y1: f.cy + f.fd, z0: V(sg.z0), z1: V(sg.z1) });
+  }
+  return boxes;
+}
+export function partBuried(d, boxes, V) {
+  const reach = BURY_REACH[d.kind];
+  if (!reach || d.door || !boxes.length) return false;
+  const half = V(d.half ?? d.w ?? [0, 0, 0.02]), cx = V(d.cx), cy = V(d.cy);
+  const sgn = cy < 0 ? -1 : 1, r1 = Math.max(reach(d, V), 0.006);
+  const z = d.z0 != null ? (V(d.z0) + V(d.z1)) / 2 : V(d.z) + (d.kind === 'balcony' ? 0.006 : 0);
+  let hit = 0;
+  for (const u of [-0.8, 0, 0.8]) for (const r of [0.006, r1]) {
+    const lx = cx + u * half, ly = cy + sgn * r;
+    const x = d.face === 'x' ? ly : lx, y = d.face === 'x' ? -lx : ly;
+    for (const b of boxes) {
+      if (x > b.x0 + BURY_TOL && x < b.x1 - BURY_TOL && y > b.y0 + BURY_TOL && y < b.y1 - BURY_TOL
+        && z > b.z0 + BURY_TOL && z < b.z1 - BURY_TOL) { hit++; break; }
+    }
+  }
+  return hit >= 3;
+}
+
 export function derivedTrim(m, fh, h, seed, forceRich) {
   let byScale = _derived.get(m);
   if (!byScale) { byScale = new Map(); _derived.set(m, byScale); }
@@ -73,7 +116,7 @@ export function derivedTrim(m, fh, h, seed, forceRich) {
   const mod = placeModern(_place);
   const k = fh + ':' + h + ':' + seed + ':' + (RENDER_TUNE.derivedKit ? 1 : 0) + ':' + (rich ? 1 : 0)
     + ':' + Math.round(mod * 20) + ':' + (_place && HANZI_BIOMES.has(_place.biome) ? 1 : 0)
-    + ':' + (RENDER_TUNE.glazeAll ? 1 : 0);
+    + ':' + (RENDER_TUNE.glazeAll ? 1 : 0) + ':' + (RENDER_TUNE.buriedDrop ? 1 : 0);
   let list = byScale.get(k);
   if (list) return list;
   // What somebody has already drawn for this building, and which sections that covers.
@@ -208,8 +251,12 @@ export function derivedTrim(m, fh, h, seed, forceRich) {
   }
   // ⚠ Concatenate, never mutate `base`: it's a shared module constant or the baked model record.
   // Normalised by standOnMass before caching.
-  list = standOnMass(base ? base.concat(kit) : kit, segs,
-    (p) => (Array.isArray(p) ? p[0] * fh + p[1] * h + p[2] : (p || 0)));
+  const Vn = (p) => (Array.isArray(p) ? p[0] * fh + p[1] * h + p[2] : (p || 0));
+  list = standOnMass(base ? base.concat(kit) : kit, segs, Vn);
+  if (RENDER_TUNE.buriedDrop && segs && segs.length) {
+    const boxes = buryBoxes(segs, Vn);
+    list = list.filter((d) => !partBuried(d, boxes, Vn));
+  }
   // The walls the kit put real windows on, for `captureModelMesh` to bake bare. See `glazeWalls`.
   if (glazed.length) list.glazed = glazed;
   byScale.set(k, list);

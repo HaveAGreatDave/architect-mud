@@ -29,7 +29,8 @@ import { vehicleLightOf, cabinComicOf } from './house-style.js';
 
 const INK_UNIT = 27;   // the ink lines' texture (gl/toon.js); clear of the cabin's 6 and 7 and the light grid's 8..10
 const SHIP_LIGHT_DEFAULT = [0.55, 0.95, 0.45];   // windshield.js shipLightOf
-const STRIDE = 15;   // pos3, colour3, alpha1, normal3, metal1, local3, tex1
+const STRIDE = 15;
+const GROUP_ID = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);   // uGroupM for everything not placed   // pos3, colour3, alpha1, normal3, metal1, local3, tex1
 // ── THE CABIN VARIANT ────────────────────────────────────────────────────────
 // The interior layer is this layer with CABIN defined: 24 more floats a vertex, and the cockpit's
 // light model run per pixel in the cab's own frame (vLocal, metres about the eye, y forward, z up).
@@ -92,6 +93,9 @@ uniform vec4 uKitFade;
 // The retained groups' shift into the window's frame: the anchor less this window's centre
 // (retainWorld, in 'retain'). (0, 0) for the stream and for every layer but the world's.
 uniform vec2 uRetShift;
+// A retained group's own placement (bayGroup's 'xf'): a rigid part kept once at rest and moved here, in the window's
+// frame, by a matrix the CPU works out from the clock. The identity for everything else.
+uniform mat4 uGroupM;
 // ⚠ CENTROID, BECAUSE OF MSAA. With multisampling a pixel a triangle only partly covers is shaded
 // ONCE, at the pixel centre, even when that centre lies outside the triangle, and every varying is
 // EXTRAPOLATED to it. On a thin part at a low resolution-dial step (the Drake's minigun at 54%)
@@ -129,6 +133,7 @@ void main() {
   // exact identity is exact, so the other layers compute what they always did.
   vec4 wp = uModel * vec4(seatAtt(aPos), 1.0);
   wp.xy += uRetShift;
+  wp = uGroupM * wp;
   // Under the surface the outline wavers, as anything seen through moving water does. Only below
   // uWaterZ, which is far under the world unless a hull is afloat, so every other solid is untouched.
   float wdz = uWaterZ - wp.z;
@@ -140,7 +145,7 @@ void main() {
   gl_Position = clip;
   vColor = aColor;
   vAlpha = aAlpha * clamp((uKitFade.z - dot(wp.xy, uKitFade.xy)) / 5.0, 0.0, 1.0) * uKitFade.w;
-  vPos = wp.xyz; vN = uNMatOn > 0.5 ? uNMat * aNormal : mat3(uModel) * aNormal * uNScale; vMetal = aMetal;
+  vPos = wp.xyz; vN = mat3(uGroupM) * (uNMatOn > 0.5 ? uNMat * aNormal : mat3(uModel) * aNormal * uNScale); vMetal = aMetal;
   // floor, not a cast: a cast rounds toward zero, and the marks' codes are negative (see the marks in
   // the fragment shader). For every code of 0 or more the two are the same number.
   vLocal = aLocal; vNL = aNormal; vTex = int(floor(aTex + 0.5));
@@ -1410,6 +1415,7 @@ export function createSolidsLayer(gl, opt = {}) {
     waterT: gl.getUniformLocation(prog, 'uWaterT'),
     kitFade: gl.getUniformLocation(prog, 'uKitFade'),
     retShift: gl.getUniformLocation(prog, 'uRetShift'),
+    groupM: gl.getUniformLocation(prog, 'uGroupM'),
     under: gl.getUniformLocation(prog, 'uUnder'),
     underD: gl.getUniformLocation(prog, 'uUnderD'),
     wlN: gl.getUniformLocation(prog, 'uWLN'), wlP: gl.getUniformLocation(prog, 'uWLP'),
@@ -1582,11 +1588,13 @@ export function createSolidsLayer(gl, opt = {}) {
   let ret = null, retCX = 0, retCY = 0;
   // The first `nFade` groups are the street kit's tiles, which fade in the shader: their runs stay apart
   // from the rest, and carry a third entry.
-  function retain(groups, nFade = 0, wc = null) {
+  // `ga`: each group's alpha, drawn as uKitFade.w (windshield.js bayGroup's ka); null is 1 for all. A run never spans two.
+  // `gx`: each group's placement matrix (16 numbers, column-major, in the window's frame) or null.
+  function retain(groups, nFade = 0, wc = null, ga = null, gx = null) {
     if (!groups || !groups.length) { if (ret) { ret.runs = []; ret.n = 0; } return 0; }
     if (!ret) {
       const rv = gl.createVertexArray();
-      ret = { vao: rv, stream: makeVertexStream(gl, rv, ST, attrs, 1 << 16), data: new Float32Array(1 << 16), used: 0, map: new Map(), runs: [], n: 0, frame: 0, ax: 0, ay: 0 };
+      ret = { vao: rv, stream: makeVertexStream(gl, rv, ST, attrs, 1 << 16), stage: new Float32Array(1 << 16), room: 0, used: 0, map: new Map(), runs: [], n: 0, frame: 0, ax: 0, ay: 0 };
     }
     const R = ret, now = ++R.frame;
     const cx = wc ? wc[0] : 0, cy = wc ? wc[1] : 0;
@@ -1597,12 +1605,16 @@ export function createSolidsLayer(gl, opt = {}) {
     // `ex`, `ey`: the centre the records' points are in. A group kept from an earlier frame is put back
     // in the frame it was last proved in (its world point less its first point now), so it still hits
     // if it comes back unmoved.
+    // ⚠ NO CPU MIRROR (as gl/retain.js): placed into `S`, whose float 0 is the arena's float `base`, and uploaded.
+    // A rebuild writes every kept group again from its records, so nothing already on the GPU is ever read back.
+    let S = R.stage, base = 0;
     const place = (recs, seen = now, ex = cx, ey = cy) => {
       if (R.map.has(recs)) return;
       const at = R.used;
-      let w = at;
+      let w = at - base;
       PUT_X = ex - R.ax; PUT_Y = ey - R.ay;
-      try { for (let i = 0; i < recs.length; i++) { const q = recs[i], P = q.p; w = writeQuad(R.data, w, q, P, P.length); } } finally { PUT_X = 0; PUT_Y = 0; }
+      try { for (let i = 0; i < recs.length; i++) { const q = recs[i], P = q.p; w = writeQuad(S, w, q, P, P.length); } } finally { PUT_X = 0; PUT_Y = 0; }
+      w += base;
       const p0 = recs.length ? recs[0].p[0] : null;
       R.map.set(recs, { at: at / ST, n: (w - at) / ST, seen, p0, x: p0 ? p0[0] + ex : 0, y: p0 ? p0[1] + ey : 0 });
       R.used = w;
@@ -1617,7 +1629,7 @@ export function createSolidsLayer(gl, opt = {}) {
       if (e) { e.seen = now; hits++; } else { add += tris(recs) * ST; miss++; }
     }
     if (miss) {
-      if (far || R.used + add > R.data.length) {
+      if (far || R.used + add > R.room) {
         const keep = [];
         let need = add;
         // ⚠ A RECENTRE USED TO RE-KEY EVERY GROUP (armReplay and the kit handed back a new array, and
@@ -1626,28 +1638,31 @@ export function createSolidsLayer(gl, opt = {}) {
         // its groups here keeps only its own. See STALE_HIT in gl/retain.js.
         const keepFor = hits < groups.length * STALE_HIT ? 1 : RETAIN_KEEP;
         for (const [recs, e] of R.map) if (now - e.seen < keepFor) { keep.push([recs, e]); need += e.n * ST; }
-        if (need * 2 > R.data.length) R.data = new Float32Array(Math.max(need * 2, R.data.length * 2));
+        if (need * 2 > R.room) R.room = Math.max(need * 2, R.room * 2, 1 << 16);
+        S = new Float32Array(need); base = 0;
         R.map.clear(); R.used = 0;
         // A full rebuild is where the anchor moves: to this centre.
         R.ax = cx; R.ay = cy;
         for (const [recs, e] of keep) { if (e.p0) place(recs, e.seen, e.x - e.p0[0], e.y - e.p0[1]); else place(recs, e.seen); }
         for (const recs of groups) place(recs);
-        R.stream.write(R.data, R.used);
+        R.stream.reserve(R.room);
+        R.stream.write(S, R.used);
       } else {
+        if (add > R.stage.length && add <= (1 << 20)) R.stage = new Float32Array(Math.max(add, R.stage.length * 2));
+        S = add <= R.stage.length ? R.stage : new Float32Array(add); base = R.used;
         const at0 = R.used;
         for (const recs of groups) place(recs);
-        if (R.used > R.stream.capacity) R.stream.write(R.data, R.used);
-        else R.stream.writeRange(R.data, at0, R.used - at0);
+        R.stream.writeAt(S, 0, at0, R.used - at0);
       }
     }
     // This frame's ranges in buffer order, neighbours merged into one draw.
-    const spans = groups.map((recs, i) => { const e = R.map.get(recs); e.fade = i < nFade; return e; }).sort((a, b) => a.at - b.at);
+    const spans = groups.map((recs, i) => { const e = R.map.get(recs); e.fade = i < nFade; e.ka = ga ? ga[i] : 1; e.gx = gx ? gx[i] : null; return e; }).sort((a, b) => a.at - b.at);
     const runs = [];
     let n = 0;
     for (const s of spans) {
       const last = runs.length ? runs[runs.length - 1] : null;
-      if (last && last[0] + last[1] === s.at && last[2] === s.fade) last[1] += s.n;
-      else if (!last || s.at >= last[0] + last[1]) runs.push([s.at, s.n, s.fade]);
+      if (last && last[0] + last[1] === s.at && last[2] === s.fade && last[3] === s.ka && last[4] === s.gx) last[1] += s.n;
+      else if (!last || s.at >= last[0] + last[1]) runs.push([s.at, s.n, s.fade, s.ka, s.gx]);
       else continue;   // the same array twice in one frame: drawn once
       n += s.n;
     }
@@ -1657,11 +1672,11 @@ export function createSolidsLayer(gl, opt = {}) {
   // `fade`: { n, v }, the street kit's first `n` groups and uKitFade's four numbers (BAY_SINK.kitFade).
   let kitFade = null;
   // `wc`: [x, y], the map window's centre in world tiles, for the retained groups (retainWorld); null is 0.
-  function upload(quads, mdl = null, lt = null, att = null, ship = null, groups = null, fade = null, wc = null) {
+  function upload(quads, mdl = null, lt = null, att = null, ship = null, groups = null, fade = null, wc = null, ga = null, gx = null) {
     attP = att; shipP = ship;
     light = lt; shadowDirty = !!(lt && lt.lightMat);
     kitFade = fade;
-    const kept = retain(groups, fade ? fade.n : 0, wc);
+    const kept = retain(groups, fade ? fade.n : 0, wc, ga, gx);
     const metals = [];
     menv = (quads && quads.menv) || null;
     count = quads && quads.length ? tris(quads, metals) : 0;
@@ -1885,6 +1900,7 @@ export function createSolidsLayer(gl, opt = {}) {
     gl.uniform1f(loc.waterT, (performance.now() / 1000) % 1000);
     gl.uniform4f(loc.kitFade, 0, 0, 1e9, 1);
     gl.uniform2f(loc.retShift, 0, 0);
+    gl.uniformMatrix4fv(loc.groupM, false, GROUP_ID);
     gl.uniform1f(loc.under, opts.under || 0);
     gl.uniform1f(loc.underD, opts.underD || 0);
     // ⚠ SET ON EVERY DRAW for the reason the ship's sun is: a shared program keeps the last value.
@@ -1921,13 +1937,20 @@ export function createSolidsLayer(gl, opt = {}) {
     if (runs) {
       gl.bindVertexArray(ret.vao);
       gl.uniform2f(loc.retShift, ret.ax - retCX, ret.ay - retCY);
-      let on = false;
-      for (const [a, k, f] of runs) {
-        const want = !!(f && kitFade);
-        if (want !== on) { on = want; if (on) gl.uniform4fv(loc.kitFade, kitFade.v); else gl.uniform4f(loc.kitFade, 0, 0, 1e9, 1); }
+      // `on`: what uKitFade holds now: 0 nothing, 1 the kit's band, 2 + ka a group's alpha as (0, 0, 1e9, ka).
+      let on = 0;
+      let gm = null;
+      for (const [a, k, f, ka, gx] of runs) {
+        if ((gx || null) !== gm) { gm = gx || null; gl.uniformMatrix4fv(loc.groupM, false, gm || GROUP_ID); }
+        const want = f && kitFade ? 1 : ka != null && ka !== 1 ? 2 + ka : 0;
+        if (want !== on) {
+          on = want;
+          if (on === 1) gl.uniform4fv(loc.kitFade, kitFade.v); else gl.uniform4f(loc.kitFade, 0, 0, 1e9, on ? ka : 1);
+        }
         gl.drawArrays(gl.TRIANGLES, a, k);
       }
       if (on) gl.uniform4f(loc.kitFade, 0, 0, 1e9, 1);
+      if (gm) gl.uniformMatrix4fv(loc.groupM, false, GROUP_ID);
       gl.uniform2f(loc.retShift, 0, 0);
     }
     if (n) { gl.bindVertexArray(vao); gl.drawArrays(gl.TRIANGLES, first, n); }

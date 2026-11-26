@@ -109,6 +109,9 @@ export default async function regress({ run, check }) {
     for (const z of world.zones.values()) {
       if (!z.parent_zone || !isDwellingZone(getZone(z.parent_zone))) continue;
       if (!getZoneFurniture(z.id).some(f => isToilet(f) || isShower(f))) continue;
+      // Skip one somebody's standing in or that's locked: the free-to-go-in check below needs a free one,
+      // and which en-suite comes first depends on the database's row order.
+      if ((z.npcs?.size || z.npcs?.length) || _home.bathDoor(z.parent_zone, z.id)?.lock_state === 'locked') continue;
       if (getZone(z.parent_zone)?.exits && Object.values(getZone(z.parent_zone).exits).includes(z.id)) {
         expectParent = z.parent_zone; expectBath = z.id; break;
       }

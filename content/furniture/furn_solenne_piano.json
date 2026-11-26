@@ -11,8 +11,8 @@
       "form": "piano"
     },
     "spot": {
-      "along": -1.65,
-      "wall": "front"
+      "along": -3.5,
+      "wall": "back"
     }
   },
   "hp": null,

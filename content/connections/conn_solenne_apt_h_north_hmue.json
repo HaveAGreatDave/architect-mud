@@ -1,8 +1,8 @@
 {
   "a": "zone_solenne_apt_h",
-  "b": "zone_solenne_residences_34",
+  "b": "zone_solenne_hall_u18",
   "blocked": false,
-  "dir": "north",
+  "dir": "east",
   "id": "conn_solenne_apt_h_north_hmue",
   "lockable": true,
   "one_way": false

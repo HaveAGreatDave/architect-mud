@@ -32,6 +32,7 @@ import { fileURLToPath } from 'node:url';
 import { openScene, PLACES } from './scene.mjs';
 import { m2t } from '../../client/shared/world-scale.js';
 import { internMap } from '../../client/game/js/panels/map-intern.js';
+import { FPS_EYE, FOOT_NEAR, FOOT_TUNE } from '../../client/game/js/panels/foot-tune.js';
 const { createGLView } = await import(new URL('../../client/game/js/panels/gl/context.js', import.meta.url).href);
 
 const args = process.argv.slice(2);
@@ -117,7 +118,16 @@ const roomView = () => {
     tune: { farMax: 30, lodNear: 4, lodFar: 9, decoFar: 4, glowFar: 8, shadowFar: 3, signFar: 4, perfDS: 0 },
     freeCam: { x: 0.2, y: 0.2, z: m2t(Number(ROOM) * 3.2 + 1.6), yaw: 0, pitch: -0.25, roll: 0, fov: k } };
 };
-const v0 = scene.view(at, seat, { hour: Number(opt('--hour', 13)), heading: H0, ...roomView() });
+// `foot` paints the street on foot as the street view does (freelook-view.js, tools/modelshop/route.js marrow-foot):
+// a free camera at standing height, FOOT_TUNE's rings, the near plane brought in. No people: the bench route has them.
+const footView = () => {
+  if (seat !== 'foot') return {};
+  return { external: true, hideOwnShip: true, deckOverhead: true, airport: 'default', tune: { ...FOOT_TUNE }, nearMax: FOOT_NEAR,
+    freeCam: { x: 0.3, y: 0, z: FPS_EYE, yaw: H0, pitch: 0, roll: 0, fov: 1 } };
+};
+const v0 = scene.view(at, seat, { hour: Number(opt('--hour', 13)), heading: H0, ...roomView(), ...footView() });
+// `--tally`: the loose solids records each frame streams, by their keys (gl/context.js uploadSolids). Needs --gl.
+if (args.includes('--tally')) globalThis.__solidsTally = { sig: {}, dist: {} };
 const TUNE_V = (opt('--tune', '') || '').split(',').filter(Boolean);
 if (ROOM != null) for (const kv of TUNE_V) { const [k, v] = kv.split('='); v0.tune[k] = Number(v); }
 const clone = (map) => map.map((row) => row.map((c) => JSON.parse(JSON.stringify(c))));
@@ -159,8 +169,10 @@ for (let i = 0; i < FRAMES; i++) {
   const y = -(dist - k);
   if (PROF) scene.ws.setWindshieldProfiler(true);
   const s0 = snap(), w0 = clock.now();
-  const fc = v0.freeCam ? { freeCam: { ...v0.freeCam, yaw: H0 + i * TURN } } : null;
-  scene.ws.paintWindshield('__perf', { ...v0, map, mapCenter: { x: X0, y: Y0 - k }, heading: H0 + i * TURN, mapOffset: { x: 0.3, y }, ...fc });
+  // On foot the walker moves the free camera across the window, not the window's offset.
+  const fc = v0.freeCam ? { freeCam: { ...v0.freeCam, yaw: H0 + i * TURN, ...(seat === 'foot' ? { y } : null) } } : null;
+  if (i === 30 && globalThis.__solidsTally) globalThis.__solidsTally = { sig: {}, dist: {} };   // count settled frames only
+  scene.ws.paintWindshield('__perf', { ...v0, map, mapCenter: { x: X0, y: Y0 - k }, heading: H0 + i * TURN, mapOffset: seat === 'foot' ? { x: 0, y: 0 } : { x: 0.3, y }, ...fc });
   const paintMs = clock.now() - w0;
   let glMs = 0, g, o;
   if (GLW) {
@@ -194,8 +206,13 @@ console.log(`  floats written/frame  median ${med('written')}  max ${max('writte
 console.log(`  layer draws/frame median ${med('draws')}, texture binds ${med('binds')}`);
 console.log(`  records/frame: sprites ${med('nSp')}, strokes ${med('nSt')}, decals ${med('nDe')}, retained groups ${med('grp')}`);
 console.log(`  kept arms over ${settled.length} frames: replayed ${sum('replayed')}, probing ${sum('probing')}, kept ${sum('kept')}, live ${sum('live')}, liveRun ${sum('liveRun')}, gap ${sum('gap')}, near ${sum('near')}, rechecked ${sum('rechecked')}`);
-if (args.includes('--why')) { const tally = {}; for (const r of Object.values(scene.ws.armKeepWhy.by)) for (const [w, n] of Object.entries(r.why)) tally[w] = (tally[w] || 0) + n; console.log('  why:', JSON.stringify(tally)); }
+if (args.includes('--why')) { for (const [t, r] of Object.entries(scene.ws.armKeepWhy.by)) { console.log('    ' + t + ' ' + JSON.stringify(r.why)); for (const d of r.diff) console.log('      ' + d); } const tally = {}; for (const r of Object.values(scene.ws.armKeepWhy.by)) for (const [w, n] of Object.entries(r.why)) tally[w] = (tally[w] || 0) + n; console.log('  why:', JSON.stringify(tally)); }
 { const p = settled.map((r) => r.paintMs).sort((a, b) => a - b), q = (x) => p[Math.floor(x * (p.length - 1))].toFixed(1);
   console.log(`  paint ms   p90 ${q(0.9)}  p99 ${q(0.99)}  total ${p.reduce((a, b) => a + b, 0).toFixed(0)}`); }
 if (PROF) console.log('  phases (median ms): ' + PHASES.map((k) => `${k} ${med(k).toFixed(2)}`).join(', '));
+if (globalThis.__solidsTally) {
+  const T = globalThis.__solidsTally, n = T.frames || 1, per = (x) => Math.round((x || 0) / n);
+  console.log(`  solids/frame: loose ${per(T.loose)}, groups ${per(T.groups)} (${per(T.groupRecs)} records), inst ${per(T.inst)}, actors ${per(T.actors)}`);
+  for (const [k, v] of Object.entries(T.sig).sort((a, b) => b[1] - a[1]).slice(0, 12)) console.log(`    ${String(per(v)).padStart(6)}  ${k}`);
+}
 if (args.includes('--rows')) for (const r of rows) console.log(JSON.stringify(r));

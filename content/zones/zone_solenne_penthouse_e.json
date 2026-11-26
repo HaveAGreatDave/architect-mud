@@ -1,0 +1,54 @@
+{
+  "ambient_theme": "indoors",
+  "bg_color": "#2f3a47",
+  "color": "#efe4cd",
+  "description": "The east side of the penthouse's first floor, glass on three sides and the bay below it. The landing is <b>west</b>.",
+  "exits": {
+    "west": "zone_solenne_ph_landing"
+  },
+  "flags": {
+    "building_name": "Solenne Residences",
+    "floor": "stone",
+    "is_dwelling": true,
+    "is_interior": true,
+    "private_to": "zone_solenne_penthouse",
+    "room": {
+      "balcony": false,
+      "d": 14,
+      "doors": {
+        "west": 0.3
+      },
+      "face": 180,
+      "finish": "fine",
+      "glass": [
+        "front",
+        "left",
+        "back"
+      ],
+      "ground": "stone",
+      "h": 3,
+      "pit": {
+        "at": [
+          -3,
+          3,
+          3.2,
+          8.4
+        ],
+        "depth": 0.42,
+        "step": 0.42
+      },
+      "storey": 39,
+      "storeys": 32,
+      "studio": false,
+      "w": 5.12
+    }
+  },
+  "grid_x": 1,
+  "grid_y": -1,
+  "grid_z": 28,
+  "id": "zone_solenne_penthouse_e",
+  "map_id": "map_int_solenne",
+  "marker": "28",
+  "name": "The Penthouse, the east room",
+  "parent_zone": "zone_district_914_908"
+}

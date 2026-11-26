@@ -1937,8 +1937,15 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
       // camera has gone since and stop trusting it
       const eye = [(cam.fx || 0) - (cam.back || 0) * (cam.sinh || 0), (cam.fy || 0) + (cam.back || 0) * (cam.cosh || 0), cam.sinh || 0, cam.cosh || 0, cam.EH || 0, cam.pitch || 0];
       const onMassDepth = occOn ? (tex, DW, DH) => occRB.request(tex, DW, DH, vp, { wc: opts.occWc || [0, 0], id: opts.occId, eye }) : null;
+      // Inside a building your storey is cut out of the mass (roomCut), so the room's own walls stand in for it in the
+      // depth the readback takes, or it sees the whole street through them. Last frame's rooms (they're synced in the
+      // main pass, after this one); their glass writes no depth, so a window still shows what's behind it.
+      const occRooms = occOn && rooms && rooms.inside && rooms.ready.length ? () => {
+        const w = windowFrame(cam);
+        rooms.drawDepth(mat4f(viewProjMatrix({ ...w.cam, H: camH }, camH)), w.ox, w.oy);
+      } : null;
       return timed('ssao', () => ssao.pass(vao, count, new Float32Array(vp), { ...cam, H: camH }, aoWH, inkWH,
-        { A, B, onMassDepth, radius: opts.ssaoRadius > 0 ? opts.ssaoRadius : 0.5, bias: opts.ssaoBias > 0 ? opts.ssaoBias : 0.02,
+        { A, B, onMassDepth, occRooms, radius: opts.ssaoRadius > 0 ? opts.ssaoRadius : 0.5, bias: opts.ssaoBias > 0 ? opts.ssaoBias : 0.02,
           // The mass's depth through the kept buffer's frame (massShift); the tents' stays on `vp`.
           massVP: massShift[0] || massShift[1] ? new Float32Array(mvp) : null,
           // RENDER_TUNE.glMassCull, as the main pass: the tiles in view, with the VAO already bound.
@@ -2451,6 +2458,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     if ((!list || !list.length) && !rooms) return 0;
     const L = rooms || (rooms = createInteriorLayer(gl)), w = windowFrame(cam);
     L.sync(list, INTERIOR_TUNE.budget);
+    L.inside = !!(list && list.inside);
     const day = 1 - Math.max(0, Math.min(1, light.night || 0)), sd = light.sun && light.sun.dir;
     const el = (light.sun && light.sun.elev) || 0.5, sun = sd ? [sd[0] * day, sd[1] * day, Math.max(0, el) * day] : [0, 0, day];   // dir is flat [x, y]; elev lifts it
     return L.draw(w.cam, cssH, w.ox, w.oy, { amb: [0.08 + 0.5 * day, 0.08 + 0.52 * day, 0.1 + 0.55 * day], sun, figures: roomFigures }, list && list.portals);
@@ -2610,7 +2618,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     actorRecs.length = 0;
     clothRecs.length = 0;
     cloudList.length = 0;
-    const clouds = [], groups = [];
+    const clouds = [], groups = [], groupA = [], groupX = [];   // groupX: each group's placement matrix (bayGroup's xf) or null   // groupA: each group's alpha (bayGroup's ka), 1 for most
     let kitFade = null, wc = null;
     // Whole arrays that never went through the list: the street kit's tiles (BAY_SINK.sets), and the
     // copies of the ones in the haze band (.fades), whose alpha changes and so go down the stream.
@@ -2618,7 +2626,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
       if (l.menv) all.menv = l.menv;
       if (l.metalEnv) all.metalEnv = l.metalEnv;   // the sky for metals kept in groups (windshield.js markMetalKeep)
       if (l.wc) wc = l.wc;
-      if (l.sets) for (const s of l.sets) groups.push(s);
+      if (l.sets) for (const s of l.sets) { groups.push(s); groupA.push(1); groupX.push(null); }
       if (l.kitFade) kitFade = { n: groups.length, v: l.kitFade };
       if (l.fades) for (let i = 0; i < l.fades.length; i++) all.push(l.fades[i]);
     }
@@ -2634,8 +2642,8 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
       for (let i = 0; i < l.length; i++) {
         while (G && gi < G.length && G[gi].at < i) gi++;
         if (G && gi < G.length && G[gi].at === i) {
-          const recs = G[gi++].recs, n = recs.length;
-          if (n && i + n <= l.length && l[i] === recs[0] && l[i + n - 1] === recs[n - 1]) { groups.push(recs); i += n - 1; continue; }
+          const g = G[gi++], recs = g.recs, n = recs.length;
+          if (n && i + n <= l.length && l[i] === recs[0] && l[i + n - 1] === recs[n - 1]) { groups.push(recs); groupA.push(g.ka ?? 1); groupX.push(g.xf || null); i += n - 1; continue; }
         }
         const q = l[i];
         if (q.cloud) clouds.push(q);
@@ -2663,7 +2671,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
       // `__solidsTally = { dist: {} }`: the loose records by how far their first point is from the window's centre, in tiles
       if (T.dist) for (const q of all) { const p = q.p && q.p[0]; if (!p) continue; const d = Math.floor(Math.hypot(p[0], p[1]) / 4) * 4; const k = (q.film ? 'film ' : q.m0 !== undefined ? 'metal ' : 'other ') + d; T.dist[k] = (T.dist[k] || 0) + 1; }
     }
-    solidQuads = all.length || groups.length || shp ? solidsLayer().upload(all, null, null, null, null, groups, kitFade, wc) : 0;
+    solidQuads = all.length || groups.length || shp ? solidsLayer().upload(all, null, null, null, null, groups, kitFade, wc, groupA, groupX) : 0;
     faunaInst = (instRecs.length || fnl) ? faunaLayer().upload(instRecs) : 0;
     // who's drawn close up is marked (r.hd) before the crowd uploads, so it can leave them out
     if (actorRecs.length || shd) streetHD().pick(actorRecs);

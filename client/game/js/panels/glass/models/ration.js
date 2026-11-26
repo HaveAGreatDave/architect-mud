@@ -333,7 +333,11 @@ export const RATION_ARMS = {
     {
       const n = 15, STRIPE = [[34, 104, 64], [236, 228, 204]];
       for (let i = 0; i < n; i++) {
-        const x0 = -BX + 2 * BX * i / n, x1 = -BX + 2 * BX * (i + 1) / n, xm = (x0 + x1) / 2, c = STRIPE[i & 1];
+        // Age: the green has gone a little pale with the sun, the most at the west end, and one
+        // panel near the door is a newer replacement, a shade deeper than its neighbours.
+        const fade = (i & 1) ? 0 : (i === 8 ? -0.06 : 0.10 + 0.10 * roll(200 + i) + 0.06 * (1 - i / n));
+        const x0 = -BX + 2 * BX * i / n, x1 = -BX + 2 * BX * (i + 1) / n, xm = (x0 + x1) / 2;
+        const c = STRIPE[i & 1].map((v, j) => Math.round(v + ([236, 228, 204][j] - v) * fade));
         flat(ctx, cam, W3, [[x0, yW, zW], [x1, yW, zW], [x1, yL, zL], [x0, yL, zL]], [0, 0.5, 0.86], c, alpha, dn);
         flat(ctx, cam, W3, [[x0, yL, zL], [x1, yL, zL], [x1, yL, zL - val * 0.55], [xm, yL, zL - val], [x0, yL, zL - val * 0.55]], [0, 1, 0], c.map((v) => v * 0.94), alpha, dn);
         flat(ctx, cam, W3, [[x0, yL, zL - 0.001], [x1, yL, zL - 0.001], [x1, yW, zW - 0.001], [x0, yW, zW - 0.001]], [0, -0.5, -0.86], c.map((v) => v * 0.62), alpha, dn, c.map((v) => v * 0.80));
@@ -470,5 +474,35 @@ export const RATION_ARMS = {
     // 13) THE PAVEMENT under the awning: a pale apron the width of the front, so the stands stand on
     //     the shop's own ground and not the street's.
     if (!SHAPE_SINK) groundPaint(ctx, cam, [F(-BX, WF), F(BX, WF), F(BX, yL + fh * 0.02), F(-BX, yL + fh * 0.02)], 0.0012, dn > 0.5 ? 'rgba(120,112,96,0.55)' : 'rgba(196,188,170,0.62)', alpha);
+
+    // 14) AGE. It's an old shop that somebody looks after: swept, painted, but forty winters on it.
+    //     Rain has drawn faint streaks down the render from each upper sill, the bottom of the render
+    //     is a shade darker where the splash reaches it, one flank has a newer patch of render that
+    //     hasn't weathered to match, and the step in front of the door is worn into a pale hollow.
+    //     All flats, so the capture stays affine and the Lite bake keeps them.
+    {
+      const STREAK = [206, 196, 170], GRIME = [182, 172, 148], PATCH = [240, 234, 212];
+      const a = BW + fh * 0.05, span = BX - fh * 0.07 - a, yS = WF + 0.0012;
+      for (const s of [-1, 1]) for (const t of [0.25, 0.75]) {
+        const u = s * (a + span * t), hw = span * 0.17;
+        for (const [k, f] of [[0, -0.55], [1, 0.1], [2, 0.6]]) {
+          const x = u + hw * f, w = fh * (0.004 + 0.004 * roll(300 + k + t * 10 + s)), z1 = uz0 - fw - S * 0.035, z0 = z1 - S * (0.12 + 0.16 * roll(310 + k + t * 10 + s));
+          flat(ctx, cam, W3, [[x - w, yS, z1], [x + w, yS, z1], [x + w * 0.4, yS, z0], [x - w * 0.4, yS, z0]], [0, 1, 0], STREAK, alpha, dn);
+        }
+      }
+      for (const s of [-1, 1]) {
+        const xF = s * (BX + 0.0012), [p, q] = s > 0 ? [WF - fh * 0.02, WB + fh * 0.02] : [WB + fh * 0.02, WF - fh * 0.02];
+        flat(ctx, cam, W3, [[xF, p, plinth + G * 0.06], [xF, q, plinth + G * 0.06], [xF, q, plinth], [xF, p, plinth]], [s, 0, 0], GRIME, alpha, dn);
+      }
+      { const xF = BX + 0.0014, y0 = YC - HY * 0.30, y1 = YC + HY * 0.05, z0 = G * 0.08, z1 = G * 0.30;
+        flat(ctx, cam, W3, [[xF, y1, z1], [xF, y0, z1], [xF, y0, z0], [xF, y1, z0]], [1, 0, 0], PATCH, alpha, dn); }
+      if (!SHAPE_SINK) {
+        groundPaint(ctx, cam, [F(-DW * 0.85, WF + fh * 0.014), F(DW * 0.85, WF + fh * 0.014), F(DW * 0.6, WF + fh * 0.075), F(-DW * 0.6, WF + fh * 0.075)], 0.0016, dn > 0.5 ? 'rgba(150,140,120,0.45)' : 'rgba(226,220,204,0.55)', alpha);
+        for (let k = 0; k < 9; k++) {   // old gum, pressed flat into the paving where people wait
+          const gx = (roll(400 + k) - 0.5) * BX * 1.6, gy = WF + fh * (0.10 + 0.28 * roll(420 + k)), r = fh * 0.006;
+          groundPaint(ctx, cam, [F(gx - r, gy - r), F(gx + r, gy - r), F(gx + r, gy + r), F(gx - r, gy + r)], 0.0018, 'rgba(70,66,60,0.35)', alpha);
+        }
+      }
+    }
   },
 };

@@ -1,7 +1,7 @@
 import { createServer } from "http";
 import { existsSync } from "fs";
 import { readFile, stat } from "fs/promises";
-import { brotliCompress, gzip, constants } from "zlib";
+import { brotliCompress, brotliDecompress, gzip, constants } from "zlib";
 import { promisify } from "util";
 import { monitorEventLoopDelay } from "perf_hooks";
 import { join, extname, dirname, relative, isAbsolute } from "path";
@@ -349,6 +349,42 @@ const assetFills = new Map();
 // libuv threadpool, the read and the stat are fs/promises, and the ETag's hash is
 // WebCrypto's digest, which is async too. Nothing in a fill blocks the loop.
 const brotliAsync = promisify(brotliCompress);
+const unbrotliAsync = promisify(brotliDecompress);
+
+// ⚠ THE CACHE HOLDS ONE BODY PER FILE, AND HAS A BYTE BUDGET (2026-11-25). It used to keep
+// the minified bytes, the brotli, the gzip and the source map of every file ever served,
+// forever, plus every image and song. Fetching the whole client once took the process from
+// 222 MB to 490 MB RSS, and Render's free instance is killed at 512 MB, so a day of visitors
+// hit the limit. Now a compressible file keeps only its brotli body (every browser we serve
+// asks for br); a client that doesn't gets it decompressed, and gzipped if it asked for
+// that, per request. A file that doesn't compress (png, opus, fonts) keeps only its
+// validators and is read from disk when served. Source maps are built when DevTools asks.
+// Past the budget the least recently filled entries go and refill on their next request.
+const ASSET_CACHE_BUDGET = 48 * 1024 * 1024;
+let assetCacheBytes = 0;
+function assetCachePut(filePath, entry) {
+	const old = assetCache.get(filePath);
+	if (old) { assetCacheBytes -= old.bytes; assetCache.delete(filePath); }
+	assetCache.set(filePath, entry);
+	assetCacheBytes += entry.bytes;
+	for (const [k, e] of assetCache) {
+		if (assetCacheBytes <= ASSET_CACHE_BUDGET || k === filePath) break;
+		assetCache.delete(k);
+		assetCacheBytes -= e.bytes;
+	}
+}
+// The bytes for a client, in the best encoding it advertised.
+async function assetBody(asset, accepts = "") {
+	if (asset.br && /\bbr\b/.test(accepts)) return { body: asset.br, encoding: "br" };
+	const raw = await assetRaw(asset);
+	if (asset.br && /\bgzip\b/.test(accepts)) return { body: await gzipAsync(raw, { level: 6 }), encoding: "gzip" };
+	return { body: raw, encoding: null };
+}
+async function assetRaw(asset) {
+	if (asset.raw) return asset.raw;
+	if (asset.br) return unbrotliAsync(asset.br);
+	return readFile(asset.filePath);
+}
 const gzipAsync = promisify(gzip);
 // API JSON below this many characters goes out raw: the headers and the CPU cost
 // more than the bytes saved.
@@ -476,8 +512,7 @@ async function fillAsset(filePath, hit, now) {
 
 	// Minify JS and CSS as they're served, so the repo keeps its no-build rule while the
 	// wire and the browser's parser get a fraction of the bytes. See minifyAsset.
-	let map = null;
-	if (ext === ".js" || ext === ".css") ({ raw, map } = await minifyAsset(raw, filePath, ext));
+	if (ext === ".js" || ext === ".css") ({ raw } = await minifyAsset(raw, filePath, ext));
 	else if (ext === ".html") raw = stripHtmlComments(raw);
 
 	const compress = COMPRESSIBLE.has(ext) && raw.length >= COMPRESS_MIN_BYTES;
@@ -485,14 +520,13 @@ async function fillAsset(filePath, hit, now) {
 	// take seconds on a large file, which would tie up a threadpool thread the fs
 	// calls also need. 5 lands within a few percent of 11 on JS for a fraction of the
 	// time, and it only ever runs once per file version.
-	const [br, gz, digest] = await Promise.all([
+	const [br, digest] = await Promise.all([
 		compress ? brotliAsync(raw, {
 			params: {
 				[constants.BROTLI_PARAM_QUALITY]: 5,
 				[constants.BROTLI_PARAM_SIZE_HINT]: raw.length,
 			},
-		}).catch(() => null) : null,   // fall through to gzip
-		compress ? gzipAsync(raw, { level: 6 }).catch(() => null) : null,   // fall through to raw
+		}).catch(() => null) : null,   // fall through to raw
 		globalThis.crypto.subtle.digest("SHA-1", raw),
 	]);
 	const entry = {
@@ -508,12 +542,15 @@ async function fillAsset(filePath, hit, now) {
 		// bodies differ byte for byte and share it.
 		etag: `W/"${Buffer.from(digest).toString("base64url")}"`,
 		type: MIME[ext] || "text/plain",
-		raw,
+		filePath,
+		// One body: the brotli if there is one; else the bytes themselves for a text file
+		// (minified, or with the preload hints, or too small to compress); else nothing,
+		// and the file is read from disk when served.
+		raw: br ? null : (COMPRESSIBLE.has(ext) ? raw : null),
 		br,
-		gzip: gz,
-		map,
 	};
-	assetCache.set(filePath, entry);
+	entry.bytes = (entry.br?.length ?? 0) + (entry.raw?.length ?? 0) + 256;
+	assetCachePut(filePath, entry);
 	return entry;
 }
 
@@ -713,7 +750,7 @@ const httpServer = createServer(async (req, res) => {
 			res.writeHead(404); res.end("Not found"); return;
 		}
 		res.writeHead(200, { "Content-Type": "application/javascript; charset=utf-8" });
-		res.end((await getAsset(scriptPath)).raw);   // cached, like every other static file
+		res.end(await assetRaw(await getAsset(scriptPath)));   // cached, like every other static file
 		return;
 	}
 
@@ -758,9 +795,11 @@ const httpServer = createServer(async (req, res) => {
 	if (rel.startsWith("..") || isAbsolute(rel)) {
 		res.writeHead(404); res.end("Not found"); return;
 	}
-	// A source map for a minified script or sheet lives in its cache entry (minifyAsset).
+	// A source map for a minified script or sheet is built when asked (minifyAsset); only
+	// DevTools asks, so it isn't kept.
 	if (/\.(js|css)\.map$/.test(filePath) && !existsSync(filePath) && existsSync(filePath.slice(0, -4))) {
-		const asset = await getAsset(filePath.slice(0, -4)).catch(() => null);
+		const src = filePath.slice(0, -4);
+		const asset = await readFile(src).then((b) => minifyAsset(b, src, extname(src))).catch(() => null);
 		if (asset?.map) {
 			res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-cache", ...STATIC_SECURITY_HEADERS });
 			res.end(asset.map);
@@ -822,10 +861,7 @@ const httpServer = createServer(async (req, res) => {
 		// without it, a shared proxy could hand a brotli body to a client that
 		// never asked for one.
 		const accepts = String(req.headers["accept-encoding"] || "");
-		let body = asset.raw;
-		let encoding = null;
-		if (asset.br && /\bbr\b/.test(accepts)) { body = asset.br; encoding = "br"; }
-		else if (asset.gzip && /\bgzip\b/.test(accepts)) { body = asset.gzip; encoding = "gzip"; }
+		const { body, encoding } = await assetBody(asset, accepts);
 
 		res.writeHead(200, {
 			"Content-Type": asset.type,

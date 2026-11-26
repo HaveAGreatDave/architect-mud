@@ -40,7 +40,8 @@ import { getZone, getLivePlayer, getZoneFurniture, getAllZones, getZoneNpcs, get
 import { isHiddenFrom } from '../../server/engine/stealth.js';
 import { sendToPlayer, getBroadcast } from '../../server/engine/messaging.js';
 import { cmdMove } from '../../server/engine/commands/movement.js';
-import { zoneAtTile } from '../../server/engine/world.js';
+import { zoneAtTile, frontDoorOf } from '../../server/engine/world.js';
+import { playerControlsDoor } from '../../server/engine/commands/doors.js';
 import { hasTag } from '../../server/engine/tags.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { on } from '../../server/engine/events.js';
@@ -121,7 +122,17 @@ function viewPayload(gx, gy, stand, pid = null) {
     roads: farRoadsNear(gx, gy, FAR_ROAD_R), regions: nearbyRegions(gx, gy), contacts: worldContactsNear(gx, gy, RADIUS),
     // on foot: the street door of each building you can walk into (plugins/roomstage), which the client makes
     // solid everywhere else
-    ...(stand?.foot ? { doors: streetDoorsNear(gx, gy, RADIUS), here: hereFor(getLivePlayer(pid)), ...interiorsFor(gx, gy, pid) } : {}) };
+    ...(stand?.foot ? { doors: doorsWithLocks(streetDoorsNear(gx, gy, RADIUS), getLivePlayer(pid)), here: hereFor(getLivePlayer(pid)), ...interiorsFor(gx, gy, pid) } : {}) };
+}
+// HOW EACH STREET DOOR STANDS for this player: `locked` when the building's front door is locked (frontDoorOf), so the
+// view on foot keeps it shut instead of opening it as you come up, and `mine` when the lock is on a home the player
+// controls (playerControlsDoor, sync and RAM-only), so F unlocks it first. The move gate still decides who gets in.
+function doorsWithLocks(doors, player) {
+  return doors.map((d) => {
+    const fd = d.fid ? frontDoorOf(getZone(d.fid)) : null;
+    if (!fd || !(fd.hp > 0) || fd.lock_state !== 'locked') return d;
+    return { ...d, locked: true, ...(playerControlsDoor(player, fd) ? { mine: true } : {}) };
+  });
 }
 // WHO'S HERE, BY NAME: the people on the tile you're standing on, keyed by their street token, so the view on foot can put
 // up a card to talk to one you walk up to (freelook-view.js streetCardTick). Only your own tile, which `look` already
@@ -184,6 +195,8 @@ function standBlock(furn) {
     leash: Math.max(0.02, Math.min(4, num(raw.leash, VANTAGE_DEFAULTS.leash))),
     yaw: num(raw.yaw, VANTAGE_DEFAULTS.yaw),
     label: String(raw.label || furn.name || VANTAGE_DEFAULTS.label),
+    // a telescope that knows the sky: C held draws the constellations over it (client star-chart.js)
+    ...(raw.stars ? { stars: true } : {}),
   };
 }
 

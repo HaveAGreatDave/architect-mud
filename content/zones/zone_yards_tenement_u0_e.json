@@ -1,0 +1,107 @@
+{
+  "ambient_theme": "indoors",
+  "description": "",
+  "exits": {
+    "west": "zone_yards_tenement_lobby"
+  },
+  "flags": {
+    "building_name": "The Yards Tenement",
+    "building_type": "apartment",
+    "is_apartment": true,
+    "is_building": true,
+    "is_interior": true,
+    "rent_cost": 60,
+    "room": {
+      "d": 4.91,
+      "doors": {
+        "west": 0
+      },
+      "face": 90,
+      "h": 3.6,
+      "panes": [
+        {
+          "a": 4.9,
+          "b": 5.9,
+          "kind": "sash",
+          "wall": "front",
+          "y0": 0.9,
+          "y1": 2.4
+        },
+        {
+          "a": 3.1,
+          "b": 4.1,
+          "kind": "sash",
+          "wall": "front",
+          "y0": 0.9,
+          "y1": 2.4
+        },
+        {
+          "a": 1.3,
+          "b": 2.3,
+          "kind": "sash",
+          "wall": "front",
+          "y0": 0.9,
+          "y1": 2.4
+        },
+        {
+          "a": -0.5,
+          "b": 0.5,
+          "kind": "sash",
+          "wall": "front",
+          "y0": 0.9,
+          "y1": 2.4
+        },
+        {
+          "a": -2.3,
+          "b": -1.3,
+          "kind": "sash",
+          "wall": "front",
+          "y0": 0.9,
+          "y1": 2.4
+        },
+        {
+          "a": -4.1,
+          "b": -3.1,
+          "kind": "sash",
+          "wall": "front",
+          "y0": 0.9,
+          "y1": 2.4
+        },
+        {
+          "a": -5.9,
+          "b": -4.9,
+          "kind": "sash",
+          "wall": "front",
+          "y0": 0.9,
+          "y1": 2.4
+        },
+        {
+          "a": 2.75,
+          "b": 3.75,
+          "kind": "sash",
+          "wall": "left",
+          "y0": 0.9,
+          "y1": 2.4
+        },
+        {
+          "a": 0.95,
+          "b": 1.95,
+          "kind": "sash",
+          "wall": "left",
+          "y0": 0.9,
+          "y1": 2.4
+        }
+      ],
+      "studio": false,
+      "w": 13.7
+    },
+    "world_exit_zone": "zone_district_921_902"
+  },
+  "grid_x": 2,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_yards_tenement_u0_e",
+  "map_id": "map_int_yards_tenement",
+  "name": "The Yards Tenement, Flat 0.1",
+  "parent_zone": "zone_district_921_902"
+}

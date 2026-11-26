@@ -6,10 +6,11 @@
   "ambient_theme": "indoors",
   "bg_color": "#2f3a47",
   "color": "#efe4cd",
-  "description": "The whole thirty-ninth floor, inside the glass bowl at the top of the tower. One long room of glass and pale stone under a five-metre ceiling, the bay along the whole of one side and the mountains at the end, and none of it able to look back in. An emperor bed on a raised platform at the glass end, a sunken lounge in the middle, a private bar, and a fireplace of honed basalt in the one stone wall. Nothing up here is loud, because nothing up here has to be. Step <b>south</b> to the landing.",
+  "description": "The penthouse's first floor: the kitchen in black stone, the long table, the bar. Glass down the west side and along the south, and a stair in the corner going <b>up</b> three more floors. The landing is <b>east</b>.",
   "exits": {
+    "east": "zone_solenne_ph_landing",
     "in": "zone_solenne_penthouse_bath",
-    "south": "zone_solenne_ph_landing"
+    "up": "zone_solenne_penthouse_2"
   },
   "flags": {
     "building_name": "Solenne Residences",
@@ -19,22 +20,23 @@
     "rest_multiplier": 2,
     "room": {
       "balcony": false,
-      "d": 10.3,
+      "d": 10.86,
       "doors": {
-        "south": 0
+        "east": 1.87
       },
       "ensuite": {
-        "d": 3.4,
+        "d": 3,
         "dress": "spa",
         "w": 4.2
       },
+      "face": 180,
       "finish": "fine",
       "glass": [
         "front",
-        "left"
+        "right"
       ],
       "ground": "stone",
-      "h": 5,
+      "h": 3.6,
       "pit": {
         "at": [
           -3,
@@ -45,10 +47,18 @@
         "depth": 0.42,
         "step": 0.42
       },
+      "stair": {
+        "at": [
+          1.86,
+          5.73
+        ],
+        "climb": "back",
+        "w": 1.1
+      },
       "storey": 39,
-      "storeys": 40,
+      "storeys": 32,
       "studio": false,
-      "w": 27.4
+      "w": 5.02
     },
     "window": {
       "description": "Floor-to-ceiling glass runs the whole west wall, black-framed and seamless, holding the city out there like something in a case.",
@@ -57,11 +67,12 @@
       "visibility": 0.9
     }
   },
-  "grid_x": 0,
-  "grid_y": -2,
-  "grid_z": 5,
+  "grid_x": -1,
+  "grid_y": -1,
+  "grid_z": 28,
   "id": "zone_solenne_penthouse",
   "map_id": "map_int_solenne",
+  "marker": "28",
   "name": "The Solenne Penthouse",
   "parent_zone": "zone_district_914_908"
 }

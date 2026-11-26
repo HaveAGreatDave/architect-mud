@@ -3,7 +3,8 @@
   "flags": {
     "interactions": [
       "sit"
-    ]
+    ],
+    "wealth": "middle"
   },
   "id": "item_furn_mag_lev_chair",
   "name": "mag-lev chair",

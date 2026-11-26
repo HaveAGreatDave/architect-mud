@@ -9,13 +9,6 @@
       "arche": "surface",
       "form": "pcdesk",
       "screen": "claude"
-    },
-    "spot": {
-      "at": [
-        -2.5,
-        1.6
-      ],
-      "turn": -180
     }
   },
   "hp": null,
@@ -27,5 +20,5 @@
   "object_type": "furniture",
   "power_draw_kw": 0.45,
   "price": 0,
-  "zone_id": "zone_solenne_apt_p"
+  "zone_id": "zone_solenne_apt_p_e"
 }

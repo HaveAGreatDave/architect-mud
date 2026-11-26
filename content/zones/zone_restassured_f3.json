@@ -1,0 +1,78 @@
+{
+  "ambient_theme": "indoors",
+  "description": "",
+  "exits": {
+    "down": "zone_restassured_f2",
+    "east": "zone_restassured_u3_3",
+    "south": "zone_restassured_f3_h1",
+    "west": "zone_restassured_f3_bath"
+  },
+  "flags": {
+    "building_name": "Rest Assured",
+    "building_type": "residential",
+    "is_building": true,
+    "is_interior": true,
+    "room": {
+      "d": 6.46,
+      "decor": {
+        "damp": [
+          {
+            "at": [
+              0.37,
+              4.03
+            ],
+            "r": 0.65
+          }
+        ],
+        "runner": {
+          "hex": "#3a2a24"
+        },
+        "walls": {
+          "hex": "#4a3a2a",
+          "kind": "walnut",
+          "rail": 0.95,
+          "trim": "#2a2018",
+          "y1": 1
+        }
+      },
+      "doors": {
+        "down": [
+          0,
+          5.52
+        ],
+        "east": 0.65,
+        "south": -0.1,
+        "west": 0.65
+      },
+      "face": 180,
+      "floor_m": 10.32,
+      "h": 3.44,
+      "panes": [
+        {
+          "a": -0.76,
+          "b": 0.1,
+          "kind": "sash",
+          "wall": "back",
+          "y0": 0.9,
+          "y1": 2.3
+        }
+      ],
+      "studio": false,
+      "tone": {
+        "accent": "#5a4a3a",
+        "ceiling": "#9a907e",
+        "trim": "#3a2e24",
+        "wall": "#8a7c66"
+      },
+      "w": 2.12
+    },
+    "world_exit_zone": "zone_district_900_905"
+  },
+  "grid_x": 0,
+  "grid_y": -2,
+  "grid_z": 3,
+  "id": "zone_restassured_f3",
+  "map_id": "map_int_restassured",
+  "name": "Rest Assured, Third Floor Landing",
+  "parent_zone": "zone_district_900_905"
+}

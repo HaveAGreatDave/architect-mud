@@ -1,0 +1,31 @@
+{
+  "description": "Steel shelving on the brick, painted green a long time ago and touched up since. Bedrolls stood on end, lamps, and cell packs on the bottom shelf.",
+  "flags": {
+    "aliases": "shelves,right shelves,bedrolls,lamps",
+    "look": {
+      "arche": "store",
+      "form": "shelves",
+      "dims": [
+        3.6,
+        0.5,
+        2.4
+      ],
+      "stock": "surplus",
+      "wear": 0.5
+    },
+    "spot": {
+      "wall": "right",
+      "along": 4.6
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_otoole_shelves_right",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the right-hand shelves",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_otoole_interior"
+}

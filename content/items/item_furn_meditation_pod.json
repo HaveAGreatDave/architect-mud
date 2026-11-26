@@ -3,7 +3,8 @@
   "flags": {
     "interactions": [
       "sit"
-    ]
+    ],
+    "wealth": "middle"
   },
   "id": "item_furn_meditation_pod",
   "name": "sensory pod seat",

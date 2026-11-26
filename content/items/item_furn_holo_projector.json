@@ -9,7 +9,8 @@
     "power_draw_kw": 0.14,
     "tv": true,
     "tv_dial_freq": 7,
-    "tv_skin": "flatscreen"
+    "tv_skin": "flatscreen",
+    "wealth": "rich"
   },
   "id": "item_furn_holo_projector",
   "name": "ghost screen TV",

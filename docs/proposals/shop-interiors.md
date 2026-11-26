@@ -72,6 +72,11 @@ hardware; amber bottles, solvent cans, reagent boxes, carboys and drums for chem
 gloves for safety. It says what kind of shop this is. The shop panel says what's for sale, and nothing on a shelf
 is the vendor's catalogue.
 
+`surplus` is an old outfitter's: folded wool blankets, canteens, boot boxes, bedrolls and hand lamps (O'Toole's,
+`zone_otoole_interior`). A `tradecounter` whose row gives `look.wood` is an old shop counter instead: an oak top worn
+pale down the middle by `look.wear`, a panelled front, a brass foot rail and a brass till. `tone.floor` tints the
+boards, so an old shop's floor can be darker than a new flat's.
+
 A new trade adds a name to `SHOP_STOCKS` and a branch to `goodsOf` in `room-shop.js`.
 
 ## How it sells

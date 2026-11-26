@@ -21,7 +21,7 @@
       "id": "o_kit",
       "item_id": "item_salvaged_wiring",
       "type": "retrieve",
-      "zone": "zone_yards_tenement_u3_6"
+      "zone": "zone_restassured_room_a"
     },
     {
       "desc": "Pull the good cable out of the box on his route and leave the rotten one in it.",

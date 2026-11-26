@@ -12,8 +12,8 @@
     "pet_bowls": "pet_scrappy",
     "spot": {
       "at": [
-        9.8,
-        7.2
+        0.64,
+        7.35
       ],
       "turn": 0
     }

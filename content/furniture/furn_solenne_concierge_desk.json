@@ -1,5 +1,5 @@
 {
-  "description": "A long reception desk in dark walnut with a white marble top. On it are a brass bell, a vase of white orchids and a screen turned away from you. The manager stands behind it.",
+  "description": "A long reception desk in gloss black with a gold-edged black marble top and a thin blue light along its foot. On it are a gold bell, a vase of white orchids and a screen turned away from you. The manager stands behind it.",
   "flags": {
     "aliases": "desk,reception,front desk,concierge station,bell",
     "look": {
@@ -9,14 +9,16 @@
         0.85,
         1.1
       ],
-      "form": "reception"
+      "form": "reception",
+      "tone": "black",
+      "wood": "#111214"
     },
     "spot": {
       "at": [
-        -5.8,
-        5.8
+        -5.7,
+        5.85
       ],
-      "turn": 90
+      "turn": -180
     }
   },
   "hp": null,

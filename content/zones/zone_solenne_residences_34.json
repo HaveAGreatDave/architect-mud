@@ -6,13 +6,12 @@
   "ambient_theme": "indoors",
   "bg_color": "#28323d",
   "color": "#d9e6f2",
-  "description": "The tenth floor, the same walnut as the eighth with a green runner instead of blue. 10-D is <b>north</b>, 10-E <b>east</b>, 10-H <b>south</b> beside the lift and 10-F <b>west</b>. The elevator is <b>in</b> behind you.",
+  "description": "The fifth floor: a short landing in walnut and stone, three doors off it. 5-A is <b>west</b>, 5-B <b>east</b> and 5-C <b>north</b>. The elevator is <b>in</b> behind you.",
   "exits": {
     "east": "zone_solenne_apt_e",
     "in": "zone_solenne_elevator",
-    "north": "zone_solenne_apt_d",
-    "south": "zone_solenne_apt_h",
-    "west": "zone_solenne_apt_f"
+    "north": "zone_solenne_apt_f",
+    "west": "zone_solenne_apt_d"
   },
   "flags": {
     "building_name": "Solenne Residences",
@@ -20,7 +19,7 @@
     "is_interior": true,
     "room": {
       "balcony": false,
-      "d": 6,
+      "d": 2,
       "decor": {
         "art": [
           {
@@ -48,11 +47,11 @@
           "trim": "#b8913e"
         },
         "downlights": false,
+        "plants": [],
         "plaques": {
-          "zone_solenne_apt_d": "10-D",
-          "zone_solenne_apt_e": "10-E",
-          "zone_solenne_apt_f": "10-F",
-          "zone_solenne_apt_h": "10-H"
+          "zone_solenne_apt_d": "5-A",
+          "zone_solenne_apt_e": "5-B",
+          "zone_solenne_apt_f": "5-C"
         },
         "rug": false,
         "runner": {
@@ -64,23 +63,11 @@
         "sconces": {
           "points": [
             [
-              "front",
-              1.2
-            ],
-            [
-              "left",
-              3.6
-            ],
-            [
-              "right",
-              1.4
-            ],
-            [
               "back",
-              -1.6
+              -1.2
             ]
           ],
-          "y": 1.82
+          "y": 1.8
         },
         "walls": {
           "hex": "#5a3a28",
@@ -90,10 +77,10 @@
         }
       },
       "doors": {
-        "east": 2.4,
-        "north": -2.4,
-        "south": 2.4,
-        "west": -2.4
+        "east": 0,
+        "in": 0.65,
+        "north": 0,
+        "west": 0
       },
       "face": 0,
       "finish": "fine",
@@ -105,16 +92,17 @@
         "trim": "#17130f",
         "wall": "#3a2a20"
       },
-      "w": 6,
+      "w": 3.5,
       "windowless": true
     },
     "sanctuary": true
   },
   "grid_x": 0,
   "grid_y": -1,
-  "grid_z": 6,
+  "grid_z": 5,
   "id": "zone_solenne_residences_34",
   "map_id": "map_int_solenne",
-  "name": "The Tenth Floor",
+  "marker": "5",
+  "name": "The Fifth Floor",
   "parent_zone": "zone_district_914_908"
 }

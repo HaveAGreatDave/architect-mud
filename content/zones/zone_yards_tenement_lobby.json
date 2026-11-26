@@ -8,8 +8,10 @@
   "description": "A cramped ground-floor lobby: a wall of dented mailboxes, half of them hanging open and empty, a buzzer panel with every wire yanked out, and lift doors chained shut so long ago the chain has rusted to them. The concrete stairwell beside it smells of damp, mildew, and somebody else's dinner three floors up. A strip light overhead flickers as if it's thinking it over.",
   "exits": {
     "down": "zone_yards_tenement_util",
+    "east": "zone_yards_tenement_u0_e",
     "south": "zone_district_921_902",
-    "up": "zone_yards_tenement_f1"
+    "up": "zone_yards_tenement_f1",
+    "west": "zone_yards_tenement_shop"
   },
   "flags": {
     "building_name": "The Yards Tenement",
@@ -18,8 +20,7 @@
     "is_building": true,
     "is_interior": true,
     "room": {
-      "balcony": false,
-      "d": 5,
+      "d": 13.7,
       "decor": {
         "damp": [
           {
@@ -56,9 +57,36 @@
           }
         ]
       },
+      "doors": {
+        "east": 0,
+        "south": 0.3,
+        "west": -2.39
+      },
       "face": 180,
       "ground": "concrete",
-      "h": 3.4,
+      "h": 3.6,
+      "panes": [
+        {
+          "a": -0.2,
+          "b": 0.8,
+          "kind": "sash",
+          "wall": "back",
+          "y0": 0.9,
+          "y1": 2.4
+        }
+      ],
+      "stair": {
+        "at": [
+          0.3,
+          6.65
+        ],
+        "climb": "back",
+        "w": 1.1
+      },
+      "street_door": {
+        "kind": "single",
+        "w": 1
+      },
       "studio": false,
       "tone": {
         "accent": "#5a4a3a",
@@ -66,11 +94,7 @@
         "trim": "#2a2420",
         "wall": "#7a6e5e"
       },
-      "w": 6,
-      "street_door": {
-        "kind": "single",
-        "w": 1
-      }
+      "w": 2.72
     },
     "window": {
       "description": "A window set too high in the wall to see the ground through, so it offers the sky and nothing else. On a bad day that's more information than you want.",

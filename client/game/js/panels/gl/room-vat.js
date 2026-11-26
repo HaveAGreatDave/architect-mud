@@ -530,17 +530,15 @@ void main() {
     float sl = length(surfN(bgP.xz).xz);
     bg = mix(uCol, vec3(1.0), 0.5) * uLamp * (0.45 + min(2.5, 14.0 * sl));
   } else {
-    // the room past the far side, through the far wall of the column as a lens, a little apart by colour (the glass's
-    // dispersion), and wavering with the fluid's own movement; the sleeper wavers too
-    vec3 shim = vec3(sin(bgP.y * 23.0 + uTime * 2.3), 0.0, cos(bgP.y * 19.0 - uTime * 1.7)) * mix(0.014, 0.006, wB);
-    vec3 n2 = -normalize(vec3(bgP.x, 0.0, bgP.z));
+    // what's behind, sleeper and room alike, read where this pixel looks, wavering with the fluid's own movement and a
+    // little apart by colour. ⚠ ONE READ FOR BOTH. The room used to be read through the far wall as a lens and the
+    // sleeper straight, blended over a margin round its capsules: the margin drew a displaced copy of the body as a
+    // bright outline, and with the figure not built yet the capsules alone cut a body-shaped hole in the room.
+    vec2 px = gl_FragCoord.xy / uRes;
+    vec2 shim = vec2(sin(bgP.y * 23.0 + uTime * 2.3) + 0.5 * sin(bgP.x * 31.0 - uTime * 1.1), cos(bgP.y * 19.0 - uTime * 1.7)) * 0.0025;
+    vec2 disp = vec2(pE.x, 0.0) * 0.004 / max(uR, 0.05);
     vec2 uvs[3];
-    for (int c = 0; c < 3; c++) {
-      vec3 q = bgP + shim;
-      float eta = 1.31 + 0.02 * float(c); vec3 r2 = refract(rr, n2, eta); if (dot(r2, r2) < 0.5) r2 = reflect(rr, n2); q += r2 * 1.3 * (1.0 - wB);
-      vec4 cl = uVP * vec4(q + uC, 1.0);
-      uvs[c] = cl.w > 0.0 ? clamp(cl.xy / cl.w * 0.5 + 0.5, vec2(0.001), vec2(0.999)) : gl_FragCoord.xy / uRes;
-    }
+    for (int c = 0; c < 3; c++) uvs[c] = clamp(px + shim + disp * float(c - 1), vec2(0.001), vec2(0.999));
     bg = vec3(texture(uScene, uvs[0]).r, texture(uScene, uvs[1]).g, texture(uScene, uvs[2]).b);
     // the sleeper lit by its own vat: the crown's light from above, in the fluid's colour, over the room's
     { float lk = lampAt(bgP) * wB; bg = bg * (1.0 - 0.25 * wB + 0.9 * lk) + mix(uCol, vec3(1.0), 0.35) * lk * 0.18; }

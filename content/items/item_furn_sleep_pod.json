@@ -3,7 +3,8 @@
   "flags": {
     "interactions": [
       "lie"
-    ]
+    ],
+    "wealth": "rich"
   },
   "id": "item_furn_sleep_pod",
   "name": "sleep pod",

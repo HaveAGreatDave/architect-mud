@@ -3,34 +3,38 @@
   "ambient_theme": "indoors",
   "bg_color": "#2b3a34",
   "color": "#e8ddc7",
-  "description": "A one-bedroom on the east corner, glass on two sides: the bay on one and the long grey run of Coldwater on the other. Warm oak, a platform bed, a galley kitchen in grey stone, and the heating underfoot. Leave <b>west</b> to the landing.",
+  "description": "Residence 16, the whole sixteenth floor: the kitchen in grey stone, the table, and glass down the west side and along the south. The landing is <b>east</b>.",
   "exits": {
-    "in": "zone_solenne_apt_i_bath",
-    "west": "zone_solenne_residences"
+    "east": "zone_solenne_hall_u16",
+    "in": "zone_solenne_apt_i_bath"
   },
   "flags": {
     "building_name": "Solenne Residences",
     "floor": "boards",
     "is_apartment": true,
     "is_interior": true,
-    "rent_cost": 400,
+    "rent_cost": 900,
     "rest_multiplier": 1.5,
     "room": {
       "balcony": false,
-      "d": 7,
+      "d": 11.26,
+      "doors": {
+        "east": 1.67
+      },
       "ensuite": {
         "d": 2.6,
         "dress": "spa",
         "w": 3.2
       },
+      "face": 180,
       "finish": "fine",
       "glass": [
         "front",
-        "left"
+        "right"
       ],
       "h": 3,
-      "storeys": 40,
-      "w": 11.4
+      "storeys": 32,
+      "w": 5.02
     },
     "window": {
       "description": "A tall pane runs floor to ceiling down one wall, black-framed, holding the city out there like something in a case.",
@@ -39,12 +43,12 @@
       "visibility": 0.9
     }
   },
-  "grid_x": 1,
+  "grid_x": -1,
   "grid_y": -1,
-  "grid_z": 3,
+  "grid_z": 16,
   "id": "zone_solenne_apt_i",
   "map_id": "map_int_solenne",
-  "marker": "8",
-  "name": "Solenne Residence 8-B",
+  "marker": "16",
+  "name": "Solenne Residence 16",
   "parent_zone": "zone_district_914_908"
 }

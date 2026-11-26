@@ -3,35 +3,35 @@
   "behaviour_graph": {
     "_start": "start",
     "nodes": {
-      "start": {
-        "type": "start",
-        "next": "player_check"
-      },
-      "player_check": {
-        "type": "condition",
-        "condition_type": "PLAYER_IN_ZONE",
-        "ifTrue": "chitchat",
-        "ifFalse": "idle"
-      },
       "chitchat": {
-        "type": "action",
         "action_type": "VENDOR_CHITCHAT",
-        "next": "settle"
+        "next": "settle",
+        "type": "action"
       },
       "idle": {
-        "type": "action",
         "action_type": "IDLE",
-        "next": "settle"
-      },
-      "settle": {
-        "type": "wait",
-        "seconds": 45,
-        "jitter": 30,
-        "next": "loop"
+        "next": "settle",
+        "type": "action"
       },
       "loop": {
-        "type": "loop",
-        "next": "start"
+        "next": "start",
+        "type": "loop"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "idle",
+        "ifTrue": "chitchat",
+        "type": "condition"
+      },
+      "settle": {
+        "jitter": 30,
+        "next": "loop",
+        "seconds": 45,
+        "type": "wait"
+      },
+      "start": {
+        "next": "player_check",
+        "type": "start"
       }
     }
   },
@@ -51,7 +51,7 @@
     "personality": "lowlife"
   },
   "home_activities": [],
-  "home_zone": "zone_yards_tenement_u3_6",
+  "home_zone": "zone_restassured_room_a",
   "hp": 90,
   "hp_max": 90,
   "id": "npc_glitch_hex",

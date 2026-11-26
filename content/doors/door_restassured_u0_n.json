@@ -1,0 +1,22 @@
+{
+  "connection_id": "conn_restassured_u0_n_south",
+  "door_type": "basic",
+  "exit_dir": "south",
+  "flags": {},
+  "hololock_difficulty": 5,
+  "hp": 1000,
+  "hp_max": 1000,
+  "id": "door_restassured_u0_n",
+  "is_locked": 0,
+  "is_open": 0,
+  "lock_state": "locked",
+  "name": "Rest Assured, Flat 0.2 door",
+  "tags": {
+    "lock:hololock": {
+      "canHack": true,
+      "difficulty": 5
+    }
+  },
+  "target_zone": "zone_restassured_hall",
+  "zone_id": "zone_restassured_u0_n"
+}

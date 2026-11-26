@@ -6,7 +6,8 @@
       "lean"
     ],
     "power_draw_kw": 0.4,
-    "stove_tier": "high"
+    "stove_tier": "high",
+    "wealth": "rich"
   },
   "id": "item_furn_range_solace_i90",
   "name": "Solace i90 Range",

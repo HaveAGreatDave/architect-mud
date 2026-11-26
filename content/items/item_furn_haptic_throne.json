@@ -3,7 +3,8 @@
   "flags": {
     "interactions": [
       "sit"
-    ]
+    ],
+    "wealth": "rich"
   },
   "id": "item_furn_haptic_throne",
   "name": "haptic executive throne",

@@ -2348,25 +2348,25 @@ const TOS_OPT_GROUPS = [
   // Access settings live in A11Y_OPTIONS (Accessibility page); this list is taste only.
   { key: 'sidebarPosition', label: 'Sidebar', opts: [
     { v: 'left', t: 'Sidebar Left', g: '⬅️' }, { v: 'right', t: 'Sidebar Right', g: '➡️' } ] },
-  { key: 'weatherFx', label: 'Weather FX', opts: [
+  { key: 'weatherFx', page: 'Graphics', label: 'Weather FX', opts: [
     { v: 'on', t: 'Weather FX On', g: '🌧️' }, { v: 'off', t: 'Off', g: '🚫' } ] },
   // Cel shading for the 3-D views (main.js _applyCelShade). GLASS 2 only. Comic is the house
   // style (gl/house-style.js): every view, heavier ink.
-  { key: 'celShade', label: 'Cel Shading', opts: [
+  { key: 'celShade', page: 'Graphics', label: 'Cel Shading', opts: [
     { v: 'off', t: 'Off: the city as it is lit now', g: '◐' },
     { v: 'on', t: 'On: flat light and ink outlines', g: '✎' },
     { v: 'comic', t: 'Comic: two tones and heavy ink, everywhere', g: '✒' } ] },
   // How the light falls under the cel look (main.js _applyCelShade, gl/house-style.js comicLightOn).
-  { key: 'shadowStyle', label: 'Shadows', opts: [
+  { key: 'shadowStyle', page: 'Graphics', label: 'Shadows', opts: [
     { v: 'comic', t: 'Comic: painted two-tone shadows', g: '▙' },
     { v: 'real', t: 'Traditional: smooth light, soft shadows, ink kept', g: '◑' } ] },
   // Depth of field in the walk-round rooms (gl/room-dof.js): focuses on what's in the middle of the view.
-  { key: 'roomDof', label: 'Depth of Field', opts: [
+  { key: 'roomDof', page: 'Graphics', label: 'Depth of Field', opts: [
     { v: 'on', t: 'On: rooms focus on what you look at', g: '◉' },
     { v: 'off', t: 'Off: everything sharp', g: '○' } ] },
   // Which renderer draws the 3-D views (main.js _applyGlass, windshield.js setGlassMode). Automatic
   // is GLASS Lite on every device (people and birds left out on a phone). A stored '2' reads as auto and '1' as Lite.
-  { key: 'glass', label: 'Renderer', opts: [
+  { key: 'glass', page: 'Graphics', label: 'Renderer', opts: [
     { v: 'auto', t: 'Automatic: GLASS Lite, the baked city', g: 'A', s: 'font-size:0.6875rem;letter-spacing:1px' },
     { v: 'full', t: 'GLASS 2: the full GPU renderer, lit and shadowed', g: 'G2', s: 'font-size:0.6875rem;letter-spacing:1px' },
     { v: 'lite', t: 'GLASS Lite: the same city from a baked copy, easy on the CPU', g: 'GL', s: 'font-size:0.6875rem;letter-spacing:1px' } ] },
@@ -2388,6 +2388,53 @@ const TOS_OPT_GROUPS = [
     { v: 'smooth', t: 'Smooth: the map glides as you walk', g: '🌊' },
     { v: 'classic', t: 'Classic: tiles snap into place', g: '▦' } ] },
 ];
+// Settings → Graphics. 'frameCap' goes to shared/frame-pace.js for every view; the rest are GLASS's
+// options (windshield.js setGfx), each 'auto' for what this device gets without asking.
+const TOS_GFX_GROUPS = [
+  { key: 'frameCap', label: 'Frame Rate', why: 'Every 3-D view. Uncapped paints as fast as it can; the screen still shows it on its refresh', opts: [
+    { v: 'vsync', t: 'Vsync: one frame a screen refresh', g: 'Vsync' },
+    { v: '60', t: 'At most 60 frames a second', g: '60' },
+    { v: '30', t: 'At most 30 frames a second: smoother on a slow machine, easier on a battery', g: '30' },
+    { v: 'off', t: 'Uncapped: no governor, for reading the paint rate on the perf meter', g: 'Uncapped' } ] },
+  { key: 'gfxAa', label: 'Anti-aliasing', why: 'Smooths jagged edges. FXAA softens lettering a little', opts: [
+    { v: 'auto', t: 'Automatic: MSAA, off on a phone', g: 'Auto' },
+    { v: 'off', t: 'Off', g: 'Off' },
+    { v: 'msaa', t: 'MSAA: geometry edges', g: 'MSAA' },
+    { v: 'fxaa', t: 'FXAA: a post filter over the whole frame', g: 'FXAA' },
+    { v: 'both', t: 'MSAA and FXAA', g: 'Both' },
+    { v: 'taa', t: 'TAA: temporal, takes the shimmer off fine detail, reads softer', g: 'TAA' } ] },
+  { key: 'gfxRes', label: 'Resolution', why: 'The city’s pixels against the screen’s. Automatic drops it when a frame is slow', opts: [
+    { v: 'auto', t: 'Automatic', g: 'Auto' },
+    { v: 'full', t: 'Full: every screen pixel', g: '100%' },
+    { v: '75', t: 'Three quarters', g: '75%' },
+    { v: '50', t: 'Half', g: '50%' } ] },
+  { key: 'gfxRefl', label: 'Reflections', why: 'The city in wet roads and the sea: the whole scene drawn twice', opts: [
+    { v: 'auto', t: 'Automatic: redrawn every second frame while you move straight', g: 'Auto' },
+    { v: 'full', t: 'Every frame', g: 'Full' },
+    { v: 'half', t: 'Every second frame', g: 'Half' },
+    { v: 'off', t: 'Off', g: 'Off' } ] },
+  { key: 'gfxSunShadow', label: 'Sun Shadows', why: 'The city drawn again from the sun', opts: [
+    { v: 'auto', t: 'Automatic: on, off on a phone', g: 'Auto' }, { v: 'on', t: 'On', g: 'On' }, { v: 'off', t: 'Off', g: 'Off' } ] },
+  { key: 'gfxAo', label: 'Ambient Occlusion', why: 'Soft darkening in corners and under eaves', opts: [
+    { v: 'auto', t: 'Automatic: on, off on a phone', g: 'Auto' }, { v: 'on', t: 'On', g: 'On' }, { v: 'off', t: 'Off', g: 'Off' } ] },
+  { key: 'gfxBloom', label: 'Bloom', why: 'Glow round bright lights and neon', opts: [
+    { v: 'auto', t: 'Automatic', g: 'Auto' }, { v: 'on', t: 'On', g: 'On' }, { v: 'off', t: 'Off', g: 'Off' } ] },
+  { key: 'gfxClouds', label: 'Clouds', why: 'The cloud deck and its shadows on the ground', opts: [
+    { v: 'auto', t: 'Automatic', g: 'Auto' }, { v: 'on', t: 'On', g: 'On' }, { v: 'off', t: 'Off', g: 'Off' } ] },
+  { key: 'gfxGovern', label: 'Adaptive Detail', why: 'Pulls the draw distance in when frames run slow', opts: [
+    { v: 'auto', t: 'Automatic: on', g: 'Auto' }, { v: 'on', t: 'On', g: 'On' }, { v: 'off', t: 'Off: fixed distances, for measuring', g: 'Off' } ] },
+];
+// A pill row with a line under its label saying what it does.
+function tosGfxRow(gp, value) {
+  const pills = gp.opts.map(o =>
+    `<div class="tos-opt${String(value) === String(o.v) ? ' selected' : ''}" data-set-key="${esc(gp.key)}" data-set-val="${esc(String(o.v))}" title="${esc(o.t)}">${esc(o.g)}</div>`).join('');
+  return `<div class="tos-set-row"><span class="tos-set-label">${esc(gp.label)}<span class="tos-set-val">${esc(gp.why)}</span></span><div class="tos-opts">${pills}</div></div>`;
+}
+// The foot of the Graphics page: the renderer's mark.
+const TOS_GLASS_MARK = `<div class="tos-glass-mark" title="GLASS: Geometry, Lights, Aircraft, Streets &amp; Structures">
+  <span class="tos-glass-pane" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+  <span class="tos-glass-words"><span class="tos-glass-by">powered by</span><span class="tos-glass-name">GLASS</span></span>
+</div>`;
 const TOS_AUDIO_TOGGLES = [
   { key: 'music', label: 'Music', on: '🎵', off: '🔇' },
   { key: 'sfx', label: 'SFX', on: '💥', off: '🔕' },
@@ -2546,8 +2593,15 @@ function renderTabletSettings(d) {
   ).join('');
 
   const layoutRows = TOS_OPT_GROUPS
-    .filter(gp => !A11Y_OPTIONS.some(a => a.key === gp.key) && (!gp.mobileOnly || tosIsMobile()))
+    .filter(gp => !gp.page && !A11Y_OPTIONS.some(a => a.key === gp.key) && (!gp.mobileOnly || tosIsMobile()))
     .map(gp => tosPillRow(gp.label, gp.key, s[gp.key], gp.opts)).join('');
+  // Graphics: the look first (the renderer at the top, then cel shading, shadows, depth of field, weather),
+  // then the frame rate and GLASS's performance options.
+  const lookOrder = ['glass', 'celShade', 'shadowStyle', 'roomDof', 'weatherFx'];
+  const gfxRows = TOS_OPT_GROUPS.filter(gp => gp.page === 'Graphics')
+    .sort((a, b) => lookOrder.indexOf(a.key) - lookOrder.indexOf(b.key))
+    .map(gp => tosPillRow(gp.label, gp.key, s[gp.key], gp.opts)).join('') +
+    TOS_GFX_GROUPS.map(gp => tosGfxRow(gp, s[gp.key] || gp.opts[0].v)).join('');
 
   const wpNow = loadWallpaper();
   const wallpaperRow = `<div class="tos-set-row"><span class="tos-set-label">Wallpaper<span class="tos-set-val">Behind the home screen</span></span><div class="tos-opts">
@@ -2583,12 +2637,16 @@ function renderTabletSettings(d) {
         <span class="tos-btn-sub" data-contrast-reset="1" style="margin:0 0 0 8px;padding:4px 9px">Reset</span></span></div>` +
       a11yRows +
       `<div class="tos-set-row"><span class="tos-set-label">All of this works as a command<span class="tos-set-val">Type <b>accessibility</b> anywhere: no tablet needed. <b>accessibility reset</b> puts everything back.</span></span></div>`,
-    Layout: (layoutRows || '') +
+    Graphics: gfxRows +
       // The F3 meter (fps-meter.js), reachable without a keyboard. Per device, like F3.
       `<div class="tos-set-row"><span class="tos-set-label">Perf Meter<span class="tos-set-val">Frame rate and paint time, top left</span></span><div class="tos-opts">
         <div class="tos-opt${fpsMeterOn() ? ' selected' : ''}" data-set-perf="on" title="Show the perf meter">On</div>
         <div class="tos-opt${!fpsMeterOn() ? ' selected' : ''}" data-set-perf="off" title="Hide the perf meter">Off</div>
       </div></div>` +
+      `<div class="tos-set-row"><span class="tos-set-label">Graphics Settings<span class="tos-set-val">Everything on this page back to Automatic</span></span>
+        <span class="tos-btn-sub" data-reset-gfx="1" style="margin:0">Reset to Default</span></div>` +
+      TOS_GLASS_MARK,
+    Layout: (layoutRows || '') +
       `<div class="tos-set-row"><span class="tos-set-label">Home Widgets<span class="tos-set-val">Info cards under the app grid</span></span><div class="tos-opts">
         <div class="tos-opt${widgetsEnabled() ? ' selected' : ''}" data-set-widgets="on" title="Show home widgets">On</div>
         <div class="tos-opt${!widgetsEnabled() ? ' selected' : ''}" data-set-widgets="off" title="Hide home widgets">Off</div>
@@ -7229,6 +7287,14 @@ function wireTabletSettings() {
     sfx(TOS_SELECT_DEF);
     const s = loadSettings();
     s.audio = { ...DEFAULT_AUDIO_SETTINGS };
+    commit(s);
+    render();
+  });
+  // Graphics back to Automatic: the frame cap and GLASS's options. The look rows (renderer, cel shading) are taste and stay.
+  _overlay.querySelector('[data-reset-gfx]')?.addEventListener('click', () => {
+    sfx(TOS_SELECT_DEF);
+    const s = loadSettings();
+    for (const gp of TOS_GFX_GROUPS) s[gp.key] = gp.opts[0].v;
     commit(s);
     render();
   });

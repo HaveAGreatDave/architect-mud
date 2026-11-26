@@ -3724,3 +3724,14 @@ html[data-density="compact"] #tablet-os-overlay .tos-mf:disabled { opacity:.35; 
 #tablet-os-overlay .tos-bib-work { font-weight:bold; }
 #tablet-os-overlay .tos-bib-what { color:var(--tos-fg-dim); }
 #tablet-os-overlay .tos-bib a { color:var(--mg-accent); }
+
+/* Settings → Graphics: the renderer's mark at the foot of the page. A four-pane window with a sheen across it. */
+#tablet-os-overlay .tos-glass-mark { display:flex; align-items:center; justify-content:center; gap:10px; margin:18px 0 6px; opacity:.85; user-select:none; }
+#tablet-os-overlay .tos-glass-pane { position:relative; display:grid; grid-template-columns:1fr 1fr; gap:2px; width:26px; height:26px; padding:2px;
+  border:1px solid color-mix(in srgb, var(--mg-accent) 70%, transparent); border-radius:3px; overflow:hidden; }
+#tablet-os-overlay .tos-glass-pane i { background:linear-gradient(160deg, color-mix(in srgb, var(--mg-accent) 45%, transparent), color-mix(in srgb, var(--mg-accent) 12%, transparent)); border-radius:1px; }
+#tablet-os-overlay .tos-glass-pane::after { content:''; position:absolute; inset:-40% auto -40% -60%; width:40%; transform:rotate(25deg);
+  background:linear-gradient(90deg, transparent, rgba(255,255,255,.45), transparent); }
+#tablet-os-overlay .tos-glass-words { display:flex; flex-direction:column; line-height:1; }
+#tablet-os-overlay .tos-glass-by { font-size:0.5625rem; letter-spacing:2px; text-transform:uppercase; color:var(--tos-fg-dim); }
+#tablet-os-overlay .tos-glass-name { font-size:1.05rem; font-weight:700; letter-spacing:6px; color:var(--mg-accent); margin-top:3px; }

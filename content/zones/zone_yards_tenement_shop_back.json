@@ -1,0 +1,81 @@
+{
+  "ambient_theme": "indoors",
+  "description": "",
+  "exits": {
+    "south": "zone_yards_tenement_shop"
+  },
+  "flags": {
+    "building_name": "The Yards Tenement",
+    "building_type": "apartment",
+    "is_building": true,
+    "is_interior": true,
+    "room": {
+      "d": 6.02,
+      "doors": {
+        "south": 0.52
+      },
+      "face": 180,
+      "h": 3.6,
+      "panes": [
+        {
+          "a": 0.47,
+          "b": 1.47,
+          "kind": "sash",
+          "wall": "right",
+          "y0": 0.9,
+          "y1": 2.4
+        },
+        {
+          "a": 2.27,
+          "b": 3.27,
+          "kind": "sash",
+          "wall": "right",
+          "y0": 0.9,
+          "y1": 2.4
+        },
+        {
+          "a": 4.07,
+          "b": 5.07,
+          "kind": "sash",
+          "wall": "right",
+          "y0": 0.9,
+          "y1": 2.4
+        },
+        {
+          "a": 0.81,
+          "b": 1.81,
+          "kind": "sash",
+          "wall": "back",
+          "y0": 0.9,
+          "y1": 2.4
+        },
+        {
+          "a": -0.99,
+          "b": 0,
+          "kind": "sash",
+          "wall": "back",
+          "y0": 0.9,
+          "y1": 2.4
+        },
+        {
+          "a": -2.45,
+          "b": -1.79,
+          "kind": "sash",
+          "wall": "back",
+          "y0": 0.9,
+          "y1": 2.4
+        }
+      ],
+      "studio": false,
+      "w": 5.51
+    },
+    "world_exit_zone": "zone_district_921_902"
+  },
+  "grid_x": -2,
+  "grid_y": -2,
+  "grid_z": 0,
+  "id": "zone_yards_tenement_shop_back",
+  "map_id": "map_int_yards_tenement",
+  "name": "The Yards Tenement, Back Room",
+  "parent_zone": "zone_district_921_902"
+}

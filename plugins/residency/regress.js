@@ -19,4 +19,11 @@ export default async function regress({ check }) {
   check('authored refusal line wins', _test.residentsOnlyGate({ player: nobody, to: voiced })?.message === 'The concierge steps into your path.', 'content voice');
 
   check('staff walk through', _test.residentsOnlyGate({ player: { id: 'p_dev', role: 'dev' }, to: gated }) === undefined, 'dev bypass');
-}
+
+  // private_to: a room only the holder of one flat may enter
+  const priv = { flags: { private_to: 'zone_flat' } };
+  const held = (owner) => () => ({ owner_id: owner, owner_type: 'player' });
+  check('private_to: an unlet flat is open', _test.privateToGate({ player: nobody, to: priv, getApt: () => null }) === undefined, 'unlet passes');
+  check('private_to: blocks someone else', _test.privateToGate({ player: nobody, to: priv, getApt: held('p_other') })?.block === true, 'blocked');
+  check('private_to: lets the holder in', _test.privateToGate({ player: nobody, to: priv, getApt: held('p_test') }) === undefined, 'holder passes');
+  check('private_to: ignores a room without it', _test.privateToGate({ player: nobody, to: { flags: {} } }) === undefined, 'ungated');}

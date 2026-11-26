@@ -1,0 +1,20 @@
+{
+  "description": "",
+  "flags": {
+    "aliases": [
+      "stove",
+      "camping stove",
+      "hob"
+    ],
+    "gen": true,
+    "interactions": [
+      "lean"
+    ],
+    "stove_tier": "low"
+  },
+  "id": "furn_yards_tenement_u0_e_hob",
+  "name": "the camping stove",
+  "object_type": "fixture",
+  "power_draw_kw": 0.3,
+  "zone_id": "zone_yards_tenement_u0_e"
+}

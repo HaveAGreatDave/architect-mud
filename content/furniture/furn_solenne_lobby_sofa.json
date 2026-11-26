@@ -1,5 +1,5 @@
 {
-  "description": "A long banquette in oxblood leather facing the living wall. It's for waiting on, briefly. Sit too long and the concierge brings you a glass of water and the question of who you're here for.",
+  "description": "A long banquette in black leather facing the living wall. It's for waiting on, briefly. Sit too long and the concierge brings you a glass of water and the question of who you're here for.",
   "flags": {
     "aliases": "banquette,sofa,bench",
     "interactions": [
@@ -7,12 +7,13 @@
     ],
     "look": {
       "arche": "bench",
-      "form": "booth"
+      "form": "booth",
+      "fabric": "#141416"
     },
     "spot": {
       "at": [
-        6.6,
-        5.8
+        5.7,
+        5.7
       ],
       "turn": -90
     }

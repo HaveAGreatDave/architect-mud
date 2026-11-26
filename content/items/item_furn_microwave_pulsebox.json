@@ -6,7 +6,8 @@
       "lean"
     ],
     "microwave": true,
-    "power_draw_kw": 1.1
+    "power_draw_kw": 1.1,
+    "wealth": "poor"
   },
   "id": "item_furn_microwave_pulsebox",
   "name": "Hobline Pulsebox",

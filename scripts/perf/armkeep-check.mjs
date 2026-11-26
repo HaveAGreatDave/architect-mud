@@ -91,6 +91,11 @@ if (flyArg >= 0) {
   // A triangle here includes its vertices' alpha, and at kitFadeGPU 1 the haze band's is in the shader.
   // At 0 a fading tile's faces are the same tiles with the alpha written in, so that's what's compared.
   scene.ws.RENDER_TUNE.kitFadeGPU = 0;
+  // The same for a group drawn at an alpha of its own (bayGroup's `ka`: armFadeGPU, and kitPartsKeep's parts in the
+  // band), which is a uniform this fake view doesn't read. Both are held exact by exact.mjs.
+  scene.ws.RENDER_TUNE.armFadeGPU = 0; scene.ws.RENDER_TUNE.kitPartsKeep = 0;
+  // And a group placed by a matrix (bayGroup xf, uGroupM): the lift cars and the AA guns. exact.mjs holds them.
+  scene.ws.RENDER_TUNE.kitCarsGPU = 0; scene.ws.RENDER_TUNE.aaGPU = 0;
   // And the solids' retained groups in the window's frame: with retainWorld they're in world tiles less
   // an anchor and the shader shifts them back (uRetShift), which this fake doesn't do, and which costs
   // a float32 rounding the 1e-5 comparison here can't take. scripts/perf/retain-world-check.mjs proves

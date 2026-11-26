@@ -1,0 +1,303 @@
+# ORACLE recording script, moods and effort (Parts 6 to 9)
+#
+# The second session, after oracle-recording-script.txt. ORACLE's moods and loudness
+# levels (VOICE_MOODS and voiceEffort in client/shared/delivery.js) are taken from
+# published studies of other people's voices. These lines give the same sentences
+# in each mood and at each loudness in your voice, so those tables can be fitted to
+# you, and so ddsp/mood-test.mjs has a human score to beat.
+# 168 lines, about 20 minutes with pauses. Split it over two sittings if your voice tires;
+# Part 7 and the yells in Part 6 are the hard ones.
+#
+# HOW TO RECORD
+# - Everything in the first script's HOW TO RECORD still holds: the same room, mic and
+#   distance as the first session if you can, WAV or FLAC, no noise suppression or auto gain.
+# - Set the input level on the YELLS first (line 331 and the ones after it). A yell
+#   that clips is useless, and a whisper that's quiet is fine. Don't touch the level after that.
+# - One file per part: part6.wav, part7.wav, part8.wav, part9.wav. Same rules as before
+#   for stopping partway and for retakes (the last reading of a line is the one kept).
+# - This time DO act, but play it straight, as a person in that state would really say
+#   the line, not a cartoon of it. If you couldn't tell the mood with your eyes shut,
+#   it's too small; if it sounds like a cartoon, it's too big.
+# - Don't change the WORDS to fit the mood: no added "ugh" or laugh inside a line.
+#   Laughs, sighs and the rest have their own lines in Part 9.
+# - Read the [bracketed] direction before the line to yourself, never aloud.
+
+#
+# PART 6: LOUDNESS
+# Six sentences at five levels. Hold the same mood throughout (plain, a bit
+# matter-of-fact); only the loudness changes. Keep the same distance from the mic
+# for the yells; don't lean back.
+
+
+# WHISPER: a true whisper, no voice at all, as if someone is asleep in the next room.
+307	Get out of my shop.
+308	I told you, the door was already open.
+309	Nobody goes down there after dark.
+310	Did you see where he went?
+311	Fine. Take it and go.
+312	The boats were knocking against each other in the harbour.
+
+# QUIET: voiced but low, as if keeping it between the two of you.
+313	Get out of my shop.
+314	I told you, the door was already open.
+315	Nobody goes down there after dark.
+316	Did you see where he went?
+317	Fine. Take it and go.
+318	The boats were knocking against each other in the harbour.
+
+# NORMAL: your ordinary speaking voice, as in the first session.
+319	Get out of my shop.
+320	I told you, the door was already open.
+321	Nobody goes down there after dark.
+322	Did you see where he went?
+323	Fine. Take it and go.
+324	The boats were knocking against each other in the harbour.
+
+# RAISED: talking across a busy room.
+325	Get out of my shop.
+326	I told you, the door was already open.
+327	Nobody goes down there after dark.
+328	Did you see where he went?
+329	Fine. Take it and go.
+330	The boats were knocking against each other in the harbour.
+
+# YELL: shouting to someone across a street; full voice, not a scream.
+331	Get out of my shop.
+332	I told you, the door was already open.
+333	Nobody goes down there after dark.
+334	Did you see where he went?
+335	Fine. Take it and go.
+336	The boats were knocking against each other in the harbour.
+
+#
+# PART 7: MOODS
+# Six plain sentences in each of ORACLE's ten moods, then two lines that suit the
+# mood. The plain sentences say nothing about how anyone feels on purpose, so the
+# mood is all in the voice. Read each mood's block in one go, staying in the mood.
+# Take a breath and shake it off between moods.
+
+
+# PLAIN: no mood: neutral, as in the first session. This is what every other mood is measured against.
+337	I left it on the table by the door.
+338	The last bus goes at ten.
+339	He said he would be back on Tuesday.
+340	They moved the market to the other side of the bridge.
+341	You can have the room upstairs.
+342	Is that the one from yesterday?
+343	Right, the parcel came this morning.
+344	I need it back by Friday.
+
+# HAPPY: genuinely pleased; you just got good news.
+345	I left it on the table by the door.
+346	The last bus goes at ten.
+347	He said he would be back on Tuesday.
+348	They moved the market to the other side of the bridge.
+349	You can have the room upstairs.
+350	Is that the one from yesterday?
+351	Oh, that is brilliant, thank you!
+352	We got the flat, the one with the balcony.
+
+# AMUSED: trying not to laugh; something is funny but you are holding it in.
+353	I left it on the table by the door.
+354	The last bus goes at ten.
+355	He said he would be back on Tuesday.
+356	They moved the market to the other side of the bridge.
+357	You can have the room upstairs.
+358	Is that the one from yesterday?
+359	You put the milk in the cupboard again, didn't you.
+360	No, go on, tell me what happened next.
+
+# SAD: low and heavy; you just heard something you didn't want to.
+361	I left it on the table by the door.
+362	The last bus goes at ten.
+363	He said he would be back on Tuesday.
+364	They moved the market to the other side of the bridge.
+365	You can have the room upstairs.
+366	Is that the one from yesterday?
+367	I don't think he's coming back.
+368	It was the last photo I had of her.
+
+# TIRED: at the end of a double shift; no energy for anything.
+369	I left it on the table by the door.
+370	The last bus goes at ten.
+371	He said he would be back on Tuesday.
+372	They moved the market to the other side of the bridge.
+373	You can have the room upstairs.
+374	Is that the one from yesterday?
+375	Can we do this in the morning.
+376	I just need to sit down for a minute.
+
+# ANNOYED: irritated, not shouting; this is the third time you've said it.
+377	I left it on the table by the door.
+378	The last bus goes at ten.
+379	He said he would be back on Tuesday.
+380	They moved the market to the other side of the bridge.
+381	You can have the room upstairs.
+382	Is that the one from yesterday?
+383	I already told you, it's on the shelf.
+384	Can you stop doing that, please.
+
+# ANGRY: properly angry, voice up and hard, but still words, not screaming.
+385	I left it on the table by the door.
+386	The last bus goes at ten.
+387	He said he would be back on Tuesday.
+388	They moved the market to the other side of the bridge.
+389	You can have the room upstairs.
+390	Is that the one from yesterday?
+391	You lied to me about the money.
+392	Don't you dare walk away from me.
+
+# AFRAID: scared and trying to keep it together; something is wrong.
+393	I left it on the table by the door.
+394	The last bus goes at ten.
+395	He said he would be back on Tuesday.
+396	They moved the market to the other side of the bridge.
+397	You can have the room upstairs.
+398	Is that the one from yesterday?
+399	Did you hear that? Something's outside.
+400	Please, just put it down.
+
+# SURPRISED: caught off guard, in a good or neutral way.
+401	I left it on the table by the door.
+402	The last bus goes at ten.
+403	He said he would be back on Tuesday.
+404	They moved the market to the other side of the bridge.
+405	You can have the room upstairs.
+406	Is that the one from yesterday?
+407	Wait, you're here already?
+408	He built that himself?
+
+# CONFUSED: puzzled; this doesn't add up.
+409	I left it on the table by the door.
+410	The last bus goes at ten.
+411	He said he would be back on Tuesday.
+412	They moved the market to the other side of the bridge.
+413	You can have the room upstairs.
+414	Is that the one from yesterday?
+415	Hang on, which door did you mean?
+416	But the shop was shut on Sunday.
+
+# SARCASTIC: dry; you mean the opposite of the words.
+417	I left it on the table by the door.
+418	The last bus goes at ten.
+419	He said he would be back on Tuesday.
+420	They moved the market to the other side of the bridge.
+421	You can have the room upstairs.
+422	Is that the one from yesterday?
+423	Oh great, another meeting.
+424	Yes, that went really well.
+
+#
+# PART 8: HOW STRONG
+# Three moods at half strength. The game slides a mood from 0 to full (the
+# delivery's `i`), and this is the point between that tells it whether that slide is
+# straight. Half means a bit off, not a performance: a mildly good day, a slight edge,
+# a little worn down.
+
+
+# HAPPY, HALF: mildly cheerful.
+425	I left it on the table by the door.
+426	The last bus goes at ten.
+427	He said he would be back on Tuesday.
+428	They moved the market to the other side of the bridge.
+429	You can have the room upstairs.
+430	Is that the one from yesterday?
+
+# ANGRY, HALF: a bit of an edge, not raised.
+431	I left it on the table by the door.
+432	The last bus goes at ten.
+433	He said he would be back on Tuesday.
+434	They moved the market to the other side of the bridge.
+435	You can have the room upstairs.
+436	Is that the one from yesterday?
+
+# SAD, HALF: a little flat and down.
+437	I left it on the table by the door.
+438	The last bus goes at ten.
+439	He said he would be back on Tuesday.
+440	They moved the market to the other side of the bridge.
+441	You can have the room upstairs.
+442	Is that the one from yesterday?
+
+#
+# PART 9: SOUNDS AND VOICE QUALITY
+# The noises and textures a voice makes outside plain words. Read the direction,
+# make the sound, pause. For the voice-quality lines, keep the words the same and
+# change only the texture.
+
+
+# [a short laugh, as at a mild joke]
+443	Ha.
+
+# [a real laugh, a few seconds, at something actually funny]
+444	Ha ha ha ha.
+
+# [a snort of a laugh through the nose, dismissive]
+445	Hm.
+
+# [a tired sigh out]
+446	Hhhh.
+
+# [an annoyed sigh, through the teeth]
+447	Tch.
+
+# [a sharp breath in, startled]
+448	Hah!
+
+# [thinking, the hesitation sound]
+449	Um.
+
+# [thinking, the other one]
+450	Uh.
+
+# [agreeing, mouth closed]
+451	Mm-hm.
+
+# [disagreeing, mouth closed]
+452	Mm-mm.
+
+# [a small pained grunt, as if you knocked your shin]
+453	Ow.
+
+# [clearing your throat to get attention]
+454	Ahem.
+
+# [breathy, airy, lots of air through the voice, as if confiding]
+455	I wasn't going to tell anyone.
+456	I wasn't going to tell anyone.
+
+# [pressed and tight, as if lifting something heavy while you talk]
+457	Hold that end, it's slipping.
+458	Hold that end, it's slipping.
+
+# [creaky, the low rattle at the bottom of your voice (vocal fry) the whole way through]
+459	Yeah, I saw it.
+460	Yeah, I saw it.
+
+# [your lowest comfortable pitch, held there]
+461	The water came in under the door.
+462	The water came in under the door.
+
+# [your highest comfortable pitch, not falsetto]
+463	The water came in under the door.
+464	The water came in under the door.
+
+# [falsetto, the thin head voice, as if doing an impression]
+465	The water came in under the door.
+466	The water came in under the door.
+
+# [through a smile, a real one, the lips spread]
+467	The water came in under the door.
+468	The water came in under the door.
+
+# [mumbled, lazy mouth, barely moving the lips]
+469	The water came in under the door.
+470	The water came in under the door.
+
+# [over-clear, every consonant crisp, as if on a bad phone line]
+471	The water came in under the door.
+472	The water came in under the door.
+
+# [slurred, as if three drinks in (don't overdo it)]
+473	The water came in under the door.
+474	The water came in under the door.

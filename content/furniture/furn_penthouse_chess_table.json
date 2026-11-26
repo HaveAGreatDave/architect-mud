@@ -19,13 +19,6 @@
         0.74
       ],
       "form": "games"
-    },
-    "spot": {
-      "at": [
-        7.6,
-        0.9
-      ],
-      "turn": 90
     }
   },
   "hp": null,
@@ -37,5 +30,5 @@
   "object_type": "furniture",
   "power_draw_kw": null,
   "price": 0,
-  "zone_id": "zone_solenne_penthouse"
+  "zone_id": "zone_solenne_penthouse_2"
 }

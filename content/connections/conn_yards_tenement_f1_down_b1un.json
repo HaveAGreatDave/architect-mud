@@ -1,8 +1,8 @@
 {
-  "a": "zone_yards_tenement_f1",
-  "b": "zone_yards_tenement_lobby",
+  "a": "zone_yards_tenement_lobby",
+  "b": "zone_yards_tenement_f1",
   "blocked": false,
-  "dir": "down",
+  "dir": "up",
   "id": "conn_yards_tenement_f1_down_b1un",
   "lockable": false,
   "one_way": false

@@ -66,6 +66,14 @@ error between the two steps can't tear them:
 [vendor.js](../server/engine/vendor.js), driven by the `shop`/`buy`/`sell` verbs — owned by the
 **commerce plugin** ([plugins/commerce/index.js](../plugins/commerce/index.js)); vendor services stay engine.
 
+- **Furniture has a class, and a shop sells its own.** Every furniture item carries `flags.wealth`
+  (`rich`, `middle` or `poor`), and every district a `wealth` column. A vendor's class is its own
+  `flags.wealth`, else its zone's (`flags.wealth`, then the district's); its shelf shows, and its
+  restock picks, only furniture of that class. An unclassified piece or a classless vendor sells as
+  before. The class is never shown to the player. Helpers: `furnitureWealth`, `wealthOfZone`,
+  `vendorWealth` in [furniture-shop.js](../server/engine/furniture-shop.js); default furnishing by
+  class reads the same helpers.
+
 - **Open or shut is one predicate, and the ROOM asks it too.** `isVendorClosed(npc)`
   ([ai-behaviour.js](../server/engine/ai-behaviour.js)) answers off-shift (`vendor_schedule`) *or*
   not-yet-walked-in (`isVendorAbsent`, for anyone with a `work_zone_id`); a vendor with no schedule

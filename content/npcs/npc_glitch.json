@@ -3,130 +3,130 @@
   "behaviour_graph": {
     "_start": "start",
     "nodes": {
-      "start": {
-        "type": "start",
-        "next": "check_work"
-      },
-      "check_work": {
-        "type": "action",
-        "action_type": "CHECK_VENDOR_WORK",
-        "goToWork": "go_to_work",
-        "haveLife": "have_life",
-        "endShift": "cash_up",
-        "offWork": "off_home_check"
-      },
-      "go_to_work": {
-        "type": "action",
-        "action_type": "GO_TO_WORK",
-        "next": "work_wait"
-      },
-      "work_wait": {
-        "type": "wait",
-        "seconds": 60,
-        "next": "player_check"
-      },
-      "player_check": {
-        "type": "condition",
-        "condition_type": "PLAYER_IN_ZONE",
-        "ifTrue": "work_say",
-        "ifFalse": "check_work"
-      },
-      "work_say": {
-        "type": "action",
-        "action_type": "VENDOR_CHITCHAT",
-        "next": "check_work"
-      },
-      "have_life": {
-        "type": "action",
-        "action_type": "HAVE_LIFE",
-        "next": "check_work"
-      },
-      "cash_up": {
-        "type": "wait",
-        "seconds": 20,
-        "jitter": 900,
-        "next": "collect_safe"
-      },
-      "collect_safe": {
-        "type": "action",
-        "action_type": "VENDOR_COLLECT_SAFE",
-        "next": "go_to_atm"
-      },
-      "go_to_atm": {
-        "type": "action",
-        "action_type": "VENDOR_GO_TO_ATM",
-        "next": "atm_emote"
-      },
       "atm_emote": {
-        "type": "action",
         "action_type": "EMOTE",
+        "next": "atm_wait",
         "params": {
           "message": "steps up to the ATM terminal and makes a deposit."
         },
-        "next": "atm_wait"
+        "type": "action"
       },
       "atm_wait": {
-        "type": "wait",
-        "seconds": 10,
         "jitter": 20,
-        "next": "deposit"
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
       },
       "deposit": {
-        "type": "action",
         "action_type": "VENDOR_DEPOSIT",
-        "next": "post_shift"
-      },
-      "post_shift": {
-        "type": "random",
-        "branches": [
-          {
-            "weight": 1
-          },
-          {
-            "weight": 5
-          }
-        ],
-        "branch_0": "have_life",
-        "branch_1": "go_home_ps"
-      },
-      "go_home_ps": {
-        "type": "action",
-        "action_type": "GO_HOME",
-        "next": "home_life_ps"
-      },
-      "home_life_ps": {
-        "type": "action",
-        "action_type": "AT_HOME_LIFE",
-        "next": "check_work"
-      },
-      "off_home_check": {
-        "type": "condition",
-        "condition_type": "AT_HOME",
-        "ifTrue": "home_idle",
-        "ifFalse": "off_random"
-      },
-      "off_random": {
-        "type": "random",
-        "branches": [
-          {
-            "weight": 1
-          },
-          {
-            "weight": 5
-          }
-        ],
-        "branch_0": "have_life",
-        "branch_1": "go_home_off"
+        "next": "post_shift",
+        "type": "action"
       },
       "go_home_off": {
-        "type": "action",
         "action_type": "GO_HOME",
-        "next": "check_work"
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
       },
       "home_idle": {
-        "type": "action",
         "action_type": "AT_HOME_LIFE",
-        "next": "check_work"
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
       }
     }
   },
@@ -197,7 +197,7 @@
     "personality": "vendor"
   },
   "home_activities": [],
-  "home_zone": "zone_yards_tenement_u3_6",
+  "home_zone": "zone_restassured_room_a",
   "hp": 24,
   "hp_max": 24,
   "id": "npc_glitch",
@@ -237,47 +237,17 @@
   ],
   "vendor_restock_rate": 1,
   "vendor_schedule": {
-    "mon": [
-      {
-        "from": 0,
-        "to": 2
-      },
-      {
-        "from": 12,
-        "to": 24
-      }
-    ],
-    "tue": [
-      {
-        "from": 0,
-        "to": 2
-      },
-      {
-        "from": 12,
-        "to": 24
-      }
-    ],
-    "wed": [
-      {
-        "from": 0,
-        "to": 2
-      },
-      {
-        "from": 12,
-        "to": 24
-      }
-    ],
-    "thu": [
-      {
-        "from": 0,
-        "to": 2
-      },
-      {
-        "from": 12,
-        "to": 24
-      }
-    ],
     "fri": [
+      {
+        "from": 0,
+        "to": 2
+      },
+      {
+        "from": 12,
+        "to": 24
+      }
+    ],
+    "mon": [
       {
         "from": 0,
         "to": 2
@@ -298,6 +268,36 @@
       }
     ],
     "sun": [
+      {
+        "from": 0,
+        "to": 2
+      },
+      {
+        "from": 12,
+        "to": 24
+      }
+    ],
+    "thu": [
+      {
+        "from": 0,
+        "to": 2
+      },
+      {
+        "from": 12,
+        "to": 24
+      }
+    ],
+    "tue": [
+      {
+        "from": 0,
+        "to": 2
+      },
+      {
+        "from": 12,
+        "to": 24
+      }
+    ],
+    "wed": [
       {
         "from": 0,
         "to": 2

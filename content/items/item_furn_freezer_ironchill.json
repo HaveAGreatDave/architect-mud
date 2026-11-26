@@ -7,7 +7,8 @@
       "lean"
     ],
     "power_draw_kw": 0.7,
-    "preserves": "frozen"
+    "preserves": "frozen",
+    "wealth": "rich"
   },
   "id": "item_furn_freezer_ironchill",
   "name": "Ironchill Deep-Freeze Unit",

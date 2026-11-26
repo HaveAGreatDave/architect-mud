@@ -9,10 +9,6 @@
       "arche": "surface",
       "dress": "thistle",
       "form": "console"
-    },
-    "spot": {
-      "along": 0,
-      "wall": "front"
     }
   },
   "hp": null,

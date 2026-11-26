@@ -3,23 +3,22 @@
   "ambient_theme": "indoors",
   "bg_color": "#2b3a34",
   "color": "#e8ddc7",
-  "description": "The whole thirty-fourth floor north of the lift, glass on three sides and the bay along the length of it. A platform bed on a Persian rug, a low sofa, a black desk in the corner of the glass, a bonsai juniper by the window. Pale stone, warm oak, heating underfoot. Leave <b>south</b> to the landing.",
+  "description": "Residence 20, the whole twentieth floor: the kitchen in grey stone, the table, and glass down the west side and along the south, with a stair going <b>up</b> to the floor above. The landing is <b>east</b>.",
   "exits": {
+    "east": "zone_solenne_hall_34",
     "in": "zone_solenne_apt_p_bath",
-    "south": "zone_solenne_hall_34"
+    "up": "zone_solenne_apt_p_up"
   },
   "flags": {
     "building_name": "Solenne Residences",
     "floor": "boards",
     "is_apartment": true,
     "is_interior": true,
-    "rent_cost": 1100,
+    "rent_cost": 1400,
     "rest_multiplier": 1.5,
     "room": {
-      "balcony": {
-        "wrap": "sides"
-      },
-      "d": 8.3,
+      "balcony": false,
+      "d": 11.26,
       "decor": {
         "rug": {
           "at": [
@@ -32,22 +31,30 @@
         }
       },
       "doors": {
-        "south": 0
+        "east": 1.67
       },
       "ensuite": {
         "d": 2.6,
         "dress": "spa",
         "w": 3.4
       },
+      "face": 180,
       "finish": "fine",
       "glass": [
         "front",
-        "left",
         "right"
       ],
-      "h": 3,
-      "storeys": 40,
-      "w": 22.2
+      "h": 3.6,
+      "stair": {
+        "at": [
+          1.86,
+          5.73
+        ],
+        "climb": "back",
+        "w": 1.1
+      },
+      "storeys": 32,
+      "w": 5.02
     },
     "window": {
       "description": "A tall pane runs floor to ceiling down one wall, black-framed, holding the city out there like something in a case.",
@@ -56,12 +63,12 @@
       "visibility": 0.9
     }
   },
-  "grid_x": 0,
-  "grid_y": -2,
-  "grid_z": 14,
+  "grid_x": -1,
+  "grid_y": -1,
+  "grid_z": 20,
   "id": "zone_solenne_apt_p",
   "map_id": "map_int_solenne",
-  "marker": "34",
-  "name": "Solenne Residence 34-A",
+  "marker": "20",
+  "name": "Solenne Residence 20",
   "parent_zone": "zone_district_914_908"
 }

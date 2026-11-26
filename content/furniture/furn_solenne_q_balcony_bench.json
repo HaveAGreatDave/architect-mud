@@ -15,15 +15,15 @@
     },
     "spot": {
       "at": [
-        -1.2,
-        -1.6
+        -1.45,
+        1.35
       ],
-      "turn": 180
+      "turn": 0
     }
   },
   "id": "furn_solenne_q_balcony_bench",
   "name": "teak bench",
   "object_type": "furniture",
   "price": 1100,
-  "zone_id": "zone_solenne_apt_q"
+  "zone_id": "zone_solenne_apt_q_up"
 }

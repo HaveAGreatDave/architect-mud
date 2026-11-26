@@ -1,0 +1,9 @@
+{
+  "a": "zone_restassured_u2_5",
+  "b": "zone_restassured_f2_h2",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_restassured_u2_5_west",
+  "lockable": true,
+  "one_way": false
+}

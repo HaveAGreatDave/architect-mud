@@ -14,7 +14,6 @@ row whenever one comes off the map, and take it out when one goes back.
 | Lather & Lye | barber and bathhouse | 917,908 Marrow Street | 2026-10-08 | rooms only, no tile | gave its plot to Nico's Noodle Bar |
 | Vetch Green | green, three tiles | 895 to 897,912 | 2026-10-18 | holding map 1 to 3,2 | the Hughson Coliseum |
 | Skeleton Crew | locksmith | 898,905 | 2026-10-18 | holding map 1,5 | out of place by the Glasshouse towers |
-| Rest Assured | lodging house | 900,905 | 2026-10-18 | holding map 3,5 | out of place by the Glasshouse towers |
 | Corner the Market | grocer | 897,907 | 2026-10-18 | holding map 5,5 | out of place by the Glasshouse towers |
 | Florist Gump | florist | 909,914 Meltwater Row | 2026-10-18 | holding map 1,7 | Midway Parks Cinema took its plot |
 | Rod Almighty | fishing tackle | 908,914 Meltwater Row | 2026-10-18 | holding map 3,7 | taken out for now |
@@ -79,7 +78,7 @@ Filaments-to-Glasshouse transition along Kettle Green is designed.
 | Was at | Building | Holding grid | Keeper |
 |---|---|---|---|
 | 898,905 | Skeleton Crew | 1,5 | Rufus Bandy, set aside |
-| 900,905 | Rest Assured | 3,5 | Dilys Trantham, set aside |
+| 900,905 | Rest Assured | 3,5 | back on the map since 2026-11-25 at 917,904 on Lever Lane, Dilys Trantham with it (see below) |
 | 897,907 | Corner the Market | 5,5 | Basil Quennell: lives in the Filament Buildings, so his `work_zone_id` is `null` instead |
 
 - Each facade keeps its id and moved whole, as the Coliseum's did. With no street on the holding
@@ -91,6 +90,14 @@ Filaments-to-Glasshouse transition along Kettle Green is designed.
   anyone left in these rooms and lists any rented room at Rest Assured.
 
 To put one back, follow the Coliseum's steps, and delete or reuse the `zone_kettle_` tile on its plot.
+
+**Rest Assured went back on 2026-11-25**, not to its old plot but to 917,904 on Lever Lane in the Yards, to house
+people from the Yards Tenement's refit. `scripts/content/rest-assured-east.mjs` moved the facade (its id kept, door
+east) and put the grass tile that was there, `zone_district_916_904`, in its holding cell 3,5 with
+`set_aside_from: '917,904'`. Its rooms are generated (`scripts/content/plans/rest_assured.json`, plan-rooms.mjs;
+[model-plan.md](model-plan.md)): a rooming house of fifteen single rooms and a shared bathroom a floor over two
+ground-floor flats, in the `worn` finish. The hall and Rooms 3 and 4 kept their ids. Its Kettle Green plot at
+900,905 stays grass.
 
 ## Florist Gump, Rod Almighty, Loafing Around and the Grind House (set aside 2026-10-18)
 

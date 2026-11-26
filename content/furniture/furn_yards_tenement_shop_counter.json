@@ -1,0 +1,18 @@
+{
+  "description": "",
+  "flags": {
+    "aliases": [
+      "counter",
+      "till"
+    ],
+    "gen": true,
+    "look": {
+      "arche": "surface",
+      "form": "tradecounter"
+    }
+  },
+  "id": "furn_yards_tenement_shop_counter",
+  "name": "the counter",
+  "object_type": "furniture",
+  "zone_id": "zone_yards_tenement_shop"
+}

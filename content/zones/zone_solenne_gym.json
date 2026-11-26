@@ -16,7 +16,7 @@
     "is_interior": true,
     "room": {
       "balcony": false,
-      "d": 10.6,
+      "d": 4.15,
       "decor": {
         "mirrors": [
           {
@@ -43,7 +43,8 @@
       "finish": "fine",
       "glass": [
         "front",
-        "right"
+        "right",
+        "left"
       ],
       "ground": "rubber",
       "h": 3.6,
@@ -53,15 +54,16 @@
         "trim": "#2a2d31",
         "wall": "#dfe3e6"
       },
-      "w": 21.4
+      "w": 14.6
     },
     "sanctuary": true
   },
   "grid_x": 0,
-  "grid_y": -1,
-  "grid_z": 1,
+  "grid_y": -2,
+  "grid_z": 2,
   "id": "zone_solenne_gym",
   "map_id": "map_int_solenne",
+  "marker": "2",
   "name": "Sweat Equity",
   "parent_zone": "zone_district_914_908"
 }

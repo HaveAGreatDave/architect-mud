@@ -6,27 +6,26 @@
   ],
   "ambient_theme": "urban",
   "bg_color": "#2d2822",
-  "description": "A rooming house in a converted terrace, three doorways knocked into one and a hand-painted board over the middle of them reading REST ASSURED: NIGHTLY, WEEKLY, MONTHLY, with the monthly rate painted out and redone twice. A card in the glass says NO SMOKING IN BEDS above a second card, older, saying NO SMOKING IN BEDS PLEASE.",
+  "description": "A rooming house in a converted terrace, three doorways knocked into one and a hand-painted board over the middle of them reading REST ASSURED: NIGHTLY, WEEKLY, MONTHLY, with the monthly rate painted out and redone twice. Four storeys of soot-black brick, the sills worn soft and the pointing gone in places, but the walls are thick and the floors don't give. A card in the glass says NO SMOKING IN BEDS above a second card, older, saying NO SMOKING IN BEDS PLEASE.",
   "exits": {
-    "north": "zone_restassured_hall"
+    "east": "zone_district_917_904",
+    "west": "zone_restassured_hall"
   },
   "flags": {
     "building_name": "Rest Assured",
     "building_type": "residential",
-    "district": "filaments",
-    "entrance": "south",
+    "district": "yards",
+    "entrance": "east",
     "facade": true,
     "is_building": true,
     "region_id": "region_coldwater",
-    "set_aside": true,
-    "set_aside_from": "900,905",
-    "world_exit_zone": "zone_district_900_905"
+    "world_exit_zone": "zone_district_917_904"
   },
-  "grid_x": 3,
-  "grid_y": 5,
+  "grid_x": 917,
+  "grid_y": 904,
   "grid_z": 0,
   "id": "zone_district_900_905",
-  "map_id": "map_set_aside",
+  "map_id": "map_world",
   "marker": "RA",
   "name": "Rest Assured",
   "parent_zone": null

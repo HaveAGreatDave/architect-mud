@@ -343,6 +343,10 @@ export function kitLiftShow(key, now) {
 }
 // Where a footbridge's lift car is at clock `now` (ms), its floor in tiles. Both towers' cars move together.
 // The dynamic pass draws the car here, and kitDeck stands a walker on it, so the car you ride is the car you see.
+// Where a car's floor stands at rest, and how far above that both cars are at `now`: the 'cars' pass draws them at
+// CAR_REST and a caller lifts the whole group by kitCarRise.
+const CAR_REST = KERB_H + M(0.12);
+export function kitCarRise(P, seed, now) { return kitCarZ(P, 1, now, kitLiftKey(P, seed)) - CAR_REST; }
 export function kitCarZ(P, s, now, key) {
   const k = liftState(key, now || 0).k;
   const e = k * k * (3 - 2 * k);
@@ -432,6 +436,13 @@ export function drawStreetKit(o) {
   // strips, the trees, and the crossings and bridges. Bollards, vents and chevrons are gone by then.
   const dx = o.dx, dy = o.dy, near = !!o.near, far = !near && !!o.far;
   const doStatic = o.part !== 'dynamic', doDynamic = o.part !== 'static';
+  // The dynamic pass in two (o.dyn): 'belts' is what moves all the time (the chevrons, the steam, the cameras, a
+  // span's moving parts), 'parts' what only changes state (the crossing lamps, the lift cars and their buttons), which
+  // a caller can keep until o.sig says it changed. Absent, both, as before.
+  const doBelts = doDynamic && o.dyn !== 'parts' && o.dyn !== 'cars', doParts = doDynamic && o.dyn !== 'belts';
+  // 'cars' is the lift cars alone, drawn at rest for a caller that moves them on the GPU (kitCarRise); `o.carsApart`
+  // leaves them out of 'parts' for the same caller. Absent, the cars are drawn where the clock has them, as before.
+  const onlyCars = o.dyn === 'cars', withCars = !(o.carsApart && o.dyn === 'parts');
   const P3 = o.p3 || newPoint, L4 = o.l4 || newQuad;
 
   // `xf` is set while a damaged part is drawn: every point goes through it, so a pole leans and a
@@ -1106,15 +1117,23 @@ export function drawStreetKit(o) {
   // ── WHAT MOVES: THE BELTS, THE VENTS, THE CROSSING LAMPS, THE LIFT CARS AND THE LIGHTS ──
   // Every one is a pure function of the clock, and all of it sits on the walkway or under the cab's
   // eye: a plume is gone by the height of a rig, and the belts are in the floor.
-  if (doDynamic && near && beltMoves) for (let j = 0; j < 2; j++) chevrons(SIDES[j], (o.now || 0) / 1000 * LV.speed);
-  if (doDynamic && near && o.steam) for (const s of [-1, 1]) for (const [u, vv] of vents(s)) {
+  if (doBelts && near && beltMoves) for (let j = 0; j < 2; j++) chevrons(SIDES[j], (o.now || 0) / 1000 * LV.speed);
+  if (doBelts && near && o.steam) for (const s of [-1, 1]) for (const [u, vv] of vents(s)) {
     // One vent in two is venting at any time, the same ones until somebody fixes them.
     const r = hash(s, Math.round((s0 + u) * tm));
     if (r > 0.5) continue;
     const [x, y] = loc(u, vv);
     o.steam(dx + x, dy + y, Math.round(r * 1e4), LV.steam);
   }
-  if (doDynamic && crossHere && CROSS_POLES) {
+  // `o.sig`: an array the 'parts' pass fills with everything its faces and lights read off the clock and the hour,
+  // and draws nothing. Two frames with the same entries draw the same parts.
+  if (o.sig && doParts) {
+    if (crossHere && CROSS_POLES) o.sig.push(LV.lamp === 'blink' ? Math.sin((o.now || 0) / 1000 * 3 + hash(o.seed, 7) * 6.2832) > 0 : LV.lamp === 'steady');
+    if (bridgeHere) { const key = kitLiftKey(P, o.seed); o.sig.push(kitLiftShow(key, o.now || 0)); if (!o.carsApart) o.sig.push(liftState(key, o.now || 0).k); }
+    if ((crossHere && CROSS_POLES) || bridgeHere) o.sig.push(night);
+    return;
+  }
+  if (doParts && o.dyn !== 'cars' && crossHere && CROSS_POLES) {
     // Each crossing blinks on its own phase off its seed: off the bare clock every crossing in the
     // city went amber and dark together.
     const on = LV.lamp === 'blink' ? Math.sin((o.now || 0) / 1000 * 3 + hash(o.seed, 7) * 6.2832) > 0 : LV.lamp === 'steady';
@@ -1124,14 +1143,15 @@ export function drawStreetKit(o) {
       if (on && LV.lamp === 'blink' && night > 0.2 && o.light) { const [x, y] = loc(u + M(0.24), v); o.light(dx + x, dy + y, zl, '255,178,29', 6, 0.5 * night); }
     }
   }
-  if (doDynamic && bridgeHere) {
+  if (doParts && bridgeHere) {
     // The cars rest at the bottom and go up together when somebody steps in (THE FOOTBRIDGE LIFTS). A car is
     // open on its door side: a floor, a roof, a waist-high back and sides with a handrail, and glass above.
     const tw = M(K.TOWER_W / 2), tl = M(K.TOWER_L / 2), key = kitLiftKey(P, o.seed), show = kitLiftShow(key, o.now || 0);
     const lamp = show === 'idle' ? PAL.cyan : PAL.amber, lampMat = 'lit';
     for (const s of [-1, 1]) {
       if (s === P.inner && s < 0) continue;   // the shared tower's car is the other half's
-      const z0 = kitCarZ(P, s, o.now, key), v = kitTowerV(P, s), cu = tl - M(0.15), cv = tw - M(0.15), seam = s === P.inner;
+      const z0 = onlyCars ? CAR_REST : kitCarZ(P, s, o.now, key), v = kitTowerV(P, s), cu = tl - M(0.15), cv = tw - M(0.15), seam = s === P.inner;
+      if (withCars) {
       box(BRIDGE_U, v, cu, cv, z0 - M(0.08), z0, PAL.steelDk, 'metal', PAL.cab, 'metal', true);
       box(BRIDGE_U, v, cu, cv, z0 + M(2.15), z0 + M(2.25), PAL.cab, 'metal', PAL.cab, 'metal', true);
       box(BRIDGE_U, v, cu - M(0.02), cv - M(0.02), z0 + M(2.12), z0 + M(2.15), PAL.cyan, 'lit');
@@ -1143,19 +1163,22 @@ export function drawStreetKit(o) {
       if (!seam) box(BRIDGE_U, v + s * cv, cu, M(0.03), z0, z0 + M(1.0), PAL.cab, 'metal');
       // the door edge's lit sill, and the car's lamp over the door, the colour of the buttons
       for (const b of seam ? [-1, 1] : [-s]) box(BRIDGE_U, v + b * cv, cu - M(0.05), M(0.02), z0, z0 + M(0.02), lamp, lampMat);
+      }
+      if (onlyCars) continue;
       // over each door of the tower, an arrow lamp at both floors
       for (const b of seam ? [-1, 1] : [-s]) for (const zf of [KERB_H + M(0.12), DECK_Z1]) {
         box(BRIDGE_U, v + b * (tw + M(0.075)), M(0.12), M(0.01), zf + M(2.12), zf + M(2.26), lamp, lampMat);
       }
     }
     // the button faces
-    for (const B of kitLiftButtons(P)) {
+    if (!onlyCars) for (const B of kitLiftButtons(P)) {
       const lit = (B.at === 'call-top') === (show === 'up') || show === 'idle';
       const [bu, bv] = [B.u, B.v - B.s * M(0.101)];
       box(bu, bv, M(0.05), M(0.004), B.z + M(1.12), B.z + M(1.22), lit ? lamp : PAL.screen, lit ? lampMat : 'paint');
     }
-    if (night > 0.2 && o.light) { const [x, y] = loc(BRIDGE_U, (kitTowerV(P, -1) + kitTowerV(P, 1)) / 2); o.light(dx + x, dy + y, DECK_Z0, '111,227,255', 8, 0.35 * night); }
+    if (!onlyCars && night > 0.2 && o.light) { const [x, y] = loc(BRIDGE_U, (kitTowerV(P, -1) + kitTowerV(P, 1)) / 2); o.light(dx + x, dy + y, DECK_Z0, '111,227,255', 8, 0.35 * night); }
   }
+  if (o.dyn === 'parts' || o.dyn === 'cars') return;
   if (bridgeHere) for (const e of [-1, 1]) kitCamera(tools(), BRIDGE_U - e * M(0.9), e * M(2.4), DECK_Z0, 1.3 + e);
   if (P.span) spanOver();
 }

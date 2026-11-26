@@ -3,7 +3,8 @@
   "flags": {
     "interactions": [
       "sit"
-    ]
+    ],
+    "wealth": "poor"
   },
   "id": "item_furn_barstool_wreck",
   "name": "wobbly barstool",

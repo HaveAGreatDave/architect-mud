@@ -27,6 +27,7 @@ import { createSelectionState, formatSelectionPage } from './sift.js';
 import { vendorBuyReaction } from './vendor-reactions.js';
 import { isVendorClosed, vendorClosedLine } from './ai-behaviour.js';
 import { world, syncNpc, insertFurniture } from './world.js';
+import { districtFor } from './districts.js';
 import { randomUUID } from 'crypto';
 import { furnitureInteractions, furnitureObjectType } from '../../client/shared/furniture-row.js';
 
@@ -40,6 +41,39 @@ export { furnitureInteractions, furnitureObjectType };
 export function isConsumerFurniture(item) {
   return item?.type === 'furniture'
     && furnitureInteractions(item).some(v => CONSUMER_INTERACTIONS.includes(v));
+}
+
+// ─── Class ───────────────────────────────────────────────────────────────────
+// Every furniture item carries flags.wealth: 'rich', 'middle' or 'poor', and so
+// does every district (its `wealth` column). It's never shown to the player; it
+// decides which shops sell a piece and what a building of that class is furnished
+// with. Sync and query-free: the item cache and the district registry are RAM.
+export const WEALTH_CLASSES = ['rich', 'middle', 'poor'];
+
+export function furnitureWealth(item) {
+  const w = item?.flags?.wealth;
+  return WEALTH_CLASSES.includes(w) ? w : null;
+}
+
+// A zone's class: an explicit flags.wealth on the zone, else its district's.
+export function wealthOfZone(zone) {
+  const w = zone?.flags?.wealth ?? districtFor(zone)?.wealth;
+  return WEALTH_CLASSES.includes(w) ? w : null;
+}
+
+// A vendor's class: flags.wealth on the NPC, else where the shop stands.
+export function vendorWealth(npc) {
+  const w = npc?.flags?.wealth;
+  if (WEALTH_CLASSES.includes(w)) return w;
+  return wealthOfZone(world.zones.get(npc?.zone_id || npc?.home_zone));
+}
+
+// Whether this vendor stocks this item. Only furniture is filtered, and an
+// unclassified piece or a classless vendor sells as before.
+export function vendorSellsClass(npc, item, wealth = vendorWealth(npc)) {
+  if (item?.type !== 'furniture' || !wealth) return true;
+  const w = furnitureWealth(item);
+  return !w || w === wealth;
 }
 
 // Random price factor. Most rolls sit within ±8%; ~1 in 6 widens to ±30% so a

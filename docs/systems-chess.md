@@ -525,3 +525,55 @@ move generation.
 
 The renderer has no automated coverage beyond "it doesn't throw" — same gap the windshield
 had before `shapes:smoke`. It renders from a stub table in about a second if you need it.
+
+---
+
+## Playing on a room's own board (as built)
+
+A board in a room is played on the room's table itself, in the Room Stage and in a room walked in GLASS alike; the
+flat pane isn't hung while either is open (`table_update` in `dispatch.js`). `client/game/js/panels/gl/room-chess-play.js`
+is the hand both views share: press one of your men and drag him to his square, or click him (he lifts) and click
+where he goes. Clicking him again, or off the board, puts him back. Either way it sends the typed `chessmove e2e4`
+(a pawn reaching the last rank takes `q`), and the server's `room_board` puts the real position back. It decides
+nothing. `boardOf` carries `white` and `black` (player ids) and `over`, which is how it knows whose men are yours.
+
+In GLASS the press is taken in `freelook-view.js owChessPress` before the cat's, the man in your hand is drawn on
+`room.chessExtra`, and `room_board` reaches the room through `freelookBoard`. On the Stage it's the pointer handlers
+in `room-stage.js` and the props layer.
+
+## A table's regular as the only opponent
+
+A board with a `practice` regular (chess-practice.js) is theirs. `summon` there calls nobody else, and only while the
+regular is home: alive, awake, off shift, and in the table's room, their `home_zone` or a room listed in
+`practice.home`. They can be asked in conversation: a dialogue option gated on `{ "chess_home": true }` whose node
+runs the action `CHESS_CHALLENGE` sits you down opposite them if you're in the room, walks them to the board if
+they're elsewhere at home, and says their answer. An asked game skips the `tier` gate a walk-up sit-down has.
+
+Beat them and they take it badly: angry for 15 minutes (`setNpcMood`), less warm toward you (`practice.sore`,
+default 12 warmth), and they won't play you again till the 15 minutes are up. Beating you makes them smug. Their
+words are `chess_lines.challenged`, `challengedAway`, `busy`, `sore`, `won` and `lost`; ChessTable emits
+`chess.finished` with the result for this. John Akerson's board (`scripts/seed-akerson-chess.mjs`, which reads the
+table's room off its furniture file) is the first.
+
+## A regular's play, talk and hands (as built)
+
+**Strength.** A persona may carry `quiesce` (plies of captures played out past the search's horizon), `budget` (nodes,
+up to 60,000) and `ms` (a time cap, up to a second; node cost varies tenfold with the position). With `quiesce` the
+root keeps its best score as alpha. The stock personas carry none of these and play as before. Akerson's
+`flags.chess_persona` is depth 3, `quiesce` 3, 30,000 nodes, 300 ms, a 3% blunder: over 12 games against `hustler`
+he won 10, lost 1 and drew 1, about 120 ms a move.
+
+**Talk.** ChessTable emits `chess.moved` (the table, the mover, the move, the position before and after). The regular
+sizes up each move with `quickEval` (bot-chess.js: material and placement with the captures on offer played out, so a
+hung piece counts as lost) from their own side, and says a line from `chess_lines`: `yourBlunder` or `yourGoodMove` on
+a swing of 220 either way off your move, `giveCheck`/`inCheck`, `myCapture`/`lostPiece`, `winning`/`losing` past 350.
+At most one line every 14 seconds, and the quieter keys are skipped about half the time. Their mood follows: smug
+when well up, annoyed when well down.
+
+**Hands.** A computer player's move is played out by their hand before the board shows it
+(`createChessActs` in `gl/room-chess-play.js`): the right arm reaches to the man (0.7 s), he comes off his square, is
+carried in a low arc (0.85 s) and set down (the server's board shown), and the arm comes back (0.6 s). The hand's goal
+is worked out each frame from the board and the clock, and the arm gets there by the figure's own two-bone reach
+(`reach` in `figure-reach.js finishArms`, a room point turned into bind space by `room-people.js reachOf`). In GLASS,
+whoever plays at a live board is drawn as the close-up figure (`closeupAlso` in `oneworld-people.js`) so they have
+hands. A square past arm's length is reached for as far as the arm goes; nothing leans the body in yet.

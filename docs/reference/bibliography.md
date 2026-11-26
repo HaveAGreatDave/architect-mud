@@ -12,6 +12,7 @@ The rule that runs through the list is the one [house-voice.md](house-voice.md) 
 | Fallout 1, 2 and New Vegas | The house voice: a plain literal default, rationed stings, documents that tell the story, warm radio hosts. Fallout 2's examine texts are the length benchmark, and the `docs:prose` irony lint is calibrated on them. | [house-voice.md](house-voice.md) |
 | GTA IV and V | City media, street barks and talk while the player is busy, with the volume turned down. The 0-5 star wanted level. | [house-voice.md](house-voice.md), [systems-surveillance.md](../systems-surveillance.md) |
 | Borderlands | The comic ink look over the whole game: a screen-space outline, ink painted into textures, sharpened shadows. | [comic-ink.md](../proposals/comic-ink.md) |
+| One Richmond Row, London, Ontario | The Solenne's shape: a straight tower whose floor slabs jog side to side in bands, so it reads as twisting without tapering. | [solenne-plates.md](../proposals/solenne-plates.md) |
 | NHL '96 | The Cluster Puck League's FM soundset, an homage that copies the character and none of the assets. The vertical camera. | [systems-hockey-sound.md](../systems-hockey-sound.md), [cluster-puck-glass2.md](../proposals/cluster-puck-glass2.md) |
 | NHL 99 | The default broadcast framing, high on the near side and close. | [systems-broadcast.md](../systems-broadcast.md) |
 | NHL '94 | One person runs a whole team head to head, switching between skaters. | [cluster-puck-ai.md](../proposals/cluster-puck-ai.md) |
@@ -129,6 +130,13 @@ All in [birds.js](../../client/shared/birds.js).
 | A 19th-century engraving of a cat's skeleton drawn inside its outline, and Wikimedia Commons' "Felis catus skeleton" (a mount at Naturalis, Leiden) | Where the joints sit in a standing cat: the shoulder joint at the point of the chest, the elbow at the bottom of the ribs, the hip high under the croup, the stifle high in the flank, the high hock and the upright metatarsus. The kit's silhouette is checked by laying it over the engraving. |
 
 In [pets.md](../proposals/pets.md) and [cat-kit.js](../../client/game/js/panels/gl/cat-kit.js).
+
+### Buildings from rules
+
+| Source | What it gives | Where |
+|---|---|---|
+| Müller, Wonka, Haegler, Ulmer and Van Gool, "Procedural Modeling of Buildings" (SIGGRAPH 2006) | CGA shape grammar: a mass split into floors and bays with fixed and floating sizes, occlusion queries before placing a detail, and snap lines that line up floors across masses. | [model-plan.md](../proposals/model-plan.md) |
+| Introversion Software, *Subversion* (unreleased, shown 2008 to 2011) | A city's building interiors derived from the generated exteriors. | [model-plan.md](../proposals/model-plan.md) |
 
 ### Motion
 

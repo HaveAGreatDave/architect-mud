@@ -6,7 +6,7 @@ export const DEFAULT_AUDIO_SETTINGS = { enabled: true, music: true, sfx: true, t
 // default look of the product; keep it in step with the inline boot script in
 // client/game/index.html, which sets the same value before any module loads so the
 // first paint isn't a different colour from the second.
-const DEFAULT_SETTINGS = { theme: 'iron', fontSize: '16', density: 'comfortable', sidebarPosition: 'left', motion: 'on', weatherFx: 'on', tempUnit: 'C', contrast: 0, dpadSize: 'small', pokerFelt: 'green', pokerFeltColor: '#1a4a1a', extraLore: 'off', mapOverlay: 'labels', mapColor: 'off', minimapRender: 'smooth', celShade: 'comic', shadowStyle: 'comic', comicDefault: 1, roomDof: 'on', glass: 'auto', uiFont: 'mono', statusGlyphs: 'off', monoAudio: 'off', uiSound: 'on', dictation: 'off', logVoice: 'off', logVoiceRate: '1', playByPlay: 'on', ballGlow: 'on', standsBooth: 'off', boxAnnouncer: 'on', audio: DEFAULT_AUDIO_SETTINGS };
+const DEFAULT_SETTINGS = { theme: 'iron', fontSize: '16', density: 'comfortable', sidebarPosition: 'left', motion: 'on', weatherFx: 'on', tempUnit: 'C', contrast: 0, dpadSize: 'small', pokerFelt: 'green', pokerFeltColor: '#1a4a1a', extraLore: 'off', mapOverlay: 'labels', mapColor: 'off', minimapRender: 'smooth', celShade: 'comic', shadowStyle: 'comic', comicDefault: 1, roomDof: 'on', glass: 'auto', frameCap: 'vsync', gfxAa: 'auto', gfxRes: 'auto', gfxRefl: 'auto', gfxSunShadow: 'auto', gfxAo: 'auto', gfxBloom: 'auto', gfxClouds: 'auto', gfxGovern: 'auto', uiFont: 'mono', statusGlyphs: 'off', monoAudio: 'off', uiSound: 'on', dictation: 'off', logVoice: 'off', logVoiceRate: '1', playByPlay: 'on', ballGlow: 'on', standsBooth: 'off', boxAnnouncer: 'on', audio: DEFAULT_AUDIO_SETTINGS };
 
 // ── The accessibility surface, declared once ─────────────────────────────────
 //
@@ -637,6 +637,12 @@ export function applySettings(settings) {
   // (GLASS 2) or 'lite' (GLASS Lite). Stored values from before Lite: '2' reads as 'auto', '1' (GLASS
   // 1, the 2-D painter, no longer offered) as 'lite'. Same hook pattern.
   window._applyGlass?.(settings.glass || 'auto');
+
+  // Settings → Graphics: the frame-rate cap for every view (shared/frame-pace.js), and GLASS's own
+  // options (windshield.js setGfx), each 'auto' for what this device gets without asking. Same hook pattern.
+  window._applyFrameCap?.(settings.frameCap || 'vsync');
+  window._applyGfx?.({ aa: settings.gfxAa, res: settings.gfxRes, refl: settings.gfxRefl, sunShadow: settings.gfxSunShadow,
+    ao: settings.gfxAo, bloom: settings.gfxBloom, clouds: settings.gfxClouds, govern: settings.gfxGovern });
 
   const audio = settings.audio || DEFAULT_AUDIO_SETTINGS;
   window.AudioEngine?.applyVolumeSettings(audio);

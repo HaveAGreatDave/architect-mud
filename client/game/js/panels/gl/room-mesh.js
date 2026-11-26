@@ -205,7 +205,7 @@ export function buildRoom(L, { seed = 1, lampOn = true, doorShut = false, turnin
   // the floor: boards, run from the window to the door, or stone; cut round a pit when there's one
   if (!bay) {
     const pit = spec.pit, key = spec.ground === 'plant' ? 'roomPlant' : spec.ground === 'marble' ? 'roomMarble' : spec.ground === 'terrazzo' ? 'roomTerrazzo' : spec.ground === 'tile' ? 'roomTile' : spec.ground === 'concrete' ? 'roomConcrete' : spec.ground === 'stone' || spec.ground === 'rubber' ? 'roomStone' : fine ? 'roomOak' : 'roomBoards', t = ROOM_TEXTURES[key];
-    const tint = spec.ground === 'plant' ? '#ffffff' : spec.ground === 'stone' ? PALE_STONE : spec.ground === 'rubber' ? '#33363a' : spec.ground === 'concrete' ? '#8a8c8a' : spec.ground === 'tile' ? '#eef0ee' : '#ffffff', marble = spec.ground === 'marble' || spec.ground === 'terrazzo';
+    const tint = spec.ground === 'plant' ? '#ffffff' : spec.ground === 'stone' ? PALE_STONE : spec.ground === 'rubber' ? '#33363a' : spec.ground === 'concrete' ? '#8a8c8a' : spec.ground === 'tile' ? '#eef0ee' : (/^#[0-9a-f]{6}$/i.test(spec.tone?.floor || '') ? spec.tone.floor : '#ffffff'), marble = spec.ground === 'marble' || spec.ground === 'terrazzo';
     // a wet floor (spec.wet) is darker by the water on it and as glossy as glaze, whatever it's made of
     const wetK = spec.wet ? 0.6 : 1;
     const layQ = (ps) => quad(TB(key), ps, [0, 1, 0], C(tint, (spec.ground === 'stone' ? 1.15 : marble ? 1.05 : 0.95) * wetK), marble || spec.wet ? GLOSS : fine ? SATIN : E, ps.map((q) => [q[1] / t, q[0] / t]));
@@ -273,6 +273,19 @@ export function buildRoom(L, { seed = 1, lampOn = true, doorShut = false, turnin
   if (annex) holes.back.push({ a: annex.door[0], b: annex.door[1], y0: 0, y1: DH });
   const glassTop = panes.find((q) => q.kind === 'curtain' && q.wall === 'front')?.y1;
   if (spec.balcony) holes.front.push({ a: spec.balcony.door[0], b: spec.balcony.door[1], y0: 0, y1: glassTop || DH });
+  // AN OPEN DECK'S FENCE (spec.parapet, metres): a roof deck's walls stop at a low stone upstand, with glass from there
+  // to the rail and a bronze handrail along its top, clear of the doorways, and nothing over it but the sky. Without
+  // it an open room is walled to its full height like any other.
+  const PAR = spec.open && Number(spec.parapet) > 0 ? Math.min(H, Number(spec.parapet)) : 0, fence = [];
+  if (PAR) {
+    const UP = Math.max(0.2, Math.min(0.42, PAR - 0.3));
+    for (const [wall, lo, hi] of [['front', -hu, hu], ['back', -hu, hu], ['left', 0, D], ['right', 0, D]]) {
+      const gaps = doorways.filter((o) => o.wall === wall).map((o) => [o.a, o.b]).sort((m, n) => m[0] - n[0]);
+      let s0 = lo;
+      for (const [a, b] of [...gaps, [hi, hi]]) { if (a > s0 + 0.05) { panes.push({ wall, a: s0, b: a, y0: UP, y1: PAR, kind: 'curtain' }); fence.push([wall, s0, a]); } s0 = Math.max(s0, b); }
+    }
+  }
+  const WT = PAR || H;   // how high the walls go
   for (const q of panes) holes[q.wall].push(q);
   // a Cachet in a false wall going round opens the room's wall behind its opening onto the recess it works from
   const tpw = turning && L.placed.find((p) => p.id === turning.id && cachetWing(p) > 0);
@@ -309,12 +322,17 @@ export function buildRoom(L, { seed = 1, lampOn = true, doorShut = false, turnin
     let s = lo;
     const runs = solidRuns[wall] = [];
     for (const q of holes[wall].sort((m, n) => m.a - n.a)) {
-      if (q.a > s) { wallBox(wall, s, q.a, 0, H); runs.push([s, q.a]); }
+      if (q.a > s) { wallBox(wall, s, q.a, 0, WT); runs.push([s, q.a]); }
       if (q.y0 > 0) wallBox(wall, q.a, q.b, 0, q.y0);
-      if (q.y1 < H) wallBox(wall, q.a, q.b, q.y1, H);
+      if (q.y1 < WT) wallBox(wall, q.a, q.b, q.y1, WT);
       s = q.b;
     }
-    if (s < hi) { wallBox(wall, s, hi, 0, H); runs.push([s, hi]); }
+    if (s < hi) { wallBox(wall, s, hi, 0, WT); runs.push([s, hi]); }
+  }
+  // the fence's handrail, bronze, along the top of each run of glass
+  for (const [wall, a, b] of fence) {
+    const r = 0.035, [u0, u1, v0, v1] = wall === 'front' ? [a, b, -r, r] : wall === 'back' ? [a, b, D - r, D + r] : wall === 'left' ? [-hu - r, -hu + r, a, b] : [hu - r, hu + r, a, b];
+    box(u0, u1, v0, v1, PAR, PAR + 0.05, '#9a7a44', 1.1, null, METAL);
   }
 
   // the skirting round what's solid, and (in a plain room) the coving; a fine room's walls stop in a
@@ -329,7 +347,7 @@ export function buildRoom(L, { seed = 1, lampOn = true, doorShut = false, turnin
   // the accent: a gold skirting cap, a thin band at the door heads and a shadow line and band at the
   // ceiling, round every solid run. Each stands 1 cm or more proud of the wall, so none fights it
   // (a room clad in stone or walnut has its own trim, and these would be inside the cladding)
-  if (accent && !spec.decor?.walls) for (const [wall, runs] of Object.entries(solidRuns)) for (const [a, b] of runs) {
+  if (accent && !spec.decor?.walls && !PAR) for (const [wall, runs] of Object.entries(solidRuns)) for (const [a, b] of runs) {
     const band = (y0, y1, p) => { const [u0, u1, v0, v1] = wall === 'front' ? [a, b, 0, p] : wall === 'back' ? [a, b, D - p, D] : wall === 'left' ? [-hu, -hu + p, Math.max(a, 0), Math.min(b, D)] : [hu - p, hu, Math.max(a, 0), Math.min(b, D)]; box(u0, u1, v0, v1, y0, y1, accent, 1.05, null, METAL); };
     band(0.09, 0.105, 0.022);
     band(DH + 0.04, DH + 0.065, 0.012);
@@ -497,7 +515,8 @@ export function buildRoom(L, { seed = 1, lampOn = true, doorShut = false, turnin
   // plain wool one, sized to the room. A club has none. `decor.rug` as { at, w, d, style } lays it where
   // the room says, at that size; style 'persian' is the Platinum Box's silk rug (booth-mesh.js)
   const rugAt = spec.decor?.rug && typeof spec.decor.rug === 'object' ? spec.decor.rug : null;
-  if (!club && !bay && spec.decor?.rug !== false) {
+  // a room with a runner and no rug of its own gets none: the default one showed as a pale box under the runner
+  if (!club && !bay && spec.decor?.rug !== false && (rugAt || !spec.decor?.runner)) {
     const sofa = L.placed.find((p) => p.arche === 'sofa' || p.arche === 'bench'), scr = L.placed.find((p) => p.arche === 'screen');
     const lz = spec.plan?.living;
     let cu = lz ? (lz[0] + lz[1]) / 2 : 0, cv = lz ? (lz[2] + lz[3]) / 2 : D * 0.5;
@@ -3348,12 +3367,16 @@ function onWall(K, L, wall, a0, a1, d0, d1, y0, y1, hex, k = 1, tex = null, surf
   else K.box(hu - d1, hu - d0, a0, a1, y0, y1, hex, k, tex, surf);
 }
 
-const BRONZE = '#8a6a44', BRONZE_DARK = '#3a2c1e', WALNUT = { t: 'roomOak', c: '#5a3a26' }, BRASS = '#c9a24a';
+const BRONZE_0 = '#8a6a44', BRONZE_DARK_0 = '#3a2c1e', WALNUT_0 = { t: 'roomOak', c: '#5a3a26' }, BRASS_0 = '#c9a24a';
 
 // A LIFT CAR (spec.car, or spec.lift while you ride it): walnut below a brass rail, mirror-bronze above
 // in three panels with dark reveals, a dark bronze skirting, bronze jambs and a header round each
 // doorway, a lit ceiling panel in a bronze frame, and a marble floor with a dark border.
 function drawCar(K, L, { DH, doorways }) {
+  // spec.car may carry its own colours (room-layout.js carLook); each falls back to the walnut-and-bronze car
+  const P = typeof L.spec.car === 'object' ? L.spec.car : {};
+  const BRONZE = P.metal || BRONZE_0, BRONZE_DARK = P.metal_dark || BRONZE_DARK_0, BRASS = P.trim || BRASS_0, PANEL = P.panel || null, LAMP = P.glow || LAMP, MIRROR = P.mirror || null;
+  const WALNUT = PANEL ? { t: WALNUT_0.t, c: PANEL } : WALNUT_0;
   const { box, quad, TB, C, E } = K, hu = L.w / 2, D = L.d, H = L.h;
   const runs = { front: [[-hu, hu]], back: [[-hu, hu]], left: [[0, D]], right: [[0, D]] };
   const cutRun = (wall, a, b) => { runs[wall] = runs[wall].flatMap(([x, y]) => [[x, Math.min(y, a)], [Math.max(x, b), y]]).filter(([x, y]) => y - x > 0.02); };
@@ -3366,13 +3389,13 @@ function drawCar(K, L, { DH, doorways }) {
       onWall(K, L, wall, a, b, 0, 0.014, 0, kick, '#9ea3a8', 1.05, null, METAL);
       onWall(K, L, wall, a, b, 0, 0.018, kick, kick + 0.015, BRONZE_DARK, 1, null, METAL);
       // walnut in raised panels: a darker frame, and each field standing proud of it inside a moulded edge
-      onWall(K, L, wall, a, b, 0, 0.01, kick + 0.015, mid - 0.02, '#4a2e1e', 1, WALNUT, SATIN);
+      onWall(K, L, wall, a, b, 0, 0.01, kick + 0.015, mid - 0.02, PANEL || '#4a2e1e', 1, PANEL ? null : WALNUT, SATIN);
       const n = Math.max(1, Math.round((b - a) / 0.75)), w = (b - a) / n;
       for (let i = 0; i < n; i++) {
         const p0 = a + i * w, p1 = p0 + w, y0 = kick + 0.07, y1 = mid - 0.08;
         if (p1 - p0 > 0.2) {
-          onWall(K, L, wall, p0 + 0.05, p1 - 0.05, 0.01, 0.016, y0, y1, '#6a4630', 1.05, WALNUT, SATIN);
-          onWall(K, L, wall, p0 + 0.07, p1 - 0.07, 0.016, 0.022, y0 + 0.02, y1 - 0.02, WALNUT.c, 1.12, WALNUT, SATIN);
+          onWall(K, L, wall, p0 + 0.05, p1 - 0.05, 0.01, 0.016, y0, y1, PANEL || '#6a4630', 1.05, PANEL ? null : WALNUT, SATIN);
+          onWall(K, L, wall, p0 + 0.07, p1 - 0.07, 0.016, 0.022, y0 + 0.02, y1 - 0.02, WALNUT.c, 1.12, PANEL ? null : WALNUT, SATIN);
         }
       }
       onWall(K, L, wall, a, b, 0, 0.014, mid - 0.02, mid + 0.01, BRASS, 1.05, null, METAL);
@@ -3380,8 +3403,8 @@ function drawCar(K, L, { DH, doorways }) {
       for (let i = 0; i < n; i++) {
         const p0 = a + i * w + 0.012, p1 = a + (i + 1) * w - 0.012, y0 = mid + 0.03, y1 = top - 0.03;
         onWall(K, L, wall, p0, p1, 0, 0.012, y0, y1, BRASS, 1.05, null, METAL);
-        onWall(K, L, wall, p0 + 0.014, p1 - 0.014, 0.012, 0.015, y0 + 0.014, y1 - 0.014, '#e8dccb', 1.3, null, GLOSS);
-        onWall(K, L, wall, p0 + 0.026, p1 - 0.026, 0.015, 0.017, y0 + 0.026, y1 - 0.026, '#c4a77e', 1.22, null, GLOSS);
+        onWall(K, L, wall, p0 + 0.014, p1 - 0.014, 0.012, 0.015, y0 + 0.014, y1 - 0.014, MIRROR || '#e8dccb', 1.3, null, GLOSS);
+        onWall(K, L, wall, p0 + 0.026, p1 - 0.026, 0.015, 0.017, y0 + 0.026, y1 - 0.026, MIRROR || '#c4a77e', 1.22, null, GLOSS);
       }
       onWall(K, L, wall, a, b, 0, 0.004, mid + 0.01, top, BRONZE_DARK, 1, null, METAL);
       onWall(K, L, wall, a, b, 0, 0.016, top, H, BRONZE, 1, null, METAL);
@@ -3390,7 +3413,7 @@ function drawCar(K, L, { DH, doorways }) {
   // a floor the car isn't at: its doors drawn shut where the doorway would be
   for (const o of shutWays) {
     const m = (o.a + o.b) / 2;
-    onWall(K, L, o.wall, o.a, o.b, 0, 0.02, 0, DH, '#a07c52', 1.1, null, MATTE);
+    onWall(K, L, o.wall, o.a, o.b, 0, 0.02, 0, DH, PANEL || '#a07c52', 1.1, null, MATTE);
     onWall(K, L, o.wall, m - 0.004, m + 0.004, 0.02, 0.024, 0, DH, '#1a1410', 1, null, METAL);
     onWall(K, L, o.wall, o.a + 0.02, o.b - 0.02, 0.02, 0.024, 0.02, 0.24, '#6a5032', 1, null, METAL);
   }
@@ -3399,7 +3422,7 @@ function drawCar(K, L, { DH, doorways }) {
     onWall(K, L, o.wall, o.a - 0.07, o.a, 0, 0.03, 0, DH + 0.08, BRONZE, 1.1, null, METAL);
     onWall(K, L, o.wall, o.b, o.b + 0.07, 0, 0.03, 0, DH + 0.08, BRONZE, 1.1, null, METAL);
     onWall(K, L, o.wall, o.a - 0.07, o.b + 0.07, 0, 0.03, DH, DH + 0.08, BRONZE, 1.1, null, METAL);
-    onWall(K, L, o.wall, o.a - 0.07, o.b + 0.07, 0, 0.008, DH + 0.08, H, '#b08a5e', 1.15, null, GLOSS);
+    onWall(K, L, o.wall, o.a - 0.07, o.b + 0.07, 0, 0.008, DH + 0.08, H, BRASS, 1.15, null, GLOSS);
     onWall(K, L, o.wall, o.a, o.b, -0.14, 0.04, -0.004, 0.006, '#9ea3a8', 1.1, null, METAL);
     onWall(K, L, o.wall, o.a, o.b, 0.04, 0.06, 0.004, 0.008, '#c8ccd0', 1.2, null, METAL);
   }
@@ -3408,11 +3431,11 @@ function drawCar(K, L, { DH, doorways }) {
     const m = (o.a + o.b) / 2, y0 = DH + 0.12, y1 = Math.min(H - 0.18, DH + 0.24);
     if (y1 - y0 < 0.06) continue;
     onWall(K, L, o.wall, m - 0.2, m + 0.2, 0.008, 0.03, y0, y1, '#14100c', 1, null, METAL);
-    onWall(K, L, o.wall, m - 0.08, m + 0.08, 0.03, 0.034, y0 + 0.025, y1 - 0.025, '#ffb040', 1.7, null, GLOW);
+    onWall(K, L, o.wall, m - 0.08, m + 0.08, 0.03, 0.034, y0 + 0.025, y1 - 0.025, LAMP, 1.7, null, GLOW);
     for (const s of [-1, 1]) {
       const x = m + s * 0.145, yc = (y0 + y1) / 2;
-      onWall(K, L, o.wall, x - 0.025, x + 0.025, 0.03, 0.034, yc + (s > 0 ? 0.005 : -0.02), yc + (s > 0 ? 0.02 : -0.005), '#ffb040', 1.4, null, GLOW);
-      onWall(K, L, o.wall, x - 0.012, x + 0.012, 0.03, 0.034, yc + (s > 0 ? 0.02 : -0.032), yc + (s > 0 ? 0.032 : -0.02), '#ffb040', 1.4, null, GLOW);
+      onWall(K, L, o.wall, x - 0.025, x + 0.025, 0.03, 0.034, yc + (s > 0 ? 0.005 : -0.02), yc + (s > 0 ? 0.02 : -0.005), LAMP, 1.4, null, GLOW);
+      onWall(K, L, o.wall, x - 0.012, x + 0.012, 0.03, 0.034, yc + (s > 0 ? 0.02 : -0.032), yc + (s > 0 ? 0.032 : -0.02), LAMP, 1.4, null, GLOW);
     }
   }
   // a brass handrail on standoffs along each side wall, clear of the button panel
@@ -3434,7 +3457,7 @@ function drawCar(K, L, { DH, doorways }) {
   for (let j = 0; j <= nz; j++) box(cx0 - 0.02, cx1 + 0.02, cz0 + j * gz - 0.02, cz0 + j * gz + 0.02, H - 0.09, H - 0.02, BRONZE, 1.05, null, METAL);
   for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++) {
     const ux = cx0 + (i + 0.5) * gx, vz = cz0 + (j + 0.5) * gz;
-    box(ux - gx / 2 + 0.02, ux + gx / 2 - 0.02, vz - gz / 2 + 0.02, vz + gz / 2 - 0.02, H - 0.025, H - 0.02, '#2a2018', 1, null, MATTE);
+    box(ux - gx / 2 + 0.02, ux + gx / 2 - 0.02, vz - gz / 2 + 0.02, vz + gz / 2 - 0.02, H - 0.025, H - 0.02, PANEL || '#2a2018', 1, null, MATTE);
     // an octagon of glow, near enough round at this size
     for (const [rw, rd] of [[0.075, 0.032], [0.032, 0.075], [0.056, 0.056]]) box(ux - rw, ux + rw, vz - rd, vz + rd, H - 0.034, H - 0.026, '#fff4e0', 1.8, null, GLOW);
     box(ux - 0.09, ux + 0.09, vz - 0.09, vz + 0.09, H - 0.027, H - 0.024, BRASS, 1, null, METAL);
@@ -3517,9 +3540,10 @@ function slideLeaves(K, L, { DH: DH0, ways, keep = false }) {
         // no door at all until it swung. Dark (flags.room.street_door.dark), the pane is drawn in the door's tint and
         // rides on the leaf, so it swings open with it and the street shows only through the open doorway.
         if (o.dark) onWall(K, L, o.wall, a0 + 0.08, a1 - 0.08, -0.084, -0.076, 0.29, DH - 0.08, o.glass || '#07090a', o.glass ? 1.05 : 0.6, null, GLOSS);
-      } else if (o.lift) {
+      } else if (o.lift || o.door === 'mech') {
+        // a lift's bronze pair, or a mechanical street pair (kind 'mech') the same way in steel
         const a0 = side < 0 ? o.a - 0.01 : m + 0.002, a1 = side < 0 ? m - 0.002 : o.b + 0.01;
-        onWall(K, L, o.wall, a0, a1, -0.1, -0.06, 0.004, DH, '#a07c52', 1.1, null, METAL);
+        onWall(K, L, o.wall, a0, a1, -0.1, -0.06, 0.004, DH, o.lift ? '#a07c52' : '#8a9096', 1.1, null, METAL);
         onWall(K, L, o.wall, a0 + 0.02, a1 - 0.02, -0.058, -0.054, 0.02, 0.24, '#6a5032', 1, null, MATTE);
         const edge = side < 0 ? a1 : a0;
         onWall(K, L, o.wall, edge - 0.004, edge + 0.004, -0.058, -0.053, 0.004, DH, '#1a1410', 1, null, METAL);

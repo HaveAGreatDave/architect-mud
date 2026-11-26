@@ -82,12 +82,16 @@ export function drawStreetDoors(ctx, cam, v, now, night, portals = null) {
     // the dark for a dark door (flags.room.street_door.dark: the Cherry Pit's, the Embassy's), or a lobby's dim.
     // ⚠ ALWAYS ONE OR THE OTHER: with neither, the model's own still door is what you see through the glass.
     const portal = !!(portals && portals.has(d.x + ',' + d.y));
-    if (!portal) {
+    // ⚠ NOT FROM INSIDE. The backing stands for the lobby seen from the street; with the eye behind the leaves'
+    // plane (walking the lobby in one-world) it is a slab of colour across the street through the glass.
+    const inside = !!eye && n[0] * eye[0] + n[1] * eye[1] < c0;
+    if (!portal && !inside) {
       const back = d.back ?? d.plane - 0.006, B = (lx, z) => at(lx, back, z);
       const quad = [B(-half, top), B(half, top), B(half, sill), B(-half, sill)];
-      if (L?.dark) emitDecoFill(ctx, cam, quad, 'rgb(5,5,7)', 1, BACK_PULL, 'streetdoor', true);
-      else if (d.card) emitDecoFill(ctx, cam, quad, night ? 'rgb(70,64,52)' : 'rgb(96,88,74)', 1, BACK_PULL, 'lobbycard', true, null, d.card);
-      else emitDecoFill(ctx, cam, quad, night ? 'rgb(112,94,68)' : 'rgb(30,30,32)', 1, BACK_PULL, 'streetdoor', true, night ? ['rgb(150,128,92)', 'rgb(84,70,50)'] : ['rgb(40,40,44)', 'rgb(20,20,22)']);
+      // ⚠ NEVER A BLACK BLOCK. A dark door backed its opening in near-black and an unlit lobby in charcoal, which
+      // read as a slab of colour between the leaves. Behind every door now is the lobby's dim, by day or night.
+      if (d.card) emitDecoFill(ctx, cam, quad, night ? 'rgb(70,64,52)' : 'rgb(96,88,74)', 1, BACK_PULL, 'lobbycard', true, null, d.card);
+      else emitDecoFill(ctx, cam, quad, night ? 'rgb(112,94,68)' : 'rgb(92,86,76)', 1, BACK_PULL, 'streetdoor', true, night ? ['rgb(150,128,92)', 'rgb(84,70,50)'] : ['rgb(124,116,102)', 'rgb(70,66,58)']);
     }
     // a runner out of the door across the pavement (flags.room.street_door.runner, a colour), from the doorway's foot
     // to a couple of metres out, with a gilt edge either side. Flat on the ground, so not projected.
@@ -112,11 +116,12 @@ export function drawStreetDoors(ctx, cam, v, now, night, portals = null) {
 
     // ── 3. THE LEAVES, BY KIND ────────────────────────────────────────────────────────────────
     // the glass's tint (flags.room.street_door.glass), darker with the dark behind it; the metal round each leaf
-    const dark = L?.dark && !portal, dim = dark ? 0.38 : 1, tint = L?.glass ? shade(L.glass, (night ? 1.25 : 1) * dim) : (dark ? shade('#5a6e74', dim) : null);
+    const dark = false, dim = 1, tint = L?.glass ? shade(L.glass, (night ? 1.25 : 1) * dim) : (dark ? shade('#5a6e74', dim) : null);
     // the pane is clear: a tint keeps its brightness and loses its hue, so no door reads as painted blue
     // at night it takes the lobby's lamplight, the amber of the lit windows round it
     const pane = (tint ? [grey(tint, 1.35), grey(tint, 1)] : glass).map((c) => (night ? warm(c) : c)), trim = L?.trim ? shade(L.trim, night ? 0.85 : 1) : rail;
-    const see = portal ? (night ? 0.24 : 0.34) : (d.card ? 0.28 : 0.6);
+    // one-way glass (flags.room.street_door.oneway): a mirror from the street, so the room doesn't show through
+    const see = L?.oneway ? 0.92 : portal ? (night ? 0.24 : 0.34) : (d.card ? 0.28 : 0.6);
     // a door the model drew no doorway for (fit 'room': the room's own width on a plain wall or a curtain of glass)
     // gets a frame of its own, jambs and a head, so it's set in the wall and doesn't float on it
     if (d.fit === 'room') {
@@ -125,7 +130,7 @@ export function drawStreetDoors(ctx, cam, v, now, night, portals = null) {
       Q([P(half, top + fw), P(half + fw, top + fw), P(half + fw, sill), P(half, sill)], trim, 1, 3);
       Q([P(-half - fw, top + fw), P(half + fw, top + fw), P(half + fw, top), P(-half - fw, top)], trim, 1, 3);
     }
-    const D = { d, Q, P, at, half, top, sill, z0, z1, open, pane, trim, L, night, see, now, eye };
+    const D = { d, Q, P, at, half, top, sill, z0, z1, open, pane, trim, L, night, see, now, eye, opaque: !K.glass };
     if (K.move === 'revolve') revolving(D);
     else if (K.move === 'slide') slidingPair(D);
     else if (K.glass) hingedGlass(D, K.leaves);
@@ -135,7 +140,21 @@ export function drawStreetDoors(ctx, cam, v, now, night, portals = null) {
 
 // Two leaves that slide into the wall either side: each one's inner edge moves out and its outer edge stays, so open
 // it's a sliver against the jamb.
-function slidingPair({ Q, P, half, top, z0, z1, open, pane, trim, L, see }) {
+function slidingPair({ Q, P, half, top, z0, z1, open, pane, trim, L, see, night, opaque }) {
+  // a mechanical pair (kind 'mech'): brushed steel, opaque, two seams across and a bright stile at the meeting edge
+  if (opaque) {
+    const steel = shade(L?.leaf || '#8a9096', night ? 0.7 : 1), seam = shade(steel, 0.55), lit = shade(steel, 1.35);
+    for (const s of [-1, 1]) {
+      const inner = GAP + (half - GAP) * open * 0.92, outer = half;
+      if (outer - inner < 0.002) continue;
+      const a = s * inner, b = s * outer, w = (outer - inner) * STILE, h = z1 - z0;
+      Q([P(a, z1), P(b, z1), P(b, z0), P(a, z0)], steel, 1, 0, [lit, steel]);
+      Q([P(a, z1), P(a + s * w, z1), P(a + s * w, z0), P(a, z0)], lit, 1, 1);
+      Q([P(a, z0 + h * 0.12), P(b, z0 + h * 0.12), P(b, z0 + h * 0.1), P(a, z0 + h * 0.1)], seam, 1, 1);
+      Q([P(a, z0 + h * 0.9), P(b, z0 + h * 0.9), P(b, z0 + h * 0.88), P(a, z0 + h * 0.88)], seam, 1, 1);
+    }
+    return;
+  }
   for (const s of [-1, 1]) {
     const inner = GAP + (half - GAP) * open * 0.92, outer = half;
     if (outer - inner < 0.002) continue;

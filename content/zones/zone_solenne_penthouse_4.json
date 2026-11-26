@@ -1,0 +1,57 @@
+{
+  "ambient_theme": "indoors",
+  "bg_color": "#2f3a47",
+  "color": "#efe4cd",
+  "description": "The top of the penthouse, thirty-one floors up: glass on three sides, the roof deck over your head and the whole Basin under you. The stair is <b>down</b>.",
+  "exits": {
+    "down": "zone_solenne_penthouse_3"
+  },
+  "flags": {
+    "building_name": "Solenne Residences",
+    "floor": "stone",
+    "is_dwelling": true,
+    "is_interior": true,
+    "private_to": "zone_solenne_penthouse",
+    "room": {
+      "balcony": false,
+      "d": 7.7,
+      "doors": {
+        "down": [
+          -4.9,
+          5.77
+        ]
+      },
+      "face": 0,
+      "finish": "fine",
+      "glass": [
+        "front",
+        "right",
+        "left"
+      ],
+      "ground": "stone",
+      "h": 3,
+      "pit": {
+        "at": [
+          -3,
+          3,
+          3.2,
+          8.4
+        ],
+        "depth": 0.42,
+        "step": 0.42
+      },
+      "storey": 39,
+      "storeys": 32,
+      "studio": false,
+      "w": 13
+    }
+  },
+  "grid_x": -1,
+  "grid_y": -1,
+  "grid_z": 31,
+  "id": "zone_solenne_penthouse_4",
+  "map_id": "map_int_solenne",
+  "marker": "31",
+  "name": "The Penthouse, the thirty-first floor",
+  "parent_zone": "zone_district_914_908"
+}

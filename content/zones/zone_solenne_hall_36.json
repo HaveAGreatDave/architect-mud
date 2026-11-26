@@ -2,15 +2,17 @@
   "ambient_theme": "indoors",
   "bg_color": "#1b2733",
   "color": "#e8ddc6",
-  "description": "The thirty-sixth floor: a short hall in walnut and stone, one door in it. 36-A is <b>north</b>, and it is the whole floor. The elevator is <b>in</b> behind you.",
+  "description": "The twenty-second floor, which is one flat: a short landing in walnut and stone, the lift behind you. Residence 22 is <b>west</b>, its east room <b>east</b>. The elevator is <b>in</b>.",
   "exits": {
+    "east": "zone_solenne_apt_q_e",
     "in": "zone_solenne_elevator",
-    "north": "zone_solenne_apt_q"
+    "west": "zone_solenne_apt_q"
   },
   "flags": {
     "building_name": "Solenne Residences",
     "floor": "stone",
     "is_interior": true,
+    "private_to": "zone_solenne_apt_q",
     "room": {
       "balcony": false,
       "d": 2,
@@ -31,7 +33,7 @@
           ]
         ],
         "plaques": {
-          "zone_solenne_apt_q": "36-A"
+          "zone_solenne_apt_q": "22"
         },
         "rug": false,
         "sconces": {
@@ -54,7 +56,9 @@
         }
       },
       "doors": {
-        "north": 0
+        "east": 0,
+        "in": 0.05,
+        "west": 0
       },
       "face": 0,
       "finish": "fine",
@@ -67,16 +71,17 @@
         "trim": "#17130f",
         "wall": "#2e2925"
       },
-      "w": 6,
+      "w": 2.3,
       "windowless": true
     },
     "sanctuary": true
   },
   "grid_x": 0,
   "grid_y": -1,
-  "grid_z": 15,
+  "grid_z": 22,
   "id": "zone_solenne_hall_36",
   "map_id": "map_int_solenne",
-  "name": "The Thirty-Sixth Floor",
+  "marker": "22",
+  "name": "The Twenty-Second Floor",
   "parent_zone": "zone_district_914_908"
 }

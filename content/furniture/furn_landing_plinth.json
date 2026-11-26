@@ -11,10 +11,6 @@
       ],
       "dress": "orchid",
       "form": "plinth"
-    },
-    "spot": {
-      "along": -1.85,
-      "wall": "front"
     }
   },
   "hp": null,

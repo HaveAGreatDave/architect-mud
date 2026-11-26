@@ -231,6 +231,16 @@ export function keptGroupsIn(kept, box, T = PROP_SHADOW_TUNE, wc = null, A = nul
 // checks a group still sits where it says before trusting it. Once per bay list a frame: the prop map
 // and the lamp maps both ask.
 const BAY_SPLIT = new WeakMap();
+// A placed group's records with their points through its matrix (column-major), for casting. Kept per records
+// array while the matrix is the same one: a car at rest or a gun that isn't slewing costs nothing.
+const PLACED = new WeakMap();
+function placedCasters(recs, M) {
+  const c = PLACED.get(recs);
+  if (c && c.M === M) return c.out;
+  const out = recs.map((q) => ({ ...q, p: q.p.map((p) => [M[0] * p[0] + M[4] * p[1] + M[8] * p[2] + M[12], M[1] * p[0] + M[5] * p[1] + M[9] * p[2] + M[13], M[2] * p[0] + M[6] * p[1] + M[10] * p[2] + M[14]]) }));
+  PLACED.set(recs, { M, out });
+  return out;
+}
 export function bayCasterSplit(bay) {
   const sets = (bay && bay.sets) || null;
   const G = bay && bay.groups;
@@ -243,8 +253,14 @@ export function bayCasterSplit(bay) {
   for (let i = 0; i < bay.length; i++) {
     while (gi < G.length && G[gi].at < i) gi++;
     if (gi < G.length && G[gi].at === i) {
-      const recs = G[gi++].recs, n = recs.length;
-      if (n && i + n <= bay.length && bay[i] === recs[0] && bay[i + n - 1] === recs[n - 1]) { kept.push(recs); i += n - 1; continue; }
+      const g = G[gi++], recs = g.recs, n = recs.length;
+      if (n && i + n <= bay.length && bay[i] === recs[0] && bay[i + n - 1] === recs[n - 1]) {
+        // ⚠ A PLACED GROUP (bayGroup's xf: a lift car, a gun) IS AT REST IN ITS RECORDS and only the solids'
+        // shader moves it. Kept as a caster it would cast from rest, so it goes in loose, moved here.
+        if (g.xf) { const P = placedCasters(recs, g.xf); for (let k = 0; k < P.length; k++) loose.push(P[k]); }
+        else kept.push(recs);
+        i += n - 1; continue;
+      }
     }
     loose.push(bay[i]);
   }

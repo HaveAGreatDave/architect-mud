@@ -51,7 +51,7 @@ import { neonArtCanvas, clearNeonCache } from './glass/neon-kit.js';   // a sign
 import { FORMAL_FEATURES, focusKey, formalParkGeom, formalParkPaint } from './glass/park-formal.js';   // the fountain, parterre, pergola and forecourt park dressings
 import { drawMediaLot, lotSolidAt, lotAirTopAt, lotArmSense, lotLive, lotTickerLine, lotVanKey, lotVans } from './glass/media-lot.js';   // the Media Lot's court and car park (drawLotMark)
 import { state } from '../state.js';
-import { drawStreetKit, kitCell, kitDeck, kitFoot, kitMoves, kitPaved, kitPlace, kitLiftButtons, kitLiftCall, kitLiftKey, KIT } from './glass/street-kit.js';   // Coldwater's lane, walkways and street furniture (drawStreetKitPass)
+import { drawStreetKit, kitCell, kitDeck, kitFoot, kitMoves, kitPaved, kitPlace, kitLiftButtons, kitLiftCall, kitLiftKey, kitLiftShow, kitCarRise, KIT } from './glass/street-kit.js';   // Coldwater's lane, walkways and street furniture (drawStreetKitPass)
 import { kitWalk, KIT_WALK } from './glass/street-kit-walk.js';   // the people on it go round by the bridge or the crossing (drawStreetActors)
 import { skylineFar, SKYLINE_BASE_FAR, CURTAIN_FAR } from '../../../shared/skyline-tall.js';
 import { hnoise2, hn2h, fbm2 } from '../../../shared/landform.js';
@@ -108,7 +108,7 @@ import { TAG_COLS, derivedTrim, paintFoot, NO_AD_TRADE, UNSIGNED_TRADE } from '.
 import { holoNow, holoCard } from '../../../shared/holo-ads.js';   // what a hologram screen is showing, and the baked card of it (drawHoloScreen)
 import { drawBerthMarks } from './glass/berth-marks.js';   // a boat seat's fuel-berth and covered-slot boxes on the water
 import { drawStreetDoors } from './glass/street-doors.js';
-import { NPC_DOOR, npcDoorFor, npcDoorUse, npcDoorStep, npcDoorInside, drawNpcDoors } from './glass/npc-doors.js';
+import { NPC_DOOR, npcDoorFor, npcDoorUse, npcDoorStep, npcDoorInside, drawNpcDoors, npcDoorsOnto } from './glass/npc-doors.js';
 import { pickInteriors, interiorsFrame, interiorTuneFor } from './glass/interiors-near.js';   // rooms drawn in the world, near the eye
 // `v.interiorRooms` (the rooms of buildings with a Stage, placed by room-view.js roomToGlass) as this frame's list
 // ⚠ ONCE A FRAME, FOR TWO CALLERS: the street doors are drawn (drawWorldObjects) before the GL pass is packed, and
@@ -136,6 +136,9 @@ function interiorUploadNow(v, cam) {
   // the street doors of these buildings, as windows onto their rooms (gl/interiors.js drawPortals): the opening
   // glass/street-doors.js stands its leaves in, at the back of its reveal, about the same centre as the rooms
   if (!v.interiorInside && v.streetDoors) list.portals = streetPortals(v.streetDoors, list, ox, oy);
+  // inside, the rooms' own walls go into the occlusion depth (gl/interiors.js drawDepth): your storey is cut out of the
+  // building's mass (roomCut), so without them the readback sees the whole street through the room you're in
+  if (v.interiorInside) list.inside = true;
   // a place (docs/proposals/the-inbetween.md): no city round its rooms, so gl/world.js draws none (and no ground or sky)
   if (rooms.some((r) => r.place)) list.place = true;
   // and the rooms' own windows (step 2): the shell is solid, so each pane facing you is filled from its room
@@ -806,6 +809,7 @@ export const RENDER_TUNE = {
   nightLift: 0.3,
   govWindowAir: 1,    // 1 = in the air the governor shrinks the map window on GL as well, down to 70% (GOV_AIR_FLOOR). 0 = flight keeps it, as on the ground.
   glHold: 3,         // seconds a frame the GL pass couldn't draw (a lost context rebuilding) shows the last one it could (glHoldKeep); 0 shows the city missing, as before
+  aperture: 1,       // inside a building under its roof, a tile none of the rooms' windows or street doors look onto skips its street lamps, signals, kit, people and Lite signs (apertureFrame); 0 = off
   gpuOcc: 2,         // on since 2026-11-24. 0 = off, as before. 1 = the mass's depth is reduced and read back a frame or two late (gl/occ-readback.js, foot-occlusion.md phase 1), and the profiler counts what it would hide. 2 also skips what it hides: a Lite tile's signs, lights and masts (gpuHidden, phase 2), and street lamps, signals, the street kit and people (phase 3). gpuOccKit 0 leaves the kit out; it's culled only on foot anyway (GPU_KIT_EH) Needs glSsao or glInk on, whose depth prepass it reads
   govWindowGL: 0,    // 1 = the frame governor shrinks the map window on the GL path too, as shipped. 0 keeps it: past the shrunken window the city was the flat skyline.     // 1 = hoodoo spire faces go to the solids layer (world polygons, vertex colour). 0 = one flat-colour DECAL per face, as shipped: a texture keyed on a distance-fogged colour, so every face minted one per frame (~12 ms of CPU over Halcyon).
   // How hard a massif's height noise is stretched about its own midpoint. 1 is the flat rim that
@@ -1073,6 +1077,8 @@ export const RENDER_TUNE = {
   // with markHidden — the all-or-nothing probe — between it and whatever stands in front of it.
   glBay: 1,
   glBlinkGPU: 1, // blinkLight's blink done by the sprite shader from the frame clock; 0 bakes it into the alpha each frame
+  kitPartsKeep: 1,   // the street kit's lift cars and crossing lamps near to are kept as a group until their state changes (kitDraw); 0 streams them every frame with the belts
+  armFadeGPU: 1,   // a kept building in the haze band sends its faces as its retained group at the fade (bayGroup's ka); 0 streams a copy of each face at the fade every frame
   markMetalKeep: 1,   // a kept mark's metals smoothed once and kept as a retained group (armReplay); 0 streams them every frame, as before
   armKeep: 1,    // a building's adornments recorded once per key and replayed as retained groups (drawTypeModelKept); 0 runs every arm every frame
   bayCache: 1,   // a shed's GL shell is built once per key and its records replayed (BAY_SHELL); 0 builds it every frame
@@ -1105,6 +1111,8 @@ export const RENDER_TUNE = {
   markPool: 1.0,
   marksGPU: 1,   // the South Lock, the AA batteries, the media lot and the statue send their faces unshaded with a normal and a material code, the solids shader turns the normal to the eye and shades them (gl/solids.js, the marks), and their static parts are kept as a building's are (markKept); 0 shades every face on the CPU from the eye every frame, as before. On since 2026-10-25, after David saw the before/after shots (glass-headroom.md)
   kitFadeGPU: 1,  // a street kit tile in the haze band fades in the solids shader, per vertex; 0 streams a copy of its faces every frame at the tile's alpha (kitFadeFaces)
+  kitCarsGPU: 1,  // the footbridge lift cars near to are kept at rest and lifted on the GPU by a matrix (kitDraw, bayGroup xf); 0 draws them where the clock has them, in the parts' set
+  aaGPU: 1,  // an AA battery's guns and radar are drawn once at rest and moved on the GPU by a matrix each (drawAAMark, bayGroup xf); 0 streams them every frame
   kitWet: 1,  // the street kit's chrome mirrors the sky (more when wet) and its lane holds world-fixed puddles in rain, in the solids shader's mark branch (uMarkW); 0 is the kit as it was
   streetKit: 1,  // Coldwater Streets: on a road tile whose district sets a street condition (`sc`), the 4 m lane, the raised walkways, their furniture and the bridges are drawn over the road as a mark, at that condition (glass/street-kit.js, drawStreetKitPass; docs/proposals/coldwater-streets.md). Needs marksGPU
   armNearWire: 1,   // a kept building with a stroke that crosses emitWire's near plane this frame runs live for the frame (armNearWire), as the live arm cuts that stroke at the plane; 0 replays the stroke whole, which the strokes shader draws with a wrong width once an end is behind the eye
@@ -1293,6 +1301,8 @@ export const RENDER_TUNE = {
   // downstream blurs, so half resolution is the softness the surface wants as well as a quarter of
   // the fill — the only real cost this pass has.
   glMirrorRes: 0.5,
+  // Reuse the reflection for up to N - 1 frames while the camera barely moves (gl/world.js). 1 = every frame.
+  glMirrorEvery: 2,
   // ── WORLD TEXT ON THE DEPTH BUFFER, AND WHY IT GETS ITS OWN TERM ──────────
   //
   // A name across a parapet, a stencilled bay number, a price board: the last thing GLASS 1 still
@@ -2021,6 +2031,12 @@ export const RENDER_TUNE = {
   // `glazeWalls`), and that face samples a bare bake of its palette, so the two never share a wall.
   // GLASS 2 only: the lean list and the 2-D painter keep the painted grid. 0 is the old picture.
   glazeAll: 1,
+  // ── NOTHING BOLTED TO A WALL THE BUILDING STANDS IN FRONT OF ────────────────────────────────
+  // 1: `derivedTrim` drops a window bay, balcony, fire escape, vent, louvre, shutter or AC unit
+  // whose face is mostly inside another of the building's own mass boxes (a wing, a portico, a
+  // shopfront): a window on a party wall, a balcony through a wing. Doors are kept. 0 keeps them.
+  // docs/proposals/model-plan.md phase 1; `scripts/shapes/buried.mjs` is the gate.
+  buriedDrop: 1,
   // ── A SIGN STANDS ON THE WALL, NOT IN IT ────────────────────────────────────────────────────
   // 0 puts every marquee back on its own half-width. `marqueeBand` pushed itself out along the
   // entrance normal by `half * 0.94`, which makes the sign's WIDTH decide its STAND-OFF — so a band
@@ -2604,6 +2620,22 @@ function projSky(azDeg, elDeg, heading, W, horizonY, FL) {
   const sy = horizonY * (1 - Math.sin(el) * 0.86);                        // horizon at el 0 → high in the sky band at zenith
   return { sx, sy, front };
 }
+
+// WHERE A POINT ON THE SKY IS ON THE LAST FRAME PAINTED: { sx, sy, front } in that canvas's pixels, the frame's own
+// sky camera (heading, lens, pitch). For an overlay drawn over the view, such as the telescope's star chart
+// (star-chart.js). Null before the first frame.
+let LAST_SKY = null;
+export function skyProjectNow(azDeg, elDeg) {
+  const L = LAST_SKY;
+  if (!L) return null;
+  const was = SKY_ROT;
+  SKY_ROT = L.rot;
+  try { return { ...projSky(azDeg, elDeg, L.heading, L.W, L.horizonY, L.FL), W: L.W, H: L.H }; } finally { SKY_ROT = was; }
+}
+// and the compass bearing that frame faced, or null before the first
+export const skyHeadingNow = () => (LAST_SKY ? LAST_SKY.heading : null);
+// and the moon on it, or null when it isn't up at night (see where glMoonUp is set)
+export const skyMoonNow = () => (LAST_SKY ? LAST_SKY.moon || null : null);
 
 // THE SKY CAMERA'S FOCAL LENGTH, AS ONE DEFINITION. Everything hanging off the celestial sphere —
 // the sun, the moon, the stars and the horizon ridge — is placed through `projSky` with this, and
@@ -5089,6 +5121,7 @@ function paintWindshieldFrame(id, view) {
   // (the moon rides the opposite arc — mirrors the sun/moon disc placement below). Clouds draw a
   // bright feathered edge on the lobe facing this point, so a front reads as backlit, not flat grey.
   const _moonPos = projSky(mArc.az, mArc.elDeg, vw.heading, W, horizonY, skyFL);
+  LAST_SKY = { heading: vw.heading, W, H, horizonY, FL: skyFL, rot: SKY_ROT ? { ...SKY_ROT } : null };
   const _dayKey = sunUp && sunFront;
   const lightX = _dayKey ? sunSkyX : _moonPos.sx, lightY = _dayKey ? sunSkyY : _moonPos.sy;
   const _moonLit = moonIllum(moonPh);
@@ -5169,6 +5202,9 @@ function paintWindshieldFrame(id, view) {
   const skyNightA = sky.night > 0.15 ? sky.night * (1 - overcast * 0.94) : 0, skyAirglow = sky.night * (1 - overcast * 0.55);
   // The moon the shader should draw: the same arc and the same "is it up" rule the 2-D body uses.
   const glMoonUp = !sky.sun && sky.night > 0.4 && mArc.up;
+  // the moon as this frame has it, for an overlay that draws it closer (moon-detail.js, at a telescope): where it is,
+  // how lit, which way its bright limb faces, and its radius at this lens
+  if (LAST_SKY) LAST_SKY.moon = glMoonUp ? { az: mArc.az, el: mArc.elDeg, phase: moonPh, tilt: limbTilt(mArc.az, mArc.elDeg, 90 + _sunTRaw * 180, Math.sin(_sunTRaw * Math.PI) * 62), R: moonRadiusPx(SKY_ROT ? SKY_ROT.FL : skyFL) } : null;
   if (glSkyOn && GL_SKY_HOOK && SKY_ROT) {
     const c = GL_SKY_HOOK({ id: GL_ID, W, H, hp: SKY_ROT.hp, FL: SKY_ROT.FL, depth: SKY_ROT.depth, pitch: SKY_ROT.pitch,
       heading: vw.heading || 0, bank: bankRad, shX, shY, top: sky.top, hor: sky.hor,
@@ -7676,18 +7712,24 @@ const _auroraSprites = {};
 const AURORA_TOPS = { green: [70, 230, 150], violet: [130, 90, 230], magenta: [220, 70, 200], red: [200, 50, 80] };
 function auroraSprite(top) {
   if (_auroraSprites[top]) return _auroraSprites[top];
-  const c = document.createElement('canvas'); c.width = 4; c.height = 256;
+  const c = document.createElement('canvas'); c.width = 32; c.height = 256;
   const x = c.getContext('2d'), g = x.createLinearGradient(0, 256, 0, 0);
   const T = AURORA_TOPS[top];
   const stops = top === 'ash'
     ? [[0, [255, 90, 30, 0]], [0.04, [255, 120, 50, 0.6]], [0.15, [230, 90, 35, 0.75]], [0.45, [170, 60, 25, 0.35]], [1, [90, 20, 15, 0]]]
     : top === 'base'
       // the green lower band alone, with the faint pink fringe under its edge
-      ? [[0, [200, 90, 170, 0]], [0.02, [210, 110, 190, 0.3]], [0.06, [170, 255, 160, 0.95]], [0.16, [100, 255, 140, 0.8]], [0.4, [50, 210, 130, 0.25]], [0.65, [40, 160, 120, 0]], [1, [0, 0, 0, 0]]]
-      // the upper colour alone: nothing at the edge, swelling above the green and fading at the top
-      : [[0, [...T, 0]], [0.2, [...T, 0.05]], [0.45, [...T, 0.55]], [0.7, [...T, 0.4]], [1, [...T, 0]]];
+      // the green lower band alone: a hard bright foot with a faint pink fringe under it, fading upward
+      ? [[0, [200, 90, 170, 0]], [0.012, [220, 120, 190, 0.35]], [0.03, [215, 255, 200, 1]], [0.09, [130, 255, 160, 0.9]], [0.25, [70, 230, 140, 0.45]], [0.5, [45, 180, 125, 0.15]], [0.8, [30, 120, 100, 0.03]], [1, [0, 0, 0, 0]]]
+      // the upper colour alone: nothing at the foot, a modest swell above the green, fading to the top
+      : [[0, [...T, 0]], [0.15, [...T, 0.12]], [0.35, [...T, 0.4]], [0.6, [...T, 0.22]], [1, [...T, 0]]];
   for (const [o, [r, gg, b, a]] of stops) g.addColorStop(o, `rgba(${r},${gg},${b},${a})`);
-  x.fillStyle = g; x.fillRect(0, 0, 4, 256);
+  x.fillStyle = g; x.fillRect(0, 0, 32, 256);
+  // A raised-cosine edge across the strip: neighbours spaced at half its width sum to a flat sheet,
+  // so the strips blend into one curtain instead of showing their seams as vertical bars.
+  const hg = x.createLinearGradient(0, 0, 32, 0);
+  for (let i = 0; i <= 16; i++) hg.addColorStop(i / 16, `rgba(0,0,0,${(0.5 - 0.5 * Math.cos(2 * Math.PI * i / 16)).toFixed(3)})`);
+  x.globalCompositeOperation = 'destination-in'; x.fillStyle = hg; x.fillRect(0, 0, 32, 256);
   return (_auroraSprites[top] = c);
 }
 let _auroraCv = null;
@@ -7702,45 +7744,60 @@ function drawAurora(ctx, W, horizonY, now, sky, wx, heading, FL) {
   // The whole display breathes: a long swell, a slower tide of activity under it, and a quicker pulse.
   const tide = 0.5 + 0.5 * Math.sin(t * 0.009 + 0.7);
   const breath = (0.5 + 0.28 * Math.sin(t * 0.031) + 0.14 * Math.sin(t * 0.097 + 1.3) + 0.08 * Math.sin(t * 0.23)) * (0.6 + 0.6 * tide);
-  const tops = ['green', 'violet', 'magenta', 'red'];
   // [centre bearing, base elevation, height, gain, swirl]
-  const curtains = ash ? [[0, 6, 30, 0.6, 0.3]] : [[-20, 10, 40, 1, 1], [20, 16, 34, 0.75, 1.4], [-65, 7, 26, 0.5, 0.7], [55, 22, 30, 0.4, 1.8]];
+  const curtains = ash ? [[0, 6, 30, 0.6, 0.3]]
+    : [[-20, 10, 42, 1, 1], [20, 15, 36, 0.9, 1.4], [-65, 7, 28, 0.7, 0.7], [55, 21, 32, 0.65, 1.8], [-5, 26, 30, 0.55, 1.2], [85, 9, 26, 0.5, 0.9]];
+  const STEP = 0.7;
   for (let ci = 0; ci < curtains.length; ci++) {
     const [azC, base, tall, gain, swirl] = curtains[ci], seed = ci * 17.3;
     const az0 = azC + 12 * Math.sin(t * 0.004 + seed);              // the sheet drifts in bearing
-    let prev = null;
-    for (let az = az0 - 75; az <= az0 + 75; az += 1.2) {
-      const u = (az - az0) / 75, ends = Math.max(0, 1 - u * u) ** 2;
-      // Folds and swirls: the lower edge bends up and down, harder where `swirl` is high.
-      const ph = az * 0.07 + t * 0.03 + seed;
-      const fold = (Math.sin(ph) * 3 + Math.sin(az * 0.19 - t * 0.07 + seed) * 1.4 + Math.sin(az * 0.031 + t * 0.013) * 4) * swirl;
-      const el = base + fold;
-      // Rays, soft: gentle streaks crawling along the sheet; the downscale blurs them into texture.
-      const ray = 0.6 + 0.25 * Math.sin(az * 1.3 + t * 0.35 + seed) * Math.sin(az * 0.41 - t * 0.21) + 0.15 * Math.sin(az * 3.1 - t * 0.9 + seed);
+    // The sheet is a ribbon walked by its own length `s`, not by bearing, so it can turn back on
+    // itself: where the curl is strong the foot runs a trochoid loop (bearing goes backwards for a
+    // stretch), and the sheet seen edge-on there piles up bright, the way a real fold does.
+    for (let s = -75; s <= 75; s += STEP) {
+      const u = s / 75, ends = Math.max(0, 1 - u * u) ** 2;
+      const curl = swirl * Math.max(0, Math.sin(s * 0.021 + t * 0.009 + seed) * 0.6 + Math.sin(s * 0.047 - t * 0.006 + seed * 2.1) * 0.4) ** 1.5;
+      const ph = s * 0.12 - t * 0.05 + seed;
+      const R = 11 * curl;                                         // loops once R·0.12 > 1 rad/deg
+      const az = az0 + s + R * Math.sin(ph);
+      // Big slow arcs of the whole sheet, plus the loop's rise and fall.
+      const el = Math.max(2, base + R * 0.6 * (1 - Math.cos(ph)) * 0.8
+        + (Math.sin(s * 0.028 + t * 0.013 + seed) * 5 + Math.sin(s * 0.09 - t * 0.04 + seed) * 1.2) * swirl);
+      // Rays: streaks crawling along the sheet; each reaches its own height.
+      const ray = 0.55 + 0.25 * Math.sin(s * 1.3 + t * 0.35 + seed) * Math.sin(s * 0.41 - t * 0.21) + 0.2 * Math.sin(s * 3.7 - t * 0.9 + seed) ** 2;
       // A pulse travelling along the curtain, the way a brightening runs down a real one.
-      const pulse = 0.7 + 0.5 * Math.max(0, Math.sin(az * 0.05 - t * 0.12 + seed)) ** 3;
-      const kink = 1 + 0.7 * Math.max(0, Math.cos(ph)) ** 6;
+      const pulse = 0.7 + 0.5 * Math.max(0, Math.sin(s * 0.05 - t * 0.12 + seed)) ** 3;
       const lo = projSky(az, el, heading, W, horizonY, FL);
-      if (!lo.front) { prev = null; continue; }
-      const hi = projSky(az, el + tall * (0.8 + 0.4 * ray) * (0.8 + 0.4 * tide), heading, W, horizonY, FL);
-      if (prev != null) {
-        const sw = Math.abs(lo.sx - prev), x0 = Math.min(prev, lo.sx) - sw * 0.6, ww = sw * 2.2 + 2;
-        const hh = lo.sy - hi.sy;
-        const a = sky.night * gain * ends * breath * ray * pulse * kink * (ash ? 0.14 : 0.22);
-        if (a > 0.003 && hh > 1 && sw < W * 0.2) {
-          if (ash) { a2.globalAlpha = Math.min(1, a); a2.drawImage(auroraSprite('ash'), x0, hi.sy, ww, hh * 1.05); }
-          else {
-            a2.globalAlpha = Math.min(1, a); a2.drawImage(auroraSprite('base'), x0, hi.sy, ww, hh * 1.05);
-            // The upper colour: a slow walk round the four, along the sheet and over time.
-            const k = (Math.sin(az * 0.017 + seed * 0.3 + t * 0.006) * 0.5 + 0.5) * 2.999 + tide * 0.6;
-            const i0 = Math.floor(k) % 4, f = k - Math.floor(k);
-            const up = a * (0.45 + 0.55 * tide) * 1.3;
-            a2.globalAlpha = Math.min(1, up * (1 - f)); a2.drawImage(auroraSprite(tops[i0]), x0, hi.sy - hh * 0.25, ww, hh * 1.3);
-            a2.globalAlpha = Math.min(1, up * f); a2.drawImage(auroraSprite(tops[(i0 + 1) % 4]), x0, hi.sy - hh * 0.25, ww, hh * 1.3);
-          }
-        }
+      if (!lo.front) continue;
+      const lo2 = projSky(az + STEP, el, heading, W, horizonY, FL);
+      const pxStep = Math.abs(lo2.sx - lo.sx);
+      if (pxStep > W * 0.2) continue;
+      // A frayed top: every strip reaches its own height, from a hash of its place on the sheet that
+      // drifts slowly, so the upper edge breaks into strands instead of a smooth line.
+      const hs = Math.sin(Math.round(s / STEP) * 12.9898 + seed * 78.233) * 43758.5453;
+      const fray = (hs - Math.floor(hs)) * 0.7 + 0.3 * Math.sin(s * 0.9 + t * 0.25 + seed);
+      const hi = projSky(az, el + tall * (0.55 + 0.4 * ray + 0.45 * fray) * (0.8 + 0.4 * tide), heading, W, horizonY, FL);
+      const hh = lo.sy - hi.sy;
+      // Raised-cosine strips twice a step wide sum to a flat sheet along a straight run.
+      const ww = Math.max(pxStep * 2, 4 / S), x0 = lo.sx - ww / 2;
+      const a = sky.night * gain * ends * breath * ray * pulse * (ash ? 0.3 : 0.85) * (pxStep * 2 / ww);
+      if (a < 0.003 || hh <= 1) continue;
+      if (ash) { a2.globalAlpha = Math.min(1, a); a2.drawImage(auroraSprite('ash'), x0, hi.sy, ww, hh * 1.05); continue; }
+      a2.globalAlpha = Math.min(1, a); a2.drawImage(auroraSprite('base'), x0, hi.sy, ww, hh * 1.05);
+      // The upper colour: green by default; violet in patches, magenta only at the heart of a
+      // strong patch, so most of a night is green with the odd purple-pink flare.
+      const n = 0.5 + 0.32 * Math.sin(s * 0.019 + seed * 0.3 + t * 0.006) + 0.18 * Math.sin(s * 0.053 - t * 0.011 + seed);
+      const act = n * (0.75 + 0.35 * tide);
+      const vio = Math.min(1, Math.max(0, (act - 0.62) / 0.2)), mag = Math.min(1, Math.max(0, (act - 0.82) / 0.12));
+      const up = a * (0.45 + 0.55 * tide) * 1.1;
+      const top = (name, k) => { if (k > 0.01) { a2.globalAlpha = Math.min(1, up * k); a2.drawImage(auroraSprite(name), x0, hi.sy - hh * 0.2, ww, hh * 1.25); } };
+      top('green', 1 - vio); top('violet', vio * (1 - mag)); top('magenta', mag);
+      // A loose strand off the top every few strips: thin, faint and taller, the frayed threads.
+      if (fray > 0.55) {
+        const sh = hh * (0.4 + 0.5 * fray);
+        a2.globalAlpha = Math.min(1, up * 0.6 * (fray - 0.4));
+        a2.drawImage(auroraSprite(vio > 0.5 ? 'violet' : 'green'), lo.sx - ww * 0.25, hi.sy - sh * 0.6, ww * 0.5, sh * 1.2);
       }
-      prev = lo.sx;
     }
   }
   ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 1;
@@ -10958,9 +11015,11 @@ export let SKY_DECK_Z = 0;
 // Changed 2026-11-22: the deck sits clear of the Solenne's helipad (~50 storeys) on almost every day,
 // at 54 storeys. About one day in ten (by the UTC day, so every client agrees) it dips to 48, just
 // under the pad, and hides the crown.
-const SKYLINE_Z = 54 * STOREY_M / TILE_M, LOW_DECK_Z = 48 * STOREY_M / TILE_M;
+const SKYLINE_Z = 64 * STOREY_M / TILE_M, LOW_DECK_Z = 48 * STOREY_M / TILE_M;
 const lowDeckDay = () => { let d = Math.floor(Date.now() / 86400000) >>> 0; d = Math.imul(d ^ (d >>> 16), 0x85ebca6b); d = Math.imul(d ^ (d >>> 13), 0xc2b2ae35); return ((d ^ (d >>> 16)) >>> 0) % 10 === 0; };
-const cloudBaseZ = (wx) => Math.max(0.05, DECK_FLOOR, wx === 'fog' ? 0 : (lowDeckDay() ? LOW_DECK_Z : SKYLINE_Z),RENDER_TUNE.eh + Math.sqrt((CLOUD_BASE_FT[wx] ?? 1600) / 3000) * RENDER_TUNE.climbLift);
+// Changed 2026-11-25: for now the deck never comes below SKYLINE_Z, fog and the low day included;
+// a fog deck at street level read as a ceiling over the street on foot.
+const cloudBaseZ = (wx) => Math.max(0.05, DECK_FLOOR, SKYLINE_Z,RENDER_TUNE.eh + Math.sqrt((CLOUD_BASE_FT[wx] ?? 1600) / 3000) * RENDER_TUNE.climbLift);
 // ── WHERE IT IS ACTUALLY RAINING ───────────────────────────────────────────────────────────────
 //
 // Rain falls from a cloud base to the ground. `drawWeather` is a full-screen curtain keyed off the
@@ -12330,6 +12389,8 @@ const WALL_COL = { uptown: [46, 64, 92], civic: [72, 68, 60], citycore: [52, 56,
   ty_gfc_brick: [134, 70, 52], ty_gfc_green: [40, 70, 54], ty_sdeck_core: [12, 14, 18], ty_sdeck_mesh: [40, 46, 54], ty_sdeck_black: [20, 22, 26], ty_sdeck_cyan: [40, 196, 228], ty_gfc_cream: [226, 214, 188], ty_gfc_cup: [236, 232, 222],
   // The Solenne's roof terrace (glass/models/downtown.js): oiled teak decking, a pale travertine border, the planters' trees.
   ty_solenne_deck: [146, 98, 58], ty_solenne_stone: [214, 202, 178], ty_solenne_green: [52, 92, 58],
+  // its floor slabs, white and charcoal in turn up the tower (client/shared/solenne-plates.js BANDS)
+  ty_solenne_slab_w: [228, 226, 218], ty_solenne_slab_d: [40, 42, 46], ty_solenne_cyan: [38, 196, 226],
   ty_door: [20, 22, 26] };
 const BLDG_H = { uptown: 0.36, civic: 0.21, citycore: 0.18, marquee: 0.22, freight: 0.14, industrial: 0.26, infra: 0.32, ruins: 0.16, oldcoldwater: 0.11, docks: 0.17, __nofly: 0.6 };
 
@@ -13141,7 +13202,7 @@ const PUMP_WALL = new Set(['ty_pump']);
 // Flat painted surfaces that are emphatically not facades: the canopy soffit, a painted kerb, the
 // kiosk's panel wall. Same reason as STRUCT_WALL — the default branch's job is windows, and none of
 // these has any.
-const PLAIN_WALL = new Set([ 'ty_r9_green', 'ty_r9_red', 'ty_ot_olive', 'ty_ot_olive_dk', 'ty_ot_leather', 'ty_ot_yellow', 'ty_ot_red', 'ty_ot_dark', 'ty_ae_navy', 'ty_ae_cream', 'ty_bd_blue_dk', 'ty_bd_orange', 'ty_bd_cream', 'ty_gfc_green', 'ty_sdeck_core', 'ty_sdeck_black', 'ty_sdeck_cyan',  // Grounds for Concern's painted shopfront
+const PLAIN_WALL = new Set([ 'ty_solenne_slab_w', 'ty_solenne_slab_d', 'ty_solenne_cyan', 'ty_r9_green', 'ty_r9_red', 'ty_ot_olive', 'ty_ot_olive_dk', 'ty_ot_leather', 'ty_ot_yellow', 'ty_ot_red', 'ty_ot_dark', 'ty_ae_navy', 'ty_ae_cream', 'ty_bd_blue_dk', 'ty_bd_orange', 'ty_bd_cream', 'ty_gfc_green', 'ty_sdeck_core', 'ty_sdeck_black', 'ty_sdeck_cyan',  // Grounds for Concern's painted shopfront
   // The Cherry Pit: block painted over in arterial red, with no window in the street face. It was
   // in BRICK_WALL and read as a tidy brick hall; STUCCO's GPU relief reads as brick from the
   // street too. Flat paint, and the model's grime parts do the weathering.
@@ -16654,8 +16715,14 @@ export function emitPane(cam, pts, rgb, a) {
   const nl = Math.hypot(nx, ny, nz); if (!(nl > 1e-12)) return;
   BAY_SINK.push({ p: pts.map(([x, y, z]) => [x + cam.ox, y + cam.oy, z]), rgb, a, n: [nx / nl, ny / nl, nz / nl], amb: true, tex: -4, film: true });
 }
-function bayGroup(recs) {
-  if (TUNE.glRetain !== 0) (BAY_SINK.groups || (BAY_SINK.groups = [])).push({ recs, at: BAY_SINK.length });
+// `ka`: the alpha the whole group is drawn at, a uniform rather than in its records, so a group whose alpha
+// changes every frame (a kept building in the haze band, armFadePut) is still written once.
+// `xf`: a placement for the whole group (16 numbers, column-major, in the window's frame; null none), the solids
+// shader's uGroupM. A rigid moving part (a lift car, a gun) is kept at rest and moved by it, so only the matrix
+// changes from frame to frame. ⚠ ONLY THE GPU SEES IT: the records in the sink are at rest, so anything reading
+// BAY_SINK on the CPU (a 2-D fallback, a capture) must not be handed a placed group.
+function bayGroup(recs, ka = 1, xf = null) {
+  if (TUNE.glRetain !== 0) (BAY_SINK.groups || (BAY_SINK.groups = [])).push(ka === 1 && !xf ? { recs, at: BAY_SINK.length } : { recs, at: BAY_SINK.length, ka, xf });
   for (let i = 0; i < recs.length; i++) BAY_SINK.push(recs[i]);
 }// ── AND THE ANIMALS, AS GEOMETRY ────────────────────────────────────────────
 // The third client of gl/solids.js, and the one that arrived as a bug report. A goose was a baked
@@ -20697,7 +20764,7 @@ let _pm = 0;
 function pMark(k) { if (!PERF.on) return; const t = performance.now(); if (k && _pm) PERF.t[k] = (PERF.t[k] || 0) + t - _pm; _pm = t; }
 let _PERF_ARM = null;
 const PERF = { on: false, armv: false, t: {}, n: {}, arm: {}, stack: [], last: 0, frames: 0 };
-const PERF_COUNTS = ['faces', 'arms', 'adorn', 'grads', 'lod', 'culled', 'offscreen', 'occTested', 'gpuB', 'gpuBHid', 'gpuG', 'gpuGHid', 'gpuNoAns', 'gpuAsk', 'gpuSkip'];
+const PERF_COUNTS = ['faces', 'arms', 'adorn', 'grads', 'lod', 'culled', 'offscreen', 'occTested', 'gpuB', 'gpuBHid', 'gpuG', 'gpuGHid', 'gpuNoAns', 'gpuAsk', 'gpuSkip', 'aperAsk', 'aperSkip'];
 function perfReset() {
   PERF.t = {}; PERF.n = {}; PERF.arm = {}; PERF.stack.length = 0; PERF.frames = 0;
   for (const k of PERF_COUNTS) PERF.n[k] = 0;
@@ -20784,6 +20851,33 @@ if (typeof window !== 'undefined') {
   // Settings → Renderer, the same way.
   window.__setGlassMode = setGlassMode;
   if (window.__glassModePending != null) setGlassMode(window.__glassModePending);
+  // Settings → Graphics (main.js `_applyGfx`), the same way. Each option is 'auto' (what this device
+  // gets without asking: the tune as it stands after PHONE_TIER, taken the first time this runs) or
+  // a choice that sets the keys outright, on a phone too. Only the keys below are touched.
+  // ⚠ glMsaa is a context creation attribute: changing it rebuilds the GL view once (see its note).
+  let gfxBase = null;
+  const GFX_KEYS = ['glMsaa', 'glFxaa', 'glTaa', 'dprMax', 'glMirror', 'glMirrorEvery', 'glShadow', 'glShadowNear',
+    'glSsao', 'glBloom', 'glClouds', 'volClouds', 'glCloudShadow', 'govern'];
+  const setGfx = (g = {}) => {
+    if (!gfxBase) { gfxBase = {}; for (const k of GFX_KEYS) gfxBase[k] = RENDER_TUNE[k]; }
+    const t = { ...gfxBase };
+    const aa = { off: [0, 0, 0], msaa: [1, 0, 0], fxaa: [0, 1, 0], both: [1, 1, 0], taa: [0, 0, 1] }[g.aa];
+    if (aa) [t.glMsaa, t.glFxaa, t.glTaa] = aa;
+    const scale = { full: 1, '75': 0.75, '50': 0.5 }[g.res];
+    if (scale) t.dprMax = Math.max(0.25, (window.devicePixelRatio || 1) * scale);
+    if (g.refl === 'off') t.glMirror = 0;
+    else if (g.refl === 'full' || g.refl === 'half') { t.glMirror = gfxBase.glMirror || 32; t.glMirrorEvery = g.refl === 'full' ? 1 : 2; }
+    if (g.sunShadow === 'off') { t.glShadow = 0; t.glShadowNear = 0; }
+    else if (g.sunShadow === 'on') { t.glShadow = gfxBase.glShadow || 0.55; t.glShadowNear = gfxBase.glShadowNear || 5; }
+    if (g.ao === 'off') t.glSsao = 0; else if (g.ao === 'on') t.glSsao = gfxBase.glSsao || 0.5;
+    if (g.bloom === 'off') t.glBloom = 0; else if (g.bloom === 'on') t.glBloom = gfxBase.glBloom || 1.6;
+    if (g.clouds === 'off') { t.glClouds = 0; t.volClouds = 0; t.glCloudShadow = 0; }
+    else if (g.clouds === 'on') { t.glClouds = 1; t.volClouds = 1; t.glCloudShadow = gfxBase.glCloudShadow || 1; }
+    if (g.govern === 'off') t.govern = 0; else if (g.govern === 'on') t.govern = 1;
+    Object.assign(RENDER_TUNE, t);
+  };
+  window.__setGfx = setGfx;
+  if (window.__gfxPending != null) setGfx(window.__gfxPending);
   // `.murmur` in the client lands here. It can be typed before any view has loaded this
   // module (it is lazy), so a request made earlier is left on window and picked up now.
   window.__murmuration = murmuration;
@@ -25746,13 +25840,21 @@ function vergeOffset(cell, h, t) {
 // `pref` is the building on the figure's own side of the street, when street life knows it. The
 // server doesn't say which door, so either is as true as the other, and theirs doesn't walk them
 // across the carriageway to get there.
+//
+// ⚠ ONLY A FRONT THAT FACES THEM. The server only lets anybody into a facade from the tile its
+// `flags.entrance` faces, so the building they went into is one whose front looks at their tile
+// (`ent` pointing back at it). The first building found round them was often a neighbour's flank or
+// back, and they walked into a blank wall. No front facing them and they fade where they stood.
 function doorwayDir(map, R, wcx, wcy, x, y, pref = null) {
   const rx = Math.round(x - wcx) + R, ry = Math.round(y - wcy) + R;
-  if (pref) { const row = map[ry + pref[1]]; const c = row && row[rx + pref[0]]; if (c && c.bt) return { dx: pref[0], dy: pref[1] }; }
-  for (const [ddx, ddy] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) {
+  const faces = (ddx, ddy) => {
     const row = map[ry + ddy]; const c = row && row[rx + ddx];
-    if (c && c.bt) return { dx: ddx, dy: ddy };
-  }
+    if (!c || !c.bt) return false;
+    const E = faceVec(c.ent);
+    return E[0] === -ddx && E[1] === -ddy;
+  };
+  if (pref && faces(pref[0], pref[1])) return { dx: pref[0], dy: pref[1] };
+  for (const [ddx, ddy] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) if (faces(ddx, ddy)) return { dx: ddx, dy: ddy };
   return null;
 }
 
@@ -26623,7 +26725,7 @@ function drawStreetActors(ctx, cam, v, map, R, wcx, wcy, night, now, FAR) {
     const f = dx * cam.sinh - dy * cam.cosh;
     if (f + (cam.fwdOff || 0) <= nearF || f > FAR) continue;   // camera-relative near clip (see the ⚠ in drawStreetLamps), nearF above
     // the tile they stand on behind the mass on two answers running (gpuOcc 2): not drawn; their life above still ran
-    if (GPU_ANS && gpuHidden(Math.round(px + ox), Math.round(py + oy), null, GPU_H_PERSON)) continue;
+    if ((GPU_ANS || APER) && gpuHidden(Math.round(px + ox), Math.round(py + oy), null, GPU_H_PERSON)) continue;
     // Same thin far-edge dissolve the buildings use, so a figure ghosts up out of the haze with
     // the street it is standing in rather than popping in crisp against a fogged block.
     const a = fade * smoothstep((FAR - f) / 5) * (v.worldBlend ?? 1);
@@ -29114,7 +29216,26 @@ export function perchLegState(map, R, wcx, wcy, fl, st, now, clear, when) {
     const vx = pb[0] - pa[0], vy = pb[1] - pa[1], run = Math.hypot(vx, vy);
     if (run > 1e-6) { out.heading = Math.atan2(vy, vx); out.climb = (pb[2] - pa[2]) / run; }
   }
+  // ⚠ A BIRD NEVER GOES INSIDE A BUILDING. The bent leg is a straight glide from the circuit to the
+  // ledge, and that line can cut a tower's corner or the building next door. A point inside mass is
+  // lifted onto the roof over it. The ledge itself is clear (clearedFor), so the landing is untouched.
+  const top = birdMassTop(map, R, wcx, wcy, out.cx, out.cy, out.z);
+  if (top > out.z) { out.z = top + PERCH_HEADROOM; if (out.climb != null && out.climb < 0) out.climb = 0; }
   return out;
+}
+
+/** The top of any building mass that spans a bird at (x, y, z), its own tile's or a neighbour's; 0 when it is in the open. */
+function birdMassTop(map, R, wcx, wcy, x, y, z) {
+  const tx = Math.round(x), ty = Math.round(y);
+  let top = 0;
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+    const wx = tx + dx, wy = ty + dy;
+    const c = map[wy - wcy + R]?.[wx - wcx + R];
+    if (!c || !c.bt) continue;
+    const h = groundObstructionAt(wx, wy, c, x, y, z + PERCH_HEADROOM);
+    if (h > z + PERCH_COVER_EPS && h > top) top = h;
+  }
+  return top;
 }
 
 // Our own aircraft as the birds see it, {x, y, z, vx, vy, vz} in tiles and tiles/s, for birdEvade. Only
@@ -31578,7 +31699,7 @@ function drawStreetLamps(ctx, cam, v, map, R, wcx, wcy, night, now, FAR) {
     const alpha = clamp((FAR - f) / 5, 0, 1) * (v.worldBlend ?? 1);
     if (alpha <= 0.03) continue;
     // behind the mass on two answers running (gpuOcc 2): not sent
-    if (GPU_ANS && gpuHidden(wx, wy, c, GPU_H_POST)) continue;
+    if ((GPU_ANS || APER) && gpuHidden(wx, wy, c, GPU_H_POST)) continue;
     // Stand it on the pavement: perpendicular to the road's own axis, at VERGE — the same one
     // number the paint and the pedestrians use, so the lamp is on the kerb rather than near it.
     const dirs = c.rd || '';
@@ -31678,6 +31799,7 @@ const KIT_PULL = { pull: 0.004 }, KIT_INK_POINT = [0, 0, 0], KIT_EYE_PLANE = 0.1
 // tile with nothing to do costs no closures.
 let KIT_TO = null, KIT_CTX = null, KIT_CAM = null, KIT_F = 0, KIT_NIGHT = 0, KIT_ALPHA = 1, KIT_NOW = 0;
 const KIT_LIVE = { faces: null, film: null, glows: [] };
+const KIT_SIG = [];   // the near parts' state this frame (kitDraw, kitPartsKeep)
 // ── THE NEAR TIER'S MOVING PARTS ──
 // A belt near to is new points every frame, so they can't be kept. Their records come from a pool
 // reset at the top of the pass: only the stream holds them, and every reader finishes inside the frame.
@@ -31742,7 +31864,7 @@ function kitRecentre(set, bx, by) {
   for (let i = 0; i < U.length; i++) { const p = U[i]; p[0] += bx; p[1] += by; }
   if (RENDER_TUNE.retainWorld === 0) set.faces = set.faces.slice();
   set.rec.st = set.rec.st.slice(); set.rec.de = set.rec.de.slice();
-  set.lx += bx; set.ly += by; set.dyn = null;
+  set.lx += bx; set.ly += by; set.dyn = null; set.parts = null; set.cars = null;
 }
 // Every point of a set once: its faces, film, lettering and ink share points, and each must move once.
 // Listed when the set is built, so a recentre is one pass. Found through a Set on every recentre, it
@@ -31879,9 +32001,50 @@ function kitDraw(ctx, cam, c, place, lx, ly, dx, dy, f, s0, seed, near, far, alp
     KIT_CTX = ctx; KIT_CAM = cam; KIT_F = f; KIT_NIGHT = night; KIT_ALPHA = alpha; KIT_NOW = now;
     KIT_LIVE.glows.length = 0;
     KIT_TO = KIT_LIVE;
-    drawStreetKit({ dx: lx, dy: ly, place, s0, part: 'dynamic', near, far, seed, now, night, alpha, face: kitFacePooled, light: kitGlow, steam: kitSteam, p3: kitP3, l4: kitL4, still: RENDER_TUNE.motion === 0 });
+    // ⚠ THE LIFT CARS AND THE CROSSING LAMPS ARE KEPT (RENDER_TUNE.kitPartsKeep): they change only when the lift
+    // moves or a lamp blinks, so they're drawn once into a set at full alpha, keyed on what they read off the clock
+    // (drawStreetKit's `sig`), and go to the GPU as a group at the tile's alpha. Pooled with the belts they were
+    // about 540 faces streamed every frame on the marrow-foot route, with the lift standing idle.
+    const keepParts = RENDER_TUNE.kitPartsKeep !== 0 && TUNE.glRetain !== 0;
+    const base = { dx: lx, dy: ly, place, s0, part: 'dynamic', near, far, seed, now, night, still: RENDER_TUNE.motion === 0 };
+    drawStreetKit({ ...base, alpha, dyn: keepParts ? 'belts' : undefined, face: kitFacePooled, light: kitGlow, steam: kitSteam, p3: kitP3, l4: kitL4 });
     KIT_TO = null;
     kitGlows(ctx, cam, KIT_LIVE.glows, alpha);
+    if (keepParts) {
+      // ⚠ AND THE LIFT CARS APART FROM THEM, AT REST, LIFTED ON THE GPU (RENDER_TUNE.kitCarsGPU): with the cars in
+      // the parts' key, a car in motion rebuilt the set every frame of its ride. Now the parts' key leaves the car's
+      // travel out, the cars are drawn once per lamp state at rest ('cars'), and the group rises by a matrix
+      // (bayGroup's xf, the solids' uGroupM) from kitCarRise. Both cars move together, so one matrix does.
+      const carsGPU = RENDER_TUNE.kitCarsGPU !== 0 && !!place.bridge;
+      KIT_SIG.length = 0;
+      drawStreetKit({ ...base, alpha: 1, dyn: 'parts', carsApart: carsGPU, sig: KIT_SIG, face: kitFace, light: kitGlow });
+      const key = KIT_SIG.join(',') + (carsGPU ? '|c' : '');
+      let Q = set.parts;
+      if (!Q || Q.key !== key) {
+        Q = set.parts = { key, faces: [], film: [], glows: [] };
+        KIT_TO = Q;
+        drawStreetKit({ ...base, alpha: 1, dyn: 'parts', carsApart: carsGPU, face: kitFace, light: kitGlow });
+        KIT_TO = null;
+      }
+      if (carsGPU) {
+        const show = kitLiftShow(kitLiftKey(place, seed), now);
+        let C = set.cars;
+        if (!C || C.show !== show) {
+          C = set.cars = { show, faces: [], film: [], glows: [], xf: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1] };
+          KIT_TO = C;
+          drawStreetKit({ ...base, alpha: 1, dyn: 'cars', face: kitFace, light: kitGlow });
+          KIT_TO = null;
+        }
+        // A fresh matrix only when the car has moved: the layer re-sends the uniform per run, not per frame of rest.
+        const rise = RENDER_TUNE.motion === 0 ? 0 : kitCarRise(place, seed, now);
+        if (C.xf[14] !== rise) { C.xf = C.xf.slice(); C.xf[14] = rise; }
+        if (C.faces.length) bayGroup(C.faces, alpha, C.xf);
+        for (let i = 0; i < C.film.length; i++) { const q = C.film[i]; BAY_SINK.push({ ...q, a: q.a * alpha, p: q.p.map((p) => [p[0], p[1], p[2] + rise]) }); }
+      }
+      if (Q.faces.length) bayGroup(Q.faces, alpha);
+      for (let i = 0; i < Q.film.length; i++) { const q = Q.film[i]; BAY_SINK.push(alpha === 1 ? q : { ...q, a: q.a * alpha }); }
+      kitGlows(ctx, cam, Q.glows, alpha);
+    }
     return;
   }
   // Past arm's length, a beat at a time. Its records are the stream's, so a fade rewrites their alpha.
@@ -32027,7 +32190,7 @@ function drawStreetKitPass(ctx, cam, v, map, R, wcx, wcy, night, now, FAR, sun, 
     // behind the mass on two answers running (gpuOcc 2), with a bridge's reach into the next tile: not sent
     // ⚠ on foot only (GPU_KIT_EH): in a moving cab a kit tile's kept set is dropped and sent again as it flips between
     // hidden and seen, and marrow-cab read 13.7-13.9 ms at p50 with the kit left out against 14.5-14.6 with it in
-    if (GPU_ANS && RENDER_TUNE.gpuOccKit !== 0 && (cam.EH || 0) <= GPU_KIT_EH && gpuHidden(wx, wy, c, GPU_H_POST, GPU_KIT_HALF)) continue;
+    if ((GPU_ANS || APER) && RENDER_TUNE.gpuOccKit !== 0 && (cam.EH || 0) <= GPU_KIT_EH && gpuHidden(wx, wy, c, GPU_H_POST, GPU_KIT_HALF)) continue;
     if (!envSet) { const E = markEnvFrame(night, sun, sky); E.w[0] = wcx; E.w[1] = wcy; E.w[2] = RENDER_TUNE.kitWet ?? 1; envSet = true; }
     if (!keep) kitLive(ctx, cam, c, place, dx, dy, f, s0, seed, near, far, alpha, night, now);
     else kitDraw(ctx, cam, c, place, rx - R, ry - R, dx, dy, f, s0, seed, near, far, alpha, night, now);
@@ -32064,7 +32227,7 @@ function drawTrafficSignals(ctx, cam, v, map, R, wcx, wcy, night, now, FAR) {
     const alpha = clamp((FAR - f) / 5, 0, 1) * (v.worldBlend ?? 1);
     if (alpha <= 0.03) continue;
     // behind the mass on two answers running (gpuOcc 2): neither mast is sent
-    if (GPU_ANS && gpuHidden(Math.round((rx - R) + wcx), Math.round((ry - R) + wcy), c, GPU_H_POST)) continue;
+    if ((GPU_ANS || APER) && gpuHidden(Math.round((rx - R) + wcx), Math.round((ry - R) + wcy), c, GPU_H_POST)) continue;
     const off = junctionOffset(Math.round((rx - R) + wcx), Math.round((ry - R) + wcy));
     // A DEAD JUNCTION IS DARK. `pw` is the tile's grid power, straight off the same power sim the
     // room lights and the ATMs read — so when the plant drops, the signals drop with everything
@@ -36415,6 +36578,8 @@ function muzzleFlash(ctx, cam, x, y, z, sz = 1) {
 const AA_TRACK_R = 10;   // tiles: how far off a manned battery's guns follow an aircraft it is not firing at
 // `part` is markKept's (RENDER_TUNE.marksGPU): the emplacement draws its pit or its guns, unshaded
 // for the GPU (markFaceGL). Absent, all of it, as before.
+// A battery's moving faces at rest, by frame, for RENDER_TUNE.aaGPU (drawAAMark). Keyed by the cell.
+const AA_REST = new WeakMap();
 function drawAAMark(ctx, cam, it, v, night, alpha, now, sun, sky, od, part) {
   const aa = it.c.aa || {};
   const live = aaLive(it.wx, it.wy);
@@ -36462,12 +36627,43 @@ function drawAAMark(ctx, cam, it, v, night, alpha, now, sun, sky, od, part) {
     soft.push({ f, pr, css: `rgba(${rgb[0] | 0},${rgb[1] | 0},${rgb[2] | 0},${a})` });
   };
   clearTilePower();   // a battery runs on its own generator, whatever the street's power is doing
-  drawAAEmplacement({
+  const args = {
     dx: it.dx, dy: it.dy, wx: it.wx, wy: it.wy, kind: aa.k, s, open, shift, part, gpu: !!part && toGL,
     eye: [EX, EY, EZ], target, firing, near: eyeRange(cam, it.dx, it.dy) < 7,
     seed: it.seed, now, night, alpha, wet: clamp(wetGround(), 0, 1), sun,
     face, light: (x, y, z, rgb, s0, a) => glowPool(ctx, cam, x, y, z, rgb, s0, a * alpha),
-  });
+  };
+  // ⚠ THE GUNS AND THE RADAR KEPT ON THE GPU (RENDER_TUNE.aaGPU): the moving faces were ~375 records streamed every
+  // frame from a Marrow walk. Now this frame's pass draws no face (it still slews, lights and fires) and hands back
+  // each moving frame's matrix from rest; the faces are drawn once at rest per battery (aa-emplacement.js `rest`),
+  // kept by frame, and sent as groups placed by those matrices (bayGroup's xf, the solids' uGroupM).
+  if (part === 'dynamic' && toGL && RENDER_TUNE.aaGPU !== 0 && TUNE.glRetain !== 0) {
+    const XF = {};
+    drawAAEmplacement({ ...args, noFaces: true, xf: XF });
+    // The rest set, in the window's frame: kept until the battery's state or the window changes.
+    const ox = cam.ox || 0, oy = cam.oy || 0;
+    const key = (aa.k || '') + '|' + s + '|' + (open || '') + '|' + (shift || '') + '|' + Math.round((it.dx + ox) * 1e6) + ',' + Math.round((it.dy + oy) * 1e6);
+    let K = AA_REST.get(it.c);
+    if (!K || K.key !== key) {
+      K = { key, by: {} };
+      drawAAEmplacement({ ...args, alpha: 1, rest: true, light: null, xf: null, face: (pts, rgb, a, n, mat, tag) => {
+        const L = K.by[tag || 'yaw'] || (K.by[tag || 'yaw'] = []);
+        L.push(n ? { p: pts.map(([x, y, z]) => [x + ox, y + oy, z]), rgb, a, n, amb: true, tex: mat === 'metal' ? -3 : mat === 'glass' ? -4 : -2 }
+          : { p: pts.map(([x, y, z]) => [x + ox, y + oy, z]), rgb, a });
+      } });
+      AA_REST.set(it.c, K);
+    }
+    for (const tag in K.by) {
+      const M = XF[tag];
+      if (!M) continue;
+      // The matrix is in the camera's frame; the records are in the window's, `o` = (ox, oy) away: T(o) M T(-o).
+      const W = M.slice();
+      W[12] = M[12] + ox - (M[0] * ox + M[4] * oy);
+      W[13] = M[13] + oy - (M[1] * ox + M[5] * oy);
+      W[14] = M[14] - (M[2] * ox + M[6] * oy);
+      bayGroup(K.by[tag], alpha, W);
+    }
+  } else drawAAEmplacement(args);
   if (!toGL && soft.length) {
     soft.sort((p, q) => q.f - p.f);
     emitFace(od, () => {
@@ -47794,6 +47990,8 @@ const GPU_KIT_HALF = 1.5;
 // The street kit is culled only at a walker's eye height or below (a walker's eye is 0.09 tiles, a cab's 0.12).
 const GPU_KIT_EH = 0.1;
 function gpuHidden(wx, wy, c, h = null, half = 0.5) {
+  if (APER && apertureHidden(wx, wy, half)) { if (PERF.on) { PERF.n.aperAsk++; PERF.n.aperSkip++; } return true; }
+  if (APER && PERF.on) PERF.n.aperAsk++;
   const a = GPU_ANS; if (!a) return false;
   const b = _gpuBox, ox = a.wc[0], oy = a.wc[1], p = half + GPU_PAD;
   b[0] = wx - p - ox; b[1] = wy - p - oy; b[2] = wx + p - ox; b[3] = wy + p - oy;
@@ -47805,6 +48003,62 @@ function gpuHidden(wx, wy, c, h = null, half = 0.5) {
   if (r.at !== a.at) { r.n = hid ? r.n + 1 : 0; r.at = a.at; } else if (!hid) r.n = 0;
   if (PERF.on) { PERF.n.gpuAsk++; if (r.n >= 2) PERF.n.gpuSkip++; }
   return r.n >= 2;
+}
+// ── INSIDE: ONLY WHAT THE WAYS OUT LOOK ONTO (docs/proposals/foot-occlusion.md, "Inside a building") ──────────────────────────
+// Inside a building under its roof, the street can only be seen through the panes of the rooms being drawn and the
+// building's street doors. Each one, seen from the eye, is a wedge of bearings; a tile whose own wedge meets none of
+// them can't be seen, this frame, with no readback and no wait. Flat on purpose: height is left out, so the test only
+// ever keeps too much. Every pane of every room in the frame counts, not only your room's, so a pane through an open
+// doorway into the next room is still a way out. Tiles within APER_NEAR of the eye are always kept (your own building).
+// No roof (a roof deck, a balcony: `roofed` false) and the test is off. The profiler counts aperAsk/aperSkip.
+let APER = null;
+const APER_NEAR = 1.5, APER_PAD = 0.02;   // tiles; radians of slack on each wedge
+function apertureFrame(v, cam) {
+  const list = interiorUpload(v, cam);
+  if (!list || !list.length || !v.mapCenter) return null;
+  const ox = v.mapCenter.x + ((v.mapOffset && v.mapOffset.x) || 0), oy = v.mapCenter.y + ((v.mapOffset && v.mapOffset.y) || 0);
+  const back = cam.back || 0, ex = ox + (cam.fx || 0) - back * (cam.sinh || 0), ey = oy + (cam.fy || 0) + back * (cam.cosh || 0);
+  const quads = [];
+  for (const r of list) for (const q of r.panes || []) quads.push(q.quad);
+  // the street doors, open or not: a leaf may be glass, and a shut one opens as you reach it
+  const doors = v.streetDoors ? streetPortals(v.streetDoors, list, ox, oy) : null;
+  if (doors) for (const d of doors) quads.push(d.quad);
+  const ws = [];
+  for (const quad of quads) {
+    const w = wedgeOf(ex, ey, quad.map((p) => [p[0] + ox, p[1] + oy]));
+    if (!w) return null;   // the eye is in the opening's own plane or over it: don't guess
+    ws.push(w);
+  }
+  return { ex, ey, ws };
+}
+// the bearings a set of points covers from (ex, ey), as [centre, half-width], or null when they straddle the eye
+function wedgeOf(ex, ey, pts) {
+  const c = Math.atan2(pts.reduce((s, p) => s + p[1], 0) / pts.length - ey, pts.reduce((s, p) => s + p[0], 0) / pts.length - ex);
+  let lo = 0, hi = 0;
+  for (const p of pts) {
+    const dx = p[0] - ex, dy = p[1] - ey;
+    if (dx * dx + dy * dy < 1e-6) return null;
+    let d = Math.atan2(dy, dx) - c;
+    d -= Math.round(d / (2 * Math.PI)) * 2 * Math.PI;
+    if (d < lo) lo = d; if (d > hi) hi = d;
+  }
+  if (hi - lo >= Math.PI * 0.95) return null;
+  return [c + (lo + hi) / 2, (hi - lo) / 2 + APER_PAD];
+}
+const _aperPts = [[0, 0], [0, 0], [0, 0], [0, 0]];
+function apertureHidden(wx, wy, half) {
+  const A = APER;
+  if (Math.max(Math.abs(wx - A.ex), Math.abs(wy - A.ey)) < APER_NEAR + half) return false;
+  _aperPts[0][0] = wx - half; _aperPts[0][1] = wy - half; _aperPts[1][0] = wx + half; _aperPts[1][1] = wy - half;
+  _aperPts[2][0] = wx + half; _aperPts[2][1] = wy + half; _aperPts[3][0] = wx - half; _aperPts[3][1] = wy + half;
+  const t = wedgeOf(A.ex, A.ey, _aperPts);
+  if (!t) return false;
+  for (const w of A.ws) {
+    let d = t[0] - w[0];
+    d -= Math.round(d / (2 * Math.PI)) * 2 * Math.PI;
+    if (Math.abs(d) <= t[1] + w[1]) return false;
+  }
+  return true;
 }
 // A slab at our own depth hides nothing. One number, shared by every reader of the field, so the
 // contact that vanishes and the own ship that gets clipped can never disagree about the margin.
@@ -51187,6 +51441,14 @@ const poseMoved = (p, q) => Math.hypot(p.x - q.x, p.y - q.y, p.z - q.z) > 0.02 |
 const LIVE_AT_PARK = { x: 2, y: 3, now: 7 }, LIVE_AT_6 = { x: 2, y: 3, now: 6 }, LIVE_AT_7 = { x: 2, y: 3, now: 7 }, LIVE_AT_8 = { x: 2, y: 3, now: 8 }, LIVE_AT_10 = { x: 2, y: 3, now: 10 };
 const armMarks = () => [SPRITE_SINK ? SPRITE_SINK.length : 0, STROKE_SINK ? STROKE_SINK.length : 0, DECAL_SINK ? DECAL_SINK.length : 0,
   BAY_SINK ? BAY_SINK.length : 0, ARM_RAIN ? ARM_RAIN.length : 0];
+// A model file's own moving piece as a live part (sixty-fps.md step 6): `fn(ctx, cam, x, y, …)` with x, y
+// in the camera's frame and the arm's own `now` at argument `nowAt`. Every other position it draws from must
+// be worked out from x, y inside fn, never handed over in a closure: a replay moves only x and y.
+const LIVE_AT_N = [];
+export function armLivePart(fn, nowAt, args) {
+  if (ARM_LIVE) return armLiveCall(fn, LIVE_AT_N[nowAt] || (LIVE_AT_N[nowAt] = { x: 2, y: 3, now: nowAt }), args);
+  return fn.apply(null, args);
+}
 function armLiveCall(fn, at, args) {
   const live = ARM_LIVE, a = Array.prototype.slice.call(args);
   if (a[at.now] !== ARM_NOW) ARM_LIVE_BAD = true;
@@ -51433,14 +51695,7 @@ function armReplay(e, ox, oy, cam, census, ctx, now, retain = true, cx = 0, cy =
       // about 900 smoothed faces a frame on the marrow-foot route. Its film still streams: the layer draws film as its
       // own range after the opaque world, and a retained group is drawn with the opaque. The frame's sky the metals
       // reflect goes over on the list (metalEnv), since no streamed metal may be left to bring it.
-      const keepM = RENDER_TUNE.markMetalKeep !== 0;
-      if (!e.rec.baSplit || e.rec.baSplit.keepM !== keepM) {
-        const metal = keepM ? e.rec.ba.filter((q) => q.m && !q.film) : [];
-        if (metal.length) smoothMetalSet(metal);
-        e.rec.baSplit = { keepM, plain: e.rec.ba.filter((q) => !q.m && !q.film), metal,
-          rest: e.rec.ba.filter((q) => keepM ? q.film : (q.m || q.film)) };
-      }
-      const S = e.rec.baSplit;
+      const S = markSplit(e.rec);
       if (S.plain.length) bayGroup(S.plain);
       if (S.metal.length) { bayGroup(S.metal); if (MARK_METAL_ENV) BAY_SINK.metalEnv = MARK_METAL_ENV; }
       for (const q of S.rest) BAY_SINK.push(q);
@@ -51467,6 +51722,19 @@ function armReplay(e, ox, oy, cam, census, ctx, now, retain = true, cx = 0, cy =
   }
   armKeepStats.replayed++;
   return true;
+}
+// A kept mark's faces in the three lots armReplay sends them as: plain and (with markMetalKeep) metal as
+// retained groups, the metal smoothed once among itself, and the rest (film, or metal with the switch off)
+// streamed. Made once a set and kept on it.
+function markSplit(rec) {
+  const keepM = RENDER_TUNE.markMetalKeep !== 0;
+  if (!rec.baSplit || rec.baSplit.keepM !== keepM) {
+    const metal = keepM ? rec.ba.filter((q) => q.m && !q.film) : [];
+    if (metal.length) smoothMetalSet(metal);
+    rec.baSplit = { keepM, plain: rec.ba.filter((q) => !q.m && !q.film), metal,
+      rest: rec.ba.filter((q) => keepM ? q.film : (q.m || q.film)) };
+  }
+  return rec.baSplit;
 }
 // armReplay's `put`, made once rather than per replay (allocPool 32).
 function armPut(sink, recs, retainOn, ox, oy, cx, cy) {
@@ -51526,7 +51794,21 @@ function armFadePut(e, k, census, cam) {
   for (const s of R.sp) SPRITE_SINK.push({ ...s, a: s.a * k });
   if (STROKE_SINK) for (const s of R.st) STROKE_SINK.push({ ...s, alpha: s.alpha * k });
   if (DECAL_SINK) for (const d of R.de) DECAL_SINK.push({ ...d, alpha: (d.alpha == null ? 1 : d.alpha) * k });
-  if (BAY_SINK) for (const q of R.ba) BAY_SINK.push({ ...q, a: q.a * k });
+  // ⚠ THE FACES GO AS THE GROUP THEY ARE AT FULL ALPHA, with the fade as the group's alpha (RENDER_TUNE.armFadeGPU):
+  // the solids layer multiplies every vertex's alpha by it, which is what scaling each record did. So a building
+  // in the band is written to the GPU once, and the same array is already there when it's fully in. Copied, they
+  // were about 240 records a frame streamed on the marrow-foot route, every one a mark's. A mark's go as
+  // armReplay sends them at full alpha (markSplit), the groups at the fade and its film still copied.
+  if (BAY_SINK && R.ba.length) {
+    if (RENDER_TUNE.armFadeGPU === 0 || TUNE.glRetain === 0) for (const q of R.ba) BAY_SINK.push({ ...q, a: q.a * k });
+    else if (!ARM_MARK) bayGroup(R.ba, k);
+    else {
+      const S = markSplit(R);
+      if (S.plain.length) bayGroup(S.plain, k);
+      if (S.metal.length) { bayGroup(S.metal, k); if (MARK_METAL_ENV) BAY_SINK.metalEnv = MARK_METAL_ENV; }
+      for (const q of S.rest) BAY_SINK.push({ ...q, a: q.a * k });
+    }
+  }
   if (census && RAIN_LIGHTS) for (const r of R.rain) {
     const a = r[6] * k; if (!(a > 0.05)) continue;
     const g = cam.proj(r[0], r[1], r[2]); if (g.f <= 0.12) continue;
@@ -51897,6 +52179,8 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
   const LITE = LITE_ALL ? LITE_ANY : null;
   // the GPU's occlusion answer this frame may stand on, or none (gpuOcc 2, foot-occlusion.md phase 2)
   gpuOccFrame(cam, wcx, wcy);
+  // and, inside a building under its roof, which ways out of it the eye can see at all (apertureFrame)
+  APER = glOn && v.interiorInside && v.roofed === true && TUNE.aperture !== 0 ? apertureFrame(v, cam) : null;
   // The window Lite's tiles are kept on the GPU in (gl/lite.js emitTile): the camera's offset in it,
   // and which window it is, as armReplay's groups carry. null sends them down the stream.
   const LITE_G = LITE_ANY && TUNE.glRetain !== 0 ? { ox: cam.ox || 0, oy: cam.oy || 0, w: wcx * 1e5 + wcy } : null;
@@ -51956,7 +52240,8 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
   // A boat seat's berth boxes (glass/berth-marks.js). Strokes and a decal, so here with the sinks open.
   if (v.berthMarks) drawBerthMarks(ctx, cam, v, now);
   // The doors of the buildings somebody on foot can walk into (glass/street-doors.js): decals that move, so here.
-  if (v.streetDoors) drawStreetDoors(ctx, cam, v, now, nightAt(v.hour), glOn ? portalTiles(v, cam) : null);
+  // A person going in or out of one of them opens it too (glass/npc-doors.js npcDoorsOnto): one door, drawn once.
+  if (v.streetDoors) { npcDoorsOnto(v.streetDoors, now); drawStreetDoors(ctx, cam, v, now, nightAt(v.hour), glOn ? portalTiles(v, cam) : null); }
   // The doors people on the street are going in and out of (glass/npc-doors.js), for the same reason.
   if (!LITE || TUNE.liteLife) drawNpcDoors(ctx, cam, v, now, nightAt(v.hour));
   // A boat seat's rod mode (glass/rod-rig.js): strokes on the water, and the angler as solids, so
@@ -52131,7 +52416,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     // ⚠ A building the grid has left dark emits its noon set, as powerNight makes its arm draw noon.
     if (LITE_ANY && c.bt && !c.mark && (!LITE_R || Math.max(Math.abs(wx - LITE_CX), Math.abs(wy - LITE_CY)) > LITE_R) && LITE_ANY.has(wx, wy, c)) {
       // ⚠ hidden behind the mass on two answers running (gpuHidden), its signs, lights and masts aren't sent
-      if (!off && !(GPU_ANS && gpuHidden(wx, wy, c))) {
+      if (!off && !((GPU_ANS || APER) && gpuHidden(wx, wy, c))) {
         const wm = winModeForCell(c), nt = wm === WIN_ON || wm === WIN_BROWN ? night : 0;
         LITE_ANY.emit(wx, wy, dx, dy, alpha, nt, SPRITE_SINK, DECAL_SINK, STROKE_SINK, f, TUNE, LITE_LIVE, LITE_G);
         for (let i = 0; i < LITE_LIVE.length; i++) liteLiveDraw(ctx, cam, LITE_LIVE[i], dx, dy, nt, alpha, now);
@@ -53242,7 +53527,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
       if (STROKE_SINK) STROKE_SINK.deep = true;
       if (DECAL_SINK) DECAL_SINK.atlas = TUNE.glDecalAtlas;
       pBegin('gl:hook');
-      const out = GL_HOOK(GL_CELLS, cam, { night, nb: clamp((night - 0.30) / 0.20, 0, 1), host: GL_HOST, id: GL_ID, far: FAR, haze: HAZE_BAND, fog: FOG_STATE, skyBand: SKY_BAND, light: LIGHT_STATE, sprites: SPRITE_SINK, strokes: STROKE_SINK, ownWater: OWN_WATER_Z, glLights: TUNE.glLights, glNeonTube: TUNE.glNeonTube, glNeonFlicker: TUNE.glNeonFlicker, glAO: TUNE.glAO, glBakedAo: TUNE.glBakedAo, msaa: TUNE.glMsaa, glTransfer: TUNE.glTransfer, glFxaa: TUNE.glFxaa, glShadow: TUNE.glShadow, glShadowNear: TUNE.glShadowNear, glPropShadow: TUNE.glPropShadow, glCloudShadow: TUNE.glCloudShadow, glSunShafts: TUNE.glSunShafts, glLampShadow: TUNE.glLampShadow,glWet: wetGround(), glPond: pondGround(), glFogH: fogGround(), glScatter: scatterGround(), glPool: TUNE.glPool, glNightDark: (TUNE.nightDark || 0) * (1 - moonLift(sun)), glSnow: snowGround(), glPudRoad: TUNE.glPudRoad, glPuddle: TUNE.glPuddle, glMirrorMass: TUNE.glMirrorMass, glHazeSplit: TUNE.glHazeSplit, glMassCull: TUNE.glMassCull, glDuskGPU: TUNE.glDuskGPU, glMirrorSky: TUNE.glMirrorSky, glWetDark: TUNE.glWetDark, glGroundBias: TUNE.glGroundBias, lids: lidUpload(), glRipple: TUNE.glRipple, glGlint: TUNE.glGlint, glMirror: TUNE.glMirror, glMirrorRes: TUNE.glMirrorRes, glMat: TUNE.glMat, glSpec: TUNE.glSpec, glBump: TUNE.glBump, glMatPage: TUNE.glMatPage, massKeep: TUNE.massKeep, atlasGrow: TUNE.atlasGrow, glEnvCube: TUNE.glEnvCube, glGGX: TUNE.glGGX, envSky: SKY_ENV, glSurfPage: TUNE.glSurfPage, glHeightGain: TUNE.glHeightGain, glEnvCity: TUNE.glEnvCity, glEnvDim: TUNE.glEnvDim, glBevel: TUNE.glBevel, glSsao: TUNE.glSsao, glSsaoRes: TUNE.glSsaoRes, gpuOcc: TUNE.gpuOcc, glToon: TUNE.glToon, glToonBands: TUNE.glToonBands, glInk: TUNE.glInk, glInkPx: TUNE.glInkPx, glInkFar: TUNE.glInkFar, glLightSlots: TUNE.glLightSlots, glCluster: TUNE.glCluster, glTaa: TUNE.glTaa, nearFit: TUNE.nearFit, glHdr: TUNE.glHdr, glLinear: TUNE.glLinear, glBloom: TUNE.glBloom, glTonemap: TUNE.glTonemap, glExposure: TUNE.glExposure, glNightSat: TUNE.glNightSat, sun, worldBlend: WORLD_BLEND,
+      const out = GL_HOOK(GL_CELLS, cam, { night, nb: clamp((night - 0.30) / 0.20, 0, 1), host: GL_HOST, id: GL_ID, far: FAR, haze: HAZE_BAND, fog: FOG_STATE, skyBand: SKY_BAND, light: LIGHT_STATE, sprites: SPRITE_SINK, strokes: STROKE_SINK, ownWater: OWN_WATER_Z, glLights: TUNE.glLights, glNeonTube: TUNE.glNeonTube, glNeonFlicker: TUNE.glNeonFlicker, glAO: TUNE.glAO, glBakedAo: TUNE.glBakedAo, msaa: TUNE.glMsaa, glTransfer: TUNE.glTransfer, glFxaa: TUNE.glFxaa, glShadow: TUNE.glShadow, glShadowNear: TUNE.glShadowNear, glPropShadow: TUNE.glPropShadow, glCloudShadow: TUNE.glCloudShadow, glSunShafts: TUNE.glSunShafts, glLampShadow: TUNE.glLampShadow,glWet: wetGround(), glPond: pondGround(), glFogH: fogGround(), glScatter: scatterGround(), glPool: TUNE.glPool, glNightDark: (TUNE.nightDark || 0) * (1 - moonLift(sun)), glSnow: snowGround(), glPudRoad: TUNE.glPudRoad, glPuddle: TUNE.glPuddle, glMirrorMass: TUNE.glMirrorMass, glHazeSplit: TUNE.glHazeSplit, glMassCull: TUNE.glMassCull, glDuskGPU: TUNE.glDuskGPU, glMirrorSky: TUNE.glMirrorSky, glWetDark: TUNE.glWetDark, glGroundBias: TUNE.glGroundBias, lids: lidUpload(), glRipple: TUNE.glRipple, glGlint: TUNE.glGlint, glMirror: TUNE.glMirror, glMirrorRes: TUNE.glMirrorRes, glMirrorEvery: TUNE.glMirrorEvery, glMat: TUNE.glMat, glSpec: TUNE.glSpec, glBump: TUNE.glBump, glMatPage: TUNE.glMatPage, massKeep: TUNE.massKeep, atlasGrow: TUNE.atlasGrow, glEnvCube: TUNE.glEnvCube, glGGX: TUNE.glGGX, envSky: SKY_ENV, glSurfPage: TUNE.glSurfPage, glHeightGain: TUNE.glHeightGain, glEnvCity: TUNE.glEnvCity, glEnvDim: TUNE.glEnvDim, glBevel: TUNE.glBevel, glSsao: TUNE.glSsao, glSsaoRes: TUNE.glSsaoRes, gpuOcc: TUNE.gpuOcc, glToon: TUNE.glToon, glToonBands: TUNE.glToonBands, glInk: TUNE.glInk, glInkPx: TUNE.glInkPx, glInkFar: TUNE.glInkFar, glLightSlots: TUNE.glLightSlots, glCluster: TUNE.glCluster, glTaa: TUNE.glTaa, nearFit: TUNE.nearFit, glHdr: TUNE.glHdr, glLinear: TUNE.glLinear, glBloom: TUNE.glBloom, glTonemap: TUNE.glTonemap, glExposure: TUNE.glExposure, glNightSat: TUNE.glNightSat, sun, worldBlend: WORLD_BLEND,
         // ⚠ THE DECK, FOR THE REFLECTION AND FOR NOTHING ELSE IN THIS PASS. It is DRAWN by the
         // second hook after the world is blitted; what the world pass wants it for is the mirror
         // prepass, which is the only chance a puddle gets to be handed a sky.

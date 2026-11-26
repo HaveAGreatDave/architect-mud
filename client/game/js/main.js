@@ -1,5 +1,6 @@
 import { textRungCommand } from './panels/lazy-views.js';
 import { cityTuneFor } from './panels/gl/house-style.js';
+import { setFrameCap } from '/shared/frame-pace.js';
 import { command as textAlarmCommand } from './panels/textalarm.js';
 import { command as textSynthCommand } from './panels/textsynth.js';
 import {
@@ -193,6 +194,17 @@ window._applyGlass = (mode) => {
 	glassPicked = mode;
 	window.__glassModePending = mode;
 	window.__setGlassMode?.(mode);
+};
+// Settings → Graphics. The frame cap wraps requestAnimationFrame for every view (shared/frame-pace.js);
+// GLASS's options go to windshield.js `setGfx` the same way as the renderer, and only on a change.
+window._applyFrameCap = setFrameCap;
+let gfxPicked = null;
+window._applyGfx = (g) => {
+	const key = JSON.stringify(g);
+	if (key === gfxPicked) return;
+	gfxPicked = key;
+	window.__gfxPending = g;
+	window.__setGfx?.(g);
 };
 // GLASS Lite taking over from a struggling GLASS 2 (windshield.js watchStruggle), said once.
 window.addEventListener("glass:lite", () => {

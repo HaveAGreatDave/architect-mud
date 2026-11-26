@@ -18,6 +18,9 @@ export const PLACES = {
 export const SEATS = {
   cab: { cls: 'truck', height: 0, eyeH: 0.12, speed: 0.15, R: 14 },
   cockpit: { cls: 'prop', height: 0.5, speed: 0.4, R: 36 },
+  // The street on foot: the freelook plugin sends a 36-tile window (FLIGHT_RADIUS). movecost --foot sets the
+  // rest of the street view's terms (foot-tune.js).
+  foot: { cls: 'truck', height: 0, speed: 0, R: 36 },
 };
 
 const r6 = (x) => (typeof x === 'number' ? Math.round(x * 1e6) / 1e6 : typeof x === 'string' ? x : typeof x);
@@ -72,7 +75,23 @@ export async function openScene({ record = true, cloth = false } = {}) {
   ws.installGLWorld((cells, cam, o) => {
     // The kit's retained sets are flattened for the tools that compare records. Not for the alloc tool,
     // which would be charged for the copy.
-    const bay = record && o.bay ? o.bay.concat(...(o.bay.sets || []), o.bay.fades || []) : o.bay;
+    // A group drawn at an alpha of its own (bayGroup's `ka`: a kept building or kit part in the haze band) is
+    // flattened as the solids layer draws it, each record at its alpha times the group's.
+    let flat = o.bay;
+    // A placed group (bayGroup's `xf`, the solids' uGroupM) is flattened where the shader puts it: each point and
+    // normal through the matrix.
+    const placed = (g) => (g.ka != null && g.ka !== 1) || g.xf;
+    if (record && o.bay && o.bay.groups && o.bay.groups.some(placed)) {
+      flat = o.bay.slice();
+      const X = (M, p) => [M[0] * p[0] + M[4] * p[1] + M[8] * p[2] + M[12], M[1] * p[0] + M[5] * p[1] + M[9] * p[2] + M[13], M[2] * p[0] + M[6] * p[1] + M[10] * p[2] + M[14]];
+      const N = (M, n) => [M[0] * n[0] + M[4] * n[1] + M[8] * n[2], M[1] * n[0] + M[5] * n[1] + M[9] * n[2], M[2] * n[0] + M[6] * n[1] + M[10] * n[2]];
+      for (const g of o.bay.groups) if (placed(g)) for (let i = 0; i < g.recs.length; i++) {
+        const q = g.recs[i], r = { ...q, a: q.a * (g.ka ?? 1) };
+        if (g.xf) { r.p = q.p.map((p) => X(g.xf, p)); if (Array.isArray(q.n)) r.n = N(g.xf, q.n); }
+        flat[g.at + i] = r;
+      }
+    }
+    const bay = record && o.bay ? flat.concat(...(o.bay.sets || []), o.bay.fades || []) : o.bay;
     sinks = { sprites: o.sprites, strokes: o.strokes, decals: o.decals, scatter: o.scatter, ground: o.ground, bay, curtain: o.curtain, ship: o.ship };
     if (cloth) sinks.cloth = (o.fauna || []).filter((r) => r.cloth);
     return { canvas: glCanvas, faces: 0 };

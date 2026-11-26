@@ -1,7 +1,8 @@
 {
   "description": null,
   "flags": {
-    "interactions": []
+    "interactions": [],
+    "wealth": "poor"
   },
   "id": "item_furn_payphone_husk",
   "name": "dead payphone",

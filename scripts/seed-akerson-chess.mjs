@@ -12,10 +12,14 @@
 //   local:  node scripts/seed-akerson-chess.mjs
 //   prod:   node --env-file=.env.prod scripts/seed-akerson-chess.mjs
 import 'dotenv/config';
+import fs from 'node:fs';
 import { query } from '../server/models/db.js';
 
 const TABLE_ID = 'gametable_akerson_chess';
-const ZONE_ID = 'zone_solenne_penthouse';
+// the table's room is wherever its furniture file puts it, so a re-plan of the flat only needs a re-run
+const ZONE_ID = JSON.parse(fs.readFileSync(new URL('../content/furniture/furn_penthouse_chess_table.json', import.meta.url), 'utf8')).zone_id;
+// the rooms of his flat: he's home in any of them, and a challenge brings him through to the board
+const HOME = ['zone_solenne_penthouse', 'zone_solenne_penthouse_2', 'zone_solenne_penthouse_3', 'zone_solenne_penthouse_4', 'zone_solenne_penthouse_bath', 'zone_solenne_penthouse_e'];
 const NAME = "Akerson's Board";
 
 const CONFIG = {
@@ -23,7 +27,7 @@ const CONFIG = {
   stake: 0,
   moveTimerSecs: 180,
   rematchDelaySecs: 20,
-  practice: { npc: 'npc_john_akerson', chair: 'furn_penthouse_chess_chair_host', tier: 'known' },
+  practice: { npc: 'npc_john_akerson', chair: 'furn_penthouse_chess_chair_host', tier: 'known', home: HOME },
 };
 
 async function main() {

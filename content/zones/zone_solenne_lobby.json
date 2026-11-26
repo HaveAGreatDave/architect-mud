@@ -1,12 +1,12 @@
 {
   "ambient_events": [
     "The manager says something quiet into a headset and nods you through.",
-    "Behind the bronze doors the lift settles with a soft thump."
+    "Behind the black-and-gold doors the lift settles with a soft thump."
   ],
   "ambient_theme": "indoors",
   "bg_color": "#2a3947",
   "color": "#e6d9c2",
-  "description": "A two-storey hotel lobby floored in white marble, the walls dark and trimmed in gold. Solenne is lettered in gold over the lift, and a big flatscreen hangs over the reception desk, where the manager stands. An oxblood banquette faces a marble console of green apples. Parcel lockers and a Cryocell take deliveries. The lift is in the back wall. The street is <b>south</b>, through sliding glass doors; step <b>in</b> to the lift.",
+  "description": "A two-storey hotel lobby floored in black marble, the walls and ceiling black and trimmed in gold. A big flatscreen hangs over the reception desk, where the manager stands. A banquette faces a marble console of green apples. Parcel lockers and a Cryocell take deliveries. The lift is in the back wall. The street is <b>south</b>, through sliding glass doors; step <b>in</b> to the lift.",
   "exits": {
     "down": "zone_util_zone_solenne_lobby",
     "in": "zone_solenne_elevator",
@@ -19,8 +19,7 @@
     "is_building": true,
     "is_interior": true,
     "room": {
-      "balcony": false,
-      "d": 11.5,
+      "d": 6.5,
       "decor": {
         "art": [
           {
@@ -36,13 +35,13 @@
           "band": 0.62,
           "cell": 1.9,
           "drop": 0.18,
-          "hex": "#221d1a",
+          "hex": "#121214",
           "kind": "coffer",
-          "trim": "#b8913e"
+          "trim": "#c9a14a"
         },
         "downlights": false,
         "floor": {
-          "border": "#1a1714",
+          "border": "#050506",
           "inset": 0.75,
           "line": "#c9a14a",
           "medallion": [
@@ -113,9 +112,9 @@
         ],
         "runner": {
           "along": "v",
-          "border": "#c9a24a",
+          "border": "#c9a14a",
           "end": 0,
-          "hex": "#7a1a22",
+          "hex": "#101214",
           "span": [
             0,
             3.8
@@ -144,7 +143,7 @@
           "y": 2.1
         },
         "walls": {
-          "hex": "#6e5c4c",
+          "hex": "#18181a",
           "kind": "stone",
           "pitch": 1.25,
           "y1": 3.3
@@ -156,49 +155,45 @@
       },
       "face": 180,
       "finish": "fine",
+      "glass": [
+        "front"
+      ],
       "ground": "marble",
       "h": 3.3,
-      "sign": {
-        "at": 0,
-        "size": 0.45,
-        "sub": "RESIDENCES",
-        "text": "SOLENNE",
-        "wall": "back",
-        "y": 2.6
-      },
+      "panes": [
+        {
+          "a": -4.8,
+          "b": -1.65,
+          "wall": "front",
+          "y0": 0.05,
+          "y1": 2.7
+        },
+        {
+          "a": 1.65,
+          "b": 4.8,
+          "wall": "front",
+          "y0": 0.05,
+          "y1": 2.7
+        }
+      ],
       "street_door": {
         "handle": "s",
         "kind": "swing",
         "monogram": "S",
-        "runner": "#7a1a22",
+        "runner": "#101214",
         "runner_m": 4.2,
-        "trim": "#c9a24a",
+        "trim": "#c9a14a",
         "w": 3.2
       },
       "studio": false,
       "tone": {
         "accent": "#c9a14a",
-        "ceiling": "#2a2522",
-        "trim": "#17130f",
-        "wall": "#2e2925"
+        "ceiling": "#121214",
+        "trim": "#0a0a0b",
+        "wall": "#141416",
+        "floor": "#0e0e10"
       },
-      "w": 15,
-      "panes": [
-        {
-          "wall": "front",
-          "a": -4.8,
-          "b": -1.65,
-          "y0": 0.05,
-          "y1": 2.7
-        },
-        {
-          "wall": "front",
-          "a": 1.65,
-          "b": 4.8,
-          "y0": 0.05,
-          "y1": 2.7
-        }
-      ]
+      "w": 15
     },
     "sanctuary": true,
     "window": {

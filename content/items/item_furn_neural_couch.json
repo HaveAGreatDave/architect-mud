@@ -4,7 +4,8 @@
     "interactions": [
       "sit",
       "lie"
-    ]
+    ],
+    "wealth": "rich"
   },
   "id": "item_furn_neural_couch",
   "name": "neural interface couch",

@@ -71,6 +71,10 @@ const ROOM_FIT_OK = {
   // record a doorway in. Take these off when the parking deck gets its arm.
   zone_apark_lobby: 'Airport Parking Plaza is a vtol_park, which has no GLASS model yet',
   zone_sdeck_lobby: 'Marrow Street Parking is a vtol_park, which has no GLASS model yet',
+  // Added 2026-11-25 when their Stage rooms landed: both facades draw through generic arms (shopArm, residential)
+  // that record no doorway. Take these off once those arms call markDoorway.
+  zone_otoole_interior: "Rusty O'Toole's is a shop facade, and shopArm doesn't record its doorway yet",
+  zone_restassured_hall: 'Rest Assured is a residential facade, which records no doorway yet',
 };
 for (const r of rooms) {
   const sd = r.flags.room.street_door, kind = streetDoorKind(sd);

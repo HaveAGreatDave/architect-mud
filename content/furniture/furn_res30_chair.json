@@ -8,10 +8,6 @@
     "look": {
       "arche": "seat",
       "form": "chair"
-    },
-    "spot": {
-      "along": -1.3,
-      "wall": "front"
     }
   },
   "hp": null,

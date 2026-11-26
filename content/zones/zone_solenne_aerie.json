@@ -7,7 +7,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#1b2733",
   "color": "#e8ddc6",
-  "description": "The members' room at the waist of the tower, nineteen floors up, where the Solenne is narrowest: glass on three sides, so the city is all round you and the stem flares away above and below. Deep chairs, a long bar, and staff who never ask your name twice. The hall is <b>south</b>.",
+  "description": "The members' room at the waist of the tower, fourteen floors up: glass on three sides, so the city is all round you. Deep chairs, a long bar, and staff who never ask your name twice. The hall is <b>south</b>.",
   "exits": {
     "south": "zone_solenne_hall_41"
   },
@@ -17,7 +17,7 @@
     "is_interior": true,
     "room": {
       "balcony": false,
-      "d": 5.2,
+      "d": 4.42,
       "decor": {
         "ceiling": {
           "band": 0.5,
@@ -68,8 +68,8 @@
       "finish": "fine",
       "glass": [
         "front",
-        "left",
-        "right"
+        "right",
+        "left"
       ],
       "h": 3.6,
       "studio": false,
@@ -79,15 +79,16 @@
         "trim": "#11161b",
         "wall": "#27313a"
       },
-      "w": 10.6
+      "w": 13
     },
     "sanctuary": true
   },
   "grid_x": 0,
-  "grid_y": -1,
-  "grid_z": 8,
+  "grid_y": -2,
+  "grid_z": 14,
   "id": "zone_solenne_aerie",
   "map_id": "map_int_solenne",
+  "marker": "14",
   "name": "The Aerie",
   "parent_zone": "zone_district_914_908"
 }

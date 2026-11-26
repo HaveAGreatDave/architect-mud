@@ -115,4 +115,29 @@ export async function saveDecor(zoneId, moves) {
   MOVED.set(zoneId, next);
 }
 
+// STAFF TAKING DECOR OUT (the arrange mode's Remove, adminHere only): the file's decor with the entries at `ids`
+// spliced out, and the room's overrides re-keyed to the indices that are left, so a moved picture stays where it was
+// put. Returns { decor, moved } for the caller to write to the zone and to room_plants.
+export function dropDecor(zoneId, decor, ids) {
+  const gone = new Map();   // key → Set of indices
+  for (const id of ids) { const [, key, i] = String(id).split(':'); if (!gone.has(key)) gone.set(key, new Set()); gone.get(key).add(+i); }
+  const out = { ...decor }, was = MOVED.get(zoneId) || {}, moved = {};
+  for (const [k, spot] of Object.entries(was)) {
+    const [key, i] = k.split(':'), g = gone.get(key);
+    if (!g) { moved[k] = spot; continue; }
+    if (g.has(+i)) continue;
+    moved[`${key}:${+i - [...g].filter((x) => x < +i).length}`] = spot;
+  }
+  for (const [key, g] of gone) {
+    if (!Array.isArray(decor[key])) { if (g.has(0)) delete out[key]; continue; }
+    out[key] = decor[key].filter((_, i) => !g.has(i));
+    if (!out[key].length) delete out[key];
+  }
+  return { decor: out, moved };
+}
+export async function saveDecorOverrides(zoneId, moved) {
+  await query('UPDATE room_plants SET decor = $2::jsonb, updated_at = now() WHERE zone_id = $1', [zoneId, JSON.stringify(moved)]);
+  MOVED.set(zoneId, moved);
+}
+
 export const _decorTest = { MOVED };

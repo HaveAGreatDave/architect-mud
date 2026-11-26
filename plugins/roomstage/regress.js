@@ -14,7 +14,7 @@ import { _test } from './index.js';
 import { pieceActs } from '../../client/shared/room-acts.js';
 import { ritualOf, actOfDrug } from './acts.js';
 import { fillLevel, fillOf, noteView, _fillTest } from './fill.js';
-import { decorOf, decorPieces, isDecorId, _decorTest } from './decor-pieces.js';
+import { decorOf, decorPieces, isDecorId, dropDecor, _decorTest } from './decor-pieces.js';
 import { spotFits as fitsByHand } from '../../client/shared/room-layout.js';
 
 // what each kind of sold piece should be drawn as
@@ -373,6 +373,10 @@ function decorMoves(check) {
     check('decor: an owner\'s spot is laid over the file\'s', moved.find((d) => d.key === 'art').entry.wall === 'right' && moved.find((d) => d.key === 'art').entry.at === -0.5 && moved.find((d) => d.key === 'standards').entry.at[0] === -1);
     const spec = { w: 4, d: 5, h: 2.6 }, rub = ps.find((q) => q.id === 'decor:rubbish:0'), hat = ps.find((q) => q.id === 'decor:hatstand:0');
     check('decor: rubbish lies flat (a piece stands on it) and a picture only hangs', rub.flat && fitsByHand(spec, [rub], hat, { at: [0, 3], turn: 0 }, { byHand: true }) && !fitsByHand(spec, [], art, { at: [0, 2], turn: 0 }, { byHand: true }) && fitsByHand(spec, [], art, { wall: 'left', along: 2 }, { byHand: true }));
+    // staff taking one out: the entry goes, and a later entry's spot follows it down an index
+    _decorTest.MOVED.set(Z, { 'art:0': { wall: 'left', along: 1 }, 'art:2': { wall: 'back', along: 2 } });
+    const dropped = dropDecor(Z, { ...decor, art: [decor.art[0], decor.art[0], decor.art[0]] }, ['decor:art:1', 'decor:hatstand:0']);
+    check('decor: staff remove an entry and the spots after it re-key', dropped.decor.art.length === 2 && !('hatstand' in dropped.decor) && dropped.decor.columns.length === 1 && dropped.moved['art:1']?.along === 2 && dropped.moved['art:0']?.along === 1 && !dropped.moved['art:2'], JSON.stringify(dropped.moved));
   } finally { if (was) _decorTest.MOVED.set(Z, was); else _decorTest.MOVED.delete(Z); }
 }
 

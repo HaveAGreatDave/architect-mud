@@ -3,10 +3,11 @@
   "ambient_theme": "indoors",
   "bg_color": "#2b3a34",
   "color": "#e8ddc7",
-  "description": "The whole thirty-eighth floor north of the lift, glass on two sides and the city turning slowly past it as the light shifts. A platform bed on a silk Persian rug, a black computer desk in the corner of the glass, a card table by the bar. The heating is underfoot and the silence is total. This is what money buys when it stops needing to prove anything. Leave <b>south</b> to the landing.",
+  "description": "Residence 24, the whole twenty-fourth floor and the room upstairs: glass down the west side and the city turning slowly past it as the light shifts. A card table by the bar, the kitchen in grey stone, the heating underfoot. The silence is total. This is what money buys when it stops needing to prove anything. The landing is <b>east</b>; the stair goes <b>up</b>.",
   "exits": {
+    "east": "zone_solenne_hall_38",
     "in": "zone_solenne_apt_b_bath",
-    "south": "zone_solenne_hall_38"
+    "up": "zone_solenne_apt_b_up"
   },
   "flags": {
     "building_name": "Solenne Residences",
@@ -16,10 +17,8 @@
     "rent_cost": 400,
     "rest_multiplier": 1.5,
     "room": {
-      "balcony": {
-        "wrap": "sides"
-      },
-      "d": 9.1,
+      "balcony": false,
+      "d": 11.26,
       "decor": {
         "rug": {
           "at": [
@@ -32,21 +31,30 @@
         }
       },
       "doors": {
-        "south": 0
+        "east": 1.67
       },
       "ensuite": {
         "d": 2.6,
         "dress": "spa",
         "w": 3.4
       },
+      "face": 180,
       "finish": "fine",
       "glass": [
         "front",
-        "left"
+        "right"
       ],
-      "h": 3,
-      "storeys": 40,
-      "w": 23.8
+      "h": 3.6,
+      "stair": {
+        "at": [
+          1.86,
+          5.73
+        ],
+        "climb": "back",
+        "w": 1.1
+      },
+      "storeys": 32,
+      "w": 5.02
     },
     "window": {
       "description": "A tall pane runs floor to ceiling down one wall, black-framed, holding the city out there like something in a case.",
@@ -55,12 +63,12 @@
       "visibility": 0.9
     }
   },
-  "grid_x": 0,
-  "grid_y": -2,
-  "grid_z": 13,
+  "grid_x": -1,
+  "grid_y": -1,
+  "grid_z": 24,
   "id": "zone_solenne_apt_b",
   "map_id": "map_int_solenne",
-  "marker": "38",
-  "name": "Solenne Residence 38-B",
+  "marker": "24",
+  "name": "Solenne Residence 24",
   "parent_zone": "zone_district_914_908"
 }

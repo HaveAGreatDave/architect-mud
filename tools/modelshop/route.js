@@ -27,6 +27,7 @@ import { liteReady } from '/client/game/js/panels/gl/lite.js';
 import { world, SEATS, rig, gpuClock, pinned } from './districtcost.js';
 import { ROUTES, routeTiles, routeFrames, routePeople } from './routes.js';
 import { FPS_EYE, FOOT_NEAR, FOOT_TUNE } from '/client/game/js/panels/foot-tune.js';
+import { interiorRoomsOf } from '/client/game/js/panels/room-interiors.js';
 
 const ID = '__where';   // districtcost.js's canvas: one WebGL2 context for the whole session
 
@@ -78,6 +79,22 @@ function viewsFor(name, w, opts) {
   const base = { ...S, phase: 'cruise', worldBlend: 1, hour: route.hour, weather: route.weather || 'clear', wxField: null, resFloor: 1 };
   // On foot the view is the street view's (freelook-view.js paint): a free camera at standing height off the
   // window's centre, FOOT_TUNE's rings, the near plane brought in, and the crowd.
+  // A recorded route (routes.js `fixture`): everything but the camera is what the game handed the street
+  // view, with its own map window held where it was, as the game holds it until the camera drifts
+  // RECENTER_R off it. The camera walks the route's tiles at standing height.
+  const fx = opts.fixture;
+  if (route.seat === 'foot' && fx) {
+    const foot = { ...base, external: true, hideOwnShip: true, deckOverhead: true, heading: 0, height: 0, speed: 0, airport: 'default',
+      tune: FOOT_TUNE, nearMax: FOOT_NEAR, hour: fx.hour, moon: fx.moon, weather: fx.weather, wxField: fx.field, wxGround: fx.ground,
+      event: fx.event, skyline: fx.skyline, roads: fx.roads, regions: fx.regions, actors: fx.actors,
+      interiorRooms: fx.interiors && fx.interiors.length ? fx.interiors : null, interiorInside: false,
+      map: fx.map, mapCenter: { x: fx.gx, y: fx.gy }, mapOffset: { x: 0, y: 0 }, acX: fx.gx, acY: fx.gy };
+    windows.set(fx.gx + ',' + fx.gy, fx.map);
+    return {
+      route, tiles: windows,
+      views: frames.map((f) => ({ ...foot, freeCam: { x: f.x - fx.gx, y: f.y - fx.gy, z: FPS_EYE, yaw: f.heading, pitch: 0, roll: 0, fov: 1 } })),
+    };
+  }
   if (route.seat === 'foot') {
     const actors = routePeople(route, path, w.cells);
     const foot = { ...base, external: true, hideOwnShip: true, deckOverhead: true, heading: 0, height: 0, speed: 0, airport: 'default', tune: FOOT_TUNE, nearMax: FOOT_NEAR, actors };
@@ -99,15 +116,73 @@ function viewsFor(name, w, opts) {
   };
 }
 
+// A recording off the game (fixtures/<name>.json), fetched once a page.
+//
+// ⚠ ITS ROOMS ARE MADE AGAIN HERE. A room the street view draws carries its layout as an object with methods
+// (room-interiors.js interiorRoomsOf), and JSON keeps only the data, so the recording's rooms can't be drawn as
+// they are. Each building's rooms come from content/ through the Room Lab's /api/building-rooms, the data the
+// server sends, and are placed with the door offset the game put them at: the recorded matrix's translation
+// less the unshifted one (freelook-view.js doorShift). A lift car comes once for each landing, as the server sends it.
+//
+// ⚠ AND THEIR MESHES ARE WARMED BY THE ROUTE, NOT ALL AT ONCE. A room's mesh is built on the worker and kept in a
+// cache of 32 (room-interiors.js BUILT_KEEP), the game's too, and the street view draws whole only the rooms near
+// the eye (glass/interiors-near.js), the rest as lit boxes. So asking for all 73 only churned the cache. Instead the
+// route is painted once untimed, every room the frames asked for whole is waited for (warmRooms), and the timed run
+// counts any it still had to draw as a box (`rooms.boxes`), since no worker answer can arrive inside that one loop.
+const fixtures = new Map();
+const roomAsk = { asked: new Set(), boxed: new Set() };
+// Each room's meshReady, noted: which rooms a frame wanted whole, and which it had to draw as a box.
+function noteAsks(r) {
+  const was = r.meshReady;
+  r.meshReady = function () { const ok = was.call(this); roomAsk.asked.add(this.key); if (!ok) roomAsk.boxed.add(this.key); return ok; };
+  return r;
+}
+// Paint the route untimed, then wait until every room it asked for has its mesh, twice over (a second pass can ask
+// for rooms the first evicted). Returns how many rooms the route asked for.
+async function warmRooms(paintAll, rooms) {
+  const byKey = new Map(rooms.map((r) => [r.key, r]));
+  for (let pass = 0; pass < 2; pass++) {
+    roomAsk.asked.clear(); roomAsk.boxed.clear();
+    paintAll();
+    const t0 = performance.now();
+    while (performance.now() - t0 < 60000 && [...roomAsk.asked].some((k) => !byKey.get(k)?.meshReady())) await new Promise((res) => setTimeout(res, 100));
+  }
+  return roomAsk.asked.size;
+}
+function loadFixture(name) {
+  if (!fixtures.has(name)) fixtures.set(name, fetch('/fixtures/' + name + '.json').then((r) => (r.ok ? r.json() : null)).then(roomsAgain));
+  return fixtures.get(name);
+}
+async function roomsAgain(fx) {
+  if (!fx?.interiors?.length) return fx;
+  const byTile = new Map();
+  for (const r of fx.interiors) if (!byTile.has(r.gx + ',' + r.gy)) byTile.set(r.gx + ',' + r.gy, []);
+  for (const r of fx.interiors) byTile.get(r.gx + ',' + r.gy).push(r);
+  const rooms = [];
+  for (const recorded of byTile.values()) {
+    const data = await (await fetch('/api/building-rooms?zone=' + encodeURIComponent(recorded[0].zone))).json().catch(() => null);
+    if (!data?.rooms?.length) continue;
+    const plain = interiorRoomsOf(data);
+    const pair = recorded.map((r) => [r, plain.find((p) => p.key === r.key)]).find(([, p]) => p);
+    const shift = pair ? [pair[0].M[12] - pair[1].M[12], pair[0].M[13] - pair[1].M[13]] : null;
+    rooms.push(...(shift && (shift[0] || shift[1]) ? interiorRoomsOf(data, { shift }) : plain));
+  }
+  return { ...fx, recordedRooms: fx.interiors.length, interiors: rooms.map(noteAsks) };
+}
+
 export async function benchRoute(name, opts = {}) {
   if (!ROUTES[name]) { console.warn('__benchRoute: no route ' + name + '; one of ' + Object.keys(ROUTES).join(', ')); return null; }
-  const { W = 640, H = 360, quiet = false } = opts;
+  // A recorded route's canvas is the game's, unless the caller asks for another.
+  const fixture = ROUTES[name].fixture ? await loadFixture(ROUTES[name].fixture) : null;
+  const { W = fixture?.cssW || 640, H = fixture?.cssH || 360, quiet = false } = opts;
   const w = await world();
-  const { route, views, tiles } = viewsFor(name, w, opts);
+  const { route, views, tiles } = viewsFor(name, w, { ...opts, fixture });
   // GLASS Lite's chunks load by fetch, and the run below is one synchronous loop that no fetch can finish
   // inside: without this a fresh page's Lite run drew every building from its arm.
   const liteOk = await liteReady([...new Set(views.map((v) => v.mapCenter.x + ',' + v.mapCenter.y))].map((k) => k.split(',').map(Number)));
   const { uninstall } = rig(W, H);
+  const asked = fixture?.interiors?.length ? await warmRooms(() => pinned(() => { for (const v of views) paintWindshield(ID, v); }), fixture.interiors) : 0;
+  roomAsk.boxed.clear();
   // `live: true` gives the browser a task between timed frames, so what the GPU answers late can arrive: the occlusion
   // readback (gl/occ-readback.js, foot-occlusion.md) never does inside one task, since WebGL changes a fence's status
   // only between tasks. The warm pass stays pinned; the timed one runs on the real clock, and takes no GPU timings.
@@ -117,9 +192,13 @@ export async function benchRoute(name, opts = {}) {
     setWindshieldProfiler(true, { arms: !!opts.arms });
     for (const v of views) {
       await new Promise((r) => setTimeout(r, 0));
-      const t0 = performance.now();
+      // `rows: []`: each frame's phases (and, with window.__glPT set, the GL view's methods as `gl.<name>`) pushed onto
+      // it, so a slow frame can be told from a fast one
+      const tally = () => { const t = { ...perfSnapshot().t }, g = globalThis.__glPT; if (g) for (const k in g) t['gl.' + k] = typeof g[k] === 'number' ? g[k] : g[k]?.ms ?? 0; return t; };
+      const t0 = performance.now(), p0 = opts.rows ? tally() : null;
       paintWindshield(ID, v);
       cpu.push(performance.now() - t0);
+      if (p0) { const t = tally(), d = { ms: +cpu[cpu.length - 1].toFixed(2), x: v.mapCenter.x, y: v.mapCenter.y }; for (const k in t) { const x = t[k] - (p0[k] || 0); if (x > 0.05) d[k] = +x.toFixed(2); } opts.rows.push(d); }
     }
     const snap = perfSnapshot();
     setWindshieldProfiler(false);
@@ -169,6 +248,8 @@ export async function benchRoute(name, opts = {}) {
     counts: Object.fromEntries(Object.entries(run.snap.n || {}).map(([k, c]) => [k, +(c / n).toFixed(1)])),
     allPhases: Object.fromEntries(Object.keys(run.snap.t).map((k) => [k, per(k)]).sort((a, b) => b[1] - a[1])),
     lite: RENDER_TUNE.glassLite > 0 ? (liteOk ? 'ready' : 'timed out') : 'off',
+    // a recorded route: the rooms the game had, how many were made again here, how many the frames asked to draw whole, and how many of those the timed run still drew as boxes
+    rooms: fixture ? { recorded: fixture.recordedRooms || 0, drawn: (fixture.interiors || []).length, asked: asked, boxes: roomAsk.boxed.size } : undefined,
     heapMB: performance.memory ? +(performance.memory.usedJSHeapSize / 1048576).toFixed(1) : null,
   };
   uninstall();

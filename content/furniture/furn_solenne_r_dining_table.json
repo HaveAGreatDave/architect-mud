@@ -12,13 +12,6 @@
         0.76
       ],
       "form": "dining"
-    },
-    "spot": {
-      "at": [
-        7.25,
-        4.4
-      ],
-      "turn": 90
     }
   },
   "id": "furn_solenne_r_dining_table",

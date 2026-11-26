@@ -1,0 +1,20 @@
+{
+  "description": "",
+  "flags": {
+    "aliases": [
+      "stove",
+      "camping stove",
+      "hob"
+    ],
+    "gen": true,
+    "interactions": [
+      "lean"
+    ],
+    "stove_tier": "low"
+  },
+  "id": "furn_restassured_u0_s_hob",
+  "name": "the camping stove",
+  "object_type": "fixture",
+  "power_draw_kw": 0.3,
+  "zone_id": "zone_restassured_u0_s"
+}

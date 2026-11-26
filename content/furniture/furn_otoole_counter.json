@@ -1,0 +1,39 @@
+{
+  "description": "A long oak counter, worn pale and smooth down the middle where a century of goods has been slid across it. The brass rail along the foot is polished. So is the old brass till, which still rings.",
+  "flags": {
+    "aliases": "counter,oak counter,till,register",
+    "interactions": [
+      "lean"
+    ],
+    "look": {
+      "arche": "surface",
+      "form": "tradecounter",
+      "dims": [
+        3.4,
+        0.75,
+        1
+      ],
+      "stock": "surplus",
+      "wood": "#6a4426",
+      "wear": 0.5
+    },
+    "serves": "npc_rusty_otoole",
+    "spot": {
+      "at": [
+        0.9,
+        7.4
+      ],
+      "turn": 0
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_otoole_counter",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the counter",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_otoole_interior"
+}

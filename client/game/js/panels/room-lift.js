@@ -1,6 +1,6 @@
 // ROOM · THE LIFT'S PANEL (docs/proposals/building-stage.md). A hologram hung off the reader on a lift car's
-// right-hand wall, drawn the way a door's hololock is (room-lock.js, and its sheet): the floor the car is at
-// or passing, and a button for every floor it stops at.
+// right-hand wall: amber light off a brass emitter, in the car's own gold, with a read-out of the floor the car
+// is at or passing, where it is in the shaft, and a key for every floor it stops at with that floor's name.
 //
 // It decides nothing. A button is `floor <n>`, the elevator plugin's verb, typeable in the log; `press` is the
 // Stage's, which shuts the doors and sends it.
@@ -9,45 +9,68 @@
 // buttons laid out by the browser's own grid.
 
 import { liftButtons, liftPanelAt } from '../../../shared/room-layout.js';
-import { quadMatrix } from './room-lock.js';
+import { quadMatrix, ensureStyles } from './room-lock.js';
 import { comicOn } from './gl/house-style.js';
+import { loadCss } from '../../../shared/dom.js';
+
+// Its own sheet and faces, in before the module is: the panel is never drawn in a fallback face that swaps a
+// moment later, or with no sheet. A face that fails or is slow (1.5 s) leaves the fallback rather than a hang.
+const SHEET = await loadCss(new URL('./room-lift.css', import.meta.url));
+const FACES = [['RLH Michroma', 'michroma'], ['RLH Digit14', 'digit-tech-14'], ['RLH Orbitron', 'orbitron']];
+await Promise.race([
+  Promise.all(FACES.map(([fam, file]) => {
+    try {
+      if (typeof FontFace === 'undefined' || !document.fonts) return null;
+      return new FontFace(fam, `url(${new URL(`../../../shared/fonts/${file}.woff2`, import.meta.url)})`).load().then((f) => document.fonts.add(f), () => {});
+    } catch { return null; }
+  })),
+  new Promise((r) => setTimeout(r, 1500)),
+]);
+function ensureSheet() {
+  if (document.getElementById('room-lift-css')) return;
+  const st = document.createElement('style');
+  st.id = 'room-lift-css'; st.textContent = SHEET;
+  document.head.appendChild(st);
+}
 
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 // the page's width, px, and how many metres one of its pixels is on the wall (a hololock's card is the same)
-const PAGE_W = 300, M_PER_PX = 0.0015;
-// how far the hologram hangs off the wall, metres, and its amber
-const HOLO_OFF = 0.17, HUE = '#ffb040';
+const PAGE_W = 400, M_PER_PX = 0.0015;
+// how far the hologram hangs off the wall, metres
+const HOLO_OFF = 0.17;
 
 /**
  * The panel of one open Stage. `project(p, w, h)` is the renderer's; `press(n)` asks for floor n.
  */
 export function createRoomLift({ host, project, press }) {
+  ensureStyles();   // the hologram's base is room-lock.css; a car with no locked door in sight never had it
+  ensureSheet();
   const layer = document.createElement('div');
   layer.className = 'rl-layer';
   host.appendChild(layer);
   const el = document.createElement('div');
   layer.appendChild(el);
   el.style.display = 'none';
-  el.addEventListener('click', (e) => { const b = e.target.closest('.rl-fl'); if (b) press(Number(b.dataset.n)); });
+  el.addEventListener('click', (e) => { const b = e.target.closest('.rlh-fl'); if (b) press(Number(b.dataset.n)); });
   let bs = [], brand = '', quad = null, size = [PAGE_W, 400], at = 1, comic = null, shown = null, hidden = true, card = null;
 
-  // the floors lowest first, as the keys count them; on the card the top floor is the top row
   function paint() {
     comic = comicOn();
-    // the keys are the gold discs alone, in rows of up to four; a floor's name is on the screen, never cut off under its key
-    const n = bs.length, cols = n <= 4 ? 2 : n <= 9 ? 3 : 4, rows = [];
-    for (let i = 0; i < n; i += cols) rows.unshift(bs.slice(i, i + cols).map((b, j) => ({ b, i: i + j })));
-    const btn = ({ b }) => `<button type="button" class="rl-act rl-fl${b.n === at ? ' rl-here' : ''}" data-n="${b.n}" title="${esc(b.label || '')}" aria-label="${esc(b.tag + (b.label ? ', ' + b.label : ''))}"><b>${esc(b.tag)}</b></button>`;
-    // padding 20+20, the badge 56, the screen 112, two gaps of 16, and a row of buttons 44 with 8 between
-    size = [PAGE_W, 256 + rows.length * 52 - 8];
-    // the building's mark: its initials in a disc, never its name written out
+    // every floor is a key with its name beside it, top floor first: one column for a short building, two, or
+    // three for a tower; the page grows to fit and never cuts a row off
+    const n = bs.length, cols = n <= 7 ? 1 : n <= 20 ? 2 : 3, rows = Math.ceil(n / cols);
+    const btn = (b) => `<button type="button" class="rl-act rlh-fl${b.n === at ? ' rl-here' : ''}" data-n="${b.n}" title="${esc(b.label || '')}" aria-label="${esc(b.tag + (b.label ? ', ' + b.label : ''))}"><b>${esc(b.tag)}</b><span>${esc(b.label || (b.tag === 'L' ? 'Lobby' : 'Floor ' + b.tag))}</span></button>`;
+    // padding 18 + head 30 + screen 104 + two gaps of 12 + rows of 34 with 6 between + 26 for the emitter
+    size = [PAGE_W, 196 + rows * 40];
+    // the building's mark: its initials in a ring, and its name beside it
     const mono = brand ? brand.split(/\s+/).filter(Boolean).map((w) => w[0]).join('').slice(0, 2).toUpperCase() : '';
-    el.className = 'rl-holo rl-lift rl-ipod';
-    el.style.setProperty('--rl-hue', HUE);
+    // the shaft rail's ticks, lowest at the foot
+    const ticks = bs.map((_, i) => `<i style="top:${n > 1 ? (100 - (i / (n - 1)) * 100).toFixed(1) : 50}%"></i>`).join('');
+    el.className = 'rl-holo rl-lift rlh';
     el.style.width = size[0] + 'px'; el.style.height = size[1] + 'px';
-    el.innerHTML = `<div class="rl-badge"><span${mono ? '' : ' class="rl-badge-arrows"'}>${mono ? esc(mono) : '&#9650;&#9660;'}</span></div>
-      <div class="rl-lcd"><div class="rl-dir"><i class="rl-tri-up">&#9650;</i><i class="rl-tri-dn">&#9660;</i></div><div class="rl-read"><strong class="rl-num"></strong><span class="rl-name"></span></div></div>
-      <div class="rl-acts rl-floors" style="--rl-cols:${cols}">${rows.map((r, i) => r.map(btn).join('') + (i ? '' : '<i class="rl-gap"></i>'.repeat(cols - r.length))).join('')}</div>`;
+    el.innerHTML = `<div class="rlh-head"><span class="rlh-mono">${mono ? esc(mono) : '&#9650;'}</span><span class="rlh-brand">${esc(brand || 'Lift')}</span></div>
+      <div class="rlh-screen"><div class="rlh-rail">${ticks}<span class="rlh-bead"></span></div><div class="rlh-read"><strong class="rlh-num"></strong><span class="rlh-name"></span></div><div class="rlh-dir"><i class="rlh-up">&#9650;</i><i class="rlh-dn">&#9660;</i></div></div>
+      <div class="rlh-floors" style="--rl-cols:${cols}">${bs.slice().reverse().map(btn).join('')}</div>`;
     shown = null;
   }
 
@@ -61,6 +84,10 @@ export function createRoomLift({ host, project, press }) {
     card = null; away = remote;
     if (!p) { quad = null; el.style.display = 'none'; hidden = true; return; }
     at = S.lift.at;
+    // a car clad in its own colours (spec.car.glow) lights its panel in that glow; the gold stays
+    const g = /^#[0-9a-f]{6}$/i.test(S.car?.glow || '') ? S.car.glow : null;
+    if (g) { const n = parseInt(g.slice(1), 16); el.style.setProperty('--glow', 'rgba(' + (n >> 16) + ', ' + ((n >> 8) & 255) + ', ' + (n & 255) + ', 0.6)'); el.style.setProperty('--ink', g); }
+    else { el.style.removeProperty('--glow'); el.style.removeProperty('--ink'); }
     paint();
     const wm = size[0] * M_PER_PX, hm = size[1] * M_PER_PX, y = Math.max(p.y, 0.45 + hm / 2), u = p.u - HOLO_OFF;
     quad = [L.world(u, p.v - wm / 2, y + hm / 2), L.world(u, p.v + wm / 2, y + hm / 2), L.world(u, p.v + wm / 2, y - hm / 2), L.world(u, p.v - wm / 2, y - hm / 2)];
@@ -80,13 +107,19 @@ export function createRoomLift({ host, project, press }) {
       const stop = bs.find((b) => b.n === floor);
       // the number it's at or passing, and a name: the floor's own when it stops here, else where it's going
       const name = String((stop || bs.find((b) => b.n === ride?.to))?.label || '').toUpperCase();
-      el.querySelector('.rl-num').textContent = tagOf(floor);
-      const nm = el.querySelector('.rl-name');
+      el.querySelector('.rlh-num').textContent = tagOf(floor);
+      const nm = el.querySelector('.rlh-name');
       nm.textContent = name;
       // sized to fit the glass on one line (Digit Tech 14 is about 0.72 em a letter with its spacing), never cut off
-      nm.style.fontSize = Math.max(11, Math.min(22, 196 / Math.max(1, name.length * 0.72))) + 'px';
+      nm.style.fontSize = Math.max(9, Math.min(15, 210 / Math.max(1, name.length * 0.72))) + 'px';
+      // the bead on the shaft rail: where this floor is among the stops
+      const k = bs.findIndex((b) => b.n === floor), bead = el.querySelector('.rlh-bead');
+      if (bead && k >= 0) bead.style.top = (bs.length > 1 ? 100 - (k / (bs.length - 1)) * 100 : 50) + '%';
       el.classList.toggle('rl-up', going > 0); el.classList.toggle('rl-down', going < 0);
-      for (const b of el.querySelectorAll('.rl-fl')) b.classList.toggle('rl-going', !!ride && Number(b.dataset.n) === ride.to);
+      for (const b of el.querySelectorAll('.rlh-fl')) {
+        b.classList.toggle('rl-going', !!ride && Number(b.dataset.n) === ride.to);
+        b.classList.toggle('rl-here', !ride && Number(b.dataset.n) === floor);
+      }
     }
     const q = quad.map((p) => project(p, w, h));
     let m = null;

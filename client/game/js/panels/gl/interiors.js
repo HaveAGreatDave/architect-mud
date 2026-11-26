@@ -44,6 +44,18 @@ export function boxOut(vp, b) {
 // materials that light themselves (gl/room.js): a light's own face, a lamp on the dimmer, a fire
 const EMISSIVE = [40, 42, 43];
 
+// a room's depth alone, for the occlusion readback (drawDepth), cut at its ceiling as the room is (uTop)
+const DEPTH_VS = `#version 300 es
+layout(location = 0) in vec3 aPos;
+uniform mat4 uVP; uniform mat4 uModel;
+out float vLy;
+void main() { vLy = aPos.y; gl_Position = uVP * (uModel * vec4(aPos, 1.0)); }`;
+const DEPTH_FS = `#version 300 es
+precision mediump float;
+in float vLy;
+uniform float uTopOn; uniform float uTop;
+void main() { if (uTopOn > 0.5 && vLy > uTop) discard; }`;
+
 const VS = `#version 300 es
 layout(location = 0) in vec3 aPos;
 layout(location = 1) in vec3 aNor;
@@ -404,8 +416,32 @@ export function createInteriorLayer(gl) {
   const vatP = new Float32Array(24), vatC = new Float32Array(24);
   const glowP = new Float32Array(24), glowC = new Float32Array(24);
   let haloProg = null, haloBuf = null;
+  let depthProg = null, dLoc = null;
   return {
     get held() { return held.size; },
+    inside: false,   // set each frame by context.js drawInteriors: you're walking inside one of these buildings
+    // THE ROOMS INTO THE OCCLUSION DEPTH (context.js occRooms): every ready room's solid parts, depth only, into whatever
+    // target is bound. Glass parts are left out, so a window doesn't hide the street through it.
+    drawDepth(vp, ox, oy) {
+      if (!this.ready.length) return;
+      if (!depthProg) {
+        depthProg = layerProgram(gl, DEPTH_VS, DEPTH_FS, 'interiors depth');
+        dLoc = { vp: gl.getUniformLocation(depthProg, 'uVP'), m: gl.getUniformLocation(depthProg, 'uModel'),
+          topOn: gl.getUniformLocation(depthProg, 'uTopOn'), top: gl.getUniformLocation(depthProg, 'uTop') };
+      }
+      gl.useProgram(depthProg);
+      gl.uniformMatrix4fv(dLoc.vp, false, vp);
+      gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.depthMask(true); gl.disable(gl.BLEND); gl.disable(gl.CULL_FACE);
+      const M = new Float32Array(16);
+      for (const { r, h } of this.ready) {
+        if (r.voidNow) continue;
+        M.set(r.M); M[12] -= ox; M[13] -= oy;
+        gl.uniformMatrix4fv(dLoc.m, false, M);
+        gl.uniform1f(dLoc.topOn, Number.isFinite(r.top) ? 1 : 0); if (Number.isFinite(r.top)) gl.uniform1f(dLoc.top, r.top);
+        for (const p of h.parts) if (!p.glass && p.n) { gl.bindVertexArray(p.vao); gl.drawArrays(gl.TRIANGLES, 0, p.n); }
+      }
+      gl.bindVertexArray(null);
+    },
     // `list`: [{ key, M (16, room frame -> GLASS tiles about the map window's centre), parts: () => [{ batch, tint }] }]
     // Uploads up to `budget` rooms it hasn't got; returns the ones ready to draw.
     sync(list, budget = 1) {
@@ -496,7 +532,7 @@ export function createInteriorLayer(gl) {
       voidLayer = undefined;
       stills.clear(); dropTarget();
       if (pbuf) { gl.deleteVertexArray(pbuf.vao); gl.deleteBuffer(pbuf.buf); }
-      gl.deleteProgram(prog); if (pprog) gl.deleteProgram(pprog);
+      gl.deleteProgram(prog); if (pprog) gl.deleteProgram(pprog); if (depthProg) gl.deleteProgram(depthProg);
     },
   };
 

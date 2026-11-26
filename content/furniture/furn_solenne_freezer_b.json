@@ -12,8 +12,8 @@
     "paired_container": "furn_solenne_fridge_b",
     "preserves": "frozen",
     "spot": {
-      "along": 8.13,
-      "wall": "right"
+      "along": 8.4,
+      "wall": "left"
     }
   },
   "hp": null,

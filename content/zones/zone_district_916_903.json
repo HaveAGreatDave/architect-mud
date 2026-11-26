@@ -5,14 +5,13 @@
   "description": "Pale sand, raked clear of glass once a week by somebody the marina pays. It slopes gently into the basin, which gets warm enough by July to swim in, as long as you don't think about what used to be in it.",
   "exits": {
     "north": "zone_district_916_902",
-    "south": "zone_district_916_904",
     "west": "zone_district_915_903"
   },
   "flags": {
+    "beach": true,
     "district": "wasteland",
     "region_id": "region_coldwater",
-    "terrain": "sand",
-    "beach": true
+    "terrain": "sand"
   },
   "grid_x": 917,
   "grid_y": 903,

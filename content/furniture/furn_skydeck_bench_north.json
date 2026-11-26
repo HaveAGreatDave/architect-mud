@@ -1,0 +1,35 @@
+{
+  "description": "A long bench of oiled teak on brass legs, with deep cushions in cream canvas piped in cyan. It faces the other one across the smoking table.",
+  "flags": {
+    "aliases": "bench,seat",
+    "interactions": [
+      "sit"
+    ],
+    "look": {
+      "arche": "bench",
+      "dims": [
+        2,
+        0.6,
+        0.48
+      ],
+      "form": "bench"
+    },
+    "spot": {
+      "at": [
+        0,
+        9.95
+      ],
+      "turn": 180
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_skydeck_bench_north",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "teak and brass bench",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_skydeck"
+}

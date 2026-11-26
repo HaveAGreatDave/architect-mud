@@ -190,6 +190,14 @@ may type into a detector for vantages they have not found.
 the shot while sliding the world under it — exactly wrong for somebody who has walked up to a
 different telescope. The view tells them apart on the mount.
 
+**A telescope that knows the sky** says `stars: true` in its flag (the Solenne sky deck's observatory
+telescope). Holding C there lays a star chart over the view (`client/game/js/panels/star-chart.js`):
+the bright stars of fourteen real constellations, turned to the sky over the Basin for the game's hour
+and the day of the year, their lines and their names. GLASS's own stars are a procedural field, so the
+chart brings its own catalogue and places it through the last frame's sky camera
+(`skyProjectNow` in windshield.js). A constellation shows only when two-thirds of its stars are 3° or
+more over the horizon, and in front of you; by day the chart says to come back after dark.
+
 ## The Under (`freelook under`)
 
 GLASS draws nothing below the street, so the Under gets its own small WebGL2 renderer. `freelook under` (or a bare `freelook` typed from a z -1 tile) sends every sewer tile on map_world's z -1 layer as `{ x, y, n: name, e: 'NSEWU' }`, and [under-scene.js](../../client/game/js/panels/under-scene.js) builds the scene from that graph: an arched brick tunnel with ledges and a water channel along each connection, a chamber or manhole hub on each tile, and ladder shafts up to a grate where a tile has an `up` exit. Name words pick the dressing (pumps, a sluice gate, rubble, flooding, Wildblood shrines and handprints). [under-view.js](../../client/game/js/panels/under-view.js) draws it and flies it with the ordinary free camera, kept inside the tunnels. L toggles the headlamp, G flies through the walls, O or ✕ closes. The Basin floor shares the layer but is the submersible's, so it's left out.

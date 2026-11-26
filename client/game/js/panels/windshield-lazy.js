@@ -107,6 +107,7 @@ export function accentOf(...a) { return (_m || _cold('accentOf')).accentOf(...a)
 export function alleyPropsFor(...a) { return (_m || _cold('alleyPropsFor')).alleyPropsFor(...a); }
 export function altForRoofZ(...a) { return (_m || _cold('altForRoofZ')).altForRoofZ(...a); }
 export function altRestingOnZ(...a) { return (_m || _cold('altRestingOnZ')).altRestingOnZ(...a); }
+export function armLivePart(...a) { return (_m || _cold('armLivePart')).armLivePart(...a); }
 export function armSignsItself(...a) { return (_m || _cold('armSignsItself')).armSignsItself(...a); }
 export function authoredAdornSmoke(...a) { return (_m || _cold('authoredAdornSmoke')).authoredAdornSmoke(...a); }
 export function authoredDetailSmoke(...a) { return (_m || _cold('authoredDetailSmoke')).authoredDetailSmoke(...a); }
@@ -317,6 +318,9 @@ export function signTally(...a) { return (_m || _cold('signTally')).signTally(..
 export function signTallyZero(...a) { return (_m || _cold('signTallyZero')).signTallyZero(...a); }
 export function signalGeomSmoke(...a) { return (_m || _cold('signalGeomSmoke')).signalGeomSmoke(...a); }
 export function skyColumnP(...a) { return (_m || _cold('skyColumnP')).skyColumnP(...a); }
+export function skyHeadingNow(...a) { return (_m || _cold('skyHeadingNow')).skyHeadingNow(...a); }
+export function skyMoonNow(...a) { return (_m || _cold('skyMoonNow')).skyMoonNow(...a); }
+export function skyProjectNow(...a) { return (_m || _cold('skyProjectNow')).skyProjectNow(...a); }
 export function sortOrderSmoke(...a) { return (_m || _cold('sortOrderSmoke')).sortOrderSmoke(...a); }
 export function sortTruckFaces(...a) { return (_m || _cold('sortTruckFaces')).sortTruckFaces(...a); }
 export function sprayTally(...a) { return (_m || _cold('sprayTally')).sprayTally(...a); }

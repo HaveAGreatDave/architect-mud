@@ -1,0 +1,9 @@
+{
+  "a": "zone_restassured_room_b",
+  "b": "zone_restassured_f1_h1",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_restassured_room_b_west",
+  "lockable": true,
+  "one_way": false
+}

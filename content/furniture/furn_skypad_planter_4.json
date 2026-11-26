@@ -11,20 +11,20 @@
     },
     "spot": {
       "at": [
-        -7.3,
-        10.4
+        -6.99,
+        3.3
       ],
       "turn": 90
     }
   },
   "hp": null,
   "hp_max": null,
+  "id": "furn_skypad_planter_4",
   "light_type": null,
   "lumen_output": null,
+  "name": "bronze planter",
   "object_type": "furniture",
   "power_draw_kw": null,
   "price": 0,
-  "id": "furn_skypad_planter_4",
-  "name": "bronze planter",
   "zone_id": "zone_solenne_helipad"
 }

@@ -1,0 +1,16 @@
+{
+  "description": "",
+  "flags": {
+    "aliases": [
+      "basin",
+      "sink",
+      "taps"
+    ],
+    "gen": true,
+    "water_source": true
+  },
+  "id": "furn_restassured_f2_bath_basin",
+  "name": "the basin",
+  "object_type": "sink",
+  "zone_id": "zone_restassured_f2_bath"
+}

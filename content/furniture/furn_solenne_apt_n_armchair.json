@@ -8,6 +8,13 @@
     "look": {
       "arche": "seat",
       "form": "armchair"
+    },
+    "spot": {
+      "at": [
+        1.44,
+        10.55
+      ],
+      "turn": -90
     }
   },
   "hp": null,

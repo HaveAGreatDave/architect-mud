@@ -166,7 +166,8 @@ export function createStreetHD(gl) {
     const bodies = chosen.map((r) => {
       const L = r.o.hd;
       // hdPx 0: anybody big enough to come off the crowd's body is the full figure, never the lite one
-      const level = r.px >= STREET_HD.hdPx * (hdHeld.has(L.id) ? STREET_HD.off : 1) ? 'hd' : 'lite';
+      // you (the Pack, the view from behind) are always the full figure, however small on the screen
+      const level = r.self || r.px >= STREET_HD.hdPx * (hdHeld.has(L.id) ? STREET_HD.off : 1) ? 'hd' : 'lite';
       if (level === 'hd') hdHeld.add(L.id); else hdHeld.delete(L.id);
       return { level, id: L.id, sex: L.sex, figure: L.figure, wear: L.wear || null, sculpt: true, pose: 'stand',
         at: [(r.x - env.A[0]) / s, (r.y - env.A[1]) / s], lift: ((r.limbZ ?? r.z ?? 0) - env.A[2]) / s,

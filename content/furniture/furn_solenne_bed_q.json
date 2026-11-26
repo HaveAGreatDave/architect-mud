@@ -8,13 +8,6 @@
     "look": {
       "arche": "bed",
       "form": "platform"
-    },
-    "spot": {
-      "at": [
-        -6.4,
-        5
-      ],
-      "turn": 90
     }
   },
   "hp": null,
@@ -26,5 +19,5 @@
   "object_type": "furniture",
   "power_draw_kw": null,
   "price": 0,
-  "zone_id": "zone_solenne_apt_q"
+  "zone_id": "zone_solenne_apt_q_e"
 }

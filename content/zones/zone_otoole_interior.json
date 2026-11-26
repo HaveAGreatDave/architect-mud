@@ -17,7 +17,152 @@
     "floor": "boards",
     "is_building": true,
     "is_interior": true,
-    "world_exit_zone": "zone_district_920_903"
+    "world_exit_zone": "zone_district_920_903",
+    "room": {
+      "w": 7,
+      "d": 11,
+      "h": 3.6,
+      "face": 270,
+      "studio": false,
+      "balcony": false,
+      "finish": "plain",
+      "doors": {
+        "west": 0
+      },
+      "street_door": {
+        "kind": "single",
+        "glass": "#6e6450",
+        "trim": "#b08a4a",
+        "w": 1.1
+      },
+      "panes": [
+        {
+          "wall": "front",
+          "a": -3.1,
+          "b": -1.2,
+          "y0": 0.5,
+          "y1": 2.4
+        },
+        {
+          "wall": "front",
+          "a": 1.2,
+          "b": 3.1,
+          "y0": 0.5,
+          "y1": 2.4
+        }
+      ],
+      "tone": {
+        "wall": "#d6c8a8",
+        "trim": "#24473a",
+        "ceiling": "#cfc2a2",
+        "floor": "#a8865e"
+      },
+      "decor": {
+        "rug": false,
+        "walls": [
+          {
+            "kind": "brick",
+            "hex": "#8a4a34",
+            "on": [
+              "left",
+              "right",
+              "back"
+            ]
+          }
+        ],
+        "pendants": [
+          {
+            "at": [
+              0,
+              2.6
+            ],
+            "kind": "school",
+            "y": 2.75,
+            "k": 0.6
+          },
+          {
+            "at": [
+              0,
+              5.6
+            ],
+            "kind": "school",
+            "y": 2.75,
+            "k": 0.6
+          },
+          {
+            "at": [
+              0.9,
+              8.4
+            ],
+            "kind": "school",
+            "y": 2.75,
+            "k": 0.7
+          }
+        ],
+        "fans": [
+          [
+            -1.6,
+            4.2
+          ]
+        ],
+        "salon": [
+          {
+            "wall": "left",
+            "at": 1.6,
+            "y": 1.9,
+            "w": 1.4,
+            "h": 0.9,
+            "seed": 7
+          },
+          {
+            "wall": "right",
+            "at": 9.2,
+            "y": 2.5,
+            "w": 1.2,
+            "h": 0.7,
+            "seed": 11
+          }
+        ],
+        "doors": [
+          {
+            "wall": "back",
+            "at": 2.7,
+            "w": 0.9
+          }
+        ],
+        "signs": [
+          {
+            "wall": "back",
+            "along": -0.4,
+            "y": 2.95,
+            "h": 0.44,
+            "text": "O'Toole's",
+            "style": "paint",
+            "hex": "#d8b45a"
+          },
+          {
+            "wall": "back",
+            "along": -0.4,
+            "y": 2.55,
+            "h": 0.12,
+            "text": "Est. 1924",
+            "style": "enamel",
+            "hex": "#e8d8a8",
+            "plateHex": "#24473a"
+          },
+          {
+            "wall": "back",
+            "along": 2.7,
+            "y": 2.3,
+            "h": 0.1,
+            "text": "Private",
+            "style": "plate",
+            "hex": "#f2efe4",
+            "plateHex": "#24473a"
+          }
+        ]
+      }
+    }
   },
   "grid_x": 0,
   "grid_y": 0,

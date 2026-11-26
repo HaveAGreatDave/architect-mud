@@ -55,6 +55,22 @@ export function makeVertexStream(gl, vao, stride, attrs, floor = 4096) {
       gl.bindBuffer(gl.ARRAY_BUFFER, buf);
       gl.bufferSubData(gl.ARRAY_BUFFER, at * 4, data, at, floats);
     },
+    /** Allocate at least `floats` on the GPU, contents undefined: for a caller about to write() all of it. */
+    reserve(floats) {
+      if (floats <= cap) return;
+      gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+      cap = Math.max(floats, floor);
+      gl.bufferData(gl.ARRAY_BUFFER, cap * 4, gl.DYNAMIC_DRAW);
+      grows++;
+    },
+    /** Upload `floats` entries of `data` from its offset `src` to float offset `dst` on the GPU, inside what's
+     *  allocated: a retained arena (gl/retain.js, gl/solids.js) stages only its new groups, not a CPU mirror. */
+    writeAt(data, src, dst, floats) {
+      if (!(floats > 0) || dst + floats > cap) return false;
+      gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+      gl.bufferSubData(gl.ARRAY_BUFFER, dst * 4, data, src, floats);
+      return true;
+    },
     /** Diagnostics: how many times this layer has actually asked the driver for storage. */
     get grows() { return grows; },
     get capacity() { return cap; },

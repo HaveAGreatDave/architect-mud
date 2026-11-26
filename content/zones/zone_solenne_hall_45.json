@@ -66,6 +66,9 @@
           "y1": 2.5
         }
       },
+      "doors": {
+        "in": 0
+      },
       "face": 0,
       "finish": "fine",
       "ground": "stone",
@@ -92,16 +95,16 @@
         "trim": "#17130f",
         "wall": "#2e2925"
       },
-      "w": 6,
-      "windowless": true
+      "w": 6
     },
     "sanctuary": true
   },
   "grid_x": 0,
-  "grid_y": 0,
-  "grid_z": 7,
+  "grid_y": -1,
+  "grid_z": 32,
   "id": "zone_solenne_hall_45",
   "map_id": "map_int_solenne",
-  "name": "The Fortieth Floor",
+  "marker": "32",
+  "name": "The Thirty-Second Floor",
   "parent_zone": "zone_district_914_908"
 }

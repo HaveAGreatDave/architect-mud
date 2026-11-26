@@ -1,0 +1,10 @@
+{
+  "description": "",
+  "flags": {
+    "gen": true
+  },
+  "id": "furn_restassured_f2_bath_toilet",
+  "name": "the toilet",
+  "object_type": "toilet",
+  "zone_id": "zone_restassured_f2_bath"
+}

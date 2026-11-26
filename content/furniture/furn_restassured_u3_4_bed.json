@@ -1,0 +1,22 @@
+{
+  "description": "",
+  "flags": {
+    "aliases": [
+      "mattress",
+      "bed"
+    ],
+    "gen": true,
+    "interactions": [
+      "lie",
+      "sit"
+    ],
+    "look": {
+      "arche": "bed",
+      "form": "bed"
+    }
+  },
+  "id": "furn_restassured_u3_4_bed",
+  "name": "the mattress",
+  "object_type": "furniture",
+  "zone_id": "zone_restassured_u3_4"
+}

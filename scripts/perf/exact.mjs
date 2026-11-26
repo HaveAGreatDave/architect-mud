@@ -36,6 +36,11 @@ const offV = parse(args[1], 0), onV = parse(args[2], 1);
 if (!key) { console.error('usage: node scripts/perf/exact.mjs <tuneKey> [off=0] [on=1] [--quick]'); process.exit(2); }
 const quick = process.argv.includes('--quick');
 const layers = process.argv.includes('--layers');
+const unordered = process.argv.includes('--unordered');
+// `--lifts`: every footbridge lift in each view set going up 2.5 s before the frozen clock, so the cars are mid-ride
+// (a still clock otherwise only ever shows them at rest). For kitCarsGPU, whose cars are moved on the GPU.
+const lifts = process.argv.includes('--lifts');
+const { kitLiftCall } = lifts ? await import('../../client/game/js/panels/glass/street-kit.js') : {};
 const unread = (o, k) => layers && ((o.sz && o.sz[0] > 0 && k === 'r') || (o.pl > 0 && ((o.rp && k === 'p') || (o.ra && (k === 'a' || k === 'b')))));
 
 const near = (a, b) => {
@@ -62,7 +67,10 @@ const strip = (c) => { const o = { ...c }; if (without.has(o.mark)) { delete o.m
 // the vertex shader applies; expandGroundBlocks is the same sums on the CPU, so the ground compares
 // record for record either way.
 const expand = (k, v) => (k === 'ground' && scene.ws.expandGroundBlocks ? scene.ws.expandGroundBlocks(v) : v);
-const snap = (sinks) => Object.fromEntries(Object.entries(sinks || {}).map(([k, v]) => [k, (expand(k, v) || []).map((q) => ({ ...q }))]));
+// ⚠ THE POINTS ARE COPIED TOO. The street kit's moving parts near to come from a pool reset every paint (KIT_POOL), so
+// a shallow copy of the first side's records read the second side's points by the time they were compared.
+const cp = (x) => (Array.isArray(x) ? x.map(cp) : x);
+const snap = (sinks) => Object.fromEntries(Object.entries(sinks || {}).map(([k, v]) => [k, (expand(k, v) || []).map((q) => { const o = { ...q }; for (const f of ['p', 'n', 'a', 'b', 'ra', 'rb', 'rp', 'rc']) if (Array.isArray(o[f])) o[f] = cp(o[f]); return o; })]));
 const places = quick ? ['halcyon', 'oldcoldwater'] : Object.keys(PLACES);
 const headings = quick ? [20, 200] : [20, 140, 260];
 const hours = quick ? [13] : [13, 22];
@@ -71,6 +79,7 @@ const shown = [];
 try {
   for (const place of places) for (const seat of ['cab', 'cockpit']) for (const hour of hours) for (const heading of headings) {
     const v = scene.view(place, seat, { hour, heading });
+    if (lifts) { const R = (v.map.length - 1) / 2, [X, Y] = PLACES[place]; for (let j = 0; j < v.map.length; j++) for (let i = 0; i < v.map.length; i++) { const wx = X + i - R, wy = Y + j - R, seed = wx * 73 + wy * 149; for (const k of [seed, seed - 73, seed - 149]) kitLiftCall(k, 'call-top', 1e6 - 2500); } }
     if (without.size) v.map = v.map.map((row) => row.map((c) => (c && (without.has(c.mark) || (c.ml && without.has('lot'))) ? strip(c) : c)));
     // ⚠ BOTH SIDES START FROM THE SAME CACHES. Every RENDER_TUNE value is in the key of the kept kit
     // sets, arms and ground tiles (tuneSig), so the side whose switch just changed recorded them in
@@ -92,8 +101,24 @@ try {
     for (const k of new Set([...Object.keys(a.sinks), ...Object.keys(b.sinks)])) {
       const A = a.sinks[k] || [], B = b.sinks[k] || [];
       if (A.length !== B.length) { diffs.push(`${k}: ${A.length} records off, ${B.length} on`); continue; }
+      // `--unordered`: the same records in any order, for a switch that only moves records along a sink
+      // (kitPartsKeep sends the lift cars after the cameras). Sorted by their JSON with numbers to 1e-9.
+      if (unordered) {
+        // A pooled kit record carries its defaults (film false, n null, amb false, tex 0) where a kept one leaves them
+        // out; the solids layer reads both alike.
+        const DEF = { film: false, n: null, amb: false, tex: 0 };
+        for (const L of [A, B]) for (let j = 0; j < L.length; j++) {
+          const q = L[j]; if (!q || typeof q !== 'object') continue;
+          let c = null; for (const d in DEF) if (d in q && q[d] === DEF[d]) { c = c || { ...q }; delete c[d]; }
+          if (c) L[j] = c;
+        }
+        const key = (q) => JSON.stringify(q, (_, x) => (typeof x === 'number' ? Math.round(x * 1e9) / 1e9 : x));
+        // Each record's key made once: in the comparator it was made twice a comparison, minutes over 60 views.
+        const by = (L) => L.map((q) => [key(q), q]).sort((p, q) => (p[0] < q[0] ? -1 : p[0] > q[0] ? 1 : 0)).map((e) => e[1]);
+        const As = by(A), Bs = by(B); A.length = 0; B.length = 0; A.push(...As); B.push(...Bs);
+      }
       const i = A.findIndex((q, j) => !near(q, B[j]));
-      if (i >= 0) diffs.push(`${k}[${i}] differs: ${JSON.stringify(A[i]).slice(0, 160)} vs ${JSON.stringify(B[i]).slice(0, 160)}`);
+      if (i >= 0) diffs.push(`${k}[${i}] differs: ${JSON.stringify(A[i]).slice(unordered ? -200 : 0, unordered ? undefined : 160)} vs ${JSON.stringify(B[i]).slice(unordered ? -200 : 0, unordered ? undefined : 160)}`);
     }
     if (a.log.length !== b.log.length) diffs.push(`canvas: ${a.log.length} calls off, ${b.log.length} on`);
     else { const i = a.log.findIndex((s, j) => s !== b.log[j]); if (i >= 0) diffs.push(`canvas call ${i}: ${a.log[i]} vs ${b.log[i]}`); }

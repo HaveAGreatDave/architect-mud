@@ -3,7 +3,14 @@
   "flags": {
     "aliases": "cabinet,cupboard",
     "container": 60000,
-    "dish_cabinet": true
+    "dish_cabinet": true,
+    "spot": {
+      "at": [
+        -1.66,
+        2.65
+      ],
+      "turn": 90
+    }
   },
   "hp": null,
   "hp_max": null,

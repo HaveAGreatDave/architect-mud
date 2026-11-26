@@ -15,8 +15,11 @@
       ]
     },
     "spot": {
-      "along": 3.5,
-      "wall": "back"
+      "at": [
+        3.45,
+        7.45
+      ],
+      "turn": 0
     },
     "tuned_channel": 5,
     "tv": true,
@@ -32,5 +35,5 @@
   "object_type": "furniture",
   "power_draw_kw": 2,
   "price": 3500,
-  "zone_id": "zone_solenne_apt_b"
+  "zone_id": "zone_solenne_apt_b_up"
 }

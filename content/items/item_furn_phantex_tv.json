@@ -9,7 +9,8 @@
     "power_draw_kw": 0.16,
     "tv": true,
     "tv_dial_freq": 7,
-    "tv_skin": "flatscreen"
+    "tv_skin": "flatscreen",
+    "wealth": "rich"
   },
   "id": "item_furn_phantex_tv",
   "name": "Phantex TV",

@@ -178,6 +178,9 @@ export const SCHEMA_SQL = `
   ALTER TABLE districts DROP COLUMN IF EXISTS created_by;
   ALTER TABLE districts DROP COLUMN IF EXISTS updated_at;
   ALTER TABLE districts DROP COLUMN IF EXISTS street_condition;
+  -- The neighbourhood's class: 'rich', 'middle' or 'poor'. A shop here sells furniture of its
+  -- own class (flags.wealth on the item); see wealthOfZone in server/engine/furniture-shop.js.
+  ALTER TABLE districts ADD COLUMN IF NOT EXISTS wealth TEXT;
   -- The street kit's condition across a region: { west, east, south }. 0 core at the west column to
   -- 4 dirt at the east one, in five equal bands of columns; a road past south has left the city.
   -- NULL draws no kit (docs/proposals/coldwater-streets.md).

@@ -6,19 +6,28 @@
 .ow-prompt[hidden] { display: none; }
 .ow-br {
 	position: absolute; top: calc(var(--ow-size) / -2); width: calc(var(--ow-size) / 4); height: var(--ow-size);
-	border: 2px solid color-mix(in srgb, var(--accent) 80%, white); opacity: 0.7;
-	filter: drop-shadow(0 0 3px color-mix(in srgb, var(--accent) 60%, transparent));
-	animation: ow-br-breathe 1.8s ease-in-out infinite;
+	border: 2.5px solid color-mix(in srgb, var(--accent) 70%, white); opacity: 0.85;
+	/* a dark under-stroke keeps them legible on pale walls, a soft glow on dark ones */
+	filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.9)) drop-shadow(0 0 5px color-mix(in srgb, var(--accent) 55%, transparent));
+	/* thick at the middle, tapering out to nothing at the tips */
+	-webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 30%, #000 70%, transparent 100%);
+	mask-image: linear-gradient(to bottom, transparent 0%, #000 30%, #000 70%, transparent 100%);
+	animation: ow-br-in 0.22s cubic-bezier(.2, .9, .3, 1.3) both, ow-br-breathe 2.4s 0.22s ease-in-out infinite;
 }
-.ow-br-l { right: calc(var(--ow-size) / 2.6); border-right: none; border-radius: 100% 0 0 100% / 50% 0 0 50%; }
-.ow-br-r { left: calc(var(--ow-size) / 2.6); border-left: none; border-radius: 0 100% 100% 0 / 0 50% 50% 0; }
-@keyframes ow-br-breathe { 50% { opacity: 0.35; } }
+.ow-br-l { right: calc(var(--ow-size) / 2.6); border-right: none; border-radius: 100% 0 0 100% / 50% 0 0 50%; --ow-in: -6px; }
+.ow-br-r { left: calc(var(--ow-size) / 2.6); border-left: none; border-radius: 0 100% 100% 0 / 0 50% 50% 0; --ow-in: 6px; }
+/* they snap in from a little wide, then lean in and out a few pixels rather than blinking */
+@keyframes ow-br-in { from { opacity: 0; translate: calc(var(--ow-in) * 2) 0; } }
+@keyframes ow-br-breathe { 50% { translate: var(--ow-in) 0; opacity: 0.6; } }
 @media (prefers-reduced-motion: reduce) { .ow-br { animation: none; } }
 .ow-prompt-say {
-	position: absolute; left: 0; top: calc(var(--ow-size) / 2 + 8px); transform: translateX(-50%);
-	white-space: nowrap; padding: 3px 8px; border-radius: 4px;
-	background: color-mix(in srgb, var(--bg) 80%, transparent); color: var(--text);
-	font: 600 0.8125rem var(--font-mono); letter-spacing: 0.02em;
+	position: absolute; left: 0; top: calc(var(--ow-size) / 2 + 10px); transform: translateX(-50%);
+	white-space: nowrap; padding: 3px 9px; border-radius: 999px;
+	background: color-mix(in srgb, var(--bg) 85%, transparent); color: var(--text);
+	border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+	box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+	font: 600 0.75rem var(--font-mono); letter-spacing: 0.04em;
+	animation: ow-br-in 0.25s ease-out both; --ow-in: 0px;
 }
 .ow-prompt-say:empty { display: none; }
 .ow-prompt.teach .ow-br { opacity: 0.95; }

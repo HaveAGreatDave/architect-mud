@@ -12,12 +12,66 @@ import { faceAway,
   bakeSignText, berthBoxColour, berthServiceOpen, berthBoxZ, berthOwnLift, berthPhase, berthPre, berthRow,
   berthRowOut, berthSlot, blinkLight, clamp, cssRgb, draw3DBoxAt, drawBarrelRoof, drawFacetDrum,
   drawRing, drawSmoke, emitDecoFill, emitLightRunner, emitSurfaceText, emitWire, facePals, faceYaw, markDoorway,
-  glowPool, hfChrome, lightBeam, marqueeBand, mast, moveSeg, movingBox, reserveSignBand, roofCross,
+  armLivePart, glowPool, hfChrome, lightBeam, marqueeBand, mast, moveSeg, movingBox, reserveSignBand, roofCross,
   windFlag,
 } from '../../windshield.js';
 import { flatOut } from './downtown.js';
 import { drawEntrance } from '../entrance.js';
 
+// The lighthouse's turning beam and its flash, as a live part: drawn from (dx, dy) and the lantern's heights.
+function lighthouseLight(ctx, cam, dx, dy, fh, h, EYE0, EYE1, COLLAR, RGB, night, alpha, now) {
+  const spin = (now || 0) * 0.00060;
+  const camA = Math.atan2((cam.ey || 0) - dy, (cam.ex || 0) - dx);
+  let flash = 0;
+  for (const half of [0, Math.PI]) {
+    const th = spin + half, ct2 = Math.cos(th), st2 = Math.sin(th);
+    // How nearly this beam is pointing at the eye that is looking at it. A lighthouse is a light
+    // that is dark most of the time and then, briefly, the brightest thing on the water — and
+    // the flash is not a timer, it is the moment the beam comes round to YOU.
+    const aim = Math.max(0, Math.cos(th - camA));
+    flash = Math.max(flash, Math.pow(aim, 24));
+    // ⚠ THE THROW IS WHERE THE LIGHT DIES, NOT WHERE IT WOULD IF IT CARRIED ON. The stroke beam
+    // ran to 9.2 tiles at an alpha of 0.02 — a length nobody could see, and a sixth of the nodes
+    // to draw it. What is left is what is actually lit.
+    //
+    // ⚠ AND IT STARTS OUTSIDE THE LANTERN, WHICH IS A DEPTH-BUFFER FACT AND NOT A NICETY. The
+    // eye is a faceted drum of radius fh·0.56 with the crown cage standing over it; a node
+    // inside that is BEHIND real geometry and the buffer hides it, so a beam rooted at the axis
+    // came out of a dark notch the shape of its own lantern. The stroke beam started at 0.45 and
+    // never showed it, because the painter's queue sorted the whole shaft in front of the tower.
+    //
+    // ⚠ AND A BEAM COMING AT YOU IS BRIGHTER THAN ONE CROSSING IN FRONT OF YOU, which is forward
+    // scatter and is most of what a sea light looks like. It is a gentle term on purpose: steep
+    // enough and the far beam disappears entirely, and two beams of which one is missing reads
+    // as a fault rather than as a rotation.
+    const BEAM_Z = EYE0 + h * 0.06, THROW = 6.6, DROOP = 0.10, ROOT = fh * 0.72;
+    lightBeam(ctx, cam,
+      [dx + ct2 * ROOT, dy + st2 * ROOT, BEAM_Z],
+      [dx + ct2 * THROW, dy + st2 * THROW, BEAM_Z - THROW * DROOP],
+      fh * 0.78, fh * 3.40, RGB,
+      (night ? 0.60 : 0.13) * (0.72 + 0.55 * aim) * alpha, { fall: 1.25 });
+  }
+  // The eye itself: a standing glow with the flash on top of it. Both are sprites, so a building
+  // between you and the tower settles them per pixel instead of an all-or-nothing probe.
+  //
+  // ⚠ ITS SIZE IS IN TILES FOR THE SAME REASON THE BEAM'S IS, AND IT HAD TO MOVE WHEN THE BEAM
+  // DID. This was a bare `9 + 16·flash` — a world radius of about a twentieth of a tile once the
+  // focal length is divided out — against a shaft that now leaves the lantern two thirds of a
+  // tile across. A beam wider than the thing throwing it reads as light coming out of nothing,
+  // so the flare is set against the beam's own root rather than being a number of its own.
+  // ⚠ AND IT MUST NOT BLOW TO WHITE, WHICH THE FIRST CUT OF IT DID. An additive disc at 0.85
+  // alpha and two thirds of a tile across saturates its own middle, and a saturated core is
+  // white — so from the pier the beacon was a featureless white ball with a black tower under
+  // it, and the one thing the whole arm is built around (`m.neon` is the ONLY colour it reads)
+  // was the thing you could not see. The flash lives in REACH now and not in the core: the
+  // radius carries it, the alpha barely moves, and the light stays the colour it is.
+  glowPool(ctx, cam, dx, dy, (EYE0 + EYE1) / 2, RGB, fh * (0.62 + 0.85 * flash) * (cam.FL || 300),
+    alpha * (night ? 0.28 + 0.26 * flash : 0.12 + 0.22 * flash), { add: true, max: 300 });
+  glowPool(ctx, cam, dx, dy, COLLAR, RGB, 7, alpha * (night ? 0.26 : 0.08));
+  // What it throws on the water it stands in. A sea light with no wash under it reads as a lamp
+  // on a pole; this is the part that says the basin is lit by the thing at the end of the pier.
+  glowPool(ctx, cam, dx, dy, h * 0.02, RGB, 26, alpha * (night ? 0.26 + 0.18 * flash : 0.07));
+}
 export const WATERFRONT_ARMS = {
   // ══ THE BASIN JETTY ══════════════════════════════════════════════════════════════════════
   // Three arms for one structure, because a run of deck, the yard you leave the truck in and the
@@ -375,57 +429,9 @@ export const WATERFRONT_ARMS = {
     // caisson, which reads as a scratch on the glass rather than as something in the air. The
     // cone's widths below are in TILES, so it opens out along its own length and swells as you
     // close on it, both of which are what says "light" rather than "wire".
-    const spin = (now || 0) * 0.00060;
-    const camA = Math.atan2((cam.ey || 0) - dy, (cam.ex || 0) - dx);
-    let flash = 0;
-    for (const half of [0, Math.PI]) {
-      const th = spin + half, ct2 = Math.cos(th), st2 = Math.sin(th);
-      // How nearly this beam is pointing at the eye that is looking at it. A lighthouse is a light
-      // that is dark most of the time and then, briefly, the brightest thing on the water — and
-      // the flash is not a timer, it is the moment the beam comes round to YOU.
-      const aim = Math.max(0, Math.cos(th - camA));
-      flash = Math.max(flash, Math.pow(aim, 24));
-      // ⚠ THE THROW IS WHERE THE LIGHT DIES, NOT WHERE IT WOULD IF IT CARRIED ON. The stroke beam
-      // ran to 9.2 tiles at an alpha of 0.02 — a length nobody could see, and a sixth of the nodes
-      // to draw it. What is left is what is actually lit.
-      //
-      // ⚠ AND IT STARTS OUTSIDE THE LANTERN, WHICH IS A DEPTH-BUFFER FACT AND NOT A NICETY. The
-      // eye is a faceted drum of radius fh·0.56 with the crown cage standing over it; a node
-      // inside that is BEHIND real geometry and the buffer hides it, so a beam rooted at the axis
-      // came out of a dark notch the shape of its own lantern. The stroke beam started at 0.45 and
-      // never showed it, because the painter's queue sorted the whole shaft in front of the tower.
-      //
-      // ⚠ AND A BEAM COMING AT YOU IS BRIGHTER THAN ONE CROSSING IN FRONT OF YOU, which is forward
-      // scatter and is most of what a sea light looks like. It is a gentle term on purpose: steep
-      // enough and the far beam disappears entirely, and two beams of which one is missing reads
-      // as a fault rather than as a rotation.
-      const BEAM_Z = EYE0 + h * 0.06, THROW = 6.6, DROOP = 0.10, ROOT = fh * 0.72;
-      lightBeam(ctx, cam,
-        [dx + ct2 * ROOT, dy + st2 * ROOT, BEAM_Z],
-        [dx + ct2 * THROW, dy + st2 * THROW, BEAM_Z - THROW * DROOP],
-        fh * 0.78, fh * 3.40, RGB,
-        (night ? 0.60 : 0.13) * (0.72 + 0.55 * aim) * alpha, { fall: 1.25 });
-    }
-    // The eye itself: a standing glow with the flash on top of it. Both are sprites, so a building
-    // between you and the tower settles them per pixel instead of an all-or-nothing probe.
-    //
-    // ⚠ ITS SIZE IS IN TILES FOR THE SAME REASON THE BEAM'S IS, AND IT HAD TO MOVE WHEN THE BEAM
-    // DID. This was a bare `9 + 16·flash` — a world radius of about a twentieth of a tile once the
-    // focal length is divided out — against a shaft that now leaves the lantern two thirds of a
-    // tile across. A beam wider than the thing throwing it reads as light coming out of nothing,
-    // so the flare is set against the beam's own root rather than being a number of its own.
-    // ⚠ AND IT MUST NOT BLOW TO WHITE, WHICH THE FIRST CUT OF IT DID. An additive disc at 0.85
-    // alpha and two thirds of a tile across saturates its own middle, and a saturated core is
-    // white — so from the pier the beacon was a featureless white ball with a black tower under
-    // it, and the one thing the whole arm is built around (`m.neon` is the ONLY colour it reads)
-    // was the thing you could not see. The flash lives in REACH now and not in the core: the
-    // radius carries it, the alpha barely moves, and the light stays the colour it is.
-    glowPool(ctx, cam, dx, dy, (EYE0 + EYE1) / 2, RGB, fh * (0.62 + 0.85 * flash) * (cam.FL || 300),
-      alpha * (night ? 0.28 + 0.26 * flash : 0.12 + 0.22 * flash), { add: true, max: 300 });
-    glowPool(ctx, cam, dx, dy, COLLAR, RGB, 7, alpha * (night ? 0.26 : 0.08));
-    // What it throws on the water it stands in. A sea light with no wash under it reads as a lamp
-    // on a pole; this is the part that says the basin is lit by the thing at the end of the pier.
-    glowPool(ctx, cam, dx, dy, h * 0.02, RGB, 26, alpha * (night ? 0.26 + 0.18 * flash : 0.07));
+    // The beam, the flash as it comes round to you and the wash it throws: the only part that reads the clock,
+    // so as a live part (armLivePart) the rest of the light is kept.
+    armLivePart(lighthouseLight, 12, [ctx, cam, dx, dy, fh, h, EYE0, EYE1, COLLAR, RGB, night, alpha, now]);
     blinkLight(ctx, cam, dx, dy, TIP, RGB, now, seed + 4, alpha, 1.8);   // the needle's own slow pulse
   },
   quay_crane(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {

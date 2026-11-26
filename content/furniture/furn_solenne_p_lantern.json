@@ -7,13 +7,6 @@
     "look": {
       "arche": "prop",
       "form": "lantern"
-    },
-    "spot": {
-      "at": [
-        2,
-        1
-      ],
-      "turn": 0
     }
   },
   "hp": null,
@@ -25,5 +18,5 @@
   "object_type": "furniture",
   "power_draw_kw": null,
   "price": 380,
-  "zone_id": "zone_solenne_apt_p"
+  "zone_id": "zone_solenne_apt_p_up"
 }

@@ -24,14 +24,7 @@
       "tone": "black"
     },
     "media_deck": true,
-    "mini_deck": true,
-    "spot": {
-      "at": [
-        0.5,
-        8.7
-      ],
-      "turn": 0
-    }
+    "mini_deck": true
   },
   "hp": null,
   "hp_max": null,
@@ -42,5 +35,5 @@
   "object_type": "media_deck",
   "power_draw_kw": 0.04,
   "price": null,
-  "zone_id": "zone_solenne_apt_b"
+  "zone_id": "zone_solenne_apt_b_up"
 }

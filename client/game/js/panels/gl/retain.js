@@ -29,7 +29,12 @@ export const STALE_HIT = 0.25;
 export function createArena(gl, stride, attrs, floor = 1 << 15) {
   const vao = gl.createVertexArray();
   const stream = makeVertexStream(gl, vao, stride, attrs, floor);
-  let data = new Float32Array(floor), used = 0, frame = 0;
+  // ⚠ NO CPU MIRROR OF THE BUFFER. `room` is the arena's size (on the GPU, reserved); what's placed is written
+  // into `stage` and uploaded, and a group already there is never read back, because a rebuild writes every kept
+  // group again from its own records. `stage` holds only an append's new groups, and a rebuild's is its own and
+  // dropped after. As a full copy at twice the working set it was 24.5 MB of the solids' alone on foot.
+  let stage = new Float32Array(floor), room = 0, used = 0, frame = 0;
+  const STAGE_KEEP = 1 << 20;   // floats: an append bigger than this stages in a buffer of its own, not kept
   const map = new Map();
   let runs = [], verts = 0, spans = [];
 
@@ -42,30 +47,35 @@ export function createArena(gl, stride, attrs, floor = 1 << 15) {
   function retain(groups) {
     const now = ++frame;
     if (!groups || !groups.length) { runs = []; verts = 0; spans = []; return runs; }
+    // Placed into `S`, whose float 0 is the arena's float `base`.
+    let S = stage, base = 0;
     const place = (g, seen) => {
       if (map.has(g.key)) return;
-      const at = used, w = g.write(data, at);
+      const at = used, w = g.write(S, at - base) + base;
       map.set(g.key, { at: at / stride, n: (w - at) / stride, seen, g });
       used = w;
     };
     let add = 0, hits = 0;
     for (const g of groups) { const e = map.get(g.key); if (e) { e.seen = now; hits++; } else add += g.floats; }
     if (add) {
-      if (used + add > data.length) {
+      if (used + add > room) {
         const keep = [];
         let need = add;
         const keepFor = hits < groups.length * STALE_HIT ? 1 : KEEP;
         for (const e of map.values()) if (now - e.seen < keepFor) { keep.push(e); need += e.n * stride; }
-        if (need * 2 > data.length) data = new Float32Array(Math.max(need * 2, data.length * 2));
+        if (need * 2 > room) room = Math.max(need * 2, room * 2, floor);
+        S = new Float32Array(need); base = 0;
         map.clear(); used = 0;
         for (const e of keep) place(e.g, e.seen);
         for (const g of groups) place(g, now);
-        stream.write(data, used);
+        stream.reserve(room);
+        stream.write(S, used);
       } else {
+        if (add > stage.length) { if (add <= STAGE_KEEP) stage = new Float32Array(Math.max(add, stage.length * 2)); }
+        S = add <= stage.length ? stage : new Float32Array(add); base = used;
         const at0 = used;
         for (const g of groups) place(g, now);
-        if (used > stream.capacity) stream.write(data, used);
-        else stream.writeRange(data, at0, used - at0);
+        stream.writeAt(S, 0, at0, used - at0);
       }
     }
     spans = [];
@@ -86,5 +96,7 @@ export function createArena(gl, stride, attrs, floor = 1 << 15) {
   // whose groups need their own state per draw (a decal's texture) draws these instead of `runs`.
   // Everything placed is forgotten (the kept casters' new anchor): the next retain writes this frame's groups afresh.
   const reset = () => { map.clear(); used = 0; };
+  // ⚠ STREAM.WRITE GROWS ONLY PAST ITS CAPACITY, so `room` is reserved before a rebuild's write: an append then
+  // always lands inside what's allocated (writeAt refuses anything past it rather than writing short).
   return { vao, retain, reset, get runs() { return runs; }, get verts() { return verts; }, get spans() { return spans; } };
 }

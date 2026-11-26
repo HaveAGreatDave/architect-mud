@@ -1,0 +1,9 @@
+{
+  "a": "zone_solenne_skydeck",
+  "b": "zone_solenne_hall_40",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_solenne_skydeck_east_1n05",
+  "lockable": false,
+  "one_way": false
+}

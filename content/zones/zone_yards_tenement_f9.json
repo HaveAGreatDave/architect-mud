@@ -4,20 +4,56 @@
   "description": "A narrow landing off the stairwell, tighter than the ones below where the building steps in, six numbered doors crowded round it, the stencilled numbers worn to grey ghosts. The carpet gave up years ago and the smell never will. A bare bulb buzzes overhead, throwing more shadow than light. This is the top floor. The stairs end at a roof door with a padlock on it.",
   "exits": {
     "down": "zone_yards_tenement_f8",
-    "east": "zone_yards_tenement_u9_2",
-    "north": "zone_yards_tenement_u9_1",
-    "northeast": "zone_yards_tenement_u9_5",
-    "northwest": "zone_yards_tenement_u9_6",
-    "south": "zone_yards_tenement_u9_3",
-    "west": "zone_yards_tenement_u9_4"
+    "east": "zone_yards_tenement_u9_3",
+    "south": "zone_yards_tenement_f9_h1",
+    "west": "zone_yards_tenement_u9_1"
   },
   "flags": {
     "ambient_pool": "world_floor_1",
+    "building_name": "The Yards Tenement",
+    "building_type": "apartment",
     "floor": "boards",
-    "is_interior": true
+    "is_building": true,
+    "is_interior": true,
+    "room": {
+      "d": 6.46,
+      "doors": {
+        "down": [
+          0,
+          5.52
+        ],
+        "east": 0,
+        "south": 0,
+        "west": -0.65
+      },
+      "face": 180,
+      "floor_m": 32.4,
+      "h": 3.6,
+      "panes": [
+        {
+          "a": 0.4,
+          "b": 0.76,
+          "kind": "sash",
+          "wall": "back",
+          "y0": 0.9,
+          "y1": 2.4
+        },
+        {
+          "a": -0.76,
+          "b": -0.4,
+          "kind": "sash",
+          "wall": "back",
+          "y0": 0.9,
+          "y1": 2.4
+        }
+      ],
+      "studio": false,
+      "w": 2.12
+    },
+    "world_exit_zone": "zone_district_921_902"
   },
   "grid_x": 0,
-  "grid_y": 0,
+  "grid_y": -2,
   "grid_z": 9,
   "id": "zone_yards_tenement_f9",
   "map_id": "map_int_yards_tenement",

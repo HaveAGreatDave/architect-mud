@@ -6,18 +6,20 @@
   "ambient_theme": "indoors",
   "bg_color": "#242a33",
   "color": "#efe4cd",
-  "description": "A private landing with one door. Pale stone, a single orchid on a plinth, light from nowhere in particular. The far wall is a seamless slab of brushed bronze, the penthouse entrance, with a plate reading <b>J. AKERSON</b> and a <b>hololock</b> that watches you back. The elevator waits <b>in</b> behind you.",
+  "description": "The penthouse's own landing, walnut and stone, the lift behind you and nobody else's door. The flat is <b>west</b>, its east room <b>east</b>. The elevator is <b>in</b>.",
   "exits": {
+    "east": "zone_solenne_penthouse_e",
     "in": "zone_solenne_elevator",
-    "north": "zone_solenne_penthouse"
+    "west": "zone_solenne_penthouse"
   },
   "flags": {
     "building_name": "Solenne Residences",
     "floor": "stone",
     "is_interior": true,
+    "private_to": "zone_solenne_penthouse",
     "room": {
       "balcony": false,
-      "d": 3.2,
+      "d": 2,
       "decor": {
         "ceiling": {
           "band": 0.42,
@@ -28,7 +30,7 @@
         },
         "downlights": false,
         "plaques": {
-          "zone_solenne_penthouse": "J. AKERSON"
+          "zone_solenne_penthouse": "PH"
         },
         "rug": false,
         "walls": [
@@ -51,6 +53,11 @@
           }
         ]
       },
+      "doors": {
+        "east": 0,
+        "in": 0.05,
+        "west": 0
+      },
       "face": 0,
       "finish": "fine",
       "ground": "stone",
@@ -62,15 +69,16 @@
         "trim": "#17130f",
         "wall": "#d8d2c6"
       },
-      "w": 5.2,
+      "w": 2.3,
       "windowless": true
     }
   },
   "grid_x": 0,
   "grid_y": -1,
-  "grid_z": 5,
+  "grid_z": 28,
   "id": "zone_solenne_ph_landing",
   "map_id": "map_int_solenne",
+  "marker": "28",
   "name": "The Penthouse Landing",
   "parent_zone": "zone_district_914_908"
 }

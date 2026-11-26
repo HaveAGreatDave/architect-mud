@@ -28,8 +28,11 @@
       "form": "cupboard"
     },
     "spot": {
-      "along": -5.6,
-      "wall": "back"
+      "at": [
+        -2.26,
+        10.95
+      ],
+      "turn": 0
     }
   },
   "hp": null,

@@ -10,10 +10,6 @@
     "interactions": [
       "lean"
     ],
-    "spot": {
-      "along": -10.55,
-      "wall": "back"
-    },
     "wardrobe": true
   },
   "hp": null,
@@ -25,5 +21,5 @@
   "object_type": "container",
   "power_draw_kw": 0.05,
   "price": 0,
-  "zone_id": "zone_solenne_apt_b"
+  "zone_id": "zone_solenne_apt_b_e"
 }

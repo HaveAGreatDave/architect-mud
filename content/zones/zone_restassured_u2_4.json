@@ -1,0 +1,76 @@
+{
+  "ambient_theme": "indoors",
+  "description": "",
+  "exits": {
+    "west": "zone_restassured_f2_h1"
+  },
+  "flags": {
+    "building_name": "Rest Assured",
+    "building_type": "residential",
+    "is_apartment": true,
+    "is_building": true,
+    "is_interior": true,
+    "rent_cost": 80,
+    "room": {
+      "d": 7.02,
+      "decor": {
+        "damp": [
+          {
+            "at": [
+              -1.23,
+              4.75
+            ],
+            "r": 0.59
+          }
+        ],
+        "walls": {
+          "hex": "#4a3a2a",
+          "kind": "walnut",
+          "rail": 0.95,
+          "trim": "#2a2018",
+          "y1": 1
+        }
+      },
+      "doors": {
+        "west": 0
+      },
+      "face": 90,
+      "floor_m": 6.88,
+      "h": 3.44,
+      "panes": [
+        {
+          "a": 0.73,
+          "b": 1.49,
+          "kind": "sash",
+          "wall": "front",
+          "y0": 0.9,
+          "y1": 2.3
+        },
+        {
+          "a": -0.97,
+          "b": -0.07,
+          "kind": "sash",
+          "wall": "front",
+          "y0": 0.9,
+          "y1": 2.3
+        }
+      ],
+      "studio": false,
+      "tone": {
+        "accent": "#5a4a3a",
+        "ceiling": "#9a907e",
+        "trim": "#3a2e24",
+        "wall": "#8a7c66"
+      },
+      "w": 3.58
+    },
+    "world_exit_zone": "zone_district_900_905"
+  },
+  "grid_x": 2,
+  "grid_y": 2,
+  "grid_z": 2,
+  "id": "zone_restassured_u2_4",
+  "map_id": "map_int_restassured",
+  "name": "Rest Assured, Room 2.4",
+  "parent_zone": "zone_district_900_905"
+}

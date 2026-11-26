@@ -3,7 +3,8 @@
   "flags": {
     "interactions": [
       "lean"
-    ]
+    ],
+    "wealth": "poor"
   },
   "id": "item_furn_pipe_railing",
   "name": "pipe railing",

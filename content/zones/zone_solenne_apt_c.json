@@ -3,34 +3,37 @@
   "ambient_theme": "indoors",
   "bg_color": "#2b3a34",
   "color": "#e8ddc7",
-  "description": "A one-bedroom on the west corner facing the mountains: pale plaster, warm oak, a platform bed under the long window. A galley kitchen, a soaking tub, a window seat built for watching the storms roll in from somewhere safe and dry. The door seals with a soft magnetic sigh. Leave <b>east</b> to the landing.",
+  "description": "A one-bedroom in the south-east corner of the fourth floor, the long glass wall looking down Marrow Street. Warm oak, a platform bed, a galley kitchen. Leave <b>west</b> to the landing.",
   "exits": {
-    "east": "zone_solenne_residences",
-    "in": "zone_solenne_apt_c_bath"
+    "in": "zone_solenne_apt_c_bath",
+    "west": "zone_solenne_residences"
   },
   "flags": {
     "building_name": "Solenne Residences",
     "floor": "boards",
     "is_apartment": true,
     "is_interior": true,
-    "rent_cost": 400,
+    "rent_cost": 340,
     "rest_multiplier": 1.5,
     "room": {
       "balcony": false,
-      "d": 7,
-      "ensuite": {
-        "d": 2.6,
-        "dress": "spa",
-        "w": 3.2
+      "d": 6.36,
+      "doors": {
+        "west": 2.18
       },
+      "ensuite": {
+        "d": 1.8,
+        "dress": "spa",
+        "w": 2.8
+      },
+      "face": 0,
       "finish": "fine",
       "glass": [
-        "front",
-        "left"
+        "right"
       ],
       "h": 3,
-      "storeys": 40,
-      "w": 11.4
+      "storeys": 32,
+      "w": 5.12
     },
     "window": {
       "description": "A tall pane runs floor to ceiling down one wall, black-framed, holding the city out there like something in a case.",
@@ -39,12 +42,12 @@
       "visibility": 0.9
     }
   },
-  "grid_x": -1,
+  "grid_x": 1,
   "grid_y": -1,
-  "grid_z": 3,
+  "grid_z": 4,
   "id": "zone_solenne_apt_c",
   "map_id": "map_int_solenne",
-  "marker": "8",
-  "name": "Solenne Residence 8-C",
+  "marker": "4",
+  "name": "Solenne Residence 4-B",
   "parent_zone": "zone_district_914_908"
 }

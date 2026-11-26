@@ -3,7 +3,8 @@
   "flags": {
     "interactions": [
       "lean"
-    ]
+    ],
+    "wealth": "rich"
   },
   "id": "item_furn_nano_desk",
   "name": "self-organizing desk",

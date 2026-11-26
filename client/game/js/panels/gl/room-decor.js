@@ -1155,6 +1155,29 @@ export function drawDecorForm(K, F, p) {
       rod(K, P(-hw + 0.1, h + 0.05, 0), P(hw - 0.1, h + 0.05, 0), 0.014, CH, 1.15, METAL);
       return true;
     }
+    case 'awning': {
+      // a terrace awning: four slim bronze posts and a canvas over them in cream and the Solenne's cyan, striped
+      // along its length, falling a little to the front, with a scalloped valance round three sides. Things stand
+      // under it (room-layout.js treats it as overhead, as a rug is under), so nothing here reaches the floor but the posts.
+      const BR = '#8a6a3c', CREAM = '#efe6d2', CYAN = '#26c4e2', back = h, front = h - 0.22, n = 8;
+      for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+        const top = sz < 0 ? back : front;
+        rod(K, P(sx * (hw - 0.05), 0, sz * (hd - 0.05)), P(sx * (hw - 0.05), top, sz * (hd - 0.05)), 0.028, BR, 1.1, METAL);
+        K.ball(...P(sx * (hw - 0.05), top + 0.02, sz * (hd - 0.05)), 0.04, BR, 1.1, 10, METAL);
+      }
+      // the canvas in strips, back to front, each a touch lower than the one behind it
+      for (let i = 0; i < n; i++) {
+        const z0 = -hd + (2 * hd) * (i / n), z1 = -hd + (2 * hd) * ((i + 1) / n), y = back + (front - back) * ((i + 0.5) / n);
+        pbox(-hw, hw, y, y + 0.025, z0, z1 + 0.002, i % 2 ? CYAN : CREAM, 1, null, MATTE);
+      }
+      // the valance: a short drop of scallops along the front and down the two sides
+      for (let i = 0; i < 12; i++) { const x0 = -hw + (2 * hw) * (i / 12), x1 = x0 + (2 * hw) / 12; pbox(x0, x1 - 0.01, front - 0.16 + (i % 2) * 0.03, front, hd - 0.01, hd + 0.005, i % 2 ? CYAN : CREAM, 1, null, MATTE); }
+      for (const s of [-1, 1]) for (let i = 0; i < 6; i++) {
+        const z0 = -hd + (2 * hd) * (i / 6), z1 = z0 + (2 * hd) / 6, y = back + (front - back) * ((i + 0.5) / 6);
+        pbox(s < 0 ? -hw - 0.005 : hw - 0.01, s < 0 ? -hw + 0.01 : hw + 0.005, y - 0.15 + (i % 2) * 0.03, y, z0, z1 - 0.01, i % 2 ? CYAN : CREAM, 1, null, MATTE);
+      }
+      return true;
+    }
     case 'smoketable': {
       // a low drum table in black lacquer, set with a silver cigarette box open on a few smokes, a cedar
       // humidor, and a cut-glass ashtray with a cigar resting on its lip, still going

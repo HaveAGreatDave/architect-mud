@@ -1,7 +1,7 @@
 {
   "connection_id": "conn_yards_tenement_u4_1_south",
   "door_type": "basic",
-  "exit_dir": "south",
+  "exit_dir": "east",
   "flags": {},
   "hololock_difficulty": 5,
   "hp": 1000,

@@ -26,13 +26,6 @@
       "item_cigarettes",
       "item_platinum_cigar"
     ],
-    "spot": {
-      "at": [
-        -6.45,
-        -1
-      ],
-      "turn": 90
-    },
     "vend_cooldown_s": 0,
     "vend_line": "You lift one out of the box.",
     "vend_menu": [
@@ -72,5 +65,5 @@
   "object_type": "container",
   "power_draw_kw": 0,
   "price": 0,
-  "zone_id": "zone_solenne_apt_b"
+  "zone_id": "zone_solenne_apt_b_e"
 }

@@ -15,7 +15,15 @@ the check is synchronous and adds no DB round trip to a step.
 | `residents_only` | Building name a player must hold a unit in to enter. |
 | `residents_only_deny` | Optional refusal line, in the building's own voice. Defaults to a generic "Residents only." |
 
+| `private_to` | A flat's zone id. Only whoever holds that flat (or a corp holding it, `playerControlsApt`) may enter; while it's unlet, anyone may, so it can be seen and rented. |
+| `private_to_deny` | Optional refusal line for `private_to`. |
+
 `admin`/`dev` roles walk through.
+
+`private_to` is for a flat whose rooms are off a landing that's its own: the Solenne's whole-floor flats
+(docs/proposals/solenne-plates.md), where the lift opens onto the flat's landing and the east room and the floors
+up its stair are off it. The flat's own front door keeps its hololock; the landing and the other rooms carry the
+flag instead of a lock of their own, since a lock is held by one zone only.
 
 ## Elevators
 

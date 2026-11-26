@@ -9,7 +9,8 @@
     "power_draw_kw": 0.12,
     "tv": true,
     "tv_dial_freq": 7,
-    "tv_skin": "crt"
+    "tv_skin": "crt",
+    "wealth": "poor"
   },
   "id": "item_furn_crt_relic",
   "name": "cathode box TV",

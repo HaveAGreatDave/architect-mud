@@ -78,7 +78,7 @@ const fail = (m) => fails.push(m);
     const wantSit = ['seat', 'bench', 'sofa', 'bed'].includes(arche);
     if (wantSit && !sits.length) fail(`${arche}/${form}: no seat`);
     // a rug is walked on and the dressing gantry hangs overhead: neither is used, so neither has a station (room-layout.js)
-    if (!wantSit && !uses.length && form !== 'rug' && form !== 'gantry') fail(`${arche}/${form}: no station`);
+    if (!wantSit && !uses.length && form !== 'rug' && form !== 'gantry' && form !== 'awning') fail(`${arche}/${form}: no station`);
     if (uses.some((s) => s.verb !== ARCHETYPES[arche].verb)) fail(`${arche}/${form}: a station answers to the wrong verb`);
     if (!n) fail(`${arche}/${form}: drew nothing`);
   }
@@ -216,7 +216,8 @@ const flatLayouts = [];
       if (deck && decorSolids(spec).some(([q0, q1, q2, q3]) => u0 < q1 && u1 > q0 && v0 < q3 && v1 > q2)) fail(`${z.id}: ${p.id} stands in the balcony's dressing`);
       if (!deck && (u0 < a - 0.01 || u1 > b + 0.01 || v0 < c - 0.01 || v1 > e + 0.01)) fail(`${z.id}: ${p.id} stands outside its room`);
       // a pit's banquette is a ring round its wall, so a runway passes over its middle on purpose
-      const ring = (x) => x.form === 'banquette';
+      // and an awning stands over what's under it on posts at its corners
+      const ring = (x) => x.form === 'banquette' || x.form === 'awning';
       // what each takes up, which for a corner desk is its two runs and not the square they hold
       const hits = (A, B) => A.some((a) => B.some((q) => a[0] < q[1] - 0.01 && a[1] > q[0] + 0.01 && a[2] < q[3] - 0.01 && a[3] > q[2] + 0.01));
       for (let j = i + 1; j < floor.length; j++) { if (ring(p) || ring(floor[j])) continue; if (hits(pieceBoxes(p), pieceBoxes(floor[j]))) fail(`${z.id}: ${p.id} stands in ${floor[j].id}`); }

@@ -3,7 +3,8 @@
   "flags": {
     "interactions": [
       "sit"
-    ]
+    ],
+    "wealth": "middle"
   },
   "id": "item_furn_diner_booth",
   "name": "diner booth",

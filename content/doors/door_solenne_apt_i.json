@@ -1,7 +1,7 @@
 {
   "connection_id": "conn_solenne_apt_i_west_bhpu",
   "door_type": "basic",
-  "exit_dir": "west",
+  "exit_dir": "east",
   "flags": {},
   "hololock_difficulty": 8,
   "hp": 1000,
@@ -10,7 +10,7 @@
   "is_locked": 0,
   "is_open": 0,
   "lock_state": "locked",
-  "name": "Residence 8-B hololock",
+  "name": "Residence 16 hololock",
   "tags": {
     "lock:hololock": {
       "canHack": true,
@@ -24,6 +24,6 @@
       }
     }
   },
-  "target_zone": "zone_solenne_residences",
+  "target_zone": "zone_solenne_hall_u16",
   "zone_id": "zone_solenne_apt_i"
 }

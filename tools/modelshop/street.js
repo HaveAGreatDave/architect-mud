@@ -441,7 +441,8 @@ export async function interiors(opts = {}) {
   const heading = opts.heading ?? (data.rooms.find((x) => x.zone === r.zone)?.frame?.face ?? 0);
   // its own building off the map, as the window view does it (room-view.js withoutOwnTower)
   const cells = { [gx + ',' + gy]: { kind: 'land', bt: null, bn: null, pad: 0, self: 1 }, ...(opts.cells || {}) };
-  return street({ ...opts, x: gx, y: gy, seat: 'free', off: { x: ex, y: ey }, eyeH: ez, heading, cells, view });
+  // (`at` is the spot in the room here, and a building's name to __street: not passed on)
+  return street({ ...opts, at: null, x: gx, y: gy, seat: 'free', off: { x: ex, y: ey }, eyeH: ez, heading, cells, view });
 }
 
 // The building's street door as freelook-view.js hands it to the renderer: read off the model's mass

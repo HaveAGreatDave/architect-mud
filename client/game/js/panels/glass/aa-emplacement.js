@@ -112,6 +112,21 @@ function scorch(rgb, k) { return [rgb[0] * (1 - k) + 26 * k, rgb[1] * (1 - k) + 
 //   seed, now, night, alpha, wet, sun
 //   face(pts, rgb, a)            one convex polygon, points in the same frame, already shaded
 //   light(x, y, z, rgb, s, a)    a glow
+// The matrix (column-major, 16) taking a part from its rest pose to its pose now: turned by `az` about the vertical
+// through (px, py), and first, when `zt` isn't null, raised by `el` about the horizontal trunnion axis at height zt
+// (at rest the part points along +x, so that axis is y). As drawAAEmplacement's `frame` does it on the CPU.
+function aaPose(px, py, az, zt, el) {
+  const c = Math.cos(az), sn = Math.sin(az);
+  // Yaw about (px, py): Y = T(p) Rz(az) T(-p).
+  const Y = [c, sn, 0, 0, -sn, c, 0, 0, 0, 0, 1, 0, px - c * px + sn * py, py - sn * px - c * py, 0, 1];
+  if (zt == null) return Y;
+  // Lift about the line y-axis at (px, *, zt): x' = x ce - z se, z' = x se + z ce, relative to (px, zt).
+  const ce = Math.cos(el), se = Math.sin(el);
+  const L = [ce, 0, se, 0, 0, 1, 0, 0, -se, 0, ce, 0, px - ce * px + se * zt, 0, zt - se * px - ce * zt, 1];
+  const out = new Array(16);
+  for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) { let v = 0; for (let k = 0; k < 4; k++) v += Y[k * 4 + i] * L[j * 4 + k]; out[j * 4 + i] = v; }
+  return out;
+}
 export function drawAAEmplacement(o) {
   const kind = PAL[o.kind] ? o.kind : 'guardian';
   const pal0 = PAL[kind], s = o.s == null ? 1 : o.s;
@@ -133,13 +148,22 @@ export function drawAAEmplacement(o) {
   // the spinning array set it around themselves.
   const S = !o.part || o.part === 'static', D = !o.part || o.part === 'dynamic';
   let dyn = false;
+  // ── ON THE GPU, THE MOVING PARTS KEPT AT REST (o.rest, o.noFaces, o.xf; RENDER_TUNE.aaGPU in windshield.js) ──
+  // Each moving face belongs to one rigid frame: the mount that turns (`yaw`), the guns that also elevate about
+  // their trunnions (`lift|zt`), the truck's pintle (`pintle`), or a radar head that spins (`radar`); never a position, which is in the camera's frame and moves. `TAG` is the frame of the last point
+  // made, which is the face's: every face here is built from points of one frame. With `o.xf` each frame writes
+  // the matrix from its rest pose (bearing 0, elevation 0, spin 0) to where it is now. `o.rest` draws the moving
+  // faces at rest and hands each over with its tag, for a caller to keep; `o.noFaces` draws no face at all, for the
+  // frame's own pass, which still slews the guns, lights the lamps and fires.
+  const REST = !!o.rest, XF = o.xf || null;
+  let TAG = null, HOLD = false;
 
   // ── THE FACE ──
   // Newell's normal, turned toward the eye (these are closed solids; the back face is hidden by
   // its own front one), shaded, handed over. With `o.gpu` the shader does the turning and the
   // shading: the base, the normal as wound and the material go over.
   const face = (pts, base, mat) => {
-    if (pts.length < 3 || !(dyn ? D : S)) return;
+    if (o.noFaces || pts.length < 3 || !(dyn ? D : S)) return;
     let nx = 0, ny = 0, nz = 0, cx = 0, cy = 0, cz = 0;
     for (let i = 0; i < pts.length; i++) {
       const a = pts[i], b = pts[(i + 1) % pts.length];
@@ -148,7 +172,7 @@ export function drawAAEmplacement(o) {
     }
     const nl = Math.hypot(nx, ny, nz); if (!(nl > 1e-12)) return;
     nx /= nl; ny /= nl; nz /= nl; cx /= pts.length; cy /= pts.length; cz /= pts.length;
-    if (o.gpu) { o.face(pts, base, alpha, [nx, ny, nz], mat || 'paint'); faces++; return; }
+    if (o.gpu) { o.face(pts, base, alpha, [nx, ny, nz], mat || 'paint', REST ? TAG : undefined); faces++; return; }
     let vx = E[0] - cx, vy = E[1] - cy, vz = E[2] - cz;
     const vl = Math.hypot(vx, vy, vz) || 1; vx /= vl; vy /= vl; vz /= vl;
     if (nx * vx + ny * vy + nz * vz < 0) { nx = -nx; ny = -ny; nz = -nz; }
@@ -251,7 +275,7 @@ export function drawAAEmplacement(o) {
   const st = AIM.get(AIMK) || { az: tAng + Math.PI + (rnd(5) - 0.5) * 1.2, el: 0.35, t: o.now || 0 };
   // ⚠ ONLY THE PASS THAT DRAWS THE GUNS MOVES THEM: the slew steps the memory by the time since the
   // last call, so a static pass that stepped it too would slew the guns twice a frame.
-  if (D) {
+  if (D && !REST) {
     const now = o.now || 0, dt = clamp((now - st.t) / 1000, 0, 0.25);
     st.t = now;
     let wantAz, wantEl;
@@ -278,11 +302,17 @@ export function drawAAEmplacement(o) {
   // The guns are drawn a third over life size against the pit, which is what a gun has to be to read
   // as the point of the place from across a street; the pit and the bags stay true.
   const gs = kind === 'truck' ? 1.15 : 1.3;
-  const fx = Math.cos(az), fy = Math.sin(az), lx = -fy, ly = fx;
-  const frame = (zBase, zt, lift) => (a, l, z) => {
-    let aa = a, zz = z;
-    if (lift) { const ce = Math.cos(el), se = Math.sin(el); aa = a * ce - (z - zt) * se; zz = zt + a * se + (z - zt) * ce; }
-    return [gp[0] + (aa * fx + l * lx) * sc * gs, gp[1] + (aa * fy + l * ly) * sc * gs, (zBase + zz) * sc * gs];
+  const azD = REST ? 0 : az, elD = REST ? 0 : el;
+  const fx = Math.cos(azD), fy = Math.sin(azD), lx = -fy, ly = fx;
+  const frame = (zBase, zt, lift) => {
+    const tag = lift ? 'lift|' + zBase + '|' + zt : 'yaw';
+    if (XF && !XF[tag]) XF[tag] = aaPose(gp[0], gp[1], az, lift ? (zBase + zt) * sc * gs : null, el);
+    return (a, l, z) => {
+      TAG = tag;
+      let aa = a, zz = z;
+      if (lift) { const ce = Math.cos(elD), se = Math.sin(elD); aa = a * ce - (z - zt) * se; zz = zt + a * se + (z - zt) * ce; }
+      return [gp[0] + (aa * fx + l * lx) * sc * gs, gp[1] + (aa * fy + l * ly) * sc * gs, (zBase + zz) * sc * gs];
+    };
   };
   // A box in a gun frame (six faces: an elevated part is seen from below).
   const gbox = (G, a0, a1, l0, l1, z0, z1, base, mat, top = base) => {
@@ -403,8 +433,9 @@ export function drawAAEmplacement(o) {
         }
       }
       const spin = down ? 1.2 + rnd(3) : ((o.now || 0) / 1000) * 1.7;
-      const ca = Math.cos(spin), sa = Math.sin(spin);
-      const R = (a, b, z) => T(mu + a * ca - b * sa, mw + a * sa + b * ca, z);
+      const sD = REST ? 0 : spin, ca = Math.cos(sD), sa = Math.sin(sD), [rpx, rpy] = T(mu, mw, 0), rtag = 'radar';
+      if (XF && !XF[rtag]) XF[rtag] = aaPose(rpx, rpy, spin, null, 0);
+      const R = (a, b, z) => { TAG = rtag; return T(mu + a * ca - b * sa, mw + a * sa + b * ca, z); };
       const zr = mh + M(0.25);
       tbox(mu, mw, M(0.3), M(0.3), mh, zr, 0, [60, 64, 66], 'metal');
       // The array: a tilted flat panel, its face the bright side.
@@ -486,7 +517,11 @@ export function drawAAEmplacement(o) {
       const ma = Math.PI - 0.5, mr = R_IN - 0.07, mu = Math.cos(ma) * mr, mw = Math.sin(ma) * mr, mh = M(3.2);
       drum(mu, mw, M(0.1), 0, mh, 6, pal.mast, 'metal');
       const spin = down ? 0.7 : ((o.now || 0) / 1000) * 1.1;
-      dyn = true; tbox(mu, mw, M(0.75), M(0.1), mh, mh + M(0.55), spin - tAng, pal.radar, 'metal'); dyn = false;   // `r` is off the opening, so this turns it in the world
+      const [hpx, hpy] = T(mu, mw, 0), htag = 'radar';
+      if (XF && !XF[htag]) XF[htag] = aaPose(hpx, hpy, spin, null, 0);
+      TAG = htag; HOLD = true;
+      dyn = true; tbox(mu, mw, M(0.75), M(0.1), mh, mh + M(0.55), (REST ? 0 : spin) - tAng, pal.radar, 'metal'); dyn = false;
+      HOLD = false;   // `r` is off the opening, so this turns it in the world
       if (!ruin) lamps.push([...T(mu, mw, mh + M(0.8)), '255,52,40', 5, 0.35 + 0.65 * (Math.sin((o.now || 0) / 340) > 0.3 ? 1 : 0.2), 'beacon']);
     }
     if (s === 2) lamps.push([...T(0.08, -0.12, M(2.0)), '255,206,140', 40, 0.5, 'work']);
@@ -619,7 +654,10 @@ export function drawAAEmplacement(o) {
     // The gun on its pintle in the bed, traversed by hand.
     const zb = zf + M(0.18), mu = -M(1.2);
     const gpos = P(mu, 0, 0);
-    const G0 = (a, l, z) => [gpos[0] + (a * fx + l * lx) * sc, gpos[1] + (a * fy + l * ly) * sc, z * sc];
+    // Its own frame, about the post rather than the mount's centre, so its own tag (see TAG).
+    const ptag = 'pintle';
+    if (XF && !XF[ptag]) XF[ptag] = aaPose(gpos[0], gpos[1], az, null, 0);
+    const G0 = (a, l, z) => { TAG = ptag; return [gpos[0] + (a * fx + l * lx) * sc, gpos[1] + (a * fy + l * ly) * sc, z * sc]; };
     // Pintle post (it turns with the gun).
     {
       const n = 6, r = M(0.14), ring = (z) => { const out = []; for (let i = 0; i < n; i++) { const t = i / n * TAU; out.push(G0(Math.cos(t) * r, Math.sin(t) * r, z)); } return out; };
@@ -669,7 +707,7 @@ export function drawAAEmplacement(o) {
   // ── LIGHT ──
   // After dark the lamps; and whenever it fires, the muzzles, one bore after the other at the rate
   // a twin autocannon cycles. A SAM's flash is the backblast, once, at the start of the burst.
-  if (!D) return faces;
+  if (!D || REST) return faces;
   const lit = night > 0.25 ? 1 : 0.35;
   for (const [x, y, z, rgb, sz, a, what] of lamps) {
     if (what !== 'beacon' && what !== 'status' && night < 0.2) continue;

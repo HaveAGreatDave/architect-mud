@@ -8,7 +8,8 @@
     "interactions": [
       "lean"
     ],
-    "preserves": "refrigerated"
+    "preserves": "refrigerated",
+    "wealth": "middle"
   },
   "id": "item_furn_fridge_coldspring",
   "name": "Coldspring fridge-freezer",

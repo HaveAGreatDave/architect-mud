@@ -167,7 +167,7 @@ export const WASH_FORMS = Object.freeze(['basin', 'vanity']);
 export const FORMS = Object.freeze({
   seat: ['stool', 'chair', 'armchair', 'office', 'stools', 'wingback'], bench: ['bench', 'booth', 'banquette', 'slab'], sofa: ['sofa', 'cot', 'lounger', 'chesterfield'], bed: ['bed', 'pod', 'platform', 'mattress', 'pressbench'],
   screen: ['flat', 'crt', 'slab'], cold: ['fridge', 'double', 'chest', 'column'], hob: ['cooktop', 'range', 'microwave', 'seam', 'induction'],
-  surface: ['counter', 'corner', 'desk', 'rail', 'barwall', 'chemwall', 'bar', 'stage', 'runway', 'reception', 'console', 'treadmill', 'pool', 'pcdesk', 'tradecounter', 'boxoffice', 'grill'], small: ['heater', 'box', 'plinth', 'telescope', 'lacquer', 'boombox', 'smoketable', 'petbowl', 'littertray'], prop: ['cabinet', 'piano', 'fountain', 'catstatue', 'lantern', 'rug', 'bonsai', 'vat', 'tank', 'morphex', 'holosign', 'vatrack', 'manifold', 'gantry', 'jukebox', 'easel', 'packs', 'trophy', 'champion', 'seatdoor', 'resurfacer', 'turnstile', 'balustrade', 'towelrail', 'pigeonholes', 'trolley', 'pullup', 'banner', 'smokebooth', 'vendor'], fireplace: ['hearth', 'firetrough'],
+  surface: ['counter', 'corner', 'desk', 'rail', 'barwall', 'chemwall', 'bar', 'stage', 'runway', 'reception', 'console', 'treadmill', 'pool', 'pcdesk', 'tradecounter', 'boxoffice', 'grill'], small: ['heater', 'box', 'plinth', 'telescope', 'lacquer', 'boombox', 'smoketable', 'petbowl', 'littertray'], prop: ['cabinet', 'piano', 'fountain', 'catstatue', 'lantern', 'rug', 'bonsai', 'vat', 'tank', 'morphex', 'holosign', 'vatrack', 'manifold', 'gantry', 'jukebox', 'easel', 'packs', 'trophy', 'champion', 'seatdoor', 'resurfacer', 'turnstile', 'balustrade', 'towelrail', 'pigeonholes', 'trolley', 'pullup', 'banner', 'smokebooth', 'vendor', 'awning'], fireplace: ['hearth', 'firetrough'],
   urinal: ['urinal', 'urinaltrough'], stall: ['cubicle'],
   wardrobe: ['wardrobe', 'valet'], cabinet: ['cupboard', 'vitrine', 'humidor', 'rack'], store: ['shelves', 'locker', 'crate', 'weights', 'bookcase', 'racking', 'drawers'],
   sink: ['kitchen', 'basin', 'trough', 'vanity'], toilet: ['pan', 'hung'], shower: ['stall', 'wetroom', 'bath', 'soak', 'gang'],
@@ -221,6 +221,8 @@ const FORM_DIMS = { chest: [1.3, 0.72, 0.88], double: [1.3, 0.75, 2.0], range: [
   lacquer: [0.36, 0.24, 0.12],
   // a balcony's (gl/room-decor.js): a boombox that opens the AMP player, and a drum table of smokes
   boombox: [0.66, 0.2, 0.36], smoketable: [0.56, 0.56, 0.5],
+  // a striped canvas awning on four bronze posts over a terrace (gl/room-decor.js): things go under it, nothing is blocked by it
+  awning: [3.2, 2.4, 2.6],
   // a pet's feeding station (gl/room-decor.js): a rubber mat with its food dish and its water bowl (plugins/pets)
   petbowl: [0.5, 0.3, 0.07],
   // and its litter tray: a plastic tray with a high back (gl/room-decor.js littertray)
@@ -248,7 +250,7 @@ const FORM_DIMS = { chest: [1.3, 0.72, 0.88], double: [1.3, 0.75, 2.0], range: [
   // a vending machine you can pull out from the wall to reach its plug (panels/room-vendor.js draws it, and moves it)
   vendor: [1.0, 0.8, 1.95] };
 // What a shop's shelving, racking, counter or cabinet can carry (`look.stock`; gl/room-shop.js draws each)
-export const SHOP_STOCKS = Object.freeze(['hardware', 'chem', 'safety']);
+export const SHOP_STOCKS = Object.freeze(['hardware', 'chem', 'safety', 'surplus']);
 // How far apart the stools in a run stand, and how many a run of width w (metres) has (gl/room-saloon.js draws them)
 export const STOOL_PITCH = 0.8;
 export const stoolsAlong = (w) => Math.max(1, Math.round(w / STOOL_PITCH));
@@ -341,7 +343,7 @@ export function screenView(p, k = 1) {
 // hung high on purpose (a `y` on its spot: over a bar, over a reception desk) whatever doesn't reach it.
 // A low table against the wall a set hangs on stands under it (a coffee table as a TV stand): it's below the
 // picture and no deeper than a stand, so it blocks nobody's view. `k` is the room's units per metre.
-export const mayFaceScreen = (p, s = null, k = 1) => p.arche === 'deck' || p.form === 'rug' || !!p.flat || !!p.spot?.on || !!p.on || (s?.mount > 0 && p.h < s.mount - s.h / 2)
+export const mayFaceScreen = (p, s = null, k = 1) => p.arche === 'deck' || p.form === 'rug' || p.form === 'awning' || !!p.flat || !!p.spot?.on || !!p.on || (s?.mount > 0 && p.h < s.mount - s.h / 2)
   || (p.arche === 'table' && !!p.wall && p.wall === s?.wall && p.h <= 0.6 * k);
 
 // ── what each archetype gives the room ──────────────────────────────────────────────────────────
@@ -388,7 +390,7 @@ function contribute(spec, p) {
   // so you walk under it
   // a rug lies flat on the floor: you walk on it and things stand on it
   // and a decor object (plugins/roomstage/decor-pieces.js) on a wall is out of reach, one on the floor flat or underfoot
-  if (p.form === 'gantry' || p.form === 'rug' || p.flat || p.form === 'walldecor') return out;
+  if (p.form === 'gantry' || p.form === 'rug' || p.form === 'awning' || p.flat || p.form === 'walldecor') return out;
   if (p.form === 'seatdoor' || p.form === 'champion' || p.form === 'banner') { if (p.form === 'seatdoor') out.solid.push(fp); station(1.3, 1.6); return out; }
   switch (p.arche) {
     case 'seat':
@@ -977,7 +979,8 @@ export const onBalcony =(S, at) => !!S?.balcony && !!at && (at[1] < 0 || (!!S.ba
 // next door: this is for a name over a head (room-stage.js), which the picture's depth can't hide.
 // `veiled`: shutters or blinds shut over the glass, so a pane or glass wall hides what's past it; an open
 // doorway still sees through.
-export function roomSees(L, a, b, { veiled = false } = {}) {
+// `sealed`: you're in a lift car with its doors shut, so nothing past the room's own walls is seen at all.
+export function roomSees(L, a, b, { veiled = false, sealed = false } = {}) {
   const S = L.spec, hu = S.w / 2, d = S.d;
   const du = b[0] - a[0], dv = b[1] - a[1];
   for (const [u0, u1, v0, v1] of S.walls || []) {
@@ -995,7 +998,7 @@ export function roomSees(L, a, b, { veiled = false } = {}) {
   if (za === zb) return true;
   const [p, q] = za === 'room' ? [a, b] : [b, a], pu = q[0] - p[0], pv = q[1] - p[1];
   if (za === 'out' || zb === 'out') {
-    if (za === 'annex' || zb === 'annex') return false;
+    if (za === 'annex' || zb === 'annex' || sealed) return false;
     // where the line leaves the room, and by which wall
     let t = Infinity, wall = '';
     const leave = (k, w) => { k = Math.max(k, 0); if (k < t) { t = k; wall = w; } };
@@ -1336,11 +1339,12 @@ export function placeSpot(spec, pieces, arche, dims, { crt = false, wall = null,
     // A way through (a doorway, the stairs) does stop it, because layRows moves a kept spot that blocks one: a piece
     // the hand could put there would be saved, then laid somewhere else the next time the room opens.
     // a rug goes anywhere on the floor, under the bed or the table included, and nothing minds it
-    if (form === 'rug') return true;
+    // a rug lies under things, and an awning stands over them on posts at its corners
+    if (form === 'rug' || form === 'awning') return true;
     if (byHand) {
       if (!hangs && keep.some(([a, b, c, e, , tag]) => tag === 'way' && fp[0] < b - 0.01 && fp[1] > a + 0.01 && fp[2] < e - 0.01 && fp[3] > c + 0.01)) return false;
       return !have.some((o) => {
-        if (o.spot?.on || o.form === 'rug' || o.flat || hung(o.arche, o.crt, o.form) !== hung(arche, crt, form)) return false;
+        if (o.spot?.on || o.form === 'rug' || o.form === 'awning' || o.flat || hung(o.arche, o.crt, o.form) !== hung(arche, crt, form)) return false;
         return mine.some((f) => pieceBoxes(o, k).some((g) => f[0] < g[1] - 1e-6 && f[1] > g[0] + 1e-6 && f[2] < g[3] - 1e-6 && f[3] > g[2] + 1e-6));
       });
     }
@@ -1362,7 +1366,7 @@ export function placeSpot(spec, pieces, arche, dims, { crt = false, wall = null,
       if (applies && fp[0] < b && fp[1] > a && fp[2] < e && fp[3] > c) return false;
     }
     for (const o of have) {
-      if (o.spot?.on || o.form === 'rug' || o.flat) continue;
+      if (o.spot?.on || o.form === 'rug' || o.form === 'awning' || o.flat) continue;
       // a hung thing and a floor piece only meet if the floor piece is tall enough to reach it, or a bed:
       // nothing hangs over a headboard
       if (hung(o.arche, o.crt, o.form) !== hung(arche, crt, form) && (hangs ? o.h : q.h) <= 1.0 * k && !(hangs && o.arche === 'bed')) continue;
@@ -1714,6 +1718,8 @@ export function roomSpecOf(flags, isFlat, { storey = null } = {}) {
   // a roof deck (`open`): no ceiling, so the sky is over it, and its glass is a screen right round to the back wall
   const open = base.open === true && !plan;
   if (open) out.open = true;
+  // and its fence (gl/room-mesh.js): the walls stop at this height, metres, with glass and a handrail along the top
+  if (open && Number(base.parapet) > 0) out.parapet = Math.min(1.4, Math.max(0.9, Number(base.parapet)));
   if (plan) out.plan = plan;
   // floor-to-ceiling glass stops short of a corner by its frame, of the room's back quarter on the
   // left, where the bed goes, and of the kitchen on the right
@@ -1751,7 +1757,13 @@ export function roomSpecOf(flags, isFlat, { storey = null } = {}) {
   // daylight a room usually takes (a cell's slots at pavement level). Both renderers scale their day by it
   if (Number.isFinite(base.daylight)) out.daylight = Math.max(0, Math.min(1, base.daylight));
   // a lift car: clad as one (gl/room-mesh.js drawCar), whether you're in it or seeing it from a landing
+  // or { panel, metal, metal_dark, trim, mirror, glow }, each a hex, to clad it in other colours than walnut and bronze
   if (base.car === true) out.car = true;
+  else if (base.car && typeof base.car === 'object') {
+    const c = {};
+    for (const k of ['panel', 'metal', 'metal_dark', 'trim', 'mirror', 'glow']) if (/^#[0-9a-f]{6}$/i.test(base.car[k] || '')) c[k] = base.car[k];
+    out.car = Object.keys(c).length ? c : true;
+  }
   // lettering on a wall, as a hotel puts its name behind the desk: { text, sub, wall, y, size, at }.
   // `sub` is a small second line under it (RESIDENCES); `|` is the texture key's separator
   if (base.sign && typeof base.sign.text === 'string' && base.sign.text.replace(/\|/g, '').trim()) {
@@ -1762,7 +1774,7 @@ export function roomSpecOf(flags, isFlat, { storey = null } = {}) {
   // its own colours: { wall, trim, ceiling, accent }, each a hex, accent a metal run round the room
   if (base.tone && typeof base.tone === 'object') {
     const t = {};
-    for (const k of ['wall', 'trim', 'ceiling', 'accent']) if (/^#[0-9a-f]{6}$/i.test(base.tone[k] || '')) t[k] = base.tone[k];
+    for (const k of ['wall', 'trim', 'ceiling', 'accent', 'floor']) if (/^#[0-9a-f]{6}$/i.test(base.tone[k] || '')) t[k] = base.tone[k];
     if (Object.keys(t).length) out.tone = t;
   }
   // how it's finished past the plain walls (gl/room-decor.js): cladding, a ceiling, lights, a runner, plants,

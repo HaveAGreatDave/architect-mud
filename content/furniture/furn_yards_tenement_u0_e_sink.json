@@ -1,0 +1,19 @@
+{
+  "description": "",
+  "flags": {
+    "aliases": [
+      "sink",
+      "kitchen sink",
+      "tap"
+    ],
+    "gen": true,
+    "interactions": [
+      "lean"
+    ],
+    "water_source": true
+  },
+  "id": "furn_yards_tenement_u0_e_sink",
+  "name": "the kitchen sink",
+  "object_type": "sink",
+  "zone_id": "zone_yards_tenement_u0_e"
+}

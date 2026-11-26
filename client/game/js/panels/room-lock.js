@@ -22,7 +22,7 @@ import { liftDoorBatch } from './gl/room-mesh.js';
 import { comicOn } from './gl/house-style.js';
 
 const CSS = await loadCss(new URL('./room-lock.css', import.meta.url));
-function ensureStyles() {
+export function ensureStyles() {
   if (document.getElementById('room-lock-css')) return;
   const s = document.createElement('style');
   s.id = 'room-lock-css'; s.textContent = CSS;

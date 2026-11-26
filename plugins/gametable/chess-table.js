@@ -266,6 +266,7 @@ export class ChessTable extends TableBase {
   // Play a move for a player. Returns { ok, error?, san? }.
   processMove(playerId, input) {
     if (!this.game || this.phase !== 'InProgress') return { ok: false, error: 'No game in progress.' };
+    const before = this.game.position;
     const result = this.game.handleMove(playerId, input);
     if (!result.ok) return result;
 
@@ -279,6 +280,8 @@ export class ChessTable extends TableBase {
     for (const evt of result.events) this._hostSay(evt);
     this.pushPaneAll();
     emit('room.boardChanged', { zoneId: this.zoneId, tableId: this.id });
+    // the move itself, for anybody who has something to say about it (chess-practice.js) or a hand to move it with
+    emit('chess.moved', { table: this, playerId, san: result.san, move: result.move, before, after: this.game.position });
     narrateMove(this, result.san);
 
     if (this.game.isOver()) this._finish();
@@ -352,6 +355,8 @@ export class ChessTable extends TableBase {
     this._hostSay(line);
     this.pushPaneAll();
     narrateResult(this, line);
+    // who won, for anybody who takes it personally (chess-practice.js: a table's regular)
+    emit('chess.finished', { table: this, result: this.game.result, seats: this.game.seats });
 
     this._settleStake().catch(e => console.error('[gametable] chess settle:', e.message));
 

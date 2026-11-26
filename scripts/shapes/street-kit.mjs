@@ -15,7 +15,7 @@
 // street goes over the bridge or the zebra and never through the lane, and on the dirt walks across.
 //
 // It reads the faces, not a picture, so it needs no DOM, no rasteriser and no GPU.
-import { drawStreetKit, kitCell, kitMoves, kitPaved, kitPlace, kitTowerV, KIT, KIT_M, LEVEL, M } from '../../client/game/js/panels/glass/street-kit.js';
+import { drawStreetKit, kitCell, kitDeck, kitLiftCall, kitLiftKey, kitMoves, kitPaved, kitPlace, kitTowerV, KIT, KIT_M, LEVEL, M } from '../../client/game/js/panels/glass/street-kit.js';
 import { KIT_SPANS, SPAN, SPAN_M } from '../../client/game/js/panels/glass/street-kit-spans.js';
 import { kitRoute, kitWalk } from '../../client/game/js/panels/glass/street-kit-walk.js';
 import { BIRD_M_PER_TILE as TILE_M } from '../../client/shared/birds.js';
@@ -362,21 +362,32 @@ for (const lv of LEVEL) {
   }
 }
 // Somebody on the west walkway of row 6 who needs the east walkway of row 6, walked frame by frame.
-const walkAcross = (frugal) => {
+// On the footbridge tile they're held to kitDeck, the player's own collision: never in a tower's wall, through
+// a shut door, off the car's floor or through the deck's rails (THE LIFTS, RIDDEN in street-kit-walk.js).
+const BP = kitPlace(win.at, R, 9, win.wide), [BX, BY] = wpt(R, 9, 0, 0), BKEY = kitLiftKey(BP, BX * 73 + BY * 149);
+const walkAcross = (frugal, t0 = 0, busy = false) => {
   const h = {}, [ax, ay] = wpt(R, 6, -KIT.WALK_V, 0), [bx, by] = wpt(R, 6, KIT.WALK_V, 0);
-  let t = 0, top = 0, inLane = 0, done = false;
+  let t = t0, top = 0, inLane = 0, done = false, clip = 0;
   kitWalk(h, ax, ay, 0, t, win, frugal);
-  for (let k = 0; k < 4000 && !done; k++) {
+  for (let k = 0; k < 12000 && !done; k++) {
     t += 100;
+    // somebody else keeps sending the cars up and down
+    if (busy && k % 170 === 0) kitLiftCall(BKEY, k % 340 ? 'call-bottom' : 'board-bottom', t);
     const p = kitWalk(h, bx, by, 0, t, win, frugal);
+    if (Math.round(p.y) === BY) {
+      const d = kitDeck(BP, p.x - BX, p.y - BY, p.z, t, false, M(0.2), BKEY);
+      if (d && d.solid) clip++;
+    }
     top = Math.max(top, p.z);
     const lat = p.x - (WC + 0);
     if (Math.abs(lat) < KIT.LANE_HW && p.z < KIT.DECK_Z0 && !(Math.abs(p.y - (WC - 3)) < M(KIT_M.ZEBRA_L))) inLane++;
     done = Math.hypot(p.x - bx, p.y - by) < 1e-6;
   }
-  return { top, inLane, done };
+  return { top, inLane, done, clip };
 };
-const walker = walkAcross(true), payer = walkAcross(false);
+const walker = walkAcross(true), payer = walkAcross(false), busy = walkAcross(true, 1e7, true);
+check(walker.clip === 0 && busy.clip === 0, `a walker went through a lift tower or off the car: ${walker.clip} and ${busy.clip} frames`);
+check(busy.done && busy.top >= KIT.DECK_Z1 - 1e-9, 'a walker never got over the bridge with the cars in use');
 check(walker.done && payer.done, 'somebody crossing the street never got there');
 check(walker.top >= KIT.DECK_Z1 - 1e-9, `a frugal walker never went up onto the bridge (top ${walker.top.toFixed(3)})`);
 check(payer.top < KIT.DECK_Z0, 'somebody who pays went over the bridge instead of the zebra');
@@ -441,7 +452,7 @@ check(kitRoute(win, null, null, true) === null, 'a route with no ends');
   const wpt2 = (rx, ry, lx) => [rx - R + WC + lx, ry - R + WC];
   const go = (frugal) => {
     const h = {}, [ax, ay] = wpt2(R, 6, -KIT.WALK_V), [bx, by] = wpt2(R + 1, 6, KIT.WALK_V);
-    let t = 0, top = 0, inLane = 0, done = false;
+    let t = 2e7, top = 0, inLane = 0, done = false;   // its own clock: the lifts remember the last test's
     kitWalk(h, ax, ay, 0, t, w, frugal);
     for (let k = 0; k < 8000 && !done; k++) {
       t += 100;

@@ -15,8 +15,8 @@
     },
     "spot": {
       "at": [
-        9.9,
-        -0.39
+        -3.4,
+        0.55
       ],
       "turn": 180
     }
@@ -30,5 +30,5 @@
   "object_type": "furniture",
   "power_draw_kw": null,
   "price": 1100,
-  "zone_id": "zone_solenne_apt_b"
+  "zone_id": "zone_solenne_apt_b_up"
 }

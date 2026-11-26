@@ -2,7 +2,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#1b2733",
   "color": "#e8ddc6",
-  "description": "The twenty-fourth floor: a narrow hall in walnut and stone running north from the lift, a runner of dark carpet, a door each side. 24-A is <b>west</b> and 24-B <b>east</b>. The elevator is <b>in</b> behind you.",
+  "description": "The sixth floor: a narrow hall in walnut and stone running north from the lift, a runner of dark carpet, a door each side. 6-A is <b>west</b> and 6-B <b>east</b>. The elevator is <b>in</b> behind you.",
   "exits": {
     "east": "zone_solenne_apt_k",
     "in": "zone_solenne_elevator",
@@ -14,7 +14,7 @@
     "is_interior": true,
     "room": {
       "balcony": false,
-      "d": 8,
+      "d": 7.7,
       "decor": {
         "ceiling": {
           "band": 0.4,
@@ -32,8 +32,8 @@
           ]
         ],
         "plaques": {
-          "zone_solenne_apt_j": "24-A",
-          "zone_solenne_apt_k": "24-B"
+          "zone_solenne_apt_j": "6-A",
+          "zone_solenne_apt_k": "6-B"
         },
         "rug": false,
         "sconces": {
@@ -60,8 +60,9 @@
         }
       },
       "doors": {
-        "east": 0,
-        "west": 0
+        "east": -0.72,
+        "in": 0.05,
+        "west": -0.72
       },
       "face": 0,
       "finish": "fine",
@@ -74,16 +75,17 @@
         "trim": "#17130f",
         "wall": "#2e2925"
       },
-      "w": 2.4,
+      "w": 2.3,
       "windowless": true
     },
     "sanctuary": true
   },
   "grid_x": 0,
   "grid_y": -1,
-  "grid_z": 10,
+  "grid_z": 6,
   "id": "zone_solenne_hall_24",
   "map_id": "map_int_solenne",
-  "name": "The Twenty-Fourth Floor",
+  "marker": "6",
+  "name": "The Sixth Floor",
   "parent_zone": "zone_district_914_908"
 }

@@ -5,7 +5,8 @@
       "lean"
     ],
     "power_draw_kw": 0.3,
-    "stove_tier": "low"
+    "stove_tier": "low",
+    "wealth": "poor"
   },
   "id": "item_furn_stove_hobline",
   "name": "Hobline Cooktop",

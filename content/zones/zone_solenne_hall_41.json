@@ -70,6 +70,10 @@
           "y1": 2.5
         }
       },
+      "doors": {
+        "in": 0,
+        "north": 0
+      },
       "face": 0,
       "finish": "fine",
       "ground": "stone",
@@ -93,10 +97,11 @@
     "sanctuary": true
   },
   "grid_x": 0,
-  "grid_y": 0,
-  "grid_z": 8,
+  "grid_y": -1,
+  "grid_z": 14,
   "id": "zone_solenne_hall_41",
   "map_id": "map_int_solenne",
-  "name": "The Nineteenth Floor",
+  "marker": "14",
+  "name": "The Fourteenth Floor",
   "parent_zone": "zone_district_914_908"
 }

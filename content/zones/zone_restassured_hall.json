@@ -4,9 +4,11 @@
   "bg_color": "#2d2822",
   "description": "A front hall with a counter cut into what used to be the parlour wall, a bell on it, and a ledger open at today. Keys hang on a board of numbered hooks, about half of them occupied. The lino is patterned to hide wear and does, up to a point about four feet inside the door where it gives up entirely.",
   "exits": {
-    "east": "zone_restassured_room_a",
-    "south": "zone_district_900_905",
-    "west": "zone_restassured_room_b"
+    "down": "zone_util_zone_restassured_hall",
+    "east": "zone_district_900_905",
+    "north": "zone_restassured_u0_n",
+    "south": "zone_restassured_u0_s",
+    "up": "zone_restassured_f1"
   },
   "flags": {
     "building_name": "Rest Assured",
@@ -14,6 +16,121 @@
     "floor": "tile",
     "is_building": true,
     "is_interior": true,
+    "room": {
+      "d": 16.5,
+      "decor": {
+        "chalk": [
+          {
+            "at": 1.5,
+            "h": 0.8,
+            "title": "Rent Due",
+            "w": 0.7,
+            "wall": "right",
+            "y": 1.7
+          }
+        ],
+        "damp": [
+          {
+            "at": [
+              -0.9,
+              15.73
+            ],
+            "r": 0.54
+          },
+          {
+            "at": [
+              0.54,
+              1.86
+            ],
+            "r": 0.35
+          }
+        ],
+        "payphone": [
+          {
+            "at": 1.2,
+            "note": true,
+            "wall": "left",
+            "y": 1.45
+          }
+        ],
+        "runner": {
+          "hex": "#3a2a24"
+        },
+        "torn": [
+          {
+            "along": 3.67,
+            "n": 2,
+            "seed": 49,
+            "wall": "left",
+            "y": 1.7
+          }
+        ],
+        "walls": {
+          "hex": "#4a3a2a",
+          "kind": "walnut",
+          "rail": 0.95,
+          "trim": "#2a2018",
+          "y1": 1
+        }
+      },
+      "doors": {
+        "east": -0.68,
+        "north": -1.9,
+        "south": -1.9,
+        "up": [
+          -0.68,
+          9.45
+        ]
+      },
+      "face": 90,
+      "h": 3.44,
+      "panes": [
+        {
+          "a": 0.23,
+          "b": 1.13,
+          "kind": "sash",
+          "wall": "back",
+          "y0": 0.9,
+          "y1": 2.3
+        },
+        {
+          "a": -1.44,
+          "b": -0.57,
+          "kind": "sash",
+          "wall": "back",
+          "y0": 0.9,
+          "y1": 2.3
+        },
+        {
+          "a": 0.23,
+          "b": 1.13,
+          "kind": "sash",
+          "wall": "front",
+          "y0": 0.9,
+          "y1": 2.3
+        },
+        {
+          "a": -1.44,
+          "b": -0.57,
+          "kind": "sash",
+          "wall": "front",
+          "y0": 0.9,
+          "y1": 2.3
+        }
+      ],
+      "street_door": {
+        "kind": "single",
+        "w": 1
+      },
+      "studio": false,
+      "tone": {
+        "accent": "#5a4a3a",
+        "ceiling": "#9a907e",
+        "trim": "#3a2e24",
+        "wall": "#8a7c66"
+      },
+      "w": 3.48
+    },
     "world_exit_zone": "zone_district_900_905"
   },
   "grid_x": 0,

@@ -2,10 +2,6 @@
   "description": "A climate case of Spanish cedar behind smoked glass, held at seventy percent by a fan you can only just hear. Cigars lie in rows on the racks, and a carriage at the back fills every gap you leave. A card slot by the handle has to be paid before the door opens.",
   "flags": {
     "aliases": "humidor,cigar cabinet,cigars,cigar",
-    "vends": "item_reserve_cigar",
-    "vend_price": 40,
-    "vend_cooldown_s": 5,
-    "vend_line": "The slot takes your card, the lock lets go with a breath of cool air, and you lift a cigar off the rack. Behind the glass, the carriage slides another into its place.",
     "interactions": [
       "lean"
     ],
@@ -17,7 +13,11 @@
         1.45
       ],
       "form": "humidor"
-    }
+    },
+    "vend_cooldown_s": 5,
+    "vend_line": "The slot takes your card, the lock lets go with a breath of cool air, and you lift a cigar off the rack. Behind the glass, the carriage slides another into its place.",
+    "vend_price": 40,
+    "vends": "item_reserve_cigar"
   },
   "hp": null,
   "hp_max": null,
@@ -28,5 +28,5 @@
   "object_type": "fixture",
   "power_draw_kw": 0.05,
   "price": 0,
-  "zone_id": "zone_solenne_penthouse"
+  "zone_id": "zone_solenne_penthouse_2"
 }

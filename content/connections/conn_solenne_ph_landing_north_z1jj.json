@@ -2,7 +2,7 @@
   "a": "zone_solenne_ph_landing",
   "b": "zone_solenne_penthouse",
   "blocked": false,
-  "dir": "north",
+  "dir": "west",
   "id": "conn_solenne_ph_landing_north_z1jj",
   "lockable": true,
   "one_way": false

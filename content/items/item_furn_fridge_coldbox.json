@@ -7,7 +7,8 @@
       "lean"
     ],
     "power_draw_kw": 0.1,
-    "preserves": "refrigerated"
+    "preserves": "refrigerated",
+    "wealth": "poor"
   },
   "id": "item_furn_fridge_coldbox",
   "name": "Coldbox Refrigeration Unit",

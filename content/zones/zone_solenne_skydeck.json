@@ -6,9 +6,9 @@
   "ambient_theme": "urban",
   "bg_color": "#33414d",
   "color": "#d9e6f2",
-  "description": "The roof terrace on the north side of the lantern, open to a sky the colour of cold pewter. A lap pool runs the length of the north parapet behind a glass rail, its edge spilling into the drop so the water seems to pour off the roof and into the city itself. Teak loungers, a low fire-trough, and a glass pavilion on the east corner with a marble bar in it. The wind up here is clean and constant, and the whole of Coldwater is spread out beneath you like something you might, one day, afford. The lantern is <b>south</b>.",
+  "description": "The roof terrace down the west side of the Lantern, a hundred and fifteen metres over Marrow Street, behind a glass rail on a stone upstand. A lap pool runs along the middle of it, teak loungers beside it and a fire trough at the north end, where a white telescope stands at the rail. At the south end a striped awning in cream and cyan shades two teak benches and a table of cigars and cigarettes, with a set on the rail and the bar behind them. The Lantern is <b>east</b>.",
   "exits": {
-    "south": "zone_solenne_hall_40"
+    "east": "zone_solenne_hall_40"
   },
   "flags": {
     "building_name": "Solenne Residences",
@@ -17,58 +17,54 @@
     "open_sky": true,
     "room": {
       "balcony": false,
-      "d": 11,
+      "d": 14.57,
       "decor": {
         "downlights": false,
         "plants": [
           [
-            12.6,
-            10.2,
-            1.1
-          ],
-          [
-            -12.6,
-            10.2,
-            1.1
-          ],
-          [
-            -12.6,
-            3.4,
+            -2.05,
+            0.45,
             0.9
           ],
           [
-            12.6,
-            3.4,
-            0.9
+            -2.05,
+            9.05,
+            1
+          ],
+          [
+            2.05,
+            13.95,
+            1.1
           ]
         ],
         "rug": false
       },
+      "doors": {
+        "east": 1.98
+      },
       "face": 0,
       "finish": "fine",
-      "glass": [
-        "front",
-        "left",
-        "right"
-      ],
       "ground": "stone",
       "h": 3,
       "open": true,
+      "parapet": 1.1,
       "studio": false,
       "tone": {
         "accent": "#b8913e",
         "trim": "#1c1f23",
         "wall": "#3a3f45"
       },
-      "w": 27
+      "w": 4.82,
+      "windowless": true
     },
     "sanctuary": true
   },
-  "grid_x": 0,
+  "grid_x": -1,
   "grid_y": -1,
-  "grid_z": 9,
+  "grid_z": 33,
   "id": "zone_solenne_skydeck",
   "map_id": "map_int_solenne",
+  "marker": "33",
   "name": "Solenne Sky Deck",
   "parent_zone": "zone_district_914_908"
 }

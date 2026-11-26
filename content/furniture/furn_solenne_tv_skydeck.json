@@ -7,8 +7,8 @@
       "watch"
     ],
     "spot": {
-      "along": 8.1,
-      "wall": "back"
+      "along": 11.2,
+      "wall": "right"
     },
     "tv": true,
     "tv_dial_freq": 7,
@@ -19,7 +19,7 @@
   "id": "furn_solenne_tv_skydeck",
   "light_type": null,
   "lumen_output": null,
-  "name": "poolside flatscreen",
+  "name": "terrace flatscreen",
   "object_type": "furniture",
   "power_draw_kw": 2,
   "price": 3500,

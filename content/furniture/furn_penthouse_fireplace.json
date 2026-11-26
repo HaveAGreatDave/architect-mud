@@ -19,10 +19,6 @@
         5
       ],
       "form": "hearth"
-    },
-    "spot": {
-      "along": 4.2,
-      "wall": "right"
     }
   },
   "hp": null,
@@ -34,5 +30,5 @@
   "object_type": "furniture",
   "power_draw_kw": null,
   "price": 0,
-  "zone_id": "zone_solenne_penthouse"
+  "zone_id": "zone_solenne_penthouse_2"
 }

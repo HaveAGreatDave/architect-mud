@@ -609,7 +609,7 @@ function thumbFlick(pose, t, seed) {
 // and `lift` how far its seat raises it, `table` the height of the top of the table it's eaten at (metres, or null); `t` the clock and `id` who it is, for the hands' own motions. Gives the
 // bones, gl/figure-hd.js's hand uniforms, what's in each hand for gl/room-held.js (`hold`, by side, and how far each
 // hand has arrived, `on`), and, eating, where the plate is (`plate`, body space) and whether the knife's been put down.
-export function finishArms(S, { clip, key = {}, grip = null, props = {}, holds = {}, meal = false, t = 0, id = '', lift = 0, table = null } = {}) {
+export function finishArms(S, { clip, key = {}, grip = null, props = {}, holds = {}, meal = false, t = 0, id = '', lift = 0, table = null, reach = null } = {}) {
   const spec = clipHands(clip), shapes = {}, tw = { L: 0, R: 0 }, hold = { L: null, R: null }, on = { L: 0, R: 0 }, gripHold = { L: null, R: null };
   const keyOf = (s) => handScaleOf(key, s);
   let M = S;
@@ -670,6 +670,16 @@ export function finishArms(S, { clip, key = {}, grip = null, props = {}, holds =
     const x = 0.045 - row * 0.016, z = -0.035 + 0.07 * line + 0.004 * Math.sin(t * 23);
     const pen = heldFrame('pen', -1, keyOf(-1));
     reachTo(M, -1, 'R', pen.tip, add(W(x, z), [0, 0.0015 * Math.max(0, Math.sin(t * 11)), 0]));
+  }
+  // reaching for something on a table (`reach`: { side 'L'|'R', goal (bind space), k 0..1 }), a chessman picked up and
+  // put down (gl/room-chess-play.js): the thumb and fingers pinched, their tips taken `k` of the way to the goal
+  if (reach && reach.goal && reach.k > 0) {
+    const L = reach.side === 'L' ? 'L' : 'R', s = L === 'L' ? 1 : -1, k = keyOf(s);
+    if (M === S) M = Array.from(S);
+    shapes[L] = mixShape(shapes[L] || 'relax', 'pinch', Math.min(1, reach.k * 1.4));
+    const pt = pinchOf(s, shapes[L], k), from = at(M[BN['hand' + L]], pt);
+    reachTo(M, s, L, pt, add(from, mul(sub(reach.goal, from), Math.min(1, reach.k))));
+    on[L] = Math.max(on[L], reach.k);
   }
   // a grip worked out afresh this frame (a meal's tools, the phone) carries its own contact cylinder
   for (const [L, s] of [['L', 1], ['R', -1]]) if (hold[L] && GRIPS[hold[L]] && !gripHold[L]) gripHold[L] = gripOf(hold[L], s, keyOf(s)).hold;

@@ -7,13 +7,6 @@
     "look": {
       "arche": "prop",
       "form": "bonsai"
-    },
-    "spot": {
-      "at": [
-        10.5,
-        0.8
-      ],
-      "turn": -160
     }
   },
   "hp": null,
@@ -25,5 +18,5 @@
   "object_type": "furniture",
   "power_draw_kw": null,
   "price": 1800,
-  "zone_id": "zone_solenne_apt_q"
+  "zone_id": "zone_solenne_apt_q_e"
 }

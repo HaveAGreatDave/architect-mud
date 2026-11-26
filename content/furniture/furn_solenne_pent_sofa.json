@@ -13,13 +13,6 @@
         0.72
       ],
       "form": "sofa"
-    },
-    "spot": {
-      "at": [
-        3.8,
-        4.8
-      ],
-      "turn": 90
     }
   },
   "hp": null,
@@ -31,5 +24,5 @@
   "object_type": "furniture",
   "power_draw_kw": null,
   "price": 0,
-  "zone_id": "zone_solenne_penthouse"
+  "zone_id": "zone_solenne_penthouse_2"
 }

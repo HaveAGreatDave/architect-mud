@@ -1,0 +1,99 @@
+{
+  "ambient_theme": "indoors",
+  "description": "",
+  "exits": {
+    "east": "zone_restassured_f1"
+  },
+  "flags": {
+    "building_name": "Rest Assured",
+    "building_type": "residential",
+    "is_building": true,
+    "is_interior": true,
+    "room": {
+      "d": 4.62,
+      "decor": {
+        "damp": [
+          {
+            "at": [
+              -2.18,
+              2.52
+            ],
+            "r": 0.42
+          }
+        ]
+      },
+      "doors": {
+        "east": 0.65
+      },
+      "face": 270,
+      "floor_m": 3.44,
+      "ground": "tile",
+      "h": 3.44,
+      "panes": [
+        {
+          "a": -2.93,
+          "b": -2.63,
+          "kind": "sash",
+          "wall": "front",
+          "y0": 0.9,
+          "y1": 2.3
+        },
+        {
+          "a": -1.83,
+          "b": -0.93,
+          "kind": "sash",
+          "wall": "front",
+          "y0": 0.9,
+          "y1": 2.3
+        },
+        {
+          "a": -0.13,
+          "b": 0.77,
+          "kind": "sash",
+          "wall": "front",
+          "y0": 0.9,
+          "y1": 2.3
+        },
+        {
+          "a": 1.57,
+          "b": 2.47,
+          "kind": "sash",
+          "wall": "front",
+          "y0": 0.9,
+          "y1": 2.3
+        },
+        {
+          "a": 0.76,
+          "b": 1.66,
+          "kind": "sash",
+          "wall": "right",
+          "y0": 0.9,
+          "y1": 2.3
+        },
+        {
+          "a": 2.46,
+          "b": 3.36,
+          "kind": "sash",
+          "wall": "right",
+          "y0": 0.9,
+          "y1": 2.3
+        }
+      ],
+      "studio": false,
+      "tone": {
+        "ceiling": "#c4beb0",
+        "trim": "#5a5248",
+        "wall": "#b8b4a6"
+      },
+      "w": 6.46
+    },
+    "world_exit_zone": "zone_district_900_905"
+  },
+  "grid_x": -2,
+  "grid_y": -2,
+  "grid_z": 1,
+  "id": "zone_restassured_f1_bath",
+  "map_id": "map_int_restassured",
+  "name": "Rest Assured, First Floor Bathroom",
+  "parent_zone": "zone_district_900_905"
+}

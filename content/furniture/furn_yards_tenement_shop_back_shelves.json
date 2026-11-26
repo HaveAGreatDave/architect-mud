@@ -1,0 +1,15 @@
+{
+  "description": "",
+  "flags": {
+    "aliases": [
+      "shelves",
+      "shelving",
+      "stock"
+    ],
+    "gen": true
+  },
+  "id": "furn_yards_tenement_shop_back_shelves",
+  "name": "the shelves",
+  "object_type": "decoration",
+  "zone_id": "zone_yards_tenement_shop_back"
+}

@@ -160,12 +160,13 @@ export const GROUPS = [
       'scripts/shapes/sequence.mjs',     // every set, sequence and show in media_graphics, built and checked
       'scripts/shapes/room-stage.mjs',   // the suite's layout as frozen, every room form builds, placeSpot never stacks pieces
       'scripts/shapes/street-doors.mjs', // every model's recorded doorway is an opening, every Stage door resolves on its model, every door kind draws
+      'scripts/shapes/npc-doors.mjs',    // a person on the street goes in by a building's front only, at its model's doorway, and every type's door draws
       'scripts/shapes/room-stand.mjs',   // a depot's stand: each kind called up comes out into its box, blocks the walker and offers its key beside it
       'scripts/shapes/bake-depot-shed.mjs --check',   // the truck shed ROOM draws (client/shared/depot-shed.js) is GLASS's shed as it is now
       'scripts/shapes/chem-stage-smoke.mjs', // the Chem Stage: every stage scores a good hand well and a bad one badly; heap, slosh and each stage's pieces build
       'scripts/shapes/actor-head.mjs',
       'scripts/shapes/fan-vat.mjs',  // the stands' fans: both levels baked sound, on the ground, the face on the head, the mouth opening, no claws
-      'scripts/shapes/figure.mjs',   // the close-up figure: every cut and hair style sound, the crowd's coat its coat
+      { run: 'scripts/shapes/figure.mjs', budget: 90, why: 'The close-up figure: every cut and hair style sound, the crowd\'s coat its coat. 57 s wall locally and 60.9 s of CPU alone on CI (2026-11-25), over by a hair since the figure gained cuts and hair styles. Make it cheaper by building each body once and sharing it across the hair and cut checks' },
       'scripts/shapes/gaits.mjs',    // ROOM's IK gaits: no NaN, a person's stride, the planted foot planted
       'scripts/shapes/actor-feet.mjs', // every standing clip, dancers too: a foot on the floor doesn't slide, and none hovers unless it's meant to
       'scripts/cats/cat-smoke.mjs',  // the cat kit: every Cattery cat carved in every pose, on the floor, skinned without tearing
@@ -225,6 +226,7 @@ export const GROUPS = [
       'scripts/gl/core-lint.mjs',        // no new copy of what gl/core holds (ACES, matrices, shader compile), ratcheted per file
       'scripts/shapes/gllampshadow.mjs', // which lamps get a shadow map, and where each looks
       'scripts/shapes/anchored.mjs',
+      'scripts/shapes/buried.mjs',       // no window, balcony or fire escape left inside the building's own mass
       'scripts/shapes/lidless.mjs',
       'scripts/shapes/tilefit.mjs',
       'scripts/shapes/airfield.mjs',

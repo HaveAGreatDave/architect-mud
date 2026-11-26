@@ -11,7 +11,7 @@ import { faceAway,
   DECO_LIFT, DECO_PULL, DETAIL_LIFT, FACE_EPS, SHAPE_SINK, arcStrike, bakeSignText, emitSurfaceText, rgb, blinkLight, clamp, draw3DBoxAt, drawBarrelRoof,
   drawBrandBand, drawFacetDrum, drawPriceBoard, drawRing, drawSmoke, emitDecoFill, emitFlat,
   emitWire, faceY, faceYaw, frac, glowPool, markDoorway, groundPaint, hoistLine, latticeBoom, marqueeBand,
-  motionOn, motionPhase, moveSeg, movingBox, nearOrMesh, roofHatch,
+  armLivePart, facePt, motionOn, motionPhase, moveSeg, movingBox, nearOrMesh, roofHatch,
 } from '../../windshield.js';
 import { FLOOR_Z } from '../../../../../shared/skyline-scale.js';
 import { flatOut } from './downtown.js';
@@ -27,31 +27,38 @@ function grabberCrane(ctx, cam, dx, dy, fh, h, seed, night, alpha, now, E, F) {
   // bearing, which is a thing you could fly into that was never where it looked. What you can
   // fly into now is the MAST, which is the part that is genuinely always there.
   draw3DBoxAt(ctx, cam, dx, dy, fh * 0.12, 0, h * 1.15, 'ty_junk_crane', seed + 21, night, alpha, true);   // the lattice mast
-  { const jp = motionPhase(now, seed + 29, 30000, 0.54), ju = jp < 0 ? 0 : jp;
-    let jsl = moveSeg(ju, 0.00, 0.16, 0, 0.90);          // swing over a pile
-    jsl = moveSeg(ju, 0.50, 0.68, jsl, -1.10);           // …and round to the baler with it
-    jsl = moveSeg(ju, 0.90, 1.00, jsl, 0);
-    let jhk = moveSeg(ju, 0.16, 0.30, 0.88, 0.14);       // down into the scrap
-    jhk = moveSeg(ju, 0.38, 0.50, jhk, 0.88);            // up with a bite
-    jhk = moveSeg(ju, 0.68, 0.78, jhk, 0.30);
-    jhk = moveSeg(ju, 0.84, 0.90, jhk, 0.88);
-    // ⚠ THE SHELLS CLOSE AT THE BOTTOM OF THE DROP AND OPEN AT THE BOTTOM OF THE NEXT ONE, which
-    // is what makes this a grab rather than a hook: the whole read is that it takes a bite and
-    // lets go of it somewhere else. Open, it is two shells a gap apart; shut, they meet.
-    const jShut = ju > 0.34 && ju < 0.74;
-    const jw = jsl + faceYaw(E), jc = Math.cos(jsl), jsn = Math.sin(jsl);
-    const [ox0, oy0] = F(0, 0), jat = (r) => { const [ax, ay] = F(jc * r, jsn * r); return [ax - ox0 + dx, ay - oy0 + dy]; };   // about the mast, wherever it stands
-    const jTip = jat(fh * 1.15), jHeel = jat(fh * 0.12), jTail = jat(-fh * 0.42);
-    movingBox(ctx, cam, dx, dy, h * 1.15, h * 1.25, fh * 0.26, fh * 0.17, [168, 140, 48], alpha, night, jw);              // the operator's house on the ring
-    movingBox(ctx, cam, jTail[0], jTail[1], h * 1.12, h * 1.22, fh * 0.12, fh * 0.11, [92, 84, 52], alpha, night, jw);    // counterweight
-    latticeBoom(ctx, cam, [jHeel[0], jHeel[1], h * 1.12], [jTip[0], jTip[1], h * 0.96], h * 0.09, 4, 1.8, 'rgba(178,150,58,0.95)', alpha, night);
-    const grabZ = h * 0.18 + h * 0.70 * jhk;
-    emitWire(ctx, cam, [jTip[0], jTip[1], h * 0.96], [jTip[0], jTip[1], grabZ + fh * 0.09], 1.3, 'rgba(38,40,44,0.92)', alpha, { pull: 0 });
-    const gap = jShut ? fh * 0.03 : fh * 0.13;
-    for (const s of [-1, 1]) movingBox(ctx, cam, jTip[0] + Math.cos(jw) * s * gap, jTip[1] + Math.sin(jw) * s * gap,
-      grabZ, grabZ + fh * 0.09, fh * 0.055, fh * 0.07, [120, 104, 48], alpha, night, jw);
-    if (jShut) movingBox(ctx, cam, jTip[0], jTip[1], grabZ - fh * 0.06, grabZ + fh * 0.02, fh * 0.08, fh * 0.07, [126, 72, 44], alpha, night, jw); }   // the bale in the jaws
+  armLivePart(grabberJib, 9, [ctx, cam, dx, dy, fh, h, seed, night, alpha, now, E]);
 }
+// The jib, the grab and the bale: the only part of the crane that moves, as a live part (armLivePart), so the
+// building under it is kept. Its frame is rebuilt from (dx, dy) and the facing E.
+function grabberJib(ctx, cam, dx, dy, fh, h, seed, night, alpha, now, E) {
+  const F = (lx, ly) => facePt(dx, dy, lx, ly, E);
+  const jp = motionPhase(now, seed + 29, 30000, 0.54), ju = jp < 0 ? 0 : jp;
+  let jsl = moveSeg(ju, 0.00, 0.16, 0, 0.90);          // swing over a pile
+  jsl = moveSeg(ju, 0.50, 0.68, jsl, -1.10);           // …and round to the baler with it
+  jsl = moveSeg(ju, 0.90, 1.00, jsl, 0);
+  let jhk = moveSeg(ju, 0.16, 0.30, 0.88, 0.14);       // down into the scrap
+  jhk = moveSeg(ju, 0.38, 0.50, jhk, 0.88);            // up with a bite
+  jhk = moveSeg(ju, 0.68, 0.78, jhk, 0.30);
+  jhk = moveSeg(ju, 0.84, 0.90, jhk, 0.88);
+  // ⚠ THE SHELLS CLOSE AT THE BOTTOM OF THE DROP AND OPEN AT THE BOTTOM OF THE NEXT ONE, which
+  // is what makes this a grab rather than a hook: the whole read is that it takes a bite and
+  // lets go of it somewhere else. Open, it is two shells a gap apart; shut, they meet.
+  const jShut = ju > 0.34 && ju < 0.74;
+  const jw = jsl + faceYaw(E), jc = Math.cos(jsl), jsn = Math.sin(jsl);
+  const [ox0, oy0] = F(0, 0), jat = (r) => { const [ax, ay] = F(jc * r, jsn * r); return [ax - ox0 + dx, ay - oy0 + dy]; };   // about the mast, wherever it stands
+  const jTip = jat(fh * 1.15), jHeel = jat(fh * 0.12), jTail = jat(-fh * 0.42);
+  movingBox(ctx, cam, dx, dy, h * 1.15, h * 1.25, fh * 0.26, fh * 0.17, [168, 140, 48], alpha, night, jw);              // the operator's house on the ring
+  movingBox(ctx, cam, jTail[0], jTail[1], h * 1.12, h * 1.22, fh * 0.12, fh * 0.11, [92, 84, 52], alpha, night, jw);    // counterweight
+  latticeBoom(ctx, cam, [jHeel[0], jHeel[1], h * 1.12], [jTip[0], jTip[1], h * 0.96], h * 0.09, 4, 1.8, 'rgba(178,150,58,0.95)', alpha, night);
+  const grabZ = h * 0.18 + h * 0.70 * jhk;
+  emitWire(ctx, cam, [jTip[0], jTip[1], h * 0.96], [jTip[0], jTip[1], grabZ + fh * 0.09], 1.3, 'rgba(38,40,44,0.92)', alpha, { pull: 0 });
+  const gap = jShut ? fh * 0.03 : fh * 0.13;
+  for (const s of [-1, 1]) movingBox(ctx, cam, jTip[0] + Math.cos(jw) * s * gap, jTip[1] + Math.sin(jw) * s * gap,
+    grabZ, grabZ + fh * 0.09, fh * 0.055, fh * 0.07, [120, 104, 48], alpha, night, jw);
+  if (jShut) movingBox(ctx, cam, jTip[0], jTip[1], grabZ - fh * 0.06, grabZ + fh * 0.02, fh * 0.08, fh * 0.07, [126, 72, 44], alpha, night, jw);   // the bale in the jaws
+}
+
 
 export const YARDS_ARMS = {
   // ── The Yards — semi-industrial freight district (docs/proposals/yards.md) ──

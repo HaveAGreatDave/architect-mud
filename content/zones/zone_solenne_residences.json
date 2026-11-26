@@ -6,13 +6,12 @@
   "ambient_theme": "indoors",
   "bg_color": "#28323d",
   "color": "#d9e6f2",
-  "description": "The eighth floor: a square hall panelled in walnut round the lift, a runner of dark blue carpet, bronze lamps between the doors. A flat opens off each side. 8-A is <b>north</b>, 8-B <b>east</b>, 8-G <b>south</b> beside the lift and 8-C <b>west</b>. The elevator is <b>in</b> behind you.",
+  "description": "The fourth floor: a short landing in walnut and stone, three doors off it. 4-A is <b>west</b>, 4-B <b>east</b> and 4-C <b>north</b>. The elevator is <b>in</b> behind you.",
   "exits": {
-    "east": "zone_solenne_apt_i",
+    "east": "zone_solenne_apt_c",
     "in": "zone_solenne_elevator",
-    "north": "zone_solenne_apt_a",
-    "south": "zone_solenne_apt_g",
-    "west": "zone_solenne_apt_c"
+    "north": "zone_solenne_apt_g",
+    "west": "zone_solenne_apt_a"
   },
   "flags": {
     "building_name": "Solenne Residences",
@@ -20,7 +19,7 @@
     "is_interior": true,
     "room": {
       "balcony": false,
-      "d": 6,
+      "d": 2,
       "decor": {
         "art": [
           {
@@ -48,11 +47,11 @@
           "trim": "#b8913e"
         },
         "downlights": false,
+        "plants": [],
         "plaques": {
-          "zone_solenne_apt_a": "8-A",
-          "zone_solenne_apt_c": "8-C",
-          "zone_solenne_apt_g": "8-G",
-          "zone_solenne_apt_i": "8-B"
+          "zone_solenne_apt_a": "4-A",
+          "zone_solenne_apt_c": "4-B",
+          "zone_solenne_apt_g": "4-C"
         },
         "rug": false,
         "runner": {
@@ -64,23 +63,11 @@
         "sconces": {
           "points": [
             [
-              "front",
-              1.2
-            ],
-            [
-              "left",
-              3.6
-            ],
-            [
-              "right",
-              1.4
-            ],
-            [
               "back",
-              -1.6
+              -1.2
             ]
           ],
-          "y": 1.82
+          "y": 1.8
         },
         "walls": {
           "hex": "#4a2e1e",
@@ -90,10 +77,10 @@
         }
       },
       "doors": {
-        "east": 2.4,
-        "north": -2.4,
-        "south": 2.4,
-        "west": -2.4
+        "east": 0,
+        "in": 0.65,
+        "north": 0,
+        "west": 0
       },
       "face": 0,
       "finish": "fine",
@@ -105,16 +92,17 @@
         "trim": "#17130f",
         "wall": "#3a2a20"
       },
-      "w": 6,
+      "w": 3.5,
       "windowless": true
     },
     "sanctuary": true
   },
   "grid_x": 0,
   "grid_y": -1,
-  "grid_z": 3,
+  "grid_z": 4,
   "id": "zone_solenne_residences",
   "map_id": "map_int_solenne",
-  "name": "The Eighth Floor",
+  "marker": "4",
+  "name": "The Fourth Floor",
   "parent_zone": "zone_district_914_908"
 }

@@ -2,39 +2,39 @@
 //
 // The street feed (server/engine/street-actors.js) drops somebody when they go indoors and adds them when they
 // come out, and their last tile is always the one beside the door. windshield.js drawStreetActors turns that
-// into a walk: up to the doorstep, the door swings open, through it, and it swings shut behind them. This file
-// owns the door: where it is (read off the building's own mass, as freelook-view.js doorway() reads it for
-// somebody on foot), when it's open, and drawing it.
+// into a walk: up to the doorstep, the door opens, through it, and it shuts behind them. This file owns the door:
+// where it is, when it's open, and handing it to glass/street-doors.js to draw.
 //
-// ⚠ DECALS, NOT MASS, for the reason glass/street-doors.js gives: an arm's mass is captured once at a frozen
-// clock, and these move with when somebody walks through. A door nobody is using isn't drawn here at all; the
-// arm's own door stands in its doorway.
+// ⚠ THE BUILDING'S OWN DOORWAY, ON ITS FRONT. A person goes in by the front door and nowhere else: the building
+// whose `flags.entrance` faces the tile they left (windshield.js doorwayDir), at the doorway its model drew
+// (doorBayAt, the one the street door on foot is fitted to), not the middle of whichever wall was nearest. Only a
+// model that records no doorway is measured off its mass at the front's middle, as before.
 //
-// The leaf swings OUT, so it's in front of the wall and the jambs never hide it. Behind it, while it's open,
-// the doorway is a dark card (lit warm at night) a hair behind the leaf's plane, which also hides the person
-// once they're through.
-import { emitDecoFill, groundObstructionAt } from '../windshield.js';
+// ⚠ ONE DOOR, ONE LOOK. It's drawn by the street door's own renderer, in the kind the building's type has
+// (client/shared/street-door.js doorForType): a revolving door on a tower, an automatic pair on a clinic, a glazed
+// shop door, a painted leaf on a flat, a grille on a works. A building somebody on foot has a Stage door for is
+// drawn once, by that door, and the person going through just opens it (npcDoorsOnto).
+//
+// ⚠ DECALS, NOT MASS, for the reason glass/street-doors.js gives. A door nobody is using isn't drawn here at all;
+// the arm's own door stands in its doorway.
+import { groundObstructionAt, doorBayAt } from '../windshield.js';
+import { drawStreetDoors } from './street-doors.js';
+import { doorForType } from '../../../../shared/street-door.js';
 
 export const NPC_DOOR = Object.freeze({
   approach: 1100,   // ms from leaving the feed to the doorstep
   through: 850,     // ms from the doorstep to inside
-  open: 450,        // ms for the door to swing open
-  close: 650,       // ms for it to swing shut
+  open: 450,        // ms for the door to open
+  close: 650,       // ms for it to shut
   hold: 350,        // ms it stays open after the last person is through
   emerge: 1300,     // ms from inside the door to where somebody coming out stands
-  swing: 1.35,      // how far it swings open (rad)
 });
-const CARD_IN = 0.006, CARD_PULL = 0.02, LIFT = 0.03, SILL = 0.0, HEAD = 0.96;
 
 const DOORS = new Map();    // 'gx,gy,ex,ey' -> door
 let _map = null;
 
-// The door on building tile (gx, gy) facing E (out of the front, toward the street tile), or null when
-// there's no wall there to put one in.
-function probe(map, R, wcx, wcy, gx, gy, E) {
-  const row = map[gy - wcy + R], c = row && row[gx - wcx + R];
-  if (!c || !c.bt) return null;
-  const at = (lx, ly) => [gx + lx * E[1] + ly * E[0], gy - lx * E[0] + ly * E[1]];
+// The doorway measured off the mass at the front's middle, for a model that records none.
+function measured(gx, gy, c, at) {
   const hit = (lx, ly, z) => { const [px, py] = at(lx, ly); return groundObstructionAt(gx, gy, c, px, py, z, 0) > 0; };
   let wall = null;
   for (let ly = 0.5; ly >= 0.1 && wall == null; ly -= 0.005) if (hit(0, ly, 0.02)) wall = ly;
@@ -44,11 +44,26 @@ function probe(map, R, wcx, wcy, gx, gy, E) {
   for (let z = 0.03; z <= 3 && top == null; z += 0.01) if (hit(0, wall + 0.02, z)) top = z;
   let front = wall;
   if (half != null) for (let ly = 0.5; ly > wall; ly -= 0.004) if (hit(half + 0.012, ly, 0.02) || hit(-half - 0.012, ly, 0.02)) { front = ly; break; }
-  // A door is a person's door: a tower's lobby opening is drawn to the tower's scale, so it's held to a
-  // door's size and stands in the middle of it.
-  half = Math.max(0.035, Math.min(half ?? 0.05, 0.075));
-  top = Math.max(0.09, Math.min(top ?? 0.12, 0.13));
-  return { gx, gy, E, at, plane: Math.min(0.498, front + 0.01), half, top, ev: [], tone: ((gx * 73856093) ^ (gy * 19349663)) >>> 0 };
+  // a tower's lobby opening is drawn to the tower's scale, so it's held to a door's size
+  return { cx: 0, wall, front, half: Math.max(0.035, Math.min(half ?? 0.05, 0.075)), sill: 0, top: Math.max(0.09, Math.min(top ?? 0.12, 0.13)) };
+}
+
+// The door on building tile (gx, gy) facing E (out of the front, toward the street tile), or null when
+// there's no wall there to put one in.
+function probe(map, R, wcx, wcy, gx, gy, E) {
+  const row = map[gy - wcy + R], c = row && row[gx - wcx + R];
+  if (!c || !c.bt) return null;
+  const bay = doorBayAt(gx, gy, c);
+  const g = bay && bay.head - bay.sill > 0.05
+    ? { cx: bay.lx, wall: bay.wall, front: bay.front, half: Math.max(0.03, Math.min(bay.half, 0.25)), sill: bay.sill || 0, top: bay.head }
+    : measured(gx, gy, c, (lx, ly) => [gx + lx * E[1] + ly * E[0], gy - lx * E[0] + ly * E[1]]);
+  if (!g) return null;
+  // the tile's frame about the doorway's own middle: x along the front, y out of it
+  const at = (lx, ly) => [gx + (lx + g.cx) * E[1] + ly * E[0], gy - (lx + g.cx) * E[0] + ly * E[1]];
+  const plane = Math.min(0.498, g.front + 0.01);
+  const tone = ((gx * 73856093) ^ (gy * 19349663)) >>> 0;
+  const { kind, look } = doorForType(c.bt, tone);
+  return { gx, gy, E, at, cx: g.cx, plane, back: plane - 0.006, half: g.half, sill: g.sill, top: g.top, kind, look, fit: bay ? 'model' : 'mass', ev: [] };
 }
 
 // The door into the building beside street tile (x, y) in direction (dx, dy), cached per window.
@@ -79,44 +94,35 @@ export function npcDoorOpen(d, now) {
   return o * o * (3 - 2 * o);
 }
 
-// Points along the way in: the doorstep in front of it and a step inside it, absolute tiles.
+// Points along the way in: the doorstep in front of it and a step inside it, absolute tiles, on the doorway's middle.
 export function npcDoorStep(d) { return d.at(0, d.plane + 0.07); }
 export function npcDoorInside(d) { return d.at(0, d.plane - 0.16); }
 
-const LEAF = [['rgb(58,40,30)', 'rgb(40,46,52)', 'rgb(70,28,24)', 'rgb(34,48,40)', 'rgb(64,60,52)'],
-              ['rgb(30,22,18)', 'rgb(22,26,30)', 'rgb(38,16,14)', 'rgb(18,26,22)', 'rgb(34,32,28)']];
+function prune(now) {
+  for (const d of DOORS.values()) if (d && d.ev.length) d.ev = d.ev.filter((e) => now < e.b + NPC_DOOR.close + 50);
+}
+
+// The Stage doors somebody on foot has (v.streetDoors, freelook-view.js doorLeaves) open for a person going
+// through them too: one door, drawn once, by its own record. Called before drawStreetDoors.
+export function npcDoorsOnto(doors, now) {
+  if (!doors || !doors.length || !DOORS.size) return;
+  prune(now);
+  for (const d of DOORS.values()) {
+    if (!d || !d.ev.length) continue;
+    const s = doors.find((x) => Math.round(x.x) === d.gx && Math.round(x.y) === d.gy);
+    if (s) s.open = Math.max(s.open || 0, npcDoorOpen(d, now));
+  }
+}
 
 export function drawNpcDoors(ctx, cam, v, now, night) {
   if (!DOORS.size || !v.mapCenter) return;
-  const ox = v.mapCenter.x + ((v.mapOffset && v.mapOffset.x) || 0);
-  const oy = v.mapCenter.y + ((v.mapOffset && v.mapOffset.y) || 0);
-  const taken = v.streetDoors && v.streetDoors.length ? v.streetDoors : null;
+  prune(now);
+  const taken = v.streetDoors && v.streetDoors.length ? v.streetDoors : null, list = [];
   for (const d of DOORS.values()) {
     if (!d || !d.ev.length) continue;
-    d.ev = d.ev.filter((e) => now < e.b + NPC_DOOR.close + 50);
-    if (!d.ev.length) continue;
-    // somebody on foot already has this building's own doors drawn (glass/street-doors.js)
+    // somebody on foot already has this building's own door drawn, and npcDoorsOnto opened it
     if (taken && taken.some((s) => Math.round(s.x) === d.gx && Math.round(s.y) === d.gy)) continue;
-    const open = npcDoorOpen(d, now);
-    const P = (lx, ly, z) => { const p = d.at(lx, ly); return [p[0] - ox, p[1] - oy, z]; };
-    const half = d.half, z0 = d.top * SILL, z1 = d.top * HEAD, pl = d.plane;
-    if (open > 0.02) {
-      const back = pl - CARD_IN;
-      emitDecoFill(ctx, cam, [P(-half, back, z1), P(half, back, z1), P(half, back, 0), P(-half, back, 0)],
-        night ? 'rgb(150,112,62)' : 'rgb(22,20,18)', 1, CARD_PULL, 'npcdoor', true);
-    }
-    // one leaf on a narrow door, a pair on a wide one, each hung on its jamb and swinging out
-    const pair = half > 0.06;
-    const th = open * NPC_DOOR.swing, c = Math.cos(th), s = Math.sin(th);
-    const col = LEAF[night ? 1 : 0][d.tone % LEAF[0].length];
-    for (const side of pair ? [-1, 1] : [1]) {
-      const hinge = side * half, w = pair ? half : half * 2;
-      const fx = hinge - side * w * c, fy = pl + w * s;
-      emitDecoFill(ctx, cam, [P(hinge, pl, z1), P(fx, fy, z1), P(fx, fy, z0), P(hinge, pl, z0)], col, 1, LIFT, 'npcdoor', true);
-      // the handle, on the leaf's free edge, so a door reads as a door at a few pixels
-      const hx = hinge - side * w * 0.86 * c, hy = pl + w * 0.86 * s + 0.004, hz = d.top * 0.48, hw = d.top * 0.05;
-      emitDecoFill(ctx, cam, [P(hx, hy, hz + hw), P(hx - side * 0.01 * c, hy + 0.01 * s, hz + hw), P(hx - side * 0.01 * c, hy + 0.01 * s, hz - hw), P(hx, hy, hz - hw)],
-        night ? 'rgb(120,104,70)' : 'rgb(176,160,120)', 1, LIFT * 1.5, 'npcdoor', true);
-    }
+    list.push({ x: d.gx, y: d.gy, E: d.E, plane: d.plane, back: d.back, half: d.half, sill: d.sill, top: d.top, cx: d.cx, fit: d.fit === 'mass' ? 'room' : 'model', kind: d.kind, look: d.look, open: npcDoorOpen(d, now) });
   }
+  if (list.length) drawStreetDoors(ctx, cam, { streetDoors: list, mapCenter: v.mapCenter, mapOffset: v.mapOffset }, now, night, null);
 }

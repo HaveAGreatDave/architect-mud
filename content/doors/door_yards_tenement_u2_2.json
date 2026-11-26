@@ -1,7 +1,7 @@
 {
-  "connection_id": "conn_yards_tenement_u2_2_west",
+  "connection_id": "conn_yards_tenement_u2_2_east",
   "door_type": "basic",
-  "exit_dir": "west",
+  "exit_dir": "east",
   "flags": {},
   "hololock_difficulty": 5,
   "hp": 1000,
@@ -17,6 +17,6 @@
       "difficulty": 5
     }
   },
-  "target_zone": "zone_yards_tenement_f2",
+  "target_zone": "zone_yards_tenement_f2_h1",
   "zone_id": "zone_yards_tenement_u2_2"
 }

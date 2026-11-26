@@ -19,7 +19,7 @@
     "is_interior": true,
     "room": {
       "balcony": false,
-      "d": 5.9,
+      "d": 4.15,
       "decor": {
         "art": [
           {
@@ -119,7 +119,9 @@
       "face": 0,
       "finish": "fine",
       "glass": [
-        "right"
+        "front",
+        "right",
+        "left"
       ],
       "h": 3.4,
       "studio": false,
@@ -129,7 +131,7 @@
         "trim": "#17130f",
         "wall": "#3a2a20"
       },
-      "w": 12.1
+      "w": 14.6
     },
     "sanctuary": true,
     "window": {
@@ -140,10 +142,11 @@
     }
   },
   "grid_x": 0,
-  "grid_y": -1,
-  "grid_z": 2,
+  "grid_y": -2,
+  "grid_z": 3,
   "id": "zone_solenne_salon",
   "map_id": "map_int_solenne",
+  "marker": "3",
   "name": "Bishop's Blend",
   "parent_zone": "zone_district_914_908"
 }

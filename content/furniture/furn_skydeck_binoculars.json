@@ -1,7 +1,7 @@
 {
-  "description": "Steel viewing binoculars on a post by the pool rail, aimed out over the Basin. The eyecups are rubber and somebody has wiped them.",
+  "description": "A white refractor on a heavy brass mount at the north rail, its tube as long as your arm, aimed at the sky over the Basin. A card on the mount says hold C for the constellations.",
   "flags": {
-    "aliases": "binoculars,viewer,scope",
+    "aliases": "telescope,scope,binoculars,refractor",
     "interactions": [
       "examine"
     ],
@@ -9,25 +9,26 @@
       "arche": "small",
       "form": "telescope"
     },
-    "telescope": {
-      "label": "viewing binoculars"
-    },
     "spot": {
       "at": [
-        6,
-        3
+        2,
+        1.7
       ],
       "turn": 0
+    },
+    "telescope": {
+      "label": "observatory telescope",
+      "stars": true
     }
   },
   "hp": null,
   "hp_max": null,
+  "id": "furn_skydeck_binoculars",
   "light_type": null,
   "lumen_output": null,
+  "name": "observatory telescope",
   "object_type": "furniture",
   "power_draw_kw": null,
   "price": 0,
-  "id": "furn_skydeck_binoculars",
-  "name": "viewing binoculars",
   "zone_id": "zone_solenne_skydeck"
 }

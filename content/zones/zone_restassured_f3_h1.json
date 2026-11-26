@@ -1,0 +1,75 @@
+{
+  "ambient_theme": "indoors",
+  "description": "",
+  "exits": {
+    "east": "zone_restassured_u3_4",
+    "north": "zone_restassured_f3",
+    "south": "zone_restassured_f3_h2",
+    "west": "zone_restassured_u3_1"
+  },
+  "flags": {
+    "building_name": "Rest Assured",
+    "building_type": "residential",
+    "is_building": true,
+    "is_interior": true,
+    "room": {
+      "d": 3.58,
+      "decor": {
+        "damp": [
+          {
+            "at": [
+              0.35,
+              1.87
+            ],
+            "r": 0.56
+          }
+        ],
+        "runner": {
+          "hex": "#3a2a24"
+        },
+        "torn": [
+          {
+            "along": 0.83,
+            "n": 2,
+            "seed": 62,
+            "wall": "left",
+            "y": 1.7
+          }
+        ],
+        "walls": {
+          "hex": "#4a3a2a",
+          "kind": "walnut",
+          "rail": 0.95,
+          "trim": "#2a2018",
+          "y1": 1
+        }
+      },
+      "doors": {
+        "east": -0.29,
+        "north": -0.1,
+        "south": 0.1,
+        "west": 0
+      },
+      "face": 180,
+      "floor_m": 10.32,
+      "h": 3.44,
+      "studio": false,
+      "tone": {
+        "accent": "#5a4a3a",
+        "ceiling": "#9a907e",
+        "trim": "#3a2e24",
+        "wall": "#8a7c66"
+      },
+      "w": 2.12,
+      "windowless": true
+    },
+    "world_exit_zone": "zone_district_900_905"
+  },
+  "grid_x": 0,
+  "grid_y": 2,
+  "grid_z": 3,
+  "id": "zone_restassured_f3_h1",
+  "map_id": "map_int_restassured",
+  "name": "Rest Assured, Third Floor Hall",
+  "parent_zone": "zone_district_900_905"
+}

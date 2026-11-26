@@ -8,10 +8,6 @@
     "look": {
       "arche": "bench",
       "form": "slab"
-    },
-    "spot": {
-      "along": 1.45,
-      "wall": "back"
     }
   },
   "hp": null,

@@ -13,13 +13,6 @@
         0.36
       ],
       "form": "boombox"
-    },
-    "spot": {
-      "at": [
-        -6.25,
-        -2.34
-      ],
-      "turn": 180
     }
   },
   "hp": null,
@@ -31,5 +24,5 @@
   "object_type": "furniture",
   "power_draw_kw": 0.02,
   "price": 0,
-  "zone_id": "zone_solenne_apt_b"
+  "zone_id": "zone_solenne_apt_b_e"
 }

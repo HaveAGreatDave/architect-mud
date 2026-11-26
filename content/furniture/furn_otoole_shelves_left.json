@@ -1,0 +1,31 @@
+{
+  "description": "Steel shelving bolted into the brick, bowed a little under folded wool blankets, canteens and boxes of boots. Every box has its size facing out.",
+  "flags": {
+    "aliases": "shelves,left shelves,blankets,canteens",
+    "look": {
+      "arche": "store",
+      "form": "shelves",
+      "dims": [
+        3.6,
+        0.5,
+        2.4
+      ],
+      "stock": "surplus",
+      "wear": 0.5
+    },
+    "spot": {
+      "wall": "left",
+      "along": 5.4
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_otoole_shelves_left",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the left-hand shelves",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_otoole_interior"
+}

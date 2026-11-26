@@ -414,6 +414,20 @@ export const TWIN_PASS_ARMS = {
     const yf = yF + 0.003;   // the face plane
     // 1) THE MASS: one brick box, two storeys, flat roof behind the parapet.
     { const [cx, cy] = F(0, (yB + yF) / 2); draw3DBoxAt(ctx, cam, cx, cy, sx, 0, top, 'ty_otoole_brick', seed, night, alpha, true, yaw, (yF - yB) / 2); }
+    // 1b) A HUNDRED AND FIFTY YEARS ON IT, KEPT WELL: the brick is pointed and the brass polished, but the weather
+    //    has left what washing doesn't take off. A dark band of splash and soot along the foot, a darker run under
+    //    each upper sill where the rain drips off it, a line of soot under the coping, and a stone step at the door
+    //    worn into a shallow hollow in the middle. Flat faces just proud of the brick, nothing that moves the mass.
+    { const ys = yF + 0.0008, SOOT = [100, 52, 40], RUN = [114, 58, 44];
+      tcFlat(ctx, cam, W3, [[-sx, ys, h * 0.05], [sx, ys, h * 0.05], [sx, ys, 0.002], [-sx, ys, 0.002]], [0, 1, 0], SOOT, 'plain', alpha, dn);
+      tcFlat(ctx, cam, W3, [[-sx, ys, top], [sx, ys, top], [sx, ys, top - h * 0.025], [-sx, ys, top - h * 0.025]], [0, 1, 0], RUN, 'plain', alpha, dn);
+      for (const u of [-0.58, 0, 0.58]) {
+        const z1 = h * 0.418, z0 = h * 0.36;
+        tcFlat(ctx, cam, W3, [[fh * (u - 0.12), ys, z1], [fh * (u + 0.12), ys, z1], [fh * (u + 0.07), ys, z0], [fh * (u - 0.07), ys, z0]], [0, 1, 0], RUN, 'plain', alpha, dn);
+      }
+      const [stx, sty] = F(0, yF + fh * 0.045);
+      draw3DBoxAt(ctx, cam, stx, sty, fh * 0.22, 0, h * 0.012, 'ty_otoole_stone', seed + 60, night, alpha, true, yaw, fh * 0.045);
+      tcFlat(ctx, cam, W3, [[-fh * 0.1, yF + fh * 0.015, h * 0.0122], [fh * 0.1, yF + fh * 0.015, h * 0.0122], [fh * 0.1, yF + fh * 0.075, h * 0.0122], [-fh * 0.1, yF + fh * 0.075, h * 0.0122]], [0, 0, 1], [224, 214, 188], 'stone', alpha, dn); }
     // 2) THE PARAPET, stepped three times up to the middle, brick with a stone coping on each step.
     const steps = [[0.90, h * 0.66], [0.60, h * 0.71], [0.30, h * 0.86]];
     for (const [i, [w, z1]] of steps.entries()) {

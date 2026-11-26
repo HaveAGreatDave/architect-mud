@@ -3,7 +3,8 @@
   "flags": {
     "interactions": [
       "lean"
-    ]
+    ],
+    "wealth": "middle"
   },
   "id": "item_furn_counter_slab",
   "name": "concrete counter",

@@ -8,13 +8,6 @@
     "look": {
       "arche": "sofa",
       "form": "lounger"
-    },
-    "spot": {
-      "at": [
-        -6.3,
-        -1.8
-      ],
-      "turn": 0
     }
   },
   "hp": null,
@@ -26,5 +19,5 @@
   "object_type": "furniture",
   "power_draw_kw": null,
   "price": 0,
-  "zone_id": "zone_solenne_apt_b"
+  "zone_id": "zone_solenne_apt_b_e"
 }

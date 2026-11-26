@@ -1,0 +1,195 @@
+{
+  "ambient_theme": "indoors",
+  "description": "",
+  "exits": {
+    "south": "zone_restassured_hall"
+  },
+  "flags": {
+    "building_name": "Rest Assured",
+    "building_type": "residential",
+    "is_apartment": true,
+    "is_building": true,
+    "is_interior": true,
+    "rent_cost": 60,
+    "room": {
+      "d": 5.55,
+      "decor": {
+        "damp": [
+          {
+            "at": [
+              7.36,
+              3.53
+            ],
+            "r": 0.5
+          },
+          {
+            "at": [
+              -4.42,
+              0.98
+            ],
+            "r": 0.35
+          }
+        ],
+        "torn": [
+          {
+            "along": 1.42,
+            "n": 3,
+            "seed": 25,
+            "wall": "left",
+            "y": 1.7
+          }
+        ],
+        "walls": {
+          "hex": "#4a3a2a",
+          "kind": "walnut",
+          "rail": 0.95,
+          "trim": "#2a2018",
+          "y1": 1
+        }
+      },
+      "doors": {
+        "south": -1.9
+      },
+      "face": 0,
+      "h": 3.44,
+      "panes": [
+        {
+          "a": 4.4,
+          "b": 5.25,
+          "kind": "sash",
+          "wall": "left",
+          "y0": 0.9,
+          "y1": 2.3
+        },
+        {
+          "a": 2.7,
+          "b": 3.6,
+          "kind": "sash",
+          "wall": "left",
+          "y0": 0.9,
+          "y1": 2.3
+        },
+        {
+          "a": 1,
+          "b": 1.9,
+          "kind": "sash",
+          "wall": "left",
+          "y0": 0.9,
+          "y1": 2.3
+        },
+        {
+          "a": 4.4,
+          "b": 5.25,
+          "kind": "sash",
+          "wall": "right",
+          "y0": 0.9,
+          "y1": 2.3
+        },
+        {
+          "a": 2.7,
+          "b": 3.6,
+          "kind": "sash",
+          "wall": "right",
+          "y0": 0.9,
+          "y1": 2.3
+        },
+        {
+          "a": 1,
+          "b": 1.9,
+          "kind": "sash",
+          "wall": "right",
+          "y0": 0.9,
+          "y1": 2.3
+        },
+        {
+          "a": -7.25,
+          "b": -6.35,
+          "kind": "sash",
+          "wall": "front",
+          "y0": 0.9,
+          "y1": 2.3
+        },
+        {
+          "a": -5.55,
+          "b": -4.65,
+          "kind": "sash",
+          "wall": "front",
+          "y0": 0.9,
+          "y1": 2.3
+        },
+        {
+          "a": -3.85,
+          "b": -2.95,
+          "kind": "sash",
+          "wall": "front",
+          "y0": 0.9,
+          "y1": 2.3
+        },
+        {
+          "a": -2.15,
+          "b": -1.25,
+          "kind": "sash",
+          "wall": "front",
+          "y0": 0.9,
+          "y1": 2.3
+        },
+        {
+          "a": -0.45,
+          "b": 0.45,
+          "kind": "sash",
+          "wall": "front",
+          "y0": 0.9,
+          "y1": 2.3
+        },
+        {
+          "a": 1.25,
+          "b": 2.15,
+          "kind": "sash",
+          "wall": "front",
+          "y0": 0.9,
+          "y1": 2.3
+        },
+        {
+          "a": 2.95,
+          "b": 3.85,
+          "kind": "sash",
+          "wall": "front",
+          "y0": 0.9,
+          "y1": 2.3
+        },
+        {
+          "a": 4.65,
+          "b": 5.55,
+          "kind": "sash",
+          "wall": "front",
+          "y0": 0.9,
+          "y1": 2.3
+        },
+        {
+          "a": 6.35,
+          "b": 7.25,
+          "kind": "sash",
+          "wall": "front",
+          "y0": 0.9,
+          "y1": 2.3
+        }
+      ],
+      "studio": false,
+      "tone": {
+        "accent": "#5a4a3a",
+        "ceiling": "#9a907e",
+        "trim": "#3a2e24",
+        "wall": "#8a7c66"
+      },
+      "w": 16.5
+    },
+    "world_exit_zone": "zone_district_900_905"
+  },
+  "grid_x": 0,
+  "grid_y": -2,
+  "grid_z": 0,
+  "id": "zone_restassured_u0_n",
+  "map_id": "map_int_restassured",
+  "name": "Rest Assured, Flat 0.2",
+  "parent_zone": "zone_district_900_905"
+}

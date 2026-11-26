@@ -9,7 +9,8 @@
     "power_draw_kw": 0.18,
     "tv": true,
     "tv_dial_freq": 7,
-    "tv_skin": "flatscreen"
+    "tv_skin": "flatscreen",
+    "wealth": "rich"
   },
   "id": "item_furn_wallscreen",
   "name": "neon slab TV",

@@ -7,7 +7,8 @@
       "lean"
     ],
     "power_draw_kw": 0.15,
-    "preserves": "refrigerated"
+    "preserves": "refrigerated",
+    "wealth": "middle"
   },
   "id": "item_furn_fridge_glacier400",
   "name": "Glacier 400 Refrigeration Unit",

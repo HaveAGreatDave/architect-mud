@@ -18,6 +18,254 @@
     "floor": "boards",
     "is_building": true,
     "is_interior": true,
+    "room": {
+      "balcony": false,
+      "d": 10,
+      "decor": {
+        "doors": [
+          {
+            "at": 0,
+            "finish": "steel",
+            "w": 1,
+            "wall": "back"
+          }
+        ],
+        "lamps": [
+          {
+            "along": 0,
+            "hex": "#ffd9a0",
+            "wall": "front",
+            "y": 2.9
+          }
+        ],
+        "paint": [
+          {
+            "from": [
+              -1.7,
+              1.2
+            ],
+            "hex": "#cbbf9c",
+            "kind": "line",
+            "t": 0.7,
+            "to": [
+              -1.7,
+              9.2
+            ]
+          },
+          {
+            "from": [
+              1.7,
+              1.2
+            ],
+            "hex": "#cbbf9c",
+            "kind": "line",
+            "t": 0.7,
+            "to": [
+              1.7,
+              9.2
+            ]
+          },
+          {
+            "hex": "#c4b590",
+            "kind": "box",
+            "rect": [
+              -1.2,
+              0.1,
+              2.4,
+              1.1
+            ],
+            "t": 0.05
+          }
+        ],
+        "signs": [
+          {
+            "along": -3.4,
+            "h": 0.22,
+            "hex": "#f2ead2",
+            "plate": true,
+            "plateHex": "#2f5a34",
+            "style": "enamel",
+            "text": "FRESH DAILY",
+            "wall": "back",
+            "y": 2.75
+          },
+          {
+            "along": -3.4,
+            "h": 0.14,
+            "hex": "#f2ead2",
+            "plate": true,
+            "plateHex": "#a8322a",
+            "style": "enamel",
+            "text": "AISLE 1",
+            "wall": "back",
+            "y": 3.2
+          },
+          {
+            "along": 2.2,
+            "h": 0.14,
+            "hex": "#f2ead2",
+            "plate": true,
+            "plateHex": "#a8322a",
+            "style": "enamel",
+            "text": "AISLE 2",
+            "wall": "back",
+            "y": 3.2
+          },
+          {
+            "along": 4.4,
+            "h": 0.14,
+            "hex": "#f2ead2",
+            "plate": true,
+            "plateHex": "#a8322a",
+            "style": "enamel",
+            "text": "AISLE 3",
+            "wall": "back",
+            "y": 3.2
+          },
+          {
+            "along": 3,
+            "h": 0.12,
+            "hex": "#3a2e22",
+            "plate": true,
+            "plateHex": "#efe6c8",
+            "style": "paint",
+            "text": "PLEASE DO NOT SQUEEZE THE FRUIT",
+            "wall": "left",
+            "y": 2.2
+          },
+          {
+            "along": 2.2,
+            "h": 0.12,
+            "hex": "#f2ead2",
+            "plate": true,
+            "plateHex": "#5a1e1a",
+            "style": "plate",
+            "text": "NO TABS. NOT EVEN YOU.",
+            "wall": "right",
+            "y": 2.1
+          },
+          {
+            "along": 1.4,
+            "h": 0.1,
+            "hex": "#2f5a34",
+            "style": "paint",
+            "text": "MIND THE STEP",
+            "wall": "front",
+            "y": 2.4
+          }
+        ],
+        "strips": [
+          {
+            "along": "v",
+            "at": [
+              -3.4,
+              2.6
+            ],
+            "len": 1.5
+          },
+          {
+            "along": "v",
+            "at": [
+              -3.4,
+              5.4
+            ],
+            "len": 1.5
+          },
+          {
+            "along": "v",
+            "at": [
+              -3.4,
+              8.2
+            ],
+            "len": 1.5
+          },
+          {
+            "along": "v",
+            "at": [
+              0,
+              2.6
+            ],
+            "len": 1.5
+          },
+          {
+            "along": "v",
+            "at": [
+              0,
+              5.4
+            ],
+            "len": 1.5
+          },
+          {
+            "along": "v",
+            "at": [
+              0,
+              8.2
+            ],
+            "len": 1.5
+          },
+          {
+            "along": "v",
+            "at": [
+              3.4,
+              2.6
+            ],
+            "len": 1.5
+          },
+          {
+            "along": "v",
+            "at": [
+              3.4,
+              5.4
+            ],
+            "len": 1.5
+          },
+          {
+            "along": "v",
+            "at": [
+              3.4,
+              8.2
+            ],
+            "len": 1.5
+          }
+        ]
+      },
+      "doors": {
+        "west": 0
+      },
+      "face": 270,
+      "finish": "plain",
+      "ground": "lino",
+      "h": 3.6,
+      "panes": [
+        {
+          "a": -5,
+          "b": -1.2,
+          "wall": "front",
+          "y0": 0.5,
+          "y1": 2.6
+        },
+        {
+          "a": 1.2,
+          "b": 5,
+          "wall": "front",
+          "y0": 0.5,
+          "y1": 2.6
+        }
+      ],
+      "street_door": {
+        "glass": "#6f8a74",
+        "kind": "swing",
+        "trim": "#2f5a34",
+        "w": 1.6
+      },
+      "studio": false,
+      "tone": {
+        "ceiling": "#cfc8b2",
+        "trim": "#2f5a34",
+        "wall": "#e0d6b8"
+      },
+      "w": 12
+    },
     "terrain": "grass",
     "window": {
       "description": "A full-height pane onto the street, kept just clean enough to trade through. Whatever the weather is doing out there, it's doing it in plain view.",

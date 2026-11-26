@@ -240,7 +240,7 @@ export function installGL(hostFor) {
       // the smear it has always used. So there is no missing picture to notice, only a feature that
       // appears to have been a no-op. `glLastFrame().mirror` reading 0 with the tune at 1 is the
       // tell, and it is reported for exactly this reason.
-      glMirror: opts.glMirror, glMirrorRes: opts.glMirrorRes,
+      glMirror: opts.glMirror, glMirrorRes: opts.glMirrorRes, glMirrorEvery: opts.glMirrorEvery, glMirrorSlack: opts.glMirrorSlack,
       glMetalRefl: opts.glMetalRefl,
       // ⚠ AND SO DO THESE TWO, for the same reason and with the same failure. A material response
       // wired at the windshield end and dropped here reports 0.0% of wall pixels moved at every

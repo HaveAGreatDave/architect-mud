@@ -21,7 +21,31 @@ import { textModePlayers, isTextMode } from './text-mode.js';
 import { isVendorWorkTime } from '../../server/engine/ai-behaviour.js';
 import { getEnvironmentState } from '../../server/engine/environment.js';
 import { escAttr } from '../../server/engine/text.js';
-import { practiceTick, boardOf } from './chess-practice.js';
+import { practiceTick, boardOf, practiceOf, regularHome, tableOfRegular, challengeRegular } from './chess-practice.js';
+import { registerConditionShape } from '../../server/engine/flags.js';
+
+// ── A game asked for in conversation ───────────────────────────────────────────
+//
+// A table's regular (chess-practice.js) can be asked for a game in dialogue: an option gated on
+// `{ "chess_home": true }` (they're home and the board's free) whose action is `CHESS_CHALLENGE`. The action sits
+// you down opposite them if you're in the room, sends them to the board if they aren't, and says their answer.
+// Nothing here names anybody; the regular is the table's config, the words are their dialogue tree.
+registerConditionShape('chess_home', (condition, _player, context) => {
+  const t = context?.npc?.id && tableOfRegular(activeTables.values(), context.npc.id);
+  const ok = !!t && !!regularHome(t) && !(t.game && !t.game.isOver());
+  return condition.chess_home ? ok : !ok;
+});
+registerAction({
+  type: 'CHESS_CHALLENGE',
+  handler: async ({ actor, context }) => {
+    const npc = context?.npc;
+    const t = npc?.id && tableOfRegular(activeTables.values(), npc.id);
+    if (!t) return { type: 'error', message: 'No board.' };
+    const r = await challengeRegular(t, actor);
+    if (r.ok) t.pushPaneAll();
+    return r.line ? { type: 'dialogue_line', text: `"${r.line}"` } : { type: 'noop' };
+  },
+});
 
 // ── Boot ───────────────────────────────────────────────────────────────────────
 
@@ -455,6 +479,16 @@ async function cmdSummon(args, raw, player) {
   //
   // Off-shift players are asleep, not antisocial — same reason `call dealer` won't
   // wake the dealer: their commute graph would walk them straight back out.
+  // A board with a regular (chess-practice.js) is theirs: nobody else is called to it, and they only play when home.
+  const regular = chess && practiceOf(t);
+  if (regular) {
+    const npc = regularHome(t);
+    const who = world.npcs.get(regular.npc)?.name || 'The owner';
+    if (!npc) return { type: 'error', message: `${who} isn't home. Nobody else plays at this board.` };
+    const r = await challengeRegular(t, player);
+    if (r.line) return { type: 'output', message: `<span class="speech-line">${npc.name} says, "${r.line}"</span>` };
+    return { type: 'error', message: `${who} can't play right now.` };
+  }
   const flag = chess ? 'chess_player' : 'poker_player';
   const gamblers = [...world.npcs.values()].filter(n =>
     n.flags?.[flag] && (n.hp == null || n.hp > 0) && !isOffShift(n));

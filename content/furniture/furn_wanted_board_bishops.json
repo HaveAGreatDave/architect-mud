@@ -19,7 +19,7 @@
       "room": "{handle} crouches at the terminal by the wall. It thinks for a while, then counts out {amount}, and a man two tables away turns a page."
     },
     "spot": {
-      "along": 3.65,
+      "along": 5.2,
       "wall": "back"
     },
     "wanted_board": true

@@ -8,7 +8,7 @@
   "ambient_theme": "urban",
   "bg_color": "#1c242c",
   "color": "#cfd8e0",
-  "description": "The south-east corner of the roof terrace: a square of non-slip deck ringed in landing lights, a white H in the middle. The pad is a lift; a brass terminal by its edge sends your aircraft down to the <b>garage</b>. Teak benches and planters line the west rail, with viewing <b>binoculars</b> at the front. The lift house is <b>west</b>.",
+  "description": "The roof terrace east of the Lantern: a square of non-slip deck ringed in landing lights, a white H in the middle and a glass rail all round. The pad is a lift; a brass terminal by its edge sends your aircraft down to the <b>garage</b>. Teak benches and planters stand at either end, clear of the circle. The Lantern is <b>west</b>.",
   "exits": {
     "west": "zone_solenne_hall_40"
   },
@@ -25,37 +25,34 @@
     "residents_only_deny": "The panel by the pad door reads your hand, finds no residence attached to it, and stays shut. Somewhere below, a concierge is already deciding not to mention it.",
     "room": {
       "balcony": false,
-      "d": 11,
+      "d": 4.82,
       "decor": {
         "downlights": false,
         "pad": {
           "at": [
-            3.28,
-            4.65
+            0,
+            2.41
           ],
-          "r": 3.75
+          "r": 2.1
         },
         "rug": false
       },
       "doors": {
-        "west": 5.65
+        "west": 1.98
       },
       "face": 90,
       "finish": "fine",
-      "glass": [
-        "front",
-        "left",
-        "right"
-      ],
       "ground": "stone",
       "h": 3,
       "open": true,
+      "parapet": 1.1,
       "studio": false,
       "tone": {
         "trim": "#1c1f23",
         "wall": "#3a3f45"
       },
-      "w": 15.9
+      "w": 14.57,
+      "windowless": true
     },
     "sanctuary": true,
     "window": {
@@ -67,10 +64,11 @@
     "world_exit_zone": "zone_district_914_908"
   },
   "grid_x": 1,
-  "grid_y": 0,
-  "grid_z": 9,
+  "grid_y": -1,
+  "grid_z": 33,
   "id": "zone_solenne_helipad",
   "map_id": "map_int_solenne",
+  "marker": "33",
   "name": "Solenne Sky Pad",
   "parent_zone": "zone_district_914_908"
 }

@@ -1,0 +1,82 @@
+{
+  "ambient_theme": "indoors",
+  "description": "",
+  "exits": {
+    "east": "zone_restassured_u1_5",
+    "north": "zone_restassured_f1_h1",
+    "west": "zone_restassured_u1_2"
+  },
+  "flags": {
+    "building_name": "Rest Assured",
+    "building_type": "residential",
+    "is_building": true,
+    "is_interior": true,
+    "room": {
+      "d": 3.72,
+      "decor": {
+        "damp": [
+          {
+            "at": [
+              -0.5,
+              2.59
+            ],
+            "r": 0.75
+          }
+        ],
+        "runner": {
+          "hex": "#3a2a24"
+        },
+        "torn": [
+          {
+            "along": 2.67,
+            "n": 4,
+            "seed": 54,
+            "wall": "left",
+            "y": 1.7
+          }
+        ],
+        "walls": {
+          "hex": "#4a3a2a",
+          "kind": "walnut",
+          "rail": 0.95,
+          "trim": "#2a2018",
+          "y1": 1
+        }
+      },
+      "doors": {
+        "east": 0.3,
+        "north": 0,
+        "west": 0.3
+      },
+      "face": 180,
+      "floor_m": 3.44,
+      "h": 3.44,
+      "panes": [
+        {
+          "a": -0.76,
+          "b": 0.1,
+          "kind": "sash",
+          "wall": "front",
+          "y0": 0.9,
+          "y1": 2.3
+        }
+      ],
+      "studio": false,
+      "tone": {
+        "accent": "#5a4a3a",
+        "ceiling": "#9a907e",
+        "trim": "#3a2e24",
+        "wall": "#8a7c66"
+      },
+      "w": 2.12
+    },
+    "world_exit_zone": "zone_district_900_905"
+  },
+  "grid_x": 0,
+  "grid_y": 2,
+  "grid_z": 1,
+  "id": "zone_restassured_f1_h2",
+  "map_id": "map_int_restassured",
+  "name": "Rest Assured, First Floor Hall",
+  "parent_zone": "zone_district_900_905"
+}

@@ -551,7 +551,35 @@ async function chessRegress(check) {
   check('practice: the regular plays somebody they know, in the real seat', prac.seatedIndex(`chessbot:${reg.id}`) >= 0);
   check('practice: and their own game is swept off the board', !prac._practice.game);
 
+  clearTimeout(prac._startTimer); prac._begin();
+  const real = practice.boardOf(prac);
+  check('practice: the Room Stage board says who plays which side', [real.white, real.black].includes(friend.id) && [real.white, real.black].includes(`chessbot:${reg.id}`), JSON.stringify(real));
   clearTimeout(prac._startTimer); clearTimeout(prac._botMoveTimer); prac._clearTurnTimer?.();
+
+  // asked in conversation (CHESS_CHALLENGE): a stranger gets a game too, but only while the regular is home
+  prac.seats = prac.seats.map(() => null); prac.game = null; prac.phase = 'WaitingForPlayers'; prac._practice = null;
+  reg.zone_id = ZONE;
+  check('challenge: the regular is home in the table\'s room',practice.regularHome(prac)?.id === reg.id);
+  const asked = await practice.challengeRegular(prac, stranger);
+  check('challenge: asked, they say yes', asked.ok && !!asked.line, JSON.stringify(asked));
+  prac.seats[0] = { playerId: stranger.id, handle: 'Stranger', isBot: false, seatIdx: 0, chips: 0, buyIn: 0 };
+  practice.practiceTick(prac);
+  await new Promise((r) => setTimeout(r, 0));
+  check('challenge: and play somebody they don\'t know', prac.seatedIndex(`chessbot:${reg.id}`) >= 0);
+  clearTimeout(prac._startTimer); clearTimeout(prac._botMoveTimer); prac._clearTurnTimer?.();
+  // beaten at his own board, he's angry, likes you less, and won't be asked again for a while
+  clearTimeout(prac._startTimer); if (!prac.game || prac.game.isOver()) prac._begin();
+  const warm0 = stranger._relations.get(reg.id)?.warmth || 0;
+  prac.game.resign(`chessbot:${reg.id}`); prac._finish();
+  clearTimeout(prac._startTimer); clearTimeout(prac._rematchTimer); clearTimeout(prac._botMoveTimer); prac._clearTurnTimer?.();
+  check('beaten: he likes you less', (stranger._relations.get(reg.id)?.warmth || 0) < warm0, JSON.stringify(stranger._relations.get(reg.id)));
+  const again = await practice.challengeRegular(prac, stranger);
+  check("beaten: and won't play you again yet", !again.ok && !!again.line, JSON.stringify(again));
+  const was = reg.zone_id;
+  reg.zone_id = 'zone_somewhere_else_entirely';
+  check("challenge: away from home, they can't be asked", practice.regularHome(prac) === null);
+  reg.zone_id = was;
+
   activeTables.delete(prac.id);
   world.players.delete(stranger.id); world.players.delete(friend.id);
   world.npcs.delete(reg.id); world.zones.delete(ZONE);

@@ -20,6 +20,11 @@ export const ROUTES = {
   // On foot: the street view's eye, its rings (FOOT_TUNE) and near plane, and a crowd. The rooms drawn in the
   // street (gl/interiors.js) aren't in it yet: they're built at runtime from the server's room data.
   'marrow-foot': { seat: 'foot', from: [917, 909], heading: 270, tiles: 6, hour: 13, people: 110, why: 'walking the cab route with the crowd the game sends' },
+  // The same walk fed what the game fed the street view on 2026-11-25 (fixtures/marrow-foot-game.json): its own
+  // map window, the 73 buildings' rooms drawn in the street, the 107 people where they stood, the weather and
+  // sea fields (which decide the reflection), roads, regions and the canvas size. The hour and weather are the
+  // recording's. To record it again, see the fixture's `note`; a new recording is a new route name.
+  'marrow-foot-game': { seat: 'foot', from: [917, 909], heading: 270, tiles: 6, hour: 21.8, weather: 'cloudy', fixture: 'marrow-foot-game', why: 'the street on foot as the game paints it' },
 };
 
 // Per seat: how far the camera moves a frame, in tiles. A real cab at 30 mph covers about a

@@ -194,6 +194,19 @@
           "next": "n_notnow"
         },
         {
+          "label": "Fancy a game of chess?",
+          "conditions": [
+            {
+              "chess_home": true
+            }
+          ],
+          "next": "n_chess_go"
+        },
+        {
+          "label": "You play chess?",
+          "next": "n_chess_talk"
+        },
+        {
           "actions": [],
           "conditions": [],
           "enabled": true,
@@ -202,6 +215,60 @@
         }
       ],
       "text": "Akerson turns from the mirror with the timing of a man who has practised turning from mirrors. <span class=\"text-dim\">The smile arrives before the eye contact does.</span>\n\n\"You know, people say to me, John, how do you do it, and I tell them: you don't *do* it. You *are* it.\" He lets that land on you like it is a gift. \"Anyway. You wanted something.\"\n\n\"Do you watch the show? Be honest. It doesn't hurt me.\""
+    },
+    "n_chess_talk": {
+      "_vine": {
+        "x": 780,
+        "y": 1000
+      },
+      "actions": [],
+      "text": "\"Play? I'm *good.* Not famous good, which annoys me, but good.\" He glances at the board by the window. \"I mostly play myself these days. I win every time, and I also lose every time, and it's doing something to me.\"\n\n\"You want a game?\"",
+      "options": [
+        {
+          "label": "Go on, then.",
+          "conditions": [
+            {
+              "chess_home": true
+            }
+          ],
+          "next": "n_chess_go"
+        },
+        {
+          "label": "Not today.",
+          "next": "root"
+        }
+      ]
+    },
+    "n_chess_go": {
+      "_vine": {
+        "x": 1140,
+        "y": 1000
+      },
+      "actions": [
+        {
+          "action": "CHESS_CHALLENGE"
+        }
+      ],
+      "text": "<span class=\"text-dim\">He looks over at the board by the window.</span>",
+      "options": [
+        {
+          "label": "Right.",
+          "next": "bye_chess"
+        }
+      ]
+    },
+    "bye_chess": {
+      "_vine": {
+        "x": 1500,
+        "y": 1000
+      },
+      "actions": [
+        {
+          "action": "END_CONVERSATION"
+        }
+      ],
+      "options": [],
+      "text": "\"Don't keep me waiting.\""
     }
   },
   "faction": null,
@@ -220,6 +287,66 @@
       "refuse": [
         "I'm in the middle of something. With myself. It's going very well.",
         "I don't play people I don't know. You can watch, though. People do."
+      ],
+      "challenged": [
+        "Sit down, then. You can have white.",
+        "Good. I'm sick of beating myself."
+      ],
+      "challengedAway": [
+        "Board's by the window. Go and sit down, I'll be right there.",
+        "Go on through and sit down. I'll bring my good mood."
+      ],
+      "busy": [
+        "There's a game on. Wait your turn."
+      ],
+      "lost": [
+        "That's fine. That's absolutely fine. I wasn't trying.",
+        "Get out of my chair. Actually, stay there, I'm getting up.",
+        "You got lucky and you know it."
+      ],
+      "won": [
+        "Good game. Mostly for me.",
+        "That's how it's done. Write it down."
+      ],
+      "sore": [
+        "No. I don't want to play you right now.",
+        "You've had your fun. Leave me alone for a bit."
+      ],
+      "yourBlunder": [
+        "Oh, you didn't mean that. You did? Wonderful.",
+        "Thank you. Genuinely. That's a gift.",
+        "I'm going to pretend I didn't see that. No I'm not."
+      ],
+      "yourGoodMove": [
+        "Hm. Okay. Who taught you that?",
+        "That's annoying. That's a good move and it's annoying.",
+        "Don't look pleased. It's rude."
+      ],
+      "giveCheck": [
+        "Check. Say it with me.",
+        "Check. Take your time, you've earned the panic."
+      ],
+      "inCheck": [
+        "Yes, I see it. I'm not blind.",
+        "Check. Fine. Rude, but fine."
+      ],
+      "myCapture": [
+        "I'll have that.",
+        "Mine now. Don't sulk.",
+        "That was never really yours."
+      ],
+      "lostPiece": [
+        "I was done with it anyway.",
+        "That's a sacrifice. You wouldn't understand.",
+        "Fine. Take it. See if I care."
+      ],
+      "winning": [
+        "You can resign, you know. Nobody's filming.",
+        "This is going very well. For me, I mean."
+      ],
+      "losing": [
+        "This position's cursed. I'm not losing, the board is.",
+        "Stop humming. You're not humming? Well, stop thinking so loudly."
       ]
     },
     "chess_lore": [
@@ -235,7 +362,7 @@
       "Marshall played a queen move against Levitsky so good the crowd threw gold coins on the board. Or so the story goes. Nobody's ever thrown anything at me I could spend.",
       "Morphy beat a duke and a count together in a box at the Paris opera, during the opera. Seventeen moves. He wanted to watch the show."
     ],
-    "chess_strength": "hustler",
+    "chess_strength": "shark",
     "figure": {
       "age": 0,
       "beard": 0.9,
@@ -388,6 +515,13 @@
           "topic": "sleep"
         }
       ]
+    },
+    "chess_persona": {
+      "depth": 3,
+      "quiesce": 3,
+      "budget": 30000,
+      "ms": 300,
+      "blunder": 0.03
     }
   },
   "home_activities": [

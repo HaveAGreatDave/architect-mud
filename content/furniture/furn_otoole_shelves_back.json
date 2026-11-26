@@ -1,0 +1,31 @@
+{
+  "description": "Shelving behind the counter, out of reach: the good boots, the coats that cost more, the things Rusty would rather hand you himself.",
+  "flags": {
+    "aliases": "back shelves,boots,coats",
+    "look": {
+      "arche": "store",
+      "form": "shelves",
+      "dims": [
+        3,
+        0.45,
+        2.4
+      ],
+      "stock": "surplus",
+      "wear": 0.4
+    },
+    "spot": {
+      "wall": "back",
+      "along": -0.4
+    }
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_otoole_shelves_back",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the shelves behind the counter",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_otoole_interior"
+}

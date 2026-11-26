@@ -267,6 +267,7 @@ export const freelookMorphex = ifLoaded(freelook, 'freelookMorphex', false);
 export const freelookArrange = ifLoaded(freelook, 'freelookArrange', false);
 export const freelookSet = ifLoaded(freelook, 'freelookSet', false);
 export const freelookPiece = ifLoaded(freelook, 'freelookPiece', false);
+export const freelookBoard = ifLoaded(freelook, 'freelookBoard', false);
 export const freelookPack = ifLoaded(freelook, 'freelookPack');
 export const freelookPackDirty = ifLoaded(freelook, 'freelookPackDirty');
 export const openFreelook = call(freelook, 'openFreelook');

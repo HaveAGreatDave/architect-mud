@@ -3,7 +3,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#2b3a34",
   "color": "#e8ddc7",
-  "description": "The east corner of the tenth floor, glass on two sides: the bay on one and the long grey run of Coldwater on the other, the light crossing the room all day without ever being harsh. A bath cut from a single block of stone behind the bedroom wall. Leave <b>west</b> to the landing.",
+  "description": "A one-bedroom in the south-east corner of the fifth floor, the long glass wall looking down Marrow Street. Warm oak, a platform bed, a galley kitchen. Leave <b>west</b> to the landing.",
   "exits": {
     "in": "zone_solenne_apt_e_bath",
     "west": "zone_solenne_residences_34"
@@ -13,24 +13,27 @@
     "floor": "boards",
     "is_apartment": true,
     "is_interior": true,
-    "rent_cost": 460,
+    "rent_cost": 340,
     "rest_multiplier": 1.5,
     "room": {
       "balcony": false,
-      "d": 6.6,
-      "ensuite": {
-        "d": 2.4,
-        "dress": "spa",
-        "w": 3.2
+      "d": 6.36,
+      "doors": {
+        "west": 2.18
       },
+      "ensuite": {
+        "d": 1.8,
+        "dress": "spa",
+        "w": 2.8
+      },
+      "face": 0,
       "finish": "fine",
       "glass": [
-        "front",
-        "left"
+        "right"
       ],
       "h": 3,
-      "storeys": 40,
-      "w": 11
+      "storeys": 32,
+      "w": 5.12
     },
     "window": {
       "description": "A tall pane runs floor to ceiling down one wall, black-framed, holding the city out there like something in a case.",
@@ -41,10 +44,10 @@
   },
   "grid_x": 1,
   "grid_y": -1,
-  "grid_z": 6,
+  "grid_z": 5,
   "id": "zone_solenne_apt_e",
   "map_id": "map_int_solenne",
-  "marker": "10",
-  "name": "Solenne Residence 10-E",
+  "marker": "5",
+  "name": "Solenne Residence 5-B",
   "parent_zone": "zone_district_914_908"
 }

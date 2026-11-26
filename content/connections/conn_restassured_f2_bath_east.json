@@ -1,0 +1,9 @@
+{
+  "a": "zone_restassured_f2_bath",
+  "b": "zone_restassured_f2",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_restassured_f2_bath_east",
+  "lockable": false,
+  "one_way": false
+}

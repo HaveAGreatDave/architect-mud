@@ -3,22 +3,96 @@
   "bg_color": "#5a5450",
   "description": "One room, smaller than the ones downstairs because the building steps in up here. A steel-frame bed with a mattress that has seen things, a hot plate on an upturned crate, a sink that drips on its own schedule, and a window painted shut over a view of the container stacks. The radiator is cold and the lock is cheap, but the door closes, and in the Yards that's the whole of what a home has to do.",
   "exits": {
-    "south": "zone_yards_tenement_f7"
+    "east": "zone_yards_tenement_f7"
   },
   "flags": {
     "ambient_pool": "world_unit_1001",
+    "building_name": "The Yards Tenement",
+    "building_type": "apartment",
     "floor": "boards",
     "is_apartment": true,
+    "is_building": true,
+    "is_interior": true,
     "rent_cost": 25,
+    "room": {
+      "d": 5.51,
+      "doors": {
+        "east": 0.81
+      },
+      "face": 270,
+      "floor_m": 25.2,
+      "h": 3.6,
+      "panes": [
+        {
+          "a": -3.49,
+          "b": -2.49,
+          "kind": "sash",
+          "wall": "front",
+          "y0": 0.9,
+          "y1": 2.4
+        },
+        {
+          "a": -1.69,
+          "b": -0.69,
+          "kind": "sash",
+          "wall": "front",
+          "y0": 0.9,
+          "y1": 2.4
+        },
+        {
+          "a": 0.11,
+          "b": 1.11,
+          "kind": "sash",
+          "wall": "front",
+          "y0": 0.9,
+          "y1": 2.4
+        },
+        {
+          "a": 1.91,
+          "b": 2.91,
+          "kind": "sash",
+          "wall": "front",
+          "y0": 0.9,
+          "y1": 2.4
+        },
+        {
+          "a": 0.95,
+          "b": 1.95,
+          "kind": "sash",
+          "wall": "right",
+          "y0": 0.9,
+          "y1": 2.4
+        },
+        {
+          "a": 2.75,
+          "b": 3.75,
+          "kind": "sash",
+          "wall": "right",
+          "y0": 0.9,
+          "y1": 2.4
+        },
+        {
+          "a": 4.55,
+          "b": 5.21,
+          "kind": "sash",
+          "wall": "right",
+          "y0": 0.9,
+          "y1": 2.4
+        }
+      ],
+      "studio": false,
+      "w": 7.71
+    },
     "window": {
       "description": "A narrow window gone yellow at the edges, the frame swollen and the sill crowded with grit.",
       "light": 0.6,
       "name": "the narrow window",
       "visibility": 0.6
-    }
+    },
+    "world_exit_zone": "zone_district_921_902"
   },
-  "grid_x": 0,
-  "grid_y": -1,
+  "grid_x": -2,
+  "grid_y": -2,
   "grid_z": 7,
   "id": "zone_yards_tenement_u7_1",
   "map_id": "map_int_yards_tenement",

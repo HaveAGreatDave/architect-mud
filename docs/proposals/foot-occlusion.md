@@ -67,6 +67,13 @@ The mass stays as it is. It's one cached buffer the GPU draws for nearly nothing
    The step as designed: **The cab and the air.** The same test from a cab and a cockpit. From the air less is hidden; the census says whether it's worth it.
 5. **Retire the CPU occluder on GL**, once the canvas glows, landmarks and ground objects it still hides ([glass-headroom.md](glass-headroom.md), "the occlusion pre-pass still pays on GL") are on the depth buffer.
 
+## Inside a building
+
+**Built 2026-11-25, not yet measured.** Walking a building in GLASS, your storey is cut out of its mass (`roomCut`), so the readback looked through the room's walls and hid almost nothing. Two fixes:
+
+- **The rooms' walls go into the depth the readback takes** (gl/interiors.js `drawDepth`, called by context.js `occRooms` just before `onMassDepth`). Solid parts only; glass writes no depth, so a window still shows the street.
+- **Only what a way out looks onto** (`apertureFrame`, `apertureHidden` in windshield.js, `RENDER_TUNE.aperture`). Under a roof (`roofed`), every pane of every room in the frame and every street door is a wedge of bearings from the eye; a tile whose wedge meets none of them skips what `gpuHidden` already skips (lamps, signals, the kit, people, Lite signs). It's this frame's answer, so it doesn't wait on the GPU and still works on a wet road. Height is left out, so it only ever keeps too much; tiles within 1.5 of the eye are always kept. The profiler counts `aperAsk` and `aperSkip`. A room whose windows aren't listed as `panes` would lose its view: turn `aperture` off to check.
+
 ## Risks
 
 - **A late answer when the camera turns fast.** Growing the box covers a walk; a fast turn or a jump invalidates everything, and that frame draws all.

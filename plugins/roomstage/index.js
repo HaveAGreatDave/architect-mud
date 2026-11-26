@@ -75,6 +75,7 @@ import { randomUUID } from 'crypto';
 import { isStaff } from '../admin/index.js';
 import { isLocalUrl } from '../../scripts/content/lib.mjs';
 import { syncEntityFile } from '../../server/api/content-sync.js';
+import { query } from '../../server/models/db.js';
 import { furnitureInteractions, furnitureObjectType, authoredFurnitureRow } from '../../client/shared/furniture-row.js';
 import { roomLayout, roomPath, pathLength, pathAt, seatApproach, openingInside, roomNearFree } from '../../client/shared/room-layout.js';
 import { schedule } from '../../server/engine/scheduler.js';
@@ -86,7 +87,7 @@ import { floorsOf, GROUND_FLOOR } from '../elevator/floors.js';
 import { shopClosedFor, shopDoorDefeated, shopPlaceName, tradingHoursLine, reopensPhrase, shutOnPresenceOnly, livesHere } from '../commerce/shopdoor.js';
 import { fillOf, noteView, warm } from './fill.js';
 import { loadPlants, plantsOf, plantPieces, isPlantId, savePlants, loadRugs, rugMovable, rugOf, rugPiece, isRugId, saveRug } from './plants.js';
-import { loadDecor, decorOf, decorPieces, isDecorId, saveDecor } from './decor-pieces.js';
+import { loadDecor, decorOf, decorPieces, isDecorId, saveDecor, dropDecor, saveDecorOverrides } from './decor-pieces.js';
 
 // zoneId -> Set of player ids with the Stage open there
 const viewers = new Map();
@@ -211,6 +212,7 @@ export function streetDoorsNear(gx, gy, r) {
       const kind = sd ? streetDoorKind(sd) : o.slide ? (o.swing ? 'swing' : 'sliding') : 'plain';
       const card = entryCard(f.id);
       doorList.push(Object.defineProperty({ gx: f.grid_x, gy: f.grid_y, edge, w: +Math.abs(o.b - o.a).toFixed(2), kind, slide: !!o.slide, ...(o.swing ? { swing: true } : {}), ...(look ? { look } : {}), ...(card ? { place: card } : {}) }, 'bld', { value: bld }));
+      Object.defineProperty(doorList[doorList.length - 1], 'fid', { value: f.id });   // the facade, for its lock (plugins/freelook)
     }
   }
   return doorList.filter((d) => Math.abs(d.gx - gx) <= r && Math.abs(d.gy - gy) <= r);
@@ -878,6 +880,12 @@ async function viewPayload(player, zoneId, spec, { stamp = true, locks = true } 
       // a lift car next door carries its panel too, so it's on the car's wall before you step in
       if (bld.plan.lifts?.[n.zone] && !n.lift) n.lift = liftOf(player, n.zone);
       n.power = powerOf(n.zone);
+      // from a lift car, the landing's own locks: its doors and keypads are drawn before the car's doors part,
+      // not when you step out onto it
+      if (lift && locks && hasLocks(n.zone, stageSpec(n.zone))) {
+        const ways = await locksOf(player, n.zone, stageSpec(n.zone));
+        if (ways.length) n.locks = ways;
+      }
     }));
   }
   const pieces = await roomPieces(zoneId, spec, { stamp });
@@ -1230,6 +1238,29 @@ let syncFiles = true;   // regress turns the content-file mirror off, so a run w
 // A player's layouts are a query each, so a client sending them in a loop is held to one every LAYOUT_GAP_MS. Only a
 // layout that would write is held: a refusal costs nothing. RAM only; staff on a local server aren't held.
 const LAYOUT_GAP_MS = 4000, lastLayout = new Map();
+// Staff taking a room's decor out (adminHere only): plants (`plant:<i>`), the rug and the decor objects
+// (`decor:<key>:<i>`) come out of flags.room.decor on the zone, its row and the live zone both, and the zone's
+// content file is rewritten, so it goes to prod through git. Plants keep where they were last put; a decor object's
+// override is re-keyed past the gap (decor-pieces.js dropDecor). Returns whether a file was written.
+async function dropRoomDecor(main, ids) {
+  const zone = getZone(main), room = zone?.flags?.room;
+  if (!room?.decor) return false;
+  let decor = { ...room.decor };
+  const plants = ids.filter(isPlantId).map((id) => +id.slice(6));
+  if (plants.length) {
+    const pots = plantsOf(main, decor.plants).filter((_, i) => !plants.includes(i));
+    if (pots.length) decor.plants = pots; else delete decor.plants;
+    await savePlants(main, pots);
+  }
+  if (ids.some(isRugId)) decor.rug = false;
+  const objs = ids.filter(isDecorId);
+  if (objs.length) { const r = dropDecor(main, decor, objs); decor = r.decor; await saveDecorOverrides(main, r.moved); }
+  zone.flags = { ...zone.flags, room: { ...room, decor } };
+  await query('UPDATE zones SET flags = $1::jsonb WHERE id = $2', [JSON.stringify(zone.flags), main]);
+  if (!syncFiles) return false;
+  await syncEntityFile('zones', main).catch((e) => console.warn('[roomstage] content file', main, e.message));
+  return true;
+}
 async function arrangeLayout(raw, player, broadcast) {
   const zoneId = player.current_zone, main = mainOf(zoneId), admin = adminHere(player);
   const tell = (ok, message, bad = []) => { sendToPlayer(player.id, { type: 'room_arranged', zone: main, ok, message, bad }); return { type: ok ? 'output' : 'error', message }; };
@@ -1261,6 +1292,8 @@ async function arrangeLayout(raw, player, broadcast) {
   const byId = new Map(pieces.map((p) => [p.id, p]));
   for (const m of [...moves, ...removes]) {
     // a potted plant (plants.js): moved, never taken out
+    // staff take decor out as they do furniture (dropRoomDecor below); an owner only moves it
+    if ((isPlantId(m.id) || isRugId(m.id) || isDecorId(m.id)) && m.remove && admin) { if (!byId.has(m.id)) return tell(false, "Something you took out isn't there any more. Nothing moved.", [m.id]); continue; }
     if (isPlantId(m.id)) { if (m.remove || !byId.has(m.id)) return tell(false, "The plants stay; you can only move them. Nothing moved.", [m.id]); continue; }
     if (isRugId(m.id)) { if (m.remove || !byId.has(m.id)) return tell(false, "The rug stays; you can only move it. Nothing moved.", [m.id]); continue; }
     if (isDecorId(m.id)) { if (m.remove || !byId.has(m.id)) return tell(false, `The ${byId.get(m.id)?.name || 'decor'} stays; you can only move it. Nothing moved.`, [m.id]); continue; }
@@ -1310,10 +1343,13 @@ async function arrangeLayout(raw, player, broadcast) {
     if (saved.length !== furnMoves.length) console.warn(`[roomstage] arrange layout wrote ${saved.length} of ${furnMoves.length} pieces in ${main}`);
     touched.push(...saved.filter((r) => r.origin === 'authored').map((r) => r.id));
   }
-  if (removes.length) {
-    await deleteFurnitureWhere('DELETE FROM furniture WHERE id = ANY($1::text[]) AND zone_id = $2', [removes.map((m) => m.id), main]);
-    touched.push(...removes.filter((m) => rows.get(m.id)?.origin === 'authored').map((m) => m.id));
+  const decorOut = removes.filter((m) => isPlantId(m.id) || isRugId(m.id) || isDecorId(m.id)).map((m) => m.id);
+  const furnOut = removes.filter((m) => !decorOut.includes(m.id));
+  if (furnOut.length) {
+    await deleteFurnitureWhere('DELETE FROM furniture WHERE id = ANY($1::text[]) AND zone_id = $2', [furnOut.map((m) => m.id), main]);
+    touched.push(...furnOut.filter((m) => rows.get(m.id)?.origin === 'authored').map((m) => m.id));
   }
+  const zoneFile = decorOut.length ? await dropRoomDecor(main, decorOut) : false;
   for (const [i, m] of adds.entries()) {
     const row = authoredFurnitureRow(items[i], main, m.spot, randomUUID().slice(0, 4));
     await insertFurniture({ ...row, flags: JSON.stringify(row.flags) });
@@ -1323,7 +1359,7 @@ async function arrangeLayout(raw, player, broadcast) {
   if (sheetOps.length) await arrangeSheets(sheetOps, player, main, admin);
   emit('furniture.changed', { zoneId: main });
   broadcast?.(zoneId, { type: 'zone_event', message: `${player.handle} rearranges the furniture.` }, player.id);
-  const files = admin && syncFiles && touched.length ? ` ${touched.length} content file${touched.length > 1 ? 's' : ''} written under content/furniture.` : '';
+  const files = (admin && syncFiles && touched.length ? ` ${touched.length} content file${touched.length > 1 ? 's' : ''} written under content/furniture.` : '') + (zoneFile ? ` content/zones/${main}.json written.` : '');
   const what = [moves.length && `${moves.length} moved`, adds.length && `${adds.length} added`, removes.length && `${removes.length} removed`].filter(Boolean).join(', ');
   return tell(true, (all.length === 1 && moves.length === 1 ? `You move the ${byId.get(moves[0].id).name}.` : `You rearrange the room: ${what}.`) + files);
 }

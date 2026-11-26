@@ -1,7 +1,12 @@
 {
   "name": "residency",
   "version": "1.0.0",
-  "description": "Residents-only rooms. A tile carrying `flags.residents_only: \"<building name>\"` is walled off by a move gate unless the player holds a unit in that building (engine isResidentOf, read off the in-memory apartments cache). `flags.residents_only_deny` overrides the refusal line. Shipped for the Solenne Residences' private roof helipad; any amenity floor inherits it by carrying the flag. No verbs.",
+  "description": "Residents-only rooms. A tile carrying `flags.residents_only: \"<building name>\"` is walled off by a move gate unless the player holds a unit in that building (engine isResidentOf, read off the in-memory apartments cache). `flags.residents_only_deny` overrides the refusal line. Shipped for the Solenne Residences' private roof helipad; any amenity floor inherits it by carrying the flag. No verbs. A room carrying `flags.private_to: \"<flat zone id>\"` is open only to whoever holds that flat (or to anyone while it is unlet); the Solenne’s whole-floor landings and the rooms off them use it.",
   "commands": [],
-  "extensionPoints": ["zones.flags.residents_only", "zones.flags.residents_only_deny"]
+  "extensionPoints": [
+    "zones.flags.residents_only",
+    "zones.flags.residents_only_deny",
+    "zones.flags.private_to",
+    "zones.flags.private_to_deny"
+  ]
 }

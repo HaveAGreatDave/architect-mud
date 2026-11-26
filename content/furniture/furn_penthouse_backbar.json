@@ -17,10 +17,6 @@
         2.3
       ],
       "form": "barwall"
-    },
-    "spot": {
-      "along": -8.5,
-      "wall": "back"
     }
   },
   "hp": null,

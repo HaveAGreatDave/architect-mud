@@ -16,8 +16,8 @@
       "open": 3
     },
     "spot": {
-      "along": -6.3,
-      "wall": "back"
+      "along": 2.5,
+      "wall": "left"
     }
   },
   "hp": null,

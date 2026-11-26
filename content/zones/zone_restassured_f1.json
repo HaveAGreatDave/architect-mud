@@ -1,0 +1,96 @@
+{
+  "ambient_theme": "indoors",
+  "description": "",
+  "exits": {
+    "down": "zone_restassured_hall",
+    "east": "zone_restassured_room_a",
+    "south": "zone_restassured_f1_h1",
+    "up": "zone_restassured_f2",
+    "west": "zone_restassured_f1_bath"
+  },
+  "flags": {
+    "building_name": "Rest Assured",
+    "building_type": "residential",
+    "is_building": true,
+    "is_interior": true,
+    "room": {
+      "d": 6.46,
+      "decor": {
+        "damp": [
+          {
+            "at": [
+              0.45,
+              5.85
+            ],
+            "r": 0.53
+          }
+        ],
+        "runner": {
+          "hex": "#3a2a24"
+        },
+        "torn": [
+          {
+            "along": 3.78,
+            "n": 3,
+            "seed": 51,
+            "wall": "right",
+            "y": 1.7
+          }
+        ],
+        "walls": {
+          "hex": "#4a3a2a",
+          "kind": "walnut",
+          "rail": 0.95,
+          "trim": "#2a2018",
+          "y1": 1
+        }
+      },
+      "doors": {
+        "down": [
+          0,
+          0.66
+        ],
+        "east": 0.65,
+        "south": -0.1,
+        "west": 0.65
+      },
+      "face": 180,
+      "floor_m": 3.44,
+      "h": 3.44,
+      "panes": [
+        {
+          "a": -0.76,
+          "b": 0.1,
+          "kind": "sash",
+          "wall": "back",
+          "y0": 0.9,
+          "y1": 2.3
+        }
+      ],
+      "stair": {
+        "at": [
+          0,
+          0.66
+        ],
+        "climb": "back",
+        "w": 1.1
+      },
+      "studio": false,
+      "tone": {
+        "accent": "#5a4a3a",
+        "ceiling": "#9a907e",
+        "trim": "#3a2e24",
+        "wall": "#8a7c66"
+      },
+      "w": 2.12
+    },
+    "world_exit_zone": "zone_district_900_905"
+  },
+  "grid_x": 0,
+  "grid_y": -2,
+  "grid_z": 1,
+  "id": "zone_restassured_f1",
+  "map_id": "map_int_restassured",
+  "name": "Rest Assured, First Floor Landing",
+  "parent_zone": "zone_district_900_905"
+}

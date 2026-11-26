@@ -2,7 +2,7 @@
   "a": "zone_solenne_apt_p",
   "b": "zone_solenne_hall_34",
   "blocked": false,
-  "dir": "south",
+  "dir": "east",
   "id": "conn_solenne_apt_p_south_btox",
   "lockable": true,
   "one_way": false

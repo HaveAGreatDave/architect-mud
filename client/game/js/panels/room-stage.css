@@ -564,3 +564,6 @@ body:has(#dialogue-panel.active) #room-stage :is(.rs-card, .rs-tip) { display: n
 #room-stage.rs-cine :is(.rs-card, .rs-tip, .rs-hover, .rs-tags, .rs-firehud, .foot-dock) { display: none !important; }
 @keyframes rs-cine-in { from { transform: scaleY(0); } to { transform: scaleY(1); } }
 @media (prefers-reduced-motion: reduce) { #room-stage.rs-cine .rs-host::before, #room-stage.rs-cine .rs-host::after { animation: none; } }
+#room-stage .rs-errlog { margin: 0 auto 2em; max-width: 36em; color: var(--text-dim); font: 0.8125rem var(--rs-font); }
+#room-stage .rs-errlog summary { cursor: pointer; text-align: center; }
+#room-stage .rs-errlog pre { margin: 0.5em 0; padding: 0.5em; max-height: 12em; overflow: auto; white-space: pre-wrap; word-break: break-word; background: rgba(0, 0, 0, 0.35); border-radius: 4px; user-select: text; }

@@ -9,7 +9,8 @@
     "power_draw_kw": 0.06,
     "tv": true,
     "tv_dial_freq": 7,
-    "tv_skin": "flatscreen"
+    "tv_skin": "flatscreen",
+    "wealth": "middle"
   },
   "id": "item_furn_ruggedized_monitor",
   "name": "chrome feed TV",

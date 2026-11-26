@@ -3,34 +3,38 @@
   "ambient_theme": "indoors",
   "bg_color": "#2b3a34",
   "color": "#e8ddc7",
-  "description": "A sky residence on the bay side: engineered oak, two walls of glass, and a platform bed in the corner where they meet. The kitchen is a single seam of stone. Leave <b>south</b> to the landing.",
+  "description": "A long flat down the west side of the fifth floor, glass along the length of it and the mountains at the far end. Oak, pale plaster, a platform bed, a galley kitchen in grey stone, heating underfoot. Leave <b>east</b> to the landing.",
   "exits": {
-    "in": "zone_solenne_apt_d_bath",
-    "south": "zone_solenne_residences_34"
+    "east": "zone_solenne_residences_34",
+    "in": "zone_solenne_apt_d_bath"
   },
   "flags": {
     "building_name": "Solenne Residences",
     "floor": "boards",
     "is_apartment": true,
     "is_interior": true,
-    "rent_cost": 460,
+    "rent_cost": 380,
     "rest_multiplier": 1.5,
     "room": {
       "balcony": false,
-      "d": 6.6,
+      "d": 11.26,
+      "doors": {
+        "east": 1.67
+      },
       "ensuite": {
-        "d": 2.4,
+        "d": 2.6,
         "dress": "spa",
         "w": 3.2
       },
+      "face": 180,
       "finish": "fine",
       "glass": [
         "front",
-        "left"
+        "right"
       ],
       "h": 3,
-      "storeys": 40,
-      "w": 11
+      "storeys": 32,
+      "w": 3.82
     },
     "window": {
       "description": "A tall pane runs floor to ceiling down one wall, black-framed, holding the city out there like something in a case.",
@@ -39,12 +43,12 @@
       "visibility": 0.9
     }
   },
-  "grid_x": 0,
-  "grid_y": -2,
-  "grid_z": 6,
+  "grid_x": -1,
+  "grid_y": -1,
+  "grid_z": 5,
   "id": "zone_solenne_apt_d",
   "map_id": "map_int_solenne",
-  "marker": "10",
-  "name": "Solenne Residence 10-D",
+  "marker": "5",
+  "name": "Solenne Residence 5-A",
   "parent_zone": "zone_district_914_908"
 }

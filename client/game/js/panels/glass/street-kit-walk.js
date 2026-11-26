@@ -20,7 +20,7 @@
 //
 // Frame: absolute world tiles, x east, y south, z up. `win` is the map window: `at(rx, ry)` a cell
 // by window index, `wide` (see kitPlace), `R`, `wcx`, `wcy`.
-import { KIT, LEVEL, M, kitPlace, kitTowerV } from './street-kit.js';
+import { KIT, KIT_M, LEVEL, M, kitPlace, kitTowerV, kitLiftKey, kitLiftCall, kitLiftShow, kitCarZ } from './street-kit.js';
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 
@@ -105,8 +105,10 @@ function links(win, r, frugal) {
     const other = regionOf(win, r.rx, r.ry, 's', -s);
     if (other && r.place.bridge) {
       const here = kitTowerV(r.place, s), there = kitTowerV(r.place, -s);
-      out.push({ r: other, cost: 1 + KIT_WALK.bridgeCost, pts: [
-        W(BRIDGE_U, here), W(BRIDGE_U, here, DECK_Z1), W(BRIDGE_U, there, DECK_Z1), W(BRIDGE_U, there)] });
+      // One step that does the whole crossing with the real cars (bridgeStep below).
+      out.push({ r: other, cost: 1 + KIT_WALK.bridgeCost, pts: [{
+        op: 'bridge', cx: r.cx, cy: r.cy, ns, s, here, there, place: r.place,
+        key: kitLiftKey(r.place, r.cx * 73 + r.cy * 149) }] });
     }
     if (other && r.place.cross) {
       const k = LANE_HW + M(0.6);
@@ -189,8 +191,10 @@ export function kitWalk(h, X, Y, zRaw, now, win, frugal) {
   const rd = regionAt(win, s.x, s.y);
   const onGround = s.z < KERB_H + M(0.5) && !(rd && rd.kind === 'lane');
 
-  // A new goal while walking somewhere: plan again from here, unless they're on a bridge or a zebra.
-  if (s.path && rq && rq.key && rq.key !== s.goal && onGround) s.path = null;
+  // A new goal while walking somewhere: plan again from here, unless they're on a bridge or a zebra, or
+  // already through a lift's door (waiting outside one, they give up and go).
+  const committed = s.br && s.br.stage > 1;
+  if (s.path && rq && rq.key && rq.key !== s.goal && onGround && !committed) { s.path = null; s.br = null; }
 
   if (!s.path) {
     if (rq && rq.kind === 'lane' && !(rd && rd.kind === 'lane')) {
@@ -207,22 +211,165 @@ export function kitWalk(h, X, Y, zRaw, now, win, frugal) {
       s.z = zq;
     }
   }
+  let face = null;
   if (s.path) {
     let left = dt;
     while (left > 0 && s.i < s.path.length) {
-      const [tx, ty, tz] = s.path[s.i];
-      const flat = Math.hypot(tx - s.x, ty - s.y), up = Math.abs(tz - s.z);
-      // In a lift the car sets the pace; otherwise a walk, the height following along.
-      const lift = flat < 1e-4 && up > 1e-4;
-      const speed = lift ? KIT_WALK.lift : KIT_WALK.pace, d = lift ? up : flat;
+      const el = s.path[s.i];
+      if (el.op === 'bridge') {
+        const r = bridgeStep(s, el, left, now, s.path[s.i + 1]);
+        if (!s.path) break;   // gave up on the lift
+        left = r.left; face = r.face || null;
+        if (r.done) { s.br = null; s.i++; continue; }
+        break;
+      }
+      const [tx, ty, tz] = el;
+      const d = Math.max(Math.hypot(tx - s.x, ty - s.y), Math.abs(tz - s.z)), speed = KIT_WALK.pace;
       if (d <= speed * left) { s.x = tx; s.y = ty; s.z = tz; left -= d / speed; s.i++; continue; }
       const k = speed * left / d;
       s.x += (tx - s.x) * k; s.y += (ty - s.y) * k; s.z += (tz - s.z) * k;
       left = 0;
     }
-    if (s.i >= s.path.length) s.path = null;
+    if (s.path && s.i >= s.path.length) { s.path = null; s.br = null; }
   }
-  // Moving is moving across the ground: somebody in a lift car or waiting at the kerb stands still.
-  const mx = s.x - x0, my = s.y - y0;
-  return { x: s.x, y: s.y, z: s.z, moving: Math.hypot(mx, my) > 1e-5, dx: mx, dy: my };
+  // Moving is moving across the ground: somebody in a lift car or waiting at the kerb stands still, facing
+  // `face` (the door they wait at, the rail, out of the car) rather than the way they last walked.
+  const mx = s.x - x0, my = s.y - y0, moving = Math.hypot(mx, my) > 1e-5;
+  const f = !moving && face ? face : [mx, my];
+  return { x: s.x, y: s.y, z: s.z, moving, dx: f[0], dy: f[1] };
+}
+
+// ── THE LIFTS, RIDDEN ────────────────────────────────────────────────────────
+//
+// A walker takes the footbridge in the same cars a player rides (street-kit.js THE FOOTBRIDGE LIFTS): round
+// the tower to its door, which faces the lane; press for the car if it isn't down; wait for it; step in and
+// send it up; ride it on its floor; step out onto the deck; maybe stand at the rail a while; at the far tower
+// press for the car if it's gone down and wait; step in and send it down; ride it; step out of the door and
+// round the tower. Nobody steps into a moving car or out of one between floors, or walks through a tower wall.
+const TW = M(KIT_M.TOWER_W / 2), TL = M(KIT_M.TOWER_L / 2), HU = M(KIT_M.DECK_W / 2);
+const DOOR_OUT = M(0.45), ROUND = M(0.55), CAR_REST = KERB_H + M(0.12), EPS = 1e-4;
+export const KIT_LIFT = {
+  linger: 0.3,        // the share who stop at the rail up on the deck
+  lingerS: [6, 22],   // and for how long, seconds
+  giveUp: 60,         // seconds at the foot door before they give up and walk on
+};
+// The step's local frame, u along the street and v across, as kitPlace's; to and from world.
+const toW = (b, u, v, z) => (b.ns ? [b.cx + v, b.cy + u, z] : [b.cx + u, b.cy + v, z]);
+const toL = (b, x, y) => (b.ns ? [y - b.cy, x - b.cx] : [x - b.cx, y - b.cy]);
+// A step out from the door of the tower at v = tv on side `side`; the door faces the lane.
+const doorV = (tv, side) => tv - side * (TW + DOOR_OUT);
+// The way between a tower's door and a point (pu, pv) at the foot: straight if the point is lane side of the
+// door, otherwise out past the tower's end. `toDoor` from the point to the door, else from the door out.
+function roundTower(b, tv, side, pu, pv, z, toDoor) {
+  const dv = doorV(tv, side), door = toW(b, BRIDGE_U, dv, z);
+  if (side * (pv - (tv - side * TW)) < -M(0.1)) return toDoor ? [door] : [];
+  const uc = BRIDGE_U + (Math.sign(pu - BRIDGE_U) || 1) * (TL + ROUND);
+  return toDoor ? [toW(b, uc, pv, z), toW(b, uc, dv, z), door] : [toW(b, uc, dv, z), toW(b, uc, pv, z)];
+}
+// Walk the queue at the walking pace for up to `left` seconds; the time left over.
+function walkQ(s, q, left) {
+  while (left > 0 && q.length) {
+    const [tx, ty, tz] = q[0], d = Math.hypot(tx - s.x, ty - s.y);
+    if (d <= KIT_WALK.pace * left) { s.x = tx; s.y = ty; s.z = tz; left -= d / KIT_WALK.pace; q.shift(); continue; }
+    const k = KIT_WALK.pace * left / d;
+    s.x += (tx - s.x) * k; s.y += (ty - s.y) * k; s.z = tz;
+    return 0;
+  }
+  return left;
+}
+// One frame of the crossing: { left, done, face }. `next` is the path's point after it.
+function bridgeStep(s, b, left, now, next) {
+  let B = s.br;
+  if (!B || B.b !== b) {
+    const [pu, pv] = toL(b, s.x, s.y);
+    B = s.br = { b, stage: 0, q: roundTower(b, b.here, b.s, pu, pv, KERB_H, true), t: now, called: -1e9, linger: Math.random() < KIT_LIFT.linger };
+  }
+  const carZ = () => kitCarZ(b.place, b.s, now, b.key);
+  const toward = (u, v) => { const [lu, lv] = toL(b, s.x, s.y), p = toW(b, u, v, 0), q = toW(b, lu, lv, 0); return [p[0] - q[0], p[1] - q[1]]; };
+  const nearDoor = doorV(b.here, b.s), farDoor = doorV(b.there, -b.s);
+  const at = (u, v, z) => { const p = toW(b, u, v, z); s.x = p[0]; s.y = p[1]; s.z = z; };
+  for (let guard = 0; guard < 12; guard++) {
+    switch (B.stage) {
+      case 0:   // round to the near door
+        left = walkQ(s, B.q, left);
+        if (B.q.length) return { left: 0 };
+        B.stage = 1; B.t = now;
+        continue;
+      case 1: { // at the foot: the car down with its doors open, or press for it
+        if (carZ() <= CAR_REST + EPS && kitLiftShow(b.key, now) === 'idle') { B.stage = 2; B.q = [toW(b, BRIDGE_U, b.here, CAR_REST)]; continue; }
+        if (now - B.called > 4000) { kitLiftCall(b.key, 'call-bottom', now); B.called = now; }
+        if (now - B.t > KIT_LIFT.giveUp * 1000) { s.br = null; s.path = null; return { left: 0 }; }
+        return { left: 0, face: toward(BRIDGE_U, b.here) };
+      }
+      case 2:   // stepping in; if somebody else sends it first, back out and wait
+        if (carZ() > CAR_REST + EPS) { at(BRIDGE_U, nearDoor, KERB_H); B.stage = 1; B.t = now; return { left: 0 }; }
+        left = walkQ(s, B.q, left);
+        if (B.q.length) return { left: 0 };
+        kitLiftCall(b.key, 'board-bottom', now);
+        B.stage = 3;
+        continue;
+      case 3: { // riding up on the car's floor
+        const z = carZ();
+        s.z = z;
+        if (z >= DECK_Z1 - EPS) { B.stage = 4; B.q = [toW(b, BRIDGE_U, nearDoor, DECK_Z1)]; continue; }
+        // sent back down from the foot before it got up: send it up again
+        if (z <= CAR_REST + EPS && kitLiftShow(b.key, now) === 'idle') kitLiftCall(b.key, 'board-bottom', now);
+        return { left: 0, face: toward(BRIDGE_U, nearDoor) };
+      }
+      case 4:   // out onto the deck, then the rail for a while or straight over
+        left = walkQ(s, B.q, left);
+        if (B.q.length) return { left: 0 };
+        if (B.linger) {
+          B.linger = false;
+          const [lo, hi] = KIT_LIFT.lingerS, side = Math.random() < 0.5 ? -1 : 1;
+          const v = nearDoor + (farDoor - nearDoor) * (0.25 + Math.random() * 0.5);
+          B.rail = { side, v, until: 0, ms: (lo + Math.random() * (hi - lo)) * 1000 };
+          B.q = [toW(b, BRIDGE_U, v, DECK_Z1), toW(b, BRIDGE_U + side * (HU - M(0.45)), v, DECK_Z1)];
+          B.stage = 5;
+          continue;
+        }
+        B.stage = 6; B.q = [toW(b, BRIDGE_U, farDoor, DECK_Z1)];
+        continue;
+      case 5:   // at the rail, looking out along the street
+        left = walkQ(s, B.q, left);
+        if (B.q.length) return { left: 0 };
+        if (!B.rail.until) B.rail.until = now + B.rail.ms;
+        if (now < B.rail.until) return { left: 0, face: toward(BRIDGE_U + B.rail.side, B.rail.v) };
+        B.stage = 6; B.q = [toW(b, BRIDGE_U, B.rail.v, DECK_Z1), toW(b, BRIDGE_U, farDoor, DECK_Z1)];
+        continue;
+      case 6:   // over to the far door
+        left = walkQ(s, B.q, left);
+        if (B.q.length) return { left: 0 };
+        B.stage = 7; B.called = -1e9;
+        continue;
+      case 7:   // at the top: hold the car up here or fetch it
+        if (now - B.called > 2000) { kitLiftCall(b.key, 'call-top', now); B.called = now; }
+        if (carZ() >= DECK_Z1 - EPS && kitLiftShow(b.key, now) === 'up') { B.stage = 8; B.q = [toW(b, BRIDGE_U, b.there, DECK_Z1)]; continue; }
+        return { left: 0, face: toward(BRIDGE_U, b.there) };
+      case 8:   // stepping in up top, holding the doors; if it goes first, back to the door
+        if (carZ() < DECK_Z1 - EPS) { at(BRIDGE_U, farDoor, DECK_Z1); B.stage = 7; return { left: 0 }; }
+        kitLiftCall(b.key, 'call-top', now);
+        left = walkQ(s, B.q, left);
+        if (B.q.length) return { left: 0 };
+        kitLiftCall(b.key, 'board-top', now);
+        B.stage = 9;
+        continue;
+      case 9: { // riding down
+        const z = carZ();
+        s.z = z;
+        if (z <= CAR_REST + EPS && kitLiftShow(b.key, now) !== 'up') {
+          const [nu, nv] = next && next.length ? toL(b, next[0], next[1]) : [BRIDGE_U, farDoor];
+          B.stage = 10;
+          B.q = [toW(b, BRIDGE_U, farDoor, KERB_H), ...roundTower(b, b.there, -b.s, nu, nv, KERB_H, false)];
+          continue;
+        }
+        return { left: 0, face: toward(BRIDGE_U, farDoor) };
+      }
+      case 10:  // out of the door and round the tower
+        left = walkQ(s, B.q, left);
+        if (B.q.length) return { left: 0 };
+        return { left, done: true };
+    }
+  }
+  return { left: 0 };
 }

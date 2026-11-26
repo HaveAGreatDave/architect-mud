@@ -821,7 +821,7 @@ export function figurePeople(L, bodies, t = 0, { level: asked = 'hd', eye = null
     const S2 = o.key.body ? growBones(S1, t, R0(66)) : S1;
     // the hands, and the arms finished so what's in a hand arrives at the mouth, the nose or the arm (gl/figure-reach.js)
     const playing = mx ? (mx.k > 0.5 ? mx.b : mx.a) : now ? now.c : clip;
-    const arms = finishArms(S2, { clip: playing, key: o.key, grip: holding(gripOf(playing), o.key.prop), props: propsOf(o.key.prop || ''), holds: body.holds || {}, meal: body.meal || false, t, id: body.id, lift: body.lift || 0, table: Array.isArray(body.meal?.at) && L.world ? L.world(0, 0, body.meal.at[2])[1] - L.world(0, 0, 0)[1] : null });
+    const arms = finishArms(S2, { clip: playing, key: o.key, grip: holding(gripOf(playing), o.key.prop), props: propsOf(o.key.prop || ''), holds: body.holds || {}, meal: body.meal || false, t, id: body.id, lift: body.lift || 0, table: Array.isArray(body.meal?.at) && L.world ? L.world(0, 0, body.meal.at[2])[1] - L.world(0, 0, 0)[1] : null, reach: reachOf(body, O, AX, AY, AZ) });
     const S = arms.S;
     { const lk = +(body.limb || body.figure?.limb || 1); if (lk > 1.001 && lk < 1.3) longLimbs(S, lk); }
     // stood on the floor: the lowest sole point at zero, as the bake drops its frames. Lying, the feet are where
@@ -1123,6 +1123,14 @@ function lookAround(S, body, kind, O, AX, AY, AZ, eye, gaze, t, att = null) {
 }
 // Where a body stands in the host frame: its origin and its three axes (+X its left, +Y up, +Z
 // ahead, actor3d.js's), laid on its back along the piece when it's lying.
+// A hand sent to a point in the room ('reach': { side, w (a world point, as L.world gives), k }), a chessman picked up
+// (gl/room-chess-play.js): the point in the figure's bind space, through the frame placeOf stood them in.
+function reachOf(body, O, AX, AY, AZ) {
+  const r = body.reach;
+  if (!r || !Array.isArray(r.w) || !(r.k > 0)) return null;
+  const d = [r.w[0] - O[0], r.w[1] - O[1], r.w[2] - O[2]], dot = (a) => a[0] * d[0] + a[1] * d[1] + a[2] * d[2];
+  return { side: r.side, goal: [dot(AX), dot(AY), dot(AZ)], k: r.k };
+}
 function placeOf(L, body) {
   const yaw = body.yaw || 0;
   if (body.pose === 'lie') {

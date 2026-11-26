@@ -160,7 +160,7 @@ export function interiorsFrame(picks, ox, oy, { inside = false, floorZ = null } 
       decals: !lod && room.decals && room.decals.length ? room.decals : null,
       // and a live part of it, a depot's vehicle on its stand (freelook-view.js owHoistTick), whole rooms only
       // (and a locked doorway's leaves, freelook-view.js owLockTick, and a vending machine, owVendTick)
-      extra: !lod && (room.extra || room.lockExtra || room.vendExtra || room.cookExtra || room.beastExtra || room.morphExtra || room.arrangeExtra || room.underExtra || room.machineExtra || room.heldExtra) ? [room.extra, room.lockExtra, room.vendExtra, room.cookExtra, room.beastExtra, room.morphExtra, room.morphGlass, room.arrangeExtra, room.underExtra, room.machineExtra, room.heldExtra].filter(Boolean) : null,
+      extra: !lod && (room.extra || room.lockExtra || room.vendExtra || room.cookExtra || room.beastExtra || room.morphExtra || room.arrangeExtra || room.underExtra || room.machineExtra || room.heldExtra || room.chessExtra) ? [room.extra, room.lockExtra, room.vendExtra, room.cookExtra, room.beastExtra, room.morphExtra, room.morphGlass, room.arrangeExtra, room.underExtra, room.machineExtra, room.heldExtra, room.chessExtra].filter(Boolean) : null,
       // and a vat hall's vats, live (freelook-view.js owVatTick, gl/interiors.js vatPrep), whole rooms only
       // a room with no shell, whole: the field and the floor gl/room-void.js draws for it
       voidNow: !lod && room.voidNow ? room.voidNow : null,

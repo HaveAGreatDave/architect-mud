@@ -3,96 +3,96 @@
   "behaviour_graph": {
     "_start": "start",
     "nodes": {
-      "start": {
-        "type": "start",
-        "next": "check_work"
-      },
       "check_work": {
-        "type": "action",
         "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "post_shift",
         "goToWork": "go_to_work",
         "haveLife": "have_life",
-        "endShift": "post_shift",
-        "offWork": "off_home_check"
-      },
-      "go_to_work": {
-        "type": "action",
-        "action_type": "GO_TO_WORK",
-        "next": "work_wait"
-      },
-      "work_wait": {
-        "type": "wait",
-        "seconds": 60,
-        "jitter": 30,
-        "next": "player_check"
-      },
-      "player_check": {
-        "type": "condition",
-        "condition_type": "PLAYER_IN_ZONE",
-        "ifTrue": "work_say",
-        "ifFalse": "check_work"
-      },
-      "work_say": {
-        "type": "action",
-        "action_type": "VENDOR_CHITCHAT",
-        "next": "check_work"
-      },
-      "have_life": {
-        "type": "action",
-        "action_type": "HAVE_LIFE",
-        "next": "check_work"
-      },
-      "post_shift": {
-        "type": "random",
-        "branches": [
-          {
-            "weight": 1
-          },
-          {
-            "weight": 5
-          }
-        ],
-        "branch_0": "have_life",
-        "branch_1": "go_home_ps"
-      },
-      "go_home_ps": {
-        "type": "action",
-        "action_type": "GO_HOME",
-        "next": "home_life_ps"
-      },
-      "home_life_ps": {
-        "type": "action",
-        "action_type": "AT_HOME_LIFE",
-        "next": "check_work"
-      },
-      "off_home_check": {
-        "type": "condition",
-        "condition_type": "AT_HOME",
-        "ifTrue": "home_idle",
-        "ifFalse": "off_random"
-      },
-      "off_random": {
-        "type": "random",
-        "branches": [
-          {
-            "weight": 1
-          },
-          {
-            "weight": 5
-          }
-        ],
-        "branch_0": "have_life",
-        "branch_1": "go_home_off"
+        "offWork": "off_home_check",
+        "type": "action"
       },
       "go_home_off": {
-        "type": "action",
         "action_type": "GO_HOME",
-        "next": "check_work"
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
       },
       "home_idle": {
-        "type": "action",
         "action_type": "AT_HOME_LIFE",
-        "next": "check_work"
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 30,
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
       }
     }
   },
@@ -116,7 +116,7 @@
     "personality": "lowlife"
   },
   "home_activities": [],
-  "home_zone": "zone_yards_tenement_u1_6",
+  "home_zone": "zone_yards_tenement_u7_3",
   "hp": 130,
   "hp_max": 130,
   "id": "npc_breaker_sledge",
@@ -127,47 +127,17 @@
   "vendor_inventory": [],
   "vendor_restock_rate": 1,
   "vendor_schedule": {
-    "mon": [
-      {
-        "from": 0,
-        "to": 6
-      },
-      {
-        "from": 18,
-        "to": 24
-      }
-    ],
-    "tue": [
-      {
-        "from": 0,
-        "to": 6
-      },
-      {
-        "from": 18,
-        "to": 24
-      }
-    ],
-    "wed": [
-      {
-        "from": 0,
-        "to": 6
-      },
-      {
-        "from": 18,
-        "to": 24
-      }
-    ],
-    "thu": [
-      {
-        "from": 0,
-        "to": 6
-      },
-      {
-        "from": 18,
-        "to": 24
-      }
-    ],
     "fri": [
+      {
+        "from": 0,
+        "to": 6
+      },
+      {
+        "from": 18,
+        "to": 24
+      }
+    ],
+    "mon": [
       {
         "from": 0,
         "to": 6
@@ -188,6 +158,36 @@
       }
     ],
     "sun": [
+      {
+        "from": 0,
+        "to": 6
+      },
+      {
+        "from": 18,
+        "to": 24
+      }
+    ],
+    "thu": [
+      {
+        "from": 0,
+        "to": 6
+      },
+      {
+        "from": 18,
+        "to": 24
+      }
+    ],
+    "tue": [
+      {
+        "from": 0,
+        "to": 6
+      },
+      {
+        "from": 18,
+        "to": 24
+      }
+    ],
+    "wed": [
       {
         "from": 0,
         "to": 6

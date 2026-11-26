@@ -1,0 +1,91 @@
+/* ROOM · THE LIFT'S PANEL (room-lift.js). A hologram in the car's own colours: amber light off a brass emitter
+   bar like the handrail, gold hairlines and corner brackets like the car's pin-striping, and a deep read-out
+   with the floor in fourteen-segment figures, its name, the way it's going and where the car is in the shaft.
+   Every floor is a key with its name beside it. It ignores comic and the theme on purpose: it's the building's
+   fitting, not the game's. Sizes are page px, and the heights here are the ones room-lift.js sums for the page.
+   The faces are loaded by room-lift.js before the panel is ever drawn, so nothing swaps in late. */
+:is(#room-stage, .fl-root) .rl-holo.rlh {
+	--g: #e9b85a; --g-hi: #ffe2a0; --g-lo: #a8813a; --glow: rgba(255, 196, 96, 0.55); --ink: #fff3d6;
+	gap: 12px; padding: 18px 18px 0; color: var(--g-hi); text-shadow: 0 0 8px var(--glow);
+	font-family: 'RLH Michroma', Eurostile, Arial, sans-serif;
+	border: 0; border-radius: 0; box-shadow: none;
+	background:
+		repeating-linear-gradient(0deg, rgba(255, 214, 140, 0.07) 0 1px, transparent 1px 4px),
+		radial-gradient(130% 70% at 50% 100%, rgba(255, 186, 80, 0.30), transparent 70%),
+		linear-gradient(180deg, rgba(40, 26, 8, 0.22), rgba(60, 38, 10, 0.40));
+	clip-path: polygon(16px 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%, 0 16px);
+	animation: rlh-hum 4.2s ease-in-out infinite;
+	-webkit-backdrop-filter: blur(1.5px) saturate(1.2); backdrop-filter: blur(1.5px) saturate(1.2);
+}
+@keyframes rlh-hum { 0%, 100% { opacity: 0.93; } 46% { opacity: 1; } 48% { opacity: 0.84; } 50% { opacity: 1; } }
+/* the gold frame: a hairline with brackets at the corners, and a slow light running down it */
+:is(#room-stage, .fl-root) .rl-holo.rlh::before { content: ''; position: absolute; inset: 0 0 14px; pointer-events: none;
+	border: 1px solid rgba(233, 184, 90, 0.55);
+	clip-path: polygon(16px 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%, 0 16px);
+	background:
+		linear-gradient(var(--g-hi), var(--g-hi)) 6px 22px / 2px 22px, linear-gradient(var(--g-hi), var(--g-hi)) 22px 6px / 22px 2px,
+		linear-gradient(var(--g-hi), var(--g-hi)) calc(100% - 6px) 22px / 2px 22px, linear-gradient(var(--g-hi), var(--g-hi)) calc(100% - 22px) 6px / 22px 2px,
+		linear-gradient(var(--g-hi), var(--g-hi)) 6px calc(100% - 6px) / 22px 2px, linear-gradient(var(--g-hi), var(--g-hi)) calc(100% - 6px) calc(100% - 6px) / 22px 2px,
+		linear-gradient(180deg, transparent, rgba(255, 226, 160, 0.16) 50%, transparent) 0 -60px / 100% 60px;
+	background-repeat: no-repeat; animation: rlh-sweep 5.5s linear infinite; }
+@keyframes rlh-sweep { to { background-position: 6px 22px, 22px 6px, calc(100% - 6px) 22px, calc(100% - 22px) 6px, 6px calc(100% - 6px), calc(100% - 6px) calc(100% - 6px), 0 calc(100% + 60px); } }
+/* the brass emitter at the foot, the light rising off it */
+:is(#room-stage, .fl-root) .rl-holo.rlh::after { content: ''; position: absolute; left: 10px; right: 10px; bottom: 0; height: 10px; pointer-events: none; border-radius: 2px;
+	background: linear-gradient(180deg, #fff1c4, #e2b351 35%, #9b7428 70%, #6d5019);
+	box-shadow: 0 -2px 12px 2px rgba(255, 200, 100, 0.75), 0 -10px 30px rgba(255, 190, 90, 0.35); }
+
+/* the head: the building's initials in a gold ring, its name, a hairline */
+:is(#room-stage, .fl-root) .rlh .rlh-head { flex: none; height: 30px; display: flex; align-items: center; gap: 10px; }
+:is(#room-stage, .fl-root) .rlh .rlh-mono { flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; box-sizing: border-box;
+	border: 1px solid var(--g); box-shadow: 0 0 8px var(--glow), inset 0 0 6px rgba(255, 200, 110, 0.35);
+	font: 0.625rem/1 'RLH Michroma', sans-serif; letter-spacing: 0.06em; padding-left: 0.06em; color: var(--g-hi); }
+:is(#room-stage, .fl-root) .rlh .rlh-brand { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+	font: 0.5625rem 'RLH Michroma', sans-serif; letter-spacing: 0.32em; text-transform: uppercase; color: var(--g); }
+:is(#room-stage, .fl-root) .rlh .rlh-head::after { content: ''; flex: 0 0 48px; height: 1px; background: linear-gradient(90deg, var(--g), transparent); }
+
+/* the read-out: deep glass, the shaft rail on the left, the figures, the arrows */
+:is(#room-stage, .fl-root) .rlh .rlh-screen { flex: none; height: 104px; box-sizing: border-box; position: relative; overflow: hidden;
+	display: grid; grid-template-columns: 10px 1fr 26px; align-items: center; gap: 14px; padding: 10px 14px 10px 12px;
+	border: 1px solid rgba(233, 184, 90, 0.7); border-radius: 3px;
+	background:
+		radial-gradient(90% 120% at 50% 0%, rgba(255, 210, 130, 0.14), transparent 70%),
+		repeating-linear-gradient(90deg, rgba(255, 214, 140, 0.05) 0 1px, transparent 1px 5px),
+		linear-gradient(180deg, rgba(10, 7, 2, 0.86), rgba(22, 14, 4, 0.78));
+	box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.7), 0 0 14px rgba(255, 190, 90, 0.25); }
+:is(#room-stage, .fl-root) .rlh .rlh-screen::after { content: ''; position: absolute; left: 0; right: 0; top: -24px; height: 24px; pointer-events: none;
+	background: linear-gradient(transparent, rgba(255, 226, 160, 0.12), transparent); animation: rlh-scan 3.2s linear infinite; }
+@keyframes rlh-scan { to { top: 104px; } }
+/* the shaft: a rail with a tick per stop and a bead where the car is */
+:is(#room-stage, .fl-root) .rlh .rlh-rail { position: relative; height: 80px; width: 2px; justify-self: center; background: rgba(233, 184, 90, 0.35); }
+:is(#room-stage, .fl-root) .rlh .rlh-rail i { position: absolute; left: -3px; width: 8px; height: 1px; background: rgba(233, 184, 90, 0.6); }
+:is(#room-stage, .fl-root) .rlh .rlh-bead { position: absolute; left: -4px; width: 10px; height: 10px; margin-top: -5px; border-radius: 50%; background: var(--g-hi); box-shadow: 0 0 10px 2px var(--glow); transition: top 0.6s ease-in-out; }
+:is(#room-stage, .fl-root) .rlh .rlh-read { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+:is(#room-stage, .fl-root) .rlh .rlh-num { font: 3.25rem/0.9 'RLH Digit14', 'RLH Orbitron', monospace; letter-spacing: 0.06em; color: var(--ink);
+	text-shadow: 0 0 6px rgba(255, 220, 150, 0.9), 0 0 18px rgba(255, 180, 70, 0.6), 1px 0 0 rgba(255, 90, 60, 0.35), -1px 0 0 rgba(90, 200, 255, 0.25); }
+:is(#room-stage, .fl-root) .rlh .rlh-name { max-width: 100%; white-space: nowrap; overflow: hidden; font: 0.875rem/1.1 'RLH Digit14', 'RLH Orbitron', monospace; letter-spacing: 0.1em; color: var(--g); }
+:is(#room-stage, .fl-root) .rlh .rlh-dir { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+:is(#room-stage, .fl-root) .rlh .rlh-dir i { font: 0.875rem/1 'RLH Michroma', sans-serif; font-style: normal; color: var(--g-lo); opacity: 0.3; transition: opacity 0.2s, color 0.2s; }
+:is(#room-stage, .fl-root) .rlh.rl-up .rlh-up, :is(#room-stage, .fl-root) .rlh.rl-down .rlh-dn { color: var(--g-hi); opacity: 1; animation: rlh-blink 1s ease-in-out infinite; }
+@keyframes rlh-blink { 50% { opacity: 0.35; } }
+
+/* the floors: a key with the floor's tag and its name beside it, the whole row presses; top floor first */
+:is(#room-stage, .fl-root) .rlh .rlh-floors { flex: none; display: grid; grid-template-columns: repeat(var(--rl-cols, 2), minmax(0, 1fr)); grid-auto-rows: 34px; gap: 6px 8px; }
+:is(#room-stage, .fl-root) .rlh .rlh-fl { all: unset; box-sizing: border-box; pointer-events: auto; cursor: pointer; min-width: 0; height: 34px; display: flex; align-items: center; gap: 8px; padding: 0 6px 0 2px;
+	border-radius: 17px; border: 1px solid transparent; transition: background 0.15s, border-color 0.15s; }
+:is(#room-stage, .fl-root) .rlh .rlh-fl b { flex: none; width: 30px; height: 30px; box-sizing: border-box; border-radius: 50%; display: grid; place-items: center;
+	font: 700 0.6875rem/1 'RLH Orbitron', sans-serif; color: var(--g-hi); border: 1px solid rgba(233, 184, 90, 0.75);
+	background: radial-gradient(circle at 50% 35%, rgba(255, 220, 150, 0.18), rgba(40, 26, 8, 0.3)); box-shadow: inset 0 0 6px rgba(255, 200, 110, 0.3); transition: background 0.15s, color 0.15s, box-shadow 0.15s; }
+:is(#room-stage, .fl-root) .rlh .rlh-fl span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+	font: 0.5rem/1.2 'RLH Michroma', sans-serif; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink); opacity: 0.8; }
+:is(#room-stage, .fl-root) .rlh .rlh-fl:hover, :is(#room-stage, .fl-root) .rlh .rlh-fl:focus-visible { background: linear-gradient(90deg, rgba(255, 200, 110, 0.22), transparent 85%); border-color: rgba(233, 184, 90, 0.4); }
+:is(#room-stage, .fl-root) .rlh .rlh-fl:hover b, :is(#room-stage, .fl-root) .rlh .rlh-fl:focus-visible b { box-shadow: inset 0 0 8px rgba(255, 210, 130, 0.6), 0 0 10px var(--glow); }
+:is(#room-stage, .fl-root) .rlh .rlh-fl:active b { scale: 0.92; }
+:is(#room-stage, .fl-root) .rlh .rlh-fl.rl-here b { color: #2a1a04; text-shadow: none; background: radial-gradient(circle at 45% 30%, #fff4cf, var(--g-hi) 45%, var(--g)); box-shadow: 0 0 14px 2px var(--glow); }
+:is(#room-stage, .fl-root) .rlh .rlh-fl.rl-here span { color: var(--g-hi); opacity: 1; }
+:is(#room-stage, .fl-root) .rlh .rlh-fl.rl-going b { animation: rlh-call 1.1s ease-in-out infinite; }
+:is(#room-stage, .fl-root) .rlh .rlh-fl.rl-going span { color: var(--g-hi); opacity: 1; }
+@keyframes rlh-call { 50% { background: rgba(255, 210, 130, 0.55); box-shadow: 0 0 16px 3px var(--glow); color: #2a1a04; } }
+:is(#room-stage, .fl-root) .rlh .rlh-gap { display: block; }
+@media (prefers-reduced-motion: reduce) {
+	:is(#room-stage, .fl-root) .rl-holo.rlh, :is(#room-stage, .fl-root) .rl-holo.rlh::before, :is(#room-stage, .fl-root) .rlh *, :is(#room-stage, .fl-root) .rlh .rlh-screen::after { animation: none; }
+}

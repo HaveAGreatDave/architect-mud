@@ -13,7 +13,8 @@
 //
 // `look.stock` (rowLook's `stock`) is what a shop's shelves carry, so one form does for every trade: 'hardware'
 // (boxes, tape, tins of paint, spray cans, coils), 'chem' (amber bottles, solvent cans, reagent boxes, carboys,
-// drums on the racking), 'safety' (respirators, gloves, goggles, hard hats). Steel shelving and a vitrine with a
+// drums on the racking), 'safety' (respirators, gloves, goggles, hard hats), 'surplus' (folded wool blankets,
+// canteens, boxed boots, bedrolls and hand lamps: an old outfitter's). Steel shelving and a vitrine with a
 // `stock` carry it too, in place of a flat's tins and a bar's bottles (shopGoods). Nothing here is the vendor's
 // real catalogue: the shelf says what kind of shop this is, and the shop panel says what's for sale.
 import { MAT } from './ballpark-mesh.js';
@@ -88,6 +89,45 @@ function goodsOf(c, stock, x, y, room, zb, zf) {
     if (h < 0.1) return 0;
     pbox(x, x + w, y, y + h, zm - deep * 0.3, zm + deep * 0.3, pick(r, ['#e8c02a', '#3a6ad8', '#c83a2a', '#2a2a2e']), 0.95, null, SATIN);
     return w;
+  }
+  if (stock === 'surplus') {
+    if (k < 0.3 && room > 0.1) {
+      // folded wool blankets in a stack, army olive, grey and oxblood, each fold a shade off the last
+      const n = Math.max(1, Math.min(5, Math.floor((room - 0.02) / 0.05))), w = 0.3, d = Math.min(deep * 0.85, 0.28), col = pick(r, ['#4e5a36', '#6a6a62', '#5a2a24', '#3e4a3a']);
+      for (let j = 0; j < n; j++) pbox(x, x + w - (j % 2) * 0.01, y + j * 0.05, y + j * 0.05 + 0.046, zm - d / 2, zm + d / 2, col, 0.9 + (j % 2) * 0.06, null, MATTE);
+      return w;
+    }
+    if (k < 0.5 && room > 0.2) {
+      // a canteen on its side seam: olive with a black screw cap
+      const rad = 0.07, h = Math.min(room - 0.03, 0.2);
+      c.lat(x + rad, zm, [[0, y], [rad, y + 0.01], [rad, y + h * 0.82], [rad * 0.3, y + h * 0.9], [0, y + h * 0.9]], '#56603a', 1, 10, SATIN);
+      c.lat(x + rad, zm, [[0, y + h * 0.9], [0.022, y + h * 0.9], [0.022, y + h], [0, y + h]], '#1c1c1e', 1, 8, SATIN);
+      return rad * 2;
+    }
+    if (k < 0.72 && room > 0.14) {
+      // a boot box, brown card with a white end label
+      const w = 0.32, h = Math.min(room - 0.02, 0.13), d = Math.min(deep * 0.85, 0.2);
+      pbox(x, x + w, y, y + h, zm - d / 2, zm + d / 2, pick(r, ['#8a6a44', '#6e5236', '#9a7a52']), 0.92, null, MATTE);
+      pbox(x, x + w, y + h - 0.012, y + h, zm - d / 2 - 0.004, zm + d / 2 + 0.004, '#5a4430', 0.95, null, MATTE);
+      pbox(x + w * 0.3, x + w * 0.7, y + h * 0.3, y + h * 0.7, zm + d / 2, zm + d / 2 + 0.002, '#ece8dc', 1, null, MATTE);
+      return w;
+    }
+    if (k < 0.88 && room > 0.16) {
+      // a bedroll, rolled and strapped, stood on its end
+      const rad = 0.075, h = Math.min(room - 0.02, 0.34);
+      c.lat(x + rad, zm, [[0, y], [rad, y], [rad, y + h], [0, y + h]], pick(r, ['#5a6040', '#7a6a4a', '#4a4e48']), 0.95, 10, MATTE);
+      for (const f of [0.25, 0.75]) c.lat(x + rad, zm, [[rad, y + h * f - 0.01], [rad + 0.004, y + h * f - 0.01], [rad + 0.004, y + h * f + 0.01], [rad, y + h * f + 0.01]], '#3a2a1a', 1, 10, SATIN);
+      return rad * 2;
+    }
+    if (room > 0.2) {
+      // a hand lamp: a brass body, a glass lens and a wire bail
+      const rad = 0.06, h = Math.min(room - 0.04, 0.18);
+      c.lat(x + rad, zm, [[0, y], [rad, y], [rad, y + h * 0.7], [rad * 0.7, y + h * 0.8], [0, y + h * 0.8]], '#b08a4a', 1.05, 12, METAL);
+      pbox(x + 0.02, x + rad * 2 - 0.02, y + h * 0.3, y + h * 0.6, zm + rad - 0.004, zm + rad, '#e8dcb0', 1.2, null, GLOSS);
+      c.rod(F.P(x + 0.01, y + h * 0.8, zm), F.P(x + rad * 2 - 0.01, y + h * 0.8, zm), 0.004, '#3a3632', 1, METAL, 4);
+      return rad * 2;
+    }
+    return 0;
   }
   // hardware
   if (k < 0.3 && room > 0.1) {
@@ -196,10 +236,57 @@ function palletLoad(c, stock, x0, x1, z0, z1, y, room, full) {
   }
 }
 
+// AN OLD SHOP COUNTER (a tradecounter whose row gives look.wood): an oak top on a panelled oak front, a brass rail
+// along the customer's edge, a brass till with its keys, and two shelves of stock behind. `wear` (look.wear) takes
+// the top pale and smooth along the middle where a century of hands has gone, rounds the nosing and scuffs the kick
+// rail, and leaves the brass bright: kept well, not new.
+function oakCounter(c) {
+  const { F, p, r } = c, { pbox, P } = F, hw = p.w / 2, hd = p.d / 2, h = p.h, stock = p.stock || 'surplus', wear = c.wear ?? 0.4;
+  const oak = p.wood, deep = '#2a1a10', worn = '#b89466', brass = '#c9a24a', grain = { t: 'roomOak', c: oak };
+  // the top, a thick oak board, and a worn pale band along the middle of it where things get slid across
+  pbox(-hw, hw, h - 0.05, h, -hd, hd + 0.03, oak, 1.05, grain, SATIN);
+  if (wear > 0.2) pbox(-hw * 0.6, hw * 0.55, h, h + 0.001, hd - 0.36, hd - 0.04, worn, 0.9 + wear * 0.1, { t: 'roomOak', c: worn }, SATIN);
+  // the nosing, rounded off by the years: a thinner lip under the top
+  pbox(-hw, hw, h - 0.07, h - 0.05, hd, hd + 0.025, shade(oak, 0.85), 1, grain, SATIN);
+  // the customer's front: stiles and rails round raised panels, darker in the corners where the polish built up
+  pbox(-hw + 0.01, hw - 0.01, 0.1, h - 0.07, hd - 0.03, hd - 0.01, shade(oak, 0.82), 1, grain, SATIN);
+  const n = Math.max(2, Math.round(p.w / 0.8));
+  for (let i = 0; i < n; i++) {
+    const a = -hw + 0.08 + i * (p.w - 0.16) / n, b = a + (p.w - 0.16) / n - 0.08;
+    pbox(a, b, 0.2, h - 0.16, hd - 0.01, hd + 0.004, oak, 1.02, grain, SATIN);
+    pbox(a + 0.04, b - 0.04, 0.24, h - 0.2, hd + 0.004, hd + 0.01, shade(oak, 1.08), 1.02, grain, SATIN);
+  }
+  // the kick rail, black and scuffed through to the wood in places by boots
+  pbox(-hw, hw, 0, 0.1, hd - 0.04, hd, deep, 0.9, null, SATIN);
+  for (let i = 0; i < 5; i++) { const x = -hw + 0.3 + r() * (p.w - 0.6); if (wear > 0.3) pbox(x, x + 0.06 + r() * 0.08, 0.03, 0.07, hd, hd + 0.002, shade(oak, 0.9), 1, null, MATTE); }
+  // the brass foot rail, kept bright
+  c.rod(P(-hw + 0.1, 0.16, hd + 0.12), P(hw - 0.1, 0.16, hd + 0.12), 0.022, brass, 1.15, METAL, 10);
+  for (const x of [-hw + 0.15, 0, hw - 0.15]) c.rod(P(x, 0.16, hd + 0.12), P(x, 0.16, hd), 0.012, brass, 1.1, METAL, 6);
+  // the ends and the staff's side, open on two shelves of stock
+  for (const x of [-hw, hw - 0.04]) pbox(x, x + 0.04, 0, h - 0.05, -hd, hd - 0.03, shade(oak, 0.78), 1, grain, SATIN);
+  for (const y of [0.08, 0.5]) {
+    pbox(-hw + 0.04, hw - 0.04, y - 0.02, y, -hd + 0.02, hd - 0.05, shade(oak, 0.9), 1, grain, SATIN);
+    shopGoods(c, stock, -hw + 0.06, hw - 0.06, y, y < 0.3 ? 0.38 : h - 0.12 - y, -hd + 0.04, hd - 0.08, 0.75);
+  }
+  // the till: an old brass cash register with a row of round keys and the sale flags up behind them
+  const tx = -hw + 0.5;
+  pbox(tx - 0.22, tx + 0.22, h, h + 0.12, -hd + 0.06, -hd + 0.46, brass, 1.08, null, METAL);
+  pbox(tx - 0.2, tx + 0.2, h + 0.12, h + 0.2, -hd + 0.08, -hd + 0.3, shade(brass, 0.9), 1.05, null, METAL);
+  for (let i = 0; i < 6; i++) c.lat(tx - 0.16 + i * 0.065, -hd + 0.36, [[0, h + 0.12], [0.018, h + 0.12], [0.018, h + 0.14], [0, h + 0.14]], '#f2efe4', 1, 8, GLOSS);
+  pbox(tx - 0.14, tx + 0.14, h + 0.2, h + 0.27, -hd + 0.16, -hd + 0.18, '#ece4cc', 1, null, MATTE);
+  c.rod(P(tx + 0.22, h + 0.08, -hd + 0.26), P(tx + 0.34, h + 0.16, -hd + 0.26), 0.01, brass, 1.1, METAL, 6);
+  // a brass bell for service and a ledger left open on the top
+  c.lat(hw - 0.5, hd - 0.2, [[0, h], [0.05, h], [0.045, h + 0.03], [0.02, h + 0.05], [0, h + 0.055]], brass, 1.2, 14, METAL);
+  pbox(hw - 1.1, hw - 0.7, h, h + 0.02, hd - 0.42, hd - 0.12, '#3a2418', 1, null, SATIN);
+  pbox(hw - 1.09, hw - 0.71, h + 0.02, h + 0.024, hd - 0.41, hd - 0.13, '#e8dcbc', 1, null, MATTE);
+}
+const shade = (hex, k) => '#' + [1, 3, 5].map((i) => Math.max(0, Math.min(255, Math.round(parseInt(hex.slice(i, i + 2), 16) * k))).toString(16).padStart(2, '0')).join('');
+
 // ── THE FORMS ───────────────────────────────────────────────────────────────────────────────────────────────
 export const SHOP_FORMS = Object.freeze({
   tradecounter(c) {
     const { F, p, r } = c, { pbox, P } = F, hw = p.w / 2, hd = p.d / 2, h = p.h, stock = p.stock || 'hardware';
+    if (p.wood) { oakCounter(c); return; }
     const steel = '#5c636a', dark = '#2e3236', ply = { t: 'roomWood', c: '#c8a878' };
     // the top: ply on a steel frame, with a steel nosing along the customer's edge
     pbox(-hw, hw, h - 0.035, h, -hd, hd, '#c8a878', 1, ply, SATIN);

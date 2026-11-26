@@ -9,25 +9,25 @@
       "arche": "small",
       "form": "telescope"
     },
-    "telescope": {
-      "label": "viewing binoculars"
-    },
     "spot": {
       "at": [
-        -3.2,
-        0.7
+        -3.23,
+        0.75
       ],
       "turn": 0
+    },
+    "telescope": {
+      "label": "viewing binoculars"
     }
   },
   "hp": null,
   "hp_max": null,
+  "id": "furn_skypad_binoculars",
   "light_type": null,
   "lumen_output": null,
+  "name": "viewing binoculars",
   "object_type": "furniture",
   "power_draw_kw": null,
   "price": 0,
-  "id": "furn_skypad_binoculars",
-  "name": "viewing binoculars",
   "zone_id": "zone_solenne_helipad"
 }

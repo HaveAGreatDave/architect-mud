@@ -97,7 +97,7 @@ export function chessBotId(npcId) { return `chessbot:${npcId}`; }
 export function isChessBotId(id) { return typeof id === 'string' && id.startsWith('chessbot:'); }
 
 // Static evaluation, in centipawns, from WHITE's point of view.
-function evaluate(pos) {
+export function evaluate(pos) {
   let score = 0;
   for (let sq = 0; sq < 128; sq++) {
     if (sq & 0x88) { sq += 7; continue; }
@@ -136,11 +136,13 @@ function scoreMove(m) {
 // Negamax with alpha-beta. `budget` is a mutable counter shared down the tree —
 // when it runs out the search returns the static eval and unwinds, which yields
 // a worse move but never a hung server.
-function search(pos, depth, alpha, beta, budget) {
+function search(pos, depth, alpha, beta, budget, q = 0) {
+  // a sharp persona's search is held to its time as well as its nodes (`ms`): node cost varies tenfold with the position
+  if (budget.until && (budget.n & 255) === 0 && Date.now() > budget.until) budget.n = 0;
   if (budget.n <= 0) return sideScore(pos, evaluate(pos));
   budget.n--;
 
-  if (depth <= 0) return sideScore(pos, evaluate(pos));
+  if (depth <= 0) return q ? quiesce(pos, alpha, beta, budget, q) : sideScore(pos, evaluate(pos));
 
   const moves = generateMoves(pos);
   if (!moves.length) {
@@ -152,12 +154,36 @@ function search(pos, depth, alpha, beta, budget) {
 
   let best = -Infinity;
   for (const m of orderMoves(moves)) {
-    const value = -search(applyMove(pos, m), depth - 1, -beta, -alpha, budget);
+    const value = -search(applyMove(pos, m), depth - 1, -beta, -alpha, budget, q);
     if (value > best) best = value;
     if (best > alpha) alpha = best;
     if (alpha >= beta) break; // cutoff
   }
   return best;
+}
+
+// A persona with `quiesce` plays the captures out past the horizon (up to that many plies), so it doesn't end its
+// look on a queen it's about to lose. Captures and promotions only; standing pat is always allowed.
+function quiesce(pos, alpha, beta, budget, q) {
+  const stand = sideScore(pos, evaluate(pos));
+  if (stand >= beta || q <= 0 || budget.n <= 0) return stand;
+  if (stand > alpha) alpha = stand;
+  for (const m of orderMoves(generateMoves(pos).filter((x) => x.captured || x.promotion))) {
+    budget.n--;
+    if (budget.until && (budget.n & 255) === 0 && Date.now() > budget.until) budget.n = 0;
+    const v = -quiesce(applyMove(pos, m), -beta, -alpha, budget, q - 1);
+    if (v >= beta) return v;
+    if (v > alpha) alpha = v;
+    if (budget.n <= 0) break;
+  }
+  return alpha;
+}
+
+// The position as a player at the board would size it up at a glance, White-relative, centipawns: the material and
+// placement, with the captures on offer played out a few deep, so a piece left hanging counts as lost. Cheap (a few
+// hundred nodes); for talk about the game (chess-practice.js), never for choosing a move.
+export function quickEval(pos) {
+  return sideScore(pos, quiesce(pos, -Infinity, Infinity, { n: 600 }, 4));
 }
 
 // evaluate() is White-relative; negamax needs it relative to the side to move.
@@ -181,12 +207,16 @@ export function decideBotMove(game, seat) {
     return asCoord(pick);
   }
 
-  const budget = { n: NODE_BUDGET };
+  // `budget` and `quiesce` are a stronger persona's (a table regular's): more nodes, and the captures played out.
+  // A sharp search keeps its best score as the root's alpha, so the cutoffs pay for the deeper look.
+  const budget = { n: Math.min(60_000, persona.budget || NODE_BUDGET), until: persona.ms ? Date.now() + Math.min(1000, persona.ms) : 0 };
+  const q = Math.max(0, Math.min(6, persona.quiesce | 0));
   let best = null;
   let bestScore = -Infinity;
 
   for (const m of orderMoves(moves)) {
-    const score = -search(applyMove(pos, m), persona.depth - 1, -Infinity, Infinity, budget);
+    const alpha = q && bestScore > -Infinity ? bestScore - 1 : -Infinity;
+    const score = -search(applyMove(pos, m), persona.depth - 1, -Infinity, -alpha, budget, q);
     // Ties break randomly, so the same position doesn't produce the same game
     // every single time somebody sits down.
     if (score > bestScore || (score === bestScore && Math.random() < 0.3)) {

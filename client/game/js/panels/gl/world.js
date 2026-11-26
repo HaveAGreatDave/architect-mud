@@ -1202,14 +1202,24 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // inland it re-rendered the city into a buffer nothing read.
   const seaWants = opts.floor && opts.floor.swell > 0 && opts.floor.seaRefl > 0 && opts.floor.seaRoll > 0
     && opts.floor.waterTiles !== 0;
-  const reflTex = (mirrorGain > 0 && (opts.glWet > 0 || seaWants) && g.view.drawMirror)
-    ? g.view.drawMirror(cam, { sprites: opts.sprites, decals: opts.decals, cssH, scale: opts.glMirrorRes,
+  const mirrorWants = mirrorGain > 0 && (opts.glWet > 0 || seaWants) && !!g.view.drawMirror;
+  // The reflection is a second draw of the whole scene, about 8 ms of CPU a frame on Marrow on foot
+  // (sixty-fps.md). `glMirrorEvery` N reuses the last one for up to N - 1 frames while the camera
+  // has barely moved: walking, the view matrix changes by about 0.01 a frame and the reflection
+  // lags by that. Any turn, a resize or a frame with no mirror draws it fresh. 1 draws every frame.
+  const mirrorVP = mirrorWants && opts.glMirrorEvery > 1 ? viewProjMatrix(camAt, cssH) : null;
+  const mk = g.mirrorKeep;
+  let mirrorStill = !!(mirrorVP && mk && mk.tex && mk.n < opts.glMirrorEvery - 1
+    && mk.w === g.canvas.width && mk.h === g.canvas.height);
+  for (let i = 0; mirrorStill && i < 16; i++) if (Math.abs(mk.vp[i] - mirrorVP[i]) > (opts.glMirrorSlack || 0.02)) mirrorStill = false;
+  const reflTex = !mirrorWants ? null : mirrorStill ? (mk.n++, mk.tex)
+    : g.view.drawMirror(cam, { sprites: opts.sprites, decals: opts.decals, cssH, scale: opts.glMirrorRes,
         // The sky in the puddle: clouds composite over ground.js's flat fallback.
         clouds: (opts.glMirrorSky === 0) ? null : opts.clouds, cloudState: opts.cloudState,
         massCam: camAt, mass: opts.glMirrorMass == null ? 1 : opts.glMirrorMass, massOpts: drawOpts,
         // ⚠ The band (`opts.fogBand`), never massOpts' `fog`, which is a colour array and threw.
-        fog: opts.fogBand })
-    : null;
+        fog: opts.fogBand });
+  if (!mirrorStill) g.mirrorKeep = mirrorVP && reflTex ? { vp: mirrorVP, tex: reflTex, n: 0, w: g.canvas.width, h: g.canvas.height } : null;
   if (SUB || PLACE) drawOpts.skipMass = true;   // see skipMass in context.js
   // TAA (glTaa; gl/taa.js): layers until the split below are jittered. The reprojection matrix is
   // taken unjittered, first. Last frame's float target gates it.
@@ -1392,7 +1402,7 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // `shadowSize`, `wet`, `hdr` and `mirror` are reported because each can be zero or absent for
   // several reasons that all draw a correct picture; the number says which.
   // `mass` only for a harness that sets globalThis.__massDebug (massKeep's check).
-  return { interior, faces: g.faces || 0, massDrawn: g.view.massDrawn ? g.view.massDrawn() : null, builds, mass: globalThis.__massDebug && g.view.massDebug ? g.view.massDebug() : undefined, lights, lit: lightList || [], taa: taaDone ? (g.taaN % TAA_TUNE.samples) + 1 : 0, lightGrid: g.view.groundGrid ? g.view.groundGrid() : null, wallGrid: g.view.wallGrid ? g.view.wallGrid() : null, curtains, decals, decalBinds, strokes, scatter, solids, film, hazeFade, ship: (opts.ship || []).length, bay: (opts.bay || []).length, fauna: (opts.fauna || []).length, actors, bbTex: g.view.billboardTextures ? g.view.billboardTextures() : 0, ground, floor, fishShadows: fish, wet: opts.glWet || 0, snow: opts.glSnow || 0, tracks: opts.tracks ? opts.tracks.n : 0, mirror: reflTex ? mirrorGain : 0, mirrorPeak: mirrorProbe, shadowSize: g.view.shadowSize || 0, propShadow: g.view.propShadow || null, lampShadow: g.view.lampShadow || null, hdr: graded, canvas: g.canvas,
+  return { interior, faces: g.faces || 0, massDrawn: g.view.massDrawn ? g.view.massDrawn() : null, builds, mass: globalThis.__massDebug && g.view.massDebug ? g.view.massDebug() : undefined, lights, lit: lightList || [], taa: taaDone ? (g.taaN % TAA_TUNE.samples) + 1 : 0, lightGrid: g.view.groundGrid ? g.view.groundGrid() : null, wallGrid: g.view.wallGrid ? g.view.wallGrid() : null, curtains, decals, decalBinds, strokes, scatter, solids, film, hazeFade, ship: (opts.ship || []).length, bay: (opts.bay || []).length, fauna: (opts.fauna || []).length, actors, bbTex: g.view.billboardTextures ? g.view.billboardTextures() : 0, ground, floor, fishShadows: fish, wet: opts.glWet || 0, snow: opts.glSnow || 0, tracks: opts.tracks ? opts.tracks.n : 0, mirror: reflTex ? mirrorGain : 0, mirrorKept: mirrorStill, mirrorPeak: mirrorProbe, shadowSize: g.view.shadowSize || 0, propShadow: g.view.propShadow || null, lampShadow: g.view.lampShadow || null, hdr: graded, canvas: g.canvas,
     // Handed over only with the city's depth in the float target: the cloud deck goes back for it (blitOf).
     blit: graded && g.view.hdrLive() ? blitOf(g) : null };
 }

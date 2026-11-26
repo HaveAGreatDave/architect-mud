@@ -280,9 +280,23 @@ function buildingRooms(zoneId) {
   const side = LAB_BEARING[String(t.flags?.entrance || '').toLowerCase()] ?? bld.plan.rooms[bld.b.entry]?.face ?? 0;
   const rooms = [], along = Number(plans.zones.get(bld.b.entry)?.flags?.room?.street_door?.along) || 0;
   for (const id of ids) {
-    const R = bld.plan.rooms[id], entry = placeFrom(bld.plan, id, bld.b.entry), spec = buildingView(bld, id, labSpecOf(id), { specOf: labSpecOf }).spec;
-    if (!entry || !spec || bld.plan.lifts?.[id]) continue;
-    rooms.push({ zone: id, name: plans.zones.get(id)?.name || id, spec, rows: rows[id] || [], frame: { entry: entry.at, front: bld.plan.rooms[bld.b.entry].face, side, floor: R.floor, face: R.face, door: streetDoorAt(bld.plan, bld.b.entry), ...(along ? { along } : {}) } });
+    const R = bld.plan.rooms[id], entry = placeFrom(bld.plan, id, bld.b.entry);
+    if (!entry) continue;
+    const frameAt = (floor) => ({ entry: entry.at, front: bld.plan.rooms[bld.b.entry].face, side, floor, face: R.face, door: streetDoorAt(bld.plan, bld.b.entry), ...(along ? { along } : {}) });
+    // A lift car comes once for each landing it stops at, parked there, keyed `car@landing`, the ground floor's first:
+    // plugins/roomstage buildingRoomsNear does the same for the street view, and frameOf puts the car on that stop's floor.
+    const car = bld.plan.lifts?.[id];
+    if (car) {
+      for (const stop of [...(car.ground ? [{ zone: car.ground, ground: true }] : []), ...(car.stops || [])]) {
+        const spec = buildingView(bld, id, labSpecOf(id), { specOf: labSpecOf, parked: stop.ground ? null : stop.zone }).spec;
+        if (!spec) continue;
+        rooms.push({ zone: id, key: id + '@' + stop.zone, stop: stop.zone, name: plans.zones.get(id)?.name || id, spec, rows: rows[id] || [], frame: frameAt(stop.ground ? R.floor : stop.y) });
+      }
+      continue;
+    }
+    const spec = buildingView(bld, id, labSpecOf(id), { specOf: labSpecOf }).spec;
+    if (!spec) continue;
+    rooms.push({ zone: id, name: plans.zones.get(id)?.name || id, spec, rows: rows[id] || [], frame: frameAt(R.floor) });
   }
   // the entry room's street door, as plugins/roomstage reads it for the street (client/shared/street-door.js)
   return { tile: { x: t.grid_x, y: t.grid_y }, rooms, street_door: plans.zones.get(bld.b.entry)?.flags?.room?.street_door || null };
@@ -422,6 +436,13 @@ const server = createServer(async (req, res) => {
       try {
         return send(res, 200, await readFile(join(HERE, own[1] + '.js')), 'text/javascript; charset=utf-8');
       } catch { return send(res, 404, 'no such module', 'text/plain; charset=utf-8'); }
+    }
+    // The route bench's recordings off the game (fixtures/<name>.json, route.js loadFixture), on the same terms.
+    const fixture = /^\/fixtures\/([a-z0-9-]+)\.json$/.exec(path);
+    if (req.method === 'GET' && fixture) {
+      try {
+        return send(res, 200, await readFile(join(HERE, 'fixtures', fixture[1] + '.json')), 'application/json; charset=utf-8');
+      } catch { return send(res, 404, 'no such fixture', 'text/plain; charset=utf-8'); }
     }
     // Its own stylesheets (nav.css, the navigation bar every page wears), on the same terms.
     const ownCss = /^\/([a-z0-9-]+)\.css$/.exec(path);

@@ -4,22 +4,80 @@
   "bg_color": "#2d2822",
   "description": "The twin of the room next door, reversed, so the basin is on the wrong side and everybody staying here bangs the same hip on the same corner for the first two nights. A sign on the back of the door lists eleven rules. The eleventh is BE KIND, which sits oddly after the other ten.",
   "exits": {
-    "east": "zone_restassured_hall"
+    "west": "zone_restassured_f1_h1"
   },
   "flags": {
+    "building_name": "Rest Assured",
+    "building_type": "residential",
     "floor": "boards",
     "is_apartment": true,
+    "is_building": true,
+    "is_interior": true,
     "rent_cost": 25,
+    "room": {
+      "d": 7.02,
+      "decor": {
+        "damp": [
+          {
+            "at": [
+              -0.95,
+              5.28
+            ],
+            "r": 0.51
+          }
+        ],
+        "walls": {
+          "hex": "#4a3a2a",
+          "kind": "walnut",
+          "rail": 0.95,
+          "trim": "#2a2018",
+          "y1": 1
+        }
+      },
+      "doors": {
+        "west": 0.29
+      },
+      "face": 90,
+      "floor_m": 3.44,
+      "h": 3.44,
+      "panes": [
+        {
+          "a": 0.73,
+          "b": 1.49,
+          "kind": "sash",
+          "wall": "front",
+          "y0": 0.9,
+          "y1": 2.3
+        },
+        {
+          "a": -0.97,
+          "b": -0.07,
+          "kind": "sash",
+          "wall": "front",
+          "y0": 0.9,
+          "y1": 2.3
+        }
+      ],
+      "studio": false,
+      "tone": {
+        "accent": "#5a4a3a",
+        "ceiling": "#9a907e",
+        "trim": "#3a2e24",
+        "wall": "#8a7c66"
+      },
+      "w": 3.58
+    },
     "window": {
       "description": "A window onto the back green, its catch replaced with a bent nail that works better than the catch did.",
       "light": 0.5,
       "name": "the small window",
       "visibility": 0.4
-    }
+    },
+    "world_exit_zone": "zone_district_900_905"
   },
-  "grid_x": -1,
-  "grid_y": 0,
-  "grid_z": 0,
+  "grid_x": 2,
+  "grid_y": 2,
+  "grid_z": 1,
   "id": "zone_restassured_room_b",
   "map_id": "map_int_restassured",
   "marker": "B",

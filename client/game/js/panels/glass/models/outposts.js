@@ -10,7 +10,7 @@
 import {
   DETAIL_LIFT, FACE_EPS, SHAPE_SINK, awning, bakeSignText, blinkLight, clamp, draw3DBoxAt, drawFacetDrum,
   drawRing, drawSmoke, easeIO, emitFlat, emitSurfaceText, emitWire, faceYaw, frac, glowPool,
-  marqueeBand, motionPhase, movingBox,
+  armLivePart, facePt, marqueeBand, motionPhase, movingBox,
 } from '../../windshield.js';
 // Second Helpings and the clone facility share a main and a clock; the clone's arm owns both.
 import { GUT, flatOut, gutPhase, slugLine, tubeRun } from './downtown.js';
@@ -182,6 +182,54 @@ function placardTex() {
   c._lit = 0;
   _placard = c;
   return c;
+}
+
+// ── SECOND HELPINGS' MOVING PIECES, AS LIVE PARTS (armLivePart) ──
+// The amber lamp that lights as a slug passes, the masher's ram, and the slug itself on its way up to the drum:
+// all that reads the clock, so the rest of the building is kept. `G` carries the arm's own numbers (local, in tiles);
+// its frame is rebuilt from (dx, dy) and the facing E, since a replay moves only dx and dy.
+function helpingsLive(ctx, cam, dx, dy, E, G, seed, night, alpha, now) {
+  const F = (lx, ly) => facePt(dx, dy, lx, ly, E), W3 = (lx, ly, z) => { const [wx, wy] = F(lx, ly); return [wx, wy, z]; };
+  if (G.part === 'lamp') {
+    const gu = gutPhase(now);
+    if (gu >= 0.50 && gu < 0.70) { const [gx, gy] = F(G.lx, G.ly); glowPool(ctx, cam, gx, gy, G.z, '255,184,70', 3, alpha * (night ? 0.85 : 0.5), { air: true }); }
+    return;
+  }
+  if (G.part === 'ram') {
+    const { mrx, mry, beamZ, throat, h, fh } = G, yaw = faceYaw(E), [mcx, mcy] = F(mrx, mry);
+  const mp = motionPhase(now, seed + 47, 9400, 0.58), mu = mp < 0 ? 0 : mp;
+  const sp = (mu * 3) % 1;
+  const fall = mp < 0 ? 0 : (sp < 0.40 ? easeIO(sp / 0.40) : 1 - easeIO((sp - 0.40) / 0.60));
+  const ramZ = beamZ - h * 0.09 - fall * h * 0.15;   // the head's UNDERSIDE: 1.13h at rest, 0.98h inside the mouth
+  emitWire(ctx, cam, W3(mrx, mry, beamZ), W3(mrx, mry, ramZ + h * 0.085), 2.4, 'rgba(86,94,102,0.95)', alpha, { pull: 0.05 });
+  movingBox(ctx, cam, mcx, mcy, ramZ, ramZ + h * 0.085, fh * 0.12, fh * 0.12, [176, 186, 192], alpha, night, yaw);
+  // …and the mouth flares as the head lands, and only then. A steady pool says the machine is
+  // lit; this says it is working. Modulating a LAMP and never the frame — the no-strobe rule.
+  { const strike = mp < 0 ? 0 : clamp((fall - 0.72) / 0.28, 0, 1);
+    glowPool(ctx, cam, mcx, mcy, throat, '150,255,186', 5 + strike * 8, alpha * ((night ? 0.14 : 0.03) + strike * (night ? 0.38 : 0.13)));
+  }
+    return;
+  }
+  const { cyR, rR, zS, zIn, RISER, mrx, mry, mR } = G, Wl = { lx: G.lx, half: G.half };
+  { const gu = gutPhase(now);
+    if (gu >= 0.52 && gu < 0.68) {
+      const path = [[Wl.lx + Wl.half, cyR + rR, zS], [RISER, cyR + rR, zS], [RISER, cyR + rR, zIn], [mrx - mR * 1.02, mry, zIn]];
+      const seg = path.slice(1).map((p, i) => Math.hypot(p[0] - path[i][0], p[1] - path[i][1], p[2] - path[i][2]));
+      const total = seg.reduce((a, b) => a + b, 0), lead = total * (gu - 0.52) / 0.16;
+      const at = (d) => {
+        for (let i = 0; i < seg.length; i++, d -= seg[i - 1]) if (d <= seg[i] || i === seg.length - 1) {
+          const t = clamp(d / seg[i], 0, 1), a = path[i], b = path[i + 1];
+          return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+        }
+      };
+      slugLine(ctx, cam, W3, path, lead - 0.10, lead, night, alpha);
+      for (let j = 0; j < 4; j++) {
+        const d = lead - j * 0.03;
+        if (d < 0 || d > total) continue;
+        const p = at(d), [gx, gy] = F(p[0], p[1]);
+        glowPool(ctx, cam, gx, gy, p[2], '140,255,170', 6 - j * 1.1, alpha * (night ? 0.9 : 0.6) * (1 - j * 0.22), { air: true });
+      }
+    } }
 }
 
 export const OUTPOST_ARMS = {
@@ -1747,8 +1795,7 @@ export const OUTPOST_ARMS = {
       });
       const lampAt = (k) => F(ax0 + lampW * (1.5 + k * 2), yF + 0.006);
       { const [gx, gy] = lampAt(0); glowPool(ctx, cam, gx, gy, (lz0 + lz1) / 2, '90,255,150', 2.5, alpha * (night ? 0.7 : 0.3), { air: true }); }
-      { const gu = gutPhase(now);
-        if (gu >= 0.50 && gu < 0.70) { const [gx, gy] = lampAt(1); glowPool(ctx, cam, gx, gy, (lz0 + lz1) / 2, '255,184,70', 3, alpha * (night ? 0.85 : 0.5), { air: true }); } }
+      armLivePart(helpingsLive, 9, [ctx, cam, dx, dy, E, { part: 'lamp', lx: ax0 + lampW * 3.5, ly: yF + 0.006, z: (lz0 + lz1) / 2 }, seed, night, alpha, now]);
       // A conduit from the panel up to the coping.
       tubeRun(ctx, cam, W3, [Wl.lx, Wl.front + 0.008, az1], [Wl.lx, Wl.front + 0.008, wTop], 0.005, 6, STEEL, 'chrome', alpha, dusk);
       // The placard, on the main's way into a food shop.
@@ -1809,17 +1856,8 @@ export const OUTPOST_ARMS = {
     // over the first two fifths and back up over the rest, which is a ram rather than a piston.
     // ⚠ AT −1 (parked, mid-capture, or `RENDER_TUNE.motion` at 0) `fall` IS 0 and the head sits
     // at the top of its travel, which is the pose the mass around it was captured with.
-    const mp = motionPhase(now, seed + 47, 9400, 0.58), mu = mp < 0 ? 0 : mp;
-    const sp = (mu * 3) % 1;
-    const fall = mp < 0 ? 0 : (sp < 0.40 ? easeIO(sp / 0.40) : 1 - easeIO((sp - 0.40) / 0.60));
-    const ramZ = beamZ - h * 0.09 - fall * h * 0.15;   // the head's UNDERSIDE: 1.13h at rest, 0.98h inside the mouth
-    emitWire(ctx, cam, W3(mrx, mry, beamZ), W3(mrx, mry, ramZ + h * 0.085), 2.4, 'rgba(86,94,102,0.95)', alpha, { pull: 0.05 });
-    movingBox(ctx, cam, mcx, mcy, ramZ, ramZ + h * 0.085, fh * 0.12, fh * 0.12, [176, 186, 192], alpha, night, yaw);
-    // …and the mouth flares as the head lands, and only then. A steady pool says the machine is
-    // lit; this says it is working. Modulating a LAMP and never the frame — the no-strobe rule.
-    { const strike = mp < 0 ? 0 : clamp((fall - 0.72) / 0.28, 0, 1);
-      glowPool(ctx, cam, mcx, mcy, throat, '150,255,186', 5 + strike * 8, alpha * ((night ? 0.14 : 0.03) + strike * (night ? 0.38 : 0.13)));
-      drawSmoke(ctx, cam, mcx, mcy, throat + h * 0.01, '206,220,212', alpha * 0.34, now, seed + 44); }
+    armLivePart(helpingsLive, 9, [ctx, cam, dx, dy, E, { part: 'ram', mrx, mry, beamZ, throat, h, fh }, seed, night, alpha, now]);
+    drawSmoke(ctx, cam, mcx, mcy, throat + h * 0.01, '206,220,212', alpha * 0.34, now, seed + 44);   // a live part of its own, outside the ram's, so the light bake still has it
     // ⚠ AND EACH RUN STOPS ON THE SHELL RATHER THAN IN IT. A stroke endpoint inside its own mass
     // is pulled out in FRONT of it by `emitWire`, which is what `glself` counts; at 0.84·mR both
     // of these were a fifth of a drum inside the drum. 1.02·mR is the outside of the shell, which
@@ -1833,25 +1871,7 @@ export const OUTPOST_ARMS = {
     // The slug from the clone facility, on the second half of its trip (see gutPhase): out of the
     // party wall, up the riser and across the roof into the drum. ⚠ `air`: light on the glass,
     // which must not light the shop as well.
-    { const gu = gutPhase(now);
-      if (gu >= 0.52 && gu < 0.68) {
-        const path = [[Wl.lx + Wl.half, cyR + rR, zS], [RISER, cyR + rR, zS], [RISER, cyR + rR, zIn], [mrx - mR * 1.02, mry, zIn]];
-        const seg = path.slice(1).map((p, i) => Math.hypot(p[0] - path[i][0], p[1] - path[i][1], p[2] - path[i][2]));
-        const total = seg.reduce((a, b) => a + b, 0), lead = total * (gu - 0.52) / 0.16;
-        const at = (d) => {
-          for (let i = 0; i < seg.length; i++, d -= seg[i - 1]) if (d <= seg[i] || i === seg.length - 1) {
-            const t = clamp(d / seg[i], 0, 1), a = path[i], b = path[i + 1];
-            return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
-          }
-        };
-        slugLine(ctx, cam, W3, path, lead - 0.10, lead, night, alpha);
-        for (let j = 0; j < 4; j++) {
-          const d = lead - j * 0.03;
-          if (d < 0 || d > total) continue;
-          const p = at(d), [gx, gy] = F(p[0], p[1]);
-          glowPool(ctx, cam, gx, gy, p[2], '140,255,170', 6 - j * 1.1, alpha * (night ? 0.9 : 0.6) * (1 - j * 0.22), { air: true });
-        }
-      } }
+    armLivePart(helpingsLive, 9, [ctx, cam, dx, dy, E, { part: 'slug', lx: Wl.lx, half: Wl.half, cyR, rR, zS, zIn, RISER, mrx, mry, mR }, seed, night, alpha, now]);
     // 5) A bin, and it is the fullest object on the tile. Round the north flank rather than on
     //    the frontage: the rank and its canopy occupy the whole of that, and two opaque boxes in
     //    one place is a bin growing out of a vending machine.

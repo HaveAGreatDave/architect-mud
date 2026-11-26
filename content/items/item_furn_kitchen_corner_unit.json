@@ -7,7 +7,8 @@
     "look": {
       "arche": "surface",
       "form": "corner"
-    }
+    },
+    "wealth": "middle"
   },
   "id": "item_furn_kitchen_corner_unit",
   "name": "kitchen corner unit",

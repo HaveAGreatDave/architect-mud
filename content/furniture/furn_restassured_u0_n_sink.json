@@ -1,0 +1,19 @@
+{
+  "description": "",
+  "flags": {
+    "aliases": [
+      "sink",
+      "kitchen sink",
+      "tap"
+    ],
+    "gen": true,
+    "interactions": [
+      "lean"
+    ],
+    "water_source": true
+  },
+  "id": "furn_restassured_u0_n_sink",
+  "name": "the kitchen sink",
+  "object_type": "sink",
+  "zone_id": "zone_restassured_u0_n"
+}

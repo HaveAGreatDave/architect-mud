@@ -1,0 +1,14 @@
+{
+  "description": "",
+  "flags": {
+    "aliases": [
+      "shower",
+      "cubicle"
+    ],
+    "gen": true
+  },
+  "id": "furn_restassured_f1_bath_shower",
+  "name": "the shower",
+  "object_type": "shower",
+  "zone_id": "zone_restassured_f1_bath"
+}

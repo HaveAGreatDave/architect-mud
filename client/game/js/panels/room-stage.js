@@ -80,7 +80,7 @@ function figOf(p) {
 import { coverWithVeil, finishVeil, placeVeil } from './glass-veil.js';
 import { STRIDE } from './gl/ballpark-mesh.js';
 import { seatLadderHTML, bindSeatLadder, releaseSeatLadder, keepSeatRung } from './seat-ladder.js';
-import { createRoomRenderer, warmRoomCanvas } from './gl/room.js';
+import { createRoomRenderer, warmRoomCanvas, roomFailureLog } from './gl/room.js';
 import { assembleBatch } from './gl/room-mesh.js';
 import { buildRoom, withShells, roomKitchenKit, spinBatch, swingBatch, liftDoorBatch, paintRoomTexture, paintView, paintScreen, ROOM_RUG } from './gl/room-mesh.js';
 import { figurePeople, figureLooks, FIGURE_LOD, dressOf, clipOnce, actClip, clipHold, clipDur } from './gl/room-people.js';
@@ -100,6 +100,7 @@ const drapesDrawn = (g) => !!g?.down && g.paint?.kind === 'drapes';
 const glassCover = (g) => (drapesDrawn(g) ? { ...g, down: false } : g);
 import { heldProps } from './gl/room-held.js';
 import { pokerProps, pokerLive, pokerMineAt, pokerAnchors } from './gl/room-poker.js';
+import { chessSquareAt, createChessHand, chessHandProps, chessPlaying, createChessActs, chessCarryProps } from './gl/room-chess-play.js';
 import { handOf, drawsOf, inHand, SUIT_GLYPH } from '../../../shared/poker-hand.js';
 import { stashAt } from '../../../shared/table-stash.js';
 import { mouthTrack, textTrack, mouthAt } from '../../../shared/lip-sync.js';
@@ -400,7 +401,16 @@ function openStage(msg) {
     // the veil went up first; with nothing to draw there's nothing to wait for
     const v = document.getElementById('room-stage-veil');
     (v?.parentElement?.classList.contains('ws-veil-pre') ? v.parentElement : v)?.remove();
-    host.innerHTML = '<p class="rs-none">This device can\'t draw the room in 3-D (no WebGL2). Everything in it is in the room text.</p>';
+    const log = roomFailureLog() || 'room renderer: no reason recorded';
+    const noGl = log.includes('no WebGL2 context');
+    host.innerHTML = `<p class="rs-none">${noGl ? 'This device can\'t draw the room in 3-D (no WebGL2).' : 'The 3-D room failed to start.'} Everything in it is in the room text.</p>`
+      + '<details class="rs-errlog"><summary>Error log</summary><pre></pre><button type="button">Copy</button></details>';
+    const pre = host.querySelector('.rs-errlog pre');
+    pre.textContent = log;
+    host.querySelector('.rs-errlog button').addEventListener('click', (e) => {
+      navigator.clipboard?.writeText(log).then(() => { e.target.textContent = 'Copied'; }, () => {});
+    });
+    console.warn('[room-stage]\n' + log);
     root.querySelector('.rs-leave').addEventListener('click', () => closeRoomStage());
     ui = { root, stop() {} };
     return;
@@ -528,19 +538,30 @@ function openStage(msg) {
   S.vendor = vendorUi;
   const EMPTY_BATCH = { data: new Float32Array(0), n: 0 };
   function pushLocks() {
-    const a = S.lockBatch || EMPTY_BATCH, v = vendorUi.batch();
-    if (!v.n) { R.setLocks(a); return; }
+    const parts = [S.lockBatch || EMPTY_BATCH, S.landBatch || EMPTY_BATCH, vendorUi.batch()].filter((x) => x.n);
+    if (parts.length < 2) { R.setLocks(parts[0] || EMPTY_BATCH); return; }
     // one scratch, grown only: the upload reads the first n vertices, and copies them to the GPU there and then
-    const need = (a.n + v.n) * 12;
+    const n = parts.reduce((t, x) => t + x.n, 0), need = n * 12;
     if (!(pushLocks.scratch?.length >= need)) pushLocks.scratch = new Float32Array(Math.max(need, (pushLocks.scratch?.length || 0) * 2));
     const data = pushLocks.scratch;
-    data.set(a.data.subarray(0, a.n * 12)); data.set(v.data.subarray(0, v.n * 12), a.n * 12);
-    R.setLocks({ data, n: a.n + v.n });
+    let at = 0;
+    for (const x of parts) { data.set(x.data.subarray(0, x.n * 12), at); at += x.n * 12; }
+    R.setLocks({ data, n });
   }
   const lockUi = createRoomLocks({ host, project: (p, w, h) => R.project(p, w, h), setBatch: (b) => { S.lockBatch = b; pushLocks(); },
     send: (cmd) => { S.listenUntil = performance.now() + 2500; sendCmd(cmd); },
     // a hand-opened glass pair's panel beside it: Open and Close work the leaves here, as F at the doors does
     glass: (to, a) => handDoor(to, { verb: a.verb === 'open' ? 'opendoors' : 'shutdoors' }) });
+  // ⚠ IN A LIFT CAR, THE LANDING'S DOORS AND KEYPADS TOO (`locks` on the landing in building.neighbours). They used to
+  // come only once you stepped out, so the car's doors parted on bare doorways that filled in a moment later. They're
+  // loaded with the car, before its doors open; you work them from the landing, not through the car's doorway.
+  const landUi = createRoomLocks({ host, project: (p, w, h) => R.project(p, w, h), setBatch: (b) => { S.landBatch = b; pushLocks(); },
+    send: () => flash('Step out of the lift first.', false) });
+  function loadLanding(L) {
+    const n = S.spec.lift ? nextDoor.find((x) => x.locks?.length) : null;
+    if (n && !n.L) { try { n.L = roomLayout(n.spec, n.pieces); } catch { /* drawn without */ } }
+    if (n?.L) landUi.load(n.L, n.locks, { fresh: true }); else landUi.load(L, [], { fresh: true });
+  }
   // the server's locks, and a door panel for each hand-opened glass pair (no lock on it: Open and Close only)
   const glassPanels = () => (S.spec?.openings || []).filter((o) => o.slide && o.hand && o.to && o.dir && !o.lift)
     .map((o) => ({ to: o.to, dir: o.dir, glass: true, lock: false, locked: false, pass: true, yours: true, hack: false, open: (S.slideShut?.[o.to] ?? 1) < 0.5 }));
@@ -621,6 +642,7 @@ function openStage(msg) {
     S.doorsDirty = true;
     // (a new room starts its doors shut, but for the one you came through; the same room keeps them where they are)
     lockUi.load(L, locksWithGlass(), { fresh: !keepPlace, via: msg.via || null });
+    loadLanding(L);
     // in a car, its own panel; on a landing, the panel of the car next door, so it's there before you step in
     const car = S.spec.lift ? null : nextDoor.find((n) => n.lift && n.L);
     if (car) liftUi.load(car.L, { ...car.spec, lift: car.lift }, true); else liftUi.load(L);
@@ -2033,8 +2055,33 @@ function openStage(msg) {
     const me = S.walk.at, near = Math.hypot(pl.at[0] - me[0], pl.at[1] - me[1]) <= PET_REACH + 0.3;
     return { id: p.id, name: String(p.name).split(/\s+/)[0], spot, near, person: true };
   };
+  // a chessboard with your game on it: pick a man up and put him down (gl/room-chess-play.js). The man in your hand is
+  // off his square in the mesh (the piece's board swapped till you let go) and drawn in the props layer.
+  // (a table shown with another board than the server's keeps the server's on boardTrue)
+  const showBoard = (id, board) => {
+    const p = S.pieces.find((x) => x.id === id);
+    if (!p?.board) return;
+    if (board) { p.boardTrue ||= p.board; if (p.board.board === board) return; p.board = { ...p.boardTrue, board }; }
+    else if (p.boardTrue) { p.board = p.boardTrue; p.boardTrue = null; }
+    else return;
+    rebuild();
+  };
+  const chessHand = createChessHand({ send: (cmd) => sendCmd(cmd), flash: (t) => flash(t, false), lift: showBoard });
+  S.chessHand = chessHand;
+  // and a man moved by somebody the server runs, played out by their hand
+  S.chessActs = createChessActs({ show: showBoard });
+  let chessGrab = null;
+  const chessAt = (e) => { const b = host.getBoundingClientRect(); return chessSquareAt(S.L, S.pieces, (p, w, h) => R.project(p, w, h), e.clientX - b.left, e.clientY - b.top, b.width, b.height); };
   host.addEventListener('pointerdown', (e) => {
     if (e.target.closest('button')) return;
+    if (e.button === 0 && S.walk && S.L && (chessHand.hold || chessPlaying(S.pieces, S.you)) && chessHand.press(chessAt(e), S.you, e.clientX, e.clientY)) {
+      chessGrab = e.pointerId;
+      try { host.setPointerCapture(e.pointerId); } catch { /* not capturable */ }
+      e.preventDefault();
+      return;
+    }
+    // a right click puts down whatever's in your hand
+    if (e.button === 2 && chessHand.cancel()) return;
     // a click on the world takes the keyboard back from the command line, so WASD walks again
     if (!e.target.closest('input, textarea, select, [contenteditable]')) {
       const f = document.activeElement; if (f?.matches?.('input, textarea, [contenteditable]')) f.blur();
@@ -2198,6 +2245,7 @@ function openStage(msg) {
   };
   host.addEventListener('pointermove', (e) => {
     const b = host.getBoundingClientRect();
+    if (chessHand.hold) { chessHand.move(chessAt(e), e.clientX, e.clientY); if (chessGrab === e.pointerId) return; }
     if (wallGrab && e.pointerId === wallGrab.pointer) {
       if (!wallGrab.live && Math.hypot(e.clientX - wallGrab.x0, e.clientY - wallGrab.y0) > WALL_GRAB_PX) { wallGrab.live = true; drag = null; hoverEl.hidden = true; }
       if (wallGrab.live) { host.style.cursor = 'grabbing'; wallDragTo(e.clientX - b.left, e.clientY - b.top, b.width, b.height); }
@@ -2260,6 +2308,7 @@ function openStage(msg) {
     if (dx || dy) turn(dx, dy);
   });
   host.addEventListener('pointerup', (e) => {
+    if (chessGrab != null && e.pointerId === chessGrab) { chessGrab = null; chessHand.up(chessAt(e)); return; }
     if (wallGrab && e.pointerId === wallGrab.pointer) {
       const g = wallGrab; wallGrab = null;
       if (g.live) { drag = null; host.style.cursor = ''; wallDrop(); return; }
@@ -2672,6 +2721,8 @@ function openStage(msg) {
   };
   const bodiesNow = () => {
     const bodies = [];
+    // a chessman being moved by somebody's hand this frame (gl/room-chess-play.js createChessActs): their arm's goal
+    S.chessFrame = S.chessActs?.busy() ? S.chessActs.frame(S.L, performance.now()) : null;
     for (const p of S.people) {
       if (p.id === S.you) continue;
       let pl = acted(p, placeOf(p));
@@ -2679,7 +2730,7 @@ function openStage(msg) {
       if (pl?.at && S.talk?.who === p.name && pl.pose === 'stand' && pl.clip !== 'walk') pl = { ...pl, yaw: S.talk.faceYou(p.name, S.L.world(pl.at[0], pl.at[1], 0), seat) ?? pl.yaw };
       // `rest` and `manner` pick what they idle at: asleep, out cold, or at work behind a bar, and `watch` is a dancer they
       // keep looking at (plugins/roomstage)
-      if (pl) bodies.push({ id: p.id, ...eased(p, pl), dress: dressOf(p.order), sculpt: true, sex: p.sex, figure: figOf(p), wear: p.wear, feel: p.feel, ...(p.gait ? { gait: p.gait } : {}), mouth: mouthOf(p.name), rest: p.asleep ? 'sleep' : p.out ? 'out' : undefined, manner: p.manner, mood: p.mood, meal: p.meal, ...(p.watch ? { watch: S.L.world(p.watch[0], p.watch[1], p.watch[2]) } : {}), ...(p.stash && pl.seat ? { stash: p.stash, stashAt: stashNow(p.stash) } : {}), ...(p.act && p.hold ? { holds: { R: p.hold } } : {}), ...(p.bar ? { bar: p.bar } : {}), ...tickled(p, pl) });
+      if (pl) bodies.push({ id: p.id, ...eased(p, pl), dress: dressOf(p.order), sculpt: true, sex: p.sex, figure: figOf(p), wear: p.wear, feel: p.feel, ...(p.gait ? { gait: p.gait } : {}), mouth: mouthOf(p.name), rest: p.asleep ? 'sleep' : p.out ? 'out' : undefined, manner: p.manner, mood: p.mood, meal: p.meal, ...(p.watch ? { watch: S.L.world(p.watch[0], p.watch[1], p.watch[2]) } : {}), ...(p.stash && pl.seat ? { stash: p.stash, stashAt: stashNow(p.stash) } : {}), ...(p.act && p.hold ? { holds: { R: p.hold } } : {}), ...(p.bar ? { bar: p.bar } : {}), ...(S.chessFrame?.reach.get(p.id) ? { reach: S.chessFrame.reach.get(p.id) } : {}), ...tickled(p, pl) });
     }
     // and whoever's next door, seen through the doorway: drawn, tagged, never spoken to from here (`next`)
     for (const n of S.next) {
@@ -3308,14 +3359,16 @@ function openStage(msg) {
     const drip = leaksLive(S.L, liveWx()?.weather);
     // a shut lacquer box with nothing else going on draws the same props every frame: build them once per layout
     // and leave the uploaded batch alone until something moves (a lid, a meal, a hand), not 60 rebuilds a second
-    const still = box && !S.lidK && !lidTo && !(eating || using || holding || fridge || poker || plumb || drip);
+    const chess = !!S.chessHand?.hold || !!S.chessFrame?.carry.length;
+    const still = box && !S.lidK && !lidTo && !(eating || using || holding || fridge || poker || plumb || drip || chess);
     if (still && S.propsStill === S.L) { /* the batch on the GPU is already this */ }
-    else if (eating || using || box || holding || S.propsOn || fridge || poker || plumb || drip) {
+    else if (eating || using || box || holding || S.propsOn || fridge || poker || plumb || drip || chess) {
       S.propsStill = still ? S.L : null;
       const b = mealProps(S.L, bodies, recs, t);
       stashProps(b, S.L, bodies, recs, t, { id: S.lidFor, k: S.lidK || 0 });
       heldProps(b, bodies, recs);
       if (poker) { pokerProps(b, S.L, S.pieces, { id: S.you, cards: S.pokerMine, peek: peekNow(t) }, t, S.walk?.at || null); pokerBar(); }
+      if (chess) { chessHandProps(b, S.L, S.chessHand, t); chessCarryProps(b, S.L, S.chessFrame?.carry); }
       if (fridge) swingBatch(b, fridge.swing, fridge.k);
       // a running shower's steam goes on the see-through layer, unless a stage has that layer (chem, the kitchen)
       const steam = plumb && !S.chemming && Object.values(S.plumb).some((x) => x?.shower) ? { data: new Float32Array(0), n: 0 } : null;
@@ -3544,6 +3597,7 @@ function openStage(msg) {
     watchMoves(now);
     watchSlideDoors(now);
     lockUi.slide(now);
+    landUi.slide(now);
     // with every pane under a lit scene there's nothing out there to paint
     // the view out isn't painted under lit shutters, unless a balcony door can open through them onto it
     S.seeLens = S.outlook?.tick(h, liveWx(), S.shutters.covered && !S.spec?.balcony ? null : lookOut()) || S.seeLens;
@@ -3609,10 +3663,13 @@ function openStage(msg) {
     const topCam = !join && !ax && !cook && !packed && !close && !talk ? pokerTopCam() : null;
     R.render(join?.cam || ax?.cam || cook?.cam || packed || vatcam || close || talk || topCam || seat, { lamps: S.mesh.lamps, next: nextLit(Lr, seat.eye), lampOn, lampLevel: (power === 'low' ? lampLevel * EMERGENCY_K : lampLevel) * (S.spec.dim ?? 1), vatGain: S.spec.dim ? 1 + 1.6 * (1 - S.spec.dim) : 1, fire, flame,day: Math.min(1, (dayOf(h) * outside.dimOf() + out.flash * 0.5) * (S.spec.daylight ?? 1)), sky: S.drapes ? sky.map((v) => v * 0.3) : sky, wins: S.mesh.windows, annex, outZ: S.spec.balcony ? 0.145 : undefined, outRing: S.spec.balcony?.wrap ? [-S.spec.w / 2 - 0.145, S.spec.w / 2 + 0.145, S.spec.balcony.sides ? -1e6 : -S.spec.balcony.wrap - 0.005] : undefined, front: Lr.f, right: Lr.r, bearing: S.bearing, outside: out, lens: ax ? undefined : S.seeLens, tvOn: tvNow(now), shut, focusSharp: streetSharp(), panoGround: panoGround(), ...(feed ? { feed } : {}), ...pokerFocus(), ...(close || talk ? { dof: false } : {}) });
     if (bob) seat.eye[1] -= bob;
-    if (ax) { ax.after(); if (lockUi.count) lockUi.hide(); hearing.tick(outside.hear, placeOfEar(h, now), outdoors); placeVoices(); return; }
+    if (ax) { ax.after(); if (lockUi.count) lockUi.hide(); if (landUi.count) landUi.hide(); hearing.tick(outside.hear, placeOfEar(h, now), outdoors); placeVoices(); return; }
     // shutters or blinds shut over the glass: a keypad or panel past a pane is hidden behind them
-    const vis = { veiled: !!shf && (shf.drop > 0.5 || shf.vane > 0.6) };
+    // and a lift car with its doors shut hides everything past them: the landing's keypads showed through
+    const sealed = !!S.spec?.lift && (S.liftShut || 0) > 0.05;
+    const vis = { veiled: !!shf && (shf.drop > 0.5 || shf.vane > 0.6), sealed };
     if (lockUi.count) lockUi.draw(host.clientWidth, host.clientHeight, seat.eye, S.walk?.at, S.drawnBodies, vis);
+    if (landUi.count) landUi.draw(host.clientWidth, host.clientHeight, seat.eye, null, S.drawnBodies, sealed ? { sealed } : undefined);   // the landing's own layout: where you stand is read from the eye
     if (envUi.on) envUi.draw(host.clientWidth, host.clientHeight, seat.eye, S.walk?.at, S.drawnBodies, vis);
     if (liftUi.on) liftUi.draw(host.clientWidth, host.clientHeight, readoutNow(now), S.ride && rideK(now)?.k < 1 ? S.ride : null);
     hearing.tick(outside.hear, placeOfEar(h, now), outdoors);
@@ -3853,6 +3910,7 @@ function openStage(msg) {
     clearTimeout(sayT);
     S.studio?.dispose();
     lockUi.stop();
+    landUi.stop();
     liftUi.stop();
     envUi.stop();
     window.removeEventListener('envctl:light', onPanelLight);
@@ -4158,8 +4216,17 @@ export function roomBoard(msg) {
   const p = list?.find((x) => x.id === msg.piece);
   // a poker felt is drawn every frame off the piece's state (gl/room-poker.js): nothing to rebuild
   if (p && msg.board?.poker) { p.board = msg.board; return; }
-  if (!p || p.board?.board === msg.board?.board) return;
+  if (!p) return;
+  // what the table was showing (the server's last, under anything a hand has off it), and whatever was in your hand
+  // goes back: the board the server sends is the board
+  const prev = p.boardTrue || p.board;
+  if (S.chessHand?.hold?.piece === msg.piece) S.chessHand.hold = null;
+  p.boardTrue = null;
   p.board = msg.board;
+  // a move made by somebody the server runs is played out by their hand first (gl/room-chess-play.js createChessActs)
+  if (!n && S.chessActs?.board(msg.piece, prev, msg.board, performance.now())) return;
+  // the same men where they were (a game starting from the opening): only who plays which side is new
+  if (prev?.board === msg.board?.board) return;
   if (n) S.reshell();
   ui.rebuild();
 }

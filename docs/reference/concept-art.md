@@ -365,6 +365,27 @@ Where it disagrees with the canon, the canon wins:
   audio synth and "siren" already matches two dozen unrelated hits. Give it another id if it's
   built.
 
+### Faction mech sheet
+
+[concept-art/faction-mechs.webp](concept-art/faction-mechs.webp) is five piloted mechs, one per
+faction, drawn against a 6 m scale with a man beside each, standing above and boarding below. It's
+here to draw faction mechs from later. Nothing is built from it yet, and no mech system exists.
+
+| on the sheet | faction | what to take |
+|---|---|---|
+| Drayman-76 | Long Watch | worn yellow plant, a ladder up the chest; working kit, not a war machine |
+| Viper-LX | Ascendants | white and gold shell, kneels and opens the canopy to board |
+| Carcass-2076 | Wildblood | a roll cage and a salvaged engine on a scrap frame |
+| Leviathan | District 9 PD | riot blue, floodlights and a shield, a ramp in the shin |
+| Wraith | Null | black, a red visor slit, antennae |
+
+Where it disagrees with the canon, the canon wins:
+
+- **The Wildblood red is wrong**, as on the bestiary sheet. Their colour is green (`#6AB04C`).
+- **The police aren't an order.** District 9 PD is a city force; check its name against the
+  precincts before it's built (civic buildings are numbered, Precinct 9).
+- **Exodus has no mech**, and the boarding views are only drawn for three of the five.
+
 **The four gated orders** (Prometheans, Synthesis, Pioneers, Lucid) have no ground and no mechanics
 yet. Don't draw them until they do; a faction with art and nothing to play reads as abandoned.
 

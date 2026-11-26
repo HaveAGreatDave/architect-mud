@@ -769,10 +769,8 @@
         "step": 0.42
       },
       "street_door": {
-        "glass": "#b8deee",
-        "kind": "single",
-        "dark": true,
-        "hand": true,
+        "kind": "mech",
+        "leaf": "#8a9096",
         "keypad": true,
         "trim": "#3a4a4e",
         "w": 1.4

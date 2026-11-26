@@ -1,5 +1,5 @@
 {
-  "repeatedSentences": 152,
+  "repeatedSentences": 149,
   "files": {
     "CLAUDE.md": {
       "jargon-metaphor": 2
@@ -69,10 +69,10 @@
     },
     "content/furniture": {
       "negative-parallelism": 2,
-      "constructed-irony": 7,
+      "constructed-irony": 6,
       "staged-reveal": 1,
       "aphoristic-closer": 2,
-      "caps-run": 134,
+      "caps-run": 117,
       "em-dash": 1,
       "over-length": 392
     },
@@ -132,9 +132,9 @@
       "constructed-irony": 52,
       "aphoristic-closer": 4,
       "fiction-cliche": 34,
-      "caps-run": 115,
-      "em-dash": 278,
-      "over-length": 708
+      "caps-run": 116,
+      "em-dash": 277,
+      "over-length": 691
     },
     "docs/adr/0001-action-canonical-mutation-path.md": {
       "em-dash": 4

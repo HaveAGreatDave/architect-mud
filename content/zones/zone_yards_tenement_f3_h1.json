@@ -1,0 +1,46 @@
+{
+  "ambient_theme": "indoors",
+  "description": "",
+  "exits": {
+    "east": "zone_yards_tenement_u3_4",
+    "north": "zone_yards_tenement_f3",
+    "west": "zone_yards_tenement_u3_2"
+  },
+  "flags": {
+    "building_name": "The Yards Tenement",
+    "building_type": "apartment",
+    "is_building": true,
+    "is_interior": true,
+    "room": {
+      "d": 5.71,
+      "doors": {
+        "east": 0.55,
+        "north": 0.1,
+        "west": 0.55
+      },
+      "face": 180,
+      "floor_m": 10.8,
+      "h": 3.6,
+      "panes": [
+        {
+          "a": -0.5,
+          "b": 0.5,
+          "kind": "sash",
+          "wall": "front",
+          "y0": 0.9,
+          "y1": 2.4
+        }
+      ],
+      "studio": false,
+      "w": 2.12
+    },
+    "world_exit_zone": "zone_district_921_902"
+  },
+  "grid_x": 0,
+  "grid_y": 2,
+  "grid_z": 3,
+  "id": "zone_yards_tenement_f3_h1",
+  "map_id": "map_int_yards_tenement",
+  "name": "The Yards Tenement, Third Floor Hall",
+  "parent_zone": "zone_district_921_902"
+}

@@ -67,7 +67,7 @@ import { openCab, closeCab, cabContext, cabGalley, isCabActive } from './panels/
 import { openBoat, closeBoat, boatSetWorld, isBoatActive } from './panels/lazy-views.js';
 import { openPodracer, closePodracer, podracerSetWorld, isPodracerActive, isPodracerDepotActive, openPodracerDepot, closePodracerDepot, closePodracerBay } from './panels/lazy-views.js';
 import { openMarina, closeMarina, marinaSetData, isMarinaActive, openMarinaService, closeMarinaService } from './panels/lazy-views.js';
-import { openFreelook, closeFreelook, parkFreelook, warmFreelookReady, openUnderLook, closeUnderLook, isFreelookActive, freelookSetSky, freelookSetActors, freelookSetHere, freelookSetContacts, freelookStep, freelookTakeRoom, freelookVeiled, freelookRoomsReady, freelookInside, freelookLocks, freelookPeople, freelookPower, freelookWalls, freelookVehicles, freelookVat, freelookPiece, freelookCanTake, freelookMorphex, freelookArrange, freelookSet, freelookPack, freelookPackDirty } from './panels/lazy-views.js';
+import { openFreelook, closeFreelook, parkFreelook, warmFreelookReady, openUnderLook, closeUnderLook, isFreelookActive, freelookSetSky, freelookSetActors, freelookSetHere, freelookSetContacts, freelookStep, freelookTakeRoom, freelookVeiled, freelookRoomsReady, freelookInside, freelookLocks, freelookPeople, freelookPower, freelookWalls, freelookVehicles, freelookVat, freelookPiece, freelookBoard, freelookCanTake, freelookMorphex, freelookArrange, freelookSet, freelookPack, freelookPackDirty } from './panels/lazy-views.js';
 import { noteFirework, noteAAState, noteAAFire, noteVenueLit, noteVenueRoof, noteVenuePlay, notePadLift } from './panels/world-feed.js';
 import { airHorn, loadTv } from './panels/lazy-views.js';
 import { openTruckDepot, closeTruckDepot, closeBayService, isTruckDepotActive } from './panels/lazy-views.js';
@@ -511,6 +511,30 @@ function relookNow() {
 
 // whether the control-panel screen has been loaded (see `envctl` below)
 let envctlLoaded = false;
+// the first room_avail of this page load opens GLASS on the visual rung (handlers.room_avail)
+let glassOnLoadPending = true;
+// ⚠ ONE LOADING SCREEN FROM LOGIN TO THE ROOM. Logging in inside a building took three: the street view's own veil
+// lifted with you stood at the building's door (worldReady only asks about the street round the camera), and then
+// the room was taken and its building built in plain sight. Now the room's pre-veil goes up as `room world` goes and
+// stays over all of it: GLASS taking the room drops it (roomVeilOff), the Stage taking it adopts it, and on the street,
+// where no room_view comes, it goes a moment after the street view's own veil has.
+let loginRoomVeil = false;
+function loginVeil() {
+  const name = document.getElementById('zone-name-display')?.textContent?.trim();
+  if (!preVeil('room-stage', { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight }, { ttl: 25000, place: name ? { kicker: 'ENTERING', title: name, room: true } : { room: true } })) return;
+  loginRoomVeil = true;
+  const t0 = performance.now();
+  let clearSince = 0;
+  const watch = () => {
+    if (!loginRoomVeil) return;   // a room_view came: it owns the veil now
+    const now = performance.now();
+    const clear = isFreelookActive() && !freelookVeiled();
+    clearSince = clear ? clearSince || now : 0;
+    if ((clearSince && now - clearSince > 1500) || now - t0 > 25000) { loginRoomVeil = false; dropPreVeil('room-stage'); return; }
+    setTimeout(watch, 100);
+  };
+  setTimeout(watch, 100);
+}
 const handlers = {
   // The build this page was loaded against is the first one a socket reports. A later
   // `connected` from a different build means a deploy landed while the tab stayed open:
@@ -575,9 +599,7 @@ const handlers = {
     if (wasReconnect) appendMsg('Reconnected.', 'system');
     // walking a room in GLASS: a reconnect lost the server's note that you're watching it, so ask for it again
     if (wasReconnect && freelookInside()) sendCmdSilent('room');
-    else playWelcomeVoice(state.player.handle, state.player);   // spoken login greeting (fresh logins only)
-    if (!wasReconnect) glassOnLoadPending = true;   // room_avail opens GLASS once (below)
-    // The people in a room are drawn by a shader that takes over a minute to compile the first time
+    else playWelcomeVoice(state.player.handle, state.player);   // spoken login greeting (fresh logins only)    // The people in a room are drawn by a shader that takes over a minute to compile the first time
     // (gl/figure-hd.js warmFigure). Start it in the background now, so the first room or TV has it.
     // Not on a text rung, which never draws one.
     if (!wasReconnect && state.player.displayRung !== 'textgames' && state.player.displayRung !== 'log') {
@@ -1456,7 +1478,9 @@ const handlers = {
   // 3D scene. If it can't (no canvas, a pane that isn't chess), the server's
   // own board is what stays on screen — which is why this runs AFTER, never
   // instead of, setAreaPane.
-  table_update: (msg) => { setAreaPane(msg.html); mountChess3D(); },
+  // ⚠ IN A ROOM (the Stage, or walked in GLASS), THE ROOM'S OWN BOARD IS THE TABLE: the pane isn't hung, and the men are
+  // moved on the table itself (gl/room-chess-play.js); the position comes as room_board
+  table_update: (msg) => { if (document.getElementById('room-stage') || freelookInside()) return; setAreaPane(msg.html); mountChess3D(); },
   trade_update: (msg) => { updateTrade(msg.html); },
   trade_close: () => { closeTrade(); },
   // The unified 3D hangar-bay app (flight/hangars.js pushHangarBay) — floor +
@@ -1552,7 +1576,7 @@ const handlers = {
     glassOnLoadPending = false;
     const rung = state.player?.displayRung;
     const phone = (() => { try { return matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 600; } catch { return false; } })();
-    if (msg.on && rung !== 'textgames' && rung !== 'log' && !phone && typeof WebGL2RenderingContext !== 'undefined' && !freelookInside()) sendCmdSilent('room world');
+    if (msg.on && rung !== 'textgames' && rung !== 'log' && !phone && typeof WebGL2RenderingContext !== 'undefined' && !freelookInside()) { loginVeil(); sendCmdSilent('room world'); }
   },
   // one world: a room the street view on foot has drawn is walked into in GLASS (freelook-view.js freelookTakeRoom)
   // a depot room's Stage (one with a stand, room-hoist.js) takes the pane from its counter: Call it up opens it
@@ -1562,7 +1586,7 @@ const handlers = {
   // the street view loads lazily and wasn't there to see the Stage's earlier rooms
   // the room button's `world` (plugins/roomstage): the street view was sent first, and this waits, a tenth of a second at a
   // time for up to eight, for it to be up with the room's building in it, then goes on as walking in does
-  room_view: (msg) => { if (msg.world && !freelookCanTake(msg.zone) && (msg._wait = (msg._wait || 0) + 1) <= 80) { setTimeout(() => handlers.room_view(msg), 100); return; } const stageUp = !!document.getElementById('room-stage'), prev = lastRoomView; lastRoomView = { zone: msg.zone, car: !!msg.lift }; if (freelookTakeRoom(msg, prev)) { setRoomButton({ open: true }); if (msg.world) roomVeilOff(); else dropPreVeil('room-stage', true); if (stageUp) roomMod?.then((m) => m.closeRoomStage(true, null, { fade: true })).catch(() => {}); return; } if (msg.vehicles) closeCounters(); setRoomButton({ open: true }); loadRoom().then((m) => { m.openRoomStage(msg); pokerOpening = false; if (pokerPending) { m.roomPokerPane(pokerPending); pokerPending = null; } }).catch((e) => { dropPreVeil('room-stage', true); setRoomButton({ open: false }); console.error('[room]', e); }); },
+  room_view: (msg) => { if (msg.world && !freelookCanTake(msg.zone) && (msg._wait = (msg._wait || 0) + 1) <= 80) { setTimeout(() => handlers.room_view(msg), 100); return; } loginRoomVeil = false; const stageUp = !!document.getElementById('room-stage'), prev = lastRoomView; lastRoomView = { zone: msg.zone, car: !!msg.lift }; if (freelookTakeRoom(msg, prev)) { setRoomButton({ open: true }); if (msg.world) roomVeilOff(); else dropPreVeil('room-stage', true); if (stageUp) roomMod?.then((m) => m.closeRoomStage(true, null, { fade: true })).catch(() => {}); return; } if (msg.vehicles) closeCounters(); setRoomButton({ open: true }); loadRoom().then((m) => { m.openRoomStage(msg); pokerOpening = false; if (pokerPending) { m.roomPokerPane(pokerPending); pokerPending = null; } }).catch((e) => { dropPreVeil('room-stage', true); setRoomButton({ open: false }); console.error('[room]', e); }); },
   room_ahead: (msg) => { roomMod?.then((m) => m.roomAhead?.(msg)).catch(() => {}); },
   room_piece: (msg) => { if (freelookPiece(msg)) return; roomMod?.then((m) => m.roomPiece(msg)).catch(() => {}); },
   // how the arrange mode's Save went (plugins/roomstage arrangeLayout)
@@ -1573,7 +1597,7 @@ const handlers = {
   room_sheet_stock: (msg) => { if (freelookArrange('stock', msg)) return; roomMod?.then((m) => m.roomSheetStock(msg)).catch(() => {}); },
   room_people: (msg) => { if (freelookPeople(msg)) return; roomMod?.then((m) => m.roomPeople(msg)).catch(() => {}); },
   // a move on a chess table in the room (plugins/gametable `room.boards`)
-  room_board: (msg) => { roomMod?.then((m) => m.roomBoard(msg)).catch(() => {}); },
+  room_board: (msg) => { if (freelookBoard(msg)) return; roomMod?.then((m) => m.roomBoard(msg)).catch(() => {}); },
   // the Pack (room-pack.js), in a room or on the street on foot: what you carry and wear, as plugins/roomstage pack.js sends it
   room_pack: (msg) => { roomMod?.then((m) => m.roomPack(msg)).catch(() => {}); freelookPack(msg); },
   // how the locks on the room's doorways stand now (panels/room-lock.js)

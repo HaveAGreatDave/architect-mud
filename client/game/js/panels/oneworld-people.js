@@ -148,7 +148,7 @@ export function roomPeopleRecords(room, people, you = null, walks = null, now = 
   for (const q of [...placed, ...moving.values()]) {
     if (q.pose === 'lie') continue;
     // somebody drawn close up even standing (flags.figure.closeup: the In Between's attendant) is closeupBodies'
-    if (q.p.figure?.closeup && !q.walk) continue;
+    if ((q.p.figure?.closeup || closeupAlso.has(q.p.id)) && !q.walk) continue;
     const g0 = L.groundAt ? L.groundAt(q.at[0], q.at[1]) || 0 : 0;
     const W = L.world(q.at[0], q.at[1], g0 + (q.lift || 0)), P = roomPt(room.M, W);
     const Q = roomPt(room.M, [W[0] + Math.sin(q.yaw), W[1], W[2] + Math.cos(q.yaw)]);
@@ -175,9 +175,12 @@ export function lyingBodies(L, people, you = null) {
 // THE ROOM'S PEOPLE DRAWN CLOSE UP STANDING (flags.figure.closeup, docs/proposals/the-inbetween.md): a figure the
 // street's crowd body can't be, a 2.3 m attendant in mirror chrome, posed by figurePeople in the room's frame like the
 // people lying down. Somebody walking a route stays in the crowd till they've stopped.
+// Who else is drawn close up for now, by id, whatever their figure says: somebody playing at a chessboard in the room,
+// whose hands move the men (freelook-view.js owChessTick fills it).
+export const closeupAlso = new Set();
 export function closeupBodies(L, people, you = null) {
   if (!L) return [];
-  return placePeople(L, people, you).filter((q) => q.p.figure?.closeup && q.pose !== 'lie').map((q) => {
+  return placePeople(L, people, you).filter((q) => (q.p.figure?.closeup || closeupAlso.has(q.p.id)) && q.pose !== 'lie').map((q) => {
     const p = q.p;
     return { id: p.id, at: q.at, yaw: q.yaw, pose: q.pose === 'sit' ? 'sit' : 'stand', sculpt: true, sex: p.sex, figure: p.figure, wear: p.wear, feel: p.feel,
       manner: p.manner, mood: p.mood, ...(q.seat ? { seat: q.seat } : {}), ...(p.clip ? { clip: p.clip } : {}) };

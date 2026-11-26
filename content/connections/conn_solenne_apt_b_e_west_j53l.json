@@ -1,0 +1,9 @@
+{
+  "a": "zone_solenne_apt_b_e",
+  "b": "zone_solenne_hall_38",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_solenne_apt_b_e_west_j53l",
+  "lockable": false,
+  "one_way": false
+}
