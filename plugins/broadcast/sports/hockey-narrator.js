@@ -134,7 +134,11 @@ export function narrate(ctx) {
   // viewer's rink reseeds its dice with it, so two people watching see the same hockey
   // after each beat (rink/sim.js W.reseed). Hashed off its own key, so no line moves.
   let beatN = 0;
+  // Muted while the booth's segment stands in for the intermission read-back: its lines are still
+  // picked, so the seeded streams draw as they would have and no later line of the call moves.
+  let mute = false;
   const say = (line, tok, sb, fx, gd, meta) => {
+    if (mute) return;
     // (stamped on the payload itself, not a copy: a beat's case sets more on it after it's said)
     if (gd && gd.sport === 'hockey') gd.sync = sportsHashStr(`${gs?.seed ?? ''}|rink|${++beatN}`) >>> 0;
     const excite = exciteOf(lastKey, heat);
@@ -728,7 +732,8 @@ export function narrate(ctx) {
     // read-back below would say it all twice, so only the lines a segment can't stand in for stay.
     let onCam = false;
     if (per.section !== '3rd' || b.awayScore === b.homeScore) { onCam = !!ctx.desk?.('booth_break', b, sb); ctx.desk?.('break', b, sb); }
-    if (onCam) { /* the segment read the period back */ } else if (per.goals.length) {
+    mute = onCam;
+    if (per.goals.length) {
       say(pick('intermission.summary'), stat, sb); said++;
       // One line per goal, in the order they went in — the scoring summary is a list,
       // and a pool line pretending to be a list would get the order wrong.
@@ -740,8 +745,9 @@ export function narrate(ctx) {
     } else {
       say(pick('intermission.scoreless'), stat, sb); said++;
     }
-    if (!onCam) say(pick('intermission.stats'), stat, sb), said++;
-    if (!onCam) colour(per.goals.length ? 'colour.intermission' : ['colour.intermission.scoreless', 'colour.intermission'], stat, null, sb);
+    say(pick('intermission.stats'), stat, sb); said++;
+    colour(per.goals.length ? 'colour.intermission' : ['colour.intermission.scoreless', 'colour.intermission'], stat, null, sb);
+    mute = false;
     call('pbp.zamboni.lap', t, null, sb, { opt: true });
     // a club's story while the ice is cleaned: the away club's in the first break, the home's in the second
     if (per.section !== '3rd') {
@@ -755,8 +761,10 @@ export function narrate(ctx) {
       const l = pick(i < 2 ? clubKey(i ? home.name : away.name) : 'chatter', 'chatter');
       if (l && !/{(team|goalie|shooter)}/.test(l)) { say(l, tok(b), sb); said++; }
     }
-    if (per.casualties.length && !onCam) {
+    if (per.casualties.length) {
+      mute = onCam;
       say(pick('intermission.casualties'), { ...stat, player: per.casualties[0], casualties: per.casualties.join(', '), count: per.casualties.length }, sb); said++;
+      mute = false;
     }
     say(pick('intermission.outro', 'chatter'), stat, sb); said++;
   };
